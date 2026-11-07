@@ -80,7 +80,7 @@ export class RecordRunEnding {
     await this.transaction.inTransaction(() =>
       this.recorder.record(this.records, {
         owner: FactOwner.of(workspaceId, { teamId, taskId }),
-        erased: (existing) => existing.erased(),
+        deleted: (existing) => existing.delete(),
         load: () => this.records.of(runId),
         fresh: () => RunRecord.empty(runId, workspaceId),
         change: (record) => record.recordEnd(end),

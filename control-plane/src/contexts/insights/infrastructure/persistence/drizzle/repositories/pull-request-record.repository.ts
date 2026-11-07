@@ -17,7 +17,6 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import type { Erased } from '@shared-kernel/domain/erased';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -172,6 +171,10 @@ export class DrizzlePullRequestRecordRepository
   }
 
   save(saved: PullRequestRecord): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
     return this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(pullRequestRecord)
@@ -194,7 +197,7 @@ export class DrizzlePullRequestRecordRepository
     });
   }
 
-  remove(removed: Erased<PullRequestRecord>): Promise<void> {
+  private removed(removed: PullRequestRecord): Promise<void> {
     return this.context.inTransaction(async () => {
       const gone = await this.context.db
         .delete(pullRequestRecord)

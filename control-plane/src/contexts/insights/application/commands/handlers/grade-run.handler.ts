@@ -69,7 +69,7 @@ export class GradeRunHandler
             taskId: location.taskId,
           }),
           load: () => this.scores.gradeBy(runId, access.by),
-          erased: (existing) => existing.erased(),
+          deleted: (existing) => existing.delete(),
           created: () =>
             Score.grade({
               ...graded,

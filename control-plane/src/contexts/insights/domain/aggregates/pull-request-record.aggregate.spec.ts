@@ -284,6 +284,6 @@ describe('PullRequestRecord', () => {
         ),
       ),
     ).toEqual(['pull-request-record.released']);
-    expect(kinds(owned.erased())).toEqual(['pull-request-record.erased']);
+    expect(kinds(owned.delete())).toEqual(['pull-request-record.erased']);
   });
 });

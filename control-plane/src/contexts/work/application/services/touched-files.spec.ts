@@ -1,11 +1,11 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
 import type { RunChanges } from '@runs/application/contracts/run-journal.contract';
-import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { TouchedFiles } from '@work/application/services/touched-files';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';

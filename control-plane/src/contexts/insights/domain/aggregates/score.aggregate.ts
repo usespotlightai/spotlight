@@ -11,7 +11,6 @@ import {
   type ScoreSource,
 } from '@insights/domain/value-objects/score-source';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
-import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -115,6 +114,8 @@ const checked = (fields: ScoreFields): ScoreState => {
 };
 
 export class Score extends EventRecorder {
+  private deleted = false;
+
   private constructor(private readonly state: ScoreState) {
     super();
   }
@@ -281,7 +282,14 @@ export class Score extends EventRecorder {
     return regraded;
   }
 
-  erased(): Erased<Score> {
-    return erasedAs(this);
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
+
+  delete(): Score {
+    const deleted = new Score(this.state);
+    deleted.inheritEvents(this);
+    deleted.deleted = true;
+    return deleted;
   }
 }

@@ -1,4 +1,3 @@
-import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -23,6 +22,7 @@ import {
   runEnded,
   runExhausted,
   runFailed,
+  cannedJournalReadings as runJournalReadings,
   runStopped,
 } from '@work/application/ports/runs.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';

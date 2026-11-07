@@ -1,12 +1,12 @@
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
-import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import type { RunUsageReaderPort } from '@runs/application/ports/run-usage-reader.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   RunResultShape,
   RunResultsPort,
 } from '@work/application/ports/run-results.port';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import type {
   KeyedStation,
   StationRunReaderPort,
@@ -186,7 +186,23 @@ const reading = ({
           stations,
           usages,
           connectionsInMemory(),
-          runJournalReadings(),
+          runJournalReadings({
+            fileChangesOf: () => [
+              {
+                path: 'src/queue.ts',
+                before: 'old',
+                after: 'new',
+                omitted: false,
+              },
+            ],
+            traceOf: (runs) => ({
+              from: null,
+              to: null,
+              rows: runs.length,
+              errors: 3,
+              roots: [],
+            }),
+          }),
         ),
       ).execute(
         new ReadRunnerHistoryQuery('run_0', 'runner_1', {
@@ -263,7 +279,7 @@ describe('ReadRunnerHistoryHandler', () => {
     expect(run?.changes).toEqual([
       { path: 'src/queue.ts', before: 'old', after: 'new', omitted: false },
     ]);
-    expect(JSON.stringify(run?.trace)).toContain('3 failing');
+    expect(run?.trace).toMatchObject({ rows: 1, errors: 3 });
   });
 
   it('reads the last runs requested, and looks further back for an outcome', async () => {

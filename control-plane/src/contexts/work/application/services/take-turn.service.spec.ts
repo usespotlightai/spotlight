@@ -1,4 +1,3 @@
-import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import type { TurnFacts } from '@runs/application/ports/run-turns.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -19,7 +18,11 @@ import type {
 } from '@work/application/ports/lifecycle-hooks.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import { heldTurn, turnFacts } from '@work/application/ports/runs.fake-spec';
+import {
+  heldTurn,
+  cannedJournalReadings as runJournalReadings,
+  turnFacts,
+} from '@work/application/ports/runs.fake-spec';
 import type {
   TaskViewDto,
   TaskViewsPort,

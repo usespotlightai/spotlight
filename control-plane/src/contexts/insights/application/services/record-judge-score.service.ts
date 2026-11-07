@@ -25,7 +25,7 @@ export class RecordJudgeScore {
           taskId: location.taskId,
         }),
         load: () => this.scores.judgeOf(event.runId, event.rubricVersion),
-        erased: (existing) => existing.erased(),
+        deleted: (existing) => existing.delete(),
         created: () =>
           Score.judge({
             id: ScoreId.of(this.ids.generate()),

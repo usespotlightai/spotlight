@@ -203,6 +203,10 @@ export class RunRecordsInMemory implements RunRecordRepository {
   }
 
   async save(record: RunRecord): Promise<void> {
+    if (record.isDeleted) {
+      return this.removed(record);
+    }
+
     const existing = this.stored.get(record.runId.value);
 
     if (!existing || existing.version !== record.version) {
@@ -296,7 +300,7 @@ export class RunRecordsInMemory implements RunRecordRepository {
     );
   }
 
-  async remove(removed: RunRecord): Promise<void> {
+  private async removed(removed: RunRecord): Promise<void> {
     removeVersioned(
       this.stored,
       removed.runId.value,

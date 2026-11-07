@@ -3,7 +3,6 @@ import { TaskOpeningRecorded } from '@insights/domain/events/task-opening-record
 import type { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import type { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
 import type { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
-import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -12,6 +11,8 @@ const byTime = <T extends { readonly at: Date }>(one: T, other: T): number =>
   one.at.getTime() - other.at.getTime();
 
 export class TaskHumanActions extends EventRecorder {
+  private deleted = false;
+
   private constructor(
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
@@ -67,12 +68,17 @@ export class TaskHumanActions extends EventRecorder {
     return opened;
   }
 
-  erased(): Erased<TaskHumanActions> {
-    const erased = this.with({});
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
 
-    erased.record(new TaskHumanActionsErased(this.taskId, this.workspaceId));
+  delete(): TaskHumanActions {
+    const deleted = this.with({});
 
-    return erasedAs(erased);
+    deleted.deleted = true;
+    deleted.record(new TaskHumanActionsErased(this.taskId, this.workspaceId));
+
+    return deleted;
   }
 
   asked(ask: InboxAsk): TaskHumanActions {

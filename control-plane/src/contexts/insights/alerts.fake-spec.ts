@@ -21,6 +21,10 @@ export class StationAlertStatesInMemory implements StationAlertStateRepository {
   }
 
   async save(alertState: StationAlertState): Promise<void> {
+    if (alertState.isDeleted) {
+      return this.removed(alertState);
+    }
+
     const existing = this.stored.get(alertState.station.stationId.value);
 
     if (!existing || existing.version !== alertState.version) {
@@ -60,7 +64,7 @@ export class StationAlertStatesInMemory implements StationAlertStateRepository {
       .slice(0, max);
   }
 
-  async remove(removed: StationAlertState): Promise<void> {
+  private async removed(removed: StationAlertState): Promise<void> {
     if (
       this.stored.get(removed.station.stationId.value)?.version !==
       removed.version

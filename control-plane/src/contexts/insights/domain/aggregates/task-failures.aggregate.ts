@@ -1,5 +1,4 @@
 import type { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
-import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -8,6 +7,8 @@ const byTime = (one: FailureOccurrence, other: FailureOccurrence): number =>
   one.at.getTime() - other.at.getTime();
 
 export class TaskFailures {
+  private deleted = false;
+
   private constructor(
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
@@ -58,7 +59,19 @@ export class TaskFailures {
     );
   }
 
-  erased(): Erased<TaskFailures> {
-    return erasedAs(this);
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
+
+  delete(): TaskFailures {
+    const deleted = new TaskFailures(
+      this.taskId,
+      this.workspaceId,
+      this.teamId,
+      this.occurrences,
+      this.version,
+    );
+    deleted.deleted = true;
+    return deleted;
   }
 }

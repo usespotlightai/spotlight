@@ -1,14 +1,11 @@
 import type { DeletionsPort } from '@insights/application/ports/deletions.port';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
-import type { Erased } from '@shared-kernel/domain/erased';
 
 export interface RecordedAggregates<A> {
   add(aggregate: A): Promise<void>;
 
   save(aggregate: A): Promise<void>;
-
-  remove(aggregate: Erased<A>): Promise<void>;
 }
 
 export interface Fact<A> {
@@ -18,7 +15,7 @@ export interface Fact<A> {
   readonly fresh?: () => A;
   readonly created?: () => A;
   readonly change: (aggregate: A) => A;
-  readonly erased: (existing: A) => Erased<A>;
+  readonly deleted: (existing: A) => A;
 }
 
 export class FactRecorder {
@@ -38,7 +35,7 @@ export class FactRecorder {
         (await this.refuses(fact.ownerOf(existing))))
     ) {
       if (existing !== null) {
-        await aggregates.remove(fact.erased(existing));
+        await aggregates.save(fact.deleted(existing));
       }
       return;
     }

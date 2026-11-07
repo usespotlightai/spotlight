@@ -565,7 +565,7 @@ describe('RunRecord', () => {
   it('says it was erased', () => {
     expect(
       endedRecord('run_1')
-        .erased()
+        .delete()
         .pullEvents()
         .map((each) => each.kind),
     ).toEqual(['run-record.ended', 'run-record.erased']);

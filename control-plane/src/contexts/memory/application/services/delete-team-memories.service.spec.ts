@@ -36,8 +36,8 @@ const deleting = (changedMeanwhile: Set<string>) => {
   let transactions = 0;
   const memories = {
     ofTeam: async () => [...stored.values()],
-    remove: async (memory: Memory) => {
-      if (changedMeanwhile.has(memory.id.value)) {
+    save: async (memory: Memory) => {
+      if (!memory.isDeleted || changedMeanwhile.has(memory.id.value)) {
         throw new MemoryVersionConflictError(memory.id.value);
       }
       stored.delete(memory.id.value);

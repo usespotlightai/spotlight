@@ -104,6 +104,10 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
   }
 
   async save(record: PullRequestRecord): Promise<void> {
+    if (record.isDeleted) {
+      return this.removed(record);
+    }
+
     const key = keyOf(record.workspaceId, record.pullRequest);
     const existing = this.stored.get(key);
 
@@ -116,7 +120,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
     );
   }
 
-  async remove(record: PullRequestRecord): Promise<void> {
+  private async removed(record: PullRequestRecord): Promise<void> {
     const key = keyOf(record.workspaceId, record.pullRequest);
 
     if (this.stored.get(key)?.version !== record.version) {
@@ -182,6 +186,10 @@ export class TaskChangeShapesInMemory implements TaskChangeShapeRepository {
   }
 
   async save(shape: TaskChangeShape): Promise<void> {
+    if (shape.isDeleted) {
+      return this.removed(shape);
+    }
+
     const existing = this.stored.get(shape.taskId.value);
 
     if (!existing || existing.version !== shape.version) {
@@ -209,7 +217,7 @@ export class TaskChangeShapesInMemory implements TaskChangeShapeRepository {
     );
   }
 
-  async remove(removed: TaskChangeShape): Promise<void> {
+  private async removed(removed: TaskChangeShape): Promise<void> {
     removeVersioned(
       this.stored,
       removed.taskId.value,

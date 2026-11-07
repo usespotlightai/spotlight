@@ -110,10 +110,6 @@ const PERSISTING_METHODS: ReadonlySet<string> = new Set([
   'store',
 ]);
 
-const AGGREGATE_STATE_TYPES: ReadonlySet<string> = new Set([
-  'shared-kernel/domain/erased',
-]);
-
 const persistedTypesIn = (file: SourceFile): Violation[] => {
   const imported = new Map(
     importsOf(file).map((each) => [each.local, each.target] as const),
@@ -135,8 +131,7 @@ const persistedTypesIn = (file: SourceFile): Violation[] => {
 
                 return target &&
                   /\/domain\//.test(target) &&
-                  !AGGREGATE_FILE.test(target) &&
-                  !AGGREGATE_STATE_TYPES.has(target)
+                  !AGGREGATE_FILE.test(target)
                   ? [
                       {
                         key: `${target}: ${name} is stored by a repository outside domain/aggregates`,

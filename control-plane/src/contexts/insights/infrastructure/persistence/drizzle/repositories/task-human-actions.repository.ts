@@ -14,7 +14,6 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import type { Erased } from '@shared-kernel/domain/erased';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -117,6 +116,10 @@ export class DrizzleTaskHumanActionsRepository
   }
 
   async save(saved: TaskHumanActions): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(taskHumanAction)
@@ -167,7 +170,7 @@ export class DrizzleTaskHumanActionsRepository
     return rows.map(toHumanActions);
   }
 
-  async remove(removed: Erased<TaskHumanActions>): Promise<void> {
+  private async removed(removed: TaskHumanActions): Promise<void> {
     await this.context.inTransaction(async () => {
       const gone = await this.context.db
         .delete(taskHumanAction)

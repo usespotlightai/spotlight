@@ -529,7 +529,7 @@ describe('what GitHub said, stored in order and purged in time (e2e)', () => {
       new Date(NOW - 210 * 24 * HOUR),
       1_000,
     )) {
-      await records.remove(expired.erased());
+      await records.save(expired.delete());
     }
 
     expect(await records.at(elsewhere.workspaceId, old)).toBeNull();

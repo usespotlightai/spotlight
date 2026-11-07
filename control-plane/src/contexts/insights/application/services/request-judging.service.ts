@@ -78,7 +78,7 @@ export class RequestJudging {
       this.recorder.record(this.judgings, {
         owner: FactOwner.of(workspaceId, { teamId, taskId }),
         load: () => this.judgings.of(runId),
-        erased: (existing) => existing.erased(),
+        deleted: (existing) => existing.delete(),
         created: () =>
           Judging.requested({
             runId,

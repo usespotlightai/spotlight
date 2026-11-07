@@ -9,7 +9,6 @@ import type {
   FinalReading,
 } from '@insights/domain/value-objects/alert-rule.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
-import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -42,6 +41,8 @@ const firstOfEach = (readings: readonly RuleReading[]): RuleReading[] => {
 };
 
 export class StationAlertState extends EventRecorder {
+  private deleted = false;
+
   private constructor(
     readonly station: WatchedStation,
     readonly firings: readonly AlertFiring[],
@@ -251,7 +252,20 @@ export class StationAlertState extends EventRecorder {
     return next;
   }
 
-  erased(): Erased<StationAlertState> {
-    return erasedAs(this);
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
+
+  delete(): StationAlertState {
+    const deleted = new StationAlertState(
+      this.station,
+      this.firings,
+      this.version,
+      this.touched,
+      this.dropped,
+    );
+    deleted.inheritEvents(this);
+    deleted.deleted = true;
+    return deleted;
   }
 }

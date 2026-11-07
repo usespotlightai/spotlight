@@ -24,13 +24,14 @@ import {
 import type { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import type { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import type { StationPass } from '@insights/domain/value-objects/station-pass.vo';
-import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class RunRecord extends EventRecorder {
+  private deleted = false;
+
   private constructor(
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
@@ -183,12 +184,17 @@ export class RunRecord extends EventRecorder {
       : null;
   }
 
-  erased(): Erased<RunRecord> {
-    const erased = this.with({});
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
 
-    erased.record(new RunRecordErased(this.runId, this.workspaceId));
+  delete(): RunRecord {
+    const deleted = this.with({});
 
-    return erasedAs(erased);
+    deleted.deleted = true;
+    deleted.record(new RunRecordErased(this.runId, this.workspaceId));
+
+    return deleted;
   }
 
   recordEnd(end: RunEnd): RunRecord {

@@ -11,7 +11,7 @@ export class DeleteTeamMemories {
   async deleteForTeam(teamId: TeamId): Promise<void> {
     for (const memory of await this.memories.ofTeam(teamId)) {
       await this.transaction.inTransaction(() =>
-        this.memories.remove(memory.erased()),
+        this.memories.save(memory.delete()),
       );
     }
   }

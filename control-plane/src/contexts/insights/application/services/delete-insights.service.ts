@@ -11,13 +11,8 @@ import type { TaskFailuresRepository } from '@insights/domain/repositories/task-
 import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { Erased } from '@shared-kernel/domain/erased';
 
 const AT_ONCE = 200;
-
-interface ErasedAggregates<A> extends ScopedRemoval<A> {
-  save?(aggregate: A): Promise<void>;
-}
 
 interface ScopedLedger {
   removeIn(scope: DeletionScope): Promise<void>;
@@ -47,7 +42,7 @@ export class DeleteInsights {
       scope,
       this.repositories.records,
       () => null,
-      (record) => record.erased(),
+      (record) => record.delete(),
     );
   }
 
@@ -56,7 +51,7 @@ export class DeleteInsights {
       scope,
       this.repositories.judgings,
       () => null,
-      (judging) => judging.erased(),
+      (judging) => judging.delete(),
     );
   }
 
@@ -65,7 +60,7 @@ export class DeleteInsights {
       scope,
       this.repositories.scores,
       () => null,
-      (score) => score.erased(),
+      (score) => score.delete(),
     );
   }
 
@@ -74,7 +69,7 @@ export class DeleteInsights {
       scope,
       this.repositories.humanActions,
       () => null,
-      (humanActions) => humanActions.erased(),
+      (humanActions) => humanActions.delete(),
       (humanActions) =>
         DeletionScope.taskDeletedWith(scope, humanActions.taskId),
     );
@@ -85,7 +80,7 @@ export class DeleteInsights {
       scope,
       this.repositories.failures,
       () => null,
-      (failures) => failures.erased(),
+      (failures) => failures.delete(),
     );
   }
 
@@ -94,7 +89,7 @@ export class DeleteInsights {
       scope,
       this.repositories.shapes,
       () => null,
-      (shape) => shape.erased(),
+      (shape) => shape.delete(),
     );
   }
 
@@ -103,7 +98,7 @@ export class DeleteInsights {
       scope,
       this.repositories.pullRequests,
       (record) => record.erasing(scope),
-      (record) => record.erased(),
+      (record) => record.delete(),
     );
   }
 
@@ -112,7 +107,7 @@ export class DeleteInsights {
       scope,
       this.repositories.alertStates,
       (alertState) => alertState.erasing(scope),
-      (alertState) => alertState.erased(),
+      (alertState) => alertState.delete(),
     );
   }
 
@@ -122,9 +117,9 @@ export class DeleteInsights {
 
   private async erase<A>(
     scope: DeletionScope,
-    aggregates: ErasedAggregates<A>,
+    aggregates: ScopedRemoval<A>,
     erasing: (aggregate: A) => A | null,
-    removed: (aggregate: A) => Erased<A>,
+    deleting: (aggregate: A) => A,
     deletedWith: (aggregate: A) => DeletionScope | null = () => null,
   ): Promise<void> {
     await this.transaction.inTransaction(() =>
@@ -145,13 +140,11 @@ export class DeleteInsights {
             if (deleted) {
               await this.deletions.markDeleted(deleted);
             }
-            await aggregates.remove(removed(aggregate));
+            await aggregates.save(deleting(aggregate));
           });
           changed = true;
-        } else if (erased !== aggregate && aggregates.save) {
-          await this.transaction.inTransaction(async () => {
-            await aggregates.save?.(erased);
-          });
+        } else if (erased !== aggregate) {
+          await this.transaction.inTransaction(() => aggregates.save(erased));
           changed = true;
         }
       }

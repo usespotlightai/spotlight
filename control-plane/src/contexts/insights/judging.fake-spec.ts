@@ -149,6 +149,10 @@ export class JudgingsInMemory implements JudgingRepository {
   }
 
   async save(judging: Judging): Promise<void> {
+    if (judging.isDeleted) {
+      return this.removed(judging);
+    }
+
     const existing = this.stored.get(judging.runId.value);
 
     if (!existing || existing.version !== judging.version) {
@@ -189,7 +193,7 @@ export class JudgingsInMemory implements JudgingRepository {
     );
   }
 
-  async remove(removed: Judging): Promise<void> {
+  private async removed(removed: Judging): Promise<void> {
     removeVersioned(
       this.stored,
       removed.runId.value,
@@ -221,6 +225,10 @@ export class ScoresInMemory implements ScoreRepository {
   }
 
   async save(score: Score): Promise<void> {
+    if (score.isDeleted) {
+      return this.removed(score);
+    }
+
     const existing = this.stored.get(score.id.value);
 
     if (!existing || existing.version !== score.version) {
@@ -294,7 +302,7 @@ export class ScoresInMemory implements ScoreRepository {
     );
   }
 
-  async remove(removed: Score): Promise<void> {
+  private async removed(removed: Score): Promise<void> {
     removeVersioned(
       this.stored,
       removed.id.value,

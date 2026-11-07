@@ -4,12 +4,12 @@ import type {
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
-import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { RunEvidences } from '@work/application/services/run-evidences.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';

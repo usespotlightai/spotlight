@@ -6,8 +6,6 @@ import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
-import { cannedReadyProfiles } from '@work/application/ports/runs.fake-spec';
-const readyProfiles = cannedReadyProfiles();
 import type {
   HarnessLaunchPort,
   SkillsHome,
@@ -30,6 +28,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -41,7 +40,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
-import { recordingRuns } from '@work/application/ports/runs.fake-spec';
+import {
+  cannedReadyProfiles,
+  recordingRuns,
+} from '@work/application/ports/runs.fake-spec';
 import type {
   BriefingContext,
   BriefingSelection,
@@ -106,13 +108,15 @@ const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
       }
     : null;
 
+let readyAs: Parameters<typeof cannedReadyProfiles>[0] = {};
+
 const launch: HarnessLaunchPort = {
   skillsFor: () => skillsHome,
   skillHomes: () => ['.claude/skills', '.spotlight/skills'],
   defaultHarness: () => DEV.id,
   settingFiles: () => ['claude/settings.json', 'codex/config.toml'],
   commandFor,
-  ...readyProfiles,
+  readyProfile: (shape) => cannedReadyProfiles(readyAs).readyProfile(shape),
   preparedFor: (id, chosen) => {
     const command = commandFor(id, chosen);
 
@@ -384,6 +388,7 @@ const dispatch = async (
 
 describe('DispatchTask', () => {
   beforeEach(() => {
+    readyAs = {};
     briefedAt = [];
     remembered = { briefed: [], omitted: [], folder: null };
     touchedOnTask = [];
@@ -673,7 +678,7 @@ describe('DispatchTask', () => {
       });
     });
 
-    it('hands an MCP server a stand-in for each secret that egress injects, and the run the secrets to fetch', async () => {
+    it('hands an MCP server the env its ready profile gives it, and the run the secrets egress injects', async () => {
       teamProfiles = {
         careful,
         linear: {
@@ -683,32 +688,30 @@ describe('DispatchTask', () => {
             {
               name: 'linear',
               command: 'npx',
-              args: ['-y', 'linear-mcp'],
-              env: {
-                LINEAR_API_KEY: 'secret.LINEAR_API_KEY',
-                LINEAR_TEAM: 'core',
-              },
-            },
-            {
-              name: 'linear-again',
-              command: 'npx',
               args: [],
-              env: { TOKEN: 'secret.LINEAR_API_KEY' },
+              env: { LINEAR_API_KEY: 'secret.LINEAR_API_KEY' },
             },
           ],
           native: {},
         },
+      };
+      readyAs = {
+        mcpServers: [
+          {
+            name: 'linear',
+            command: 'npx',
+            args: [],
+            env: { LINEAR_API_KEY: 'spotlight-egress:LINEAR_API_KEY' },
+          },
+        ],
+        injectedSecrets: [SecretName.of('LINEAR_API_KEY')],
       };
 
       await dispatch(naming('linear'));
 
       const spec = written(queued[0]);
       expect(spec.harnessSetup?.mcpServers.map((each) => each.env)).toEqual([
-        [
-          { name: 'LINEAR_API_KEY', value: 'spotlight-egress:LINEAR_API_KEY' },
-          { name: 'LINEAR_TEAM', value: 'core' },
-        ],
-        [{ name: 'TOKEN', value: 'spotlight-egress:LINEAR_API_KEY' }],
+        [{ name: 'LINEAR_API_KEY', value: 'spotlight-egress:LINEAR_API_KEY' }],
       ]);
       expect(spec.injectedSecrets).toEqual(['LINEAR_API_KEY']);
     });

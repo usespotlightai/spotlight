@@ -101,7 +101,7 @@ export class RecordTaskHumanAction {
     return this.transaction.inTransaction(() =>
       this.recorder.record(this.humanActions, {
         owner,
-        erased: (existing) => existing.erased(),
+        deleted: (existing) => existing.delete(),
         load: () => this.humanActions.of(taskId),
         ownerOf: (existing) => owner.withTeam(existing.opening?.teamId),
         fresh: () => TaskHumanActions.empty(taskId, workspaceId),

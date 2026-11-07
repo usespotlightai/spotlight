@@ -31,6 +31,10 @@ export class TaskHumanActionsInMemory implements TaskHumanActionsRepository {
   }
 
   async save(humanActions: TaskHumanActions): Promise<void> {
+    if (humanActions.isDeleted) {
+      return this.removed(humanActions);
+    }
+
     const existing = this.stored.get(humanActions.taskId.value);
 
     if (!existing || existing.version !== humanActions.version) {
@@ -74,7 +78,7 @@ export class TaskHumanActionsInMemory implements TaskHumanActionsRepository {
     );
   }
 
-  async remove(removed: TaskHumanActions): Promise<void> {
+  private async removed(removed: TaskHumanActions): Promise<void> {
     removeVersioned(
       this.stored,
       removed.taskId.value,
@@ -95,6 +99,10 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
   }
 
   async save(failures: TaskFailures): Promise<void> {
+    if (failures.isDeleted) {
+      return this.removed(failures);
+    }
+
     const existing = this.stored.get(failures.taskId.value);
 
     if (!existing || existing.version !== failures.version) {
@@ -140,7 +148,7 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
     );
   }
 
-  async remove(removed: TaskFailures): Promise<void> {
+  private async removed(removed: TaskFailures): Promise<void> {
     removeVersioned(
       this.stored,
       removed.taskId.value,

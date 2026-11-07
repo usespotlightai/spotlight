@@ -33,7 +33,6 @@ import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/dri
 import { scoreFactOf } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import type { Erased } from '@shared-kernel/domain/erased';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -200,7 +199,7 @@ afterAll(async () => {
   await database?.close();
 });
 
-const erased = async <A extends { erased(): Erased<A> }>(
+const erased = async <A extends { delete(): A }>(
   aggregates: ScopedRemoval<A>,
   taskId: TaskId,
 ): Promise<void> => {
@@ -208,7 +207,7 @@ const erased = async <A extends { erased(): Erased<A> }>(
     DeletionScope.ofTask(WORKSPACE, taskId),
     100,
   )) {
-    await aggregates.remove(each.erased());
+    await aggregates.save(each.delete());
   }
 };
 

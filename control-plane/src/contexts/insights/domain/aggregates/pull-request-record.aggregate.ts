@@ -12,7 +12,6 @@ import {
   SeenPullRequest,
   type SeenPullRequestFields,
 } from '@insights/domain/value-objects/seen-pull-request.vo';
-import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -48,6 +47,8 @@ const assertConsistent = (record: PullRequestRecord): PullRequestRecord => {
 const finished = (state: PullRequestState): boolean => state !== 'open';
 
 export class PullRequestRecord extends EventRecorder {
+  private deleted = false;
+
   private constructor(
     readonly workspaceId: WorkspaceId,
     readonly pullRequest: PullRequestUrl,
@@ -253,10 +254,15 @@ export class PullRequestRecord extends EventRecorder {
     }
   }
 
-  erased(): Erased<PullRequestRecord> {
-    const erased = this.with({});
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
 
-    erased.record(
+  delete(): PullRequestRecord {
+    const deleted = this.with({});
+
+    deleted.deleted = true;
+    deleted.record(
       new PullRequestRecordErased(
         this.workspaceId,
         this.pullRequest,
@@ -264,7 +270,7 @@ export class PullRequestRecord extends EventRecorder {
       ),
     );
 
-    return erasedAs(erased);
+    return deleted;
   }
 
   private withoutTask(taskId: TaskId): PullRequestRecord | null {

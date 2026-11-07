@@ -8,7 +8,6 @@ import type { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
-import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
@@ -18,6 +17,8 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class Judging extends EventRecorder implements HasPendingJob<Judging> {
+  private deleted = false;
+
   private constructor(
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
@@ -206,7 +207,13 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     return next;
   }
 
-  erased(): Erased<Judging> {
-    return erasedAs(this);
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
+
+  delete(): Judging {
+    const deleted = this.with({});
+    deleted.deleted = true;
+    return deleted;
   }
 }

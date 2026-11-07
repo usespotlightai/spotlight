@@ -1,7 +1,5 @@
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
-import { cannedReadyProfiles } from '@work/application/ports/runs.fake-spec';
-const readyProfiles = cannedReadyProfiles();
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type {
   RunFacts,
@@ -28,6 +26,7 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
 import type { NamedMemory } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
+import { cannedReadyProfiles } from '@work/application/ports/runs.fake-spec';
 import type { TrialOrdering } from '@work/application/ports/station-trials.port';
 import type { BriefedContext } from '@work/application/ports/team-memories.port';
 import { candidateOf } from '@work/application/services/candidate-lines.fake-spec';
@@ -84,7 +83,7 @@ const launch: HarnessLaunchPort = {
   settingFiles: () => ['claude/settings.json'],
   defaultHarness: () => DEV.id,
   commandFor,
-  ...readyProfiles,
+  ...cannedReadyProfiles(),
   preparedFor: (id, chosen) => {
     const command = commandFor(id, chosen);
 

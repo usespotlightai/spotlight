@@ -106,7 +106,7 @@ export class RecordPullRequests {
 
       await this.recorder.record(this.records, {
         owner: FactOwner.of(workspaceId),
-        erased: (existing) => existing.erased(),
+        deleted: (existing) => existing.delete(),
         load: () => this.records.at(workspaceId, pullRequest),
         fresh: () => PullRequestRecord.noted(workspaceId, pullRequest),
         change,

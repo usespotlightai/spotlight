@@ -1,4 +1,3 @@
-import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -21,6 +20,7 @@ import {
   requestedBy,
   runEnded,
   runExhausted,
+  cannedJournalReadings as runJournalReadings,
 } from '@work/application/ports/runs.fake-spec';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';

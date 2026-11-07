@@ -1,8 +1,8 @@
 import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
-import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { historyAccessesOf } from '@work/application/services/history-accesses.fake-spec';
@@ -32,6 +32,13 @@ const reading = (
     })),
   );
   const journalsForTask = vi.fn().mockResolvedValue([]);
+  const traced: string[][] = [];
+  const readings = runJournalReadings({
+    traceOf: (runs) => {
+      traced.push(runs.map((run) => run.id));
+      return { from: null, to: null, rows: 0, errors: 0, roots: [] };
+    },
+  });
 
   const teams = over.teams ?? { task_theirs: 'team_1' };
   const teamOfTask = vi.fn(async (taskId: TaskId) => {
@@ -42,6 +49,7 @@ const reading = (
   return {
     runsForTask,
     teamOfTask,
+    traced,
     handler: new ReadRunnerTraceHandler(
       historyAccessesOf({
         team: over.leasedBy,
@@ -65,7 +73,7 @@ const reading = (
         journalsForTask,
       } as unknown as RunnerTraceReaderPort,
       connectionsInMemory(),
-      runJournalReadings(),
+      readings,
     ),
   };
 };
@@ -127,7 +135,7 @@ describe('ReadRunnerTraceHandler', () => {
   });
 
   it('shows a search only the runs at the station it searches, and nothing of a task never worked there', async () => {
-    const { handler } = reading({
+    const { handler, traced } = reading({
       hidden: [],
       teams: { task_theirs: 'team_1', task_elsewhere: 'team_1' },
       stations: {
@@ -136,10 +144,9 @@ describe('ReadRunnerTraceHandler', () => {
       },
     });
 
-    const trace = await handler.execute(query());
+    await handler.execute(query());
 
-    expect(JSON.stringify(trace)).toContain('run_task_theirs_0');
-    expect(JSON.stringify(trace)).not.toContain('run_task_theirs_1');
+    expect(traced).toEqual([['run_task_theirs_0']]);
     expect(await handler.execute(query('task_elsewhere'))).toBeNull();
   });
 });

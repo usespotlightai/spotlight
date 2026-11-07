@@ -8,7 +8,7 @@ export class DeleteMemoryDraft {
     const draft = await this.drafts.forTask(taskId);
 
     if (draft) {
-      await this.drafts.remove(draft.erased());
+      await this.drafts.save(draft.delete());
     }
   }
 }

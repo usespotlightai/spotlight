@@ -55,7 +55,7 @@ export class RecordHumanAction {
     await this.transaction.inTransaction(() =>
       this.recorder.record(this.records, {
         owner,
-        erased: (existing) => existing.erased(),
+        deleted: (existing) => existing.delete(),
         load: async () =>
           afterRunId
             ? this.records.of(afterRunId)

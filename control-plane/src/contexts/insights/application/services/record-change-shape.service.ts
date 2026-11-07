@@ -45,7 +45,7 @@ export class RecordChangeShape {
     await this.transaction.inTransaction(() =>
       this.recorder.record(this.shapes, {
         owner: FactOwner.of(workspaceId, { teamId, taskId }),
-        erased: (existing) => existing.erased(),
+        deleted: (existing) => existing.delete(),
         load: () => this.shapes.forTask(taskId),
         created: () =>
           TaskChangeShape.create({

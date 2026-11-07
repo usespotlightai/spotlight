@@ -300,7 +300,9 @@ export const cannedJournalReadings = (
 });
 
 export const cannedReadyProfiles = (
-  canned: Partial<Pick<ReadyProfileShape, 'mcpServers' | 'injectedSecrets'>> = {},
+  canned: Partial<
+    Pick<ReadyProfileShape, 'mcpServers' | 'injectedSecrets'>
+  > = {},
 ): Pick<HarnessLaunchPort, 'readyProfile'> => ({
   readyProfile: (shape) => ({
     ...shape,

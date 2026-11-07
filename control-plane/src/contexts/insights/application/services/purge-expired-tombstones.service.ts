@@ -36,7 +36,7 @@ export class PurgeExpiredTombstones implements PendingJobsPort {
 
       for (const record of expired) {
         await this.transaction.inTransaction(() =>
-          this.records.remove(record.erased()),
+          this.records.save(record.delete()),
         );
       }
 

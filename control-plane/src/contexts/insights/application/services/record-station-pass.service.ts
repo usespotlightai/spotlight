@@ -35,7 +35,7 @@ export class RecordStationPass {
     return this.transaction.inTransaction(() =>
       this.recorder.record(this.records, {
         owner: FactOwner.of(workspaceId, { taskId }),
-        erased: (existing) => existing.erased(),
+        deleted: (existing) => existing.delete(),
         load: () => this.records.of(runId),
         fresh: () => RunRecord.empty(runId, workspaceId, taskId),
         change: (record) => record.passTo(pass),

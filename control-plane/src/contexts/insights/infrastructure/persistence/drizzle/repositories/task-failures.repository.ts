@@ -7,7 +7,6 @@ import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-s
 import { taskFailures } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { Erased } from '@shared-kernel/domain/erased';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -66,6 +65,10 @@ export class DrizzleTaskFailuresRepository implements TaskFailuresRepository {
   }
 
   async save(saved: TaskFailures): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
     const written = await this.context.db
       .update(taskFailures)
       .set({ version: saved.version + 1, ...columnsOf(saved) })
@@ -92,7 +95,7 @@ export class DrizzleTaskFailuresRepository implements TaskFailuresRepository {
     return row ? toFailures(row) : null;
   }
 
-  async remove(removed: Erased<TaskFailures>): Promise<void> {
+  private async removed(removed: TaskFailures): Promise<void> {
     const gone = await this.context.db
       .delete(taskFailures)
       .where(
