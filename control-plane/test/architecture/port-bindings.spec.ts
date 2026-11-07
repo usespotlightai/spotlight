@@ -1,10 +1,7 @@
 import { expect, it } from 'vitest';
-import { ratchetProblems } from './known-violations';
 import { portBindingViolations } from './port-bindings';
-import { KNOWN_PORT_BINDINGS } from './port-bindings.known';
+import { described } from './violation';
 
 it('injects another context port only when its binding comes from upstream', () => {
-  expect(ratchetProblems(portBindingViolations(), KNOWN_PORT_BINDINGS)).toEqual(
-    [],
-  );
+  expect(described(portBindingViolations())).toEqual([]);
 }, 60_000);

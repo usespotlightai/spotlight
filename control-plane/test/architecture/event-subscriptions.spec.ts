@@ -5,8 +5,7 @@ import {
   eventSubscriptionsIn,
   eventSubscriptionViolations,
 } from './event-subscriptions';
-import { KNOWN_EVENT_SUBSCRIPTIONS } from './event-subscriptions.known';
-import { ratchetProblems } from './known-violations';
+import { described } from './violation';
 
 const PATH = 'contexts/memory/presentation/events/fixture.ts';
 const SUBSCRIBER =
@@ -91,8 +90,6 @@ describe('event subscriptions', () => {
   });
 
   it('hears only its own domain events and upstream integration events', () => {
-    expect(
-      ratchetProblems(eventSubscriptionViolations(), KNOWN_EVENT_SUBSCRIPTIONS),
-    ).toEqual([]);
+    expect(described(eventSubscriptionViolations())).toEqual([]);
   }, 60_000);
 });

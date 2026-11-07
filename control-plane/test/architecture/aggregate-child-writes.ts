@@ -6,7 +6,6 @@ import {
   SNAPSHOT_VERSIONED_TABLES,
 } from './drizzle-snapshot';
 import { tableBindingsOf } from './drizzle-tables';
-import type { Violation } from './known-violations';
 import {
   descendants,
   moduleSpecifiersOf,
@@ -15,6 +14,7 @@ import {
   sourceFiles,
   withoutExtension,
 } from './source-index';
+import type { Violation } from './violation';
 
 interface DeclaredWriters {
   readonly why: string;

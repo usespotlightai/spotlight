@@ -1,6 +1,5 @@
 import ts from 'typescript';
 import { DECLARED_EVENTS, isDomainEventsPath } from './domain-event-kinds';
-import type { Violation } from './known-violations';
 import {
   descendants,
   importsOf,
@@ -8,6 +7,7 @@ import {
   sourceFiles,
   withoutExtension,
 } from './source-index';
+import type { Violation } from './violation';
 
 const RECORDING_LAYERS =
   /^contexts\/[^/]+\/domain\/(aggregates|entities|events)\//;

@@ -1,13 +1,13 @@
 import { basename } from 'node:path';
 import ts from 'typescript';
 import { tableNamed } from './drizzle-tables';
-import type { Violation } from './known-violations';
 import {
   descendants,
   importsOf,
   type SourceFile,
   sourceFiles,
 } from './source-index';
+import type { Violation } from './violation';
 
 const AGGREGATE_TABLES: Readonly<Record<string, string>> = {
   'replays/candidate': 'replay_candidate',

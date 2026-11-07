@@ -1,7 +1,6 @@
 import ts from 'typescript';
 import { SNAPSHOT_FOREIGN_KEYS } from './drizzle-snapshot';
 import { DRIZZLE_TABLES, tableNamed } from './drizzle-tables';
-import type { Violation } from './known-violations';
 import {
   contextOf,
   descendants,
@@ -10,6 +9,7 @@ import {
   type SourceFile,
   sourceFiles,
 } from './source-index';
+import type { Violation } from './violation';
 
 const PLATFORM = 'platform';
 

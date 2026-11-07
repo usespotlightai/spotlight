@@ -1,5 +1,4 @@
 import ts from 'typescript';
-import type { Violation } from './known-violations';
 import {
   CONTEXTS,
   contextOf,
@@ -10,6 +9,7 @@ import {
   sourceFiles,
   withoutExtension,
 } from './source-index';
+import type { Violation } from './violation';
 
 export const UPSTREAM_CONTEXTS: Readonly<Record<string, readonly string[]>> = {
   identity: [],

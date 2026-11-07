@@ -4,7 +4,7 @@ import {
   SNAPSHOT_VERSIONED_TABLES,
 } from './drizzle-snapshot';
 import { tableNamed } from './drizzle-tables';
-import type { Violation } from './known-violations';
+import type { Violation } from './violation';
 
 const CHANGING_ACTIONS = new Set(['cascade', 'set null', 'set default']);
 

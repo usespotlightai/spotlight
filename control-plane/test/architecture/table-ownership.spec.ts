@@ -1,8 +1,7 @@
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { ratchetProblems } from './known-violations';
 import { tableAccessIn, tableOwnershipViolations } from './table-ownership';
-import { KNOWN_TABLE_OWNERSHIP } from './table-ownership.known';
+import { described } from './violation';
 
 const PATH = 'contexts/memory/infrastructure/persistence/drizzle/fixture.ts';
 
@@ -32,8 +31,6 @@ describe('table ownership', () => {
   });
 
   it('reads and writes only the tables of its own context', () => {
-    expect(
-      ratchetProblems(tableOwnershipViolations(), KNOWN_TABLE_OWNERSHIP),
-    ).toEqual([]);
+    expect(described(tableOwnershipViolations())).toEqual([]);
   }, 60_000);
 });

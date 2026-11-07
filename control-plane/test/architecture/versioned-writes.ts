@@ -4,8 +4,8 @@ import {
   tableBindingsOf,
   tableNamed,
 } from './drizzle-tables';
-import type { Violation } from './known-violations';
 import { descendants, type SourceFile, sourceFiles } from './source-index';
+import type { Violation } from './violation';
 
 type Write = 'update' | 'delete' | 'upsert';
 

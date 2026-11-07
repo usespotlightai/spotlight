@@ -4,8 +4,7 @@ import {
   domainEventConstructionsIn,
   domainEventConstructionViolations,
 } from './domain-event-construction';
-import { KNOWN_DOMAIN_EVENT_CONSTRUCTION } from './domain-event-construction.known';
-import { ratchetProblems } from './known-violations';
+import { described } from './violation';
 
 const EVENT = '@work/domain/events/task-opened.event';
 
@@ -47,11 +46,6 @@ describe('domain event construction', () => {
   });
 
   it('raises domain events only in aggregates and their entities', () => {
-    expect(
-      ratchetProblems(
-        domainEventConstructionViolations(),
-        KNOWN_DOMAIN_EVENT_CONSTRUCTION,
-      ),
-    ).toEqual([]);
+    expect(described(domainEventConstructionViolations())).toEqual([]);
   }, 60_000);
 });
