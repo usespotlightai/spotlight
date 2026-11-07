@@ -93,6 +93,11 @@ const networkOf = (runId: string, as: string) =>
     .get(`/${API_PREFIX}/teams/${team.teamId.value}/runs/${runId}/network`)
     .set(TEST_USER_HEADER, as);
 
+const teamlessNetworkOf = (runId: string, as: string) =>
+  served(app)
+    .get(`/${API_PREFIX}/runs/${runId}/network`)
+    .set(TEST_USER_HEADER, as);
+
 beforeAll(async () => {
   app = await openApp();
   db = app.get(DRIZZLE);
@@ -128,7 +133,7 @@ describe('who may watch a run', () => {
   it('shows any other listed run to the members of its workspace only', async () => {
     const runId = await rawRun();
 
-    await networkOf(runId, colleague).expect(200);
-    await networkOf(runId, outsider).expect(404);
+    await teamlessNetworkOf(runId, colleague).expect(200);
+    await teamlessNetworkOf(runId, outsider).expect(404);
   });
 });

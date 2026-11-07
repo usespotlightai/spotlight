@@ -363,7 +363,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }).expect(204);
 
     const network = await http()
-      .get(`/api/teams/${workspaceId}/runs/${runId}/network`)
+      .get(`/api/runs/${runId}/network`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
@@ -429,7 +429,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }).expect(204);
 
     const network = await http()
-      .get(`/api/teams/${workspaceId}/runs/${runId}/network`)
+      .get(`/api/runs/${runId}/network`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
