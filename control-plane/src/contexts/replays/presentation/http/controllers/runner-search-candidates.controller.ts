@@ -16,8 +16,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 import { ProblemResponseDto } from '@platform/http/dto/problem.response.dto';
 import { ApiProblemResponse } from '@platform/http/resources/conventional-api';
 import { ProblemException } from '@platform/http/resources/problem.exception';
@@ -43,7 +43,7 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
 @ApiParam({ name: 'runId', type: String })
 @ApiExtraModels(ProblemResponseDto)
 @UseFilters(ProblemFilter)
-@RunnerOnly()
+@MachineOnly()
 @Controller('runs/:runId/search-candidates')
 export class RunnerSearchCandidatesController {
   constructor(private readonly commandBus: CommandBus) {}
@@ -73,7 +73,7 @@ export class RunnerSearchCandidatesController {
   async propose(
     @Param('runId') runId: string,
     @Body() body: unknown,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<SearchCandidateProposedResponseDto> {
     const { name, hypothesis, station } = fieldsOf(body);
     const proposed = await this.commandBus.execute<

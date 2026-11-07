@@ -118,7 +118,8 @@ describe('ChangeStackHttpMapper', () => {
           check: {
             command: 'npm test',
             status: 'checked',
-            reason: null,
+            skip: null,
+            wholeFailed: true,
             whole: step,
             layers: [step],
           },
@@ -129,7 +130,8 @@ describe('ChangeStackHttpMapper', () => {
     expect(JSON.parse(JSON.stringify(response.stacks[0]?.check))).toEqual({
       command: 'npm test',
       status: 'checked',
-      reason: null,
+      reason:
+        'The finished change fails the check. Spotlight didn’t check its layers one by one.',
       whole: step,
       layers: [step],
     });

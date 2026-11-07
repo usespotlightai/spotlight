@@ -21,7 +21,7 @@ describe('SecretBindings', () => {
     const [binding] = SecretBindings.of([{ host: 'API.Linear.app' }]).all;
 
     expect(binding).toMatchObject({
-      host: 'api.linear.app',
+      host: { value: 'api.linear.app' },
       target: { location: 'header', name: 'authorization' },
       prefix: '',
     });

@@ -3,6 +3,12 @@ import {
   TEAM_DEPENDENTS,
   type TeamDependentsPort,
 } from '@identity/application/ports/team-dependents.port';
+import { Line } from '@lines/domain/aggregates/line.aggregate';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -10,14 +16,9 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
   afterAll,
@@ -202,6 +203,7 @@ describe('a team, created through the resource API (e2e)', () => {
         workspaceId: WorkspaceId.of(workspaceId),
         teamId: TeamId.of(teamId),
         line: BUILT_IN_LINES[0] as LineOpening,
+        harness: HarnessId.of('claude-code'),
         newId: () => `${teamId}-${++next}`,
       }),
     );
@@ -229,6 +231,14 @@ describe('a team, created through the resource API (e2e)', () => {
       mcpServers: [],
       native: {},
     });
+    await db.insert(schema.chat).values({
+      id: randomUUID(),
+      workspaceId,
+      teamId,
+      startedById: 'user_1',
+      title: 'Plan the queue',
+      harness: 'claude-code',
+    });
   };
 
   const dependentsOf = async (teamId: string) => {
@@ -251,6 +261,10 @@ describe('a team, created through the resource API (e2e)', () => {
         .select({ key: schema.harnessProfile.key })
         .from(schema.harnessProfile)
         .where(eq(schema.harnessProfile.teamId, teamId))),
+      ...(await db
+        .select({ key: schema.chat.title })
+        .from(schema.chat)
+        .where(eq(schema.chat.teamId, teamId))),
     ];
   };
 
@@ -279,10 +293,10 @@ describe('a team, created through the resource API (e2e)', () => {
       await app.get<TeamDependentsPort>(TEAM_DEPENDENTS).of(TeamId.of(teamId)),
     ).toEqual(
       expect.arrayContaining([
-        `line ${(BUILT_IN_LINES[0] as LineOpening).key.value}`,
-        'skill grafana',
-        'integration linear',
-        'harness profile careful',
+        { kind: 'line', key: (BUILT_IN_LINES[0] as LineOpening).key.value },
+        { kind: 'skill', key: 'grafana' },
+        { kind: 'integration', key: 'linear' },
+        { kind: 'harness-profile', key: 'careful' },
       ]),
     );
 
@@ -302,26 +316,44 @@ describe('a team, created through the resource API (e2e)', () => {
         .map((each) => each.name)
         .sort(),
     ).toEqual([
+      'change-review.remove-change-stacks-of-deleted-team',
+      'change-review.remove-question-answers-of-deleted-team',
+      'change-review.remove-stack-checks-of-deleted-team',
       'configuration.delete-harness-profiles-of-deleted-team',
       'configuration.delete-skills-of-deleted-team',
       'insights.delete-alerts-of-deleted-team',
+      'insights.delete-change-shapes-of-deleted-team',
       'insights.delete-chats-of-deleted-team',
-      'insights.delete-config-pull-requests-of-deleted-team',
       'insights.delete-failures-of-deleted-team',
       'insights.delete-human-actions-of-deleted-team',
-      'insights.delete-judgings-and-scores-of-deleted-team',
+      'insights.delete-judgings-of-deleted-team',
       'insights.delete-pull-requests-of-deleted-team',
       'insights.delete-runs-of-deleted-team',
-      'insights.delete-task-pull-requests-of-deleted-team',
-      'integrations.delete-connections-of-deleted-team',
+      'insights.delete-scores-of-deleted-team',
+      'integrations.delete-hooks-of-deleted-team',
       'integrations.delete-integrations-of-deleted-team',
+      'integrations.disconnect-connections-of-deleted-team',
+      'integrations.remove-client-registrations-of-deleted-team',
+      'integrations.remove-inbound-deliveries-of-deleted-team',
+      'integrations.remove-inferred-output-schemas-of-deleted-team',
+      'integrations.remove-person-tool-policies-of-deleted-team',
+      'integrations.remove-poll-cursors-of-deleted-team',
+      'integrations.remove-schedule-cursors-of-deleted-team',
+      'lines.delete-lines-of-deleted-team',
+      'memory.delete-memories-of-deleted-team',
+      'replays.delete-candidates-of-deleted-team',
+      'replays.delete-change-judgings-of-deleted-team',
       'replays.delete-config-pull-requests-of-deleted-team',
+      'replays.delete-line-search-budgets-of-deleted-team',
       'replays.delete-replay-checks-of-deleted-team',
-      'replays.delete-replays-of-deleted-team',
+      'replays.delete-replay-run-decisions-of-deleted-team',
+      'replays.delete-replay-sets-of-deleted-team',
       'replays.delete-search-schedules-of-deleted-team',
       'replays.delete-searches-of-deleted-team',
-      'work.delete-lines-of-deleted-team',
+      'replays.delete-side-by-side-judgings-of-deleted-team',
+      'work.delete-chats-of-deleted-team',
       'work.delete-notices-of-deleted-team',
+      'work.forget-welcome-of-deleted-team',
     ]);
     expect(await dependentsOf(teamId)).toEqual([]);
   });

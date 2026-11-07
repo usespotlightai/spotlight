@@ -5,23 +5,25 @@ import type {
   RunSecretFetch,
 } from '@secrets/application/contracts/run-secret-fetch.contract';
 import type {
-  RunSealingPort,
-  SealingRecipient,
-} from '@secrets/application/ports/run-sealing.port';
-import type {
   RunSealed,
   RunSecretFetchesPort,
 } from '@secrets/application/ports/run-secret-fetches.port';
+import type {
+  SealingRecipient,
+  SecretSealingPort,
+} from '@secrets/application/ports/secret-sealing.port';
 import { deniedFor } from '@secrets/application/services/denied-secrets';
-import type { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
+import type { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import type { SecretSources } from '@secrets/application/services/secret-sources.service';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
+import { EgressId } from '@secrets/domain/value-objects/egress-id.vo';
 import { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import { SecretFetcher } from '@secrets/domain/value-objects/secret-fetcher.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
+import { SecretTargets } from '@secrets/domain/value-objects/secret-targets.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -35,9 +37,9 @@ interface Granting {
 export class RunSecretFetches implements RunSecretFetchesPort {
   constructor(
     private readonly secrets: SecretRepository,
-    private readonly unitOfWork: RunGrantsUnitOfWork,
+    private readonly changes: RunGrantsChanges,
     private readonly sources: SecretSources,
-    private readonly sealing: RunSealingPort,
+    private readonly sealing: SecretSealingPort,
   ) {}
 
   async fetchSecrets(request: RunSecretFetch): Promise<FetchedSecrets> {
@@ -47,6 +49,7 @@ export class RunSecretFetches implements RunSecretFetchesPort {
     const lease = RunLease.of(runId, request.attempt);
     const granting: Granting[] = [];
     const denied: DeniedSecret[] = [];
+    let targets = SecretTargets.none();
 
     for (const name of new Set(request.injectedSecrets)) {
       try {
@@ -59,13 +62,16 @@ export class RunSecretFetches implements RunSecretFetchesPort {
           throw new NoSuchSecretError(name);
         }
 
-        granting.push({ secret, grants: secret.grantTo(runId) });
+        const grants = secret.grantTo(runId);
+
+        targets = targets.claim(secret.name, secret.injectedBindings());
+        granting.push({ secret, grants });
       } catch (error) {
         denied.push(deniedFor(name, error));
       }
     }
 
-    await this.unitOfWork.changed({ lease, workspaceId }, (current) =>
+    await this.changes.changed({ lease, workspaceId }, (current) =>
       current
         .grant(
           lease,
@@ -73,7 +79,12 @@ export class RunSecretFetches implements RunSecretFetchesPort {
         )
         .recordFetch(
           lease,
-          SecretFetcher.of(Recipient.of(recipient.key), request.sharedEgress),
+          SecretFetcher.of(
+            Recipient.of(recipient.key),
+            request.sharedEgress === null
+              ? null
+              : EgressId.of(request.sharedEgress),
+          ),
         ),
     );
 
@@ -98,9 +109,9 @@ export class RunSecretFetches implements RunSecretFetchesPort {
 
   sealedFor(sealed: RunSealed): string {
     return this.sealing.seal(
-      SecretValue.of(sealed.value),
+      SecretValue.of(sealed.value.revealed()),
       this.sealing.recipientOf(sealed.recipient),
-      { runId: sealed.runId, secretName: sealed.name },
+      { subject: sealed.runId, secretName: sealed.name },
     );
   }
 
@@ -113,7 +124,7 @@ export class RunSecretFetches implements RunSecretFetchesPort {
     const binding = secret.bindingFor(grant);
     const injection = {
       secret: secret.name.value,
-      host: binding.host,
+      host: binding.host.value,
       location: binding.target.location,
       name: binding.target.name,
       prefix: binding.prefix,
@@ -129,7 +140,7 @@ export class RunSecretFetches implements RunSecretFetchesPort {
       sealed: this.sealing.seal(
         secret.injectable(await this.sources.read(secret)),
         recipient,
-        { runId: runId.value, secretName: secret.name.value },
+        { subject: runId.value, secretName: secret.name.value },
       ),
       externalRef: null,
     };

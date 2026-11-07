@@ -21,6 +21,7 @@ import type { SecretResourceDto } from '@secrets/application/dto/secret-resource
 import { ImportSecretQuery } from '@secrets/application/queries/import-secret.query';
 import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
+import { SECRET_LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
 import { SECRET_SOURCE_KINDS } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretResourceResponseDto } from '@secrets/presentation/http/dto/secret-resource.response.dto';
 import type {
@@ -30,7 +31,6 @@ import type {
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
 
 const KIND = 'secret';
 

@@ -839,7 +839,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes a hook signed with OIDC by its audience, and a request by its url alone when it has only defaults', () => {
+  it('writes the from of a hook request whenever it was written, even as the default', () => {
     const hook: ResourceOf<'hook'> = {
       ...resourceOf('hook', 'core/merged'),
       steps: [
@@ -850,6 +850,30 @@ describe('workspaceTerraform', () => {
             headers: {},
             body: undefined,
             from: 'spotlight',
+          },
+        },
+      ],
+    };
+
+    expect(resourceHcl(CONFIGURATION, hook).hcl).toContain(
+      [
+        '        url  = "https://dba.acme.dev/review"',
+        '        from = "spotlight"',
+      ].join('\n'),
+    );
+  });
+
+  it('writes a hook signed with OIDC by its audience, and a request by its url alone when it has only defaults', () => {
+    const hook: ResourceOf<'hook'> = {
+      ...resourceOf('hook', 'core/merged'),
+      steps: [
+        {
+          name: 'review',
+          request: {
+            url: 'https://dba.acme.dev/review',
+            headers: {},
+            body: undefined,
+            from: null,
           },
         },
         { name: 'tell', call: 'linear.comment', with: {} },

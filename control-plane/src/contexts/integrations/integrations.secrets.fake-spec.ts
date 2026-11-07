@@ -6,10 +6,13 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
-import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
-import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import {
+  InjectedCallCredentials,
+  SpotlightCredentials,
+  SpotlightSigningSecrets,
+} from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
+import { injectedSecretsOf } from '@secrets/application/contracts/injected-secrets.fake-spec';
 import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type {
   RunGrant,
@@ -18,6 +21,7 @@ import type {
   SpotlightRequest,
   VerifyingRequest,
 } from '@secrets/application/ports/secret-injection.port';
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
 
@@ -29,8 +33,11 @@ interface Bound {
   readonly value: string;
 }
 
-const denied = (message: string) =>
-  Object.assign(new Error(message), { kind: 'not-allowed' as const });
+class SecretDenied extends DomainError {
+  readonly kind = 'not-allowed' as const;
+}
+
+const denied = (message: string) => new SecretDenied(message);
 
 export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
   const granted = new Set<string>();
@@ -40,7 +47,7 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
     run: string | null,
     standIns = false,
   ) =>
-    InjectedSecrets.of(
+    injectedSecretsOf(
       request.secrets.map((name) => {
         const secret = bound[name];
         const host = new URL(request.url).hostname;
@@ -132,7 +139,9 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
 export const credentialsFor = (
   bound: Readonly<Record<string, Bound>> = {},
 ): Credentials =>
-  new SpotlightCredentials(injecting(bound).injection, async () => 'ws_1');
+  new SpotlightCredentials(injecting(bound).injection, async () =>
+    WorkspaceId.of('ws_1'),
+  );
 
 export const signingFor = (
   secrets: Readonly<Record<string, string>> = {},
@@ -164,7 +173,8 @@ export const callAuthFor = (
       }),
       inWorkspace: async () => [],
     } satisfies TeamDirectoryPort,
-    { onTeam: async () => null } as unknown as WorkspaceAccessPort,
+    { inWorkspaceOfTeam: async () => null } as unknown as WorkspaceAccessPort,
     injection,
+    new InjectedCallCredentials(injection),
     { afterUnauthorized: async () => null } as unknown as ConnectionRefresh,
   );

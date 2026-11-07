@@ -2,7 +2,7 @@ import type { TaskDecisionsDto } from '@change-review/application/dto/decision.d
 import type { DecisionReaderPort } from '@change-review/application/ports/decision-reader.port';
 import { ReadTaskDecisionsHandler } from '@change-review/application/queries/handlers/read-task-decisions.handler';
 import { ReadTaskDecisionsQuery } from '@change-review/application/queries/read-task-decisions.query';
-import type { DecisionAccess } from '@change-review/application/services/decision-access.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,7 +43,7 @@ const reading = (
 ) =>
   new ReadTaskDecisionsHandler(
     {
-      ofTask: async () =>
+      task: async () =>
         over.allowed === false
           ? null
           : {
@@ -57,14 +57,14 @@ const reading = (
               },
               by: UserId.of('user_1'),
             },
-    } as unknown as DecisionAccess,
+    } as unknown as TeamWorkAccess,
     {
       ofTask: async () => (over.stored === undefined ? STORED : over.stored),
     } as unknown as DecisionReaderPort,
     {
       find: async () => ({ name: 'Maya Chen', image: null }),
-      pictureOf: () => null,
-      memberOf: async () => null,
+      viewerOf: async () => null,
+      actsOnTeam: async () => false,
     },
   ).execute(new ReadTaskDecisionsQuery('team_1', 'task_1', 'user_1'));
 

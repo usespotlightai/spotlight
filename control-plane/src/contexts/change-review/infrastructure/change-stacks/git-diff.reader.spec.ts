@@ -1,5 +1,6 @@
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { describe, expect, it } from 'vitest';
 
@@ -114,8 +115,8 @@ describe('GitDiffReader', () => {
   });
 
   it('finds the file a hunk belongs to', () => {
-    expect(diff.fileOf('h3')?.path).toBe('src/routes.ts');
-    expect(diff.fileOf('h99')).toBeNull();
+    expect(diff.fileOf(HunkId.of('h3'))?.path).toBe('src/routes.ts');
+    expect(diff.fileOf(HunkId.of('h99'))).toBeNull();
   });
 
   it('rejects text that has no changes', () => {

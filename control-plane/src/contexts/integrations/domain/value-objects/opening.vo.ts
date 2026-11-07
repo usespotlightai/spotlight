@@ -30,4 +30,8 @@ export class Opening {
 
     return new Opening(lineRole, station);
   }
+
+  equals(other: Opening): boolean {
+    return this.lineRole === other.lineRole && this.station === other.station;
+  }
 }

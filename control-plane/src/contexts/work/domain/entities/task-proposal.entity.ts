@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
@@ -51,6 +52,13 @@ export class TaskProposal {
     taskId: TaskId | null;
     decidedAt: Date | null;
   }): TaskProposal {
+    if ((input.state === 'created') !== (input.taskId !== null)) {
+      throw new InconsistentStateError(
+        'task proposal',
+        `is ${input.state} ${input.taskId ? 'with' : 'without'} a task`,
+      );
+    }
+
     return new TaskProposal(
       input.position,
       input.placement,

@@ -1,7 +1,8 @@
+import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
-import type { BuiltInToolUse } from '@work/application/services/built-in-tools.service';
 import type { OpenPullRequest } from '@work/application/services/open-pull-request.service';
-import { PULL_REQUEST } from '@work/domain/services/built-in-tools';
+import { PULL_REQUEST } from '@work/domain/value-objects/built-in-tools';
+import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 export class PullRequestToolUse implements BuiltInToolUse<TaskToolContext> {
@@ -16,7 +17,7 @@ export class PullRequestToolUse implements BuiltInToolUse<TaskToolContext> {
     const opened = await this.opening.open(
       { runId, taskId, stationId },
       {
-        title: (inputs.text('title') ?? '').trim(),
+        title: PullRequestTitle.of(inputs.requiredText(this.tool, 'title')),
         body: inputs.text('body') ?? null,
         repository: inputs.text('repository')?.trim() ?? null,
       },

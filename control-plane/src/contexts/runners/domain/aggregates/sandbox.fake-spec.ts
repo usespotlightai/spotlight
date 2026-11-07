@@ -1,13 +1,22 @@
 import { createHash } from 'node:crypto';
+import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
+import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
+import {
+  aHostReport,
+  aSandboxReport,
+} from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
+import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
@@ -42,6 +51,7 @@ const savedAs = (sandbox: Sandbox, version: number): Sandbox =>
     workspaceId: sandbox.workspaceId,
     key: sandbox.key,
     hostId: sandbox.hostId,
+    source: sandbox.source,
     tokenHash: sandbox.tokenHash,
     state: sandbox.current,
     leases: sandbox.leases,
@@ -51,11 +61,14 @@ const savedAs = (sandbox: Sandbox, version: number): Sandbox =>
     version,
   });
 
+export const SANDBOX_POOL = CredentialSource.ofId(PoolId.of('pool_1'));
+
 export const aSandbox = (input: {
   id?: string;
   workspaceId: WorkspaceId;
   key?: string | null;
   hostId: HostId;
+  source?: CredentialSource;
   runId?: string;
   at: Date;
 }): Sandbox =>
@@ -63,16 +76,23 @@ export const aSandbox = (input: {
     id: SandboxId.of(input.id ?? 'sandbox_1'),
     workspaceId: input.workspaceId,
     key: input.key === null ? null : SandboxKey.of(input.key ?? 'task-task_1'),
-    hostId: input.hostId,
+    host: RunnerHost.fromHeartbeat({
+      id: input.hostId,
+      workspaceId: input.workspaceId,
+      source: input.source ?? SANDBOX_POOL,
+      bootId: BootId.of('boot_1'),
+      report: aHostReport(),
+      sandboxes: aSandboxReport(),
+      at: input.at,
+    }),
     tokenHash: tokenHashOf(input.id ?? 'sandbox_1'),
-    runId: input.runId ?? 'run_1',
+    runId: RunId.of(input.runId ?? 'run_1'),
     at: input.at,
   });
 
 export const storedSandboxes = (
   input: {
     silentHosts?: () => readonly string[];
-    poolOf?: (hostId: string) => string | null;
   } = {},
   ...known: Sandbox[]
 ) => {
@@ -130,29 +150,12 @@ export const storedSandboxes = (
         (each) => each.isLive && each.hostId?.equals(hostId) === true,
       ),
     ),
-    liveKeysIn: vi.fn(async (workspaceId: WorkspaceId) => {
-      const silent = input.silentHosts?.() ?? [];
-      return all().flatMap((each) =>
-        each.isLive &&
-        each.isPlaced &&
-        each.key !== null &&
-        each.workspaceId.equals(workspaceId) &&
-        !silent.includes(each.hostId?.value ?? '')
-          ? [each.key]
-          : [],
-      );
-    }),
-    idleInPool: vi.fn(
-      async (poolId: RunnerPoolId) =>
-        all().filter(
-          (each) =>
-            each.isLive &&
-            each.isIdle &&
-            each.hostId !== null &&
-            input.poolOf?.(each.hostId.value) === poolId.value,
-        ).length,
+    liveIn: vi.fn(async (workspaceId: WorkspaceId) =>
+      all().filter(
+        (each) => each.isLive && each.workspaceId.equals(workspaceId),
+      ),
     ),
-    holdingRun: vi.fn(async (runId: string) =>
+    holdingRun: vi.fn(async (runId: RunId) =>
       all().filter((each) => each.isLive && each.holdsRun(runId)),
     ),
     idleSince: vi.fn(async (cutoff: Date) =>
@@ -161,26 +164,47 @@ export const storedSandboxes = (
           each.isOpen && each.idleSince !== null && each.idleSince <= cutoff,
       ),
     ),
-    liveOnHostsSilentSince: vi.fn(async () => {
-      const silent = input.silentHosts?.() ?? [];
-      return all().filter(
-        (each) =>
-          each.isLive &&
-          each.hostId !== null &&
-          silent.includes(each.hostId.value),
-      );
-    }),
-    removeGoneBefore: vi.fn(async (cutoff: Date) => {
-      let removed = 0;
-      for (const [id, each] of stored) {
-        if (each.goneAt !== null && each.goneAt <= cutoff) {
-          stored.delete(id);
-          removed++;
-        }
+    goneBefore: vi.fn(async (cutoff: Date) =>
+      all().filter((each) => each.goneAt !== null && each.goneAt <= cutoff),
+    ),
+    remove: vi.fn(async (removed: Sandbox) => {
+      if (stored.get(removed.id.value)?.version !== removed.version) {
+        throw new SandboxVersionConflictError(removed.id.value);
       }
-      return removed;
+      stored.delete(removed.id.value);
     }),
   } satisfies SandboxRepository;
 
-  return { stored, sandboxes };
+  const placements = {
+    idleInPool: vi.fn(async (poolId: PoolId) =>
+      all()
+        .filter(
+          (each) =>
+            each.isLive &&
+            each.isIdle &&
+            each.source?.poolId?.equals(poolId) === true,
+        )
+        .map((each) => each.id),
+    ),
+    unreportedStartedBefore: vi.fn(async (cutoff: Date) =>
+      all()
+        .filter(
+          (each) => each.isLive && each.isPlaced && each.startedAt <= cutoff,
+        )
+        .map((each) => each.id),
+    ),
+    liveOnHostsSilentSince: vi.fn(async () => {
+      const silent = input.silentHosts?.() ?? [];
+      return all()
+        .filter(
+          (each) =>
+            each.isLive &&
+            each.hostId !== null &&
+            silent.includes(each.hostId.value),
+        )
+        .map((each) => each.id);
+    }),
+  } satisfies SandboxPlacementsPort;
+
+  return { stored, sandboxes, placements };
 };

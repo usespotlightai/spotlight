@@ -1,15 +1,25 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
+import {
+  type PendingSearchStep,
+  StationSearchSchedule,
+} from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { StationSearchScheduleVersionConflictError } from '@replays/domain/exceptions/station-search-schedule-version-conflict.error';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
+import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-import { stationSearchSchedule } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import {
+  type StoredPendingSearchStep,
+  stationSearchSchedule,
+} from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -17,13 +27,57 @@ import { and, asc, eq, lte, type SQL } from 'drizzle-orm';
 
 type ScheduleRow = typeof stationSearchSchedule.$inferSelect;
 
+const dateOf = (value: string | null): Date | null =>
+  value === null ? null : new Date(value);
+
+const toStep = (stored: StoredPendingSearchStep): PendingSearchStep => ({
+  kind: stored.kind,
+  searchId: SearchId.of(stored.searchId),
+  at: new Date(stored.at),
+  request: stored.request === null ? null : CandidateId.of(stored.request),
+  candidates: stored.candidates.map((each) => CandidateId.of(each)),
+  searched: stored.searched.map((each) => TaskId.of(each)),
+  addedTasks: stored.addedTasks.map((each) => TaskId.of(each)),
+  replaced: stored.replaced && {
+    lastStartedAt: dateOf(stored.replaced.lastStartedAt),
+    lastSkip:
+      stored.replaced.lastSkipReason && stored.replaced.lastSkipAt
+        ? {
+            reason: stored.replaced.lastSkipReason,
+            at: new Date(stored.replaced.lastSkipAt),
+          }
+        : null,
+    alertPendingSince: dateOf(stored.replaced.alertPendingSince),
+    checkAfter: new Date(stored.replaced.checkAfter),
+    startedCheckAfter: new Date(stored.replaced.startedCheckAfter),
+  },
+});
+
+const storedOf = (step: PendingSearchStep): StoredPendingSearchStep => ({
+  kind: step.kind,
+  searchId: step.searchId.value,
+  at: step.at.toISOString(),
+  request: step.request?.value ?? null,
+  candidates: step.candidates.map((each) => each.value),
+  searched: step.searched.map((each) => each.value),
+  addedTasks: step.addedTasks.map((each) => each.value),
+  replaced: step.replaced && {
+    lastStartedAt: step.replaced.lastStartedAt?.toISOString() ?? null,
+    lastSkipReason: step.replaced.lastSkip?.reason ?? null,
+    lastSkipAt: step.replaced.lastSkip?.at.toISOString() ?? null,
+    alertPendingSince: step.replaced.alertPendingSince?.toISOString() ?? null,
+    checkAfter: step.replaced.checkAfter.toISOString(),
+    startedCheckAfter: step.replaced.startedCheckAfter.toISOString(),
+  },
+});
+
 const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
   StationSearchSchedule.rehydrate({
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     setId: ReplaySetId.of(row.setId),
     lastStartedAt: row.lastStartedAt,
@@ -43,7 +97,11 @@ const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
     requests:
       row.requestDay === null
         ? null
-        : { day: row.requestDay, count: row.requestCount },
+        : {
+            day: row.requestDay,
+            counted: row.requests.map((each) => CandidateId.of(each)),
+          },
+    pendingSteps: row.pendingSteps.map(toStep),
     checkAfter: row.checkAfter,
     version: row.version,
   });
@@ -51,7 +109,7 @@ const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
 const columnsOf = (schedule: StationSearchSchedule) => ({
   workspaceId: schedule.workspaceId.value,
   teamId: schedule.teamId.value,
-  lineId: schedule.station.lineId,
+  lineId: schedule.station.lineId.value,
   setId: schedule.setId.value,
   lastStartedAt: schedule.lastStartedAt,
   lastSkipReason: schedule.lastSkip?.reason ?? null,
@@ -63,7 +121,9 @@ const columnsOf = (schedule: StationSearchSchedule) => ({
   lastRejectedAt: schedule.lastRejectedAt,
   lastImprovedAt: schedule.lastImprovedAt,
   requestDay: schedule.requests?.day ?? null,
-  requestCount: schedule.requests?.count ?? 0,
+  requests: schedule.requests?.counted.map((each) => each.value) ?? [],
+  pendingSteps: schedule.pendingSteps.map(storedOf),
+  stepsPendingSince: schedule.stepsPendingSince,
   checkAfter: schedule.checkAfter,
 });
 
@@ -77,17 +137,17 @@ export class DrizzleStationSearchScheduleRepository
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async ofStation(stationId: string): Promise<StationSearchSchedule | null> {
+  async ofStation(stationId: StationId): Promise<StationSearchSchedule | null> {
     const [found] = await this.where(
-      eq(stationSearchSchedule.stationId, stationId),
+      eq(stationSearchSchedule.stationId, stationId.value),
     );
 
     return found ?? null;
   }
 
-  async locked(stationId: string): Promise<StationSearchSchedule | null> {
+  async locked(stationId: StationId): Promise<StationSearchSchedule | null> {
     const [found] = await this.where(
-      eq(stationSearchSchedule.stationId, stationId),
+      eq(stationSearchSchedule.stationId, stationId.value),
       true,
     );
 
@@ -102,7 +162,7 @@ export class DrizzleStationSearchScheduleRepository
     return found ?? null;
   }
 
-  async dueStations(now: Date, limit: number): Promise<readonly string[]> {
+  async dueStations(now: Date, limit: number): Promise<readonly StationId[]> {
     return (
       await this.context.db
         .select({ stationId: stationSearchSchedule.stationId })
@@ -113,11 +173,28 @@ export class DrizzleStationSearchScheduleRepository
           asc(stationSearchSchedule.stationId),
         )
         .limit(limit)
-    ).map((each) => each.stationId);
+    ).map((each) => StationId.of(each.stationId));
   }
 
-  ofLine(lineId: string): Promise<readonly StationSearchSchedule[]> {
-    return this.where(eq(stationSearchSchedule.lineId, lineId));
+  async withStepsPendingSince(
+    before: Date,
+    limit: number,
+  ): Promise<readonly StationId[]> {
+    return (
+      await this.context.db
+        .select({ stationId: stationSearchSchedule.stationId })
+        .from(stationSearchSchedule)
+        .where(lte(stationSearchSchedule.stepsPendingSince, before))
+        .orderBy(
+          asc(stationSearchSchedule.stepsPendingSince),
+          asc(stationSearchSchedule.stationId),
+        )
+        .limit(limit)
+    ).map((each) => StationId.of(each.stationId));
+  }
+
+  ofLine(lineId: LineId): Promise<readonly StationSearchSchedule[]> {
+    return this.where(eq(stationSearchSchedule.lineId, lineId.value));
   }
 
   ofTeam(teamId: TeamId): Promise<readonly StationSearchSchedule[]> {
@@ -129,7 +206,7 @@ export class DrizzleStationSearchScheduleRepository
       await this.context.db
         .insert(stationSearchSchedule)
         .values({
-          stationId: added.stationId,
+          stationId: added.stationId.value,
           ...columnsOf(added),
           version: added.version,
         })
@@ -141,7 +218,7 @@ export class DrizzleStationSearchScheduleRepository
   async save(saved: StationSearchSchedule): Promise<void> {
     await this.context.inTransaction(async () => {
       const at = and(
-        eq(stationSearchSchedule.stationId, saved.stationId),
+        eq(stationSearchSchedule.stationId, saved.stationId.value),
         eq(stationSearchSchedule.version, saved.version),
       );
       const written = saved.isDeleted

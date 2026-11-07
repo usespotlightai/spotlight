@@ -8,6 +8,7 @@ import type {
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { PostDecisionsComment } from '@change-review/application/services/post-decisions-comment.service';
+import { MarkdownCommentBodies } from '@change-review/infrastructure/rendering/markdown-comment-bodies';
 import type {
   StickyComment,
   StickyCommentPlace,
@@ -81,9 +82,10 @@ const posting = (
     },
     {
       find: async () => ({ name: 'Maya Chen', image: null }),
-      pictureOf: () => null,
-      memberOf: async () => null,
+      viewerOf: async () => null,
+      actsOnTeam: async () => false,
     },
+    new MarkdownCommentBodies(),
   );
 
   return { service, upserted, deleted };

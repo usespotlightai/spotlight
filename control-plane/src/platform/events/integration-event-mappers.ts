@@ -17,8 +17,10 @@ export class IntegrationEventMappers {
   }
 
   of(event: DomainEvent, at: Date): readonly IntegrationEvent[] {
-    return (this.#from.get(event.kind) ?? []).map((each) =>
-      each.map(event, at),
-    );
+    return (this.#from.get(event.kind) ?? []).flatMap((each) => {
+      const mapped = each.map(event, at);
+
+      return mapped ? [mapped] : [];
+    });
   }
 }

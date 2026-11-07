@@ -1,14 +1,9 @@
-import { HookDeletionRequested } from '@integrations/domain/events/hook-deletion-requested.event';
-import { IntegrationDeletionRequested } from '@integrations/domain/events/integration-deletion-requested.event';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import type { InferredOutputSchemaRepository } from '@integrations/domain/repositories/inferred-output-schema.repository';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import type { PersonToolPolicyRepository } from '@integrations/domain/repositories/person-tool-policy.repository';
-import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import type { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -23,52 +18,44 @@ export class DeleteTeamIntegrations {
     private readonly policies: PersonToolPolicyRepository,
   ) {}
 
-  async deleteConnectionsForTeam(teamId: TeamId): Promise<void> {
-    await this.connections.deleteForTeam(teamId);
-    await this.registrations.deleteForTeam(teamId);
-    await this.schemas.deleteForTeam(teamId);
-    await this.policies.deleteForTeam(teamId);
+  async deleteHooks(teamId: TeamId, workspaceId: WorkspaceId): Promise<void> {
+    for (const hook of await this.hooks.ofTeam(teamId)) {
+      await this.hooks.save(hook.delete(ChangeActor.spotlight(workspaceId)));
+    }
   }
 
-  async pendingDeletions(
+  async deleteIntegrations(
     teamId: TeamId,
     workspaceId: WorkspaceId,
-  ): Promise<readonly DomainEvent[]> {
-    const hooks = await this.hooks.ofTeam(teamId);
-    const integrations = await this.definitions.ofTeam(teamId);
-
-    return [
-      ...hooks.map((hook) => new HookDeletionRequested(hook.id, workspaceId)),
-      ...integrations.map(
-        (integration) =>
-          new IntegrationDeletionRequested(integration.id, workspaceId),
-      ),
-    ];
-  }
-
-  async deleteHook(
-    id: HookDefinitionId,
-    workspaceId: WorkspaceId,
   ): Promise<void> {
-    const hook = await this.hooks.withId(id);
-
-    if (hook) {
-      await this.hooks.save(
-        hook.cascadeDelete(ChangeActor.spotlight(workspaceId)),
+    for (const integration of await this.definitions.ofTeam(teamId)) {
+      await this.definitions.save(
+        integration.cascadeDelete(ChangeActor.spotlight(workspaceId)),
       );
     }
   }
 
-  async deleteIntegration(
-    id: IntegrationDefinitionId,
-    workspaceId: WorkspaceId,
-  ): Promise<void> {
-    const integration = await this.definitions.withId(id);
+  async disconnectConnections(teamId: TeamId): Promise<void> {
+    for (const connection of await this.connections.ofTeam(teamId)) {
+      await this.connections.remove(connection);
+    }
+  }
 
-    if (integration) {
-      await this.definitions.save(
-        integration.cascadeDelete(ChangeActor.spotlight(workspaceId)),
-      );
+  async removeClientRegistrations(teamId: TeamId): Promise<void> {
+    for (const registration of await this.registrations.ofTeam(teamId)) {
+      await this.registrations.remove(registration);
+    }
+  }
+
+  async removeInferredOutputSchemas(teamId: TeamId): Promise<void> {
+    for (const schema of await this.schemas.ofTeam(teamId)) {
+      await this.schemas.remove(schema);
+    }
+  }
+
+  async removePersonToolPolicies(teamId: TeamId): Promise<void> {
+    for (const policy of await this.policies.ofTeam(teamId)) {
+      await this.policies.remove(policy);
     }
   }
 }

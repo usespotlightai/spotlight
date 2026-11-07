@@ -1,4 +1,3 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import {
   repeatsByOriginal,
@@ -8,6 +7,7 @@ import { rankedOf } from '@replays/domain/services/search-ranking';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 
 const MOSTLY_FAILS_BELOW = 0.5;
 
@@ -18,7 +18,7 @@ export interface FailingTasks {
 
 export const failingSearchedTasksOf = (
   search: Search,
-  replays: readonly Replay[],
+  replays: readonly ReplayOutcome[],
   minGain: number,
 ): FailingTasks => {
   const scores = scoresOf(search, replays, minGain);

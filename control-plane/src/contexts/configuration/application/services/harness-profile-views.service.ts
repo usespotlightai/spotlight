@@ -3,7 +3,6 @@ import { HarnessProfileMapper } from '@configuration/application/mappers/harness
 import type { HarnessProfileCompilerPort } from '@configuration/application/ports/harness-profile-compiler.port';
 import type { HarnessProfileRecord } from '@configuration/application/ports/harness-profile-resources.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 
@@ -25,14 +24,7 @@ export class HarnessProfileViews {
     record: HarnessProfileRecord,
     teamKey: string,
   ): HarnessProfileResourceDto {
-    const parsed = this.compiler.parse(record.definition);
-
-    if (!parsed.ok) {
-      throw new InconsistentStateError(
-        'harness profile',
-        `is in a shape that no longer reads (${record.id})`,
-      );
-    }
+    const parsed = { key: record.key, settings: record.settings };
 
     return {
       id: record.id,
@@ -46,7 +38,7 @@ export class HarnessProfileViews {
       secretReferences: parsed.settings.secretReferences.map(
         ({ path, name }) => ({
           path: FieldPath.of(path.segments.slice(1)),
-          name,
+          name: name.value,
         }),
       ),
       warnings: this.compiler.warningsOf(parsed),

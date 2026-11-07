@@ -1,8 +1,8 @@
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
-import { Integration } from '@integrations/domain/entities/integration.entity';
 import { ConnectionChoice } from '@integrations/domain/services/connection-choice';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -17,8 +17,9 @@ const NOW = new Date('2026-10-05T10:00:00.000Z');
 const integration = (actsAs = ActsAs.requester()) =>
   Integration.of({
     key: LINEAR,
+    apiSpecs: ['mcp'],
     name: 'Linear',
-    requiresConnection: true,
+    connectsOver: 'oauth2',
     actsAs,
   });
 
@@ -29,9 +30,32 @@ const connected = (owner: ConnectionOwner) =>
     integration: LINEAR,
     owner,
     tokens: OAuthTokens.of({ accessToken: 'lin-1', refreshToken: 'lin-r-1' }),
+    at: new Date('2026-09-01T00:00:00.000Z'),
   });
 
 describe('ConnectionChoice', () => {
+  describe('forUnrequestedCall', () => {
+    it('acts with the team’s connection for a call no person requested, whatever the integration acts as', () => {
+      for (const actsAs of [ActsAs.team(), ActsAs.requester()]) {
+        expect(
+          ConnectionChoice.forUnrequestedCall(integration(actsAs)),
+        ).toEqual(ConnectionOwner.team());
+      }
+    });
+
+    it('needs no connection for an integration that takes none', () => {
+      expect(
+        ConnectionChoice.forUnrequestedCall(
+          Integration.of({
+            key: LINEAR,
+            connectsOver: null,
+            apiSpecs: ['mcp'],
+          }),
+        ),
+      ).toBeNull();
+    });
+  });
+
   describe('choose', () => {
     it('takes the team’s connection for an integration that acts as the team, whoever requested it', () => {
       for (const personId of [ALICE, null]) {

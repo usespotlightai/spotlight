@@ -1,7 +1,6 @@
 import type { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-import { CI_VARIABLES } from '@work/application/services/ci-setups.service';
-import type { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
+import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 
 const BRANCH = 'spotlight-configuration';
@@ -48,14 +47,14 @@ const workflowOf = (
     '  id-token: write',
     '',
     'env:',
-    `  SPOTLIGHT_URL: \${{ vars.${CI_VARIABLES.url} }}`,
+    `  SPOTLIGHT_URL: \${{ vars.${CiSetup.VARIABLES.url} }}`,
     '',
     'jobs:',
     '  plan:',
     "    if: github.event_name == 'pull_request'",
     '    runs-on: ubuntu-24.04',
     '    env:',
-    `      SPOTLIGHT_OIDC_TRUST: \${{ vars.${CI_VARIABLES.planTrust} }}`,
+    `      SPOTLIGHT_OIDC_TRUST: \${{ vars.${CiSetup.VARIABLES.planTrust} }}`,
     '    defaults:',
     '      run:',
     `        working-directory: ${folder}`,
@@ -75,7 +74,7 @@ const workflowOf = (
     '    runs-on: ubuntu-24.04',
     '    concurrency: spotlight-apply',
     '    env:',
-    `      SPOTLIGHT_OIDC_TRUST: \${{ vars.${CI_VARIABLES.applyTrust} }}`,
+    `      SPOTLIGHT_OIDC_TRUST: \${{ vars.${CiSetup.VARIABLES.applyTrust} }}`,
     '    defaults:',
     '      run:',
     `        working-directory: ${folder}`,
@@ -100,8 +99,8 @@ const ciStep = (
     `- \`github-pull-requests\` (\`${ci.pullRequestsTrustId}\`): a pull request may plan.`,
     `- \`github-apply\` (\`${ci.defaultBranchTrustId}\`): a push to \`${ci.defaultBranch}\` may apply, with the \`configure\`, \`secrets\` and \`runners\` scopes.`,
     ci.variables === 'written'
-      ? `Spotlight set the repository variables \`${CI_VARIABLES.url}\`, \`${CI_VARIABLES.planTrust}\` and \`${CI_VARIABLES.applyTrust}\`.`
-      : `The GitHub App may not write repository variables. In the pull request, tell the person to add these repository variables: \`${CI_VARIABLES.planTrust}\` = \`${ci.pullRequestsTrustId}\`, \`${CI_VARIABLES.applyTrust}\` = \`${ci.defaultBranchTrustId}\`, and \`${CI_VARIABLES.url}\` = the Spotlight address in \`$SPOTLIGHT_URL\`.`,
+      ? `Spotlight set the repository variables \`${CiSetup.VARIABLES.url}\`, \`${CiSetup.VARIABLES.planTrust}\` and \`${CiSetup.VARIABLES.applyTrust}\`.`
+      : `The GitHub App may not write repository variables. In the pull request, tell the person to add these repository variables: \`${CiSetup.VARIABLES.planTrust}\` = \`${ci.pullRequestsTrustId}\`, \`${CiSetup.VARIABLES.applyTrust}\` = \`${ci.defaultBranchTrustId}\`, and \`${CiSetup.VARIABLES.url}\` = the Spotlight address in \`$SPOTLIGHT_URL\`.`,
     `Add \`${WORKFLOW}\` at the repository root. Start from this, and add the \`TF_VAR_\` secrets that the variables need. Its two state steps sign in to Spotlight's state with the job's OIDC token. If the team keeps the state elsewhere, replace those two steps with that backend's credentials:`,
     `\`\`\`yaml\n${workflowOf(configFolder.folder, ci.defaultBranch, release)}\n\`\`\``,
     'In the pull request, list each secret the person must add to the repository, and say what it is for. Also say that a pull request from a fork gets no OIDC token from GitHub, so its plan job fails.',

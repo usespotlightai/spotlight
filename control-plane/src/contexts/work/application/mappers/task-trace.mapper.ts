@@ -1,4 +1,8 @@
 import type {
+  Trace,
+  TraceNode,
+} from '@runs/application/contracts/run-trace.contract';
+import type {
   TaskTraceDto,
   TraceNodeDto,
 } from '@work/application/dto/task-trace.dto';
@@ -6,7 +10,6 @@ import {
   spanToDto,
   stepToDto,
 } from '@work/application/mappers/run-journal.mapper';
-import type { Trace, TraceNode } from '@work/application/read-models/trace-of';
 
 const nodeToDto = (node: TraceNode): TraceNodeDto => ({
   id: node.id,

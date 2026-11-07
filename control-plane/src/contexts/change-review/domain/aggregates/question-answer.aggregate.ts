@@ -1,5 +1,7 @@
+import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidAnswerError } from '@change-review/domain/exceptions/invalid-answer.error';
 import { QuestionAlreadyAnsweredError } from '@change-review/domain/exceptions/question-already-answered.error';
+import { assertOneOwner } from '@change-review/domain/services/stack-owner';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import type { LayerQuestion } from '@change-review/domain/value-objects/stack-cohort.vo';
@@ -10,6 +12,8 @@ import {
   type ModelCall,
   ModelUsage,
 } from '@shared-kernel/domain/value-objects/model-usage.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -29,7 +33,13 @@ export interface GradedReply {
 
 const MAX_REPLY = 4_000;
 
-export const MAX_FEEDBACK = 2_000;
+const MAX_FEEDBACK = 2_000;
+
+export const answersQuestion = (
+  answer: { readonly questionId: QuestionId; readonly asked: string },
+  question: { readonly id: QuestionId; readonly question: string },
+): boolean =>
+  question.id === answer.questionId && question.question === answer.asked;
 
 const replyOf = (raw: string | null): string | null => {
   const reply = raw?.trim() || null;
@@ -51,13 +61,8 @@ const gradedReply = (raw: string | null, graded: GradedReply | null) => {
     throw new InvalidAnswerError('without words has no grade');
   }
 
-  const feedback = graded?.grade.feedback.trim() || null;
-
-  if (feedback && feedback.length > MAX_FEEDBACK) {
-    throw new InvalidAnswerError(
-      `needs feedback of at most ${MAX_FEEDBACK} characters`,
-    );
-  }
+  const feedback =
+    graded?.grade.feedback.trim().slice(0, MAX_FEEDBACK).trimEnd() || null;
 
   return {
     reply,
@@ -70,6 +75,8 @@ export class QuestionAnswer extends EventRecorder {
   private constructor(
     readonly id: QuestionAnswerId,
     readonly workspaceId: WorkspaceId,
+    readonly taskId: TaskId | null,
+    readonly teamId: TeamId | null,
     readonly stackId: ChangeStackId,
     readonly questionId: QuestionId,
     readonly personId: UserId,
@@ -91,8 +98,7 @@ export class QuestionAnswer extends EventRecorder {
 
   static given(input: {
     id: QuestionAnswerId;
-    workspaceId: WorkspaceId;
-    stackId: ChangeStackId;
+    stack: Pick<ChangeStack, 'id' | 'workspaceId' | 'taskId' | 'teamId'>;
     question: LayerQuestion;
     personId: UserId;
     reply: string | null;
@@ -100,11 +106,16 @@ export class QuestionAnswer extends EventRecorder {
     now: Date;
   }): QuestionAnswer {
     const { reply, verdict, feedback } = gradedReply(input.reply, input.graded);
+    const { stack } = input;
+
+    assertOneOwner('question answer', stack);
 
     return new QuestionAnswer(
       input.id,
-      input.workspaceId,
-      input.stackId,
+      stack.workspaceId,
+      stack.taskId,
+      stack.teamId,
+      stack.id,
       input.question.id,
       input.personId,
       input.question.question,
@@ -121,6 +132,8 @@ export class QuestionAnswer extends EventRecorder {
   static rehydrate(input: {
     id: QuestionAnswerId;
     workspaceId: WorkspaceId;
+    taskId: TaskId | null;
+    teamId: TeamId | null;
     stackId: ChangeStackId;
     questionId: QuestionId;
     personId: UserId;
@@ -133,6 +146,8 @@ export class QuestionAnswer extends EventRecorder {
     answeredAt: Date;
     version: number;
   }): QuestionAnswer {
+    assertOneOwner('question answer', input);
+
     if (input.reply === null && input.verdict !== 'missed') {
       throw new InconsistentStateError(
         'question answer',
@@ -143,6 +158,8 @@ export class QuestionAnswer extends EventRecorder {
     return new QuestionAnswer(
       input.id,
       input.workspaceId,
+      input.taskId,
+      input.teamId,
       input.stackId,
       input.questionId,
       input.personId,
@@ -158,7 +175,7 @@ export class QuestionAnswer extends EventRecorder {
   }
 
   answers(question: LayerQuestion): boolean {
-    return question.id === this.questionId && question.question === this.asked;
+    return answersQuestion(this, question);
   }
 
   refuseIfAnswered(question: LayerQuestion): void {
@@ -183,6 +200,8 @@ export class QuestionAnswer extends EventRecorder {
     return new QuestionAnswer(
       this.id,
       this.workspaceId,
+      this.taskId,
+      this.teamId,
       this.stackId,
       this.questionId,
       this.personId,

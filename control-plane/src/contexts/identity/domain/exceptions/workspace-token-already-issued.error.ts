@@ -1,4 +1,6 @@
-export class WorkspaceTokenAlreadyIssuedError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class WorkspaceTokenAlreadyIssuedError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(readonly tokenName: string) {

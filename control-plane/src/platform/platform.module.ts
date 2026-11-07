@@ -1,5 +1,10 @@
 import { Global, Module } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD, HttpAdapterHost } from '@nestjs/core';
+import {
+  APP_FILTER,
+  APP_GUARD,
+  DiscoveryModule,
+  HttpAdapterHost,
+} from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { Instance } from '@platform/cluster/instance';
 import { CollabServer } from '@platform/collab/collab-server';
@@ -7,8 +12,7 @@ import { ENV } from '@platform/config/config.constants';
 import { ConfigModule } from '@platform/config/config.module';
 import type { Env } from '@platform/config/env.schema';
 import { SentryErrorReports } from '@platform/errors/sentry-error-reports';
-import { AsyncLocalCausation } from '@platform/events/async-local-causation';
-import { DeliveryBacklog } from '@platform/events/delivery-backlog';
+import { CauseCarrier } from '@platform/events/cause-carrier';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -16,17 +20,20 @@ import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { SHARED_KERNEL_PAYLOAD_TYPES } from '@platform/events/shared-kernel-payload-types';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { EXPRESSION_ENGINE } from '@platform/expressions/expression-engine.port';
 import { ExpressionFailures } from '@platform/expressions/expression-failures';
 import { PostgresReadiness } from '@platform/health/postgres-readiness';
 import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { ReadinessGauges } from '@platform/health/readiness-gauges';
+import { ApiConventions } from '@platform/http/api-conventions';
 import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
 import { InternalErrorFilter } from '@platform/http/filters/internal-error.filter';
 import { RateLimitGuard } from '@platform/http/guards/rate-limit.guard';
+import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempotent-creates';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
@@ -46,7 +53,6 @@ import { SystemClock } from '@platform/time/system-clock';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
 import { SentryGlobalFilter } from '@sentry/nestjs/setup';
-import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ERROR_REPORTS } from '@shared-kernel/application/ports/error-reports.port';
@@ -57,17 +63,21 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import { SAVEPOINT } from '@shared-kernel/application/ports/savepoint.port';
 import { TELEMETRY } from '@shared-kernel/application/ports/telemetry.port';
 import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
-import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
 @Global()
 @Module({
-  imports: [ConfigModule, LoggingModule, DrizzleModule, CqrsModule],
+  imports: [
+    ConfigModule,
+    LoggingModule,
+    DrizzleModule,
+    CqrsModule,
+    DiscoveryModule,
+  ],
   controllers: [HealthController, ErrorReportingController],
   providers: [
     {
@@ -136,8 +146,7 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     DrizzleContext,
     DrizzleReading,
     { provide: TRANSACTION, useExisting: DrizzleContext },
-    { provide: SAVEPOINT, useExisting: DrizzleContext },
-    { provide: CAUSATION, useClass: AsyncLocalCausation },
+    CauseCarrier,
     {
       provide: PayloadTypes,
       useFactory: () => {
@@ -150,10 +159,11 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     IntegrationEventMappers,
     EventProjections,
     EventOutbox,
+    ApiConventions,
+    ForbiddenActs,
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
-    DeliveryBacklog,
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },
@@ -187,16 +197,16 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     DrizzleContext,
     DrizzleReading,
     TRANSACTION,
-    SAVEPOINT,
-    CAUSATION,
+    CauseCarrier,
     PayloadTypes,
     EventSubscribers,
     IntegrationEventMappers,
     EventProjections,
     EventOutbox,
+    ApiConventions,
+    ForbiddenActs,
     DOMAIN_EVENT_DISPATCHER,
     EventDelivery,
-    DeliveryBacklog,
     ID_GENERATOR,
     CLOCK,
     EXPRESSION_ENGINE,

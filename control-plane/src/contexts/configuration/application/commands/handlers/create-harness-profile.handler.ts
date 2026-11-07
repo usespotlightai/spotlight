@@ -4,6 +4,7 @@ import type { SecretNamesPort } from '@configuration/application/ports/secret-na
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileAlreadyExistsError } from '@configuration/domain/exceptions/harness-profile-already-exists.error';
+import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
@@ -25,6 +26,7 @@ import { createIdempotently } from '@shared-kernel/application/services/create-i
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class CreateHarnessProfileHandler
   implements
@@ -45,8 +47,8 @@ export class CreateHarnessProfileHandler
     command: CreateHarnessProfileCommand,
   ): Promise<ResourceCreated | null> {
     try {
-      const permissions = await this.access.permissionsOnTeam(
-        command.teamId,
+      const permissions = await this.access.permissionsInWorkspaceOfTeam(
+        TeamId.of(command.teamId),
         command.actor.principal,
       );
       if (!permissions) {
@@ -63,7 +65,7 @@ export class CreateHarnessProfileHandler
         return null;
       }
 
-      const compiled = this.compiler.compile(command.definition);
+      const compiled = this.compiler.parse(command.definition);
 
       if (!compiled.ok) {
         return { outcome: 'invalid', problems: compiled.problems };
@@ -89,6 +91,7 @@ export class CreateHarnessProfileHandler
               teamId: team.id,
               by: ChangeActor.of(command.actor, team.workspaceId),
               existingSecrets: await this.secrets.ofTeam(team.id),
+              harnesses: this.compiler,
             });
 
             await this.profiles.save(created);
@@ -97,6 +100,16 @@ export class CreateHarnessProfileHandler
           }),
         );
       } catch (error) {
+        if (error instanceof IncompatibleHarnessProfileError) {
+          return {
+            outcome: 'invalid',
+            problems: HarnessProfileProblems.incompatible(
+              error.key,
+              error.incompatibilities,
+            ),
+          };
+        }
+
         if (error instanceof MissingSecretsError) {
           return {
             outcome: 'invalid',

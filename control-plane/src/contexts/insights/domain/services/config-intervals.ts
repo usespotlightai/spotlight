@@ -1,6 +1,7 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { inStartOrder } from '@insights/domain/services/run-order';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export interface ConfigRun {
   readonly runId: RunId;
@@ -10,14 +11,14 @@ export interface ConfigRun {
   readonly beganAt: Date;
 }
 
-const configRunOf = (record: RunRecord): ConfigRun | null => {
+const configRunOf = (record: RunFact): ConfigRun | null => {
   const end = record.end;
 
-  return end?.ranItsConfig && end.fingerprint !== null
+  return end.ranAConfig && end.fingerprint !== null
     ? {
         runId: record.runId,
-        lineId: end.location.lineId,
-        stationId: end.location.stationId,
+        lineId: end.location.lineId.value,
+        stationId: end.location.stationId.value,
         fingerprint: end.fingerprint,
         beganAt: end.beganAt,
       }
@@ -25,7 +26,7 @@ const configRunOf = (record: RunRecord): ConfigRun | null => {
 };
 
 export interface ConfigIntervalBound {
-  readonly stationId: string;
+  readonly stationId: StationId;
   readonly from: Date;
   readonly fromRun?: RunId;
 }
@@ -46,17 +47,17 @@ export const earliestBounds = (
   const earliest = new Map<string, ConfigIntervalBound>();
 
   for (const bound of bounds) {
-    const known = earliest.get(bound.stationId);
+    const known = earliest.get(bound.stationId.value);
 
     if (!known || earlier(bound, known)) {
-      earliest.set(bound.stationId, bound);
+      earliest.set(bound.stationId.value, bound);
     }
   }
 
   return earliest;
 };
 
-const configRunsAlong = (records: readonly RunRecord[]): readonly ConfigRun[] =>
+const configRunsAlong = (records: readonly RunFact[]): readonly ConfigRun[] =>
   records
     .flatMap((record) => {
       const run = configRunOf(record);
@@ -64,33 +65,9 @@ const configRunsAlong = (records: readonly RunRecord[]): readonly ConfigRun[] =>
     })
     .sort(inStartOrder);
 
-export interface ConfigChange {
-  readonly run: ConfigRun;
-  readonly previous: string | null;
-}
-
-export interface CarriedConfigs {
-  readonly from: Date;
-  readonly lastRuns: readonly RunRecord[];
-}
-
 export const lastConfigsOf = (
-  records: readonly RunRecord[],
+  records: readonly RunFact[],
 ): Map<string, string> =>
   new Map(
     configRunsAlong(records).map((run) => [run.stationId, run.fingerprint]),
   );
-
-export const configChangesAlong = (
-  records: readonly RunRecord[],
-  before: readonly RunRecord[] = [],
-): readonly ConfigChange[] => {
-  const last = lastConfigsOf(before);
-
-  return configRunsAlong(records).flatMap((run) => {
-    const previous = last.get(run.stationId) ?? null;
-    last.set(run.stationId, run.fingerprint);
-
-    return previous === run.fingerprint ? [] : [{ run, previous }];
-  });
-};

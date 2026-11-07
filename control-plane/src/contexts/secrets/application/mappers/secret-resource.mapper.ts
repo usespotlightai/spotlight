@@ -31,13 +31,13 @@ export const SecretResourceMapper = {
         field: secret.source.field,
       },
       bindings: secret.bindings.all.map((each) => ({
-        host: each.host,
+        host: each.host.value,
         location: each.target.location,
         name: each.target.name,
         prefix: each.prefix,
       })),
       storesValue: secret.source.isBuiltIn,
-      valueVersion: secret.valueVersion,
+      valueVersion: secret.valueVersion?.value ?? null,
     };
   },
 };

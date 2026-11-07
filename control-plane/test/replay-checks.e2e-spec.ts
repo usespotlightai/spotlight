@@ -2,19 +2,19 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import {
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -22,7 +22,9 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-check-${randomUUID().slice(0, 8)}`;
@@ -42,11 +44,12 @@ const LIVE_CHECK = {
 
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -166,13 +169,12 @@ const anOriginal = async (): Promise<string> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -188,29 +190,37 @@ const anOriginal = async (): Promise<string> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(BUILD),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
   });
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId: BUILD,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(BUILD),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      orderedAt: at,
+      endedAt: at,
+    }),
+  );
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -228,12 +238,29 @@ const readCheck = async (id: string, token = readToken): Promise<CheckRead> =>
   (await bearing(token).get(`${teamPath()}/replay-checks/${id}`).expect(200))
     .body as CheckRead;
 
-const startCheck = async (station: unknown): Promise<CheckRead> =>
-  (
+const replayStarted = (replayId: string) =>
+  eventually(
+    async () =>
+      (
+        await db
+          .select({ id: schema.replay.id })
+          .from(schema.replay)
+          .where(eq(schema.replay.id, replayId))
+      ).length > 0,
+    60_000,
+  );
+
+const startCheck = async (station: unknown): Promise<CheckRead> => {
+  const started = (
     await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(station))
       .expect(201)
   ).body as CheckRead;
+
+  await replayStarted(started.replayId);
+
+  return started;
+};
 
 const baselineOf = (check: CheckRead) =>
   eventually(async () => (await readCheck(check.id)).baselineReplayId);
@@ -310,7 +337,7 @@ const tokenWith = async (scopes: readonly string[]) => {
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore),
@@ -335,7 +362,7 @@ beforeAll(async () => {
     repository: Repository.of('acme/api').value,
     setup: 'npm ci',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -717,7 +744,7 @@ describe('a replay check', () => {
     expect(current.body.id).toBe(second.id);
 
     expect(
-      await app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(keptSetId)),
+      await app.get(RefreshReplaySets).refreshBefore(ReplaySetId.of(keptSetId)),
     ).toBe(false);
 
     await createSet(originals.filter((each) => each !== originals[1]));

@@ -133,8 +133,8 @@ const timed = sql`${ran} and ${runFact.ms} is not null`;
 export const tallyColumns = sql`
   ${counted(ran)} as runs,
   ${counted(sql`not ${ran}`)} as cancelled,
-  ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'failed'`)} as failed,
-  ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'stopped'`)} as stopped,
+  ${counted(sql`${runFact.ending} = 'failed'`)} as failed,
+  ${counted(sql`${runFact.ending} = 'stopped'`)} as stopped,
   ${counted(sql`${ran} and ${runFact.checks} = 'passed'`)} as checks_passed,
   ${counted(sql`${ran} and ${runFact.checks} = 'failed'`)} as checks_failed,
   ${counted(sql`${ran} and ${runFact.firstHumanAction} = 'accepted'`)} as accepted,
@@ -193,7 +193,7 @@ export interface GroupColumns extends TallyColumns {
   readonly usage_recorded: number;
 }
 
-export const groupCountsOf = (row: GroupColumns): GroupCounts => ({
+export const groupCountsOfRow = (row: GroupColumns): GroupCounts => ({
   tally: tallyCountsOf(row),
   measured: {
     acted: row.acted,

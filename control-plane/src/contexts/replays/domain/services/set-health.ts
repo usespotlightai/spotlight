@@ -1,4 +1,3 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
@@ -9,13 +8,14 @@ import {
 import { totalsOf } from '@replays/domain/services/replay-results';
 import {
   noiseReadingOf,
-  type ReplayedConfig,
+  type ScoredCandidate,
   type SetNoiseReading,
   setNoiseOf,
 } from '@replays/domain/services/set-noise';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ChecksState } from '@replays/domain/value-objects/change-checks.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -23,11 +23,51 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const MIN_CHECKED_RUNS = 5;
 
+export const HEALTH_SAMPLES_PER_GROUP = 3;
+
+export interface HealthSampled {
+  readonly id: { readonly value: string };
+  readonly setId: { readonly value: string };
+  readonly healthSampleGroup: { readonly value: string } | null;
+  readonly sampledAt: Date;
+  readonly startedAt: Date;
+}
+
+const newestSampleFirst = (one: HealthSampled, other: HealthSampled): number =>
+  other.sampledAt.getTime() - one.sampledAt.getTime() ||
+  (one.id.value < other.id.value ? 1 : -1);
+
+const startedSampleFirst = (one: HealthSampled, other: HealthSampled): number =>
+  one.startedAt.getTime() - other.startedAt.getTime() ||
+  (one.id.value < other.id.value ? -1 : 1);
+
+export const healthSamplesOf = <T extends HealthSampled>(
+  replays: readonly T[],
+): readonly T[] => {
+  const groups = new Map<string, T[]>();
+
+  for (const each of replays) {
+    const group = each.healthSampleGroup;
+
+    if (group !== null) {
+      const key = `${each.setId.value}|${group.value}`;
+
+      groups.set(key, [...(groups.get(key) ?? []), each]);
+    }
+  }
+
+  return [...groups.values()]
+    .flatMap((each) =>
+      [...each].sort(newestSampleFirst).slice(0, HEALTH_SAMPLES_PER_GROUP),
+    )
+    .sort(startedSampleFirst);
+};
+
 export const SATURATED_ABOVE = 0.95;
 
 export const JUDGE_UNSTABLE_BELOW = 0.8;
 
-export interface HealthConfig extends ReplayedConfig {
+export interface HealthCandidate extends ScoredCandidate {
   readonly isOracle: boolean;
   readonly basedOn: StationFingerprint;
 }
@@ -94,28 +134,30 @@ export const UNREAD_HEALTH: SetHealth = {
   oracle: null,
 };
 
-const newestFirst = (one: Replay, other: Replay): number =>
+const newestFirst = (one: ReplayOutcome, other: ReplayOutcome): number =>
   (other.endedAt ?? other.startedAt).getTime() -
   (one.endedAt ?? one.startedAt).getTime();
 
-const configOf = (
-  replay: Replay,
-  configs: readonly HealthConfig[],
-): HealthConfig | null =>
-  configs.find((each) => each.id.equals(replay.candidateId)) ?? null;
+const candidateOf = (
+  replay: ReplayOutcome,
+  candidates: readonly HealthCandidate[],
+): HealthCandidate | null =>
+  candidates.find((each) => each.id.equals(replay.candidateId)) ?? null;
 
 const isWholeLive = (
-  replay: Replay,
-  configs: readonly ReplayedConfig[],
+  replay: ReplayOutcome,
+  candidates: readonly ScoredCandidate[],
   liveFingerprint: StationFingerprint,
 ): boolean => {
-  const config = configs.find((each) => each.id.equals(replay.candidateId));
+  const candidate = candidates.find((each) =>
+    each.id.equals(replay.candidateId),
+  );
 
   return (
     replay.runSubset === null &&
     (replay.searchId === null || replay.calibration) &&
-    config?.isLive === true &&
-    config.fingerprint.equals(liveFingerprint)
+    candidate?.isLive === true &&
+    candidate.fingerprint.equals(liveFingerprint)
   );
 };
 
@@ -125,14 +167,14 @@ const VALID_CALIBRATION_STATES: readonly ReplayState[] = [
   'finished',
 ];
 
-const coversSet = (replay: Replay, set: ReplaySet): boolean =>
+const coversSet = (replay: ReplayOutcome, set: ReplaySet): boolean =>
   replay.originals.length === set.runs.length &&
   set.runs.every((run) => replay.originals.some((each) => each.equals(run)));
 
 export const wantsCalibration = (
   set: ReplaySet,
-  replays: readonly Replay[],
-  configs: readonly ReplayedConfig[],
+  replays: readonly ReplayOutcome[],
+  candidates: readonly ScoredCandidate[],
   liveFingerprint: StationFingerprint,
 ): boolean =>
   set.entries.length >= MIN_CHECKED_RUNS &&
@@ -140,11 +182,11 @@ export const wantsCalibration = (
     (each) =>
       each.calibration &&
       VALID_CALIBRATION_STATES.includes(each.current) &&
-      isWholeLive(each, configs, liveFingerprint) &&
+      isWholeLive(each, candidates, liveFingerprint) &&
       coversSet(each, set),
   );
 
-const saturationOf = (live: readonly Replay[]): SetSaturation | null => {
+const saturationOf = (live: readonly ReplayOutcome[]): SetSaturation | null => {
   for (const replay of live) {
     const totals = totalsOf(replay);
 
@@ -162,7 +204,7 @@ const saturationOf = (live: readonly Replay[]): SetSaturation | null => {
   return null;
 };
 
-const judgeOf = (calibration: Replay): JudgeConsistency | null => {
+const judgeOf = (calibration: ReplayOutcome): JudgeConsistency | null => {
   const requested = calibration.entries.filter(
     (each) => each.secondJudging !== null,
   );
@@ -185,7 +227,7 @@ const judgeOf = (calibration: Replay): JudgeConsistency | null => {
   };
 };
 
-const checksOf = (calibration: Replay): CheckConsistency | null => {
+const checksOf = (calibration: ReplayOutcome): CheckConsistency | null => {
   const requested = calibration.entries.filter((each) => each.recheck !== null);
 
   if (requested.length === 0) {
@@ -213,9 +255,9 @@ const checksOf = (calibration: Replay): CheckConsistency | null => {
 };
 
 const oracleOf = (
-  oracle: Replay,
-  config: HealthConfig,
-  replays: readonly Replay[],
+  oracle: ReplayOutcome,
+  candidate: HealthCandidate,
+  replays: readonly ReplayOutcome[],
   minGain: number,
 ): OracleReading => {
   const against = oracle.referenceReplayId
@@ -231,7 +273,7 @@ const oracleOf = (
 
   return {
     replayId: oracle.id,
-    candidateId: config.id,
+    candidateId: candidate.id,
     repeats: oracle.repeats,
     state: oracle.current,
     referenceReplayId: oracle.referenceReplayId,
@@ -251,35 +293,62 @@ const oracleOf = (
   };
 };
 
+export const missingReferencesOf = <
+  T extends {
+    readonly id: ReplayId;
+    readonly referenceReplayId: ReplayId | null;
+  },
+>(
+  read: readonly T[],
+): readonly ReplayId[] =>
+  read.flatMap((each) =>
+    each.referenceReplayId &&
+    !read.some((other) => each.referenceReplayId?.equals(other.id))
+      ? [each.referenceReplayId]
+      : [],
+  );
+
+export const healthReplaysOf = <T extends HealthSampled>(
+  read: readonly T[],
+  references: readonly T[],
+  setId: { readonly value: string },
+): readonly T[] =>
+  [...read, ...references].filter((each) => each.setId.value === setId.value);
+
 export const setHealthOf = (
-  replays: readonly Replay[],
-  configs: readonly HealthConfig[],
-  liveFingerprint: StationFingerprint,
+  replays: readonly ReplayOutcome[],
+  candidates: readonly HealthCandidate[],
+  liveFingerprint: StationFingerprint | null,
   minGain: number,
 ): SetHealth => {
+  if (!liveFingerprint) {
+    return UNREAD_HEALTH;
+  }
+
   const newest = [...replays].sort(newestFirst);
   const live = newest.filter(
     (each) =>
       each.current === 'finished' &&
-      isWholeLive(each, configs, liveFingerprint),
+      isWholeLive(each, candidates, liveFingerprint),
   );
   const calibration = live.find((each) => each.calibration) ?? null;
   const oracle =
     newest.flatMap((each) => {
-      const config = configOf(each, configs);
+      const candidate = candidateOf(each, candidates);
 
-      return config?.isOracle && config.basedOn.equals(liveFingerprint)
-        ? [{ replay: each, config }]
+      return candidate?.isOracle && candidate.basedOn.equals(liveFingerprint)
+        ? [{ replay: each, candidate }]
         : [];
     })[0] ?? null;
 
-  const noise = setNoiseOf(replays, configs, liveFingerprint);
+  const noise = setNoiseOf(replays, candidates, liveFingerprint);
 
   return {
     noise: noise && noiseReadingOf(noise, minGain),
     saturation: saturationOf(live),
     judge: calibration && judgeOf(calibration),
     checks: calibration && checksOf(calibration),
-    oracle: oracle && oracleOf(oracle.replay, oracle.config, replays, minGain),
+    oracle:
+      oracle && oracleOf(oracle.replay, oracle.candidate, replays, minGain),
   };
 };

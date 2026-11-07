@@ -3,6 +3,7 @@ import {
   HostImage,
   type ReportedImage,
 } from '@runners/domain/value-objects/host-image.vo';
+import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 
@@ -22,7 +23,7 @@ const bounded = (field: string, raw: string, max: number): string => {
 export class HostReport {
   private constructor(
     readonly name: string,
-    readonly release: string,
+    readonly release: HostRelease,
     readonly containerRuntime: string,
     readonly capacity: number,
     readonly running: readonly RunnerId[],
@@ -81,7 +82,7 @@ export class HostReport {
 
     return new HostReport(
       bounded('name', input.name, 120),
-      bounded('release', input.release, 64),
+      HostRelease.of(input.release),
       bounded('containerRuntime', input.containerRuntime, 200),
       input.capacity,
       [...new Set(input.running)].map((id) => RunnerId.of(id)),

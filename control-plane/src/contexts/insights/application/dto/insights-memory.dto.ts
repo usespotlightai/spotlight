@@ -12,13 +12,6 @@ export interface FlaggedMemoryDto {
   readonly at: string;
 }
 
-export interface MemoryBenchmarkDto {
-  readonly ranAt: string;
-  readonly withMemories: number;
-  readonly withoutMemories: number;
-  readonly cases: number;
-}
-
 export interface InsightsMemoryDto {
   readonly period: PeriodDto;
   readonly activeCount: number;
@@ -30,5 +23,4 @@ export interface InsightsMemoryDto {
   readonly withMemories: RunTally;
   readonly withoutMemories: RunTally;
   readonly verdicts: readonly MeasureVerdict[];
-  readonly benchmark: MemoryBenchmarkDto | null;
 }

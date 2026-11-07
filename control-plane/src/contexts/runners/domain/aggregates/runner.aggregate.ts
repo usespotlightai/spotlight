@@ -1,6 +1,7 @@
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
+import { RunnerEndedError } from '@runners/domain/exceptions/runner-ended.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
@@ -268,15 +269,15 @@ export class Runner extends EventRecorder {
   }
 
   claim(work: RunnerWork, at: Date): Runner {
-    if (this.state.work !== null || !this.isAlive(at)) {
+    if (this.state.work !== null) {
       throw new RunnerAlreadyClaimedError(this.state.id.value);
     }
 
-    return this.with({ work, lastHeartbeatAt: at });
-  }
+    if (!this.isAlive(at)) {
+      throw new RunnerEndedError(this.state.id.value);
+    }
 
-  hasLeaseOn(work: RunnerWork): boolean {
-    return this.state.work?.equals(work) ?? false;
+    return this.with({ work, lastHeartbeatAt: at });
   }
 
   ended(at: Date): Runner {
@@ -304,7 +305,7 @@ export class Runner extends EventRecorder {
 
   private assertNotEnded(): void {
     if (this.hasEnded) {
-      throw new RunnerAlreadyClaimedError(this.state.id.value);
+      throw new RunnerEndedError(this.state.id.value);
     }
   }
 

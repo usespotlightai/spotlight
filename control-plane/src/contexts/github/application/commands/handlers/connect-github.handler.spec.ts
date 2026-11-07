@@ -54,16 +54,15 @@ const connecting = (
 
   const handler = new ConnectGitHubHandler(
     {
-      viewableBy: vi.fn(),
       mayView: vi.fn(),
-      onTeam: vi.fn(),
+      inWorkspaceOfTeam: vi.fn(),
       inWorkspace: vi.fn(async () =>
         over.membership === undefined ? membership() : over.membership,
       ),
       permissionsIn: vi.fn(),
       permissionsInSlug: vi.fn(),
-      permissionsOnTeam: vi.fn(),
-      permissionsAsTeamReader: vi.fn(),
+      permissionsInWorkspaceOfTeam: vi.fn(),
+      permissionsAsTeamMember: vi.fn(),
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
     {

@@ -1,9 +1,11 @@
-export class MixedRunnerImagesError extends Error {
-  readonly kind = 'invalid' as const;
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 
-  constructor(images: readonly string[]) {
+export class MixedRunnerImagesError extends DomainError {
+  readonly kind = 'conflict' as const;
+
+  constructor() {
     super(
-      `Line repositories name different images (${images.join(', ')}). A line runs every station in one image.`,
+      'The lines that name these repositories run in different images, so one chat cannot read them all. Please give the lines one image, or choose fewer repositories.',
     );
     this.name = 'MixedRunnerImagesError';
   }

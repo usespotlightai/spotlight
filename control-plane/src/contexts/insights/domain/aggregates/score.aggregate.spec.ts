@@ -4,18 +4,18 @@ import {
 } from '@insights/domain/aggregates/score.aggregate';
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
-import {
-  judgeScore,
-  locationOf,
-  personGrade,
-  RUBRIC_VERSION,
-} from '@insights/domain/judging.fake-spec';
-import { WORKSPACE } from '@insights/domain/runs.fake-spec';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import {
+  judgeScore,
+  locationOf,
+  personGrade,
+  RUBRIC_VERSION,
+} from '@insights/judging.fake-spec';
+import { WORKSPACE } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 

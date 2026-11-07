@@ -31,8 +31,9 @@ export interface LeasedRun extends RunContext {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
-  readonly replaysFrom: Date | null;
-  readonly isSearch: boolean;
+  readonly asOf: Date | null;
+  readonly isolated: boolean;
+  readonly trial: boolean;
 }
 
 export interface RememberedTask {
@@ -60,13 +61,6 @@ export interface TaskNote {
   readonly text: string;
 }
 
-export interface TeamLine {
-  readonly id: string;
-  readonly name: string;
-  readonly stations: readonly { readonly id: string; readonly name: string }[];
-  readonly repositories: readonly Repository[];
-}
-
 export interface WorkPort {
   run(runId: RunId): Promise<RememberedRun | null>;
 
@@ -74,15 +68,9 @@ export interface WorkPort {
 
   contextOfRun(runId: RunId): Promise<RunContext | null>;
 
-  referencedUnder(
-    runId: RunId,
-    folder: string,
-    file: RegExp,
-  ): Promise<readonly string[] | null>;
+  memoryFilesRead(runId: RunId): Promise<readonly string[] | null>;
 
   stationContextOf(runId: RunId): Promise<NamedStationContext | null>;
-
-  linesOf(teamId: TeamId): Promise<readonly TeamLine[]>;
 
   task(taskId: TaskId): Promise<RememberedTask | null>;
 

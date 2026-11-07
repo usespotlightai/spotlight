@@ -1,4 +1,5 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import {
   SECRET,
@@ -23,12 +24,7 @@ export class HookSigningSecret implements Secret {
   }
 
   static of(raw: string): HookSigningSecret {
-    const encoded = raw.startsWith(PREFIX) ? raw.slice(PREFIX.length) : '';
-    const bytes = BASE64.test(encoded)
-      ? Buffer.from(encoded, 'base64').length
-      : 0;
-
-    if (bytes < MIN_BYTES || bytes > MAX_BYTES) {
+    if (!HookSigningSecret.isWellFormed(raw)) {
       throw new InvalidHookError(
         FieldPath.of(['signing', 'secret']),
         `must be whsec_ followed by ${MIN_BYTES} to ${MAX_BYTES} base64-encoded random bytes`,
@@ -36,6 +32,26 @@ export class HookSigningSecret implements Secret {
     }
 
     return new HookSigningSecret(raw);
+  }
+
+  static rehydrate(stored: string): HookSigningSecret {
+    if (!HookSigningSecret.isWellFormed(stored)) {
+      throw new InconsistentStateError(
+        'hook signing secret',
+        'was stored in a shape no hook can sign with',
+      );
+    }
+
+    return new HookSigningSecret(stored);
+  }
+
+  private static isWellFormed(raw: string): boolean {
+    const encoded = raw.startsWith(PREFIX) ? raw.slice(PREFIX.length) : '';
+    const bytes = BASE64.test(encoded)
+      ? Buffer.from(encoded, 'base64').length
+      : 0;
+
+    return bytes >= MIN_BYTES && bytes <= MAX_BYTES;
   }
 
   get [SECRET](): true {

@@ -2,7 +2,9 @@ import { ReviewComment } from '@change-review/domain/aggregates/review-comment.a
 import { InvalidFilePathError } from '@change-review/domain/exceptions/invalid-file-path.error';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { NotYourReviewCommentError } from '@change-review/domain/exceptions/not-your-review-comment.error';
+import { commentVisibleTo } from '@change-review/domain/services/comment-visibility';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
+import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -15,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-16T10:00:00Z');
 const ADA = UserId.of('user_ada');
 const BOB = UserId.of('user_bob');
+const UNREACHABLE = DeliveryFailure.of('github-unreachable');
 
 const ANCHOR = ReviewAnchor.onLines({
   path: 'src/invite.ts',
@@ -53,8 +56,8 @@ describe('ReviewComment', () => {
 
     expect(comment.state).toBe('draft');
     expect(comment.body).toBe('Should this expire?');
-    expect(comment.visibleTo(ADA)).toBe(true);
-    expect(comment.visibleTo(BOB)).toBe(false);
+    expect(commentVisibleTo(comment, ADA)).toBe(true);
+    expect(commentVisibleTo(comment, BOB)).toBe(false);
   });
 
   it('rejects a comment that says nothing', () => {
@@ -64,9 +67,9 @@ describe('ReviewComment', () => {
   it('shows to everyone once submitted, and joins GitHub once posted', () => {
     const submitted = drafted().submittedIn(ReviewId.of('review_1'));
 
-    expect(submitted.state).toBe('submitted');
+    expect(submitted.state).toBe('sending');
     expect(submitted.reviewId?.value).toBe('review_1');
-    expect(submitted.visibleTo(BOB)).toBe(true);
+    expect(commentVisibleTo(submitted, BOB)).toBe(true);
 
     const posted = submitted.postedAs({
       id: 42,
@@ -89,7 +92,7 @@ describe('ReviewComment', () => {
       now: NOW,
     });
 
-    expect(reply.state).toBe('submitted');
+    expect(reply.state).toBe('sending');
     expect(reply.replyTo?.value).toBe('comment_1');
     expect(reply.anchor.equals(ANCHOR)).toBe(true);
 
@@ -276,14 +279,14 @@ describe('ReviewComment', () => {
       anchor: ANCHOR,
       body: 'From GitHub',
       author: ReviewAuthor.onGitHub('octocat'),
-      replyTo: null,
+      inReplyTo: null,
       github: { id: 7, url: 'https://github.com/c/7' },
       at: NOW,
     });
 
-    expect(posted.visibleTo(ADA)).toBe(true);
+    expect(commentVisibleTo(posted, ADA)).toBe(true);
     expect(posted.editedOnGitHub('Changed', NOW).body).toBe('Changed');
-    expect(posted.deletedOnGitHub().visibleTo(ADA)).toBe(false);
+    expect(commentVisibleTo(posted.deletedOnGitHub(), ADA)).toBe(false);
   });
 
   it('has an edit to send to GitHub until one carrying its latest words is sent', () => {
@@ -351,20 +354,18 @@ describe('ReviewComment', () => {
     const returned = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .edited('Clearer', ADA, NOW)
-      .notPosted();
+      .notPosted(UNREACHABLE);
 
     expect(returned.state).toBe('draft');
     expect(returned.reviewId).toBeNull();
     expect(returned.sending).toBe(false);
     expect(returned.body).toBe('Clearer');
-    expect(returned.submittedIn(ReviewId.of('review_2')).state).toBe(
-      'submitted',
-    );
+    expect(returned.submittedIn(ReviewId.of('review_2')).state).toBe('sending');
 
     const deleted = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .deleted(ADA)
-      .notPosted();
+      .notPosted(UNREACHABLE);
 
     expect(deleted.state).toBe('deleted');
     expect(deleted.sending).toBe(false);
@@ -380,7 +381,7 @@ describe('ReviewComment', () => {
         author: ReviewAuthor.person(BOB, AuthorName.of('Bob')),
         now: NOW,
       })
-      .notPosted();
+      .notPosted(UNREACHABLE);
 
     expect(failed.answerable).toBe(false);
     expect(() =>
@@ -416,11 +417,58 @@ describe('ReviewComment', () => {
         author: ReviewAuthor.person(BOB, AuthorName.of('Bob')),
         now: NOW,
       })
-      .notPosted();
+      .notPosted(UNREACHABLE);
 
     expect(reply.state).toBe('failed');
     expect(reply.sending).toBe(false);
-    expect(reply.visibleTo(ADA)).toBe(true);
+    expect(commentVisibleTo(reply, ADA)).toBe(true);
+  });
+});
+
+describe('ReviewComment on GitHub', () => {
+  it('cannot be answered once posted inside a review body, as it has no thread of its own', () => {
+    const folded = drafted()
+      .submittedIn(ReviewId.of('review_1'))
+      .postedAs(null);
+
+    expect(folded.state).toBe('posted');
+    expect(folded.answerable).toBe(false);
+    expect(() =>
+      folded.replied({
+        id: ReviewCommentId.of('comment_2'),
+        body: 'Done',
+        author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+        now: NOW,
+      }),
+    ).toThrow(InvalidReviewError);
+  });
+
+  it('drops an edit it still had to send once deleted on GitHub', () => {
+    const deleted = drafted()
+      .submittedIn(ReviewId.of('review_1'))
+      .postedAs({ id: 42, url: 'https://github.com/c/42' })
+      .edited('Clearer', ADA, NOW)
+      .deletedOnGitHub();
+
+    expect(deleted.state).toBe('deleted');
+    expect(deleted.editPending).toBe(false);
+    expect(deleted.deletedOnGitHub()).toBe(deleted);
+  });
+
+  it('keeps why it failed to reach GitHub', () => {
+    const reply = drafted()
+      .submittedIn(ReviewId.of('review_1'))
+      .postedAs({ id: 42, url: 'https://github.com/c/42' })
+      .replied({
+        id: ReviewCommentId.of('comment_2'),
+        body: 'Done',
+        author: ReviewAuthor.person(BOB, AuthorName.of('Bob')),
+        now: NOW,
+      })
+      .notPosted(UNREACHABLE);
+
+    expect(reply.failure).toEqual(UNREACHABLE);
+    expect(reply.deleted(BOB).failure).toBeNull();
   });
 });
 

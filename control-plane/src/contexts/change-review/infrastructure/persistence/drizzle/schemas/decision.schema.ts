@@ -31,16 +31,13 @@ export const decisionSet = pgTable(
     sourceRunId: text('source_run_id'),
     generationRunId: text('generation_run_id'),
     generationRequestedAt: timestamptz('generation_requested_at'),
-    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobAttempts: integer('job_attempts').notNull(),
     jobDueAt: timestamptz('job_due_at'),
-    status: decisionStatus('status')
-      .$type<DecisionStatusValue>()
-      .notNull()
-      .default('proposed'),
+    status: decisionStatus('status').$type<DecisionStatusValue>().notNull(),
     mergedRepository: text('merged_repository'),
     mergedCommit: text('merged_commit'),
     mergedAt: timestamptz('merged_at'),
-    version: integer('version').notNull().default(0),
+    version: integer('version').notNull(),
   },
   (table) => [
     check(

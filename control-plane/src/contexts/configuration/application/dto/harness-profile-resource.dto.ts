@@ -1,4 +1,4 @@
-import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
+import type { SecretReferenceAt } from '@configuration/application/dto/secret-reference-at.dto';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export interface McpServerDto {

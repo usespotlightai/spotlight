@@ -1,4 +1,4 @@
-import { MAX_INVITED_AT_ONCE } from '@identity/application/commands/invite-to-workspace.command';
+import { MOST_INVITED_AT_ONCE } from '@identity/domain/value-objects/invitees.vo';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class InviteToWorkspaceRequestDto {
@@ -9,7 +9,7 @@ export class InviteToWorkspaceRequestDto {
     type: String,
     isArray: true,
     minItems: 1,
-    maxItems: MAX_INVITED_AT_ONCE,
+    maxItems: MOST_INVITED_AT_ONCE,
   })
   readonly emails!: string[];
 

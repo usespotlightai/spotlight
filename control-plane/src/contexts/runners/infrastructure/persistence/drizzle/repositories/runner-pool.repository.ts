@@ -20,14 +20,15 @@ import {
 } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
@@ -42,11 +43,11 @@ const written = (pool: RunnerPool) => {
     labels: [...pool.labels.values],
     maxRuns: pool.maxRuns?.value ?? null,
     tokenHash: access.mode === 'pull' ? access.tokenHash.value : null,
-    tokenVersion: access.mode === 'pull' ? access.tokenVersion : null,
+    tokenVersion: access.mode === 'pull' ? access.tokenVersion.value : null,
     provisionUrl: access.mode === 'push' ? access.url.value : null,
     provisionSecret: access.mode === 'push' ? access.secret.value : null,
     provisionSecretVersion:
-      access.mode === 'push' ? access.secretVersion : null,
+      access.mode === 'push' ? access.secretVersion.value : null,
     provisionEgress:
       access.mode === 'push' ? (access.egress?.value ?? null) : null,
     provisionEgressTraffic:
@@ -58,14 +59,17 @@ const written = (pool: RunnerPool) => {
 
 const accessOf = (row: Row): PoolAccess => {
   if (row.tokenHash) {
-    return PullAccess.of(TokenHash.of(row.tokenHash), row.tokenVersion);
+    return PullAccess.of(
+      TokenHash.of(row.tokenHash),
+      RotationVersion.of(row.tokenVersion),
+    );
   }
 
   if (row.provisionUrl && row.provisionSecret) {
     return PushAccess.of(
       ProvisionUrl.of(row.provisionUrl),
       EncryptedProvisionSecret.of(row.provisionSecret),
-      row.provisionSecretVersion,
+      RotationVersion.of(row.provisionSecretVersion),
       row.provisionEgress === null
         ? null
         : EgressReference.of(row.provisionEgress),
@@ -83,7 +87,7 @@ const accessOf = (row: Row): PoolAccess => {
 
 const toPool = (row: Row): RunnerPool =>
   RunnerPool.rehydrate({
-    id: RunnerPoolId.of(row.id),
+    id: PoolId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     key: PoolKey.of(row.key),
     labels: RunnerLabels.of(row.labels),
@@ -157,11 +161,11 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
     });
   }
 
-  find(id: RunnerPoolId): Promise<RunnerPool | null> {
+  find(id: PoolId): Promise<RunnerPool | null> {
     return this.one(eq(runnerPool.id, id.value), { locked: false });
   }
 
-  findForStart(id: RunnerPoolId): Promise<RunnerPool | null> {
+  findForStart(id: PoolId): Promise<RunnerPool | null> {
     return this.one(eq(runnerPool.id, id.value), { locked: true });
   }
 

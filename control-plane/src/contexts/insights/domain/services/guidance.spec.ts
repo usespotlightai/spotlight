@@ -1,6 +1,6 @@
-import { claimsCriteria } from '@insights/domain/judging.fake-spec';
 import { guardedGuidanceOf } from '@insights/domain/services/guidance';
-import { JudgeCriteria } from '@insights/domain/value-objects/judge-criteria.vo';
+import { claimsCriteria } from '@insights/judging.fake-spec';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { MAX_GUIDANCE_LENGTH } from '@shared-kernel/domain/value-objects/judge-guidance';
 import { describe, expect, it } from 'vitest';
 

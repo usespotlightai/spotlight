@@ -9,6 +9,7 @@ import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,7 +23,7 @@ const published = (events: readonly DomainEvent[]) =>
   );
 
 const WAY_IN_OPENED = [
-  { kind: 'runners.runner-access-defined.v1', workspaceId: 'ws_1' },
+  { kind: 'runners.runner-access-created.v1', workspaceId: 'ws_1' },
 ];
 
 describe('RUNNERS_EVENT_MAPPERS', () => {
@@ -55,11 +56,12 @@ describe('RUNNERS_EVENT_MAPPERS', () => {
           },
         ],
       }),
+      sandboxes: SandboxReport.of({ sandboxes: [], stopping: false }),
       at: new Date('2026-09-24T10:00:00.000Z'),
     });
 
     expect(published(host.pullEvents())).toEqual([
-      { kind: 'runners.host-ready.v1', workspaceId: 'ws_1' },
+      { kind: 'runners.host-became-ready.v1', workspaceId: 'ws_1' },
     ]);
   });
 

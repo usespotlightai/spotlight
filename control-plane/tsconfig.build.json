@@ -7,7 +7,8 @@
     "scripts",
     "drizzle.config.ts",
     "vitest.config.ts",
-    "**/*spec.ts"
+    "**/*spec.ts",
+    "src/architecture"
   ],
   "compilerOptions": {
     "rootDir": "./src",

@@ -1,6 +1,5 @@
 import type { CreateWorkspaceWithTeamCommand } from '@identity/application/commands/create-workspace-with-team.command';
 import type { WorkspaceDto } from '@identity/application/dto/workspace.dto';
-import type { SignupSurveysPort } from '@identity/application/ports/signup-surveys.port';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceRegistration } from '@identity/domain/services/workspace-registration';
 import { SignupSurvey } from '@identity/domain/value-objects/signup-survey.vo';
@@ -22,7 +21,6 @@ export class CreateWorkspaceWithTeamHandler
 
   constructor(
     private readonly workspaces: WorkspaceRepository,
-    private readonly surveys: SignupSurveysPort,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
   ) {
@@ -45,14 +43,14 @@ export class CreateWorkspaceWithTeamHandler
         name: WorkspaceName.of(command.name),
         slug: WorkspaceSlug.of(command.slug),
         firstTeam,
+        survey,
         owner,
         by: ChangeActor.of(command.actor, id),
       });
 
-      await this.transaction.inTransaction(async () => {
-        await this.workspaces.add(workspace);
-        await this.surveys.record(id, owner, survey);
-      });
+      await this.transaction.inTransaction(() =>
+        this.workspaces.add(workspace),
+      );
 
       return {
         id: workspace.id.value,

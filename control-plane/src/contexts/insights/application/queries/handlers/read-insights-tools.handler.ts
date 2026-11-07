@@ -1,7 +1,7 @@
 import { periodOf } from '@insights/application/dto/insights.dto';
 import type { InsightsToolsDto } from '@insights/application/dto/insights-tools.dto';
+import type { DefinedSkillsPort } from '@insights/application/ports/defined-skills.port';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
-import type { WorkPort } from '@insights/application/ports/work.port';
 import type { ReadInsightsToolsQuery } from '@insights/application/queries/read-insights-tools.query';
 import type { TeamScopes } from '@insights/application/services/team-scopes.service';
 import { weeksOf } from '@insights/domain/services/pull-request-insights';
@@ -20,7 +20,7 @@ export class ReadInsightsToolsHandler
   constructor(
     private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
-    private readonly work: WorkPort,
+    private readonly skills: DefinedSkillsPort,
   ) {}
 
   async execute(query: ReadInsightsToolsQuery): Promise<InsightsToolsDto> {
@@ -48,7 +48,7 @@ export class ReadInsightsToolsHandler
         ...toolInsightsFrom(
           counts,
           weeks,
-          await this.work.teamSkillKeys(access.teamId.value),
+          await this.skills.keysOf(access.teamId.value),
           period.current,
         ),
       };

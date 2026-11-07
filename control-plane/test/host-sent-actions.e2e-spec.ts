@@ -3,7 +3,8 @@ import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
 } from '@integrations/application/ports/integration-runtime.port';
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { SpotlightCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -12,6 +13,12 @@ import {
   SECRET_INJECTION,
   type SecretInjectionPort,
 } from '@secrets/application/ports/secret-injection.port';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray, sql } from 'drizzle-orm';
 import {
   afterAll,
@@ -99,31 +106,46 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
 
   const sent = async (text: string) => {
     const runtime = app.get<IntegrationRuntimePort>(INTEGRATION_RUNTIME);
-    const tool = await runtime.tool([defined(AUDIT)], 'audit.record', {
-      taskId: 'task_1',
-      workspaceId,
-      teamId: 'team_1',
-      title: 'Drain the queue',
-      url: null,
-      pullRequest: null,
-      line: 'delivery',
-      station: 'Implementation',
-      stationKey: 'implementation',
-      marks: {},
-      waiting: null,
-    });
+    const tool = await runtime.tool(
+      [defined(AUDIT)],
+      ToolName.of('audit.record'),
+      {
+        taskId: TaskId.of('task_1'),
+        workspaceId: WorkspaceId.of(workspaceId),
+        teamId: TeamId.of('team_1'),
+        title: 'Drain the queue',
+        url: null,
+        pullRequest: null,
+        line: LineKey.of('delivery'),
+        station: StationName.of('Implementation'),
+        stationKey: StationKey.of('implementation'),
+        marks: {},
+        repositories: [],
+        runId: null,
+        waiting: null,
+      },
+    );
 
-    return tool?.call(
+    const attempt = await tool?.attempt(
       { text },
       {
-        workspace: async () => workspaceId,
+        workspace: async () => WorkspaceId.of(workspaceId),
         connection: null,
         credentials: new SpotlightCredentials(
           app.get<SecretInjectionPort>(SECRET_INJECTION),
-          async () => workspaceId,
+          async () => WorkspaceId.of(workspaceId),
         ),
       },
+      null,
     );
+
+    if (attempt?.kind === 'failed') {
+      throw new Error(
+        'reason' in attempt.fact ? attempt.fact.reason : attempt.fact.kind,
+      );
+    }
+
+    return attempt?.kind === 'answered' ? attempt.output : attempt;
   };
 
   const claimed = async (): Promise<ClaimedCall> => {

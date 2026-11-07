@@ -1,8 +1,10 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/entities/replay-entry.entity';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
@@ -30,20 +32,23 @@ import {
   ranToEnd,
   runIds,
   STATION,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -52,7 +57,7 @@ const run = (at: number) => RunId.of(`replay_run_${at}`);
 const SEARCH = SearchId.of('search_1');
 
 const reserved = (replay: Replay, room: number): Replay =>
-  replay.reserving(room, runIds());
+  replay.reserving(slots(room), runIds());
 
 const stopRequested = (replay: Replay) =>
   new ReplayStopRequested(
@@ -64,7 +69,109 @@ const stopRequested = (replay: Replay) =>
     ),
   );
 
+const stateOf = (replay: Replay): Parameters<typeof Replay.rehydrate>[0] => ({
+  id: replay.id,
+  station: replay.station,
+  setId: replay.setId,
+  candidateId: replay.candidateId,
+  liveCandidate: replay.liveCandidate,
+  baseline: replay.baseline,
+  judges: replay.judges,
+  checked: replay.checked,
+  rubricVersion: replay.rubricVersion,
+  scoringHash: replay.scoringHash,
+  ceiling: replay.ceiling,
+  unpricedRate: replay.unpricedRate,
+  runSubset: replay.runSubset,
+  answers: replay.answers,
+  repeats: replay.repeats,
+  calibration: replay.calibration,
+  referenceReplayId: replay.referenceReplayId,
+  pairwiseReferenceId: replay.pairwiseReferenceId,
+  searchId: replay.searchId,
+  state: replay.current,
+  entries: replay.entries,
+  startedAt: replay.startedAt,
+  endedAt: replay.endedAt,
+  stoppedAt: replay.stoppedAt,
+  version: replay.version,
+});
+
 describe('Replay', () => {
+  it('refuses to load a stored replay that breaks how a replay starts or ends', () => {
+    const stored = stateOf(aReplay({ count: 2 }));
+
+    expect(Replay.rehydrate(stored).current).toBe('queued');
+    expect(() => Replay.rehydrate({ ...stored, endedAt: NOW })).toThrow(
+      InconsistentStateError,
+    );
+    expect(() => Replay.rehydrate({ ...stored, state: 'finished' })).toThrow(
+      InconsistentStateError,
+    );
+    expect(() => Replay.rehydrate({ ...stored, entries: [] })).toThrow(
+      InconsistentStateError,
+    );
+    expect(() =>
+      Replay.rehydrate({ ...stored, referenceReplayId: stored.id }),
+    ).toThrow(InconsistentStateError);
+  });
+
+  it('refuses to load a baseline or calibration of a candidate that is not the live config', () => {
+    const stored = stateOf(
+      aReplay({ count: 2, candidate: candidateOf('live'), baseline: true }),
+    );
+
+    expect(() => Replay.rehydrate({ ...stored, liveCandidate: false })).toThrow(
+      InconsistentStateError,
+    );
+  });
+
+  describe('the facts its readers select on', () => {
+    it('serves as its set’s baseline while it is a baseline that has not ended early', () => {
+      const baseline = aReplay({
+        count: 2,
+        candidate: candidateOf('live'),
+        baseline: true,
+      });
+
+      expect(baseline.servesAsBaseline).toBe(true);
+      expect(concludedAll(baseline).servesAsBaseline).toBe(true);
+      expect(baseline.stop(NOW, BY).servesAsBaseline).toBe(false);
+      expect(
+        aReplay({ count: 2, candidate: candidateOf('live') }).servesAsBaseline,
+      ).toBe(false);
+    });
+
+    it('is a sample of its set’s health once a whole-set replay of the live config outside a search finished', () => {
+      const live = aReplay({ count: 2, candidate: candidateOf('live') });
+
+      expect(live.isHealthSample).toBe(false);
+      expect(concludedAll(live).isHealthSample).toBe(true);
+      expect(
+        concludedAll(
+          aReplay({
+            count: 2,
+            candidate: candidateOf('live'),
+            searchId: SEARCH,
+          }),
+        ).isHealthSample,
+      ).toBe(false);
+      expect(
+        concludedAll(
+          aReplay({
+            count: 2,
+            candidate: candidateOf('live'),
+            runSubset: [RunId.of('original_0')],
+          }),
+        ).isHealthSample,
+      ).toBe(false);
+      expect(
+        concludedAll(aReplay({ count: 2, candidate: candidateOf('searched') }))
+          .isHealthSample,
+      ).toBe(false);
+    });
+  });
+
   describe('starting', () => {
     it('is queued with one waiting entry per run of its set, in order', () => {
       const replay = aReplay({ count: 3 });
@@ -125,7 +232,7 @@ describe('Replay', () => {
     });
 
     it('replays a candidate only at the set’s station', () => {
-      const elsewhere = { ...STATION, stationId: 'station_ship' };
+      const elsewhere = { ...STATION, stationId: StationId.of('station_ship') };
       const set = ReplaySet.create({
         id: ReplaySetId.of('set_2'),
         station: elsewhere,
@@ -136,7 +243,7 @@ describe('Replay', () => {
             {
               runId: RunId.of('original_0'),
               taskId: TaskId.of('task_0'),
-              stationId: 'station_ship',
+              stationId: StationId.of('station_ship'),
               unreplayableReason: null,
               reason: null,
               endedAt: NOW,
@@ -145,14 +252,14 @@ describe('Replay', () => {
           remove: [],
         },
         NOW,
-        false,
+        SetUsers.none(),
       );
 
       expect(() =>
         Replay.start({
           id: ReplayId.of('replay_1'),
-          set,
-          candidate: candidateOf('searched'),
+          set: set.snapshot,
+          candidate: candidateOf('searched').asReplayed,
           baseline: false,
           ceiling: Money.ceiling(1, 'USD'),
           at: NOW,
@@ -165,8 +272,8 @@ describe('Replay', () => {
       expect(() =>
         Replay.start({
           id: ReplayId.of('replay_1'),
-          set: aSet(1).stationLeft(NOW),
-          candidate: candidateOf('searched'),
+          set: aSet(1).stationLeft(NOW).snapshot,
+          candidate: candidateOf('searched').asReplayed,
           baseline: false,
           ceiling: Money.ceiling(1, 'USD'),
           at: NOW,
@@ -207,7 +314,7 @@ describe('Replay', () => {
     it('hands out nothing without room', () => {
       const replay = aReplay();
 
-      expect(replay.reserving(0, runIds())).toBe(replay);
+      expect(replay.reserving(slots(0), runIds())).toBe(replay);
     });
 
     it('takes a run as queued once Work queued it', () => {
@@ -242,15 +349,15 @@ describe('Replay', () => {
     it('says it wants one under a reserved id, against the live config, with the terms decided for it', () => {
       const replay = Replay.start({
         id: ReplayId.of('replay_1'),
-        set: aSet(1),
-        candidate: candidateOf('searched'),
+        set: aSet(1).snapshot,
+        candidate: candidateOf('searched').asReplayed,
         baseline: false,
         ceiling: Money.ceiling(3, 'USD'),
         at: NOW,
         by: BY,
         wanting: {
           id: ReplayId.of('replay_2'),
-          candidate: candidateOf('live'),
+          candidate: candidateOf('live').asReplayed,
           ceiling: Money.ceiling(9, 'USD'),
           repeats: 3,
         },
@@ -295,15 +402,15 @@ describe('Replay', () => {
         expect(() =>
           Replay.start({
             id: ReplayId.of('replay_1'),
-            set: aSet(1),
-            candidate: candidateOf('live'),
+            set: aSet(1).snapshot,
+            candidate: candidateOf('live').asReplayed,
             baseline,
             ceiling: Money.ceiling(3, 'USD'),
             at: NOW,
             by: BY,
             wanting: {
               id: ReplayId.of('replay_2'),
-              candidate: wanted,
+              candidate: wanted.asReplayed,
               ceiling: Money.ceiling(3, 'USD'),
               repeats: 1,
             },
@@ -340,13 +447,17 @@ describe('Replay', () => {
     ) =>
       Replay.start({
         id: ReplayId.of('replay_oracle'),
-        set: aSet(3),
-        candidate: oracle(),
+        set: aSet(3).snapshot,
+        candidate: oracle().asReplayed,
         baseline: false,
         ceiling: Money.ceiling(10, 'USD'),
         at: NOW,
         by: BY,
-        oracle: { answers, against, live: candidateOf('live') },
+        oracle: {
+          answers,
+          against: against.asOracleReference,
+          live: candidateOf('live').asReplayed,
+        },
         ...more,
       });
 
@@ -383,8 +494,8 @@ describe('Replay', () => {
         {
           oracle: {
             answers,
-            against,
-            live: candidateOf('live', 'candidate_other'),
+            against: against.asOracleReference,
+            live: candidateOf('live', 'candidate_other').asReplayed,
           },
         },
         {
@@ -395,8 +506,8 @@ describe('Replay', () => {
                 id: 'replay_proposed',
                 candidate: candidateOf('searched'),
               }),
-            ),
-            live: candidateOf('live'),
+            ).asOracleReference,
+            live: candidateOf('live').asReplayed,
           },
         },
       ]) {
@@ -412,7 +523,7 @@ describe('Replay', () => {
         { searchId: SEARCH },
         { runSubset: [RunId.of('original_0')] },
         { oracle: undefined },
-        { candidate: candidateOf('live') },
+        { candidate: candidateOf('live').asReplayed },
       ]) {
         expect(() => handed(against, more)).toThrow(InvalidReplayError);
       }
@@ -424,15 +535,15 @@ describe('Replay', () => {
       expect(() =>
         Replay.start({
           id: ReplayId.of('replay_1'),
-          set: aSet(1),
-          candidate: candidateOf('searched'),
+          set: aSet(1).snapshot,
+          candidate: candidateOf('searched').asReplayed,
           baseline: false,
           ceiling: Money.ceiling(3, 'USD'),
           at: NOW,
           by: BY,
           wanting: {
             id: ReplayId.of('replay_2'),
-            candidate: candidateOf('live'),
+            candidate: candidateOf('live').asReplayed,
             ceiling: Money.ceiling(3, 'USD'),
             ...terms,
           },
@@ -442,19 +553,31 @@ describe('Replay', () => {
   });
 
   describe('deleting', () => {
-    it('cancels its runs in flight unless it was stopped already', () => {
+    it('names its runs in flight to cancel unless it was stopped already', () => {
       const inProgress = reserved(aReplay({ count: 2 }), 1);
       const deleted = inProgress.delete();
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([
-        new ReplayStopped(inProgress.id, inProgress.workspaceId, [run(0)]),
+        new ReplayDeleted(
+          inProgress.id,
+          inProgress.workspaceId,
+          inProgress.teamId,
+          [run(0)],
+        ),
         new ReplayEnded(inProgress.id, inProgress.workspaceId, null, 'deleted'),
       ]);
 
       const stopped = inProgress.stop(NOW, BY);
       stopped.pullEvents();
-      expect(stopped.delete().pullEvents()).toEqual([]);
+      expect(stopped.delete().pullEvents()).toEqual([
+        new ReplayDeleted(
+          inProgress.id,
+          inProgress.workspaceId,
+          inProgress.teamId,
+          [],
+        ),
+      ]);
     });
   });
 
@@ -567,7 +690,7 @@ describe('Replay', () => {
         'not-run',
         'not-run',
       ]);
-      expect(replay.reserving(2, runIds())).toBe(replay);
+      expect(replay.reserving(slots(2), runIds())).toBe(replay);
       expect(replay.pullEvents()).toEqual([
         new ReplayEntryConcluded(
           replay.id,
@@ -602,7 +725,10 @@ describe('Replay', () => {
       expect(replay.cancel(run(1), NOW).occupying).toHaveLength(1);
       expect(replay.cancel(run(0), NOW).occupying).toHaveLength(2);
       expect(replay.pullEvents()).toEqual([
-        new ReplayStopped(replay.id, replay.workspaceId, [run(0), run(1)]),
+        new ReplayStopped(replay.id, replay.workspaceId, replay.teamId, [
+          run(0),
+          run(1),
+        ]),
         new ReplayEnded(replay.id, replay.workspaceId, null, 'stopped'),
         stopRequested(replay),
       ]);
@@ -659,7 +785,9 @@ describe('Replay', () => {
       expect(stopped.stoppedAt).toEqual(NOW);
       expect(() => stopped.stop(NOW, BY)).toThrow(ReplayEndedError);
       expect(stopped.pullEvents()).toEqual([
-        new ReplayStopped(stopped.id, stopped.workspaceId, [run(1)]),
+        new ReplayStopped(stopped.id, stopped.workspaceId, stopped.teamId, [
+          run(1),
+        ]),
         stopRequested(stopped),
       ]);
     });
@@ -996,15 +1124,15 @@ describe('Replay', () => {
       expect(() =>
         Replay.start({
           id: ReplayId.of('replay_1'),
-          set: aSet(3),
-          candidate: candidateOf('searched'),
+          set: aSet(3).snapshot,
+          candidate: candidateOf('searched').asReplayed,
           baseline: false,
           ceiling: Money.ceiling(10, 'USD'),
           at: NOW,
           by: BY,
           wanting: {
             id: ReplayId.of('replay_baseline'),
-            candidate: candidateOf('live'),
+            candidate: candidateOf('live').asReplayed,
             ceiling: Money.ceiling(10, 'USD'),
             repeats: 1,
           },
@@ -1020,10 +1148,14 @@ describe('Replay', () => {
       replay = ranToEnd(replay, run(1), 'completed', 2);
 
       expect(replay.spent.amount).toBe(3);
-      expect(replay.spendAmong([RunId.of('original_1')]).spent.amount).toBe(2);
       expect(
-        replay.spendAmong([RunId.of('original_0'), RunId.of('original_2')])
-          .spent.amount,
+        replay.outcome().spendAmong([RunId.of('original_1')]).spent.amount,
+      ).toBe(2);
+      expect(
+        replay
+          .outcome()
+          .spendAmong([RunId.of('original_0'), RunId.of('original_2')]).spent
+          .amount,
       ).toBe(1);
     });
   });

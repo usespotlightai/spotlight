@@ -3,7 +3,7 @@ import type { PersonToolPolicyRepository } from '@integrations/domain/repositori
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
-import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -23,7 +23,7 @@ export class PersonToolRules {
     teamId: TeamId,
     integration: IntegrationKey,
     owner: ConnectionOwner,
-    tool: string,
+    tool: ToolName,
   ): Promise<PersonToolRuleRecord | null> {
     const personId = owner.personId;
 
@@ -32,7 +32,7 @@ export class PersonToolRules {
     }
 
     const policy = await this.policies.of(teamId, personId, integration);
-    const rule = policy?.ruleFor(ToolName.of(tool));
+    const rule = policy?.ruleFor(tool);
 
     if (!rule || rule.allows) {
       return null;

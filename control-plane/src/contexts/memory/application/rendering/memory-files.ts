@@ -1,5 +1,5 @@
 import type { MemoryFileDto } from '@memory/application/dto/memory-file.dto';
-import type { TeamLine } from '@memory/application/ports/work.port';
+import type { TeamLine } from '@memory/application/ports/lines.port';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { filesOf } from '@memory/domain/services/memory-folder';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
@@ -20,8 +20,10 @@ const day = (at: Date): string => at.toISOString().slice(0, 10);
 
 const whereOf = (memory: Memory, lines: readonly TeamLine[]): string => {
   const { lineId, stationId, repository, paths } = memory.scope;
-  const line = lines.find((each) => each.id === lineId);
-  const station = line?.stations.find((each) => each.id === stationId);
+  const line = lines.find((each) => lineId !== null && each.id.equals(lineId));
+  const station = line?.stations.find(
+    (each) => stationId !== null && each.id.equals(stationId),
+  );
   const at = station
     ? `${line?.name} › ${station.name}`
     : line

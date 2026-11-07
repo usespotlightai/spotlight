@@ -1,13 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import {
+  MEMORY_DRAFTS,
+  type MemoryDraftRepository,
+} from '@memory/domain/repositories/memory-draft.repository';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { sql } from 'drizzle-orm';
@@ -15,7 +20,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import {
+  aDispatch,
+  aTrial,
+  requestedByReplay,
+  requestedByTask,
+} from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 interface Recalled {
@@ -109,9 +121,9 @@ const remember = (body: Record<string, unknown>) =>
     .set('Authorization', `Bearer ${token}`)
     .send({ kind: 'rationale', ...body });
 
-const claimed = async (): Promise<string> => {
+const claimed = async (host = HOST): Promise<string> => {
   await http()
-    .put(`/api/hosts/${HOST}`)
+    .put(`/api/hosts/${host}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
       bootId: 'boot_1',
@@ -135,7 +147,7 @@ const claimed = async (): Promise<string> => {
       await http()
         .post('/api/hosts/claim')
         .set('Authorization', `Bearer ${POOL_TOKEN}`)
-        .send({ host: HOST, image: IMAGE })
+        .send({ host, image: IMAGE })
         .expect(200)
     ).body as { token: string }
   ).token;
@@ -155,7 +167,7 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -199,9 +211,7 @@ beforeAll(async () => {
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId: team.list.id.value,
-    taskRevision: 0,
-    stationId: BUILD,
+    ...requestedByTask(team.list.id.value, { teamId: team.teamId.value }),
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
@@ -210,9 +220,18 @@ beforeAll(async () => {
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the uploads.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: `task:${runId}` },
+      resume: {},
     },
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      taskId: team.list.id.value,
+      stationId: BUILD,
+    }),
+  );
   token = await claimed();
 
   await journalled(1, {
@@ -266,7 +285,7 @@ describe('recalling what the team remembers from inside a run', () => {
     });
 
     const proposedIn = RunId.of(randomUUID());
-    await app.get(DrizzleMemoryDraftRepository).add(
+    await app.get<MemoryDraftRepository>(MEMORY_DRAFTS).add(
       MemoryDraft.create({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
@@ -292,8 +311,8 @@ describe('recalling what the team remembers from inside a run', () => {
             runId: proposedIn,
             runContext: {
               teamId: TeamId.of(team.teamId.value),
-              lineId: DELIVERY,
-              stationId: BUILD,
+              lineId: LineId.of(DELIVERY),
+              stationId: StationId.of(BUILD),
               repositories: [Repository.of('acme/api')],
             },
             steps: [{ index: 1, kind: 'message', text: 'It timed out.' }],
@@ -392,6 +411,70 @@ describe('recalling what the team remembers from inside a run', () => {
           .send({ words: 'upload' })
       ).status,
     ).toBe(404);
+  });
+});
+
+describe('recalling from inside a trial of a run', () => {
+  it('finds what the team remembered when the original ran, not what it remembers now', async () => {
+    const original = await writing(team.teamId.value, team.owner.value, {
+      body: 'Trial builds sign with the original keyring.',
+    });
+    const asOf = new Date();
+    await http()
+      .post(`/api/teams/${team.teamId.value}/memories/${original.id}/retire`)
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ reason: 'The keyring moved.' })
+      .expect(200);
+    await writing(team.teamId.value, team.owner.value, {
+      body: 'Trial builds sign with the new keyring.',
+    });
+
+    const trialId = randomUUID();
+    await db.insert(schema.run).values({
+      id: trialId,
+      workspaceId: team.workspaceId.value,
+      ...requestedByReplay(trialId, team.teamId.value),
+      harness: 'dev',
+      state: 'queued',
+      placement: [['linux']],
+      spec: {
+        checkouts: [{ remote: 'spotlight:repository', path: 'api' }],
+        command: { executable: 'sh', args: [] },
+        briefing: 'Fix the uploads.',
+        handover: { options: [], noteLimit: 0 },
+        resume: {},
+      },
+    });
+    await db.insert(schema.dispatch).values(
+      aTrial({
+        runId: trialId,
+        workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
+        basedOn: runId,
+        taskId: team.list.id.value,
+        stationId: BUILD,
+        asOf,
+        repositories: [{ path: 'api', repository: 'acme/api' }],
+      }),
+    );
+    const trialToken = await claimed(`${HOST}-trial`);
+    const bodiesFound = async (as: string, of: string) =>
+      (
+        (
+          await http()
+            .post(`/api/runs/${of}/memories/recall`)
+            .set('Authorization', `Bearer ${as}`)
+            .send({ words: 'keyring' })
+            .expect(200)
+        ).body as Recalled[]
+      ).map((each) => each.body);
+
+    expect(await bodiesFound(trialToken, trialId)).toEqual([
+      'Trial builds sign with the original keyring.',
+    ]);
+    expect(await bodiesFound(token, runId)).toEqual([
+      'Trial builds sign with the new keyring.',
+    ]);
   });
 });
 

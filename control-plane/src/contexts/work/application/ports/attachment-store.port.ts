@@ -31,6 +31,11 @@ export interface AttachmentStorePort {
     uploadedBy?: RunId,
   ): Promise<Attachment[]>;
 
+  stored(
+    workspaceId: WorkspaceId,
+    ids: readonly AttachmentId[],
+  ): Promise<boolean>;
+
   taken(workspaceId: WorkspaceId, files: readonly Attachment[]): Promise<void>;
 
   save(

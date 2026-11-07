@@ -15,8 +15,8 @@ describe('InferOutputSchemas', () => {
     const schemas = new InMemoryInferredOutputSchemas();
     const inferring = inferringInto(schemas);
 
-    await inferring.infer(TEAM, TOOL.value, { url: 'https://linear.app/c/1' });
-    await inferring.infer(TEAM, TOOL.value, { url: 'x', id: 'c_1' });
+    await inferring.infer(TEAM, TOOL, { url: 'https://linear.app/c/1' });
+    await inferring.infer(TEAM, TOOL, { url: 'x', id: 'c_1' });
 
     const output = await schemas.of(TEAM, TOOL);
     expect(output?.calls).toBe(2);
@@ -35,7 +35,7 @@ describe('InferOutputSchemas', () => {
       return save(each);
     });
 
-    await inferringInto(schemas).infer(TEAM, TOOL.value, { url: 'x' });
+    await inferringInto(schemas).infer(TEAM, TOOL, { url: 'x' });
 
     expect((await schemas.of(TEAM, TOOL))?.calls).toBe(2);
   });
@@ -45,10 +45,7 @@ describe('InferOutputSchemas', () => {
     vi.spyOn(schemas, 'of').mockRejectedValue(new Error('database gone'));
 
     await expect(
-      inferringInto(schemas).infer(TEAM, TOOL.value, { url: 'x' }),
-    ).resolves.toBeUndefined();
-    await expect(
-      inferringInto().infer(TEAM, 'not a tool', { url: 'x' }),
+      inferringInto(schemas).infer(TEAM, TOOL, { url: 'x' }),
     ).resolves.toBeUndefined();
   });
 });

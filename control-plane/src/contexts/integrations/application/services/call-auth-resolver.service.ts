@@ -1,30 +1,31 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { CallCredentialsPort } from '@integrations/application/ports/call-credentials.port';
 import type {
   ActiveConnection,
   CallAuth,
   Credentials,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
-import { RunCredentials } from '@integrations/application/services/run-credentials';
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import type { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { ConnectionChoice } from '@integrations/domain/services/connection-choice';
 import type { ConnectionMissing } from '@integrations/domain/value-objects/connection-missing.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
+import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RunCallAuth {
   readonly teamId: TeamId;
-  readonly workspaceId: string;
-  readonly runId: string;
-  readonly attempt: number;
-  readonly injectedSecrets: readonly string[];
+  readonly workspaceId: WorkspaceId;
+  readonly run: RunAttemptRef;
+  readonly injectedSecrets: readonly SecretName[];
 }
 
 export type ConnectionFound =
@@ -41,19 +42,17 @@ export class CallAuthResolver {
     private readonly teams: TeamDirectoryPort,
     private readonly access: WorkspaceAccessPort,
     private readonly injection: SecretInjectionPort,
+    private readonly credentials: CallCredentialsPort,
     private readonly connectionRefresh: ConnectionRefresh,
   ) {}
 
   async of(teamId: TeamId, integration: Integration): Promise<CallAuth> {
-    const connection = integration.requiresConnection
-      ? await this.connections.of(
-          teamId,
-          integration.key,
-          ConnectionOwner.team(),
-        )
+    const owner = ConnectionChoice.forUnrequestedCall(integration);
+    const connection = owner
+      ? await this.connections.of(teamId, integration.key, owner)
       : null;
 
-    let found: Promise<string> | null = null;
+    let found: Promise<WorkspaceId> | null = null;
     const workspace = () => {
       found ??= this.workspaceOf(teamId).catch((error: unknown) => {
         found = null;
@@ -65,7 +64,7 @@ export class CallAuthResolver {
     return {
       workspace,
       connection: connection ? this.active(connection) : null,
-      credentials: new SpotlightCredentials(this.injection, workspace),
+      credentials: this.credentials.forSpotlight(workspace),
     };
   }
 
@@ -86,7 +85,7 @@ export class CallAuthResolver {
       personId: requester,
       member:
         requester !== null && integration.actsAs.byRequester
-          ? (await this.access.onTeam(teamId.value, requester)) !== null
+          ? (await this.access.inWorkspaceOfTeam(teamId, requester)) !== null
           : false,
     });
 
@@ -112,14 +111,14 @@ export class CallAuthResolver {
   ): Promise<CallAuth> {
     if (run.injectedSecrets.length > 0) {
       await this.injection.grant({
-        workspaceId: run.workspaceId,
-        runId: run.runId,
-        attempt: run.attempt,
-        secrets: run.injectedSecrets,
+        workspaceId: run.workspaceId.value,
+        runId: run.run.runId.value,
+        attempt: run.run.attempt,
+        secrets: run.injectedSecrets.map((each) => each.value),
       });
     }
 
-    const credentials: Credentials = new RunCredentials(this.injection, run);
+    const credentials: Credentials = this.credentials.forRun(run);
 
     return {
       workspace: async () => run.workspaceId,
@@ -143,7 +142,7 @@ export class CallAuthResolver {
     };
   }
 
-  private async workspaceOf(teamId: TeamId): Promise<string> {
+  private async workspaceOf(teamId: TeamId): Promise<WorkspaceId> {
     const team = await this.teams.find(teamId);
 
     if (!team) {
@@ -153,6 +152,6 @@ export class CallAuthResolver {
       );
     }
 
-    return team.workspaceId.value;
+    return team.workspaceId;
   }
 }

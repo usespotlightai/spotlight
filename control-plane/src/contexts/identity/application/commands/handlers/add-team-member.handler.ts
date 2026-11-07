@@ -3,6 +3,7 @@ import type { TeamAdministration } from '@identity/application/services/team-adm
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class AddTeamMemberHandler
@@ -17,7 +18,7 @@ export class AddTeamMemberHandler
     try {
       const administered = await this.administration.administeredBy(
         command.teamId,
-        command.viewerId,
+        PersonPrincipal.of(UserId.of(command.viewerId)),
       );
 
       if (!administered) {

@@ -25,7 +25,10 @@ const referring = ProfileSettings.fromRaw({
 describe('a profile’s injected secrets', () => {
   it('are the secrets its MCP servers’ env refers to, where each is named', () => {
     expect(
-      referring.secretReferences.map(({ path, name }) => [path.segments, name]),
+      referring.secretReferences.map(({ path, name }) => [
+        path.segments,
+        name.value,
+      ]),
     ).toEqual([
       [['mcpServers', 0, 'env', 'LINEAR_API_KEY'], 'LINEAR_API_KEY'],
       [['mcpServers', 1, 'env', 'SENTRY_TOKEN'], 'SENTRY_TOKEN'],
@@ -37,7 +40,7 @@ describe('a profile’s injected secrets', () => {
   it('are missing where the workspace does not have them', () => {
     expect(
       missingSecrets(referring, [SecretName.of('LINEAR_API_KEY')]).map(
-        (each) => each.name,
+        (each) => each.name.value,
       ),
     ).toEqual(['SENTRY_TOKEN']);
     expect(

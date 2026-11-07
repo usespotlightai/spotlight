@@ -17,7 +17,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-handover-files-${randomUUID().slice(0, 8)}`;
@@ -147,11 +149,9 @@ const aTaskWithLeasedRun = async (
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: at,
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
@@ -159,9 +159,18 @@ const aTaskWithLeasedRun = async (
       command: { executable: 'sh', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['review', 'ship', 'done'], noteLimit: 0 },
-      resume: { key: `${taskId}:${at}` },
+      resume: {},
     },
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      taskId,
+      stationId: at,
+    }),
+  );
 
   return { taskId, runId };
 };
@@ -205,7 +214,7 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: BACKLOG,
       workspaceId: team.workspaceId.value,
@@ -320,7 +329,12 @@ describe('files a run attaches to its handover', () => {
       })
       .expect(204);
 
-    expect(await filesOnNotes(taskId)).toEqual([
+    expect(
+      await eventually(async () => {
+        const files = await filesOnNotes(taskId);
+        return files.length > 0 ? files : null;
+      }),
+    ).toEqual([
       { notePosition: 0, name: 'light.png' },
       { notePosition: 0, name: 'dark.png' },
     ]);

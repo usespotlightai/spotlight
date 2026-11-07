@@ -4,13 +4,17 @@ import type { RunnerPoolCreatedDto } from '@runners/application/dto/runner-resou
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
+import type { UsedTokensPort } from '@runners/application/ports/used-tokens.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { assertKnownEgress } from '@runners/application/services/assert-known-egress';
 import {
   issuedTo,
   poolAccessInput,
 } from '@runners/application/services/pool-access-input';
-import { recordPoolTokenUse } from '@runners/application/services/record-pool-token-use';
+import {
+  poolTokenHolders,
+  takeToken,
+} from '@runners/application/services/take-token';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
@@ -18,8 +22,8 @@ import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-us
 import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-pool-already-exists.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
-import type { UsedPoolTokensRepository } from '@runners/domain/repositories/used-pool-tokens.repository';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import { tokenTakenBy } from '@runners/domain/services/token-reuse';
+import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -33,6 +37,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class CreateRunnerPoolHandler
@@ -43,7 +48,7 @@ export class CreateRunnerPoolHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly pools: RunnerPoolRepository,
-    private readonly usedTokens: UsedPoolTokensRepository,
+    private readonly usedTokens: UsedTokensPort,
     private readonly secrets: ProvisionSecretsPort,
     private readonly egresses: EgressRepository,
     private readonly platform: PlatformEgressSettings | null,
@@ -66,7 +71,7 @@ export class CreateRunnerPoolHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.scopes.has('runners')) {
         return { created: forbiddenTo('runners'), token: null };
       }
 
@@ -126,7 +131,7 @@ export class CreateRunnerPoolHandler
               );
             }
 
-            const id = RunnerPoolId.of(this.ids.generate());
+            const id = PoolId.of(this.ids.generate());
             const accessInput = await poolAccessInput(
               supplied,
               { id, workspaceId: permissions.workspaceId },
@@ -143,8 +148,13 @@ export class CreateRunnerPoolHandler
               access: issued ? issuedTo(accessInput, issued) : accessInput,
             });
 
+            await takeToken(
+              this.usedTokens,
+              poolTokenHolders(this.pools),
+              TokenHolder.pool(pool.id),
+              tokenTakenBy(pool, null),
+            );
             await this.pools.add(pool);
-            await recordPoolTokenUse(this.usedTokens, this.pools, pool, null);
 
             return pool.id.value;
           }),

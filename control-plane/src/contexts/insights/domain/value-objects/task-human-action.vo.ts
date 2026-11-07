@@ -1,18 +1,19 @@
 import type { HumanActionKind } from '@insights/domain/value-objects/human-action.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class TaskHumanAction {
   private constructor(
     readonly kind: HumanActionKind,
     readonly by: UserId,
-    readonly stationId: string,
+    readonly stationId: StationId,
     readonly at: Date,
   ) {}
 
   static of(input: {
     kind: HumanActionKind;
     by: UserId;
-    stationId: string;
+    stationId: StationId;
     at: Date;
   }): TaskHumanAction {
     return new TaskHumanAction(input.kind, input.by, input.stationId, input.at);
@@ -26,7 +27,7 @@ export class TaskHumanAction {
     return (
       this.kind === other.kind &&
       this.by.equals(other.by) &&
-      this.stationId === other.stationId &&
+      this.stationId.equals(other.stationId) &&
       this.at.getTime() === other.at.getTime()
     );
   }

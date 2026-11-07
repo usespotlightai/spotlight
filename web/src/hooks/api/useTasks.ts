@@ -41,7 +41,7 @@ export function useCompletedTasks(
     fetchPage: async (before?: string) => {
       const { data } = await listTasks({
         path: { teamId: teamId as string },
-        query: { state: 'completed', lineId, before },
+        query: { state: 'completed-station', lineId, before },
         throwOnError: true,
       });
       return data;

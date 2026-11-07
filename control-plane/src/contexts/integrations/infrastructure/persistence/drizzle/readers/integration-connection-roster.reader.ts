@@ -3,6 +3,7 @@ import type {
   PersonConnection,
 } from '@integrations/application/ports/integration-connection-roster.port';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { integrationConnection } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -41,8 +42,8 @@ export class DrizzleIntegrationConnectionRoster
       return personId
         ? [
             {
-              integration: row.integration,
-              personId: personId.value,
+              integration: IntegrationKey.rehydrate(row.integration),
+              personId,
               linkedAccount: row.linkedAccount,
               connectedAt: row.connectedAt,
             },

@@ -12,7 +12,9 @@ import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { inArray, sql } from 'drizzle-orm';
@@ -57,8 +59,8 @@ const ran = async (runId: string) => {
     RunEnd.of({
       location: RunLocation.of({
         teamId: team.teamId,
-        lineId: team.line.id.value,
-        stationId: team.stationId.value,
+        lineId: LineId.of(team.line.id.value),
+        stationId: StationId.of(team.stationId.value),
         taskId: team.list.id,
       }),
       fingerprint: null,
@@ -173,7 +175,6 @@ describe('the team’s memory on Insights (e2e)', () => {
       memoriesRecalled: 1,
       runsBriefed: 2,
       runsRecalled: 1,
-      benchmark: null,
     });
     expect(answer.body.flagged).toEqual([
       expect.objectContaining({

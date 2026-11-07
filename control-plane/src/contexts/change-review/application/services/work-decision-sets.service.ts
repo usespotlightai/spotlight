@@ -79,18 +79,17 @@ export class WorkDecisionSets implements PendingJobsPort {
       return set.deadLetter();
     }
 
-    const proposed =
-      reasoning.steps.length > 0 && reasoning.changed.length > 0
-        ? await this.generator.generate(reasoning)
-        : [];
+    const evidence = DecisionEvidence.of({
+      steps: reasoning.steps.map((each) => each.index),
+      changed: reasoning.changed,
+    });
 
     return set.recordGeneration({
       runId,
-      proposed,
-      evidence: DecisionEvidence.of({
-        steps: reasoning.steps.map((each) => each.index),
-        changed: reasoning.changed,
-      }),
+      proposed: evidence.canSupportAny
+        ? await this.generator.generate(reasoning)
+        : [],
+      evidence,
       newId: () => this.ids.generate(),
     });
   }

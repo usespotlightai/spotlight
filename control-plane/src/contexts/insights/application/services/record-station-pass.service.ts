@@ -1,9 +1,11 @@
-import type { DeletionsPort } from '@insights/application/ports/deletions.port';
+import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
+import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -18,35 +20,26 @@ export interface TaskPassedReceived {
 export class RecordStationPass {
   constructor(
     private readonly records: RunRecordRepository,
-    private readonly deletions: DeletionsPort,
+    private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
   ) {}
 
   passed(event: TaskPassedReceived): Promise<void> {
-    const pass = StationPass.of(event.to, new Date(event.at));
+    const pass = StationPass.of(StationId.of(event.to), new Date(event.at));
 
     const workspaceId = WorkspaceId.of(event.workspaceId);
     const taskId = TaskId.of(event.taskId);
 
-    return this.transaction.inTransaction(async () => {
-      await this.deletions.lockDeletion(workspaceId, taskId);
-      const runId = RunId.of(event.runId);
-      const existing = await this.records.of(runId);
+    const runId = RunId.of(event.runId);
 
-      if (!existing) {
-        if (!(await this.deletions.isDeleted(workspaceId, taskId))) {
-          await this.records.add(
-            RunRecord.empty(runId, workspaceId, taskId).passTo(pass),
-          );
-        }
-        return;
-      }
-
-      const passed = existing.passTo(pass);
-
-      if (passed !== existing) {
-        await this.records.save(passed);
-      }
-    });
+    return this.transaction.inTransaction(() =>
+      this.recorder.record(this.records, {
+        owner: FactOwner.of(workspaceId, { taskId }),
+        deleted: (existing) => existing.delete(),
+        load: () => this.records.of(runId),
+        fresh: () => RunRecord.empty(runId, workspaceId, taskId),
+        change: (record) => record.passTo(pass),
+      }),
+    );
   }
 }

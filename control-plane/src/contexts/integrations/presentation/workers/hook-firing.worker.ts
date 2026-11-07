@@ -1,4 +1,5 @@
-import type { FireHooks } from '@integrations/application/services/fire-hooks.service';
+import type { PurgeHookFirings } from '@integrations/application/services/purge-hook-firings.service';
+import type { WorkHookFirings } from '@integrations/application/services/work-hook-firings.service';
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -14,7 +15,8 @@ export class HookFiringWorker implements OnModuleDestroy {
   #stopped = false;
 
   constructor(
-    private readonly firings: FireHooks,
+    private readonly firings: WorkHookFirings,
+    private readonly purging: PurgeHookFirings,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -44,7 +46,7 @@ export class HookFiringWorker implements OnModuleDestroy {
     }
 
     this.#purging = this.logged(
-      () => this.firings.purgeFinished(),
+      () => this.purging.purge(),
       'Purging finished hook firings',
     );
     await this.#purging;

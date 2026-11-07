@@ -1,3 +1,5 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+
 const LONGEST = 200;
 
 export class ApprovalIntent {
@@ -26,6 +28,19 @@ export class ApprovalIntent {
   }
 
   static rehydrate(value: string): ApprovalIntent {
+    const length = Array.from(value).length;
+
+    if (length === 0 || length > LONGEST || value.trim() !== value) {
+      throw new InconsistentStateError(
+        'approval intent',
+        'is empty, padded or longer than one short line',
+      );
+    }
+
     return new ApprovalIntent(value);
+  }
+
+  equals(other: ApprovalIntent): boolean {
+    return this.value === other.value;
   }
 }

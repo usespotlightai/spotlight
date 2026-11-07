@@ -2,6 +2,7 @@ import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewVersionConflictError } from '@change-review/domain/exceptions/review-version-conflict.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
+import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -39,8 +40,12 @@ const toReview = (row: Row, comments: readonly string[]): Review =>
     comments: comments.map((each) => ReviewCommentId.of(each)),
     state: row.state,
     githubId: row.githubId,
+    verdictOnGitHub: row.verdictOnGitHub,
     submittedAt: row.submittedAt,
     postedAt: row.postedAt,
+    failure: row.failureCode
+      ? DeliveryFailure.rehydrate(row.failureCode, row.failureDetail)
+      : null,
     version: row.version,
   });
 
@@ -55,8 +60,11 @@ const toRow = (aggregate: Review): Row => ({
   body: aggregate.body,
   state: aggregate.state,
   githubId: aggregate.githubId,
+  verdictOnGitHub: aggregate.verdictOnGitHub,
   submittedAt: aggregate.submittedAt,
   postedAt: aggregate.postedAt,
+  failureCode: aggregate.failure?.code ?? null,
+  failureDetail: aggregate.failure?.detail ?? null,
   version: aggregate.version,
 });
 
@@ -118,10 +126,39 @@ export class DrizzleReviewRepository implements ReviewRepository {
       .where(eq(review.id, id.value))
       .limit(1);
 
-    if (!row) {
-      return null;
-    }
+    return row ? this.withComments(row) : null;
+  }
 
+  async ofTask(taskId: TaskId): Promise<readonly Review[]> {
+    const rows = await this.context.db
+      .select()
+      .from(review)
+      .where(eq(review.taskId, taskId.value));
+
+    return Promise.all(rows.map((row) => this.withComments(row)));
+  }
+
+  async remove(removed: Review): Promise<void> {
+    await this.context.inTransaction(async () => {
+      const deleted = await this.context.db
+        .delete(review)
+        .where(
+          and(
+            eq(review.id, removed.id.value),
+            eq(review.version, removed.version),
+          ),
+        )
+        .returning({ id: review.id });
+
+      if (deleted.length === 0) {
+        throw new ReviewVersionConflictError(removed.id.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
+  }
+
+  private async withComments(row: Row): Promise<Review> {
     const included = await this.context.db
       .select({ commentId: reviewIncludedComment.commentId })
       .from(reviewIncludedComment)
@@ -132,9 +169,5 @@ export class DrizzleReviewRepository implements ReviewRepository {
       row,
       included.map((each) => each.commentId),
     );
-  }
-
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db.delete(review).where(eq(review.taskId, taskId.value));
   }
 }

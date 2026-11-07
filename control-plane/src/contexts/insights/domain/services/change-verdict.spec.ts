@@ -1,14 +1,14 @@
+import { groupCountsOfFacts } from '@insights/change-verdict.fake-spec';
+import type { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
-import { taskPullRequestOf } from '@insights/domain/insights.fake-spec';
-import { costedRecord, endedRecord } from '@insights/domain/runs.fake-spec';
 import {
-  groupCountsOf,
   type MeasureVerdict,
   verdictsFrom,
 } from '@insights/domain/services/change-verdict';
 import type { AlertMeasure } from '@insights/domain/value-objects/alert-rule.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const at = (hour: number) =>
@@ -32,11 +32,11 @@ const of = (
 const changeVerdictOf = (
   before: readonly RunRecord[],
   after: readonly RunRecord[],
-  taskPullRequests: readonly TaskPullRequest[],
+  pullRequests: readonly PullRequestRecord[],
 ) =>
   verdictsFrom(
-    groupCountsOf(before, taskPullRequests),
-    groupCountsOf(after, taskPullRequests),
+    groupCountsOfFacts(factsWith(before, pullRequests)),
+    groupCountsOfFacts(factsWith(after, pullRequests)),
   );
 
 const FIVE_CLOSED = [

@@ -5,6 +5,8 @@ import type { WorkspaceAdministration } from '@identity/application/services/wor
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ListWorkspaceInvitesHandler
   implements
@@ -22,7 +24,7 @@ export class ListWorkspaceInvitesHandler
     try {
       const administered = await this.administration.administeredBy(
         query.slug,
-        query.viewerId,
+        PersonPrincipal.of(UserId.of(query.viewerId)),
       );
 
       if (!administered) {

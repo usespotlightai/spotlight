@@ -4,10 +4,7 @@ import type {
   GradedAnswer,
   GradingRequest,
 } from '@change-review/application/ports/answer-grader.port';
-import {
-  ANSWER_VERDICTS,
-  MAX_FEEDBACK,
-} from '@change-review/domain/aggregates/question-answer.aggregate';
+import { ANSWER_VERDICTS } from '@change-review/domain/aggregates/question-answer.aggregate';
 import {
   type Fetch,
   JsonSchema,
@@ -101,9 +98,6 @@ export class ChatCompletionsAnswerGrader implements AnswerGraderPort {
         : error;
     });
 
-    return {
-      grade: { ...answer, feedback: answer.feedback.slice(0, MAX_FEEDBACK) },
-      usage,
-    };
+    return { grade: answer, usage };
   }
 }

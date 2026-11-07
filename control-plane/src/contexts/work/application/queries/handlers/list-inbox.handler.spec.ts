@@ -1,3 +1,4 @@
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
@@ -5,6 +6,7 @@ import type {
   InboxItemSummary,
   InboxNote,
   InboxReaderPort,
+  InboxScope,
 } from '@work/application/ports/inbox-reader.port';
 import {
   ListInboxHandler,
@@ -14,6 +16,7 @@ import {
   ListInboxQuery,
   ReadInboxItemQuery,
 } from '@work/application/queries/list-inbox.query';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { describe, expect, it, vi } from 'vitest';
 
 const asked = new Date('2026-09-26T09:15:00.000Z');
@@ -70,19 +73,27 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
 });
 
 const reader = (
-  open: InboxEntrySummary[] | null,
-  resolved: InboxEntrySummary[] | null = [],
+  open: InboxEntrySummary[],
+  resolved: InboxEntrySummary[] = [],
 ): InboxReaderPort => ({
-  openForWorkspaceMember: vi.fn().mockResolvedValue(open),
-  resolvedForWorkspaceMember: vi
-    .fn()
-    .mockResolvedValue(resolved && { items: resolved, next: 'cursor' }),
-  itemForWorkspaceMember: vi.fn().mockResolvedValue(null),
-  noticeForWorkspaceMember: vi.fn().mockResolvedValue(null),
+  open: vi.fn().mockResolvedValue(open),
+  resolved: vi.fn().mockResolvedValue({ items: resolved, next: 'cursor' }),
+  item: vi.fn().mockResolvedValue(null),
+  notice: vi.fn().mockResolvedValue(null),
 });
 
-const handle = (inbox: InboxReaderPort) =>
-  new ListInboxHandler(inbox).execute(
+const SCOPE: InboxScope = {
+  workspaceId: 'ws_1',
+  viewer: UserId.of('user_1'),
+  teamsSeen: new Set(['team_1']),
+  teamsActedOn: new Set(),
+};
+
+const access = (scope: InboxScope | null = SCOPE): WorkAccess =>
+  ({ inboxOf: vi.fn(async () => scope) }) as unknown as WorkAccess;
+
+const handle = (inbox: InboxReaderPort, seen = access()) =>
+  new ListInboxHandler(inbox, seen).execute(
     new ListInboxQuery('acme', 'user_1', 'open', FIRST_PAGE),
   );
 
@@ -174,33 +185,29 @@ describe('ListInboxHandler', () => {
     const inbox = reader([], [{ ...item(null), resolved: true }]);
     const page = { before: 'cursor', limit: 20 };
 
-    const found = await new ListInboxHandler(inbox).execute(
+    const found = await new ListInboxHandler(inbox, access()).execute(
       new ListInboxQuery('acme', 'user_1', 'resolved', page),
     );
 
-    expect(inbox.resolvedForWorkspaceMember).toHaveBeenCalledWith(
-      'acme',
-      expect.anything(),
-      page,
-    );
+    expect(inbox.resolved).toHaveBeenCalledWith(SCOPE, page);
     expect(found?.items).toHaveLength(1);
     expect(found?.next).toBe('cursor');
   });
 
   it('hands back nothing where the workspace is not visible', async () => {
-    await expect(handle(reader(null))).resolves.toBeNull();
+    await expect(handle(reader([]), access(null))).resolves.toBeNull();
   });
 });
 
 describe('ReadInboxItemHandler', () => {
   it('hands back the item with every note of its conversation', async () => {
     const inbox = reader([]);
-    vi.mocked(inbox.itemForWorkspaceMember).mockResolvedValue({
+    vi.mocked(inbox.item).mockResolvedValue({
       ...item(null),
       notes: [note(null)],
     });
 
-    const found = await new ReadInboxItemHandler(inbox).execute(
+    const found = await new ReadInboxItemHandler(inbox, access()).execute(
       new ReadInboxItemQuery('acme', 'task_1:0', 'user_1'),
     );
 
@@ -211,7 +218,7 @@ describe('ReadInboxItemHandler', () => {
 
   it('hands back nothing for an item the caller cannot see', async () => {
     await expect(
-      new ReadInboxItemHandler(reader([])).execute(
+      new ReadInboxItemHandler(reader([]), access()).execute(
         new ReadInboxItemQuery('acme', 'task_1:0', 'user_1'),
       ),
     ).resolves.toBeNull();

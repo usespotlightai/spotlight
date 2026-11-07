@@ -1,12 +1,14 @@
+import type { RunUsageFacts } from '@runs/application/ports/run-usage-reader.port';
 import type {
   RunNotesSummary,
   RunReaderPort,
 } from '@work/application/ports/run-reader.port';
-import type { RunUsage } from '@work/application/ports/run-usage-reader.port';
 import { ReadRunNotesHandler } from '@work/application/queries/handlers/read-run-notes.handler';
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
-import { Money } from '@work/domain/value-objects/money.vo';
-import { Tokens } from '@work/domain/value-objects/tokens.vo';
+import {
+  inWorkspace,
+  runAccessWhere,
+} from '@work/application/services/run-access.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const RUN_ID = '4e1e84a2-0c39-406d-bbbb-559f29e450be';
@@ -29,30 +31,31 @@ const notes: RunNotesSummary = {
   notes: [],
 };
 
-const usage: RunUsage = {
+const usage: RunUsageFacts = {
   ms: 60_000,
   steps: 12,
   errors: 0,
   changedLines: 0,
   contextTokens: 40_000,
   contextWindow: 200_000,
-  cost: Money.of(0.42, 'USD'),
-  tokens: Tokens.of({ input: 1_200, output: 900, cacheRead: 80_000 }),
+  cost: { amount: 0.42, currency: 'USD' },
+  tokens: { input: 1_200, output: 900, cacheRead: 80_000, cacheWrite: null },
 };
 
 const reading = (
   found: RunNotesSummary | null,
-  usages: ReadonlyMap<string, RunUsage>,
+  usages: ReadonlyMap<string, RunUsageFacts>,
 ) =>
   new ReadRunNotesHandler(
     {
       listForTask: vi.fn(),
       listForTeam: vi.fn(),
       findForTeam: vi.fn(),
-      notesFor: vi.fn().mockResolvedValue(found),
+      notesFor: vi.fn().mockResolvedValue(found && inWorkspace(found)),
       configFor: vi.fn(),
     } satisfies RunReaderPort,
     { forRuns: async () => new Map(usages) },
+    runAccessWhere(true),
   ).execute(new ReadRunNotesQuery(RUN_ID, 'user_1'));
 
 describe('ReadRunNotesHandler', () => {

@@ -7,8 +7,11 @@ import type { IntegrationCompilerPort } from '@integrations/application/ports/in
 import type { IntegrationRecord } from '@integrations/application/ports/integration-resources.port';
 import { integrationAt } from '@integrations/application/rendering/integration-problems';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
+import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -51,11 +54,9 @@ export class IntegrationViews {
   }
 
   onTeam(record: IntegrationRecord, teamKey: string): IntegrationResourceDto {
-    const compiled = this.compiler.compile(record.definition);
+    const compiled = this.compiler.compile(record.definition, null);
+    const tools = record.tools.map((tool) => ToolName.rehydrate(tool));
     const spec = compiled.ok ? compiled.spec : null;
-    const handWritten = compiled.ok
-      ? compiled.integration.tools.map((each) => each.tool)
-      : [];
     const apiSpec: ApiSpecDto | null =
       spec && record.reading
         ? {
@@ -63,8 +64,15 @@ export class IntegrationViews {
             hash: record.generatedFrom,
             readAt: record.reading.readAt.toISOString(),
             problem: record.reading.problem,
-            tools: record.tools.filter((each) => !handWritten.includes(each))
-              .length,
+            tools: compiled.ok
+              ? OfferedTools.listed(
+                  compiled.integration,
+                  tools,
+                  record.generatedFrom
+                    ? ContentHash.of(record.generatedFrom)
+                    : null,
+                ).generatedCount
+              : record.tools.length,
           }
         : null;
 
@@ -73,14 +81,12 @@ export class IntegrationViews {
       version: record.version,
       address: IntegrationAddress.of(
         teamKey,
-        IntegrationKey.of(record.integration),
+        IntegrationKey.rehydrate(record.integration),
       ).toString(),
       teamId: record.teamId.value,
       integration: record.integration,
       definition: record.definition,
-      tools: Object.fromEntries(
-        record.tools.map((tool) => [tool.slice(tool.indexOf('.') + 1), tool]),
-      ),
+      tools: Object.fromEntries(tools.map((tool) => [tool.name, tool.value])),
       spec: apiSpec,
       warnings: compiled.ok
         ? [...compiled.warnings, ...(spec ? readingWarnings(record, spec) : [])]

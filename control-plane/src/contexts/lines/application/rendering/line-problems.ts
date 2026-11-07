@@ -1,0 +1,49 @@
+import type { RoleClaimedTwice } from '@lines/domain/services/line-roles';
+import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+
+export const LINE_DEFINITIONS = 'lines';
+
+export const lineAt = (key: string): string => `${LINE_DEFINITIONS}/${key}`;
+
+export const LineProblems = {
+  roleClaimedTwice(claim: RoleClaimedTwice): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: lineAt(claim.line.value),
+      at: FieldPath.of(['role']),
+      reason: `claims the role "${claim.role.value}", which ${
+        claim.others.length > 0
+          ? claim.others.map((each) => each.value).join(', ')
+          : 'another line'
+      } already does, and a role names one line`,
+    });
+  },
+
+  immutableField(
+    key: string,
+    field: string,
+    because: string,
+  ): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: lineAt(key),
+      at: FieldPath.of([field]),
+      reason: because,
+    });
+  },
+
+  catalogDenied(
+    key: string,
+    at: FieldPath,
+    because: string,
+  ): ConfigurationProblem {
+    return ConfigurationProblem.of({ path: lineAt(key), at, reason: because });
+  },
+
+  unapplied(key: string, at: FieldPath, error: Error): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: lineAt(key),
+      at,
+      reason: error.message,
+    });
+  },
+};

@@ -1,4 +1,5 @@
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 const RUN = 'run';
 const HOOK = 'hook:';
@@ -11,7 +12,7 @@ const isSource = (source: string): boolean =>
 
 export class FailureOccurrence {
   private constructor(
-    readonly stationId: string,
+    readonly stationId: StationId,
     readonly runId: string | null,
     readonly source: string,
     readonly code: string,
@@ -20,7 +21,7 @@ export class FailureOccurrence {
   ) {}
 
   static of(input: {
-    stationId: string;
+    stationId: StationId;
     runId: string | null;
     source: string;
     code: string;
@@ -57,7 +58,7 @@ export class FailureOccurrence {
     return (
       this.source === other.source &&
       this.code === other.code &&
-      this.stationId === other.stationId &&
+      this.stationId.equals(other.stationId) &&
       this.occurrences === other.occurrences &&
       this.at.getTime() === other.at.getTime()
     );

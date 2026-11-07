@@ -1,6 +1,7 @@
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 
-export class UnreplayableEntryError extends Error {
+export class UnreplayableEntryError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(

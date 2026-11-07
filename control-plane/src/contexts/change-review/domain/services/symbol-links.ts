@@ -1,4 +1,9 @@
 import { groupedBy } from '@change-review/domain/services/grouped-by';
+import {
+  changedLinesOf,
+  type Diff,
+} from '@change-review/domain/value-objects/diff.vo';
+import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import type {
   IndexedFile,
   IndexedImport,
@@ -6,12 +11,7 @@ import type {
   SourceSide,
   SymbolIndex,
   SymbolKind,
-} from '@change-review/domain/services/symbol-index';
-import {
-  changedLinesOf,
-  type Diff,
-} from '@change-review/domain/value-objects/diff.vo';
-import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
+} from '@change-review/domain/value-objects/symbol-index.vo';
 
 interface SymbolLink {
   readonly from: HunkId;

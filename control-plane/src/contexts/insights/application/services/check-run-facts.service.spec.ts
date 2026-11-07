@@ -1,8 +1,8 @@
+import { CheckRunFacts } from '@insights/application/services/check-run-facts.service';
 import type {
   RunFactsDrift,
-  RunFactsPort,
-} from '@insights/application/ports/run-facts.port';
-import { CheckRunFacts } from '@insights/application/services/check-run-facts.service';
+  RunFactsMaintenance,
+} from '@insights/application/services/project-run-facts.service';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -11,8 +11,10 @@ const DAY = 24 * HOUR;
 
 const setUp = (drift: RunFactsDrift = { checked: 4, repaired: [] }) => {
   let now = new Date('2026-10-14T12:00:00Z');
-  const facts: RunFactsPort = {
+  const facts: RunFactsMaintenance = {
     repairEndedSince: vi.fn().mockResolvedValue(drift),
+    rebuild: vi.fn(),
+    workspaces: vi.fn(),
   };
   const logger: LoggerPort = {
     debug: vi.fn(),

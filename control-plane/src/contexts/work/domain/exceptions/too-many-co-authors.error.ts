@@ -1,4 +1,6 @@
-export class TooManyCoAuthorsError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class TooManyCoAuthorsError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(limit: number) {

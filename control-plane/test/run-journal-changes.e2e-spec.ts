@@ -1,23 +1,24 @@
 import { randomUUID } from 'node:crypto';
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type { JournalEntry } from '@runs/application/ports/run-journal.port';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
+import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { JournalEntry } from '@work/application/ports/run-journal.port';
 import { TouchedFiles } from '@work/application/services/touched-files';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
-import { journalsOfTask } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 
 let database: TestDatabase;
@@ -29,9 +30,7 @@ beforeAll(async () => {
   database = await openDatabase('run_journal_changes');
   db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
-  reader = new DrizzleRunJournalReader(db, {
-    mayView: async () => true,
-  } as unknown as WorkspaceAccessPort);
+  reader = new DrizzleRunJournalReader(db, new DrizzleRunJournals(db));
 }, 60_000);
 
 afterAll(async () => {
@@ -116,7 +115,7 @@ const runOf = async (
     id: runId,
     workspaceId: 'ws_1',
     harness: 'dev',
-    taskId,
+    ...requestedByTask(taskId),
     state: 'claimed',
     spec: {
       checkouts: folders.map((path) => ({
@@ -126,6 +125,14 @@ const runOf = async (
     },
     createdAt,
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      taskId,
+      stationId: 'station_1',
+      orderedAt: createdAt,
+    }),
+  );
 
   return RunId.of(runId);
 };
@@ -150,7 +157,7 @@ describe('reading what a task’s runs changed', () => {
     await journal.append(
       RunAttempt.of(first, 1),
       entries(
-        { hook: 'workspace ready' },
+        { hook: 'working copy ready' },
         { call: 'call_1' },
         { chunk: 'Retrying uploads.' },
         { edit: 'call_1', path: '/runs/r1/api/src/uploads.ts' },
@@ -218,7 +225,7 @@ describe('reading what a task’s runs changed', () => {
     );
 
     const [read] = await reader.changesOfTask(TaskId.of(taskId));
-    const [full] = await journalsOfTask(db, TaskId.of(taskId));
+    const [full] = await new DrizzleRunJournals(db).ofRuns([runId]);
 
     expect(read?.paths).toEqual(
       full?.steps.flatMap((step) =>
@@ -265,6 +272,7 @@ describe('reading what a task’s runs changed', () => {
       { changedIn: async () => [] } as unknown as PullRequestPort,
       { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
       { now: () => new Date(), sleep: () => new Promise(() => {}) },
+      runJournalReadings(),
     ).onTask(
       {
         id: TaskId.of(taskId),
@@ -272,7 +280,7 @@ describe('reading what a task’s runs changed', () => {
         reviewedHead: null,
         pullRequest: null,
       } as unknown as Task,
-      { repositories: { all: [API, WEB] } } as unknown as Line,
+      { repositories: { all: [API, WEB] } } as unknown as LineMap,
     );
 
     expect(

@@ -1,4 +1,6 @@
-export class BranchTakenError extends Error {
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+
+export class BranchTakenError extends ApplicationError {
   readonly kind = 'conflict' as const;
 
   constructor(branch: string) {

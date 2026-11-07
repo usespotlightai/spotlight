@@ -1,7 +1,7 @@
 import type { ToolOutput } from '@integrations/application/ports/integration-runtime.port';
 import { asJson } from '@integrations/infrastructure/integrations/templating';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 const MAX_OUTPUT_CHARS = 500;
 

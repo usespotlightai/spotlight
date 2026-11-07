@@ -1,3 +1,4 @@
+import type { Credential } from '@secrets/application/contracts/credential.contract';
 import type {
   FetchedSecrets,
   RunSecretFetch,
@@ -8,7 +9,7 @@ export const RUN_SECRET_FETCHES = Symbol('RUN_SECRET_FETCHES');
 export interface RunSealed {
   readonly runId: string;
   readonly name: string;
-  readonly value: string;
+  readonly value: Credential;
   readonly recipient: string;
 }
 

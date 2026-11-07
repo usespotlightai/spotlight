@@ -1,7 +1,4 @@
-import { TrustKeyTakenError } from '@identity/application/errors/trust-key-taken.error';
 import { TrustsNeedAnAdminError } from '@identity/application/errors/trusts-need-an-admin.error';
-import { UnsafeBranchNameError } from '@identity/application/errors/unsafe-branch-name.error';
-import { UnsupportedSubjectPrefixError } from '@identity/application/errors/unsupported-subject-prefix.error';
 import type {
   GitHubActionsTrustsDto,
   GitHubActionsTrustsPort,
@@ -14,49 +11,31 @@ import {
   type OidcTrustSpec,
 } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
-import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
-import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
+import { GitHubActionsTrustTemplate } from '@identity/domain/services/github-actions-trust-template';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
-import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
-import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const GITHUB_ACTIONS_ISSUER = 'https://token.actions.githubusercontent.com';
+interface Planned {
+  readonly spec: OidcTrustSpec;
+  readonly existing: OidcTrust | null;
+  readonly adopted: OidcTrustSpec | null;
+}
 
-const PULL_REQUESTS_TRUST_KEY = 'github-pull-requests';
-
-const DEFAULT_BRANCH_TRUST_KEY = 'github-apply';
-
-const SUBJECT_PREFIX = String.raw`repo:[\w.-]+(?:@\d+)?/[\w.-]+(?:@\d+)?`;
-
-const SUPPORTED_PREFIX = new RegExp(`^${SUBJECT_PREFIX}$`);
-
-const SETUP_SUBJECTS: Readonly<Record<string, RegExp>> = {
-  [PULL_REQUESTS_TRUST_KEY]: new RegExp(`^${SUBJECT_PREFIX}:pull_request$`),
-  [DEFAULT_BRANCH_TRUST_KEY]: new RegExp(
-    `^${SUBJECT_PREFIX}:ref:refs/heads/[^:*]+$`,
-  ),
-};
-
-const PINNED_CLAIMS = ['repository_id', 'repository_owner_id'];
-
-const setUpBefore = (trust: OidcTrust): boolean =>
-  trust.workload.issuer === GITHUB_ACTIONS_ISSUER &&
-  Object.keys(trust.workload.claims).every((claim) =>
-    PINNED_CLAIMS.includes(claim),
-  ) &&
-  (SETUP_SUBJECTS[trust.key.value]?.test(trust.workload.subject.value) ??
-    false);
+interface Keeping {
+  readonly workspaceId: WorkspaceId;
+  readonly createdBy: UserId;
+  readonly ceiling: ScopeCeiling;
+  readonly by: ChangeActor;
+}
 
 export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
   constructor(
@@ -74,109 +53,59 @@ export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
     const principal = PersonPrincipal.of(UserId.of(wanted.by));
     const permissions = await this.access.permissionsIn(workspaceId, principal);
 
-    if (!permissions?.managesOidcTrusts) {
+    if (!permissions?.scopes.has('trusts')) {
       throw new TrustsNeedAnAdminError();
     }
 
-    if (/[*:]/.test(wanted.defaultBranch)) {
-      throw new UnsafeBranchNameError(wanted.defaultBranch);
-    }
-
-    if (!SUPPORTED_PREFIX.test(wanted.subjectPrefix)) {
-      throw new UnsupportedSubjectPrefixError(wanted.subjectPrefix);
-    }
-
-    const by = ChangeActor.of(
-      Actor.of(principal, Client.named(wanted.client)),
+    const specs = GitHubActionsTrustTemplate.specsFor(wanted);
+    const keeping: Keeping = {
       workspaceId,
-    );
-    const ceiling = ScopeCeiling.of(principal);
-
-    const claims = {
-      repository_id: wanted.repositoryId,
-      repository_owner_id: wanted.ownerId,
+      createdBy: principal.userId,
+      ceiling: ScopeCeiling.of(principal),
+      by: ChangeActor.of(
+        Actor.of(principal, Client.named(wanted.client)),
+        workspaceId,
+      ),
     };
 
-    return this.transaction.inTransaction(async () => ({
-      pullRequests: await this.kept(
-        workspaceId,
-        this.spec(
-          PULL_REQUESTS_TRUST_KEY,
-          `${wanted.subjectPrefix}:pull_request`,
-          claims,
-          ['plan'],
-          TokenLifetime.USUAL_MINUTES,
-        ),
-        principal.userId,
-        ceiling,
-        by,
+    const pullRequests = await this.planned(specs.pullRequests, keeping);
+    const defaultBranch = await this.planned(specs.defaultBranch, keeping);
+
+    return {
+      pullRequests: await this.transaction.inTransaction(() =>
+        this.kept(pullRequests, keeping),
       ),
-      defaultBranch: await this.kept(
-        workspaceId,
-        this.spec(
-          DEFAULT_BRANCH_TRUST_KEY,
-          `${wanted.subjectPrefix}:ref:refs/heads/${wanted.defaultBranch}`,
-          claims,
-          wanted.applyScopes,
-          TokenLifetime.LONGEST_MINUTES,
-        ),
-        principal.userId,
-        ceiling,
-        by,
+      defaultBranch: await this.transaction.inTransaction(() =>
+        this.kept(defaultBranch, keeping),
       ),
-    }));
+    };
   }
 
-  private spec(
-    key: string,
-    subject: string,
-    claims: Readonly<Record<string, string>>,
-    scopes: readonly string[],
-    minutes: number,
-  ): OidcTrustSpec {
-    return {
-      key: OidcTrustKey.of(key),
-      workload: WorkloadRule.of({
-        issuer: GITHUB_ACTIONS_ISSUER,
-        audience: 'spotlight',
-        subject,
-        claims,
-      }),
-      scopes: TokenScopes.named(scopes),
-      lifetime: TokenLifetime.ofMinutes(minutes),
-      description: OidcTrustDescription.of(''),
-    };
+  private async planned(
+    spec: OidcTrustSpec,
+    keeping: Keeping,
+  ): Promise<Planned> {
+    const existing = await this.trusts.findByKey(keeping.workspaceId, spec.key);
+
+    return existing
+      ? {
+          spec,
+          existing,
+          adopted: GitHubActionsTrustTemplate.adopted(existing, spec),
+        }
+      : { spec, existing: null, adopted: null };
   }
 
   private async kept(
-    workspaceId: WorkspaceId,
-    spec: OidcTrustSpec,
-    createdBy: UserId,
-    ceiling: ScopeCeiling,
-    by: ChangeActor,
+    planned: Planned,
+    keeping: Keeping,
   ): Promise<TrustedWorkloadDto> {
-    const existing = await this.trusts.findByKey(workspaceId, spec.key);
-
-    if (existing && !setUpBefore(existing)) {
-      throw new TrustKeyTakenError(
-        existing.key.value,
-        existing.workload.subject.value,
-      );
-    }
+    const { spec, existing, adopted } = planned;
 
     if (existing) {
-      if (!spec.workload.equals(existing.workload)) {
+      if (adopted) {
         await this.trusts.save(
-          existing.update(
-            {
-              ...spec,
-              scopes: existing.scopes,
-              lifetime: existing.lifetime,
-              description: existing.description,
-            },
-            ceiling,
-            by,
-          ),
+          existing.update(adopted, keeping.ceiling, keeping.by),
         );
       }
 
@@ -186,10 +115,10 @@ export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
     const created = OidcTrust.create({
       ...spec,
       id: OidcTrustId.of(this.ids.generate()),
-      workspaceId,
-      createdBy,
-      scopeCeiling: ceiling,
-      by,
+      workspaceId: keeping.workspaceId,
+      createdBy: keeping.createdBy,
+      scopeCeiling: keeping.ceiling,
+      by: keeping.by,
       now: this.clock.now(),
     });
 

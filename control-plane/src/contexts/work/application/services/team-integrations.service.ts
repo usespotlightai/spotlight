@@ -1,14 +1,14 @@
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
 import type { TeamIntegrationsPort } from '@work/application/ports/team-integrations.port';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import type { Tool } from '@work/domain/value-objects/tool.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 export class TeamIntegrations {
   constructor(private readonly integrations: TeamIntegrationsPort) {}
 
   async provided(
-    line: Line,
+    line: LineMap,
     tools: readonly Tool[],
   ): Promise<readonly DeclaredTool[]> {
     const integrationTools = tools

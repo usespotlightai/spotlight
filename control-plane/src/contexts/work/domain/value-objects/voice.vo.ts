@@ -2,13 +2,13 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidVoiceError } from '@work/domain/exceptions/invalid-voice.error';
 
-export const VOICES = ['station', 'person', 'world'] as const;
+export const VOICE_KINDS = ['station', 'person', 'world'] as const;
 
-export type AuthorKind = (typeof VOICES)[number];
+export type VoiceKind = (typeof VOICE_KINDS)[number];
 
 export class Voice {
   private constructor(
-    readonly by: AuthorKind,
+    readonly kind: VoiceKind,
     readonly author: UserId | null,
     readonly run: RunId | null,
     readonly coAuthors: readonly UserId[] = [],
@@ -33,12 +33,12 @@ export class Voice {
   }
 
   static of(input: {
-    by: string;
+    kind: string;
     author?: string | null;
     coAuthors?: readonly string[];
     run?: string | null;
   }): Voice {
-    if (input.by === 'person') {
+    if (input.kind === 'person') {
       if (!input.author) {
         throw new InvalidVoiceError('of a person needs their name');
       }
@@ -51,11 +51,11 @@ export class Voice {
 
     if (input.coAuthors?.length) {
       throw new InvalidVoiceError(
-        `with co-authors belongs to a person, not to ${input.by}`,
+        `with co-authors belongs to a person, not to ${input.kind}`,
       );
     }
 
-    if (input.by === 'world') {
+    if (input.kind === 'world') {
       if (input.run) {
         throw new InvalidVoiceError('of the world names no run');
       }
@@ -65,12 +65,12 @@ export class Voice {
 
     if (input.author) {
       throw new InvalidVoiceError(
-        `with a name belongs to a person, not to ${input.by}`,
+        `with a name belongs to a person, not to ${input.kind}`,
       );
     }
 
-    if (input.by !== 'station') {
-      throw new InvalidVoiceError(`must be one of ${VOICES.join(', ')}`);
+    if (input.kind !== 'station') {
+      throw new InvalidVoiceError(`must be one of ${VOICE_KINDS.join(', ')}`);
     }
 
     return Voice.station(input.run ? RunId.of(input.run) : null);
@@ -78,7 +78,7 @@ export class Voice {
 
   equals(other: Voice): boolean {
     return (
-      this.by === other.by &&
+      this.kind === other.kind &&
       (this.author === null
         ? other.author === null
         : other.author !== null && this.author.equals(other.author)) &&
@@ -94,14 +94,14 @@ export class Voice {
   }
 
   get isStation(): boolean {
-    return this.by === 'station';
+    return this.kind === 'station';
   }
 
   get isPerson(): boolean {
-    return this.by === 'person';
+    return this.kind === 'person';
   }
 
   get isWorld(): boolean {
-    return this.by === 'world';
+    return this.kind === 'world';
   }
 }

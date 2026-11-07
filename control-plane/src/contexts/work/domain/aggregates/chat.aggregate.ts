@@ -1,5 +1,6 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -12,38 +13,43 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
-import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
-import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
+import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
+import { chatPlacement } from '@work/domain/services/chat-placement';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
+import type { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
-import type { Effort } from '@work/domain/value-objects/effort.vo';
+import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import type { Mark } from '@work/domain/value-objects/mark.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import type { PullRequestStep } from '@work/domain/value-objects/pull-request-step';
 import { Resume } from '@work/domain/value-objects/resume.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
+import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
 export interface NumberedProposal {
   readonly number: number;
@@ -56,6 +62,11 @@ export interface ChatAfterRun {
 }
 
 export class Chat extends EventRecorder {
+  static readonly RUN_API_GRANT = {
+    scopes: ['plan'] as const,
+    lifetimeMs: 60 * 60 * 1_000,
+  };
+
   private constructor(
     readonly id: ChatId,
     readonly workspaceId: WorkspaceId,
@@ -71,8 +82,8 @@ export class Chat extends EventRecorder {
     readonly messages: readonly ChatMessage[],
     readonly marks: readonly ChatMark[],
     readonly currentRunId: RunId | null,
-    readonly sessionId: HarnessSession | null,
-    readonly runnerId: RunnerId | null,
+    readonly session: HarnessSession | null,
+    readonly claimedBy: RunnerId | null,
     readonly createdAt: Date,
     readonly version: number,
   ) {
@@ -93,11 +104,21 @@ export class Chat extends EventRecorder {
     targetStation?: TargetStation | null;
     setup?: ConfigFolder | null;
     marks?: readonly ChatMark[];
+    lines: readonly LineMap[];
     now: Date;
     newId: () => string;
   }): Chat {
     Chat.assertNoForeignTraces(input.teamId, input.traces ?? []);
     Chat.assertNoForeignStation(input.teamId, input.targetStation ?? null);
+
+    const repositories = Chat.distinct([
+      ...(input.setup ? [input.setup.repository] : []),
+      ...(input.repositories ?? []),
+    ]);
+
+    if (!chatPlacement(repositories, input.lines)) {
+      throw new MixedRunnerImagesError();
+    }
 
     const opening = ChatMessage.sent({
       position: MessagePosition.of(0),
@@ -117,10 +138,7 @@ export class Chat extends EventRecorder {
       input.harness,
       input.model ?? null,
       input.effort ?? null,
-      Chat.distinct([
-        ...(input.setup ? [input.setup.repository] : []),
-        ...(input.repositories ?? []),
-      ]),
+      repositories,
       input.targetStation ?? null,
       input.setup ?? null,
       [opening],
@@ -160,8 +178,8 @@ export class Chat extends EventRecorder {
     messages: readonly ChatMessage[];
     marks?: readonly ChatMark[];
     currentRunId: RunId | null;
-    sessionId: HarnessSession | null;
-    runnerId: RunnerId | null;
+    session: HarnessSession | null;
+    claimedBy: RunnerId | null;
     createdAt: Date;
     version: number;
   }): Chat {
@@ -169,6 +187,25 @@ export class Chat extends EventRecorder {
       input.messages.some((message, place) => message.position.value !== place)
     ) {
       throw new InconsistentStateError('chat', 'has a gap in its messages');
+    }
+
+    if (input.version < 0) {
+      throw new InconsistentStateError('chat', 'has a negative version');
+    }
+
+    if (
+      Chat.distinct(input.repositories).length !== input.repositories.length
+    ) {
+      throw new InconsistentStateError('chat', 'names a repository twice');
+    }
+
+    const setUpIn = input.setup?.repository ?? null;
+
+    if (setUpIn && !input.repositories.some((each) => each.equals(setUpIn))) {
+      throw new InconsistentStateError(
+        'chat',
+        'sets up a repository it does not work in',
+      );
     }
 
     return new Chat(
@@ -186,8 +223,8 @@ export class Chat extends EventRecorder {
       input.messages,
       input.marks ?? [],
       input.currentRunId,
-      input.sessionId,
-      input.runnerId,
+      input.session,
+      input.claimedBy,
       input.createdAt,
       input.version,
     );
@@ -235,6 +272,20 @@ export class Chat extends EventRecorder {
 
   get unacknowledged(): readonly ChatMessage[] {
     return this.messages.filter((message) => message.unacknowledged);
+  }
+
+  pendingFor(runId: RunId): readonly ChatMessage[] {
+    return this.hasCurrentRun(runId) ? this.unacknowledged : [];
+  }
+
+  toolRefusal(declared: DeclaredTool): ChatRefusal | null {
+    return declared.approval
+      ? { kind: 'approval-needs-a-task', tool: declared.tool }
+      : null;
+  }
+
+  connectionAskRefusal(providedBy: string): ChatRefusal {
+    return { kind: 'connection-needs-a-task', providedBy };
   }
 
   get allAttachments(): readonly Attachment[] {
@@ -289,10 +340,6 @@ export class Chat extends EventRecorder {
     return this.marks.length > 0;
   }
 
-  get ambientMarks(): readonly Mark[] {
-    return this.marks.filter((each) => !each.finds).map((each) => each.mark);
-  }
-
   get proposals(): readonly NumberedProposal[] {
     return this.messages
       .flatMap((message) => (message.proposal ? [message.proposal] : []))
@@ -325,6 +372,12 @@ export class Chat extends EventRecorder {
     });
   }
 
+  get setupPullRequestStep(): PullRequestStep {
+    const pullRequest = this.setup?.pullRequest;
+
+    return pullRequest ? { kind: 'keep', pullRequest } : { kind: 'open' };
+  }
+
   mayOpenSetupFrom(runId: RunId): ConfigFolder {
     const setup = this.setup;
 
@@ -339,6 +392,20 @@ export class Chat extends EventRecorder {
     }
 
     return setup;
+  }
+
+  ciSetUp(ci: CiSetup): Chat {
+    if (!this.setup) {
+      throw new NotASetupChatError(this.id.value);
+    }
+
+    if (this.setup.ci) {
+      throw new InvalidChatTransitionError(
+        `Chat ${this.id.value} has set up CI already.`,
+      );
+    }
+
+    return this.with({ setup: this.setup.withCi(ci) });
   }
 
   openSetup(runId: RunId, pullRequest: PullRequestUrl, at: Date): Chat {
@@ -382,7 +449,7 @@ export class Chat extends EventRecorder {
     });
 
     assigned.record(
-      new ChatDispatched(
+      new ChatRunAssigned(
         this.id,
         runId,
         this.unacknowledged.map((message) => message.position),
@@ -440,14 +507,17 @@ export class Chat extends EventRecorder {
     return { chat: recorded, followsUp: recorded.wantsFollowUp };
   }
 
-  endRun(runId: RunId): Chat {
+  private endRun(runId: RunId): Chat {
     return this.currentRunId?.equals(runId)
       ? this.with({ currentRunId: null })
       : this;
   }
 
-  recordSession(sessionId: HarnessSession, runnerId: RunnerId | null): Chat {
-    return this.with({ sessionId, runnerId });
+  private recordSession(
+    session: HarnessSession,
+    claimedBy: RunnerId | null,
+  ): Chat {
+    return this.with({ session, claimedBy });
   }
 
   acknowledgeUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
@@ -478,8 +548,7 @@ export class Chat extends EventRecorder {
 
   resume(): Resume {
     return Resume.of({
-      key: ResumeKey.forChat(this.id.value),
-      sessionId: this.sessionId,
+      session: this.session,
     });
   }
 
@@ -495,11 +564,7 @@ export class Chat extends EventRecorder {
       ...input,
       position: this.proposalPositionFor(input.runId),
     });
-    const next = this.with({ messages: [...this.messages, message] });
-
-    next.record(new TaskProposed(this.id, message.position, input.placement));
-
-    return next;
+    return this.with({ messages: [...this.messages, message] });
   }
 
   proposalPositionFor(runId: RunId): MessagePosition {
@@ -592,6 +657,12 @@ export class Chat extends EventRecorder {
     }
   }
 
+  get workingCopyRelease(): WorkingCopyRelease {
+    return this.session
+      ? WorkingCopyRelease.held()
+      : WorkingCopyRelease.since(this.createdAt);
+  }
+
   isStartedBy(by: UserId): boolean {
     return this.startedBy.equals(by);
   }
@@ -617,8 +688,8 @@ export class Chat extends EventRecorder {
     effort?: Effort | null;
     messages?: readonly ChatMessage[];
     currentRunId?: RunId | null;
-    sessionId?: HarnessSession | null;
-    runnerId?: RunnerId | null;
+    session?: HarnessSession | null;
+    claimedBy?: RunnerId | null;
     setup?: ConfigFolder | null;
   }): Chat {
     const next = new Chat(
@@ -636,8 +707,8 @@ export class Chat extends EventRecorder {
       part.messages ?? this.messages,
       this.marks,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,
-      part.sessionId !== undefined ? part.sessionId : this.sessionId,
-      part.runnerId !== undefined ? part.runnerId : this.runnerId,
+      part.session !== undefined ? part.session : this.session,
+      part.claimedBy !== undefined ? part.claimedBy : this.claimedBy,
       this.createdAt,
       this.version,
     );
@@ -645,6 +716,21 @@ export class Chat extends EventRecorder {
     next.inheritEvents(this);
 
     return next;
+  }
+
+  deleted(): Chat {
+    const gone = this.with({ currentRunId: null });
+
+    gone.record(
+      new ChatDeleted(
+        this.id,
+        this.workspaceId,
+        this.teamId,
+        this.currentRunId,
+      ),
+    );
+
+    return gone;
   }
 
   equals(other: Chat): boolean {

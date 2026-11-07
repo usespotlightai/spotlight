@@ -10,34 +10,13 @@ const flat = (body: string): string => body.replace(/\s+/g, ' ').trim();
 
 const REMEMBERING = `When you learn something the next run should know and the code will not tell it — why an approach was taken or dropped, a trap in the environment, a correction from a person — propose it with \`${REMEMBER_COMMAND} --kind <kind> --body "…" [--path <path>]\`; a person approves it before the team stores it.`;
 
-const looking = (folder: MemoryFolder): string =>
-  [
-    'Look there before you:',
-    folder.repositoryFolder
-      ? `- change code you do not know: the same path under \`${folder.repositoryFolder}\`, and the folders above it;`
-      : null,
-    '- choose between approaches: grep for what you are deciding, since a rejected approach may already be written down;',
-    '- chase a failure you cannot explain: grep for the error, the test or the service.',
-  ]
-    .filter(Boolean)
-    .join('\n');
-
 const COPY =
   'Follow what you find where it bears on your work. The files are only a copy: changing them changes nothing the team remembers.';
-
-const WIDEST = 38;
 
 interface RestOfMemory {
   readonly folder: MemoryFolder | null;
   readonly briefed: boolean;
 }
-
-const layout = (folder: MemoryFolder): string =>
-  [
-    '```',
-    ...folder.layout.map((row) => `${row.folder.padEnd(WIDEST)}${row.level}`),
-    '```',
-  ].join('\n');
 
 export const Learned = {
   section(memories: readonly BriefedMemory[]): string | null {
@@ -65,8 +44,7 @@ export const Learned = {
     return [
       '## The rest of what the team remembers',
       `${rest.briefed ? 'The list above is only what bears most closely on this work. ' : ''}Everything the team remembers that applies here is in \`${folder.path}/\` in the workspace, one file per memory, named by its handle and laid out by where it applies:`,
-      layout(folder),
-      looking(folder),
+      folder.guide,
       COPY,
     ].join('\n\n');
   },

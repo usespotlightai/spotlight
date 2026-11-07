@@ -5,9 +5,10 @@ import type { StackPart } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
+  DraftedCohort,
+  DraftedLayer,
+  DraftedOutline,
   OutlinedCohort,
-  ProposedCohort,
-  ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
@@ -22,7 +23,7 @@ export interface ChangeStackGenerationRequest {
 }
 
 export interface GeneratedChangeStack {
-  readonly cohorts: readonly ProposedCohort[];
+  readonly cohorts: readonly DraftedCohort[];
   readonly usage: ModelCall | null;
 }
 
@@ -35,12 +36,12 @@ export interface CohortLayersRequest {
 }
 
 export interface GeneratedOutline {
-  readonly cohorts: readonly OutlinedCohort[];
+  readonly cohorts: readonly DraftedOutline[];
   readonly usage: ModelCall | null;
 }
 
 export interface GeneratedLayers {
-  readonly layers: readonly ProposedLayer[];
+  readonly layers: readonly DraftedLayer[];
   readonly usage: ModelCall | null;
 }
 

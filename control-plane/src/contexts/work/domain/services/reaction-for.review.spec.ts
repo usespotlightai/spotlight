@@ -1,17 +1,22 @@
-import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import { ReactionFor } from '@work/domain/services/reaction-for';
 import { Branch } from '@work/domain/value-objects/branch.vo';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import {
+  deliveryLineOf,
+  reviewLineOf,
+  reviewsOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
-import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
+import {
+  ReviewRequest,
+  type ReviewRequestParts,
+} from '@work/domain/value-objects/review-request.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
@@ -25,34 +30,21 @@ const fresh = () => {
   return `id_${next}`;
 };
 
-const openingFor = (role: LineRole) => {
-  const found = BUILT_IN_LINES.find((each) => each.role?.equals(role));
-
-  if (!found) {
-    throw new Error(`Spotlight ships no ${role.value} line`);
-  }
-
-  return found;
-};
-
 const lineOf = (role: LineRole) =>
-  Line.create({
-    by: changeActorIn(),
+  (role.equals(LineRole.REVIEW) ? reviewLineOf : deliveryLineOf)({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
-    line: {
-      ...openingFor(role),
-      ...(role.equals(LineRole.REVIEW)
-        ? { reviews: ReviewPolicy.of({ start: 'opened' }) }
-        : {}),
-    },
     newId: fresh,
-  }).runsOn(HarnessId.of('dev'), null);
+    harness: HarnessId.of('dev'),
+    ...(role.equals(LineRole.REVIEW)
+      ? { reviews: reviewsOf({ start: 'opened' }) }
+      : {}),
+  });
 
 const review = lineOf(LineRole.REVIEW);
 const delivery = lineOf(LineRole.DELIVERY);
 
-const taskOn = (line: Line) =>
+const taskOn = (line: LineMap) =>
   Task.add({
     line,
     // biome-ignore lint/style/noNonNullAssertion: the built-in lines have an entry
@@ -63,7 +55,7 @@ const taskOn = (line: Line) =>
     newId: fresh,
   });
 
-const REQUEST: ReviewRequest = {
+const REQUEST = ReviewRequest.of({
   trigger: 'opened',
   label: null,
   pullRequest: PULL,
@@ -71,11 +63,11 @@ const REQUEST: ReviewRequest = {
   outside: false,
   draft: false,
   branch: Branch.of('fix-uploads'),
-};
+});
 
 const requested = (
   over: {
-    request?: Partial<ReviewRequest>;
+    request?: Partial<ReviewRequestParts>;
     branchTask?: Task;
     pullRequestTask?: Task;
     reviewTask?: Task;
@@ -90,9 +82,9 @@ const requested = (
       description: null,
       assignEmail: null,
       marks: [Mark.review(PULL)],
-      review: { ...REQUEST, ...over.request },
+      review: REQUEST.with(over.request ?? {}),
     },
-    request: { ...REQUEST, ...over.request },
+    request: REQUEST.with(over.request ?? {}),
     anchor: null,
     branchTask: over.branchTask ?? null,
     pullRequestTask: over.pullRequestTask ?? null,
@@ -124,13 +116,23 @@ describe('ReactionFor, with a review request', () => {
   it('does not count a pull request as Spotlight’s own because an earlier review of it has its mark', () => {
     expect(
       requested({
-        pullRequestTask: taskOn(review).reviews(PULL, { outside: false }),
+        pullRequestTask: taskOn(review).reviews(
+          PULL,
+          { outside: false },
+          review,
+          new Date(0),
+        ),
       }).kind,
     ).toBe('opens');
   });
 
   it('lets a review under way receive the word, rather than opening another', () => {
-    const underway = taskOn(review).reviews(PULL, { outside: false });
+    const underway = taskOn(review).reviews(
+      PULL,
+      { outside: false },
+      review,
+      new Date(0),
+    );
 
     expect(requested({ reviewTask: underway })).toEqual({
       kind: 'received',

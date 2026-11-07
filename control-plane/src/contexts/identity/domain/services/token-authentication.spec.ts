@@ -2,21 +2,22 @@ import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { TokenAuthentication } from '@identity/domain/services/token-authentication';
 import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
+import { RunAttempt } from '@identity/domain/value-objects/run-attempt.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-25T10:00:00.000Z');
@@ -70,12 +71,11 @@ const ISSUED = WorkspaceToken.issue({
 const FOR_RUN = WorkspaceToken.forRun({
   id: WorkspaceTokenId.of('token_3'),
   workspaceId: WorkspaceId.of('ws_1'),
-  name: TokenName.of('run-token-3'),
   scopes: TokenScopes.named(['plan']),
   hash: TokenHash.of('f'.repeat(64)),
   issuedBy: UserId.of('user_1'),
   runId: RunId.of('run_1'),
-  attempt: 1,
+  attempt: RunAttempt.of(1),
   expiresAt: LATER,
   now: NOW,
 });

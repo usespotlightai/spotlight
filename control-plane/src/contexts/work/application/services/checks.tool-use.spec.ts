@@ -1,15 +1,15 @@
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
+import type { TaskLookupReaderPort } from '@work/application/ports/task-lookup-reader.port';
 import { ChecksToolUse } from '@work/application/services/checks.tool-use';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { NoPullRequestError } from '@work/domain/exceptions/no-pull-request.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const CONTEXT: TaskToolContext = {
@@ -37,14 +37,22 @@ const FAILED = {
   ],
 };
 
-const using = (task: Pick<Task, 'pullRequest'> | null) => {
+const using = (task: { pullRequest: PullRequestUrl | null } | null) => {
   const checkRuns = {
     failedOn: vi.fn(async () => FAILED),
     failedInSuite: vi.fn(),
   } satisfies CheckRunsPort;
   const tasks = {
-    find: vi.fn(async () => task),
-  } as unknown as TaskRepository;
+    find: vi.fn(async () =>
+      task
+        ? {
+            pullRequestLink: task.pullRequest
+              ? PullRequestLink.opened(task.pullRequest)
+              : null,
+          }
+        : null,
+    ),
+  } as unknown as TaskLookupReaderPort;
 
   return { checkRuns, tool: new ChecksToolUse(tasks, checkRuns) };
 };

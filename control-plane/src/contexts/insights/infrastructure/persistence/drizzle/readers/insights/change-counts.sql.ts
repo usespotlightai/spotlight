@@ -12,7 +12,7 @@ import {
 import { rateOfScore } from '@insights/infrastructure/persistence/drizzle/readers/insights/judge-rate.sql';
 import {
   type GroupColumns,
-  groupCountsOf,
+  groupCountsOfRow,
   inEndOrder,
   iso,
   measuredColumns,
@@ -188,7 +188,10 @@ export const changeCountsIn = async (
   const rubrics = await rubricsIn(db, team);
   const keyOf = (marker: string, side: Side) => JSON.stringify([marker, side]);
   const sidesBy = new Map(
-    sides.map((each) => [keyOf(each.marker, each.side), groupCountsOf(each)]),
+    sides.map((each) => [
+      keyOf(each.marker, each.side),
+      groupCountsOfRow(each),
+    ]),
   );
   const judgedBy = new Map<string, RubricRates[]>();
 

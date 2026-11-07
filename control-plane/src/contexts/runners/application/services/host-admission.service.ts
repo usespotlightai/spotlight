@@ -22,10 +22,10 @@ export class HostAdmission {
     const host = await this.hosts.find(HostId.of(hostId));
 
     return (
-      host?.workspaceId.equals(authenticated.workspaceId) === true &&
-      host.hasSource(
+      host?.admits(
         CredentialSource.of(authenticated.source.kind, authenticated.source.id),
-      )
+        authenticated.workspaceId,
+      ) ?? false
     );
   }
 }

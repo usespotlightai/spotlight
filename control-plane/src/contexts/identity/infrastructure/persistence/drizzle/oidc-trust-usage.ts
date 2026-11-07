@@ -1,8 +1,8 @@
 import type { OidcTrustUsagePort } from '@identity/application/ports/oidc-trust-usage.port';
+import type { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { oidcTrustUsage } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, sql } from 'drizzle-orm';
 

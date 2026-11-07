@@ -95,40 +95,40 @@ describe('resource responses', () => {
     ).toMatchObject({ status, type: `urn:spotlight:problem:${slug}` });
   });
 
-  it('says why a request was forbidden, by what it was forbidden to do', async () => {
+  it('names what a forbidden request was forbidden to do, and to what', async () => {
+    const forbiddenOf = async (responding: () => unknown) => {
+      try {
+        await responding();
+      } catch (error) {
+        if (error instanceof ProblemException) {
+          return error.forbiddenRequest;
+        }
+
+        throw error;
+      }
+
+      throw new Error('responded');
+    };
+
     expect(
-      await problemOf(() =>
+      await forbiddenOf(() =>
         respondCreated(
           'workspace',
           forbiddenTo('create-workspaces'),
           toResponse,
         ),
       ),
-    ).toMatchObject({
-      status: 403,
-      detail: expect.stringContaining(
-        'A workspace token cannot create a workspace',
-      ),
-    });
+    ).toEqual({ kind: 'workspace', act: 'create-workspaces' });
     expect(
-      await problemOf(() =>
+      await forbiddenOf(() =>
         respondDeleted('workspace', forbiddenTo('administer')),
       ),
-    ).toMatchObject({
-      status: 403,
-      detail: expect.stringContaining('A token can never administer'),
-    });
+    ).toEqual({ kind: 'workspace', act: 'administer' });
   });
 
-  it.each([
-    ['configure', 'Not allowed to change the secret'],
-    ['secrets', 'Not allowed to change the secret'],
-    ['runners', 'Not allowed to change the secret'],
-    ['trusts', 'Not allowed to change the secret'],
-    ['administer', 'Not allowed to administer the secret'],
-  ] as const)(
-    'names the permission %s a forbidden request lacked, whatever its title says',
-    async (act, title) => {
+  it.each(['configure', 'secrets', 'runners', 'trusts', 'administer'] as const)(
+    'names the permission %s a forbidden request lacked',
+    async (act) => {
       for (const forbidden of [
         () => respondCreated('secret', forbiddenTo(act), toResponse),
         () => respondUpdated('secret', forbiddenTo(act), toResponse),
@@ -137,7 +137,6 @@ describe('resource responses', () => {
         expect(await problemOf(forbidden)).toMatchObject({
           type: 'urn:spotlight:problem:forbidden',
           status: 403,
-          title,
           permission: act,
         });
       }

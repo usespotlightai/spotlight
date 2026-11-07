@@ -1,3 +1,5 @@
+import type { AgreementMeasure } from '@insights/domain/services/judge-calibration';
+
 export const KAPPA_READINGS = [
   'almost-perfect',
   'substantial',
@@ -48,3 +50,13 @@ export const correlationReadingOf = (
   correlation: number | null,
 ): CorrelationReading | null =>
   readingOf(correlation, CORRELATION_BANDS, 'inverse');
+
+export const agreementReadingOf = (
+  measure: AgreementMeasure | null,
+  agreement: number | null,
+): KappaReading | CorrelationReading | null =>
+  measure === 'kappa'
+    ? kappaReadingOf(agreement)
+    : measure === 'spearman'
+      ? correlationReadingOf(agreement)
+      : null;

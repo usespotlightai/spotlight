@@ -1,4 +1,4 @@
-import type { CallMeterPort } from '@catalog/application/ports/call-meter.port';
+import type { CatalogCallLedgerPort } from '@catalog/application/ports/catalog-call-ledger.port';
 import type { WorkspacePlanDeletionPort } from '@catalog/application/ports/workspace-plan-deletion.port';
 import {
   WORKSPACE_DELETED,
@@ -12,7 +12,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 
 export const catalogSubscribers = (reactions: {
   plans: WorkspacePlanDeletionPort;
-  meter: CallMeterPort;
+  calls: CatalogCallLedgerPort;
 }): readonly DomainEventSubscriber[] => [
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'catalog.delete-plan-of-deleted-workspace',
@@ -24,6 +24,6 @@ export const catalogSubscribers = (reactions: {
     'catalog.delete-calls-of-deleted-workspace',
     [WORKSPACE_DELETED],
     (event) =>
-      reactions.meter.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
+      reactions.calls.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
   ),
 ];

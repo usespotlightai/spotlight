@@ -4,10 +4,13 @@ import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { WORK, type WorkPort } from '@replays/application/ports/work.port';
+import {
+  TRIALABLE_RUNS as REPLAYS_TRIALABLE_RUNS,
+  type TrialableRunsPort as ReplaysTrialableRunsPort,
+} from '@replays/application/ports/trialable-runs.port';
+import { healthView } from '@replays/application/queries/views/replay-views';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
-import { healthView } from '@replays/application/services/replay-views';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -21,6 +24,21 @@ import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
 import {
+  ARCHIVE_REFERENCES,
+  type ArchiveReferencesPort,
+} from '@runs/application/ports/archive-references.port';
+import {
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
+import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
+import {
+  type ArchiveFacts,
+  WorkingCopyArchive,
+} from '@runs/domain/aggregates/working-copy-archive.aggregate';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
+import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
@@ -32,36 +50,32 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import {
-  ARCHIVE_REFERENCES,
-  type ArchiveReferencesPort,
-} from '@work/application/ports/archive-references.port';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
 import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
-import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
+  STATION_CONFIG_CANDIDATES,
+  type StationConfigCandidatesPort,
+} from '@work/application/ports/station-config-candidates.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet, runEnded } from './support/kept-sets';
-import { plannedCandidate, replayOf, startedReplay } from './support/replays';
+import {
+  plannedCandidate,
+  replayOf,
+  startedReplay,
+  writtenStation,
+} from './support/replays';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-experiment-${randomUUID().slice(0, 8)}`;
@@ -75,11 +89,12 @@ const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const DAY = 24 * 60 * 60_000;
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -152,13 +167,12 @@ const anOriginal = async (
     createdById: input.openedFrom ? null : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -174,19 +188,9 @@ const anOriginal = async (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(stationId),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     ...(input.startedFrom === false
       ? {}
       : {
@@ -196,11 +200,29 @@ const anOriginal = async (
           startedFromAt: at,
         }),
   });
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(stationId),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      orderedAt: at,
+      endedAt: at,
+    }),
+  );
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -212,7 +234,7 @@ const anOriginal = async (
 };
 
 const refreshedBefore = (setId: string) =>
-  app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(setId));
+  app.get(RefreshReplaySets).refreshBefore(ReplaySetId.of(setId));
 
 const createSet = (...originals: Original[]) =>
   createSetAt(BUILD, ...originals);
@@ -253,6 +275,15 @@ const runRow = async (runId: string) => {
     .select()
     .from(schema.run)
     .where(eq(schema.run.id, runId));
+
+  return row;
+};
+
+const dispatchRow = async (runId: string) => {
+  const [row] = await db
+    .select()
+    .from(schema.dispatch)
+    .where(eq(schema.dispatch.id, runId));
 
   return row;
 };
@@ -331,12 +362,12 @@ const startReplay = (setId: string, candidate: string, amount: number) =>
   startedReplay(app, setId, { candidate, amount });
 
 const setOf = async (stationId: string = BUILD) =>
-  app.get(DrizzleReplaySetRepository).ofStation(stationId);
+  app.get(DrizzleReplaySetRepository).ofStation(StationId.of(stationId));
 
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore),
@@ -359,7 +390,7 @@ beforeAll(async () => {
     lineId: DELIVERY,
     repository: Repository.of('acme/api').value,
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -463,7 +494,7 @@ describe('a replay set', () => {
 
     await runEnded(app, at(BUILD), first.runId);
     await runEnded(app, at(BUILD), second.runId);
-    await app.get(RefreshKeptSets).processDue();
+    await app.get(RefreshReplaySets).processDue();
 
     const set = await setOf();
     const runs = set?.runs.map((each) => each.value);
@@ -517,7 +548,7 @@ describe('a replay set', () => {
     await db.delete(schema.task).where(eq(schema.task.id, original.taskId));
 
     const [summary] = await app
-      .get<WorkPort>(WORK)
+      .get<ReplaysTrialableRunsPort>(REPLAYS_TRIALABLE_RUNS)
       .runSummaries(team.workspaceId, [RunId.of(original.runId)]);
 
     expect(summary?.unreplayableReason).toBe('task-gone');
@@ -527,13 +558,33 @@ describe('a replay set', () => {
     const original = await anOriginal();
     const setId = await createSet(original);
     const references = app.get<ArchiveReferencesPort>(ARCHIVE_REFERENCES);
-    const archives = app.get(DrizzleWorkspaceArchiveRepository);
-    const archiveId = WorkspaceArchiveId.of(original.archiveId);
+    const holders = app.get(ArchiveHolders);
+    const archives = app.get(DrizzleWorkingCopyArchiveRepository);
+    const archiveId = WorkingCopyArchiveId.of(original.archiveId);
     const at = new Date(Date.now() + 60 * DAY);
-    const due = async () =>
-      (await references.due(WorkspaceArchive.removalCutoffs(at), 5_000)).find(
-        (each) => each.id.equals(archiveId),
+    const factsOf = async (): Promise<ArchiveFacts> => {
+      const page = await references.due(
+        WorkingCopyArchive.removalCutoffs(at),
+        null,
+        5_000,
       );
+      const due = page.due.find((each) => each.id.equals(archiveId));
+
+      if (!due) {
+        throw new Error(`Archive ${archiveId.value} is not due.`);
+      }
+
+      const held = await holders.stateOf([due.workingCopyKey]);
+
+      return {
+        holder: held.get(due.workingCopyKey.value) ?? null,
+        supersededAt: due.supersededAt,
+        lastStartedFromAt: due.lastStartedFromAt,
+        pinned: due.pinned,
+      };
+    };
+    const removable = async () =>
+      (await archives.find(archiveId))?.removableAt(at, await factsOf());
 
     await eventually(async () => {
       const held = await db
@@ -544,39 +595,39 @@ describe('a replay set', () => {
       return held.some((each) => each.runId === original.runId);
     });
 
-    expect(await due()).toBeUndefined();
+    expect((await factsOf()).pinned).toBe(true);
+    expect(await removable()).toBe(false);
 
     await createSet(await anOriginal());
 
-    await eventually(async () => (await due()) !== undefined);
+    await eventually(async () => !(await factsOf()).pinned);
 
-    const facts = (await due())?.facts;
-    expect(facts?.pinned).toBe(false);
-    expect(
-      (await archives.find(archiveId))?.removableAt(at, facts ?? never()),
-    ).toBe(true);
+    expect(await removable()).toBe(true);
     expect((await setOf())?.includes(RunId.of(original.runId))).toBe(false);
   });
 });
 
 describe('a candidate', () => {
   it('is checked as the line resource checks a station, and fingerprinted as runs are', async () => {
-    const candidates = app.get<ReplayCandidatesPort>(REPLAY_CANDIDATES);
+    const candidates = app.get<StationConfigCandidatesPort>(
+      STATION_CONFIG_CANDIDATES,
+    );
     const live = await candidates.live(DELIVERY, BUILD);
+    const station = await writtenStation(app, DELIVERY, 'build');
 
-    expect(live?.station.key).toBe('build');
-    expect(live?.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(live?.lineKey).toBe('delivery');
+    expect(live?.config.fingerprint).toMatch(/^[0-9a-f]{64}$/);
 
     const wrongKey = await candidates.validate(DELIVERY, BUILD, {
-      ...live?.station,
+      ...station,
       key: 'ship',
     });
     const badHarness = await candidates.validate(DELIVERY, BUILD, {
-      ...live?.station,
+      ...station,
       harness: 'no-such-harness',
     });
     const badPrompt = await candidates.validate(DELIVERY, BUILD, {
-      ...live?.station,
+      ...station,
       prompt: 42,
     });
 
@@ -594,45 +645,37 @@ describe('a candidate', () => {
     }
 
     const changed = await candidates.validate(DELIVERY, BUILD, {
-      ...live?.station,
+      ...station,
       prompt: 'Build it, then drain the queue.',
     });
-    expect(changed?.ok && changed.fingerprint).not.toBe(live?.fingerprint);
-    expect(changed?.ok && changed.live).toBe(live?.fingerprint);
+    expect(changed?.ok && changed.candidate.fingerprint).not.toBe(
+      live?.config.fingerprint,
+    );
+    expect(changed?.ok && changed.live.fingerprint).toBe(
+      live?.config.fingerprint,
+    );
     expect(changed?.ok && changed.changes).toEqual([
       { part: 'prompt', name: null, kind: 'changed', was: null, now: null },
     ]);
-    expect(await candidates.validate(DELIVERY, BUILD, live?.station)).toEqual({
+    expect(await candidates.validate(DELIVERY, BUILD, station)).toEqual({
       ok: true,
-      fingerprint: live?.fingerprint,
-      hashes: live?.hashes,
-      liveHashes: live?.hashes,
-      live: live?.fingerprint,
+      candidate: live?.config,
+      live: live?.config,
       changes: [],
-      scoring: { checksChanges: false, judge: null, rubricVersion: null },
-      station: live?.station,
     });
-    expect(
-      changed?.ok && { ...changed.station, prompt: live?.station.prompt },
-    ).toEqual(live?.station);
-    expect(live?.scoring).toEqual({
-      checksChanges: false,
+    expect(live?.config).toMatchObject({
+      check: null,
       judge: null,
-      rubricVersion: null,
+      rubricHash: null,
     });
   });
 });
 
-const proposed = async (prompt: string): Promise<string> => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  return plannedCandidate(app, DELIVERY, 'build', {
-    ...live?.station,
+const proposed = async (prompt: string): Promise<string> =>
+  plannedCandidate(app, DELIVERY, 'build', {
+    ...(await writtenStation(app, DELIVERY, 'build')),
     prompt,
   });
-};
 
 describe('a replay', () => {
   it('replays a set under a candidate beside a baseline of the live config, two runs of the team at a time, and compares them task by task', async () => {
@@ -665,7 +708,7 @@ describe('a replay', () => {
         const ofCandidate = entry?.replayId === id;
         const failsAt = ofCandidate && entry?.originalRunId === second.runId;
 
-        expect((await runRow(each.runId))?.replayOfRunId).toBe(
+        expect((await dispatchRow(each.runId))?.basedOnRunId).toBe(
           entry?.originalRunId,
         );
         await finishes(each, ofCandidate ? 0.1 : 0.2, failsAt);
@@ -690,19 +733,19 @@ describe('a replay', () => {
     expect(baseline.baseline).toBe(true);
     expect(live?.kind).toBe('live');
     expect(
-      (await runRow((await replayRunsOf([baselineId as string]))[0] ?? ''))
+      (await dispatchRow((await replayRunsOf([baselineId as string]))[0] ?? ''))
         ?.stationFingerprint,
     ).toBe(live?.fingerprint.value);
-    expect(totalsOf(baseline).endings.completed).toBe(2);
+    expect(totalsOf(baseline.outcome()).endings.completed).toBe(2);
     expect(replayed.baseline).toBe(false);
-    expect(totalsOf(replayed).endings).toMatchObject({
+    expect(totalsOf(replayed.outcome()).endings).toMatchObject({
       completed: 1,
       failed: 1,
     });
-    expect(totalsOf(replayed).spent.amount).toBeCloseTo(0.2);
+    expect(totalsOf(replayed.outcome()).spent.amount).toBeCloseTo(0.2);
     expect(replayed.pairwiseReferenceId?.value).toBe(baselineId);
 
-    const comparison = taskComparisons(replayed, baseline);
+    const comparison = taskComparisons(replayed.outcome(), baseline.outcome());
 
     expect(
       comparison.map((each) => [
@@ -718,7 +761,7 @@ describe('a replay', () => {
     expect(comparison[0]?.costDelta).toBeCloseTo(-0.1);
     for (const entry of replayed.entries) {
       expect(entry.fingerprint?.value).toBe(
-        (await runRow(entry.run?.value ?? ''))?.stationFingerprint,
+        (await dispatchRow(entry.run?.value ?? ''))?.stationFingerprint,
       );
     }
   });
@@ -742,8 +785,13 @@ describe('a replay', () => {
     const run = await runRow(runId ?? '');
 
     expect(run?.state).toBe('completed');
-    expect(run?.replayOfRunId).toBe(original.runId);
-    expect(run?.taskId).toBeNull();
+    expect(run).toMatchObject({
+      requesterOwner: 'replays',
+      requesterKind: 'replay',
+      requesterId: runId,
+      listed: false,
+    });
+    expect((await dispatchRow(runId ?? ''))?.basedOnRunId).toBe(original.runId);
     expect(
       (run?.spec as { briefing?: string } | undefined)?.briefing,
     ).toBeTruthy();
@@ -801,8 +849,8 @@ describe('a replay', () => {
     const capped = await replayOf(app, id);
 
     expect(capped.current).toBe('ceiling-reached');
-    expect(totalsOf(capped).spent.amount).toBeCloseTo(0.8);
-    expect(totalsOf(capped).endings).toMatchObject({
+    expect(totalsOf(capped.outcome()).spent.amount).toBeCloseTo(0.8);
+    expect(totalsOf(capped.outcome()).endings).toMatchObject({
       completed: 2,
       stopped: 1,
     });
@@ -858,7 +906,7 @@ describe('a replay', () => {
     );
 
     const repeated = await replayOf(app, started.id);
-    const totals = totalsOf(repeated);
+    const totals = totalsOf(repeated.outcome());
 
     expect(repeated.repeats).toBe(2);
     expect(repeated.entries.map((each) => each.repeat)).toEqual([1, 1, 2, 2]);
@@ -941,7 +989,7 @@ describe('a replay set whose station leaves its line', () => {
     );
     await eventually(async () => (await startingPointHoldsOf()).length === 0);
 
-    expect((await runRow(replayRun as string))?.stationId).toBeNull();
+    expect((await dispatchRow(replayRun as string))?.stationId).toBe(POLISH);
 
     const otherTeam = randomUUID();
     const otherReader = randomUUID();
@@ -960,6 +1008,7 @@ describe('a replay set whose station leaves its line', () => {
       workspaceId: team.workspaceId.value,
       key: `other-${otherTeam.slice(0, 8)}`,
       name: 'Other',
+      origin: 'configuration',
     });
     await db.insert(schema.teamMember).values({
       workspaceId: team.workspaceId.value,
@@ -1016,7 +1065,3 @@ describe('a team that is deleted', () => {
     }, 60_000);
   });
 });
-
-const never = (): never => {
-  throw new Error('there were no facts');
-};

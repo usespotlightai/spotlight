@@ -1,7 +1,7 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
-import { NotAllowedInReplayError } from '@memory/domain/exceptions/not-allowed-in-replay.error';
-import { NotAllowedInSearchError } from '@memory/domain/exceptions/not-allowed-in-search.error';
+import { NotAllowedAsOfPastTimeError } from '@memory/domain/exceptions/not-allowed-as-of-past-time.error';
+import { NotAllowedWithoutMemoriesError } from '@memory/domain/exceptions/not-allowed-without-memories.error';
 import {
   type Remembered,
   type RememberedAt,
@@ -12,8 +12,10 @@ import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo'
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -34,8 +36,8 @@ const at = (
 ): RememberedAt => ({
   runContext: {
     teamId: TEAM,
-    lineId: 'line_1',
-    stationId: 'station_1',
+    lineId: LineId.of('line_1'),
+    stationId: StationId.of('station_1'),
     repositories: [API, WEB],
   },
   steps: change.steps ?? [
@@ -75,8 +77,9 @@ const proposed = (
   Remembering.of({
     taskId: TaskId.of('task_1'),
     runId: RunId.of('run_1'),
-    replay: false,
-    isSearch: false,
+    asOf: null,
+    isolated: false,
+    trial: false,
   }).proposalOf({
     id: MemoryId.of('memory_1'),
     remembered: remembered(change),
@@ -90,32 +93,35 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
       Remembering.of({
         taskId: null,
         runId: RunId.of('run_1'),
-        replay: false,
-        isSearch: false,
+        asOf: null,
+        isolated: false,
+        trial: false,
       }),
     ).toThrow(/only from a task's run/);
   });
 
-  it('is never for a replay, which leaves nothing behind', () => {
+  it('is never for a run set at a past time, which leaves nothing behind', () => {
     expect(() =>
       Remembering.of({
         taskId: null,
         runId: RunId.of('run_1'),
-        replay: true,
-        isSearch: false,
+        asOf: new Date('2026-09-20T00:00:00.000Z'),
+        isolated: false,
+        trial: false,
       }),
-    ).toThrow(NotAllowedInReplayError);
+    ).toThrow(NotAllowedAsOfPastTimeError);
   });
 
-  it('is never for a search, which what the team remembers stays out of', () => {
+  it('is never for an isolated run that is not a trial', () => {
     expect(() =>
       Remembering.of({
         taskId: null,
         runId: RunId.of('run_1'),
-        replay: false,
-        isSearch: true,
+        asOf: null,
+        isolated: true,
+        trial: false,
       }),
-    ).toThrow(NotAllowedInSearchError);
+    ).toThrow(NotAllowedWithoutMemoriesError);
   });
 
   it('cites the step the agent remembered it from, as the run’s own', () => {
@@ -156,12 +162,12 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
 
   it('applies to the run’s line unless told otherwise', () => {
     expect(proposed().scope).toMatchObject({
-      lineId: 'line_1',
+      lineId: LineId.of('line_1'),
       stationId: null,
     });
     expect(proposed({ scope: 'station' }).scope).toMatchObject({
-      lineId: 'line_1',
-      stationId: 'station_1',
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_1'),
     });
     expect(proposed({ scope: 'team' }).scope).toMatchObject({
       lineId: null,
@@ -213,10 +219,12 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
     const existing = active();
 
     expect(
-      proposed({ supersedes: existing }).supersedes?.equals(existing.id),
+      proposed({ supersedes: existing.asPredecessor }).supersedes?.equals(
+        existing.id,
+      ),
     ).toBe(true);
     expect(() =>
-      proposed({ supersedes: active(TeamId.of('team_other')) }),
+      proposed({ supersedes: active(TeamId.of('team_other')).asPredecessor }),
     ).toThrow(/M-7 is not one/);
     expect(() =>
       proposed({
@@ -224,7 +232,7 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
           by: UserId.of('user_1'),
           reason: 'No longer true.',
           at: NOW,
-        }),
+        }).asPredecessor,
       }),
     ).toThrow(/M-7 is not one/);
   });

@@ -2,11 +2,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
+  AttachmentHolder,
   AttachmentReaderPort,
   AttachmentRecord,
 } from '@work/application/ports/attachment-reader.port';
 import { attachmentClaim } from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
-import { chatAttachment } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
+import {
+  chat,
+  chatAttachment,
+} from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { taskAttachment } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { eq } from 'drizzle-orm';
 
@@ -20,22 +24,35 @@ export class DrizzleAttachmentReader implements AttachmentReaderPort {
         workspaceId: attachmentClaim.workspaceId,
         tasked: taskAttachment,
         chatted: chatAttachment,
+        chatStartedById: chat.startedById,
+        chatTeamId: chat.teamId,
       })
       .from(attachmentClaim)
+      .leftJoin(chat, eq(chat.id, attachmentClaim.chatId))
       .leftJoin(taskAttachment, eq(taskAttachment.id, attachmentClaim.id))
       .leftJoin(chatAttachment, eq(chatAttachment.id, attachmentClaim.id))
       .where(eq(attachmentClaim.id, id))
       .limit(1);
 
     const attachment = found?.tasked ?? found?.chatted;
+    const holder: AttachmentHolder | null = found?.tasked
+      ? { kind: 'task', taskId: found.tasked.taskId }
+      : found?.chatStartedById && found.chatTeamId
+        ? {
+            kind: 'chat',
+            startedById: found.chatStartedById,
+            teamId: found.chatTeamId,
+          }
+        : null;
 
-    return found && attachment
+    return found && attachment && holder
       ? {
           id: attachment.id,
           name: attachment.name,
           contentType: attachment.contentType,
           size: attachment.size,
           workspaceId: found.workspaceId,
+          holder,
         }
       : null;
   }

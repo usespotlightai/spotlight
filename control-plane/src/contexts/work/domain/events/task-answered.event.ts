@@ -3,6 +3,8 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+import type { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
+
 export class TaskAnswered implements DomainEvent {
   readonly kind = 'task.answered';
 
@@ -10,5 +12,6 @@ export class TaskAnswered implements DomainEvent {
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
     readonly currentRunId: RunId,
+    readonly awaitedTurn: AwaitedTurn | null,
   ) {}
 }

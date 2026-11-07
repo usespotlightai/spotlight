@@ -4,19 +4,20 @@ import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-r
 import { WorkspaceTokenUpdated } from '@identity/domain/events/workspace-token-updated.event';
 import { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
+import { RunAttempt } from '@identity/domain/value-objects/run-attempt.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-24T09:00:00.000Z');
@@ -82,7 +83,7 @@ describe('WorkspaceToken', () => {
 
   it('acts as a principal of its own workspace, within its scopes, for whoever issued it', () => {
     expect(issued({ scopes: ['configure', 'secrets'] }).principal).toEqual(
-      TokenPrincipal.of({
+      IssuedTokenGrant.principal({
         tokenId: ID,
         workspaceId: WORKSPACE,
         scopes: TokenScopes.named(['configure', 'secrets']),
@@ -129,6 +130,12 @@ describe('WorkspaceToken', () => {
     ]);
   });
 
+  it('stays as it is, and says nothing, when its description is unchanged', () => {
+    const token = stored();
+
+    expect(token.update(spec({}), BY)).toBe(token);
+  });
+
   it.each([
     ['name', spec({ name: 'deploy' })],
     ['scopes', spec({ scopes: ['plan', 'secrets'] })],
@@ -168,18 +175,22 @@ describe('WorkspaceToken', () => {
       WorkspaceToken.forRun({
         id: ID,
         workspaceId: WORKSPACE,
-        name: TokenName.of('run-token-1'),
         scopes: TokenScopes.named(scopes),
         hash: TokenHash.of('a'.repeat(64)),
         issuedBy: UserId.of('user_1'),
         runId: RunId.of('run_1'),
-        attempt: 1,
+        attempt: RunAttempt.of(1),
         expiresAt,
         now: NOW,
       });
 
     it('belongs to the run, and counts as issued by Spotlight', () => {
       const token = forRun();
+
+      expect(token.name.value).toBe('run-token-1');
+      expect(token.isRunTokenIn(WORKSPACE)).toBe(true);
+      expect(token.isRunTokenIn(WorkspaceId.of('ws_other'))).toBe(false);
+      expect(stored().isRunTokenIn(WORKSPACE)).toBe(false);
 
       expect(token.runId?.value).toBe('run_1');
       expect(token.issuedByTrustId).toBeNull();

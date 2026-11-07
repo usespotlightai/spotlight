@@ -1,25 +1,18 @@
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { JournalStep } from '@work/application/contracts/run-journal.contract';
-import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
-import type { ContentHashPort } from '@work/application/ports/content-hash.port';
+import type { JournalStep } from '@runs/application/contracts/run-journal.contract';
 import type {
-  EvidencedHunk,
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type {
   EvidencedRun,
   EvidencedStep,
   RunEvidencePort,
-  StationJudgeSettings,
 } from '@work/application/ports/run-evidence.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { hunksOf } from '@work/domain/services/change-hunks';
-import { workspacePath } from '@work/domain/services/workspace-path';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 
 const MAX_TEXT = 4_000;
 
@@ -46,56 +39,27 @@ const evidenced = (step: JournalStep, index: number): EvidencedStep => ({
   output: clippedOrNone(step.output),
 });
 
-const hunksIn = (
-  steps: readonly JournalStep[],
-  checkouts: readonly string[],
-): EvidencedHunk[] => {
-  const order: string[] = [];
-  const first = new Map<string, string>();
-  const last = new Map<string, string>();
-
-  for (const step of steps) {
-    const change = step.change;
-
-    if (!change?.path) {
-      continue;
-    }
-    if (!first.has(change.path)) {
-      first.set(change.path, change.before);
-      order.push(change.path);
-    }
-    last.set(change.path, change.after);
-  }
-
-  return order.flatMap((path) =>
-    hunksOf(
-      workspacePath(path, checkouts) ?? path,
-      first.get(path) ?? '',
-      last.get(path) ?? '',
-    ),
-  );
-};
-
 export class RunEvidences implements RunEvidencePort {
   constructor(
-    private readonly runs: RunRepository,
+    private readonly runs: RunFactsPort,
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
     private readonly journals: RunJournalReaderPort,
-    private readonly briefed: BriefedTasksPort,
-    private readonly hash: ContentHashPort,
+    private readonly dispatches: DispatchRepository,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
   async hasTask(runId: string): Promise<boolean> {
-    const run = await this.runs.findById(RunId.of(runId));
+    const subject = (await this.dispatches.find(RunId.of(runId)))?.subject;
 
-    return Boolean(run?.taskId && (await this.tasks.find(run.taskId)));
+    return Boolean(
+      subject?.kind === 'task' && (await this.tasks.find(subject.taskId)),
+    );
   }
 
   async of(runId: string): Promise<EvidencedRun | null> {
-    const run = await this.runs.findById(RunId.of(runId));
+    const run = await this.found(RunId.of(runId));
     const task = run ? await this.taskOf(run) : null;
-    const attempts = run ? await this.journals.attemptsOfRun(run.id) : [];
+    const attempts = run ? await this.journals.attemptsOfRun(run.runId) : [];
 
     if (!run || !task || attempts.length === 0) {
       return null;
@@ -104,28 +68,37 @@ export class RunEvidences implements RunEvidencePort {
     const steps = attempts.flatMap((each) => each.steps);
 
     return {
-      runId: run.id.value,
+      runId: run.runId.value,
       ...task,
       steps: steps.map(evidenced),
-      hunks: hunksIn(steps, run.spec.checkoutFolders),
+      hunks: this.readings.hunksIn(steps, run.checkouts),
     };
   }
 
-  private async taskOf(run: Run): Promise<TaskOfRun | null> {
-    if (run.replayOf) {
-      const original = await this.runs.findById(run.replayOf);
-      const briefed = await this.briefed.of(run.replayOf);
+  private async found(runId: RunId): Promise<RunFacts | null> {
+    const [run] = await this.runs.of([runId]);
 
-      return original?.taskId && briefed
+    return run ?? null;
+  }
+
+  private async taskOf(run: RunFacts): Promise<TaskOfRun | null> {
+    const subject = (await this.dispatches.find(run.runId))?.subject;
+
+    if (subject?.kind === 'trial') {
+      const original = await this.dispatches.find(subject.basedOn);
+      const briefed = original?.briefedTask;
+
+      return original?.subject.kind === 'task' && briefed
         ? {
-            taskId: original.taskId.value,
+            taskId: original.subject.taskId.value,
             title: briefed.title,
             description: briefed.description,
           }
         : null;
     }
 
-    const task = run.taskId ? await this.tasks.find(run.taskId) : null;
+    const task =
+      subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
 
     return (
       task && {
@@ -134,47 +107,5 @@ export class RunEvidences implements RunEvidencePort {
         description: task.description?.value ?? null,
       }
     );
-  }
-
-  async judgeAt(stationId: string): Promise<StationJudgeSettings | null> {
-    const at = StationId.of(stationId);
-    const line = await this.lines.findByStation(at);
-    const judge = line?.stationAt(at)?.judge ?? null;
-
-    return line && judge ? this.settingsOf(line, judge) : null;
-  }
-
-  async judgesOnTeam(
-    teamId: string,
-  ): Promise<ReadonlyMap<string, StationJudgeSettings>> {
-    const lines = await this.lines.ofTeam(TeamId.of(teamId));
-
-    return new Map(
-      lines.flatMap((line) =>
-        line.stations.flatMap((station) =>
-          station.judge
-            ? [
-                [
-                  station.id.value,
-                  this.settingsOf(line, station.judge),
-                ] as const,
-              ]
-            : [],
-        ),
-      ),
-    );
-  }
-
-  private settingsOf(line: Line, judge: StationJudge): StationJudgeSettings {
-    return {
-      teamId: line.teamId.value,
-      lineId: line.id.value,
-      rubric: judge.rubric,
-      claims: judge.claims,
-      passThreshold: judge.passThreshold,
-      rubricVersion: this.hash.sha256(judge.criteria),
-      sample: judge.sample,
-      minAgreement: judge.minAgreement,
-    };
   }
 }

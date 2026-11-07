@@ -1,7 +1,14 @@
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
+import { DeleteReplayRunDecisions } from '@replays/application/services/delete-replay-run-decisions.service';
 import { DeleteReplays } from '@replays/application/services/delete-replays.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
+import {
+  changeJudgingRequestsFor,
+  FakeChangeJudge,
+  InMemoryChangeJudgings,
+  judgedOnce,
+} from '@replays/application/services/judgings.fake-spec';
 import { RecordLineChange } from '@replays/application/services/record-line-change.service';
 import { RecordReplayChangeReview } from '@replays/application/services/record-replay-change-review.service';
 import { RecordReplayRunEnding } from '@replays/application/services/record-replay-run-ending.service';
@@ -11,9 +18,11 @@ import {
   CLOCK,
   FakeChangeReview,
   FakeInsights,
-  FakeWork,
+  FakeSuppliers,
   IDS,
+  InMemoryReplayRunDecisions,
   InMemoryReplays,
+  liveFrom,
   STATION_VIEW,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
@@ -22,14 +31,12 @@ import { RequestReplayRecheck } from '@replays/application/services/request-repl
 import { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import { ReplayDeletionRequested } from '@replays/domain/events/replay-deletion-requested.event';
+import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/entities/replay-entry.entity';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
-import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
-import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
-import { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
-import type { ReplayStackRecheckRequested } from '@replays/domain/events/replay-stack-recheck-requested.event';
+import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import {
   aBudget,
@@ -47,21 +54,24 @@ import {
   NOW,
   RUBRIC,
   STATION,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import { REPLAY_RUNS_AT_ONCE } from '@replays/domain/services/replay-dispatch';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
-import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 
 const LOGGER = {
   debug: () => {},
@@ -75,7 +85,7 @@ const dispatching = () =>
     memory.replayRepository,
     memory.candidateRepository,
     memory.searchRepository,
-    work,
+    suppliers.dispatch,
     IDS,
     CLOCK,
     TRANSACTION,
@@ -84,15 +94,15 @@ const dispatching = () =>
 
 beforeEach(async () => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   await memory.candidateRepository.add(candidateOf('searched'));
 });
 
 const handedTheAnswer = (oracle: Candidate) => {
   const replay = Replay.start({
     id: ReplayId.of('replay_oracle'),
-    set: aSet(3),
-    candidate: oracle,
+    set: aSet(3).snapshot,
+    candidate: oracle.asReplayed,
     baseline: false,
     ceiling: Money.ceiling(10, 'USD'),
     at: NOW,
@@ -102,14 +112,14 @@ const handedTheAnswer = (oracle: Candidate) => {
         { run: RunId.of('original_0'), answer: 'accepted' },
         { run: RunId.of('original_1'), answer: 'sent-back' },
       ],
-      live: candidateOf('live'),
+      live: candidateOf('live').asReplayed,
       against: concludedAll(
         aReplay({
           id: 'replay_live',
           candidate: candidateOf('live'),
           baseline: true,
         }),
-      ),
+      ).asOracleReference,
     },
   });
 
@@ -126,18 +136,19 @@ describe('DispatchReplayRuns', () => {
 
     await dispatching().processDue();
 
-    expect(work.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
-    expect(work.dispatched.map((each) => each.original.value)).toEqual([
-      'original_0',
-      'original_1',
-    ]);
-    expect(work.dispatched[0]?.block.key).toBe('build');
-    expect(work.dispatched.every((each) => each.answer === null)).toBe(true);
+    expect(suppliers.dispatch.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
+    expect(
+      suppliers.dispatch.dispatched.map((each) => each.original.value),
+    ).toEqual(['original_0', 'original_1']);
+    expect(suppliers.dispatch.dispatched[0]?.block.key).toBe('build');
+    expect(
+      suppliers.dispatch.dispatched.every((each) => each.answer === null),
+    ).toBe(true);
     expect(memory.replays.get('replay_a')?.unconfirmed).toEqual([]);
     expect(memory.replays.get('replay_b')?.current).toBe('queued');
 
     await dispatching().processDue();
-    expect(work.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
+    expect(suppliers.dispatch.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
   });
 
   it('hands each run of a replay handed the answer the answer stored for its original when it started', async () => {
@@ -154,7 +165,10 @@ describe('DispatchReplayRuns', () => {
     await dispatching().processDue();
 
     expect(
-      work.dispatched.map((each) => [each.original.value, each.answer]),
+      suppliers.dispatch.dispatched.map((each) => [
+        each.original.value,
+        each.answer,
+      ]),
     ).toEqual([
       ['original_0', 'accepted'],
       ['original_1', 'sent-back'],
@@ -163,7 +177,10 @@ describe('DispatchReplayRuns', () => {
 
   it('ends an entry Work cannot queue, and moves on to the next', async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
-    work.unqueued = { queued: false, unreplayableReason: 'archive-gone' };
+    suppliers.dispatch.unqueued = {
+      queued: false,
+      unreplayableReason: 'archive-gone',
+    };
 
     await dispatching().processDue();
 
@@ -207,8 +224,8 @@ describe('DispatchReplayRuns when Work fails', () => {
   it('counts the failure against the one entry, and still queues the others', async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
     let calls = 0;
-    const dispatch = work.dispatch;
-    work.dispatch = async (order) => {
+    const dispatch = suppliers.dispatch.dispatch;
+    suppliers.dispatch.dispatch = async (order) => {
       calls += 1;
       if (calls === 1) {
         throw new Error('the store answered 503');
@@ -243,7 +260,7 @@ describe('DispatchReplayRuns when Work fails', () => {
       repository,
       memory.candidateRepository,
       memory.searchRepository,
-      work,
+      suppliers.dispatch,
       IDS,
       CLOCK,
       TRANSACTION,
@@ -263,9 +280,12 @@ describe('DispatchReplayRuns when Work fails', () => {
 
     expect(warned).toEqual([]);
     expect(noted).toEqual([
-      { replayId: 'replay_1', runId: work.dispatched[0]?.run.value },
+      {
+        replayId: 'replay_1',
+        runId: suppliers.dispatch.dispatched[0]?.run.value,
+      },
     ]);
-    expect(work.dispatched).toHaveLength(1);
+    expect(suppliers.dispatch.dispatched).toHaveLength(1);
     expect(memory.replays.get('replay_1')?.entries[0]).toMatchObject({
       queued: false,
       queueAttempts: 0,
@@ -278,7 +298,7 @@ describe('DispatchReplayRuns when Work fails', () => {
 
   it('requests Work to cancel a run reserved for a replay stopped before it was queued, freeing its slot only once Work says it never was', async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
-    work.dispatch = async () => {
+    suppliers.dispatch.dispatch = async () => {
       throw new Error('down');
     };
     await dispatching().processDue();
@@ -288,14 +308,13 @@ describe('DispatchReplayRuns when Work fails', () => {
     );
     const queuedRun =
       memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
-    work.queuedRuns.add(queuedRun);
+    suppliers.dispatch.queuedRuns.add(queuedRun);
 
     await dispatching().processDue();
 
-    expect(work.cancelled.map((each) => each.leaveRunAsIs)).toEqual([
-      false,
-      false,
-    ]);
+    expect(
+      suppliers.dispatch.cancelled.map((each) => each.leaveRunAsIs),
+    ).toEqual([false, false]);
     const after = memory.replays.get('replay_1');
     expect(after?.occupying.map((each) => each.run?.value)).toEqual([
       queuedRun,
@@ -305,25 +324,24 @@ describe('DispatchReplayRuns when Work fails', () => {
 
   it(`gives up on a run Work failed to queue ${MAX_QUEUE_ATTEMPTS} times only once Work says it never queued it, and keeps one it queued`, async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
-    work.dispatch = async () => {
+    suppliers.dispatch.dispatch = async () => {
       throw new Error('down');
     };
 
     for (let turn = 0; turn < MAX_QUEUE_ATTEMPTS; turn += 1) {
       await dispatching().processDue();
     }
-    expect(work.cancelled).toEqual([]);
+    expect(suppliers.dispatch.cancelled).toEqual([]);
     expect(memory.replays.get('replay_1')?.occupying).toHaveLength(2);
 
-    work.queuedRuns.add(
+    suppliers.dispatch.queuedRuns.add(
       memory.replays.get('replay_1')?.entries[1]?.run?.value ?? '',
     );
     await dispatching().processDue();
 
-    expect(work.cancelled.map((each) => each.leaveRunAsIs)).toEqual([
-      true,
-      true,
-    ]);
+    expect(
+      suppliers.dispatch.cancelled.map((each) => each.leaveRunAsIs),
+    ).toEqual([true, true]);
     const [first, second] = memory.replays.get('replay_1')?.entries ?? [];
     expect(first?.unreplayableReason).toBe('dispatch-failed');
     expect(second?.queued).toBe(true);
@@ -340,7 +358,9 @@ describe('DispatchReplayRuns without the candidate', () => {
     await dispatching().processDue();
 
     const replay = memory.replays.get('replay_1');
-    expect(work.cancelled.map((each) => each.leaveRunAsIs)).toEqual([false]);
+    expect(
+      suppliers.dispatch.cancelled.map((each) => each.leaveRunAsIs),
+    ).toEqual([false]);
     expect(replay?.entries[0]?.unreplayableReason).toBe('candidate-unfit');
     expect(replay?.occupying).toEqual([]);
   });
@@ -351,7 +371,8 @@ const noteLineChanged = () =>
     memory.setRepository,
     memory.replayRepository,
     memory.candidateRepository,
-    work,
+    suppliers.lines,
+    suppliers.configs,
     TRANSACTION,
     CLOCK,
   );
@@ -367,44 +388,40 @@ describe('RecordLineChange', () => {
     await memory.candidateRepository.add(oracle);
     await memory.replayRepository.add(handedTheAnswer(oracle));
 
-    await noteLineChanged().check(set.id);
+    await noteLineChanged().staleOraclesStopped(LineId.of('line_1'));
     expect(memory.replays.get('replay_oracle')?.stoppedAt).toBeNull();
 
-    const live = work.live;
-    work.live = async () => ({
+    const live = liveFrom(suppliers.configs);
+    suppliers.configs.live = async () => ({
       ...(await live()),
       fingerprint: LIVE_FINGERPRINT,
     });
-    await noteLineChanged().check(set.id);
+    await noteLineChanged().staleOraclesStopped(LineId.of('line_1'));
     expect(memory.replays.get('replay_oracle')?.stoppedAt).toEqual(NOW);
   });
 
-  it('requests a check of each set of the line, then notes one whose station Work no longer has', async () => {
+  it('notes a set of the line whose station Work no longer has', async () => {
     const set = aSet(1);
     await memory.setRepository.add(set);
     memory.events.length = 0;
     const lineChanges = noteLineChanged();
 
-    expect(await lineChanges.changed('line_1')).toEqual([
-      new ReplaySetStationCheckRequested(set.id, set.workspaceId),
-    ]);
-
-    await lineChanges.check(set.id);
+    await lineChanges.stationsLeft(LineId.of('line_1'));
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
 
     let calls = 0;
-    work.station = async (lineId, stationId) => {
+    suppliers.lines.station = async (lineId, stationId) => {
       calls += 1;
       return calls === 1 ? null : { ...STATION_VIEW, lineId, stationId };
     };
-    await lineChanges.check(set.id);
+    await lineChanges.stationsLeft(LineId.of('line_1'));
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
 
-    work.station = async () => null;
-    await lineChanges.check(set.id);
+    suppliers.lines.station = async () => null;
+    await lineChanges.stationsLeft(LineId.of('line_1'));
+    await lineChanges.stationsLeft(LineId.of('line_1'));
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(true);
     expect(memory.events).toHaveLength(1);
-    expect(await lineChanges.changed('line_1')).toEqual([]);
   });
 });
 
@@ -429,6 +446,7 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
     });
     await new RecordReplayRunEnding(
       memory.replayRepository,
+      new InMemoryReplayRunDecisions(),
       new FakeChangeReview(),
       TRANSACTION,
       CLOCK,
@@ -437,8 +455,10 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
+      askedAPerson: false,
+      handsOver: false,
       next: 'ship',
+      endedAt: CLOCK.now(),
     });
 
     const replay = memory.replays.get('replay_1');
@@ -450,6 +470,7 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
   it('pass over a run no replay handed out', async () => {
     await new RecordReplayRunEnding(
       memory.replayRepository,
+      new InMemoryReplayRunDecisions(),
       new FakeChangeReview(),
       TRANSACTION,
       CLOCK,
@@ -458,8 +479,10 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
+      askedAPerson: false,
+      handsOver: false,
       next: null,
+      endedAt: CLOCK.now(),
     });
 
     expect(memory.replays.size).toBe(0);
@@ -472,25 +495,25 @@ describe('HoldSetStartingPoints', () => {
     await memory.setRepository.add(set);
     const startingPointHolds = new HoldSetStartingPoints(
       memory.setRepository,
-      work,
+      suppliers.holds,
     );
 
     await startingPointHolds.changed(set.id);
-    expect(work.startingPointHolds.get('replay-set:set_1')).toEqual([
+    expect(suppliers.holds.held.get('replay-set:set_1')).toEqual([
       'original_0',
       'original_1',
     ]);
 
     await memory.setRepository.save(set.stationLeft(later(1)));
     await startingPointHolds.changed(set.id);
-    expect(work.startingPointHolds.has('replay-set:set_1')).toBe(false);
+    expect(suppliers.holds.held.has('replay-set:set_1')).toBe(false);
 
     await startingPointHolds.changed(set.id);
     await memory.setRepository.save(
       (memory.sets.get('set_1') as typeof set).delete(),
     );
     await startingPointHolds.changed(set.id);
-    expect(work.startingPointHolds.has('replay-set:set_1')).toBe(false);
+    expect(suppliers.holds.held.has('replay-set:set_1')).toBe(false);
   });
 });
 
@@ -503,60 +526,123 @@ describe('DeleteReplays', () => {
       TRANSACTION,
     );
 
-  it('requests the deletion of each set and candidate of a deleted team, one by one, leaving its replays to their sets', async () => {
+  it('deletes the sets and candidates of a deleted team, leaving its replays to their sets', async () => {
     const set = aSet(2);
     await memory.setRepository.add(set);
     await memory.replayRepository.add(aReplay({ count: 2 }));
+    memory.events.length = 0;
 
-    const due = await deleting().deleteForTeam(set.teamId, set.workspaceId);
+    await deleting().setsOfTeam(set.teamId);
+    await deleting().candidatesOfTeam(set.teamId);
 
-    expect(due.map((each) => each.kind)).toEqual([
-      'replays.replay-set-deletion-requested',
-      'replays.candidate-deletion-requested',
+    expect(memory.events.map((each) => each.kind)).toEqual([
+      'replay-set.deleted',
     ]);
+    expect(memory.sets.size).toBe(0);
+    expect(memory.candidates.size).toBe(0);
+    expect(memory.replays.size).toBe(1);
   });
 
-  it('deletes a replay in progress by stopping it through its own event, then a set and a candidate', async () => {
+  it('deletes the replays of a deleted set, stopping one in progress through its own event', async () => {
     const set = aSet(2);
     await memory.setRepository.add(set);
     await memory.replayRepository.add(aReplay({ count: 2 }));
     await dispatching().processDue();
     memory.events.length = 0;
 
-    await deleting().replay(ReplayId.of('replay_1'));
-    await deleting().set(set.id);
-    await deleting().candidate(CandidateId.of('candidate_searched'));
-    await deleting().replay(ReplayId.of('replay_1'));
+    await deleting().replaysOfSet(set.id);
+    await deleting().replaysOfSet(set.id);
 
     expect(memory.events.map((each) => each.kind)).toEqual([
-      'replay.stopped',
-      'replays.replay-ended',
-      'replay-set.deleted',
+      'replay.deleted',
+      'replay.ended',
     ]);
     expect(memory.replays.size).toBe(0);
-    expect(memory.sets.size).toBe(0);
-    expect(memory.candidates.size).toBe(0);
-  });
-
-  it('requests the deletion of the replays of a deleted set', async () => {
-    const set = aSet(1);
-    await memory.replayRepository.add(aReplay({ count: 1 }));
-
-    expect(await deleting().deleteForSet(set.id, set.workspaceId)).toEqual([
-      new ReplayDeletionRequested(ReplayId.of('replay_1'), set.workspaceId),
-    ]);
   });
 });
 
 describe('CancelReplayRuns', () => {
   it('cancels the runs of a stopped replay, and the queued runs of a replay that reached its ceiling', async () => {
-    const cancelling = new CancelReplayRuns(work);
+    const cancelling = new CancelReplayRuns(suppliers.dispatch);
 
-    await cancelling.stopped([RunId.of('run_1')]);
+    await cancelling.stopped(
+      new ReplayStopped(
+        ReplayId.of('replay_1'),
+        WorkspaceId.of('ws_1'),
+        TeamId.of('team_1'),
+        [RunId.of('run_1')],
+      ),
+    );
     await cancelling.ceilingReached([RunId.of('run_2')]);
 
-    expect(work.cancelled).toEqual([{ run: 'run_1', leaveRunAsIs: false }]);
-    expect(work.cancelledQueued).toEqual(['run_2']);
+    expect(suppliers.dispatch.cancelled).toEqual([
+      { run: 'run_1', leaveRunAsIs: false },
+    ]);
+    expect(suppliers.dispatch.cancelledQueued).toEqual(['run_2']);
+  });
+});
+
+describe('DeleteReplayRunDecisions', () => {
+  const owner = {
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+  };
+  const decidedIn = (run: string, replay: string) =>
+    ReplayRunDecision.decidedToQueue(RunId.of(run), {
+      ...owner,
+      replayId: ReplayId.of(replay),
+    });
+
+  it('deletes the decisions of a deleted replay only, and stops no run itself', async () => {
+    const decisions = new InMemoryReplayRunDecisions();
+    await decisions.add(decidedIn('run_1', 'replay_1'));
+    await decisions.add(decidedIn('run_2', 'replay_2'));
+
+    await new DeleteReplayRunDecisions(decisions, TRANSACTION).ofReplay(
+      ReplayId.of('replay_1'),
+    );
+
+    expect(suppliers.dispatch.cancelled).toEqual([]);
+    expect([...decisions.decisions.keys()]).toEqual(['run_2']);
+  });
+
+  it('purges the decisions a stopped process left for deleted replays, and keeps recent ones and those of kept replays (R7-04)', async () => {
+    const decisions = new InMemoryReplayRunDecisions();
+    const cutoff = new Date('2026-11-07T11:00:00.000Z');
+    decisions.deletedReplays.add('replay_gone');
+    decisions.now = new Date(cutoff.getTime() - 1);
+    for (let each = 0; each < 150; each += 1) {
+      await decisions.add(decidedIn(`run_gone_${each}`, 'replay_gone'));
+    }
+    await decisions.add(decidedIn('run_kept', 'replay_kept'));
+    decisions.now = new Date(cutoff.getTime() + 1);
+    await decisions.add(decidedIn('run_recent', 'replay_gone'));
+
+    await new DeleteReplayRunDecisions(decisions, TRANSACTION).ofDeletedReplays(
+      cutoff,
+    );
+
+    expect([...decisions.decisions.keys()].sort()).toEqual([
+      'run_kept',
+      'run_recent',
+    ]);
+  });
+
+  it('skips a decision deleted meanwhile, and deletes one changed meanwhile, so a redelivery finishes without an error', async () => {
+    const decisions = new InMemoryReplayRunDecisions();
+    await decisions.add(decidedIn('run_1', 'replay_1'));
+    await decisions.add(decidedIn('run_2', 'replay_1'));
+    const loaded = await decisions.ofReplay(ReplayId.of('replay_1'));
+    decisions.ofReplay = async () => loaded;
+    const [gone, changed] = loaded as [ReplayRunDecision, ReplayRunDecision];
+    await decisions.save(gone.delete());
+    await decisions.save(changed.cancelled());
+
+    await new DeleteReplayRunDecisions(decisions, TRANSACTION).ofReplay(
+      ReplayId.of('replay_1'),
+    );
+
+    expect([...decisions.decisions.keys()]).toEqual([]);
   });
 });
 
@@ -564,10 +650,13 @@ describe('scoring a replayed task', () => {
   const JUDGED = 'candidate_judged';
   let changes: FakeChangeReview;
   let insights: FakeInsights;
+  let judge: FakeChangeJudge;
+  let changeJudgings: InMemoryChangeJudgings;
 
   const ending = () =>
     new RecordReplayRunEnding(
       memory.replayRepository,
+      new InMemoryReplayRunDecisions(),
       changes,
       TRANSACTION,
       CLOCK,
@@ -584,6 +673,7 @@ describe('scoring a replayed task', () => {
       memory.replayRepository,
       memory.candidateRepository,
       insights,
+      changeJudgingRequestsFor(changeJudgings, judge),
       TRANSACTION,
       CLOCK,
     );
@@ -596,15 +686,17 @@ describe('scoring a replayed task', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
+      askedAPerson: false,
+      handsOver: false,
       next: 'ship',
+      endedAt: CLOCK.now(),
     });
 
   const started = async (candidate = JUDGED): Promise<string> => {
     const replay = aReplay({
       count: 1,
       candidate: candidateOf('searched', candidate, RUBRIC),
-    }).reserving(1, () => RunId.of('replay_run_0'));
+    }).reserving(slots(1), () => RunId.of('replay_run_0'));
     await memory.candidateRepository.add(
       candidateOf('searched', JUDGED, RUBRIC),
     );
@@ -618,6 +710,8 @@ describe('scoring a replayed task', () => {
   beforeEach(() => {
     changes = new FakeChangeReview();
     insights = new FakeInsights();
+    judge = new FakeChangeJudge();
+    changeJudgings = new InMemoryChangeJudgings();
   });
 
   it('reads its change’s checks from Change Review when its run ends, and again as they move', async () => {
@@ -663,19 +757,17 @@ describe('scoring a replayed task', () => {
     }
     await requestingJudging().requested(wanted);
 
-    expect(insights.judgingRequests).toEqual([
-      {
-        run: RunId.of(run),
-        workspaceId: STATION.workspaceId,
-        teamId: STATION.teamId,
-        judge: JudgeCriteria.of({
-          rubric: RUBRIC,
-          claims: [],
-          passThreshold: 1,
-        }),
-        reference: RunId.of('original_0'),
-      },
-    ]);
+    const [judging] = [...changeJudgings.stored.values()];
+    expect(changeJudgings.stored.size).toBe(1);
+    expect(judging?.runId).toEqual(RunId.of(run));
+    expect(judging?.workspaceId).toEqual(STATION.workspaceId);
+    expect(judging?.teamId).toEqual(STATION.teamId);
+    expect(
+      judging?.criteria.equals(
+        JudgeCriteria.of({ rubric: RUBRIC, claims: [], passThreshold: 1 }),
+      ),
+    ).toBe(true);
+    expect(judging?.reference).toEqual(RunId.of('original_0'));
   });
 
   it('requests judging on the rubric alone when people did not accept the original’s change', async () => {
@@ -688,12 +780,12 @@ describe('scoring a replayed task', () => {
       ) as ReplayJudgingRequested,
     );
 
-    expect(insights.judgingRequests[0]?.reference).toBeNull();
+    expect([...changeJudgings.stored.values()][0]?.reference).toBeNull();
   });
 
   it('records a judge that cannot take the request as unjudged, and finishes', async () => {
     const run = await started();
-    insights.answer = 'unavailable';
+    judge.available = false;
 
     await completed(run);
     await requestingJudging().requested(
@@ -723,21 +815,23 @@ describe('scoring a replayed task', () => {
     const run = await started();
 
     await completed(run);
-    await judging().judged({
-      runId: run,
-      scale: 'yes-no',
-      value: 0,
-      claimResults: null,
-      claims: [],
-      passThreshold: 1,
-      model: 'judge/model',
-      referenced: true,
-      reasons: [
-        { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
-      ],
-      guidance: 'Finish the jobs already taken before stopping.',
-      spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
-    });
+    await judging().judged(
+      RunId.of(run),
+      JudgeVerdict.of({
+        scale: 'yes-no',
+        value: 0,
+        claimResults: null,
+        claims: [],
+        passThreshold: 1,
+        model: 'judge/model',
+        referenced: true,
+        reasons: [
+          { text: 'It drops a job.', steps: [2], hunks: [], claim: null },
+        ],
+        guidance: 'Finish the jobs already taken before stopping.',
+      }),
+      ModelSpent.of([Money.of(0.02, 'USD')], 0),
+    );
 
     expect(entry()?.succeeded).toBe(false);
     expect(entry()?.verdict?.referenced).toBe(true);
@@ -759,7 +853,7 @@ describe('scoring a replayed task', () => {
 
     await completed(run);
     await judging().failed(
-      run,
+      RunId.of(run),
       'request-failed',
       ModelSpent.of([Money.of(0.01, 'USD')], 0),
     );
@@ -771,7 +865,6 @@ describe('scoring a replayed task', () => {
 
 describe('probing a set', () => {
   let changes: FakeChangeReview;
-  let insights: FakeInsights;
 
   const PASSED = [
     {
@@ -796,7 +889,7 @@ describe('probing a set', () => {
         RUBRIC,
         'npm test',
       ),
-    }).reserving(2, () => RunId.of(`calibration_run_${next++}`));
+    }).reserving(slots(2), () => RunId.of(`calibration_run_${next++}`));
     const finished = reserved.entries.reduce((built, entry) => {
       const run = entry.run as RunId;
 
@@ -831,27 +924,59 @@ describe('probing a set', () => {
 
   const entries = () => memory.replays.get('replay_calibration')?.entries ?? [];
 
+  let judge: FakeChangeJudge;
+  let changeJudgings: InMemoryChangeJudgings;
+
   beforeEach(() => {
     changes = new FakeChangeReview();
-    insights = new FakeInsights();
+    judge = new FakeChangeJudge();
+    changeJudgings = new InMemoryChangeJudgings();
   });
+
+  const rejudging = () =>
+    new RequestReplayRejudging(
+      changeJudgingRequestsFor(changeJudgings, judge),
+      new RecordReplayVerdict(memory.replayRepository, TRANSACTION, CLOCK),
+    );
+
+  const judgedOnceEach = async (runs: readonly string[]) => {
+    for (const run of runs) {
+      await judgedOnce(changeJudgings, {
+        run: RunId.of(run),
+        workspaceId: STATION.workspaceId,
+        teamId: STATION.teamId,
+        criteria: JudgeCriteria.of({ rubric: RUBRIC }),
+      });
+    }
+  };
+
+  const rechecking = () =>
+    new RequestReplayRecheck(
+      changes,
+      new RecordReplayChangeReview(
+        memory.replayRepository,
+        changes,
+        TRANSACTION,
+        CLOCK,
+      ),
+    );
 
   it('requests a second judging of each judged run once the calibration finishes', async () => {
     await calibrated();
+    await judgedOnceEach(['calibration_run_0', 'calibration_run_1']);
 
     for (const event of wanted<ReplayRejudgingRequested>(
       'replay.rejudging-requested',
     )) {
-      expect(
-        await new RequestReplayRejudging(insights).requested(event),
-      ).toEqual([]);
+      await rejudging().requested(event);
     }
 
     expect(memory.replays.get('replay_calibration')?.current).toBe('finished');
-    expect(insights.rejudgingRequests).toEqual([
-      'calibration_run_0',
-      'calibration_run_1',
-    ]);
+    expect(
+      [...changeJudgings.stored.values()]
+        .filter((each) => each.attempt === 2)
+        .map((each) => each.runId.value),
+    ).toEqual(['calibration_run_0', 'calibration_run_1']);
     expect(entries().map((each) => each.secondJudging?.pending)).toEqual([
       true,
       true,
@@ -860,23 +985,12 @@ describe('probing a set', () => {
 
   it('says a second judging nobody could request, and records it as unjudged on its own', async () => {
     await calibrated();
-    insights.againAnswer = 'unavailable';
+    judge.available = false;
 
     const [first] = wanted<ReplayRejudgingRequested>(
       'replay.rejudging-requested',
     );
-    const [failed] = await new RequestReplayRejudging(insights).requested(
-      first as ReplayRejudgingRequested,
-    );
-
-    expect(failed).toBeInstanceOf(ReplayRejudgingFailed);
-    expect(entries()[0]?.secondJudging?.pending).toBe(true);
-
-    await new RecordReplayVerdict(
-      memory.replayRepository,
-      TRANSACTION,
-      CLOCK,
-    ).rejudgingRequestFailed(failed as ReplayRejudgingFailed);
+    await rejudging().requested(first as ReplayRejudgingRequested);
 
     expect(entries()[0]?.secondJudging?.unjudged).toBe('unavailable');
     expect(entries()[1]?.secondJudging?.pending).toBe(true);
@@ -890,21 +1004,23 @@ describe('probing a set', () => {
       CLOCK,
     );
 
-    await judging.rejudged({
-      runId: 'calibration_run_0',
-      scale: 'yes-no',
-      value: 0,
-      claimResults: null,
-      claims: [],
-      passThreshold: 1,
-      model: 'judge/model',
-      referenced: false,
-      reasons: [],
-      guidance: null,
-      spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
-    });
+    await judging.rejudged(
+      RunId.of('calibration_run_0'),
+      JudgeVerdict.of({
+        scale: 'yes-no',
+        value: 0,
+        claimResults: null,
+        claims: [],
+        passThreshold: 1,
+        model: 'judge/model',
+        referenced: false,
+        reasons: [],
+        guidance: null,
+      }),
+      ModelSpent.of([Money.of(0.02, 'USD')], 0),
+    );
     await judging.rejudgingFailed(
-      'calibration_run_1',
+      RunId.of('calibration_run_1'),
       'request-failed',
       ModelSpent.of([], 0),
     );
@@ -920,20 +1036,10 @@ describe('probing a set', () => {
 
   it('requests Change Review to check each stack of each checked run again, one at a time, and reads what it found', async () => {
     await calibrated();
-    const requesting = new RequestReplayRecheck(changes);
-    const stacks: ReplayStackRecheckRequested[] = [];
-
     for (const event of wanted<ReplayRecheckRequested>(
       'replay.recheck-requested',
     )) {
-      stacks.push(
-        ...((await requesting.requested(
-          event,
-        )) as ReplayStackRecheckRequested[]),
-      );
-    }
-    for (const each of stacks) {
-      await requesting.stack(each);
+      await rechecking().requested(event);
     }
     changes.rechecks.set('calibration_run_1', [
       { ...PASSED[0], state: 'failed' },
@@ -961,18 +1067,7 @@ describe('probing a set', () => {
     changes.recheckableStacks = [];
 
     const [first] = wanted<ReplayRecheckRequested>('replay.recheck-requested');
-    const [unavailable] = await new RequestReplayRecheck(changes).requested(
-      first as ReplayRecheckRequested,
-    );
-
-    expect(unavailable).toBeInstanceOf(ReplayRecheckUnavailable);
-
-    await new RecordReplayChangeReview(
-      memory.replayRepository,
-      changes,
-      TRANSACTION,
-      CLOCK,
-    ).recheckUnavailable(unavailable as ReplayRecheckUnavailable);
+    await rechecking().requested(first as ReplayRecheckRequested);
 
     expect(entries()[0]?.recheck?.state).toBe('absent');
     expect(entries()[0]?.checksFlipped).toBeNull();

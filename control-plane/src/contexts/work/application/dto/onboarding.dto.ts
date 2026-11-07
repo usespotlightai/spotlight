@@ -1,13 +1,13 @@
-import type { Provisioning } from '@work/application/ports/team-provisioning.port';
-import {
-  SETUP_STEPS,
-  type SetupStepKey,
-} from '@work/domain/services/setup-list';
+export const SETUP_STEP_KEYS = ['github', 'harness', 'configuration'] as const;
 
-export const SETUP_STEP_KEYS = SETUP_STEPS;
+type SetupStepKeyName = (typeof SETUP_STEP_KEYS)[number];
+
+export const PROVISIONING_NAMES = ['pending', 'done'] as const;
+
+export type ProvisioningName = (typeof PROVISIONING_NAMES)[number];
 
 export interface SetupStepDto {
-  readonly key: SetupStepKey;
+  readonly key: SetupStepKeyName;
   readonly title: string;
   readonly description: string;
   readonly done: boolean;
@@ -28,7 +28,7 @@ interface SetupChatDto {
 }
 
 export interface OnboardingDto {
-  readonly provisioning: Provisioning;
+  readonly provisioning: ProvisioningName;
   readonly steps: readonly SetupStepDto[];
   readonly canSetUp: boolean;
   readonly viewerIsAdmin: boolean;

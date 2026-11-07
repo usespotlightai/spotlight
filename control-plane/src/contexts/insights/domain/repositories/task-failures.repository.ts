@@ -1,20 +1,11 @@
 import type { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
+import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TaskFailuresRepository {
+export interface TaskFailuresRepository extends ScopedRemoval<TaskFailures> {
   add(failures: TaskFailures): Promise<void>;
 
   save(failures: TaskFailures): Promise<void>;
 
   of(taskId: TaskId): Promise<TaskFailures | null>;
-
-  ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskFailures[]>;
-
-  removeForTask(taskId: TaskId): Promise<void>;
-
-  removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void>;
-
-  removeForWorkspace(workspaceId: WorkspaceId): Promise<void>;
 }

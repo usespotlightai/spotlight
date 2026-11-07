@@ -1,38 +1,24 @@
-import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import type { IntegrationsUsingSecret } from '@integrations/application/services/integrations-using-secret.service';
 import type {
   NamedSecret,
+  SecretUse,
   SecretUser,
 } from '@secrets/application/ports/secret-uses.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class IntegrationSecretUses implements SecretUser {
-  constructor(
-    private readonly teams: TeamDirectoryPort,
-    private readonly defined: DefinedIntegrationsPort,
-    private readonly reader: IntegrationReader,
-  ) {}
+  constructor(private readonly using: IntegrationsUsingSecret) {}
 
-  async usesOf(secret: NamedSecret): Promise<readonly string[]> {
-    const uses: string[] = [];
-
-    for (const team of await this.teams.inWorkspace(
+  async usesOf(secret: NamedSecret): Promise<readonly SecretUse[]> {
+    const addresses = await this.using.of(
       WorkspaceId.of(secret.workspaceId),
-    )) {
-      const { integrations } = this.reader.readable(
-        await this.defined.ofTeam(team.id),
-      );
+      SecretName.of(secret.name),
+    );
 
-      for (const { integration } of integrations) {
-        if (
-          integration.credentials.some((each) => each.value === secret.name)
-        ) {
-          uses.push(`integration ${team.key}/${integration.key.value}`);
-        }
-      }
-    }
-
-    return uses;
+    return addresses.map((address) => ({
+      kind: 'integration',
+      key: address.toString(),
+    }));
   }
 }

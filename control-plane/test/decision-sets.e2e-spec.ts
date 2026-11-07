@@ -6,6 +6,7 @@ import { DecisionEvidence } from '@change-review/domain/value-objects/decision-e
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -192,7 +193,9 @@ describe('storing a task’s decisions', () => {
     await sets.add(set);
     await sets.save(generated(set, FIRST, [decided()]));
 
-    await sets.removeForTask(set.taskId);
+    const read = await sets.forTask(set.taskId);
+    if (!read) throw new Error('not stored');
+    await sets.remove(read);
 
     expect(await sets.forTask(set.taskId)).toBeNull();
     const [left] = (
@@ -209,8 +212,8 @@ describe('storing a task’s decisions', () => {
     await sets.save(generated(set, FIRST, [decided()]));
 
     const read = await sets.forTask(set.taskId);
-    if (!read) throw new Error('not stored');
-    await sets.save(read.closeUnmerged());
+    if (!read?.discardable) throw new Error('not stored');
+    await sets.remove(read);
 
     expect(await sets.forTask(set.taskId)).toBeNull();
   });
@@ -220,7 +223,7 @@ describe('storing a task’s decisions', () => {
     await sets.add(set);
     await sets.save(set.requestGeneration(FIRST, NOW));
 
-    await expect(sets.save(set.closeUnmerged())).rejects.toThrow(
+    await expect(sets.remove(set)).rejects.toThrow(
       DecisionSetVersionConflictError,
     );
   });
@@ -396,7 +399,7 @@ describe('reading the decisions that shipped', () => {
     const found = await reader().merged({
       workspaceId: WORKSPACE,
       repository: Repository.of('acme/api'),
-      within: ['api/src/uploads'],
+      within: [WorkingCopyPath.of('api/src/uploads')],
       since: null,
       until: null,
       max: 50,

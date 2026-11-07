@@ -1,12 +1,13 @@
 import { PendingMessagesHandler } from '@work/application/queries/handlers/pending-messages.handler';
 import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
+import type { RunWorks } from '@work/application/services/run-works.service';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { describe, expect, it } from 'vitest';
 
 const reading = () =>
   new PendingMessagesHandler({
-    pendingFor: async (runId, runnerId) =>
-      runId.value === 'run_1' && runnerId.value === 'runner_1'
+    pendingFor: async (runId: string, runnerId: string) =>
+      runId === 'run_1' && runnerId === 'runner_1'
         ? [
             {
               position: 2,
@@ -22,8 +23,7 @@ const reading = () =>
             },
           ]
         : null,
-    stopRequestedFor: async () => false,
-  });
+  } as unknown as RunWorks);
 
 describe('PendingMessagesHandler', () => {
   it('hands the runner that leases the run the messages sent to it, with where its files lie', async () => {

@@ -8,10 +8,10 @@ import type {
   ReadWorkspaceTokenQuery,
 } from '@identity/application/queries/workspace-token.queries';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export class ReadWorkspaceTokenHandler
   implements

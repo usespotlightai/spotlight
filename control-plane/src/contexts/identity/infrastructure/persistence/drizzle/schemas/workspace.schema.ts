@@ -1,10 +1,12 @@
 import { JOB_FUNCTIONS } from '@identity/domain/value-objects/job-function.vo';
+import { TEAM_ORIGINS } from '@identity/domain/value-objects/team-origin.vo';
+import { TOKEN_SCOPES } from '@identity/domain/value-objects/token-scope.vo';
 import { WORKSPACE_ROLES } from '@identity/domain/value-objects/workspace-role.vo';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
-import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -22,6 +24,8 @@ export const workspaceRole = pgEnum('workspace_role', WORKSPACE_ROLES);
 
 export const jobFunction = pgEnum('job_function', JOB_FUNCTIONS);
 
+export const teamOrigin = pgEnum('team_origin', TEAM_ORIGINS);
+
 export const workspaceTokenScope = pgEnum(
   'workspace_token_scope',
   TOKEN_SCOPES,
@@ -32,6 +36,7 @@ export const workspace = pgTable('workspace', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   outboundHosts: text('outbound_hosts').array().notNull().default([]),
+  firstTeamPending: boolean('first_team_pending').notNull().default(false),
   version: integer('version').default(0).notNull(),
   createdAt: timestamptz('created_at').defaultNow().notNull(),
   updatedAt: timestamptz('updated_at')
@@ -48,7 +53,7 @@ export const workspaceMember = pgTable(
       .references(() => workspace.id, { onDelete: 'cascade' }),
     userId: text('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => user.id),
     role: workspaceRole('role').notNull(),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
@@ -64,9 +69,7 @@ export const signupSurvey = pgTable(
     workspaceId: text('workspace_id')
       .primaryKey()
       .references(() => workspace.id, { onDelete: 'cascade' }),
-    respondentId: text('respondent_id').references(() => user.id, {
-      onDelete: 'set null',
-    }),
+    respondentId: text('respondent_id').references(() => user.id),
     jobFunction: jobFunction('job_function').notNull(),
     referralSource: text('referral_source'),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
@@ -83,6 +86,7 @@ export const team = pgTable(
       .notNull()
       .references(() => workspace.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
+    origin: teamOrigin('origin').notNull(),
     version: integer('version').default(0).notNull(),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
     updatedAt: timestamptz('updated_at')
@@ -103,7 +107,7 @@ export const teamMember = pgTable(
     teamId: text('team_id').notNull(),
     userId: text('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => user.id),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
@@ -126,23 +130,17 @@ export const workspaceInvite = pgTable(
   'workspace_invite',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspace_id')
-      .notNull()
-      .references(() => workspace.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').notNull(),
     email: text('email').notNull(),
     role: workspaceRole('role').notNull(),
     tokenHash: text('token_hash').notNull().unique(),
-    invitedById: text('invited_by_id').references(() => user.id, {
-      onDelete: 'set null',
-    }),
+    invitedById: text('invited_by_id').references(() => user.id),
     invitedAt: timestamptz('invited_at').defaultNow().notNull(),
     expiresAt: timestamptz('expires_at').notNull(),
     acceptedAt: timestamptz('accepted_at'),
-    acceptedById: text('accepted_by_id').references(() => user.id, {
-      onDelete: 'set null',
-    }),
+    acceptedById: text('accepted_by_id').references(() => user.id),
     revokedAt: timestamptz('revoked_at'),
-    version: integer('version').notNull().default(1),
+    version: integer('version').notNull().default(0),
   },
   (table) => [
     uniqueIndex('workspace_invite_workspace_email_idx')
@@ -172,9 +170,7 @@ export const workspaceInviteTeam = pgTable(
     inviteId: text('invite_id')
       .notNull()
       .references(() => workspaceInvite.id, { onDelete: 'cascade' }),
-    teamId: text('team_id')
-      .notNull()
-      .references(() => team.id, { onDelete: 'cascade' }),
+    teamId: text('team_id').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.inviteId, table.teamId] }),

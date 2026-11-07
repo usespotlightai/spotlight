@@ -1,10 +1,10 @@
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 
 export interface BriefedNote {
-  readonly station: string;
+  readonly station: string | null;
   readonly body: string;
   readonly attachments: readonly Attachment[];
 }
@@ -37,7 +37,7 @@ export interface BriefedTaskParts {
   readonly reviewing: string | null;
   readonly attachments: readonly BriefedAttachmentParts[];
   readonly notes: readonly {
-    readonly station: string;
+    readonly station: string | null;
     readonly body: string;
     readonly attachments: readonly BriefedAttachmentParts[];
   }[];

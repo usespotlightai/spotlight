@@ -1,14 +1,28 @@
 import { randomUUID } from 'node:crypto';
-import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
+import {
+  MEMORIES,
+  type MemoryRepository,
+} from '@memory/domain/repositories/memory.repository';
 import type { INestApplication } from '@nestjs/common';
+import { EventDelivery } from '@platform/events/event-delivery';
+import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 interface MemoryBody {
@@ -66,7 +80,7 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -277,14 +291,14 @@ describe('the team’s memory', () => {
     ).body as MemoryBody;
     const runContext = {
       teamId: TeamId.of(team.teamId.value),
-      lineId: LINE,
-      stationId: STATION,
+      lineId: LineId.of(LINE),
+      stationId: StationId.of(STATION),
       repositories: [],
     };
-    const repository = app.get(DrizzleMemoryRepository);
+    const repository = app.get<MemoryRepository>(MEMORIES);
     const applying = async () =>
       (await repository.mayApplyAt(runContext))
-        .filter((each) => each.appliesAt(runContext))
+        .filter((each) => each.appliesAt(runContext, null))
         .map((each) => each.id.value);
 
     expect(await applying()).toContain(memory.id);
@@ -335,5 +349,50 @@ describe('the team’s memory', () => {
 
     expect(read.status).toBe(404);
     expect(written.status).toBe(404);
+  });
+});
+
+describe('a deleted team', () => {
+  it('leaves no memory behind, superseded ones included', async () => {
+    const gone = await createTeam(
+      db,
+      app.get(DrizzleTaskRepository),
+      `gone-${randomUUID().slice(0, 8)}`,
+    );
+    const theirs = `/api/teams/${gone.teamId.value}/memories`;
+    const old = (
+      await served(app)
+        .post(theirs)
+        .set(TEST_USER_HEADER, gone.owner.value)
+        .send({ kind: 'preference', body: 'Squash before merging.' })
+    ).body as MemoryBody;
+    const edited = await served(app)
+      .post(`${theirs}/${old.id}/edit`)
+      .set(TEST_USER_HEADER, gone.owner.value)
+      .send({ kind: 'preference', body: 'Rebase before merging.' });
+    expect(edited.status).toBe(201);
+    const stored = () =>
+      db
+        .select({ id: schema.memory.id })
+        .from(schema.memory)
+        .where(eq(schema.memory.teamId, gone.teamId.value));
+    await eventually(async () => {
+      await app.get(EventDelivery).drain(2_000);
+      return (await stored()).length === 2;
+    });
+
+    const deleted: TeamDeletedIntegrationEvent = {
+      kind: TEAM_DELETED,
+      workspaceId: gone.workspaceId.value,
+      teamId: gone.teamId.value,
+      key: 'gone',
+    };
+    await app.get(EventOutbox).record([deleted as unknown as DomainEvent]);
+
+    await eventually(async () => {
+      await app.get(EventDelivery).drain(2_000);
+      return (await stored()).length === 0;
+    });
+    expect(await listing()).not.toHaveLength(0);
   });
 });

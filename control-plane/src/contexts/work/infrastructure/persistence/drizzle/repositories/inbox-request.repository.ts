@@ -1,13 +1,14 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
-  DOMAIN_EVENT_DISPATCHER,
-  type DomainEventDispatcher,
-} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
+import { InboxRequestAlreadyOpenError } from '@work/domain/exceptions/inbox-request-already-open.error';
 import { InboxRequestVersionConflictError } from '@work/domain/exceptions/inbox-request-version-conflict.error';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
@@ -31,6 +32,7 @@ const toInboxRequest = (row: Row, reads: readonly ReadRow[]): InboxRequest =>
     form: row.form,
     about: InboxRequestSubject.of(row.about),
     createdAt: row.createdAt,
+    openedAt: row.openedAt,
     reads: reads.map((each) =>
       InboxRequestRead.of({ by: UserId.of(each.userId), at: each.readAt }),
     ),
@@ -40,26 +42,34 @@ const toInboxRequest = (row: Row, reads: readonly ReadRow[]): InboxRequest =>
 
 @Injectable()
 export class DrizzleInboxRequestRepository implements InboxRequestRepository {
-  constructor(
-    private readonly context: DrizzleContext,
-    @Inject(DOMAIN_EVENT_DISPATCHER)
-    private readonly events: DomainEventDispatcher,
-  ) {}
+  constructor(private readonly context: DrizzleContext) {}
 
   async add(added: InboxRequest): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.context.db.insert(inboxRequest).values({
-        id: added.id.value,
-        workspaceId: added.workspaceId.value,
-        taskId: added.taskId.value,
-        form: added.form,
-        about: added.about.value,
-        createdAt: added.createdAt,
-        resolvedAt: added.resolvedAt,
-        version: added.version,
-      });
+      try {
+        await this.context.db.insert(inboxRequest).values({
+          id: added.id.value,
+          workspaceId: added.workspaceId.value,
+          taskId: added.taskId.value,
+          form: added.form,
+          about: added.about.value,
+          createdAt: added.createdAt,
+          openedAt: added.openedAt,
+          resolvedAt: added.resolvedAt,
+          version: added.version,
+        });
+      } catch (error) {
+        if (violates(error, UNIQUE_VIOLATION, 'inbox_request_about_idx')) {
+          throw new InboxRequestAlreadyOpenError(
+            added.taskId.value,
+            added.form,
+          );
+        }
+
+        throw error;
+      }
+
       await this.savesReads(added);
-      await this.events.dispatch(added.pullEvents());
     });
   }
 
@@ -68,7 +78,7 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
       const written = await this.context.db
         .update(inboxRequest)
         .set({
-          createdAt: saved.createdAt,
+          openedAt: saved.openedAt,
           resolvedAt: saved.resolvedAt,
           version: saved.version + 1,
         })
@@ -96,7 +106,6 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
         ),
       );
       await this.savesReads(saved);
-      await this.events.dispatch(saved.pullEvents());
     });
   }
 
@@ -132,6 +141,31 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
       .limit(1);
 
     return row ? this.withReads(row) : null;
+  }
+
+  async ofTask(taskId: TaskId): Promise<InboxRequest[]> {
+    const rows = await this.context.db
+      .select()
+      .from(inboxRequest)
+      .where(eq(inboxRequest.taskId, taskId.value));
+
+    return Promise.all(rows.map((row) => this.withReads(row)));
+  }
+
+  async remove(removed: InboxRequest): Promise<void> {
+    const gone = await this.context.db
+      .delete(inboxRequest)
+      .where(
+        and(
+          eq(inboxRequest.id, removed.id.value),
+          eq(inboxRequest.version, removed.version),
+        ),
+      )
+      .returning({ id: inboxRequest.id });
+
+    if (gone.length === 0) {
+      throw new InboxRequestVersionConflictError(removed.id.value);
+    }
   }
 
   async about(

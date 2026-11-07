@@ -7,7 +7,7 @@ import type {
   IndexedRouteUse,
   IndexedSymbol,
   SymbolIndex,
-} from '@change-review/domain/services/symbol-index';
+} from '@change-review/domain/value-objects/symbol-index.vo';
 import { CSHARP_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/csharp.grammar';
 import { GO_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/go.grammar';
 import {

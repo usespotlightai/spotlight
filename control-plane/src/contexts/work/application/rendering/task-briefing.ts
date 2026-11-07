@@ -1,4 +1,10 @@
-import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
+import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
+import {
+  HANDOVER_TO_A_PERSON,
+  HANDOVER_TO_FINISH,
+} from '@shared-kernel/domain/value-objects/handover-word';
+import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { SkillBrief } from '@work/application/dto/ready-skill.dto';
 import type {
   BriefedMemory,
@@ -8,9 +14,9 @@ import { Attached } from '@work/application/rendering/attached';
 import { ConfiguringSpotlight } from '@work/application/rendering/configuring-spotlight';
 import { Learned } from '@work/application/rendering/learned';
 import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
+import { skillFolderOf } from '@work/domain/services/skill-folder';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import type {
   BriefedReviewComment,
@@ -19,12 +25,10 @@ import type {
 } from '@work/domain/value-objects/briefed-task.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { MAX_HANDOVER_ATTACHMENTS } from '@work/domain/value-objects/handover.vo';
-import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
-import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
-const closing = (line: Line, stationId: StationId): string => {
+const closing = (line: LineMap, stationId: StationId): string => {
   const offered = line.optionsFrom(stationId);
   const named = offered
     .flatMap((each) =>
@@ -39,15 +43,15 @@ const closing = (line: Line, stationId: StationId): string => {
     'Run this, from anywhere in the workspace:',
     `\`\`\`\n${HANDOVER_COMMAND} --next "…" --note "…"\n\`\`\``,
     `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command rejects it and tells you what would have worked, so read what it says and run it again.`,
-    `To put the task in front of a person instead of a station, use \`--next "${REVIEW}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
+    `To put the task in front of a person instead of a station, use \`--next "${HANDOVER_TO_A_PERSON}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
     offered.some((each) => each.kind === 'done')
-      ? `Where the work is finished and nothing follows it, use \`--next "${DONE}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
+      ? `Where the work is finished and nothing follows it, use \`--next "${HANDOVER_TO_FINISH}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
       : null,
     `\`--note\` is what the next station, or the person, needs to know. Write it in Markdown. Pipe a long note in, as \`${HANDOVER_COMMAND} --next "…" < note.md\`.`,
     `To show something the note cannot say in words, such as a screenshot, add \`--attach <file>\` for each file, up to ${MAX_HANDOVER_ATTACHMENTS}. The files go on the note.`,
     'Running nothing puts the task in front of a person.',
     'Nobody is watching this terminal. If you need a decision, a missing detail, or an answer before you can finish, do not ask here and wait: hand the task over with `--next "' +
-      REVIEW +
+      HANDOVER_TO_A_PERSON +
       '"` and put the question in the note. Nobody sees a question at the terminal, and the task does not move until someone notices.',
   ]
     .filter(Boolean)
@@ -92,7 +96,7 @@ const listing = (
         skills
           .map(
             (each) =>
-              `- \`${listedIn}/${SkillKey.of(each.key).folder}/${SKILL_FILE}\` — ${each.description}`,
+              `- \`${listedIn}/${skillFolderOf(SkillKey.of(each.key))}/${SKILL_FILE}\` — ${each.description}`,
           )
           .join('\n'),
       ].join('\n\n')
@@ -146,10 +150,10 @@ const SAYING_DECISIONS = [
   'Routine choices anyone would make need no mention. Name them again in your handover note.',
 ].join('\n\n');
 
-const PERSISTENT_WORKSPACE =
+const PERSISTENT_WORKING_COPY =
   'The task keeps this workspace from one run and station to the next, so work an earlier one left, committed or not, may already be here.';
 
-const workspaceOf = (task: BriefedTask, line: Line): string | null => {
+const workingCopyOf = (task: BriefedTask, line: LineMap): string | null => {
   const repositories = repositoriesReviewedOrAll(task.reviewing, line);
 
   if (repositories.length === 0) {
@@ -164,21 +168,21 @@ const workspaceOf = (task: BriefedTask, line: Line): string | null => {
     ? [
         '## The workspace',
         `The repository is checked out in:\n\n${listed}`,
-        PERSISTENT_WORKSPACE,
+        PERSISTENT_WORKING_COPY,
       ].join('\n\n')
     : [
         '## The workspace',
         'These repositories are checked out side by side, each in its own directory:',
         listed,
         'Work out which one (or ones) your change belongs in. When you open a pull request, name the repository with `spotlight tools call pull-request --repository <name>`.',
-        PERSISTENT_WORKSPACE,
+        PERSISTENT_WORKING_COPY,
       ].join('\n\n');
 };
 
 export const TaskBriefing = {
   brief(input: {
     task: BriefedTask;
-    line: Line;
+    line: LineMap;
     skills: readonly SkillBrief[];
     listedIn: string | null;
     memories: readonly BriefedMemory[];
@@ -186,13 +190,17 @@ export const TaskBriefing = {
     tools: readonly DeclaredTool[];
   }): string {
     const station = input.line.stationAt(input.task.stationId);
-    const notes = input.task.notes.map(
-      (note) =>
-        `### ${note.station}\n\n${Attached.beside(note.body, note.attachments)}`,
+    const notes = input.task.notes.map((note) =>
+      [
+        note.station === null ? null : `### ${note.station}`,
+        Attached.beside(note.body, note.attachments),
+      ]
+        .filter((part) => part !== null)
+        .join('\n\n'),
     );
 
     return [
-      station?.agentPrompt?.value.trim(),
+      station?.agentPrompt?.trim(),
       `## ${input.task.title}`,
       input.task.description,
       Attached.listed(input.task.attachments),
@@ -205,7 +213,7 @@ export const TaskBriefing = {
       }),
       Learned.remembering(),
       station?.decisions ? SAYING_DECISIONS : null,
-      workspaceOf(input.task, input.line),
+      workingCopyOf(input.task, input.line),
       SpotlightCli.section,
       ConfiguringSpotlight.section,
       toolsOf(input.tools),

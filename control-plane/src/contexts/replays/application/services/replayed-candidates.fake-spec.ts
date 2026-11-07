@@ -20,6 +20,7 @@ import {
   searchRunIds,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
+import { scoresOf } from '@replays/domain/services/search-scores';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
@@ -67,8 +68,8 @@ export const replayOf = (
 ): Replay => {
   const started = Replay.start({
     id: ReplayId.of(id),
-    set,
-    candidate,
+    set: set.snapshot,
+    candidate: candidate.asReplayed,
     baseline: false,
     ceiling: Money.ceiling(100, 'USD'),
     at,
@@ -115,8 +116,11 @@ const heldOutOf = (
   }
 
   return built.heldOutFrom(
-    replays,
-    0.05,
+    scoresOf(
+      built,
+      replays.map((each) => each.outcome()),
+      0.05,
+    ),
     () => ReplayId.of('replay_held_out_terse'),
     later(4),
   );

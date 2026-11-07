@@ -13,6 +13,8 @@ import {
 } from '@identity/application/rendering/identity-problems';
 import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
+import { OidcAudience } from '@identity/domain/value-objects/oidc-audience.vo';
+import { OidcIssuer } from '@identity/domain/value-objects/oidc-issuer.vo';
 import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
@@ -20,6 +22,8 @@ import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { TokenScope } from '@identity/domain/value-objects/token-scope.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -29,8 +33,6 @@ import {
   refinedBy,
 } from '@platform/definitions/definition-schema';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
-import { TokenScope } from '@shared-kernel/domain/value-objects/token-scope.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { z } from 'zod';
 
 const workspaceSchema = z.object({
@@ -74,8 +76,8 @@ const workspaceTokenSchema = z.object({
 const oidcTrustSchema = z
   .object({
     key: madeBy(OidcTrustKey.of),
-    issuer: madeBy(WorkloadRule.issuerOf),
-    audience: madeBy(WorkloadRule.audienceOf).default('spotlight'),
+    issuer: madeBy(OidcIssuer.of),
+    audience: madeBy(OidcAudience.of).default('spotlight'),
     subject: madeBy((raw) => ClaimPattern.of(raw)),
     claims: z
       .record(

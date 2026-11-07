@@ -1,4 +1,6 @@
-export class IntegrationConnectionVersionConflictError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class IntegrationConnectionVersionConflictError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(integration: string) {

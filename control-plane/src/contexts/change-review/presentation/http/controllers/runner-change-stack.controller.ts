@@ -1,5 +1,9 @@
 import { GenerateRunChangeStackCommand } from '@change-review/application/commands/generate-run-change-stack.command';
 import { RecordChangeStackCheckCommand } from '@change-review/application/commands/record-change-stack-check.command';
+import {
+  RUN_CHANGE_STACK_CHECK,
+  RUN_CHANGE_STACKS,
+} from '@change-review/presentation/http/change-stack-routes';
 import { RecordChangeStackCheckRequestDto } from '@change-review/presentation/http/dto/change-stack-check.dto';
 import { GenerateChangeStackRequestDto } from '@change-review/presentation/http/dto/generate-change-stack.dto';
 import {
@@ -22,22 +26,20 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
-import {
-  RUN_CHANGE_STACK_CHECK,
-  RUN_CHANGE_STACKS,
-} from '@platform/http/routes';
+import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
   description: 'Missing, no longer valid or wrong runner token',
 })
-@RunnerOnly()
+@MachineOnly()
 @Controller()
 export class RunnerChangeStackController {
   constructor(private readonly commandBus: CommandBus) {}
 
+  @AcceptsLargeBody()
   @Post(RUN_CHANGE_STACKS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -51,11 +53,11 @@ export class RunnerChangeStackController {
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: 'Not a run this runner claimed' })
   @ApiConflictResponse({
-    description: 'The run is a search, which changes no repository',
+    description: 'The run has no checkouts, so it changes no repository',
   })
   async generateChangeStack(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: GenerateChangeStackRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
@@ -69,6 +71,7 @@ export class RunnerChangeStackController {
     );
   }
 
+  @AcceptsLargeBody()
   @Post(RUN_CHANGE_STACK_CHECK)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -80,7 +83,7 @@ export class RunnerChangeStackController {
     required: false,
     type: Boolean,
     description:
-      'true when the check is the recheck of a replay’s change, as its claim said',
+      'true when the check is the recheck of a trial’s change, as its claim said',
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({
@@ -97,7 +100,7 @@ export class RunnerChangeStackController {
     @Param('runId') runId: string,
     @Param('stackId') stackId: string,
     @Query('recheck') recheck: string | undefined,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: RecordChangeStackCheckRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(

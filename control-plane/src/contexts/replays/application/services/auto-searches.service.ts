@@ -1,6 +1,8 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
 import type { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
+import type { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
+import { resultPendingAt } from '@replays/application/services/result-pending';
 import type { StartSearch } from '@replays/application/services/start-search.service';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { MonthlyCeilingReachedError } from '@replays/domain/exceptions/monthly-ceiling-reached.error';
@@ -10,7 +12,6 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
-import { pendingPickOf } from '@replays/domain/services/pending-pick';
 import {
   BUSY_RECHECK_MS,
   dueVerdict,
@@ -28,6 +29,8 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 const DUE_PER_TICK = 20;
 
@@ -41,9 +44,10 @@ export class AutoSearches implements PendingJobsPort {
     private readonly sets: ReplaySetRepository,
     private readonly searches: SearchRepository,
     private readonly pullRequests: ConfigPullRequestRepository,
+    private readonly refreshing: RefreshReplaySets,
     private readonly readiness: CheckSearchReadiness,
     private readonly starting: StartSearch,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
@@ -62,7 +66,7 @@ export class AutoSearches implements PendingJobsPort {
         }
       } catch (error) {
         this.logger.warn(
-          { stationId, error },
+          { stationId: stationId.value, error },
           'An automatic search could not be started. Spotlight tries again later.',
         );
       }
@@ -92,7 +96,7 @@ export class AutoSearches implements PendingJobsPort {
     }
 
     const { lineId, stationId } = set.station;
-    const live = await this.work.live(lineId, stationId);
+    const live = await this.configs.live(lineId, stationId);
     const policy = live?.search ?? null;
     const verdict = dueVerdict({
       policy,
@@ -127,19 +131,10 @@ export class AutoSearches implements PendingJobsPort {
     );
   }
 
-  private async busy(stationId: string): Promise<boolean> {
-    const [active, newest] = await Promise.all([
-      this.searches.activeAtStation(stationId),
-      this.searches.newestAtStation(stationId),
-    ]);
-    const picked = newest?.pickedCandidate ?? null;
-    const pickHasPullRequest =
-      newest !== null &&
-      picked !== null &&
-      (await this.pullRequests.forCandidate(newest.id, picked)) !== null;
-
+  private async busy(stationId: StationId): Promise<boolean> {
     return (
-      active !== null || pendingPickOf(newest, pickHasPullRequest) !== null
+      (await this.searches.activeAtStation(stationId)) !== null ||
+      (await resultPendingAt(stationId, this.searches, this.pullRequests))
     );
   }
 
@@ -150,6 +145,8 @@ export class AutoSearches implements PendingJobsPort {
     stationAgent: SearchAgent | null,
     trigger: SearchTrigger,
   ): Promise<void> {
+    await this.refreshing.refreshBefore(found.id);
+
     const readiness = await this.readiness.check({
       set: found,
       schedule: due,
@@ -199,7 +196,7 @@ export class AutoSearches implements PendingJobsPort {
   }
 
   private async monthSpent(
-    lineId: string,
+    lineId: LineId,
     policy: SearchPolicy,
     now: Date,
   ): Promise<Money> {

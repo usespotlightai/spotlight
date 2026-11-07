@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -33,5 +34,11 @@ describe('ApprovalIntent', () => {
 
     expect(intent?.value).toHaveLength(200);
     expect(intent?.value.endsWith('…')).toBe(true);
+  });
+  it('refuses a stored intent that is empty or too long', () => {
+    expect(() => ApprovalIntent.rehydrate('')).toThrow(InconsistentStateError);
+    expect(() => ApprovalIntent.rehydrate('x'.repeat(201))).toThrow(
+      InconsistentStateError,
+    );
   });
 });

@@ -11,7 +11,7 @@ export const FAILURE_BLAME: Readonly<Record<RunFailureCode, Blame>> = {
   refused: 'candidate',
   unprepared: 'infrastructure',
   unprovisioned: 'infrastructure',
-  'hooks-unanswered': 'infrastructure',
+  'start-gate-unanswered': 'infrastructure',
   'runner-lost': 'infrastructure',
   'timed-out': 'candidate',
   cancelled: 'infrastructure',

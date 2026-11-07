@@ -5,6 +5,14 @@ export class RunPriority {
 
   static readonly normal = new RunPriority(0);
 
+  static readonly chat = new RunPriority(1_000);
+
+  static readonly trial = new RunPriority(-1);
+
+  static forTask(depth: number): RunPriority {
+    return RunPriority.of(depth);
+  }
+
   static of(value: number): RunPriority {
     if (!Number.isInteger(value)) {
       throw new InvalidRunPriorityError(`must be a whole number, not ${value}`);

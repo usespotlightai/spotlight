@@ -51,7 +51,7 @@ const configuration = new RunnerConfiguration(
     find: async () => trust,
   } as unknown as RunnerTrustRepository,
   {
-    declaredIn: async () => declared,
+    ofWorkspace: async () => declared,
     find: async () => declared,
   } as unknown as WorkspaceRunnersRepository,
   { slugOf: async () => 'acme' } as unknown as WorkspaceReaderPort,
@@ -123,7 +123,7 @@ describe('RunnerConfiguration', () => {
       { key: 'shared' },
     );
     await expect(
-      configuration.declaredWithId('declared_1'),
+      configuration.workspaceRunnersWithId('declared_1'),
     ).resolves.toMatchObject({ address: 'acme', trusts: ['production'] });
   });
 });

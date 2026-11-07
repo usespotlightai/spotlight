@@ -8,6 +8,7 @@ import type {
   RunReaderPort,
 } from '@work/application/ports/run-reader.port';
 import type { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
+import type { RunAccess } from '@work/application/services/run-access.service';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 const configOf = (run: RanConfig): StationConfig =>
@@ -16,12 +17,15 @@ const configOf = (run: RanConfig): StationConfig =>
 export class ReadRunConfigHandler
   implements QueryHandlerPort<ReadRunConfigQuery, RunConfigDto | null>
 {
-  constructor(private readonly runs: RunReaderPort) {}
+  constructor(
+    private readonly runs: RunReaderPort,
+    private readonly access: RunAccess,
+  ) {}
 
   async execute(query: ReadRunConfigQuery): Promise<RunConfigDto | null> {
     try {
-      const found = await this.runs.configFor(
-        RunId.of(query.runId),
+      const found = await this.access.shownInWorkspace(
+        await this.runs.configFor(RunId.of(query.runId)),
         UserId.of(query.viewerId),
       );
 

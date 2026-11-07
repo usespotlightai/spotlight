@@ -1,5 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { RepositoryUnreachableError } from '@github/application/errors/repository-unreachable.error';
+import {
+  STATION_CONFIG_PULL_REQUESTS,
+  type StationConfigPullRequestsPort,
+} from '@insights/application/ports/station-config-pull-requests.port';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
+import {
+  LINE_RESOURCES,
+  type LineResourcesPort,
+} from '@lines/application/ports/line-resources.port';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import {
   CloseStaleConfigPullRequests,
@@ -7,13 +16,14 @@ import {
 } from '@replays/application/services/close-stale-config-pull-requests.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { ReconcileConfigPullRequests } from '@replays/application/services/reconcile-config-pull-requests.service';
-import { LINE_CHANGED } from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_REOPENED } from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
+  STATION_CONFIG_CANDIDATES,
+  type StationConfigCandidatesPort,
+} from '@work/application/ports/station-config-candidates.port';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { autoSearched } from './support/app';
@@ -54,6 +64,7 @@ import {
   teamNotices,
   WITHIN,
 } from './support/search-flow';
+import { lineChangedOf } from './support/stations';
 
 openSearchFlow();
 
@@ -61,7 +72,7 @@ const HOUR_MS = 60 * 60_000;
 
 const liveAt = async (stationId = BUILD) => {
   const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
+    .get<StationConfigCandidatesPort>(STATION_CONFIG_CANDIDATES)
     .live(DELIVERY, stationId);
 
   if (!live) {
@@ -71,23 +82,36 @@ const liveAt = async (stationId = BUILD) => {
   return live;
 };
 
+const writtenAt = async (stationId = BUILD) => {
+  const [row] = await db
+    .select({ key: schema.station.key })
+    .from(schema.station)
+    .where(eq(schema.station.id, stationId));
+  const record = await app
+    .get<LineResourcesPort>(LINE_RESOURCES)
+    .withId(LineId.of(DELIVERY));
+  const station = record?.definition.stations.find(
+    (each) => each.key === row?.key,
+  );
+
+  if (!station) {
+    throw new Error(`station ${stationId} is not written`);
+  }
+
+  return station;
+};
+
 const prompted = async (prompt: string): Promise<string> => {
   await db
     .update(schema.station)
     .set({ agentPrompt: prompt })
     .where(eq(schema.station.id, BUILD));
 
-  return (await liveAt()).fingerprint;
+  return (await liveAt()).config.fingerprint;
 };
 
-const lineChanged = () =>
-  delivered({
-    kind: LINE_CHANGED,
-    lineId: DELIVERY,
-    workspaceId: team.workspaceId.value,
-    teamId: team.teamId.value,
-    stationIds: [BUILD],
-  } as never);
+const lineChanged = async () =>
+  delivered((await lineChangedOf(db, DELIVERY, [BUILD])) as never);
 
 interface OnGitHub {
   readonly at?: Date;
@@ -149,9 +173,10 @@ const anOpenedPullRequest = async (input: {
     path: CONFIG_FILE,
     branch: `spotlight/search-${input.number}`,
     state: 'opened',
+    open: true,
     url: `https://github.com/${CONFIG}/pull/${input.number}`,
     number: input.number,
-    gitHubId: GITHUB_ID_BASE + input.number,
+    hostId: GITHUB_ID_BASE + input.number,
     basedOn: input.basedOn,
     proposing: input.proposing,
     checkedAt: input.checkedAt ?? at,
@@ -177,7 +202,7 @@ const staleAfterChange = async (
 ): Promise<string> => {
   const id = await anOpenedPullRequest({
     number,
-    basedOn: (await liveAt()).fingerprint,
+    basedOn: (await liveAt()).config.fingerprint,
     proposing: 'f'.repeat(64),
   });
 
@@ -208,7 +233,7 @@ const finishedWith = async (
   expect(await replayEnded(search.seedReplayId)).toBe('finished');
 
   const agent = await leasedSearchRun(search.id, 1);
-  const { station } = await liveAt(stationId);
+  const station = await writtenAt(stationId);
   const proposed = (
     await proposing(agent, {
       name,
@@ -271,8 +296,8 @@ describe('following a config pull request after it opened', () => {
     expect(opened).toMatchObject({
       repository: CONFIG,
       number: 1,
-      gitHubId: GITHUB_ID_BASE + 1,
-      basedOn: (await liveAt()).fingerprint,
+      hostId: GITHUB_ID_BASE + 1,
+      basedOn: (await liveAt()).config.fingerprint,
     });
 
     await closedOnGitHub(1, false, { workspaceId: randomUUID() });
@@ -361,7 +386,7 @@ describe('following a config pull request after it opened', () => {
       { iterations: 1, ceiling: 60, objective: 'success' },
       POLISH,
     );
-    const live = (await liveAt(POLISH)).fingerprint;
+    const live = (await liveAt(POLISH)).config.fingerprint;
 
     await anOpenedPullRequest({
       number: 31,
@@ -464,14 +489,14 @@ describe('following a config pull request after it opened', () => {
   it('reconciles an opened pull request with GitHub once it went six hours without a check, and keeps one open pull request for each station', async () => {
     const id = await anOpenedPullRequest({
       number: 27,
-      basedOn: (await liveAt()).fingerprint,
+      basedOn: (await liveAt()).config.fingerprint,
       proposing: 'f'.repeat(64),
     });
 
     await expect(
       anOpenedPullRequest({
         number: 28,
-        basedOn: (await liveAt()).fingerprint,
+        basedOn: (await liveAt()).config.fingerprint,
         proposing: 'f'.repeat(64),
       }),
     ).rejects.toThrow();
@@ -543,5 +568,81 @@ describe('following a config pull request after it opened', () => {
     ).toEqual([]);
 
     await prompted('Build it.');
+  });
+});
+
+describe('the config pull requests Insights shows on a station', () => {
+  const closedPullRequest = async (input: {
+    readonly number: number;
+    readonly proposing: string;
+    readonly createdAt: Date;
+    readonly stationId?: string;
+  }) => {
+    const id = randomUUID();
+
+    await db.insert(schema.configPullRequest).values({
+      id,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      searchId: randomUUID(),
+      candidateId: randomUUID(),
+      lineId: DELIVERY,
+      stationId: input.stationId ?? BUILD,
+      stationKey: input.stationId === POLISH ? 'polish' : 'build',
+      candidateName: `candidate-${input.number}`,
+      repository: CONFIG,
+      path: CONFIG_FILE,
+      branch: `spotlight/search-${input.number}`,
+      state: 'closed',
+      open: false,
+      url: `https://github.com/${CONFIG}/pull/${input.number}`,
+      number: input.number,
+      hostId: GITHUB_ID_BASE + input.number,
+      basedOn: 'e'.repeat(64),
+      proposing: input.proposing,
+      checkedAt: input.createdAt,
+      closedBecause: 'by-person',
+      retries: 0,
+      createdAt: input.createdAt,
+      updatedAt: input.createdAt,
+    });
+  };
+
+  it('names the newest pull request Spotlight opened proposing each config at the station, and none for a config it proposed elsewhere', async () => {
+    const proposed = '1'.repeat(64);
+    const elsewhere = '2'.repeat(64);
+    const never = '3'.repeat(64);
+
+    await closedPullRequest({
+      number: 91,
+      proposing: proposed,
+      createdAt: new Date(Date.now() - 2 * HOUR_MS),
+    });
+    await closedPullRequest({
+      number: 92,
+      proposing: proposed,
+      createdAt: new Date(Date.now() - HOUR_MS),
+    });
+    await closedPullRequest({
+      number: 93,
+      proposing: elsewhere,
+      createdAt: new Date(Date.now() - HOUR_MS),
+      stationId: POLISH,
+    });
+
+    const newest = await app
+      .get<StationConfigPullRequestsPort>(STATION_CONFIG_PULL_REQUESTS)
+      .newestFor(
+        {
+          workspaceId: team.workspaceId,
+          teamId: team.teamId,
+          stationId: StationId.of(BUILD),
+        },
+        [proposed, elsewhere, never].map(ConfigFingerprint.of),
+      );
+
+    expect(
+      Object.fromEntries([...newest].map(([each, url]) => [each, url.value])),
+    ).toEqual({ [proposed]: `https://github.com/${CONFIG}/pull/92` });
   });
 });

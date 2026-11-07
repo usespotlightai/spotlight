@@ -1,20 +1,23 @@
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type {
+  AttachmentReaderPort,
+  AttachmentRecord,
+} from '@work/application/ports/attachment-reader.port';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { NoteFiles } from '@work/application/services/note-files.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -31,27 +34,27 @@ const SHOT = Attachment.of({
 });
 
 const delivery = () =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of('station_1'),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_completed'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -67,7 +70,7 @@ const asked = () =>
     newId: () => 'task_1',
   }).askedAbout(
     {
-      station: StationName.of('Code Review'),
+      line: null,
       body: TaskNoteBody.of('Here are the screenshots.'),
       at: NOW,
       voice: Voice.station(),
@@ -81,13 +84,25 @@ const noteFiles = (task: Task | null) => {
     bytes: new Uint8Array([1, 2, 3]),
     contentType: 'image/png',
   }));
-  const find = vi.fn(async (_id: TaskId) => task);
+  const find = vi.fn(async (id: string): Promise<AttachmentRecord | null> => {
+    const file = task?.allAttachments.find((each) => each.id.value === id);
+
+    return task && file
+      ? {
+          id: file.id.value,
+          name: file.name,
+          contentType: file.contentType,
+          size: file.size,
+          workspaceId: task.workspaceId.value,
+          holder: { kind: 'task', taskId: task.id.value },
+        }
+      : null;
+  });
 
   return {
-    files: new NoteFiles(
-      { find } as unknown as TaskRepository,
-      { open } as unknown as AttachmentStorePort,
-    ),
+    files: new NoteFiles({ find } satisfies AttachmentReaderPort, {
+      open,
+    } as unknown as AttachmentStorePort),
     open,
     find,
   };
@@ -100,7 +115,7 @@ describe('NoteFiles', () => {
     expect(await files.open('task_1', 'file_1')).toEqual(
       new Uint8Array([1, 2, 3]),
     );
-    expect(find).toHaveBeenCalledWith(TaskId.of('task_1'));
+    expect(find).toHaveBeenCalledWith('file_1');
     expect(open).toHaveBeenCalledWith(WorkspaceId.of('ws_1'), SHOT);
   });
 
@@ -113,6 +128,13 @@ describe('NoteFiles', () => {
 
   it('opens nothing for a task it cannot find', async () => {
     const { files, open } = noteFiles(null);
+
+    expect(await files.open('task_9', 'file_1')).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('opens nothing that is a file of another task', async () => {
+    const { files, open } = noteFiles(asked());
 
     expect(await files.open('task_9', 'file_1')).toBeNull();
     expect(open).not.toHaveBeenCalled();

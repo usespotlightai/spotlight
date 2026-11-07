@@ -35,7 +35,7 @@ export class StaleHostsWorker implements OnModuleDestroy {
     try {
       await this.purging.purgeStale();
     } catch (error) {
-      this.logger.error({ err: error }, this.purging.name);
+      this.logger.error({ err: error }, 'Purging stale hosts');
     }
   }
 }

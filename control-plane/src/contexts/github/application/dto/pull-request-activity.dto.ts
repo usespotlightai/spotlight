@@ -1,4 +1,4 @@
-export type PullRequestActivityKind =
+type PullRequestActivityKind =
   | 'opened'
   | 'labelled'
   | 'merged'
@@ -35,7 +35,7 @@ export interface PullRequestActivity {
   readonly label: string | null;
   readonly details: PullRequestDetails | null;
   readonly reviewComment: PullRequestReviewComment | null;
-  readonly byBot: boolean;
+  readonly ignoredAsBot: boolean;
   readonly checkSuite: CheckSuite | null;
   readonly failedChecks: readonly string[];
 }

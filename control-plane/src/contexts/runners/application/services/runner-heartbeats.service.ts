@@ -1,7 +1,6 @@
-import type {
-  RunnerHeartbeat,
-  RunnerHeartbeatsPort,
-} from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimant } from '@runners/application/ports/runner-claimants.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import { claimantOf } from '@runners/application/services/runner-claimants.service';
 import { reviseRunner } from '@runners/application/services/runner-revisions';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -12,18 +11,11 @@ export class RunnerHeartbeats implements RunnerHeartbeatsPort {
   async heartbeat(
     runnerId: RunnerId,
     at: Date,
-  ): Promise<RunnerHeartbeat | null> {
+  ): Promise<RunnerClaimant | null> {
     const runner = await reviseRunner(this.runners, runnerId, (found) =>
       found.isAlive(at) ? found.heartbeat(at) : found,
     );
 
-    return runner?.isAlive(at)
-      ? {
-          workspaceId: runner.workspaceId,
-          harnesses: runner.harnesses,
-          offer: runner.offer,
-          claims: runner.claimsAt(at),
-        }
-      : null;
+    return claimantOf(runner, at);
   }
 }

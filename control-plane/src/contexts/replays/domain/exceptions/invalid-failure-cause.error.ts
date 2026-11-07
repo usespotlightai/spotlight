@@ -1,4 +1,6 @@
-export class InvalidFailureCauseError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidFailureCauseError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(

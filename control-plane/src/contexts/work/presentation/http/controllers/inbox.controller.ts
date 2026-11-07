@@ -14,6 +14,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiConflictResponse,
   ApiExtraModels,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -23,15 +24,15 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
-import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
-import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
+import { AnswerConversationCommand } from '@work/application/commands/answer-conversation.command';
+import { MarkConversationReadCommand } from '@work/application/commands/mark-conversation-read.command';
 import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
-import { ReopenInboxItemCommand } from '@work/application/commands/reopen-inbox-item.command';
+import { ReopenConversationCommand } from '@work/application/commands/reopen-conversation.command';
 import { ReopenInboxRequestCommand } from '@work/application/commands/reopen-inbox-request.command';
 import { ReopenNoticeCommand } from '@work/application/commands/reopen-notice.command';
-import { ResolveInboxItemCommand } from '@work/application/commands/resolve-inbox-item.command';
+import { ResolveConversationCommand } from '@work/application/commands/resolve-conversation.command';
 import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import type {
@@ -39,7 +40,6 @@ import type {
   InboxItemDto,
   InboxItemViewDto,
   InboxNoticeDto,
-  NoteDto,
 } from '@work/application/dto/inbox.dto';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type {
@@ -57,12 +57,9 @@ import {
   ListTaskJournalRunsQuery,
   ReadTaskJournalQuery,
 } from '@work/application/queries/read-task-journal.query';
+import { AnswerInboxItemRequestDto } from '@work/presentation/http/dto/inbox.request.dto';
 import {
-  AnswerInboxItemRequestDto,
   INBOX_PAGE_SCHEMA,
-  InboxApprovalResponseDto,
-  InboxAuthorResponseDto,
-  InboxConnectionResponseDto,
   type InboxEntryResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
@@ -71,7 +68,6 @@ import {
   InboxRequestResponseDto,
   InboxRunResponseDto,
   InboxStationResponseDto,
-  NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import {
   JournalledRunResponseDto,
@@ -81,36 +77,10 @@ import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { editsInput } from '@work/presentation/http/mappers/edits-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
+import { NoteHttpMapper } from '@work/presentation/http/mappers/note.http.mapper';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
+import { stationLabelOf } from '@work/presentation/http/mappers/station-label';
 import { ApiPageQuery, pageRequestOf } from '@work/presentation/http/paging';
-
-const noteResponse = (note: NoteDto): NoteResponseDto =>
-  new NoteResponseDto(
-    note.position,
-    note.kind,
-    note.form,
-    note.voice,
-    note.station,
-    note.stationColor,
-    note.stationPosition,
-    note.runId,
-    note.body,
-    note.attachments.map(AttachmentHttpMapper.toResponse),
-    note.at,
-    note.author
-      ? new InboxAuthorResponseDto(
-          note.author.id,
-          note.author.name,
-          note.author.image,
-        )
-      : null,
-    note.coAuthors.map(
-      (each) => new InboxAuthorResponseDto(each.id, each.name, each.image),
-    ),
-    note.approval ? new InboxApprovalResponseDto(note.approval) : null,
-    note.failure ? new InboxFailureResponseDto(note.failure) : null,
-    note.connection ? new InboxConnectionResponseDto(note.connection) : null,
-  );
 
 const taskItemFields = (
   item: InboxItemDto,
@@ -121,17 +91,17 @@ const taskItemFields = (
   title: item.title,
   description: item.description,
   attachments: item.attachments.map(AttachmentHttpMapper.toResponse),
-  station: item.station,
+  station: stationLabelOf(item.station),
   stationColor: item.stationColor,
   stationPosition: item.stationPosition,
   stationCount: item.stationCount,
   originStation: new InboxStationResponseDto(
-    item.originStation.name,
+    stationLabelOf(item.originStation.name),
     item.originStation.color,
     item.originStation.position,
   ),
   currentStation: new InboxStationResponseDto(
-    item.currentStation.name,
+    stationLabelOf(item.currentStation.name),
     item.currentStation.color,
     item.currentStation.position,
   ),
@@ -148,7 +118,7 @@ const taskItemFields = (
   inboxRequest: item.inboxRequest
     ? new InboxRequestResponseDto(item.inboxRequest)
     : null,
-  lastNote: item.lastNote && noteResponse(item.lastNote),
+  lastNote: item.lastNote && NoteHttpMapper.toResponse(item.lastNote),
 });
 
 const entryResponse = (entry: InboxEntryDto): InboxEntryResponseDto => {
@@ -244,7 +214,7 @@ export class InboxController {
 
     return new InboxItemViewResponseDto(
       taskItemFields(found),
-      found.notes.map(noteResponse),
+      found.notes.map(NoteHttpMapper.toResponse),
     );
   }
 
@@ -288,13 +258,17 @@ export class InboxController {
     description:
       'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
   })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async answer(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: AnswerInboxItemRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new AnswerInboxItemCommand(
+      new AnswerConversationCommand(
         itemId,
         user.id,
         body.body ?? '',
@@ -326,7 +300,7 @@ export class InboxController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(
-      new MarkInboxItemReadCommand(itemId, user.id),
+      new MarkConversationReadCommand(itemId, user.id),
     );
   }
 
@@ -342,11 +316,17 @@ export class InboxController {
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   @ApiConflictResponse({ description: 'The conversation is already closed' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async resolveInboxItem(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ResolveInboxItemCommand(itemId, user.id));
+    await this.commandBus.execute(
+      new ResolveConversationCommand(itemId, user.id),
+    );
   }
 
   @Post('requests/:requestId/resolve')
@@ -359,6 +339,10 @@ export class InboxController {
   @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async resolveInboxRequest(
     @Param('requestId') requestId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -382,11 +366,17 @@ export class InboxController {
     description:
       'The conversation is not the last one, or a person did not resolve it',
   })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async reopenInboxItem(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ReopenInboxItemCommand(itemId, user.id));
+    await this.commandBus.execute(
+      new ReopenConversationCommand(itemId, user.id),
+    );
   }
 
   @Post('requests/:requestId/reopen')
@@ -399,6 +389,10 @@ export class InboxController {
   @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
   @ApiNoContentResponse({ description: 'It is open again' })
   @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async reopenInboxRequest(
     @Param('requestId') requestId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -437,6 +431,10 @@ export class InboxController {
   @ApiParam({ name: 'noticeId', type: String })
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such notice for this caller' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async resolveNotice(
     @Param('slug') slug: string,
     @Param('noticeId') noticeId: string,
@@ -457,6 +455,10 @@ export class InboxController {
   @ApiParam({ name: 'noticeId', type: String })
   @ApiNoContentResponse({ description: 'It is open again' })
   @ApiNotFoundResponse({ description: 'No such notice for this caller' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async reopenNotice(
     @Param('slug') slug: string,
     @Param('noticeId') noticeId: string,

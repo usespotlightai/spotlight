@@ -266,11 +266,11 @@ export class Diff {
     return this.files.flatMap((file) => file.hunks);
   }
 
-  fileOf(hunkId: string): DiffFile | null {
+  fileOf(hunkId: HunkId): DiffFile | null {
     return this.#filesByHunk.get(hunkId) ?? null;
   }
 
-  pathsOf(hunkIds: readonly string[]): Set<string> {
+  pathsOf(hunkIds: readonly HunkId[]): Set<string> {
     return new Set(hunkIds.flatMap((id) => this.fileOf(id)?.path ?? []));
   }
 

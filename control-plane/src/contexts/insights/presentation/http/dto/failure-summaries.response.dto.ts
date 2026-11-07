@@ -1,7 +1,7 @@
 import type {
-  RunFailureSummary,
-  TaskFailureSummary,
-} from '@insights/domain/services/failure-summaries';
+  RunFailureSummaryDto,
+  TaskFailureSummaryDto,
+} from '@insights/application/dto/read-model.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class TaskFailureSummaryResponseDto {
@@ -29,7 +29,7 @@ export class TaskFailureSummaryResponseDto {
   @ApiProperty({ type: String, isArray: true })
   readonly taskIds: readonly string[];
 
-  constructor(summary: TaskFailureSummary) {
+  constructor(summary: TaskFailureSummaryDto) {
     this.source = summary.source;
     this.code = summary.code;
     this.occurrences = summary.occurrences;
@@ -53,7 +53,7 @@ export class RunFailureSummaryResponseDto {
   @ApiProperty({ type: String, isArray: true })
   readonly runIds: readonly string[];
 
-  constructor(summary: RunFailureSummary) {
+  constructor(summary: RunFailureSummaryDto) {
     this.failure = summary.failure;
     this.runs = summary.runs;
     this.runIds = summary.runIds;

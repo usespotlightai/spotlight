@@ -1,4 +1,5 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -6,15 +7,20 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  Arriving,
   Happened,
+  InboundAttachment,
 } from '@work/application/contracts/happenings.contract';
 import {
   HappenedMapper,
   type ReceivedHappening,
 } from '@work/application/mappers/happened.mapper';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
-import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
+import type {
+  HappeningReactionsPort,
+  HappeningsReaction,
+} from '@work/application/ports/happening-reactions.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
@@ -22,26 +28,34 @@ import {
   type ChannelAnswer,
   ChannelChats,
 } from '@work/application/services/channel-chats.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { reassignTaskMarks } from '@work/application/services/task-marks';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import { correlatedTask } from '@work/application/services/correlated-task';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
+import {
+  failedReactionOf,
+  HELD,
+  REACTED,
+} from '@work/application/services/happenings-reaction';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
+import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
+import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
+import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
 import {
+  movedTo,
   type OpenedOn,
   type Outcome,
   ReactionFor,
 } from '@work/domain/services/reaction-for';
+import { TurnWait } from '@work/domain/services/turn-wait';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -53,6 +67,30 @@ const anchorOf = (
   (attachments.length > 0
     ? Anchor.of({ body: TaskNoteBody.fromInput('', attachments).value })
     : null);
+
+type Reopening =
+  | { readonly task: Task; readonly refused: null }
+  | { readonly task: null; readonly refused: string };
+
+const reopenedOrRefused = (reopen: () => Task): Reopening => {
+  try {
+    return { task: reopen(), refused: null };
+  } catch (error) {
+    if (error instanceof TaskNotReopenableError) {
+      return { task: null, refused: ChannelReplies.taskCompleted };
+    }
+
+    if (error instanceof ReopenedByNobodyError) {
+      return { task: null, refused: ChannelReplies.unknownPerson };
+    }
+
+    if (error instanceof NothingSaidError) {
+      return { task: null, refused: ChannelReplies.nothingSaid };
+    }
+
+    throw error;
+  }
+};
 
 const identityOf = (happened: Happened): string =>
   JSON.stringify([
@@ -70,7 +108,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly placements: TaskPlacementsPort,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
@@ -80,6 +118,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly processed: ProcessedEventsPort,
     private readonly logger: LoggerPort,
     private readonly channels: ChannelChats,
+    private readonly runs: RunFactsPort,
+    private readonly teams: Pick<WorkAccess, 'membersOf'>,
   ) {}
 
   async react(
@@ -87,7 +127,35 @@ export class ReactToHappenings implements HappeningReactionsPort {
     teamId: TeamId | null,
     happenings: readonly Happened[],
     receivedAs: string | null,
-  ): Promise<void> {
+  ): Promise<HappeningsReaction> {
+    try {
+      return (await this.reactToEach(
+        workspaceId,
+        teamId,
+        happenings,
+        receivedAs,
+      ))
+        ? HELD
+        : REACTED;
+    } catch (error) {
+      const failed = failedReactionOf(error);
+
+      if (!failed) {
+        throw error;
+      }
+
+      return failed;
+    }
+  }
+
+  private async reactToEach(
+    workspaceId: WorkspaceId,
+    teamId: TeamId | null,
+    happenings: readonly Happened[],
+    receivedAs: string | null,
+  ): Promise<boolean> {
+    let held = false;
+
     for (const arrived of happenings) {
       const key = receivedAs ? `${receivedAs}\n${identityOf(arrived)}` : null;
       const happened = this.received(workspaceId, arrived);
@@ -96,6 +164,11 @@ export class ReactToHappenings implements HappeningReactionsPort {
         !happened ||
         (key && (await this.processed.wasProcessed(workspaceId, key)))
       ) {
+        continue;
+      }
+
+      if (key && (await this.heldByATurn(workspaceId, happened))) {
+        held = true;
         continue;
       }
 
@@ -116,6 +189,29 @@ export class ReactToHappenings implements HappeningReactionsPort {
         await this.channels.answer(answer);
       }
     }
+
+    return held;
+  }
+
+  private async heldByATurn(
+    workspaceId: WorkspaceId,
+    happened: ReceivedHappening,
+  ): Promise<boolean> {
+    const task = await correlatedTask(
+      this.tasks,
+      workspaceId,
+      happened.correlationKeys,
+    );
+    const [run] = task?.currentRunId
+      ? await this.runs.of([task.currentRunId])
+      : [];
+
+    return run?.suspendedAt
+      ? TurnWait.holdsHappening(
+          RunReadingMapper.turn(run.turn),
+          this.clock.now().getTime() - run.suspendedAt.getTime(),
+        )
+      : false;
   }
 
   private received(
@@ -140,14 +236,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
   private async storedAttachments(
     workspaceId: WorkspaceId,
-    arriving: readonly Arriving[],
+    arriving: readonly InboundAttachment[],
   ): Promise<Attachment[]> {
     const stored: Attachment[] = [];
 
     for (const each of arriving) {
       try {
-        if (each.size !== null && Attachment.tooLarge(each.size)) {
-          throw new InvalidAttachmentError('must be no larger than 25 MB');
+        if (each.size !== null) {
+          Attachment.assertSize(each.size);
         }
 
         const id = this.ids.generate();
@@ -194,7 +290,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return null;
     }
 
-    const task = await this.tasks.findByMarks(
+    const task = await correlatedTask(
+      this.tasks,
       workspaceId,
       happened.correlationKeys,
     );
@@ -241,7 +338,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
         anchor: anchorOf(happened, attachments),
       }),
       task,
-      line,
       attachments,
       happened.authorEmail,
     );
@@ -269,7 +365,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
   ): Promise<ChannelAnswer | null> {
     const line = await this.lines.findByStation(task.stationId);
 
-    if (!line || !task.finished) {
+    if (!line || !task.reopensOnMention) {
       await this.receivedBy(task, { ...happened, anchor: null }, attachments);
 
       return null;
@@ -286,42 +382,39 @@ export class ReactToHappenings implements HappeningReactionsPort {
       body,
     });
 
-    if (!task.reopenableOn(line)) {
-      return answered('chat.refused', ChannelReplies.taskCompleted);
-    }
-
     const email = happened.chat?.email;
     const speaker = email
       ? await this.members.byEmail(task.workspaceId, email)
       : null;
-
-    if (!speaker) {
-      return answered('chat.refused', ChannelReplies.unknownPerson);
-    }
-
     const anchor = anchorOf(happened, attachments);
+    const to = task.reopensAt(line, happened.payload.happening);
+    const ranks = (await this.placements.placementsAt(to)).map(
+      (each) => each.rank,
+    );
+    const reopening = reopenedOrRefused(() =>
+      task.reopen(
+        line,
+        happened.payload.happening,
+        Placement.entering('reacted', ranks),
+        {
+          line,
+          body: TaskNoteBody.receivedHappening(
+            happened.payload.summary,
+            anchor,
+          ),
+          at: this.clock.now(),
+          voice: speaker ? Voice.person(speaker) : Voice.world(),
+          anchor,
+          attachments,
+        },
+      ),
+    );
 
-    if (!anchor) {
-      return answered('chat.refused', ChannelReplies.nothingSaid);
+    if (reopening.refused !== null) {
+      return answered('chat.refused', reopening.refused);
     }
 
-    const rule = line.reactionTo(happened.payload.happening, task.stationId);
-    const to = (rule && line.stationAt(rule.to)?.id) ?? task.stationId;
-    const reopened = task.reopen(
-      line,
-      to,
-      Placement.atTheTop(
-        (await this.placements.placementsAt(to)).map((each) => each.rank),
-      ),
-      {
-        station: line.stationAt(task.stationId)?.name ?? StationName.unknown(),
-        body: TaskNoteBody.receivedHappening(happened.payload.summary, anchor),
-        at: this.clock.now(),
-        voice: Voice.person(speaker),
-        anchor,
-        attachments,
-      },
-    );
+    const reopened = reopening.task;
 
     const runId = reopened.wantsRun(line)
       ? await this.dispatch.runIdFor({ task: reopened, line })
@@ -359,7 +452,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
         workspaceId,
         Mark.pullRequest(request.pullRequest),
       ),
-      reviewTask: await this.tasks.findByMarks(
+      reviewTask: await correlatedTask(
+        this.tasks,
         workspaceId,
         happened.correlationKeys,
       ),
@@ -378,7 +472,12 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     if (answer.kind === 'opens') {
       await this.openOn(workspaceId, answer.on, happened, attachments, (task) =>
-        task.reviews(request.pullRequest, { outside: request.outside }),
+        task.reviews(
+          request.pullRequest,
+          { outside: request.outside },
+          answer.on.line,
+          this.clock.now(),
+        ),
       );
     }
   }
@@ -390,7 +489,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const correlationKeys = CorrelationKeys.of({ marks: [mark] });
 
     return correlationKeys
-      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      ? correlatedTask(this.tasks, workspaceId, correlationKeys)
       : null;
   }
 
@@ -401,14 +500,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const correlationKeys = CorrelationKeys.of({ branch: branch.value });
 
     return correlationKeys
-      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      ? correlatedTask(this.tasks, workspaceId, correlationKeys)
       : null;
   }
 
   private async linesOf(
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
-  ): Promise<readonly Line[]> {
+  ): Promise<readonly LineMap[]> {
     return teamId
       ? this.lines.ofTeam(teamId)
       : this.lines.ofWorkspace(workspaceId);
@@ -457,13 +556,15 @@ export class ReactToHappenings implements HappeningReactionsPort {
     attachments: readonly Attachment[],
     shaped: (task: Task) => Task,
   ): Promise<void> {
-    const assignee = happened.opens?.assignEmail
+    const named = happened.opens?.assignEmail
       ? await this.members.byEmail(workspaceId, happened.opens.assignEmail)
       : null;
+    const members = named ? await this.teams.membersOf(line.teamId) : null;
+    const now = this.clock.now();
 
     const added = shaped(
       opening.marks.reduce(
-        (task, mark) => task.markedBy(mark),
+        (task, mark) => task.markedBy(mark, now),
         Task.add({
           line,
           at: opening.at.id,
@@ -471,25 +572,26 @@ export class ReactToHappenings implements HappeningReactionsPort {
           description: opening.description,
           attachments,
           receivedFrom: happened.payload.happening,
-          rank: Placement.atTheBack(
+          rank: Placement.entering(
+            'opened',
             (await this.placements.placementsAt(opening.at.id)).map(
               (each) => each.rank,
             ),
           ),
-          now: this.clock.now(),
+          now,
           newId: () => this.ids.generate(),
         }),
       ),
     );
 
-    const opened = assignee ? added.assign(assignee) : added;
+    const opened =
+      named && members ? added.assignedIfMember(named, members) : added;
 
     const runId = opened.wantsRun(line)
       ? await this.dispatch.runIdFor({ task: opened, line })
       : null;
 
     const stored = runId ? opened.assignRun(runId, line) : opened;
-    await reassignTaskMarks(this.tasks, stored);
     await this.tasks.add(stored);
   }
 
@@ -507,7 +609,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
   private async applied(
     reaction: Outcome,
     task: Task,
-    line: Line,
     attachments: readonly Attachment[],
     authorEmail: string | null,
   ): Promise<Task | null> {
@@ -518,41 +619,17 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const author = authorEmail
       ? await this.members.byEmail(task.workspaceId, authorEmail)
       : null;
+    const destination = movedTo(reaction);
 
-    const newNote = {
-      station: reaction.station,
-      body: reaction.body,
+    return task.reactTo(reaction, {
       at: this.clock.now(),
       voice: Voice.world(author),
-      anchor: reaction.anchor,
       attachments,
-    };
-
-    if (reaction.kind === 'stays') {
-      return task.addMessage(newNote);
-    }
-
-    if (reaction.kind === 'deferredMove') {
-      return task.deferMove(line, reaction.to.id, newNote);
-    }
-
-    if (reaction.kind === 'interrupts') {
-      return task.interrupt(newNote);
-    }
-
-    if (reaction.kind === 'answers') {
-      return task.answer(reaction.to, newNote);
-    }
-
-    return task.react(
-      line,
-      reaction.to.id,
-      Placement.atTheTop(
-        (await this.placements.placementsAt(reaction.to.id)).map(
-          (each) => each.rank,
-        ),
-      ),
-      newNote,
-    );
+      ranksAtDestination: destination
+        ? (await this.placements.placementsAt(destination)).map(
+            (each) => each.rank,
+          )
+        : [],
+    });
   }
 }

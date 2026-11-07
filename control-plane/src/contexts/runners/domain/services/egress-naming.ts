@@ -5,37 +5,55 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const EGRESS_FIELD = 'provision.egress';
 
+export type EgressAvailability =
+  | 'available'
+  | 'no-platform-egress'
+  | 'not-in-workspace';
+
+export interface EgressCandidate {
+  readonly workspaceId: WorkspaceId;
+  readonly named: Egress | null;
+  readonly platformStored: boolean;
+}
+
+export const egressAvailability = (
+  reference: EgressReference,
+  candidate: EgressCandidate,
+): EgressAvailability => {
+  if (reference.isPlatform) {
+    return reference.usableWith(candidate.platformStored)
+      ? 'available'
+      : 'no-platform-egress';
+  }
+
+  const { named } = candidate;
+
+  return named &&
+    !named.isDeleted &&
+    named.belongsTo(candidate.workspaceId) &&
+    reference.egressId?.equals(named.id)
+    ? 'available'
+    : 'not-in-workspace';
+};
+
 export const validateEgress = (
   reference: EgressReference | null,
-  input: {
-    readonly workspaceId: WorkspaceId;
-    readonly named: Egress | null;
-    readonly platformStored: boolean;
-  },
+  candidate: EgressCandidate,
 ): void => {
   if (!reference) {
     return;
   }
 
-  if (reference.isPlatform) {
-    if (!input.platformStored) {
-      throw new InvalidRunnerPoolError(
-        EGRESS_FIELD,
-        `names ${reference.value}. This deployment has no platform egress. Please name an egress of this workspace, or leave provision.egress out`,
-      );
-    }
+  const availability = egressAvailability(reference, candidate);
 
-    return;
+  if (availability === 'no-platform-egress') {
+    throw new InvalidRunnerPoolError(
+      EGRESS_FIELD,
+      `names ${reference.value}. This deployment has no platform egress. Please name an egress of this workspace, or leave provision.egress out`,
+    );
   }
 
-  const { named } = input;
-
-  if (
-    !named ||
-    named.isDeleted ||
-    !named.belongsTo(input.workspaceId) ||
-    !reference.egressId?.equals(named.id)
-  ) {
+  if (availability === 'not-in-workspace') {
     throw new InvalidRunnerPoolError(
       EGRESS_FIELD,
       `names ${reference.value}. Egress ${reference.value} doesn't exist in this workspace`,

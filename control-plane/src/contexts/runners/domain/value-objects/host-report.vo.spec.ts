@@ -1,4 +1,5 @@
 import { InvalidHostReportError } from '@runners/domain/exceptions/invalid-host-report.error';
+import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { describe, expect, it } from 'vitest';
@@ -37,7 +38,7 @@ describe('HostReport', () => {
     const parsed = report({ name: '  build-box  ' });
 
     expect(parsed.name).toBe('build-box');
-    expect(parsed.release).toBe('0.9.0');
+    expect(parsed.release.value).toBe('0.9.0');
     expect(parsed.containerRuntime).toBe('docker');
     expect(parsed.capacity).toBe(4);
     expect(parsed.running.map((each) => each.value)).toEqual(['runner_1']);
@@ -131,5 +132,13 @@ describe('HostReport', () => {
     expect(invalidAt({ containerRuntime: 'e'.repeat(201) })).toBe(
       'containerRuntime',
     );
+  });
+});
+
+describe('HostRelease', () => {
+  it('is outdated only for a published release older than the host minimum', () => {
+    expect(HostRelease.of('v0.0.9').isOutdated).toBe(true);
+    expect(HostRelease.of(HostRelease.MINIMUM.value).isOutdated).toBe(false);
+    expect(HostRelease.of('dev').isOutdated).toBe(false);
   });
 });

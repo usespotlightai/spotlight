@@ -8,7 +8,6 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { setupDoneNote } from '@work/domain/services/setup-list';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -16,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
@@ -62,7 +62,7 @@ describe('writing a task somebody else has written', () => {
 
   const closed = (task: NonNullable<Awaited<ReturnType<typeof tasks.find>>>) =>
     task.closeConversation({
-      station: StationName.of('Backlog'),
+      line: null,
       body: TaskNoteBody.of('Everything on this list is done.'),
       at: NOW,
       voice: Voice.station(),
@@ -103,7 +103,7 @@ describe('writing a task somebody else has written', () => {
     await tasks.save(closed(other)).catch(() => {});
 
     const again = await tasks.find(one.id);
-    const newNote = setupDoneNote(again?.notes ?? [], DONE, NOW);
+    const newNote = setupDoneNote(again?.notes ?? [], DONE, NOW, null);
 
     await expect(
       tasks.save(
@@ -122,6 +122,18 @@ describe('writing a task somebody else has written', () => {
     await expect(
       tasks.save(withCurrentRun(one, RunId.of(randomUUID()))),
     ).rejects.toBeInstanceOf(TaskVersionConflictError);
+  });
+
+  it('keeps a task another writer changed since it was read for deletion', async () => {
+    const { one, other } = await opened();
+    const runId = RunId.of(randomUUID());
+
+    await tasks.save(withCurrentRun(one, runId));
+
+    await expect(tasks.remove(other.deleted())).rejects.toBeInstanceOf(
+      TaskVersionConflictError,
+    );
+    expect((await tasks.find(one.id))?.currentRunId?.value).toBe(runId.value);
   });
 });
 
@@ -150,7 +162,7 @@ describe('a person moving a task by hand', () => {
       key: 'delivery',
       name: 'Delivery',
     });
-    await servedDb.insert(schema.station).values([
+    await insertStations(servedDb, [
       {
         id: BACKLOG,
         workspaceId: team.workspaceId.value,

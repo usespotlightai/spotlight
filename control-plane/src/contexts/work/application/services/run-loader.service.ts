@@ -1,31 +1,51 @@
+import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
 export interface LoadedRun {
-  readonly run: Run;
-  readonly task: Task | null;
+  readonly run: LeasedRunFacts;
+  readonly worked: { readonly task: Task; readonly at: StationId } | null;
 }
 
 export class RunLoader {
   constructor(
-    private readonly runs: RunRepository,
+    private readonly leases: RunLeasesPort,
+    private readonly dispatches: DispatchRepository,
     private readonly tasks: TaskRepository,
   ) {}
 
-  async forRunner(runId: string, runnerId: string): Promise<LoadedRun> {
-    const run = await this.runs.findById(RunId.of(runId));
+  async actingBeyondItself(
+    runId: string,
+    runnerId: string,
+    what: string,
+  ): Promise<LoadedRun> {
+    const run = await this.leases.leaseOf(
+      RunId.of(runId),
+      RunnerId.of(runnerId),
+    );
 
-    if (!run) {
-      throw new UnknownRunError(`Run ${runId} not found.`);
+    if (!run.policy.actsBeyondItself) {
+      throw new NotAllowedForIsolatedRunError(what);
     }
 
-    run.assertLeasedBy(RunnerId.of(runnerId));
+    const subject = (await this.dispatches.find(run.runId))?.subject;
+    const task =
+      subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
 
-    return { run, task: run.taskId ? await this.tasks.find(run.taskId) : null };
+    return {
+      run,
+      worked:
+        task && subject?.kind === 'task'
+          ? { task, at: subject.stationId }
+          : null,
+    };
   }
 }

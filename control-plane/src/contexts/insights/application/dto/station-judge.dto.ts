@@ -1,3 +1,4 @@
+import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
 import type { KappaReading } from '@insights/domain/services/agreement-reading';
 import {
   type AgreementReadings,
@@ -83,7 +84,7 @@ export interface StationJudgeSettingsDto {
 export interface StationJudgeDto {
   readonly stationId: string;
   readonly judge: StationJudgeSettingsDto | null;
-  readonly calibration: JudgeCalibration;
+  readonly calibration: JudgeCalibrationDto;
   readonly versions: readonly RubricVersionDto[];
   readonly coverage: Coverage;
 }

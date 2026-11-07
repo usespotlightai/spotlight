@@ -1,3 +1,4 @@
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import type { MoveDenial } from '@work/domain/value-objects/line-denial';
 
 const WHY: Record<MoveDenial, string> = {
@@ -5,7 +6,7 @@ const WHY: Record<MoveDenial, string> = {
   'between-work-stations': 'Only runs move a task between work stations.',
 };
 
-export class MoveDeniedError extends Error {
+export class MoveDeniedError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(denial: MoveDenial, from: string, to: string) {

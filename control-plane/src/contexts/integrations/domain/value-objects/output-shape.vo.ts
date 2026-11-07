@@ -3,7 +3,7 @@ import {
   isJsonObject,
   type JsonObject,
   type JsonValue,
-} from '@shared-kernel/domain/services/json-value';
+} from '@shared-kernel/domain/json-value';
 
 interface ShapeField {
   readonly name: string;

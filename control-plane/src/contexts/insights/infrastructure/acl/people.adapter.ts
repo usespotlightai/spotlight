@@ -1,8 +1,9 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { PeoplePort } from '@insights/application/ports/people.port';
-import type { Membership } from '@insights/domain/services/team-access';
+import type { TeamViewer } from '@insights/domain/value-objects/viewed-team.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class People implements PeoplePort {
@@ -11,11 +12,11 @@ export class People implements PeoplePort {
     private readonly people: PersonReaderPort,
   ) {}
 
-  async membershipOnTeam(
-    teamId: string,
+  async viewerOf(
+    teamId: TeamId,
     principal: Principal,
-  ): Promise<Membership | null> {
-    const permissions = await this.access.permissionsAsTeamReader(
+  ): Promise<TeamViewer | null> {
+    const permissions = await this.access.permissionsAsTeamMember(
       teamId,
       principal,
     );
@@ -35,6 +36,8 @@ export class People implements PeoplePort {
       [...new Set(userIds)].map((each) => UserId.of(each)),
     );
 
-    return new Map([...found.values()].map((each) => [each.id, each.name]));
+    return new Map(
+      [...found.values()].map((each) => [each.id.value, each.name]),
+    );
   }
 }

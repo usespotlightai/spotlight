@@ -1,8 +1,8 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
 import {
   CLOCK,
-  FakeWork,
+  FakeSuppliers,
   InMemoryReplays,
+  liveFrom,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
@@ -10,10 +10,12 @@ import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate'
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { aSearch, aSet, NOW, STATION } from '@replays/domain/replays.fake-spec';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let enabled: Map<string, boolean>;
 
 const policyOf = (on: boolean): SearchPolicy =>
@@ -32,7 +34,12 @@ const policyOf = (on: boolean): SearchPolicy =>
   });
 
 const turningOff = () =>
-  new TurnOffSearches(memory.searchRepository, work, TRANSACTION, CLOCK);
+  new TurnOffSearches(
+    memory.searchRepository,
+    suppliers.configs,
+    TRANSACTION,
+    CLOCK,
+  );
 
 const searchAt = async (id: string, set: ReplaySet): Promise<Search> => {
   const search = aSearch({ id, set });
@@ -46,21 +53,21 @@ const stateOf = (id: string) => memory.searches.get(id);
 
 beforeEach(() => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   enabled = new Map();
 
-  const live = work.live;
+  const live = liveFrom(suppliers.configs);
 
-  (work as { live: WorkPort['live'] }).live = async (_lineId, stationId) => ({
+  suppliers.configs.live = async (_lineId: LineId, stationId: StationId) => ({
     ...(await live()),
-    search: policyOf(enabled.get(stationId) ?? true),
+    search: policyOf(enabled.get(stationId.value) ?? true),
   });
 });
 
 describe('TurnOffSearches', () => {
   it('stops the search of a station whose resolved policy is off, though its line is on', async () => {
     await searchAt('search_1', aSet(10));
-    enabled.set(STATION.stationId, false);
+    enabled.set(STATION.stationId.value, false);
 
     await turningOff().lineChanged(STATION.lineId);
 
@@ -78,8 +85,8 @@ describe('TurnOffSearches', () => {
 
     expect(stateOf('search_1')?.isActive).toBe(true);
 
-    enabled.set(STATION.stationId, false);
-    await turningOff().lineChanged('line_other');
+    enabled.set(STATION.stationId.value, false);
+    await turningOff().lineChanged(LineId.of('line_other'));
 
     expect(stateOf('search_1')?.isActive).toBe(true);
   });
@@ -88,7 +95,7 @@ describe('TurnOffSearches', () => {
     const search = await searchAt('search_1', aSet(10));
     const ended = search.stationLeft(NOW);
 
-    enabled.set(STATION.stationId, false);
+    enabled.set(STATION.stationId.value, false);
     memory.searchRepository.locked = async () => ended;
 
     await turningOff().lineChanged(STATION.lineId);

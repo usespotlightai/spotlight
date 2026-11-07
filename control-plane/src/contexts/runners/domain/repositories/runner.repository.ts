@@ -1,6 +1,6 @@
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import type { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
@@ -17,7 +17,7 @@ export interface RunnerRepository {
 
   findByProxyCredentialHash(hash: TokenHash): Promise<Runner | null>;
 
-  aliveIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]>;
+  aliveIn(poolId: PoolId, now: Date): Promise<readonly Runner[]>;
 
   findByWork(work: RunnerWork): Promise<readonly Runner[]>;
 }

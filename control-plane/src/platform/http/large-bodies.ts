@@ -1,43 +1,37 @@
+import type { INestApplication } from '@nestjs/common';
 import {
-  API_PREFIX,
-  INTEGRATION_DELIVERIES,
-  RUN_CHANGE_STACK_CHECK,
-  RUN_CHANGE_STACKS,
-  RUN_COMPLETION,
-  RUN_EVENTS,
-  RUN_TOOL_CALL,
-  TEAM_DELIVERIES,
-  TERRAFORM_STATE_ROUTE,
-  WEBHOOKS,
-} from '@platform/http/routes';
+  type ControllerRoute,
+  controllerRoutesOf,
+} from '@platform/http/controller-routes';
+import { ACCEPTS_LARGE_BODY } from '@platform/http/decorators/accepts-large-body.decorator';
+import { API_PREFIX } from '@platform/http/routes';
 import type { NextFunction, Request, Response } from 'express';
 import { json } from 'express';
 
 const LARGE_BODY_LIMIT = '64mb';
 
-const LARGE_BODY_ROUTES = [
-  RUN_EVENTS,
-  RUN_COMPLETION,
-  RUN_TOOL_CALL,
-  RUN_CHANGE_STACKS,
-  RUN_CHANGE_STACK_CHECK,
-  `${WEBHOOKS}/${TEAM_DELIVERIES}`,
-  `${WEBHOOKS}/${INTEGRATION_DELIVERIES}`,
-  TERRAFORM_STATE_ROUTE,
-];
+export type LargeBodyRoute = Pick<ControllerRoute, 'method' | 'segments'>;
 
-const patternOf = (route: string): RegExp =>
+const patternOf = (route: LargeBodyRoute): RegExp =>
   new RegExp(
-    `^/${API_PREFIX}/${route
-      .split('/')
+    `^/${[API_PREFIX, ...route.segments]
       .map((segment) => (segment.startsWith(':') ? '[^/]+' : segment))
       .join('/')}$`,
   );
 
-const LARGE_BODY_PATTERNS = LARGE_BODY_ROUTES.map(patternOf);
+const largeBodyRoutesOf = (app: INestApplication): readonly LargeBodyRoute[] =>
+  controllerRoutesOf(app).filter(
+    (route) => route.method === 'post' && route.marked(ACCEPTS_LARGE_BODY),
+  );
 
-export const takesLargeBody = (method: string, path: string): boolean =>
-  method === 'POST' && LARGE_BODY_PATTERNS.some((route) => route.test(path));
+export const takingLargeBodies = (
+  routes: readonly LargeBodyRoute[],
+): ((method: string, path: string) => boolean) => {
+  const patterns = routes.map(patternOf);
+
+  return (method, path) =>
+    method === 'POST' && patterns.some((route) => route.test(path));
+};
 
 const parseLarge = json({
   limit: LARGE_BODY_LIMIT,
@@ -46,11 +40,14 @@ const parseLarge = json({
   },
 });
 
-export const largeBodies = (
-  request: Request,
-  response: Response,
-  next: NextFunction,
-) =>
-  takesLargeBody(request.method, request.path)
-    ? parseLarge(request, response, next)
-    : next();
+export const largeBodiesOf = (app: INestApplication) => {
+  let takesLargeBody: ((method: string, path: string) => boolean) | null = null;
+
+  return (request: Request, response: Response, next: NextFunction) => {
+    takesLargeBody ??= takingLargeBodies(largeBodyRoutesOf(app));
+
+    return takesLargeBody(request.method, request.path)
+      ? parseLarge(request, response, next)
+      : next();
+  };
+};

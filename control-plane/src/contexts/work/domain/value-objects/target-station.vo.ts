@@ -1,13 +1,13 @@
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import type { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Station } from '@work/domain/entities/station.entity';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
-import type { LineId } from '@work/domain/value-objects/line-id.vo';
-import type { LineKey } from '@work/domain/value-objects/line-key.vo';
-import type { LineName } from '@work/domain/value-objects/line-name.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
-import type { StationKey } from '@work/domain/value-objects/station-key.vo';
-import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 
 export class TargetStation {
   private constructor(
@@ -20,7 +20,7 @@ export class TargetStation {
     readonly stationName: StationName,
   ) {}
 
-  static at(line: Line, station: Station): TargetStation {
+  static at(line: LineMap, station: Station): TargetStation {
     if (!station.isAgentStation || !line.stationAt(station.id)) {
       throw new InvalidChatMessageError(
         'can only improve a station that runs an agent',
@@ -55,6 +55,13 @@ export class TargetStation {
       input.stationId,
       input.stationKey,
       input.stationName,
+    );
+  }
+
+  isOnly(named: { line: string | null; station: string | null }): boolean {
+    return (
+      (named.line === null || named.line === this.lineKey.value) &&
+      (named.station === null || named.station === this.stationKey.value)
     );
   }
 

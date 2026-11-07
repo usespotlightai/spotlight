@@ -1,4 +1,6 @@
-export class UnreviewablePullRequestError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class UnreviewablePullRequestError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(url: string) {

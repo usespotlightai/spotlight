@@ -1,4 +1,5 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import { isHostHeader } from '@integrations/domain/value-objects/action.vo';
 import type { RequestIR } from '@integrations/infrastructure/integrations/integration.compile';
 import {
   answeredWith,
@@ -6,10 +7,11 @@ import {
   type OutboundResult,
   parsed,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { applyInjected } from '@integrations/infrastructure/outbound/secret-injection';
 import type { CelVariables } from '@platform/expressions/cel-variables';
+import type { NetworkCallsPort } from '@runs/application/ports/network-calls.port';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
-import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
 
 export class NetworkOutbound {
   constructor(
@@ -37,7 +39,7 @@ export class NetworkOutbound {
       request.auth?.kind === 'secrets' ? request.auth.secrets : [];
 
     if (secrets.length > 0) {
-      (await credentials.standInsFor(url.href, secrets)).applyTo({
+      applyInjected(await credentials.standInsFor(url.href, secrets), {
         url,
         headers,
       });
@@ -45,7 +47,7 @@ export class NetworkOutbound {
 
     const sending = `sending a request to ${url.host} from the workspace’s network`;
 
-    if (Object.keys(headers).some((name) => name.toLowerCase() === 'host')) {
+    if (Object.keys(headers).some(isHostHeader)) {
       throw new UpstreamError(
         sending,
         'the action sets a Host header, so Spotlight didn’t queue it',
@@ -63,7 +65,7 @@ export class NetworkOutbound {
         headers,
         body: new TextEncoder().encode(plain.body ?? ''),
         timeoutMs,
-        secrets,
+        secrets: secrets.map((each) => each.value),
       },
       until,
     );

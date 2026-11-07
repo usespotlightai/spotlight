@@ -1,7 +1,7 @@
 import {
   WORKSPACE_SETUP_STATUSES,
   type WorkspaceSetupStatus,
-} from '@identity/application/ports/workspace-setup-status.port';
+} from '@identity/domain/aggregates/workspace.aggregate';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class TeamResponseDto {
@@ -65,7 +65,7 @@ export class WorkspaceResponseDto {
 
   @ApiProperty({
     description:
-      'Whether Spotlight has created the first team of the workspace. The value is failed after Spotlight stopped its attempts.',
+      'Whether Spotlight has created the first team of the workspace.',
     enum: WORKSPACE_SETUP_STATUSES,
     example: 'done',
   })

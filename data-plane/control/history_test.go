@@ -92,3 +92,26 @@ func TestHistorySaysWhichStationWasNotFound(t *testing.T) {
 		t.Errorf("rejected because %q", because)
 	}
 }
+
+func TestSearchViewReadsTheSearchViewOfTheRun(t *testing.T) {
+	var method, path, auth string
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		method, path, auth = r.Method, r.URL.EscapedPath(), r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(`{"candidates":[],"seedBlock":null}`))
+	})
+
+	answer, err := client.SearchView(context.Background(), "run/1")
+	if err != nil {
+		t.Fatalf("search view: %v", err)
+	}
+
+	if method != http.MethodGet || path != "/api/runs/run%2F1/search-view" {
+		t.Errorf("%s %q", method, path)
+	}
+	if auth != "Bearer tok" {
+		t.Errorf("authorization %q", auth)
+	}
+	if strings.TrimSpace(string(answer)) != `{"candidates":[],"seedBlock":null}` {
+		t.Errorf("answer %s, want what came back whole", answer)
+	}
+}

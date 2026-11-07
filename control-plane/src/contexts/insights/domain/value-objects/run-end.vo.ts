@@ -1,12 +1,8 @@
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import type { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
-
-const FINGERPRINT = /^[0-9a-f]{64}$/;
-
-export const configFingerprintOf = (raw: string | null): string | null =>
-  raw !== null && FINGERPRINT.test(raw) ? raw : null;
 
 const before = (earlier: Date | null, later: Date | null): boolean =>
   earlier === null || later === null || earlier.getTime() <= later.getTime();
@@ -14,7 +10,7 @@ const before = (earlier: Date | null, later: Date | null): boolean =>
 export class RunEnd {
   private constructor(
     readonly location: RunLocation,
-    readonly fingerprint: string | null,
+    readonly fingerprint: ConfigFingerprint | null,
     readonly agentConfig: RunAgentConfig,
     readonly queuedAt: Date | null,
     readonly startedAt: Date | null,
@@ -37,11 +33,6 @@ export class RunEnd {
     visit: number;
     asked: boolean;
   }): RunEnd {
-    if (input.fingerprint !== null && !FINGERPRINT.test(input.fingerprint)) {
-      throw new InvalidOutcomeError(
-        'station config fingerprint must be 64 hex characters',
-      );
-    }
     if (!Number.isInteger(input.visit) || input.visit < 1) {
       throw new InvalidOutcomeError('visit must be 1 or later');
     }
@@ -56,7 +47,7 @@ export class RunEnd {
 
     return new RunEnd(
       input.location,
-      input.fingerprint,
+      ConfigFingerprint.optional(input.fingerprint),
       input.agentConfig,
       input.queuedAt,
       input.startedAt,
@@ -74,6 +65,10 @@ export class RunEnd {
 
   get ranItsConfig(): boolean {
     return this.ran && this.startedAt !== null;
+  }
+
+  get ranAConfig(): boolean {
+    return this.ranItsConfig && this.fingerprint !== null;
   }
 
   get beganAt(): Date {

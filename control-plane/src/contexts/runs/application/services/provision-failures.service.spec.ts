@@ -1,0 +1,190 @@
+import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
+import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
+import { ProvisionFailureMarks } from '@runs/application/services/provision-failure-marks.service';
+import { ProvisionFailures } from '@runs/application/services/provision-failures.service';
+import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { RunProvisionFailed } from '@runs/domain/events/run-provision-failed.event';
+import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
+import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { describe, expect, it, vi } from 'vitest';
+
+const NOON = new Date('2026-09-24T12:00:00.000Z');
+const HTTP_ERROR = ProvisionFailure.of('http-error', 'the pool is draining');
+
+const waiting = () =>
+  Run.enqueue({
+    id: RunId.of('run_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    harness: HarnessId.of('dev'),
+    ...orderedFor.spec(),
+    spec: RunSpec.of({
+      command: { executable: 'sh', args: [] },
+      briefing: 'do the thing',
+      handover: { options: [], noteLimit: 4_000 },
+      resume: {},
+    }),
+  });
+
+const POOLED = RunnerId.of('pooled_1');
+
+const reserved = () => waiting().reservedFor(POOLED, PoolId.of('pool_1'), NOON);
+
+const failing = (stored: Run, conflicts = 0) => {
+  let current = stored;
+  let clashes = conflicts;
+  const written: number[] = [];
+  const append = vi.fn(
+    async (_: RunAttempt, entry: { type: string; at: Date }) => {
+      const seq = JournalSeq.firstControlPlane - written.length;
+      written.push(seq);
+      return { seq, type: entry.type, at: entry.at };
+    },
+  );
+  const publish = vi.fn();
+  const marks = new ProvisionFailureMarks(
+    { appendControlPlaneEntry: append } as unknown as RunJournalPort,
+    { publish } as unknown as RunStreamPort,
+  );
+  const runs = {
+    findById: vi.fn(async () => current),
+    save: vi.fn(async (run: Run) => {
+      if (clashes > 0) {
+        clashes -= 1;
+        throw new RunVersionConflictError(run.id.value);
+      }
+      current = run;
+      for (const event of run.pullEvents()) {
+        if (event instanceof RunProvisionFailed) {
+          await marks.onProvisionFailed(event);
+        }
+      }
+    }),
+  };
+
+  return {
+    runs,
+    append,
+    publish,
+    current: () => current,
+    failures: new ProvisionFailures(runs as unknown as RunRepository),
+  };
+};
+
+describe('ProvisionFailures', () => {
+  it('records the failure on the run and drops its reservation', async () => {
+    const { failures, current } = failing(reserved());
+
+    const failed = await failures.failed(
+      RunId.of('run_1'),
+      POOLED,
+      HTTP_ERROR,
+      NOON,
+    );
+
+    expect(failed?.provisioning.attempts).toBe(1);
+    expect(current().reservation).toBeNull();
+    expect(current().state).toBe('queued');
+  });
+
+  it('journals the failure as a control-plane entry of the run’s current attempt', async () => {
+    const { failures, append } = failing(reserved());
+
+    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
+
+    expect(append).toHaveBeenCalledWith(RunAttempt.of(RunId.of('run_1'), 1), {
+      type: 'provision.failed',
+      failure: 'http-error',
+      detail: 'the pool is draining',
+      at: NOON,
+    });
+  });
+
+  it('shows the failure to anyone watching the run', async () => {
+    const { failures, publish } = failing(reserved());
+
+    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
+
+    expect(publish).toHaveBeenCalledWith('run_1', [
+      expect.objectContaining({
+        attempt: 1,
+        seq: JournalSeq.firstControlPlane,
+        type: 'provision.failed',
+        at: NOON.toISOString(),
+      }),
+    ]);
+  });
+
+  it('tries again when the run changed while it was being failed', async () => {
+    const { failures, runs } = failing(reserved(), 1);
+
+    expect(
+      await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON),
+    ).not.toBeNull();
+    expect(runs.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('does nothing for a run no longer waiting on the queue', async () => {
+    const { failures, runs, append, publish } = failing(
+      waiting().claim(claimer(RunnerId.of('runner_1')), NOON),
+    );
+
+    expect(
+      await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON),
+    ).toBeNull();
+    expect(runs.save).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when another runner reports the failure', async () => {
+    const { failures, runs, append, publish } = failing(reserved());
+
+    expect(
+      await failures.failed(
+        RunId.of('run_1'),
+        RunnerId.of('pooled_2'),
+        HTTP_ERROR,
+        NOON,
+      ),
+    ).toBeNull();
+    expect(runs.save).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('drops a reservation when unreserved', async () => {
+    const { failures, current } = failing(reserved());
+
+    await failures.unreserved(RunId.of('run_1'), POOLED);
+
+    expect(current().reservation).toBeNull();
+    expect(current().provisioning.attempts).toBe(0);
+  });
+
+  it('leaves a run with no reservation alone when unreserved', async () => {
+    const { failures, runs } = failing(waiting());
+
+    await failures.unreserved(RunId.of('run_1'), POOLED);
+
+    expect(runs.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps a reservation another runner drops', async () => {
+    const { failures, runs, current } = failing(reserved());
+
+    await failures.unreserved(RunId.of('run_1'), RunnerId.of('pooled_2'));
+
+    expect(runs.save).not.toHaveBeenCalled();
+    expect(current().reservation?.runner.value).toBe('pooled_1');
+  });
+});

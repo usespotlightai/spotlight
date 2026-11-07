@@ -1,7 +1,7 @@
 import { InvalidHostReportError } from '@runners/domain/exceptions/invalid-host-report.error';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { InvalidRunnerImageError } from '@shared-kernel/domain/exceptions/invalid-runner-image.error';
-import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 

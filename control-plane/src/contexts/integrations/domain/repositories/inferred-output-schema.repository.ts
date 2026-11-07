@@ -8,17 +8,14 @@ export const INFERRED_OUTPUT_SCHEMAS = Symbol('INFERRED_OUTPUT_SCHEMAS');
 export interface InferredOutputSchemaRepository {
   of(teamId: TeamId, tool: ToolName): Promise<InferredOutputSchema | null>;
 
-  ofTools(
+  ofIntegration(
     teamId: TeamId,
-    tools: readonly string[],
+    integration: IntegrationKey,
   ): Promise<readonly InferredOutputSchema[]>;
+
+  ofTeam(teamId: TeamId): Promise<readonly InferredOutputSchema[]>;
 
   save(schema: InferredOutputSchema): Promise<void>;
 
-  deleteForIntegration(
-    teamId: TeamId,
-    integration: IntegrationKey,
-  ): Promise<void>;
-
-  deleteForTeam(teamId: TeamId): Promise<void>;
+  remove(schema: InferredOutputSchema): Promise<void>;
 }

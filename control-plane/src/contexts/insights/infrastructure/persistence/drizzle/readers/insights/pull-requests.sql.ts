@@ -4,24 +4,22 @@ import {
   teamPullRequestFrom,
 } from '@insights/domain/services/team-pull-requests';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
-import type { PullRequestType } from '@insights/domain/value-objects/pull-request-type';
 import { seenOfRow } from '@insights/infrastructure/persistence/drizzle/mappers/pull-request-seen.mapper';
-import { pullRequestTypeSql } from '@insights/infrastructure/persistence/drizzle/readers/insights/pull-request-type.sql';
 import {
   inEndOrder,
   iso,
   spendOf,
 } from '@insights/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
+  pullRequestFact,
   pullRequestRecord,
   runFact,
-  taskChangeShape,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { inList } from '@platform/persistence/drizzle/in-list';
 import { getTableColumns, type SQL, type SQLWrapper, sql } from 'drizzle-orm';
 
-const owned = sql`${pullRequestRecord.ownerTaskId} is not null and ${pullRequestRecord.ownerTeamId} is not null`;
+const factOfRecord = sql`${pullRequestFact.workspaceId} = ${pullRequestRecord.workspaceId} and ${pullRequestFact.pullRequest} = ${pullRequestRecord.pullRequest}`;
 
 const pricedRun = sql`${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
 
@@ -32,20 +30,6 @@ const seenRecord = sql`${pullRequestRecord.seenVersion} is not null
   and ${pullRequestRecord.openedAt} is not null
   and ${pullRequestRecord.updatedAt} is not null
   and ${pullRequestRecord.state} is not null`;
-
-const typeColumn = sql<PullRequestType>`${pullRequestTypeSql({
-  title: sql`${pullRequestRecord.title}`,
-  branch: sql`${pullRequestRecord.branch}`,
-  changeTitles: sql`case when ${owned} then ${taskChangeShape.changeTitles} end`,
-  changeIntents: sql`case when ${owned} then ${taskChangeShape.changeIntents} end`,
-})}`;
-
-const madeByColumn = sql`case
-  when ${owned} then 'spotlight'
-  when cardinality(${pullRequestRecord.reviewTaskIds}) > 0 then 'reviewed'
-  when ${pullRequestRecord.authorIsBot} then 'bots'
-  else 'people'
-end`;
 
 const spent = sql`(
   select
@@ -112,8 +96,10 @@ export const coveredPullRequests = (
     ${pullRequestRecord.reviewRounds} as review_rounds,
     ${pullRequestRecord.reviewComments} as review_comments,
     ${pullRequestRecord.revertedBy} is not null as reverted,
-    ${madeByColumn} as made_by,
-    ${typeColumn} as type,
+    ${pullRequestFact.madeBy}::text as made_by,
+    ${pullRequestFact.type}::text as type,
+    ${pullRequestFact.rounds}::text as rounds,
+    ${pullRequestFact.mergedAt} as merged_at,
     spent.amount as spend_amount,
     spent.currency as spend_currency,
     spent.currencies,
@@ -121,7 +107,7 @@ export const coveredPullRequests = (
     spent.runs,
     row_number() over (order by ${newestFirst}) as ord
   from ${pullRequestRecord}
-  left join ${taskChangeShape} on ${taskChangeShape.taskId} = ${pullRequestRecord.ownerTaskId}
+  join ${pullRequestFact} on ${factOfRecord}
   left join lateral ${spent} on true
   where ${coverageOf(team, repositories, from)}`;
 
@@ -132,7 +118,8 @@ const teamPullRequestsWhere = async (
   const rows = await db
     .select({
       ...getTableColumns(pullRequestRecord),
-      type: typeColumn,
+      type: pullRequestFact.type,
+      madeBy: pullRequestFact.madeBy,
       spend_amount: sql<number | null>`spent.amount`,
       spend_currency: sql<string | null>`spent.currency`,
       currencies: sql<number>`spent.currencies`,
@@ -140,10 +127,7 @@ const teamPullRequestsWhere = async (
       runs: sql<number>`spent.runs`,
     })
     .from(pullRequestRecord)
-    .leftJoin(
-      taskChangeShape,
-      sql`${taskChangeShape.taskId} = ${pullRequestRecord.ownerTaskId}`,
-    )
+    .innerJoin(pullRequestFact, factOfRecord)
     .leftJoinLateral(spent, sql`true`)
     .where(where)
     .orderBy(newestFirst);
@@ -159,6 +143,7 @@ const teamPullRequestsWhere = async (
             ownerTaskId:
               row.ownerTaskId && row.ownerTeamId ? row.ownerTaskId : null,
             reviewTaskIds: row.reviewTaskIds,
+            by: row.madeBy,
             type: row.type,
             spending: {
               spend: spendOf({

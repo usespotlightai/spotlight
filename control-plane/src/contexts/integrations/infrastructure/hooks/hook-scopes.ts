@@ -1,6 +1,10 @@
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import {
+  type CelField,
+  HOOK_EVENT_CEL_FIELDS,
+} from '@integrations/infrastructure/hooks/hook-event-record';
+import {
   type Declared,
   type SchemaFields,
   Scope,
@@ -26,46 +30,23 @@ const RUN: Declared = { schema: { id: 'string' } };
 
 const HOOK: Declared = { schema: { key: 'string', address: 'string' } };
 
-const CHANGED = 'list<string>';
-
 const AT: SchemaFields = { at: 'string' };
 
-const EVENT_FIELDS: Readonly<Record<HookEventName, SchemaFields>> = {
-  'tool.using': { ...AT, tool: 'string', inputs: 'map<string, dyn>' },
-  'tool.used': {
-    ...AT,
-    tool: 'string',
-    inputs: 'map<string, dyn>',
-    output: OUTSIDE,
-    failed: 'bool',
-  },
-  'run.starting': AT,
-  'run.ended': { ...AT, outcome: 'string' },
-  'handover.submitting': { ...AT, to: OUTSIDE, note: 'string' },
-  'pull-request.opening': {
-    ...AT,
-    repository: 'string',
-    branch: 'string',
-    title: 'string',
-    changed: CHANGED,
-  },
-  'pull-request.merged': {
-    ...AT,
-    url: 'string',
-    repository: 'string',
-    mergeCommit: 'string',
-    changed: CHANGED,
-  },
-  'task.opened': AT,
-  'task.moved': { ...AT, from: 'string', to: 'string' },
-};
+const eventSchemaOf = (on: HookEventName): SchemaFields => ({
+  ...AT,
+  ...Object.fromEntries(
+    Object.entries(
+      HOOK_EVENT_CEL_FIELDS[on] as Readonly<Record<string, CelField>>,
+    ).map(([field, { cel, as }]) => [as ?? field, cel]),
+  ),
+});
 
 const STEP_SEEN: SchemaFields = { status: 'string', output: OUTSIDE };
 
 export const firingScope = (on: HookEventName): Scope => {
   const event = HookEvent.of(on);
   const declared: Record<string, Declared> = {
-    event: { schema: EVENT_FIELDS[on] },
+    event: { schema: eventSchemaOf(on) },
     task: TASK,
     vars: 'map<string, string>',
     hook: HOOK,

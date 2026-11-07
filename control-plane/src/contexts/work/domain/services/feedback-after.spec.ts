@@ -1,10 +1,10 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { feedbackAfter } from '@work/domain/services/feedback-after';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
@@ -15,8 +15,8 @@ const noteOf = (
   position: number,
   body: string,
   voice: Voice,
-  kind: 'asked' | 'passed' | 'message' = 'message',
-  form: 'words' | 'approval' = 'words',
+  kind: 'asked' | 'passed' | 'message' | 'answered' = 'message',
+  form: 'words' | 'decision' = 'words',
 ) =>
   TaskNote.of({
     position: NotePosition.of(position),
@@ -59,7 +59,7 @@ describe('feedbackAfter', () => {
           noteOf(0, 'Done.', Voice.station(RUN), 'passed'),
           noteOf(1, 'Slack: build red.', Voice.world()),
           noteOf(2, 'Moved to Build.', Voice.station()),
-          noteOf(3, 'Approve the deploy?', MAYA, 'message', 'approval'),
+          noteOf(3, 'Approved.', MAYA, 'answered', 'decision'),
           noteOf(4, 'Keep the old API.', MAYA),
         ],
         RUN,

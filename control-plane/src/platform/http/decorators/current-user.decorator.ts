@@ -1,5 +1,5 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 
 export const REQUEST_USER = Symbol('REQUEST_USER');
 
@@ -18,4 +18,9 @@ export const CurrentUser = createParamDecorator(
 
     return user;
   },
+);
+
+export const OptionalUser = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): AuthenticatedUser | null =>
+    context.switchToHttp().getRequest<RequestWithUser>()[REQUEST_USER] ?? null,
 );

@@ -1,5 +1,5 @@
 import { mcpOutput } from '@integrations/infrastructure/mcp/mcp-output';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { describe, expect, it } from 'vitest';
 
 const text = (value: string) => ({ type: 'text' as const, text: value });

@@ -25,6 +25,7 @@ const storedAs = (connection: IntegrationConnection, version: number) =>
     linkedAccount: connection.linkedAccount,
     refreshFailedAt: connection.refreshFailedAt,
     refreshClaim: connection.refreshClaim,
+    connectedAt: connection.connectedAt,
     version,
   });
 
@@ -86,7 +87,11 @@ export class InMemoryIntegrationConnections
       );
     }
 
-    if (!connection.isNew && stored?.version !== connection.version) {
+    if (
+      connection.isNew
+        ? stored !== undefined
+        : stored?.version !== connection.version
+    ) {
       throw new IntegrationConnectionVersionConflictError(
         connection.integration.value,
       );
@@ -98,9 +103,19 @@ export class InMemoryIntegrationConnections
   }
 
   async remove(connection: IntegrationConnection): Promise<void> {
-    this.#stored.delete(
-      keyOf(connection.teamId, connection.integration, connection.owner),
+    const key = keyOf(
+      connection.teamId,
+      connection.integration,
+      connection.owner,
     );
+
+    if (this.#stored.get(key)?.version !== connection.version) {
+      throw new IntegrationConnectionVersionConflictError(
+        connection.integration.value,
+      );
+    }
+
+    this.#stored.delete(key);
     this.events.push(...connection.pullEvents());
   }
 
@@ -116,11 +131,9 @@ export class InMemoryIntegrationConnections
     );
   }
 
-  async deleteForTeam(teamId: TeamId): Promise<void> {
-    for (const [key, each] of this.#stored) {
-      if (each.teamId.equals(teamId)) {
-        this.#stored.delete(key);
-      }
-    }
+  async ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]> {
+    return [...this.#stored.values()].filter((each) =>
+      each.teamId.equals(teamId),
+    );
   }
 }

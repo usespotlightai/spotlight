@@ -4,6 +4,7 @@ import { ApplicableMemories } from '@memory/application/services/applicable-memo
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
+import { BriefingAbout } from '@memory/domain/value-objects/briefing-about.vo';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
@@ -110,24 +111,16 @@ describe('MemoriesForBriefing', () => {
     expect(chosen.briefed.map((each) => each.handle)).toEqual(['M-3', 'M-1']);
     expect(rank).toHaveBeenCalledWith(
       [MemoryId.of('memory_1'), aboutUploads.id],
-      'Fix upload retries',
+      BriefingAbout.of('Fix upload retries'),
     );
   });
 
   it('points at the memory folder only when some memory applies', async () => {
-    expect((await briefing([approved(1)]).brief()).folder).toEqual({
-      path: '.spotlight/memory',
-      layout: [
-        { folder: 'team/', level: 'the whole team' },
-        { folder: 'line/', level: 'this line' },
-        { folder: 'station/', level: 'this station' },
-        {
-          folder: 'repositories/<owner>/<name>/<path>/',
-          level: 'a repository, or a file or folder in it',
-        },
-      ],
-      repositoryFolder: 'repositories/',
-    });
+    const folder = (await briefing([approved(1)]).brief()).folder;
+
+    expect(folder?.path).toBe('.spotlight/memory');
+    expect(folder?.guide).toContain('station/');
+    expect(folder?.guide).toContain('repositories/<owner>/<name>/<path>/');
     expect((await briefing([]).brief()).folder).toBeNull();
   });
 });

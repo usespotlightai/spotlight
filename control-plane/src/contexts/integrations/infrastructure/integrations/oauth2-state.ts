@@ -1,8 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import type { ConnectionOwnerKind } from '@integrations/domain/value-objects/connection-owner.vo';
 
 const LIVES_MS = 10 * 60 * 1000;
-
-type ConnectionOwnerKind = 'team' | 'person';
 
 interface Payload {
   readonly teamId: string;

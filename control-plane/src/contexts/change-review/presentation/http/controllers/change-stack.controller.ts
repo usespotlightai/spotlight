@@ -5,7 +5,9 @@ import type {
   RunChangeStacksDto,
 } from '@change-review/application/dto/change-stack.dto';
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
+import { ReadQuestionAnswerQuery } from '@change-review/application/queries/read-question-answer.query';
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
+import { RUN_CHANGE_STACKS } from '@change-review/presentation/http/change-stack-routes';
 import {
   AnswerQuestionRequestDto,
   LatestChangeStackResponseDto,
@@ -29,6 +31,7 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -36,23 +39,19 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import { RUN_CHANGE_STACKS } from '@platform/http/routes';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
 const replyIn = (body: AnswerQuestionRequestDto | undefined): string | null => {
   const reply: unknown = body?.reply;
 
-  if (reply === null) {
-    return null;
-  }
-  if (typeof reply !== 'string' || !reply.trim()) {
-    throw new BadRequestException(
-      'reply must be the answer in words, or null to say you do not know.',
-    );
+  if (reply === null || typeof reply === 'string') {
+    return reply;
   }
 
-  return reply;
+  throw new BadRequestException(
+    'reply must be the answer in words, or null to say you do not know.',
+  );
 };
 
 @ApiTags('change-stacks')
@@ -102,6 +101,10 @@ export class ChangeStackController {
   @ApiParam({ name: 'questionId', type: String })
   @ApiBody({ type: AnswerQuestionRequestDto })
   @ApiCreatedResponse({ type: QuestionAnswerResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   @ApiBadRequestResponse({
     description: 'The reply is not words or null, or it is too long',
   })
@@ -117,10 +120,7 @@ export class ChangeStackController {
     @Body() body: AnswerQuestionRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<QuestionAnswerResponseDto> {
-    const answered = await this.commandBus.execute<
-      AnswerQuestionCommand,
-      QuestionAnswerDto
-    >(
+    await this.commandBus.execute<AnswerQuestionCommand, void>(
       new AnswerQuestionCommand(
         teamId,
         runId,
@@ -130,6 +130,14 @@ export class ChangeStackController {
         replyIn(body),
       ),
     );
+    const answered = await this.queryBus.execute<
+      ReadQuestionAnswerQuery,
+      QuestionAnswerDto | null
+    >(new ReadQuestionAnswerQuery(teamId, runId, stackId, questionId, user.id));
+
+    if (!answered) {
+      throw new NotFoundException(`Change stack ${stackId} not found.`);
+    }
 
     return ChangeStackHttpMapper.toAnswer(answered);
   }

@@ -1,4 +1,6 @@
-export class SearchCandidateNameTakenError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class SearchCandidateNameTakenError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(readonly candidateName: string) {

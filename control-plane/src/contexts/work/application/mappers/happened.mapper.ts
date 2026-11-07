@@ -1,7 +1,10 @@
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type {
-  Arriving,
   Happened,
+  InboundAttachment,
   ReviewPayload,
   TaskMark,
 } from '@work/application/contracts/happenings.contract';
@@ -9,19 +12,13 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import {
-  Happening,
-  type HappeningPayload,
-} from '@work/domain/value-objects/happening.vo';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
 import {
-  type ReviewRequest,
-  reviewRequested,
+  ReviewRequest,
   reviewTrigger,
 } from '@work/domain/value-objects/review-request.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 export interface ReceivedHappening {
   readonly payload: HappeningPayload;
@@ -31,7 +28,7 @@ export interface ReceivedHappening {
   readonly ourOwn: boolean;
   readonly opens: OpensWith | null;
   readonly chat: StartsChat | null;
-  readonly attachments: readonly Arriving[];
+  readonly attachments: readonly InboundAttachment[];
 }
 
 export interface StartsChat {
@@ -47,7 +44,7 @@ const reviewOf = (
     return null;
   }
 
-  return reviewRequested({
+  return ReviewRequest.of({
     trigger: reviewTrigger(review.trigger),
     label: review.label?.trim() || null,
     pullRequest: PullRequestUrl.of(review.pullRequest),

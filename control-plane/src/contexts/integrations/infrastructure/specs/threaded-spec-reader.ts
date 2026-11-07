@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { extname, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import type {
   SpecRead,
   SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -137,7 +137,7 @@ export class ThreadedSpecReader implements SpecReaderPort {
     const url = spec.url ?? '';
     const injection = {
       apiHost: hostOf(spec.kind === 'graphql' ? url : spec.baseUrl),
-      secrets: spec.injectedSecrets.map((each) => each.value),
+      secrets: spec.injectedSecrets,
       connection: connection?.value ?? null,
       credentials: callAuth.credentials,
     };

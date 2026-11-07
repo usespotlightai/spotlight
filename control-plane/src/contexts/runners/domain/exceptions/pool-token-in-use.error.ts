@@ -1,4 +1,6 @@
-export class PoolTokenInUseError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class PoolTokenInUseError extends DomainError {
   readonly kind = 'invalid' as const;
 
   readonly field = 'token';

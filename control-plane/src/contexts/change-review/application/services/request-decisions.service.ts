@@ -2,6 +2,7 @@ import type { DecisionGeneratorPort } from '@change-review/application/ports/dec
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
+import { decidesFrom } from '@change-review/domain/services/decision-policy';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -25,14 +26,9 @@ export class RequestDecisions {
     }
 
     const run = await this.work.run(runId);
+    const task = run ? await this.work.task(taskId) : null;
 
-    if (!run?.decisions || !run.completed) {
-      return;
-    }
-
-    const task = await this.work.task(taskId);
-
-    if (!task || task.reviewing) {
+    if (!run || !task || !decidesFrom(run, task)) {
       return;
     }
 

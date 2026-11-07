@@ -1,21 +1,5 @@
-import { inboxWaitsWithin } from '@insights/domain/services/flow';
-import {
-  between,
-  rateOf,
-  type Spread,
-  spreadOf,
-} from '@insights/domain/services/measures';
-import { runTally } from '@insights/domain/services/run-tally';
-import {
-  endedWithin,
-  type TeamHistory,
-  tasksOf,
-} from '@insights/domain/services/team-history';
+import { rateOf, type Spread } from '@insights/domain/services/measures';
 import { type Delta, deltaOf } from '@insights/domain/value-objects/delta.vo';
-import {
-  type Window,
-  within,
-} from '@insights/domain/value-objects/insights-period.vo';
 
 export interface HumanLoad {
   readonly asks: number;
@@ -41,40 +25,6 @@ export interface HumanLoadCounts {
   readonly dismissed: number;
   readonly dismissedTaskIds: readonly string[];
 }
-
-export const humanLoadCountsOf = (
-  history: TeamHistory,
-  window: Window,
-): HumanLoadCounts => {
-  const ended = endedWithin(history.records, window);
-  const tally = runTally(ended, history.taskPullRequests);
-  const waits = inboxWaitsWithin(history, window);
-  const dismissedIn = history.taskHumanActions.filter((each) =>
-    each.actions.some(
-      (action) => action.dismisses && within(window, action.at),
-    ),
-  );
-
-  return {
-    asks: waits.length,
-    unanswered: waits.filter((each) => each.answeredAt === null).length,
-    toAnswer: spreadOf(
-      waits.flatMap((each) =>
-        each.answeredAt ? [between(each.askedAt, each.answeredAt)] : [],
-      ),
-    ),
-    askedTaskIds: [...new Set(waits.map((each) => each.taskId))],
-    tasks: tasksOf(ended.filter((each) => each.ran)).length,
-    runs: tally.runs,
-    sentBack: tally.sentBack,
-    dismissed: dismissedIn.flatMap((each) =>
-      each.actions.filter(
-        (action) => action.dismisses && within(window, action.at),
-      ),
-    ).length,
-    dismissedTaskIds: dismissedIn.map((each) => each.taskId.value),
-  };
-};
 
 export const humanLoadFrom = (counts: HumanLoadCounts): HumanLoad => ({
   asks: counts.asks,

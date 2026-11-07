@@ -9,5 +9,5 @@ export interface ListedServer {
 }
 
 export interface ListedServersPort {
-  claimListedBefore(before: Date, at: Date): Promise<readonly ListedServer[]>;
+  listedBefore(before: Date): Promise<readonly ListedServer[]>;
 }

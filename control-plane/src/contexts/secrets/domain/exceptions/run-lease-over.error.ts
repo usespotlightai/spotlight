@@ -1,4 +1,6 @@
-export class RunLeaseOverError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class RunLeaseOverError extends DomainError {
   readonly kind = 'not-allowed' as const;
 
   constructor(runId: string, attempt: number) {

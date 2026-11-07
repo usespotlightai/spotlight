@@ -6,11 +6,12 @@ import type {
   ChangeDetail,
   RecordedDetail,
 } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export class SearchStartDetail implements ChangeDetail {
   private constructor(
     readonly setId: string,
-    readonly stationId: string,
+    readonly stationId: StationId,
     readonly harness: string | null,
     readonly model: string | null,
     readonly effort: string | null,
@@ -25,7 +26,7 @@ export class SearchStartDetail implements ChangeDetail {
 
   static of(input: {
     setId: ReplaySetId;
-    stationId: string;
+    stationId: StationId;
     agent: SearchAgent | null;
     budget: SearchBudget;
     objective: SearchObjective;
@@ -50,7 +51,7 @@ export class SearchStartDetail implements ChangeDetail {
   recorded(): RecordedDetail {
     return {
       set: this.setId,
-      station: this.stationId,
+      station: this.stationId.value,
       harness: this.harness,
       model: this.model,
       effort: this.effort,

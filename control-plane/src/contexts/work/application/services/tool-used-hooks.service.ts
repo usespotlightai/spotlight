@@ -27,7 +27,7 @@ export class ToolUsedHooks {
         output: event.output.answer,
         failed: event.failed,
       },
-      event.occurrence,
+      event.useId,
     );
   }
 }

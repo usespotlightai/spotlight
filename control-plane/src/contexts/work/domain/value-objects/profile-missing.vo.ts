@@ -1,6 +1,6 @@
-import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
-import type { RefusalReason } from '@work/domain/value-objects/run-outcome.vo';
-import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
+import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 
 export class ProfileMissing implements RefusalReason {
   private constructor(

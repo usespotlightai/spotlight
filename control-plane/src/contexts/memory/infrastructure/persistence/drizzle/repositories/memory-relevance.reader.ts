@@ -1,7 +1,8 @@
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
+import type { BriefingAbout } from '@memory/domain/value-objects/briefing-about.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
-import { activeAsOf } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
+import { activeAsOf } from '@memory/infrastructure/persistence/drizzle/memory-prefilters';
 import { memory } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -14,14 +15,14 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
 
   async rank(
     memories: readonly MemoryId[],
-    words: string,
+    about: BriefingAbout,
   ): Promise<ReadonlyMap<string, number>> {
-    if (memories.length === 0 || !words.trim()) {
+    if (memories.length === 0 || about.isEmpty) {
       return new Map();
     }
 
     const document = sql`to_tsvector('english', ${memory.body})`;
-    const anyOf = sql`nullif(replace(plainto_tsquery('english', ${words})::text, '&', '|'), '')::tsquery`;
+    const anyOf = sql`nullif(replace(plainto_tsquery('english', ${about.value})::text, '&', '|'), '')::tsquery`;
     const rows = await this.context.db
       .select({
         id: memory.id,

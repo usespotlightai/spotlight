@@ -1,16 +1,18 @@
+import type { ToolOutputShapesPort } from '@integrations/application/ports/tool-output-shapes.port';
 import { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
 import { InferredOutputSchema } from '@integrations/domain/aggregates/inferred-output-schema.aggregate';
 import { InferredOutputSchemaVersionConflictError } from '@integrations/domain/exceptions/inferred-output-schema-version-conflict.error';
 import type { InferredOutputSchemaRepository } from '@integrations/domain/repositories/inferred-output-schema.repository';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import type { JsonObject } from '@shared-kernel/domain/json-value';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const keyOf = (teamId: TeamId, tool: ToolName): string =>
   `${teamId.value}:${tool.value}`;
 
 export class InMemoryInferredOutputSchemas
-  implements InferredOutputSchemaRepository
+  implements InferredOutputSchemaRepository, ToolOutputShapesPort
 {
   readonly stored = new Map<string, InferredOutputSchema>();
 
@@ -23,10 +25,16 @@ export class InMemoryInferredOutputSchemas
 
   async ofTools(
     teamId: TeamId,
-    tools: readonly string[],
-  ): Promise<readonly InferredOutputSchema[]> {
-    return [...this.stored.values()].filter(
-      (each) => each.teamId.equals(teamId) && tools.includes(each.tool.value),
+    tools: readonly ToolName[],
+  ): Promise<ReadonlyMap<string, JsonObject>> {
+    return new Map(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.teamId.equals(teamId) &&
+            tools.some((tool) => tool.equals(each.tool)),
+        )
+        .map((each) => [each.tool.value, each.shape.schema]),
     );
   }
 
@@ -51,23 +59,30 @@ export class InMemoryInferredOutputSchemas
     );
   }
 
-  async deleteForIntegration(
+  async ofIntegration(
     teamId: TeamId,
     integration: IntegrationKey,
-  ): Promise<void> {
-    for (const [key, each] of this.stored) {
-      if (each.teamId.equals(teamId) && each.integration.equals(integration)) {
-        this.stored.delete(key);
-      }
-    }
+  ): Promise<readonly InferredOutputSchema[]> {
+    return [...this.stored.values()].filter(
+      (each) =>
+        each.teamId.equals(teamId) && each.integration.equals(integration),
+    );
   }
 
-  async deleteForTeam(teamId: TeamId): Promise<void> {
-    for (const [key, each] of this.stored) {
-      if (each.teamId.equals(teamId)) {
-        this.stored.delete(key);
-      }
+  async ofTeam(teamId: TeamId): Promise<readonly InferredOutputSchema[]> {
+    return [...this.stored.values()].filter((each) =>
+      each.teamId.equals(teamId),
+    );
+  }
+
+  async remove(schema: InferredOutputSchema): Promise<void> {
+    const key = keyOf(schema.teamId, schema.tool);
+
+    if (this.stored.get(key)?.version !== schema.version) {
+      throw new InferredOutputSchemaVersionConflictError(schema.tool.value);
     }
+
+    this.stored.delete(key);
   }
 }
 

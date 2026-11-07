@@ -1,7 +1,7 @@
 import type {
   CausalChain,
   CauseLink,
-} from '@shared-kernel/domain/value-objects/causal-chain.vo';
+} from '@integrations/domain/value-objects/causal-chain.vo';
 
 export const MAX_DEPTH = 8;
 

@@ -11,14 +11,15 @@ import type {
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
-import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
-import type { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
+import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
+import { ClientSecret } from '@integrations/domain/value-objects/client-secret.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const clientOf = (registration: OAuth2ClientRegistration): OAuth2Client => ({
-  id: registration.clientId,
+  id: registration.clientId.value,
   secret: registration.clientSecret?.value ?? null,
 });
 
@@ -26,7 +27,7 @@ const configuredFor = (
   configured: ConfiguredOAuth2Client,
   server: AuthorizationServer | null,
 ): OAuth2Client | null =>
-  server === null || configured.issuer === server.issuer
+  AuthorizationServer.takesClientIssuedFor(server, configured.issuer)
     ? { id: configured.id, secret: configured.secret }
     : null;
 
@@ -75,8 +76,8 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     }
 
     const wanted = {
-      registrationEndpoint: registration,
-      redirectUri: this.callback,
+      registrationEndpoint: OAuth2Endpoint.of(registration),
+      redirectUri: OAuth2Endpoint.of(this.callback),
       server,
     };
     const existing = await this.registrations.of(teamId, integration);
@@ -87,7 +88,10 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
     const team = await this.teams.find(teamId);
     const answered = team
-      ? await this.registrar.register(registration, this.callback)
+      ? await this.registrar.register(
+          wanted.registrationEndpoint,
+          wanted.redirectUri,
+        )
       : null;
 
     if (!team || !answered) {
@@ -100,8 +104,9 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       integration,
       ...wanted,
       clientId: answered.clientId,
-      clientSecret: AccessToken.maybe(answered.clientSecret),
+      clientSecret: ClientSecret.maybe(answered.clientSecret),
       secretExpiresAt: answered.secretExpiresAt,
+      registeredAt: this.clock.now(),
     });
 
     try {

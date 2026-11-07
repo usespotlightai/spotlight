@@ -34,14 +34,14 @@ func (s *Sandbox) Through(transport http.RoundTripper) {
 }
 
 func (s *Sandbox) archivePath() string {
-	return fmt.Sprintf("/api/sandboxes/%s/workspace-archive", url.PathEscape(s.id))
+	return fmt.Sprintf("/api/sandboxes/%s/working-copy-archive", url.PathEscape(s.id))
 }
 
-func (s *Sandbox) WorkspaceArchive(ctx context.Context) (*protocol.StoredArchive, error) {
+func (s *Sandbox) WorkingCopyArchive(ctx context.Context) (*protocol.StoredArchive, error) {
 	var stored protocol.StoredArchive
 	status, err := s.client.request(ctx, http.MethodGet, s.archivePath(), nil, &stored)
 	if err != nil {
-		return nil, fmt.Errorf("read the workspace the sandbox restores: %w", err)
+		return nil, fmt.Errorf("read the working copy the sandbox restores: %w", err)
 	}
 	if status == http.StatusNoContent {
 		return nil, nil

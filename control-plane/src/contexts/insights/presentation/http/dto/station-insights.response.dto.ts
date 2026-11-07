@@ -1,4 +1,8 @@
 import type {
+  RunTallyDto,
+  TallyRatesDto,
+} from '@insights/application/dto/read-model.dto';
+import type {
   RunOutcomeDto,
   RunUsageDto,
 } from '@insights/application/dto/run-outcome.dto';
@@ -8,11 +12,10 @@ import type {
   StationConfigPullRequestDto,
   StationInsightsDto,
 } from '@insights/application/dto/station-insights.dto';
-import type { RunTally, TallyRates } from '@insights/domain/services/run-tally';
 import { CHECK_VERDICTS } from '@insights/domain/value-objects/check-verdict';
 import { TASK_ACTIONS } from '@insights/domain/value-objects/human-action.vo';
+import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
-import { TASK_PULL_REQUEST_STATES } from '@insights/domain/value-objects/task-pull-request-state';
 import {
   RunFailureSummaryResponseDto,
   TaskFailureSummaryResponseDto,
@@ -139,7 +142,7 @@ export class StationRunOutcomeResponseDto {
   readonly passed: StationPassResponseDto | null;
 
   @ApiProperty({
-    enum: [...TASK_PULL_REQUEST_STATES, null],
+    enum: [...PULL_REQUEST_STATES, null],
     nullable: true,
     description: 'The status of the task’s pull request, if it opened one',
   })
@@ -270,7 +273,7 @@ export class RunTallyResponseDto {
   })
   readonly p90Ms: number | null;
 
-  constructor(tally: RunTally) {
+  constructor(tally: RunTallyDto) {
     this.runs = tally.runs;
     this.cancelled = tally.cancelled;
     this.failed = tally.failed;
@@ -316,7 +319,7 @@ export class TallyRatesResponseDto {
   })
   readonly merged: number | null;
 
-  constructor(rates: TallyRates) {
+  constructor(rates: TallyRatesDto) {
     this.checksPassed = rates.checksPassed;
     this.accepted = rates.accepted;
     this.merged = rates.merged;

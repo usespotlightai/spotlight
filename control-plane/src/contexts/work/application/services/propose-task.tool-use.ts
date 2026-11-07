@@ -1,13 +1,13 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { Attached } from '@work/application/rendering/attached';
 import type { AttachmentCopies } from '@work/application/services/attachment-copies';
-import type { BuiltInToolUse } from '@work/application/services/built-in-tools.service';
 import { UnknownChatError } from '@work/domain/exceptions/unknown-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import { PROPOSE_TASK } from '@work/domain/services/built-in-tools';
 import { proposalPlacementWithin } from '@work/domain/services/proposal-placement-within';
+import { PROPOSE_TASK } from '@work/domain/value-objects/built-in-tools';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -17,7 +17,7 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
 
   constructor(
     private readonly chats: ChatRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly copies: AttachmentCopies,
     private readonly clock: ClockPort,
   ) {}
@@ -36,11 +36,11 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
     }
 
     const named = {
-      line: (inputs.text('line') ?? '').trim(),
-      station: (inputs.text('station') ?? '').trim(),
+      line: inputs.requiredText(this.tool, 'line').trim(),
+      station: inputs.requiredText(this.tool, 'station').trim(),
     };
     const placement = proposalPlacementWithin(lines, named);
-    const title = TaskTitle.of(inputs.text('title') ?? '');
+    const title = TaskTitle.of(inputs.requiredText(this.tool, 'title'));
     const description = inputs.text('description')?.trim();
     const position = chat.proposalPositionFor(runId).value;
     const attachments = await this.copies.copy(

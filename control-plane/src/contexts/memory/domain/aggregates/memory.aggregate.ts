@@ -1,5 +1,4 @@
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
-import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyRetiredError } from '@memory/domain/exceptions/memory-already-retired.error';
 import type { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -7,6 +6,7 @@ import type { MemoryDecision } from '@memory/domain/value-objects/memory-decisio
 import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
+import { MemoryPredecessor } from '@memory/domain/value-objects/memory-predecessor.vo';
 import type { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryRetirement } from '@memory/domain/value-objects/memory-retirement.vo';
 import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
@@ -48,6 +48,8 @@ interface NewMemory {
 }
 
 export class Memory extends EventRecorder {
+  private deleted = false;
+
   private constructor(private readonly state: State) {
     super();
   }
@@ -61,14 +63,16 @@ export class Memory extends EventRecorder {
     scope: MemoryScope;
     provenance: MemoryProvenance;
     source: MemorySource;
-    supersedes: Memory | null;
+    supersedes: MemoryPredecessor | null;
     approval: MemoryDecision;
   }): Memory {
     const { supersedes } = input;
 
     return Memory.make({
       ...input,
-      supersedes: supersedes?.isActive ? supersedes.id : null,
+      supersedes: supersedes?.supersedableIn(input.scope.teamId)
+        ? supersedes.id
+        : null,
     });
   }
 
@@ -180,8 +184,13 @@ export class Memory extends EventRecorder {
     return this.state.version;
   }
 
-  isActiveOn(teamId: TeamId): boolean {
-    return this.isActive && this.isTeams(teamId);
+  get asPredecessor(): MemoryPredecessor {
+    return MemoryPredecessor.of({
+      id: this.state.id,
+      handle: this.state.handle,
+      teamId: this.state.scope.teamId,
+      active: this.isActive,
+    });
   }
 
   isTeams(teamId: TeamId): boolean {
@@ -197,12 +206,16 @@ export class Memory extends EventRecorder {
     );
   }
 
-  activeOn(teamId: TeamId, at: Date): boolean {
-    return this.isTeams(teamId) && this.activeAt(at);
+  activeAsOf(asOf: Date | null): boolean {
+    return asOf ? this.activeAt(asOf) : this.isActive;
   }
 
-  appliesAt(runContext: RunContext): boolean {
-    return this.isActive && this.state.scope.appliesAt(runContext);
+  activeOn(teamId: TeamId, asOf: Date | null): boolean {
+    return this.isTeams(teamId) && this.activeAsOf(asOf);
+  }
+
+  appliesAt(runContext: RunContext, asOf: Date | null): boolean {
+    return this.activeAsOf(asOf) && this.state.scope.appliesAt(runContext);
   }
 
   supersedeWith(successor: MemoryId, at: Date): Memory {
@@ -235,6 +248,20 @@ export class Memory extends EventRecorder {
     });
   }
 
+  afterPredecessor(predecessor: Memory | null): Memory {
+    if (
+      !this.state.supersedes ||
+      predecessor?.isActive ||
+      predecessor?.retirement?.supersededBy?.equals(this.state.id)
+    ) {
+      return this;
+    }
+
+    const alone = new Memory({ ...this.state, supersedes: null });
+    alone.inheritEvents(this);
+    return alone;
+  }
+
   retire(input: { by: UserId; reason: string; at: Date }): Memory {
     if (this.state.retirement) {
       throw new MemoryAlreadyRetiredError(this.state.id.value);
@@ -250,7 +277,17 @@ export class Memory extends EventRecorder {
 
     const retired = new Memory({ ...this.state, retirement });
     retired.inheritEvents(this);
-    retired.record(new MemoryRetired(this.state.id, retirement.supersededBy));
     return retired;
+  }
+
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
+
+  delete(): Memory {
+    const deleted = new Memory(this.state);
+    deleted.inheritEvents(this);
+    deleted.deleted = true;
+    return deleted;
   }
 }

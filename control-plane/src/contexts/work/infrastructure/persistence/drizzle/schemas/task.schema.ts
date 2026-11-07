@@ -1,17 +1,12 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
-import type {
-  JsonObject,
-  JsonValue,
-} from '@shared-kernel/domain/services/json-value';
+import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
 import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
-import { VOICES } from '@work/domain/value-objects/voice.vo';
-import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
-import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
+import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -89,7 +84,7 @@ export interface FailureRow {
 
 export const taskNoteKind = pgEnum('task_note_kind', TASK_NOTE_KINDS);
 export const taskNoteForm = pgEnum('task_note_form', TASK_NOTE_FORMS);
-export const voice = pgEnum('voice', VOICES);
+export const voice = pgEnum('voice', VOICE_KINDS);
 
 export const task = pgTable(
   'task',
@@ -114,7 +109,14 @@ export const task = pgTable(
     reviewing: boolean('reviewing').notNull().default(false),
     reviewFromOutside: boolean('review_from_outside').notNull().default(false),
     finishedAt: timestamptz('finished_at'),
+    workingCopyReleasedAt: timestamptz('working_copy_released_at'),
     revision: integer('revision').notNull().default(0),
+    isSetup: boolean('is_setup').notNull().default(false),
+    setupOpen: boolean('setup_open').notNull().default(false),
+    unreadAsk: boolean('unread_ask').notNull().default(false),
+    draftGeneration: integer('draft_generation').notNull().default(0),
+    awaitedTurnAttempt: integer('awaited_turn_attempt'),
+    answeredTurnAt: timestamptz('answered_turn_at'),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
     updatedAt: timestamptz('updated_at')
@@ -126,21 +128,14 @@ export const task = pgTable(
     unique('task_workspace_id_id_key').on(table.workspaceId, table.id),
     foreignKey({
       name: 'task_station_fk',
-      columns: [table.workspaceId, table.stationId],
-      foreignColumns: [station.workspaceId, station.id],
+      columns: [table.stationId],
+      foreignColumns: [workStation.stationId],
     }).onDelete('restrict'),
-    foreignKey({
-      name: 'task_proposed_in_chat_fk',
-      columns: [table.workspaceId, table.proposedInChatId],
-      foreignColumns: [chat.workspaceId, chat.id],
-    }),
-    index('task_proposed_in_chat_idx').on(table.proposedInChatId),
+    uniqueIndex('task_proposed_in_uidx').on(
+      table.proposedInChatId,
+      table.proposedInPosition,
+    ),
     index('task_station_idx').on(table.stationId, table.rank),
-    foreignKey({
-      name: 'task_origin_station_fk',
-      columns: [table.originStationId],
-      foreignColumns: [station.id],
-    }).onDelete('set null'),
     index('task_origin_station_idx').on(table.originStationId),
     index('task_workspace_idx').on(table.workspaceId),
     index('task_workspace_assignee_idx').on(
@@ -161,7 +156,7 @@ export const taskNote = pgTable(
       .notNull()
       .references(() => task.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
-    station: text('station').notNull(),
+    station: text('station'),
     stationId: text('station_id').notNull(),
     body: text('body').notNull(),
     at: timestamptz('at').notNull(),
@@ -171,8 +166,9 @@ export const taskNote = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    runId: text('run_id').references(() => run.id),
+    runId: text('run_id'),
     kind: taskNoteKind('kind').notNull(),
+    closesConversation: boolean('closes_conversation').notNull().default(false),
     form: taskNoteForm('form').notNull().default('words'),
     anchor: jsonb('anchor').$type<AnchorRow>(),
     approval: jsonb('approval').$type<ApprovalRow>(),
@@ -187,9 +183,9 @@ export const taskNote = pgTable(
     check('task_note_position_not_negative', sql`${table.position} >= 0`),
     primaryKey({ columns: [table.taskId, table.position] }),
     index('task_note_run_idx').on(table.runId),
-    index('task_note_passed_idx')
+    index('task_note_closing_idx')
       .on(table.taskId, table.at)
-      .where(sql`${table.kind} = 'passed'`),
+      .where(sql`${table.closesConversation}`),
     index('task_note_connection_ask_idx')
       .on(
         sql`(${table.connectionAsk}->>'personId')`,
@@ -229,6 +225,7 @@ export const taskMark = pgTable(
     taskId: text('task_id').notNull(),
     kind: text('kind').notNull(),
     value: text('value').notNull(),
+    heldSince: timestamptz('held_since').notNull(),
   },
   (table) => [
     foreignKey({
@@ -236,7 +233,7 @@ export const taskMark = pgTable(
       columns: [table.workspaceId, table.taskId],
       foreignColumns: [task.workspaceId, task.id],
     }).onDelete('cascade'),
-    primaryKey({ columns: [table.workspaceId, table.kind, table.value] }),
-    index('task_mark_task_idx').on(table.taskId),
+    primaryKey({ columns: [table.taskId, table.kind, table.value] }),
+    index('task_mark_mark_idx').on(table.workspaceId, table.kind, table.value),
   ],
 );

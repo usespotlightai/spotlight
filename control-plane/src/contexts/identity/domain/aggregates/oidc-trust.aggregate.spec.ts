@@ -5,21 +5,21 @@ import { OidcTrustVersionConflictError } from '@identity/domain/exceptions/oidc-
 import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
 import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-25T10:00:00.000Z');
@@ -98,7 +98,7 @@ describe('OidcTrust', () => {
     expect(token.expiresAt).toEqual(new Date('2026-09-25T10:15:00.000Z'));
     expect(token.principal).toMatchObject({
       userId: ADMIN,
-      issuedByTrustId: ID,
+      grant: { issuedByTrustId: ID },
     });
     expect(token.isActiveAt(new Date('2026-09-25T10:14:59.000Z'))).toBe(true);
     expect(token.isActiveAt(new Date('2026-09-25T10:15:00.000Z'))).toBe(false);
@@ -110,8 +110,10 @@ describe('OidcTrust', () => {
     expect(issued).toBeInstanceOf(WorkspaceTokenIssued);
     expect((issued as WorkspaceTokenIssued).change.by.actor).toMatchObject({
       principal: {
-        tokenId: WorkspaceTokenId.of('token_9'),
-        issuedByTrustId: ID,
+        grant: {
+          tokenId: WorkspaceTokenId.of('token_9'),
+          issuedByTrustId: ID,
+        },
       },
     });
     expect((issued as WorkspaceTokenIssued).change.recordedDetail).toEqual({

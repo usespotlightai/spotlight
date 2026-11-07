@@ -1,24 +1,25 @@
-import type { JudgeCalibrationPort } from '@insights/application/ports/judge-calibration.port';
+import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import type { JudgeCalibration } from '@insights/domain/services/judge-calibration';
-import type { TeamAccess } from '@insights/domain/services/team-access';
-import type { StationLocation } from '@insights/domain/services/team-history';
+import type { StationLocation } from '@insights/domain/services/station-ranking';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 
-export interface StationJudgeCalibration
-  extends StationLocation,
-    JudgeCalibration {
-  readonly rubricVersion: string | null;
+interface StationJudgeCalibration extends StationLocation, JudgeCalibration {
+  readonly rubricVersion: RubricVersion | null;
 }
 
 export interface JudgeCalibrations {
   readonly judges: readonly StationJudgeCalibration[];
-  readonly qualified: ReadonlyMap<string, string>;
+  readonly qualified: ReadonlyMap<string, RubricVersion>;
 }
 
 export class QualifiedJudges {
-  constructor(private readonly judges: JudgeCalibrationPort) {}
+  constructor(
+    private readonly judges: Pick<StationJudgeReports, 'calibrationsOf'>,
+  ) {}
 
   async calibrations(
-    access: TeamAccess,
+    access: ViewedTeam,
     stations: readonly StationLocation[],
   ): Promise<JudgeCalibrations> {
     const shapes = await this.judges.calibrationsOf(

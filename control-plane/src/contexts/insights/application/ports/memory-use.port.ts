@@ -1,4 +1,4 @@
-import type { TeamWindow } from '@insights/domain/repositories/run-record.repository';
+import type { TeamWindow } from '@insights/application/ports/insights-reader.port';
 
 export const MEMORY_USE = Symbol('INSIGHTS_MEMORY_USE');
 

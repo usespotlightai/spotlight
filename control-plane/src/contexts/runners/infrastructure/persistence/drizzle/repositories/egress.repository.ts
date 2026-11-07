@@ -27,7 +27,7 @@ const written = (egress: Egress) => ({
   key: egress.key.value,
   url: egress.url.value,
   tokenHash: egress.tokenHash.value,
-  tokenVersion: egress.tokenVersion,
+  tokenVersion: egress.tokenVersion.value,
 });
 
 const toEgress = (row: Row): Egress =>

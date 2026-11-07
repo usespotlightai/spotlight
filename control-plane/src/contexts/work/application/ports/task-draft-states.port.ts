@@ -11,4 +11,6 @@ export interface TaskDraftStatesPort {
   read(taskId: TaskId): Promise<StoredDraft>;
 
   keep(taskId: TaskId, state: Uint8Array): Promise<void>;
+
+  forget(taskId: TaskId): Promise<void>;
 }

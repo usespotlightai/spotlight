@@ -1,9 +1,15 @@
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
+import type {
+  ConnectionMissingDto,
+  MissingConnectionReason,
+} from '@work/application/ports/integration-tool-calls.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { ConnectionAsked as ConnectionAskedText } from '@work/application/rendering/connection-asked';
 import { PermissionAsked } from '@work/application/rendering/permission-asked';
@@ -13,33 +19,47 @@ import type {
   PermissionCleared,
   RunWork,
 } from '@work/application/services/run-work';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
+import {
+  ConnectionAsk,
+  type MissingConnection,
+} from '@work/domain/value-objects/connection-ask.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
+const RETURN_ATTEMPTS = 3;
+
+const MISSING_CONNECTIONS: Readonly<
+  Record<MissingConnectionReason, MissingConnection>
+> = {
+  'not-connected': 'not-connected',
+  'refresh-failed': 'refresh-failed',
+  'no-requester': 'no-requester',
+  'not-a-member': 'not-a-member',
+};
+
 export class TaskRunWork implements RunWork {
   constructor(
-    private readonly run: Run,
+    private readonly run: LeasedRunFacts,
     private readonly task: Task,
+    private readonly stationId: StationId,
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -49,7 +69,7 @@ export class TaskRunWork implements RunWork {
 
   async acknowledgeUpTo(position: number, at: Date): Promise<void> {
     await this.tasks.save(
-      this.task.acknowledgeUpTo(NotePosition.of(position), at),
+      this.task.acknowledgeUpTo(this.run.runId, NotePosition.of(position), at),
     );
   }
 
@@ -61,13 +81,13 @@ export class TaskRunWork implements RunWork {
   }
 
   async repositoryNamed(name: string): Promise<Repository | null> {
-    if (!this.run.stationId) {
-      return null;
-    }
+    const line = await this.lines.findByStation(this.stationId);
 
-    const line = await this.lines.findByStation(this.run.stationId);
+    const named = RepositoryName.parsed(name);
 
-    return line ? repositoryForTaskNamed(name, this.task, line) : null;
+    return line && named
+      ? repositoryForTaskNamed(named, this.task, line)
+      : null;
   }
 
   async clearFor(
@@ -86,13 +106,12 @@ export class TaskRunWork implements RunWork {
       ApprovalSubject.toolCall(call),
       needed,
       {
-        station:
-          line?.stationAt(this.task.stationId)?.name ?? StationName.unknown(),
+        line,
         body: TaskNoteBody.of(ApprovalAsked.body(declared, call, needed)),
         at: this.clock.now(),
-        voice: Voice.station(this.run.id),
+        voice: Voice.station(this.run.runId),
       },
-      this.run.id,
+      this.run.runId,
       intent,
     );
 
@@ -115,11 +134,10 @@ export class TaskRunWork implements RunWork {
     declared: DeclaredTool,
     missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
-    const askable =
-      missing.because === 'not-connected' ||
-      missing.because === 'refresh-failed';
-
-    if (!missing.personId || !askable) {
+    if (
+      !missing.personId ||
+      !ConnectionAsk.askableWhen(MISSING_CONNECTIONS[missing.because])
+    ) {
       return { kind: 'denied', reason: ConnectionAskedText.denial(missing) };
     }
 
@@ -130,18 +148,17 @@ export class TaskRunWork implements RunWork {
     }
 
     const { task, asked } = this.task.askToConnect(
-      this.run.id,
+      this.run.runId,
       {
-        station:
-          line.stationAt(this.task.stationId)?.name ?? StationName.unknown(),
+        line,
         body: TaskNoteBody.of(ConnectionAskedText.body(declared, missing)),
         at: this.clock.now(),
-        voice: Voice.station(this.run.id),
+        voice: Voice.station(this.run.runId),
       },
       ConnectionAsk.of({
         teamId: line.teamId,
-        integration: missing.integration,
-        integrationName: missing.integrationName,
+        integration: IntegrationName.of(missing.integration),
+        providedBy: missing.integrationName,
         personId: UserId.of(missing.personId),
       }),
     );
@@ -171,20 +188,19 @@ export class TaskRunWork implements RunWork {
       subject.name,
       PermissionAsked.because(station?.profile?.value ?? null),
     );
-    const recorded =
-      session && this.run.claimedBy
-        ? this.task.recordSession(session, this.run.claimedBy)
-        : this.task;
+    const recorded = session
+      ? this.task.recordSession(this.run.runId, session, this.run.claimedBy)
+      : this.task;
     const { task, check } = recorded.clearFor(
       subject,
       needed,
       {
-        station: station?.name ?? StationName.unknown(),
+        line,
         body: TaskNoteBody.of(PermissionAsked.body(permission, needed)),
         at: this.clock.now(),
-        voice: Voice.station(this.run.id),
+        voice: Voice.station(this.run.runId),
       },
-      this.run.id,
+      this.run.runId,
       null,
     );
 
@@ -196,29 +212,38 @@ export class TaskRunWork implements RunWork {
   }
 
   private async returned(claimed: Task, at: NotePosition): Promise<void> {
-    try {
-      await this.tasks.save(claimed.returnApproval(at));
-    } catch (error) {
-      if (!(error instanceof TaskVersionConflictError)) {
-        throw error;
+    let current: Task | null = claimed;
+
+    for (let attempt = 1; current; attempt++) {
+      try {
+        await this.tasks.save(current.returnApproval(at));
+        return;
+      } catch (error) {
+        if (
+          !(error instanceof TaskVersionConflictError) ||
+          attempt >= RETURN_ATTEMPTS
+        ) {
+          throw error;
+        }
       }
+
+      current = await this.tasks.find(claimed.id);
     }
   }
 
   async toolContext(): Promise<TaskToolContext> {
-    const stationId = this.run.stationId ?? this.task.stationId;
-    const line = await this.lines.findByStation(stationId);
+    const line = await this.lines.findByStation(this.stationId);
 
     if (!line) {
-      throw new UnknownStationError(stationId.value);
+      throw new UnknownStationError(this.stationId.value);
     }
 
     return {
       kind: 'task',
-      runId: this.run.id,
+      runId: this.run.runId,
       workspaceId: this.task.workspaceId,
       taskId: this.task.id,
-      stationId,
+      stationId: this.stationId,
       requester: this.task.createdBy,
     };
   }

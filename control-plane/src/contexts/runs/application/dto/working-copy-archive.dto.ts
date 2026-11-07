@@ -1,0 +1,20 @@
+export interface ArchiveGrantDto {
+  readonly id: string;
+  readonly url: string;
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+interface StoredArchiveDto {
+  readonly id: string;
+  readonly url: string;
+  readonly size: number;
+  readonly sha256: string;
+}
+
+export type WorkingCopyArchiveAnswer =
+  | { readonly leased: false }
+  | { readonly leased: true; readonly archive: StoredArchiveDto | null };
+
+export type SandboxArchiveAnswer =
+  | { readonly known: false }
+  | { readonly known: true; readonly archive: StoredArchiveDto | null };

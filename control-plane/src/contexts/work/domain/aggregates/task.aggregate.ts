@@ -1,15 +1,15 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Station } from '@work/domain/entities/station.entity';
 import {
   TaskNote,
   type TaskNoteForm,
@@ -17,31 +17,41 @@ import {
 } from '@work/domain/entities/task-note.entity';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
-import { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
-import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
-import { TaskMarkReassigned } from '@work/domain/events/task-mark-reassigned.event';
+import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
+import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
+import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
+import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
+import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
+import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
+import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
+import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
   notesIn,
   reopenable,
   worksOn,
 } from '@work/domain/services/conversations';
+import { Placement } from '@work/domain/services/placement';
+import type { Outcome } from '@work/domain/services/reaction-for';
+import { openSetupList } from '@work/domain/services/setup-list';
+import { takesUpRun } from '@work/domain/services/taking-up';
 import { anyUnread } from '@work/domain/services/unread';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import {
@@ -54,12 +64,16 @@ import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
-import type { Happening } from '@work/domain/value-objects/happening.vo';
+import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
+import type { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
@@ -67,12 +81,11 @@ import {
   PullRequestLink,
   type ReviewedHead,
 } from '@work/domain/value-objects/pull-request-link.vo';
+import type { PullRequestStep } from '@work/domain/value-objects/pull-request-step';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
-import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -80,9 +93,11 @@ import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import type { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import type { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
-import type { Voice } from '@work/domain/value-objects/voice.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
+import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
 export interface OpenReviewComment {
   readonly at: NotePosition;
@@ -96,7 +111,7 @@ export interface ReviewCommentToReply {
 }
 
 export interface NewNote {
-  readonly station: StationName;
+  readonly line: LineMap | null;
   readonly body: TaskNoteBody;
   readonly at: Date;
   readonly voice: Voice;
@@ -133,27 +148,30 @@ export class Task extends EventRecorder {
     readonly description: TaskDescription | null,
     readonly rank: TaskRank,
     readonly currentRunId: RunId | null,
-    readonly sessionId: HarnessSession | null,
-    readonly runnerId: RunnerId | null,
+    readonly session: HarnessSession | null,
+    readonly claimedBy: RunnerId | null,
     readonly notes: readonly TaskNote[],
     readonly createdAt: Date,
     readonly originStationId: StationId | null,
     readonly createdBy: UserId | null,
     readonly openedFrom: TaskOrigin,
     readonly pullRequestLink: PullRequestLink | null,
-    readonly marks: readonly Mark[],
+    readonly heldMarks: readonly HeldMark[],
     readonly finishedAt: Date | null,
     readonly assignee: UserId | null,
     readonly attachments: readonly Attachment[],
     readonly proposedIn: ProposalOrigin | null,
+    readonly draftGeneration: DraftGeneration = DraftGeneration.first(),
     readonly revision: TaskRevision = TaskRevision.first(),
     readonly version: number = 0,
+    readonly awaitedTurn: AwaitedTurn | null = null,
+    readonly answeredTurnAt: Date | null = null,
   ) {
     super();
   }
 
   static add(input: {
-    line: Line;
+    line: LineMap;
     at: StationId;
     title: TaskTitle;
     description?: TaskDescription | null;
@@ -166,6 +184,13 @@ export class Task extends EventRecorder {
     newId: () => string;
   }): Task {
     const station = Task.stationOn(input.line, input.at);
+
+    if (station.isCompleted) {
+      throw new InvalidTaskTransitionError(
+        `A task cannot open at ${station.name.value}. That station ends its line.`,
+      );
+    }
+
     const createdBy = input.createdBy ?? null;
     const receivedFrom = input.receivedFrom ?? null;
 
@@ -222,22 +247,28 @@ export class Task extends EventRecorder {
     description: TaskDescription | null;
     rank: TaskRank;
     currentRunId: RunId | null;
-    sessionId: HarnessSession | null;
-    runnerId: RunnerId | null;
+    session: HarnessSession | null;
+    claimedBy: RunnerId | null;
     notes: readonly TaskNote[];
     createdAt: Date;
     originStationId: StationId | null;
     createdBy: UserId | null;
     openedFrom: TaskOrigin;
     pullRequestLink?: PullRequestLink | null;
-    marks?: readonly Mark[];
+    heldMarks?: readonly HeldMark[];
     finishedAt: Date | null;
     assignee?: UserId | null;
     attachments?: readonly Attachment[];
     proposedIn?: ProposalOrigin | null;
+    draftGeneration?: DraftGeneration;
     revision: TaskRevision;
-    version?: number;
+    version: number;
+    awaitedTurn?: AwaitedTurn | null;
+    answeredTurnAt?: Date | null;
   }): Task {
+    if (input.version < 0) {
+      throw new InconsistentStateError('task', 'has a negative version');
+    }
     if (input.finishedAt !== null && input.currentRunId !== null) {
       throw new InconsistentStateError(
         'task',
@@ -256,7 +287,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    return new Task(
+    const task = new Task(
       input.id,
       input.workspaceId,
       input.stationId,
@@ -265,22 +296,37 @@ export class Task extends EventRecorder {
       input.description,
       input.rank,
       input.currentRunId,
-      input.sessionId,
-      input.runnerId,
+      input.session,
+      input.claimedBy,
       input.notes,
       input.createdAt,
       input.originStationId,
       input.createdBy,
       input.openedFrom,
       input.pullRequestLink ?? null,
-      input.marks ?? [],
+      input.heldMarks ?? [],
       input.finishedAt,
       input.assignee ?? null,
       input.attachments ?? [],
       input.proposedIn ?? null,
+      input.draftGeneration ?? DraftGeneration.first(),
       input.revision,
-      input.version ?? 0,
+      input.version,
+      input.awaitedTurn ?? null,
+      input.answeredTurnAt ?? null,
     );
+
+    if (
+      task.awaitedTurn &&
+      !(task.hasCurrentRun(task.awaitedTurn.runId) && task.awaitingReview)
+    ) {
+      throw new InconsistentStateError(
+        'task',
+        'awaits the turn of a run it does not hold, or awaits no person',
+      );
+    }
+
+    return task;
   }
 
   assertRevision(revision: TaskRevision): Task {
@@ -300,7 +346,7 @@ export class Task extends EventRecorder {
   }
 
   moveTo(
-    line: Line,
+    line: LineMap,
     to: StationId,
     rank: TaskRank,
     newNote: NewNote,
@@ -328,7 +374,7 @@ export class Task extends EventRecorder {
     return moved;
   }
 
-  react(line: Line, to: StationId, rank: TaskRank, newNote: NewNote): Task {
+  react(line: LineMap, to: StationId, rank: TaskRank, newNote: NewNote): Task {
     if (!this.movableByHappeningTo(line, to)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station, and only while the run waits on an answer.`,
@@ -340,13 +386,13 @@ export class Task extends EventRecorder {
     );
   }
 
-  movableByHappeningTo(line: Line, to: StationId): boolean {
+  movableByHappeningTo(line: LineMap, to: StationId): boolean {
     return (
       !this.running || (this.awaitsAnAnswer && line.completed.id.equals(to))
     );
   }
 
-  deferMove(line: Line, to: StationId, newNote: NewNote): Task {
+  deferMove(line: LineMap, to: StationId, newNote: NewNote): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} has no run in progress. There is no move to defer.`,
@@ -389,7 +435,7 @@ export class Task extends EventRecorder {
 
   moveAsDeferred(
     by: RunId,
-    line: Line,
+    line: LineMap,
     to: StationId,
     rank: TaskRank,
     ending: { newNote: NewNote; handover: ResolvedHandover },
@@ -407,7 +453,7 @@ export class Task extends EventRecorder {
     const failure =
       raised?.following(this.openFailure?.failure ?? null) ?? null;
     const failing = failure
-      ? this.failing(failure, by, ending.newNote.at, line)
+      ? this.failing(failure, by, ending.newNote.at, line.teamId)
       : this;
 
     const moved = failing.relocated(
@@ -469,7 +515,7 @@ export class Task extends EventRecorder {
   }
 
   private relocated(
-    line: Line,
+    line: LineMap,
     to: StationId,
     rank: TaskRank,
     newNote: NewNote,
@@ -490,8 +536,8 @@ export class Task extends EventRecorder {
       stationId: into.id,
       rank,
       currentRunId: null,
-      sessionId: null,
-      runnerId: null,
+      session: null,
+      claimedBy: null,
       ...this.appendNote(newNote, 'passed'),
       finishedAt: into.isCompleted ? newNote.at : null,
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
@@ -502,8 +548,8 @@ export class Task extends EventRecorder {
       new TaskMoved(
         moved.id,
         moved.workspaceId,
-        from.key,
-        into.key,
+        { id: from.id, key: from.key },
+        { id: into.id, key: into.key },
         newNote.at,
       ),
     );
@@ -521,7 +567,27 @@ export class Task extends EventRecorder {
     return this.with({ rank });
   }
 
-  assign(userId: UserId): Task {
+  placeAt(
+    line: LineMap,
+    to: StationId,
+    rank: TaskRank,
+    newNote: NewNote,
+    handMove: { mover: UserId },
+  ): { readonly task: Task; readonly moved: boolean } {
+    return this.stationId.equals(to)
+      ? { task: this.reorderTo(rank), moved: false }
+      : { task: this.moveTo(line, to, rank, newNote, handMove), moved: true };
+  }
+
+  assignedIfMember(userId: UserId, members: TeamMembers): Task {
+    return members.includes(userId) ? this.assign(userId, members) : this;
+  }
+
+  assign(userId: UserId, members: TeamMembers): Task {
+    if (!members.includes(userId)) {
+      throw new NotATeamMemberError();
+    }
+
     return this.with({ assignee: userId });
   }
 
@@ -529,15 +595,11 @@ export class Task extends EventRecorder {
     return this.with({ assignee: null });
   }
 
-  claimedBy(userId: UserId): Task {
-    return this.assignee ? this : this.with({ assignee: userId });
-  }
-
   recordPullRequest(
     by: RunId,
     url: PullRequestUrl,
     at: Date,
-    line: Line,
+    line: LineMap,
   ): Task {
     this.assertNoOtherRun(by, 'open a pull request for it');
 
@@ -545,7 +607,7 @@ export class Task extends EventRecorder {
       return this;
     }
 
-    const opened = this.markedBy(Mark.pullRequest(url)).with({
+    const opened = this.markedBy(Mark.pullRequest(url), at).with({
       pullRequestLink: PullRequestLink.opened(url),
     });
     opened.record(
@@ -561,10 +623,21 @@ export class Task extends EventRecorder {
     return opened;
   }
 
-  reviews(url: PullRequestUrl, by: { outside: boolean }): Task {
+  reviews(
+    url: PullRequestUrl,
+    by: { outside: boolean },
+    line: LineMap,
+    at: Date,
+  ): Task {
     if (this.pullRequestLink) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} has its own pull request. It cannot review another.`,
+      );
+    }
+
+    if (!line.stationAt(this.stationId)) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} is not on line ${line.key.value}.`,
       );
     }
 
@@ -574,11 +647,16 @@ export class Task extends EventRecorder {
       throw new UnreviewablePullRequestError(url.value);
     }
 
-    const reviewing = this.markedBy(Mark.review(url)).with({
+    const reviewing = this.markedBy(Mark.review(url), at).with({
       pullRequestLink: link,
     });
     reviewing.record(
-      new PullRequestReviewTaken(reviewing.id, reviewing.workspaceId, url),
+      new PullRequestReviewTaken(
+        reviewing.id,
+        reviewing.workspaceId,
+        line.teamId,
+        url,
+      ),
     );
 
     return reviewing;
@@ -586,6 +664,12 @@ export class Task extends EventRecorder {
 
   get pullRequest(): PullRequestUrl | null {
     return this.pullRequestLink?.url ?? null;
+  }
+
+  get pullRequestStep(): PullRequestStep {
+    const pullRequest = this.pullRequest;
+
+    return pullRequest ? { kind: 'edit', pullRequest } : { kind: 'open' };
   }
 
   get reviewing(): boolean {
@@ -600,28 +684,47 @@ export class Task extends EventRecorder {
     return this.pullRequestLink?.reviewedHead ?? null;
   }
 
-  markedBy(mark: Mark): Task {
-    return this.marks.some((each) => each.equals(mark))
-      ? this
-      : this.with({ marks: [...this.marks, mark] });
+  sendDraft(generation: DraftGeneration | null): Task {
+    if (generation === null) {
+      return this;
+    }
+
+    if (!generation.equals(this.draftGeneration)) {
+      throw new DraftAlreadySentError(this.id.value);
+    }
+
+    return this.with({ draftGeneration: generation.next() });
   }
 
-  reassignMark(mark: Mark, newTaskId: TaskId): Task {
-    if (
-      newTaskId.equals(this.id) ||
-      !this.marks.some((each) => each.equals(mark))
-    ) {
+  get marks(): readonly Mark[] {
+    return this.heldMarks.map((each) => each.mark);
+  }
+
+  marksWithProposal(chatMarks: readonly Mark[]): readonly Mark[] {
+    return this.proposedIn ? [...chatMarks, ...this.marks] : this.marks;
+  }
+
+  holdsMark(mark: Mark): HeldMark | null {
+    return this.heldMarks.find((each) => each.is(mark)) ?? null;
+  }
+
+  markedBy(mark: Mark, at: Date): Task {
+    if (this.holdsMark(mark)) {
       return this;
     }
 
     const marked = this.with({
-      marks: this.marks.filter((each) => !each.equals(mark)),
+      marks: [...this.heldMarks, HeldMark.of(mark, at)],
     });
-    marked.record(
-      new TaskMarkReassigned(this.id, this.workspaceId, mark, newTaskId),
-    );
+    marked.record(new TaskMarked(this.id, this.workspaceId, mark));
 
     return marked;
+  }
+
+  releaseMark(mark: Mark): Task {
+    return this.holdsMark(mark)
+      ? this.with({ marks: this.heldMarks.filter((each) => !each.is(mark)) })
+      : this;
   }
 
   get running(): boolean {
@@ -641,7 +744,10 @@ export class Task extends EventRecorder {
   }
 
   takesUp(runId: RunId): boolean {
-    return this.hasCurrentRun(runId) && !this.awaitingReview;
+    return takesUpRun({
+      holdsRun: this.hasCurrentRun(runId),
+      awaitsAPerson: this.awaitingReview,
+    });
   }
 
   get idle(): boolean {
@@ -650,6 +756,28 @@ export class Task extends EventRecorder {
 
   get finished(): boolean {
     return this.finishedAt !== null;
+  }
+
+  get reopensOnMention(): boolean {
+    return this.finished;
+  }
+
+  get workingCopyRelease(): WorkingCopyRelease {
+    return this.finishedAt
+      ? WorkingCopyRelease.since(this.finishedAt)
+      : WorkingCopyRelease.held();
+  }
+
+  get isSetup(): boolean {
+    return this.notes.some((note) => note.form === 'setup');
+  }
+
+  get setupOpen(): boolean {
+    return openSetupList(this.notes) !== null;
+  }
+
+  get hasUnreadAsk(): boolean {
+    return anyUnread(this.notes);
   }
 
   addMessage(newNote: NewNote, at: StationId | null = null): Task {
@@ -669,7 +797,7 @@ export class Task extends EventRecorder {
     const pending = answering ? this.pendingConversation : null;
 
     if (pending && !this.decisionPending) {
-      return this.answer(NotePosition.of(pending.from), newNote);
+      return this.answer(pending.from, newNote);
     }
 
     const withMessage = this.addMessage(newNote, at);
@@ -692,28 +820,42 @@ export class Task extends EventRecorder {
     return withMessage;
   }
 
-  reopenableOn(line: Line): boolean {
+  reopenableOn(line: LineMap): boolean {
     return this.finished && !line.completed.id.equals(this.stationId);
   }
 
-  reopen(line: Line, to: StationId, rank: TaskRank, newNote: NewNote): Task {
+  reopensAt(line: LineMap, happening: Happening): StationId {
+    const rule = line.reactionTo(happening, this.stationId);
+
+    return (rule && line.stationAt(rule.to)?.id) ?? this.stationId;
+  }
+
+  reopen(
+    line: LineMap,
+    happening: Happening,
+    rank: TaskRank,
+    newNote: NewNote,
+  ): Task {
+    const to = this.reopensAt(line, happening);
+
     if (!this.reopenableOn(line)) {
-      throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is not finished, or it is completed. A word cannot reopen it.`,
-      );
+      throw new TaskNotReopenableError(this.id.value);
     }
 
     const sender = newNote.voice.isPerson ? newNote.voice.author : null;
 
     if (!sender) {
-      throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} can be reopened only by a person.`,
-      );
+      throw new ReopenedByNobodyError(this.id.value);
     }
 
+    if (!newNote.anchor) {
+      throw new NothingSaidError(this.id.value);
+    }
+
+    const said = { ...newNote, line };
     const reopened = this.stationId.equals(to)
-      ? this.addMessage(newNote)
-      : this.react(line, to, rank, newNote);
+      ? this.addMessage(said)
+      : this.react(line, to, rank, said);
 
     reopened.record(
       new TaskActedOn(
@@ -728,6 +870,47 @@ export class Task extends EventRecorder {
     );
 
     return reopened;
+  }
+
+  reactTo(
+    outcome: Outcome,
+    on: {
+      readonly at: Date;
+      readonly voice: Voice;
+      readonly attachments: readonly Attachment[];
+      readonly ranksAtDestination: readonly TaskRank[];
+    },
+  ): Task | null {
+    if (outcome.kind === 'nothing') {
+      return null;
+    }
+
+    const newNote: NewNote = {
+      line: outcome.line,
+      body: outcome.body,
+      at: on.at,
+      voice: on.voice,
+      anchor: outcome.anchor,
+      attachments: on.attachments,
+    };
+
+    switch (outcome.kind) {
+      case 'stays':
+        return this.addMessage(newNote);
+      case 'deferredMove':
+        return this.deferMove(outcome.line, outcome.to.id, newNote);
+      case 'interrupts':
+        return this.interrupt(newNote);
+      case 'answers':
+        return this.answer(outcome.to, newNote);
+      case 'moves':
+        return this.react(
+          outcome.line,
+          outcome.to.id,
+          Placement.entering('reacted', on.ranksAtDestination),
+          newNote,
+        );
+    }
   }
 
   get awaitsAnAnswer(): boolean {
@@ -753,7 +936,7 @@ export class Task extends EventRecorder {
   }
 
   resolveAt(from: NotePosition, newNote: NewNote): Task {
-    if (this.openConversation?.from !== from.value) {
+    if (!this.isWaitingAt(from)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is not waiting on anyone at that note.`,
       );
@@ -766,11 +949,11 @@ export class Task extends EventRecorder {
 
   reopenAt(from: NotePosition, newNote: NewNote): Task {
     const last = this.trail.lastClosed;
-    const closing = last?.to != null ? this.notes[last.to] : undefined;
+    const closing = last?.to ? last.to.noteIn(this.notes) : undefined;
 
     if (
       !reopenable(
-        from.value,
+        from,
         last,
         closing
           ? { form: closing.form, byAPerson: closing.voice.isPerson }
@@ -787,7 +970,7 @@ export class Task extends EventRecorder {
 
   passedOn(
     by: RunId,
-    line: Line,
+    line: LineMap,
     to: StationId,
     rank: TaskRank,
     newNote: NewNote,
@@ -818,7 +1001,7 @@ export class Task extends EventRecorder {
     return passed;
   }
 
-  finishHere(by: RunId, line: Line, newNote: NewNote): Task {
+  finishHere(by: RunId, line: LineMap, newNote: NewNote): Task {
     this.assertNoOtherRun(by, 'finish it');
 
     if (!line.endsAt(this.stationId)) {
@@ -846,7 +1029,7 @@ export class Task extends EventRecorder {
     return finished;
   }
 
-  assignRun(runId: RunId, line: Line): Task {
+  assignRun(runId: RunId, line: LineMap): Task {
     if (this.currentRunId) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} already has a run in progress.`,
@@ -861,12 +1044,12 @@ export class Task extends EventRecorder {
 
     const assigned = this.with({ currentRunId: runId });
 
-    assigned.record(new TaskDispatched(this.id, this.workspaceId, runId));
+    assigned.record(new TaskRunAssigned(this.id, this.workspaceId, runId));
 
     return assigned;
   }
 
-  wantsRun(line: Line): boolean {
+  wantsRun(line: LineMap): boolean {
     return this.idle && Boolean(line.stationAt(this.stationId)?.harness);
   }
 
@@ -881,19 +1064,22 @@ export class Task extends EventRecorder {
   }
 
   private acknowledgeNotesAt(at: Date): Task {
-    return this.notes.length === 0
-      ? this
-      : this.acknowledgeUpTo(NotePosition.of(this.notes.length - 1), at);
+    const last = NotePosition.lastIn(this.notes);
+
+    return last ? this.acknowledgedUpTo(last, at) : this;
   }
 
-  recordSession(sessionId: HarnessSession, runnerId: RunnerId | null): Task {
-    return this.with({ sessionId, runnerId });
+  recordSession(
+    by: RunId,
+    session: HarnessSession,
+    claimedBy: RunnerId | null,
+  ): Task {
+    return this.hasCurrentRun(by) ? this.with({ session, claimedBy }) : this;
   }
 
   resume(): Resume {
     return Resume.of({
-      key: ResumeKey.forTask(this.id.value),
-      sessionId: this.sessionId,
+      session: this.session,
     });
   }
 
@@ -901,6 +1087,10 @@ export class Task extends EventRecorder {
     const byRuns = this.notes.filter((note) => note.voice.run !== null);
 
     return this.currentRunId ?? byRuns[byRuns.length - 1]?.voice.run ?? null;
+  }
+
+  closesAConversationAt(position: NotePosition): boolean {
+    return this.trail.closesAConversationAt(position);
   }
 
   private get trail(): Trail {
@@ -915,8 +1105,18 @@ export class Task extends EventRecorder {
     return this.trail.open;
   }
 
-  createdByThem(userId: UserId): boolean {
-    return this.createdBy?.equals(userId) ?? false;
+  private isWaitingAt(from: NotePosition): boolean {
+    return this.openConversation?.from.equals(from) ?? false;
+  }
+
+  get openConversationNote(): TaskNote | null {
+    const open = this.trail.open;
+
+    return open ? (open.from.noteIn(this.notes) ?? null) : null;
+  }
+
+  showsConversationsTo(viewer: UserId): boolean {
+    return ConversationAudience.includes(this.assignee, viewer);
   }
 
   assignedToThem(userId: UserId): boolean {
@@ -965,7 +1165,7 @@ export class Task extends EventRecorder {
       reviewing: this.reviewedHead?.repository ?? null,
       attachments: this.attachments,
       notes: this.notes.map((note) => ({
-        station: note.station.value,
+        station: note.station?.value ?? null,
         body: note.body.value,
         attachments: note.attachments,
       })),
@@ -977,9 +1177,9 @@ export class Task extends EventRecorder {
     });
   }
 
-  reviewCommentAt(at: NotePosition): ReviewComment {
-    const reviewComment = this.notes[at.value]?.open
-      ? this.notes[at.value]?.reviewComment
+  private reviewCommentAt(at: NotePosition): ReviewComment {
+    const reviewComment = at.noteIn(this.notes)?.open
+      ? at.noteIn(this.notes)?.reviewComment
       : null;
 
     if (!reviewComment) {
@@ -1038,6 +1238,10 @@ export class Task extends EventRecorder {
     return this.trail.unacknowledged;
   }
 
+  pendingFor(runId: RunId): readonly TaskNote[] {
+    return this.hasCurrentRun(runId) ? this.unacknowledged : [];
+  }
+
   get allAttachments(): readonly Attachment[] {
     return [
       ...this.attachments,
@@ -1045,7 +1249,11 @@ export class Task extends EventRecorder {
     ];
   }
 
-  acknowledgeUpTo(position: NotePosition, at: Date): Task {
+  acknowledgeUpTo(by: RunId, position: NotePosition, at: Date): Task {
+    return this.hasCurrentRun(by) ? this.acknowledgedUpTo(position, at) : this;
+  }
+
+  private acknowledgedUpTo(position: NotePosition, at: Date): Task {
     return this.with({
       notes: this.notes.map((note) =>
         note.position.isAtOrBefore(position) ? note.acknowledge(at) : note,
@@ -1059,6 +1267,42 @@ export class Task extends EventRecorder {
 
   putToAPerson(by: RunId, newNote: NewNote): Task {
     return this.asked(newNote, by, by);
+  }
+
+  awaitTurn(turn: {
+    readonly turn: AwaitedTurn;
+    readonly note: NewNote;
+    readonly session: HarnessSession | null;
+    readonly runner: RunnerId | null;
+  }): Task {
+    const runId = turn.turn.runId;
+
+    if (this.awaitedTurn?.equals(turn.turn)) {
+      return this;
+    }
+
+    this.assertNoOtherRun(runId, 'await its turn');
+
+    if (!this.hasCurrentRun(runId)) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} does not hold run ${runId.value}. It cannot await its turn.`,
+      );
+    }
+
+    const recorded = turn.session
+      ? this.recordSession(runId, turn.session, turn.runner)
+      : this;
+    const asked = recorded.awaitingReview
+      ? recorded
+      : recorded.putToAPerson(runId, turn.note);
+
+    return asked.with({ awaitedTurn: turn.turn, answeredTurnAt: null });
+  }
+
+  get lastPersonNoteAt(): Date | null {
+    return (
+      [...this.notes].reverse().find((note) => note.voice.isPerson)?.at ?? null
+    );
   }
 
   private asked(
@@ -1098,6 +1342,10 @@ export class Task extends EventRecorder {
     return asked;
   }
 
+  supersedesHookFailureAt(station: StationId | null): boolean {
+    return station === null || this.movedOnFrom(station);
+  }
+
   movedOnFrom(station: StationId | null): boolean {
     return (
       this.finished || (station !== null && !this.stationId.equals(station))
@@ -1108,7 +1356,7 @@ export class Task extends EventRecorder {
     failure: TaskFailure,
     newNote: NewNote,
     by: RunId | null,
-    line: Line | null,
+    line: LineMap,
     deferredMoveRank: TaskRank | null = null,
   ): Task {
     if (this.finished) {
@@ -1123,8 +1371,8 @@ export class Task extends EventRecorder {
 
     const deferredMoveTo = by || !this.running ? null : this.deferredMoveTo;
 
-    if (deferredMoveTo && deferredMoveRank && line?.stationAt(deferredMoveTo)) {
-      return this.failing(failure, by, newNote.at, line)
+    if (deferredMoveTo && deferredMoveRank && line.stationAt(deferredMoveTo)) {
+      return this.failing(failure, by, newNote.at, line.teamId)
         .relocated(
           line,
           deferredMoveTo,
@@ -1155,7 +1403,7 @@ export class Task extends EventRecorder {
             note.equals(earlier) ? note.recurred(recurred) : note,
           ),
         })
-        .failing(recurred, by, newNote.at, line);
+        .failing(recurred, by, newNote.at, line.teamId);
     }
 
     const following = failure.following(earlier?.failure ?? null);
@@ -1169,30 +1417,28 @@ export class Task extends EventRecorder {
       free.awaitingReview
         ? free.with(free.appendNote(reported, 'message'))
         : free.askedAbout(reported, by)
-    ).failing(following, by, newNote.at, line);
+    ).failing(following, by, newNote.at, line.teamId);
   }
 
   private failing(
     failure: TaskFailure,
     by: RunId | null,
     at: Date,
-    line: Line | null,
+    team: TeamId,
   ): Task {
     const failing = this.with({});
 
-    if (line) {
-      failing.record(
-        new TaskFailed(
-          failing.id,
-          failing.workspaceId,
-          line.teamId,
-          failing.stationId,
-          failure,
-          by,
-          at,
-        ),
-      );
-    }
+    failing.record(
+      new TaskFailed(
+        failing.id,
+        failing.workspaceId,
+        team,
+        failing.stationId,
+        failure,
+        by,
+        at,
+      ),
+    );
 
     return failing;
   }
@@ -1249,13 +1495,7 @@ export class Task extends EventRecorder {
         {
           ...asking,
           form: 'approval',
-          approval: Approval.request(
-            subject,
-            this.stationId,
-            needed.because,
-            intent,
-            askedOf,
-          ),
+          approval: Approval.request(subject, this.stationId, needed, intent),
         },
       ),
       check: { kind: 'pending' },
@@ -1267,7 +1507,7 @@ export class Task extends EventRecorder {
 
     if (this.awaitingReview) {
       const open = this.openConversation;
-      const waiting = open ? this.notes[open.from]?.connectionAsk : null;
+      const waiting = open ? open.from.noteIn(this.notes)?.connectionAsk : null;
 
       return {
         task: this,
@@ -1289,26 +1529,27 @@ export class Task extends EventRecorder {
 
   connectionMade(
     teamId: TeamId,
-    integration: string,
+    integration: IntegrationName,
     personId: UserId,
-    newNote: NewNote,
+    on: { readonly line: LineMap | null; readonly at: Date },
   ): Task | null {
     const open = this.openConversation;
-    const asked = open ? this.notes[open.from] : undefined;
+    const ask = open ? open.from.noteIn(this.notes)?.connectionAsk : null;
 
-    if (
-      !open ||
-      !asked?.connectionAsk?.answeredBy(teamId, integration, personId) ||
-      !newNote.voice.author?.equals(personId)
-    ) {
+    if (!open || !ask?.answeredBy(teamId, integration, personId)) {
       return null;
     }
 
-    const answered = this.answer(NotePosition.of(open.from), newNote);
+    const answered = this.answer(open.from, {
+      line: on.line,
+      body: TaskNoteBody.connected(ask.providedBy),
+      at: on.at,
+      voice: Voice.person(personId),
+    });
 
     return answered.with({
       notes: answered.notes.map((note) =>
-        note.position.value === open.from ? note.connectionMet() : note,
+        note.position.equals(open.from) ? note.connectionMet() : note,
       ),
     });
   }
@@ -1335,15 +1576,11 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null,
     edits: ApprovalEdits | null,
   ): ToolCall | null {
-    if (
-      this.openConversation?.from !== from.value ||
-      decision !== 'approved' ||
-      !edits
-    ) {
+    if (!this.isWaitingAt(from) || decision !== 'approved' || !edits) {
       return null;
     }
 
-    return this.notes[from.value]?.approval?.changedBy(edits) ?? null;
+    return from.noteIn(this.notes)?.approval?.changedBy(edits) ?? null;
   }
 
   answer(
@@ -1352,7 +1589,7 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
-    if (this.openConversation?.from !== from.value) {
+    if (!this.isWaitingAt(from)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is not waiting on anyone at that note.`,
       );
@@ -1360,7 +1597,7 @@ export class Task extends EventRecorder {
 
     const by = newNote.voice.author;
 
-    if (decision && !this.notes[from.value]?.approval) {
+    if (decision && !from.noteIn(this.notes)?.approval) {
       throw new InvalidApprovalAnswerError(
         `Task ${this.id.value} has nothing waiting for approval at that note.`,
       );
@@ -1380,17 +1617,26 @@ export class Task extends EventRecorder {
 
     const noted = this.with(
       this.appendNote(
-        decision ? { ...newNote, form: 'approval' } : newNote,
+        decision ? { ...newNote, form: 'decision' } : newNote,
         'answered',
       ),
     );
-    const answered = noted.running
+    const acknowledged = noted.running
       ? noted
       : noted.acknowledgeNotesAt(newNote.at);
+    const answered =
+      this.awaitedTurn && !acknowledged.awaitedTurn
+        ? acknowledged.with({ answeredTurnAt: newNote.at })
+        : acknowledged;
 
     if (this.currentRunId) {
       answered.record(
-        new TaskAnswered(this.id, this.workspaceId, this.currentRunId),
+        new TaskAnswered(
+          this.id,
+          this.workspaceId,
+          this.currentRunId,
+          this.awaitedTurn,
+        ),
       );
     }
 
@@ -1405,7 +1651,7 @@ export class Task extends EventRecorder {
           this.lastRun,
           newNote.at,
           decision
-            ? (this.notes[from.value]?.approval?.subject.tool ?? null)
+            ? (from.noteIn(this.notes)?.approval?.subject.tool ?? null)
             : null,
         ),
       );
@@ -1439,7 +1685,7 @@ export class Task extends EventRecorder {
 
   private detachRun(runId: RunId | null): Task {
     if (runId) {
-      this.record(new RunDetached(this.id, this.workspaceId, runId));
+      this.record(new TaskRunDetached(this.id, this.workspaceId, runId));
     }
 
     return this;
@@ -1455,7 +1701,7 @@ export class Task extends EventRecorder {
     }
   }
 
-  private static stationOn(line: Line, stationId: StationId): Station {
+  private static stationOn(line: LineMap, stationId: StationId): Station {
     const station = line.stationAt(stationId);
 
     if (!station) {
@@ -1465,7 +1711,7 @@ export class Task extends EventRecorder {
     return station;
   }
 
-  private assertHandMoveAllowed(line: Line, to: StationId): void {
+  private assertHandMoveAllowed(line: LineMap, to: StationId): void {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
     const denial = line.moveDenial(from, into);
@@ -1487,34 +1733,46 @@ export class Task extends EventRecorder {
     newNote: NewNote,
     kind: TaskNoteKind,
     deferredMove: DeferredMove | null = null,
-  ): { notes: readonly TaskNote[]; finishedAt?: null } {
+  ): { notes: readonly TaskNote[]; finishedAt: Date | null } {
     return {
       notes: [
         ...this.notes,
         TaskNote.of({
           ...newNote,
+          station: newNote.line?.stationAt(this.stationId)?.name ?? null,
           stationId: this.stationId,
           kind,
-          position: NotePosition.of(this.notes.length),
+          position: NotePosition.nextIn(this.notes),
           deferredMove,
         }),
       ],
-      ...(newNote.voice.isStation ? {} : { finishedAt: null }),
+      finishedAt: this.reopenedBy(newNote) ? null : this.finishedAt,
     };
+  }
+
+  private reopenedBy(newNote: NewNote): boolean {
+    return (
+      !newNote.voice.isStation &&
+      newNote.line !== null &&
+      this.reopenableOn(newNote.line)
+    );
   }
 
   private with(part: {
     stationId?: StationId;
     rank?: TaskRank;
     currentRunId?: RunId | null;
-    sessionId?: HarnessSession | null;
-    runnerId?: RunnerId | null;
+    session?: HarnessSession | null;
+    claimedBy?: RunnerId | null;
     notes?: readonly TaskNote[];
     pullRequestLink?: PullRequestLink | null;
-    marks?: readonly Mark[];
+    marks?: readonly HeldMark[];
     finishedAt?: Date | null;
     assignee?: UserId | null;
+    draftGeneration?: DraftGeneration;
     revision?: TaskRevision;
+    awaitedTurn?: AwaitedTurn | null;
+    answeredTurnAt?: Date | null;
   }): Task {
     const next = new Task(
       this.id,
@@ -1525,8 +1783,8 @@ export class Task extends EventRecorder {
       this.description,
       part.rank ?? this.rank,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,
-      part.sessionId !== undefined ? part.sessionId : this.sessionId,
-      part.runnerId !== undefined ? part.runnerId : this.runnerId,
+      part.session !== undefined ? part.session : this.session,
+      part.claimedBy !== undefined ? part.claimedBy : this.claimedBy,
       part.notes ?? this.notes,
       this.createdAt,
       this.originStationId,
@@ -1535,18 +1793,28 @@ export class Task extends EventRecorder {
       part.pullRequestLink !== undefined
         ? part.pullRequestLink
         : this.pullRequestLink,
-      part.marks ?? this.marks,
+      part.marks ?? this.heldMarks,
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
       part.assignee !== undefined ? part.assignee : this.assignee,
       this.attachments,
       this.proposedIn,
+      part.draftGeneration ?? this.draftGeneration,
       part.revision ?? this.revision,
       this.version,
+      part.awaitedTurn !== undefined ? part.awaitedTurn : this.awaitedTurn,
+      part.answeredTurnAt !== undefined
+        ? part.answeredTurnAt
+        : this.answeredTurnAt,
     );
 
     next.inheritEvents(this);
 
-    return next;
+    const awaited = next.awaitedTurn;
+
+    return awaited &&
+      !(next.hasCurrentRun(awaited.runId) && next.awaitingReview)
+      ? next.with({ awaitedTurn: null })
+      : next;
   }
 
   deleted(): Task {

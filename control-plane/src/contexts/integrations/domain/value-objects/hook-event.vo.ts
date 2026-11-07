@@ -112,6 +112,10 @@ export class HookEvent {
     return HOOK_EVENT_TRAITS[this.name].aboutChanges;
   }
 
+  get matchedAfterChanges(): boolean {
+    return this.aboutChanges && !this.inRun;
+  }
+
   equals(other: HookEvent): boolean {
     return this.kind === other.kind && this.name === other.name;
   }

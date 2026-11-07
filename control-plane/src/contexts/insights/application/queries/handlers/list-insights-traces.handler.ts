@@ -7,20 +7,22 @@ import type { InsightsReaderPort } from '@insights/application/ports/insights-re
 import type { PeoplePort } from '@insights/application/ports/people.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
 import type { ListInsightsTracesQuery } from '@insights/application/queries/list-insights-traces.query';
+import { runFilterInputOf } from '@insights/application/queries/run-filter-query';
 import type { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { windowOf } from '@insights/application/services/team-scopes.service';
 import {
   type RunFilter,
   runFilterOf,
 } from '@insights/domain/services/run-filter';
-import type { TeamAccess } from '@insights/domain/services/team-access';
 import { traceVolumeOf } from '@insights/domain/services/trace-volume';
 import { MAX_TRACED_RUNS, tracesOf } from '@insights/domain/services/traces';
 import { unfinishedMatching } from '@insights/domain/services/unfinished-runs';
 import { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
+import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class ListInsightsTracesHandler
   implements QueryHandlerPort<ListInsightsTracesQuery, InsightsTracesDto>
@@ -35,11 +37,14 @@ export class ListInsightsTracesHandler
 
   async execute(query: ListInsightsTracesQuery): Promise<InsightsTracesDto> {
     try {
-      const access = await this.access.accessFor(query.teamId, query.principal);
+      const access = await this.access.accessFor(
+        TeamId.of(query.teamId),
+        query.principal,
+      );
       const range = TraceRange.of(query.range, this.clock.now());
-      const filter = runFilterOf(query.filter, range);
+      const filter = runFilterOf(runFilterInputOf(query.filter), range);
       const [unfinished, listed] = await Promise.all([
-        this.work.unfinishedRuns(access.teamId.value),
+        this.work.unfinishedRuns(access.teamId),
         this.listed(access, range, filter),
       ]);
       const matching = unfinishedMatching(unfinished, filter);
@@ -89,7 +94,7 @@ export class ListInsightsTracesHandler
     }
   }
 
-  private listed(access: TeamAccess, range: TraceRange, filter: RunFilter) {
+  private listed(access: ViewedTeam, range: TraceRange, filter: RunFilter) {
     return this.reader.runPage({
       window: windowOf(access, range),
       filter,

@@ -1,71 +1,45 @@
 import type { DeletionsPort } from '@insights/application/ports/deletions.port';
-import type { PullRequestTombstone } from '@insights/domain/services/pull-request-tombstone';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import type { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
+import { Tombstones } from '@insights/domain/value-objects/tombstones.vo';
 
 export const deletionsInMemory = (): DeletionsPort & {
   readonly locks: string[];
+  deleted(scope: DeletionScope): boolean;
 } => {
   const tasks = new Set<string>();
   const teams = new Set<string>();
   const workspaces = new Set<string>();
-  const pullRequests = new Map<string, PullRequestTombstone>();
   const locks: string[] = [];
+  const keyOf = (scope: DeletionScope): string =>
+    scope.kind === 'task'
+      ? scope.taskId.value
+      : scope.kind === 'team'
+        ? `${scope.workspaceId.value} ${scope.teamId.value}`
+        : scope.workspaceId.value;
+  const setOf = (scope: DeletionScope): Set<string> =>
+    scope.kind === 'task' ? tasks : scope.kind === 'team' ? teams : workspaces;
 
   return {
     locks,
-    deleteTask: async (_workspaceId, taskId) => {
-      tasks.add(taskId.value);
+    deleted: (scope) => setOf(scope).has(keyOf(scope)),
+    markDeleted: async (scope) => {
+      setOf(scope).add(keyOf(scope));
     },
-    deleteTeam: async (workspaceId, teamId) => {
-      teams.add(`${workspaceId.value} ${teamId.value}`);
-    },
-    deleteWorkspace: async (workspaceId) => {
-      workspaces.add(workspaceId.value);
-
-      for (const key of pullRequests.keys()) {
-        if (key.startsWith(`${workspaceId.value} `)) {
-          pullRequests.delete(key);
-        }
-      }
-    },
-    lockDeletion: async (workspaceId, taskId, teamId) => {
+    tombstonesOf: async (owner: FactOwner) => {
       locks.push(
-        [workspaceId.value, teamId?.value, taskId?.value]
-          .filter((each) => each !== undefined && each !== null)
+        [owner.workspaceId.value, owner.teamId?.value, owner.taskId?.value]
+          .filter((each) => each !== undefined)
           .join(' '),
       );
-    },
-    isDeleted: async (workspaceId, taskId, teamId) =>
-      workspaces.has(workspaceId.value) ||
-      (taskId !== null && tasks.has(taskId.value)) ||
-      (teamId !== undefined &&
-        teamId !== null &&
-        teams.has(`${workspaceId.value} ${teamId.value}`)),
-    lockPullRequestDeletion: async (workspaceId, pullRequest) => {
-      locks.push(`${workspaceId.value} ${pullRequest.value}`);
-    },
-    deletePullRequest: async (workspaceId, pullRequest, tombstone) => {
-      const key = `${workspaceId.value} ${pullRequest.value}`;
-      const existing = pullRequests.get(key);
 
-      if (
-        !existing ||
-        existing.updatedAt.getTime() < tombstone.updatedAt.getTime()
-      ) {
-        pullRequests.set(key, tombstone);
-      }
-    },
-    tombstoneOf: async (workspaceId, pullRequest) =>
-      pullRequests.get(`${workspaceId.value} ${pullRequest.value}`) ?? null,
-    purgeTombstonesBefore: async (before, max) => {
-      const dropped = [...pullRequests.entries()]
-        .filter(([, each]) => each.updatedAt.getTime() < before.getTime())
-        .slice(0, max);
-
-      for (const [key] of dropped) {
-        pullRequests.delete(key);
-      }
-
-      return dropped.length;
+      return Tombstones.of({
+        workspace: workspaces.has(owner.workspaceId.value),
+        team:
+          owner.teamId !== null &&
+          teams.has(`${owner.workspaceId.value} ${owner.teamId.value}`),
+        task: owner.taskId !== null && tasks.has(owner.taskId.value),
+      });
     },
   };
 };

@@ -1,4 +1,5 @@
 import type { CronCalendar } from '@integrations/domain/services/cron-calendar';
+import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import { describe, expect, it } from 'vitest';
@@ -18,23 +19,23 @@ const hourly: CronCalendar = {
 const schedule = () =>
   Schedule.of({
     cron: CronExpression.of('0 * * * *', hourly),
-    action: 'digest',
+    action: actionNamed('digest'),
   });
 
 describe('Schedule', () => {
   it('starts its clock the first time it is seen', () => {
-    expect(schedule().turn(null, new Date())).toBe('starts');
+    expect(schedule().turn(null, new Date(), hourly)).toBe('starts');
   });
 
   it('is due once its cron has come round, and waits until then', () => {
     const ran = new Date('2026-09-07T09:00:00.000Z');
 
-    expect(schedule().turn(ran, new Date('2026-09-07T09:30:00.000Z'))).toBe(
-      'waits',
-    );
-    expect(schedule().turn(ran, new Date('2026-09-07T10:00:00.000Z'))).toBe(
-      'due',
-    );
+    expect(
+      schedule().turn(ran, new Date('2026-09-07T09:30:00.000Z'), hourly),
+    ).toBe('waits');
+    expect(
+      schedule().turn(ran, new Date('2026-09-07T10:00:00.000Z'), hourly),
+    ).toBe('due');
   });
 
   it('rejects a cron its calendar cannot read', () => {

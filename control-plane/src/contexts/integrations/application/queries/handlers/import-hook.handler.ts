@@ -32,7 +32,7 @@ export class ImportHookHandler
           )
         : undefined;
       const record = team
-        ? await this.resources.at(team.id, address.key.value)
+        ? await this.resources.at(team.id, address.key)
         : null;
 
       return record ? this.views.onTeam(record, address.teamKey) : null;

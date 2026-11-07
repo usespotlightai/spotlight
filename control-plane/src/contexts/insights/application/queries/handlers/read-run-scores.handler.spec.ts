@@ -1,10 +1,17 @@
-import type { StationJudge } from '@insights/application/ports/evidence.port';
+import type { StationJudge } from '@insights/application/ports/station-judges.port';
 import { ReadRunScoresHandler } from '@insights/application/queries/handlers/read-run-scores.handler';
 import { ReadRunScoresQuery } from '@insights/application/queries/read-run-scores.query';
+import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Score } from '@insights/domain/aggregates/score.aggregate';
+import { Citation } from '@insights/domain/value-objects/citation.vo';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
+import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
   JudgingsInMemory,
   judgeScore,
@@ -14,26 +21,22 @@ import {
   RUBRIC_VERSION,
   rubricOf,
   ScoresInMemory,
-} from '@insights/domain/judging.fake-spec';
+} from '@insights/judging.fake-spec';
 import {
   endedRecord,
   NOBODY_ELSE,
   RunRecordsInMemory,
-  TaskPullRequestsInMemory,
+  StationFactsInMemory,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
-import { Citation } from '@insights/domain/value-objects/citation.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
-import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+} from '@insights/runs.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const JUDGE: StationJudge = {
-  teamId: 'team_1',
-  lineId: 'line_1',
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
   rubric: 'Did the run retry uploads?',
   rubricVersion: RUBRIC_VERSION,
   claims: [],
@@ -113,21 +116,18 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
   return new ReadRunScoresHandler(
     new InsightsAccess({
       ...NOBODY_ELSE,
-      membershipOnTeam: async (_teamId, principal) => ({
+      viewerOf: async (_teamId, principal) => ({
         workspaceId: WORKSPACE,
         by: principal.userId,
       }),
     }),
     new RunScoresViews(
-      records,
-      scores,
+      new StationFactsInMemory(records, { scores }),
       new StationJudgeReports(
         evidence,
-        scores,
-        records,
-        new TaskPullRequestsInMemory(),
+        new StationFactsInMemory(records, { scores }),
       ),
-      judgings,
+      new GradingTermsOf(evidence, judgings),
     ),
   );
 };

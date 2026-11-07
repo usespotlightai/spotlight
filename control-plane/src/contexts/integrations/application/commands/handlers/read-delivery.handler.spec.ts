@@ -1,14 +1,22 @@
 import { ReadDeliveryHandler } from '@integrations/application/commands/handlers/read-delivery.handler';
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
-import type { StoredDelivery } from '@integrations/application/ports/delivery-queue.port';
+import type { ReceivedDelivery } from '@integrations/application/dto/received-delivery.dto';
+import { causationInMemory } from '@integrations/application/ports/causation.fake-spec';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
 import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
-import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
+import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery-reactions.adapter';
+import { ProviderDeliveryReader } from '@integrations/infrastructure/webhooks/provider-delivery-reader';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
+import type { HappeningsReaction } from '@work/application/ports/happening-reactions.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const MERGED = 'github.pull_request.merged';
@@ -24,29 +32,36 @@ const payloadOf = (ourOwn = false): Happened => ({
   opens: null,
 });
 
-const stored: StoredDelivery = {
-  integration: 'github',
+const stored: ReceivedDelivery = {
+  integration: IntegrationKey.of('github'),
   to: null,
-  id: 'delivery_1',
+  id: InboundDeliveryId.of('delivery_1'),
+  receivedAs: 'delivery:github::delivery_1',
   headers: {},
   body: {},
-  attempts: 0,
+  causeFiringId: null,
 };
 
 const reading = (
   carried: readonly Happened[],
   over: { workspaceId?: string | null } = {},
 ) => {
-  const react = vi.fn(async () => {});
+  const react = vi.fn(
+    async (): Promise<HappeningsReaction> => ({ kind: 'reacted' }),
+  );
+  const read = vi.fn(async () => carried);
   const causation = causationInMemory();
   const chains: string[] = [];
   const firings = {
-    chainOf: vi.fn(async (workspaceId: string, firingId: string) =>
-      workspaceId === 'ws_1' && firingId === 'firing_1' ? FIRED : null,
+    chainOf: vi.fn(async (workspaceId: WorkspaceId, firingId: HookFiringId) =>
+      workspaceId.value === 'ws_1' && firingId.value === 'firing_1'
+        ? FIRED
+        : null,
     ),
   } as unknown as HookFiringHistoryPort;
   react.mockImplementation(async () => {
     chains.push(causation.current().description);
+    return { kind: 'reacted' };
   });
   const logger = {
     debug: vi.fn(),
@@ -66,18 +81,19 @@ const reading = (
             over.workspaceId === null
               ? null
               : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
-          read: async () => carried,
+          read,
         } satisfies WebhookProviderPort,
       ]),
       { find: async () => null, all: async () => [] },
     ),
-    { react },
+    new ProviderDeliveryReader(),
+    new WorkDeliveryReactions({ react }),
     firings,
     causation,
     logger,
   );
 
-  return { handler, react, firings, chains, logger };
+  return { handler, react, read, firings, chains, logger };
 };
 
 const FIRED = CausalChain.none().append({
@@ -93,7 +109,7 @@ describe('ReadDeliveryHandler', () => {
     await handler.execute(
       new ReadDeliveryCommand({
         ...stored,
-        headers: { 'spotlight-cause': 'firing_1' },
+        causeFiringId: HookFiringId.of('firing_1'),
       }),
     );
 
@@ -106,7 +122,7 @@ describe('ReadDeliveryHandler', () => {
     await handler.execute(
       new ReadDeliveryCommand({
         ...stored,
-        headers: { 'spotlight-cause': 'firing_elsewhere' },
+        causeFiringId: HookFiringId.of('firing_elsewhere'),
       }),
     );
     await handler.execute(new ReadDeliveryCommand(stored));
@@ -134,7 +150,10 @@ describe('ReadDeliveryHandler', () => {
 
     expect(react).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ deliveryId: stored.id, reason: 'nothing-new' }),
+      expect.objectContaining({
+        deliveryId: stored.id.value,
+        reason: 'nothing-new',
+      }),
       'Ignored a delivery',
     );
   });
@@ -151,5 +170,56 @@ describe('ReadDeliveryHandler', () => {
       expect.objectContaining({ reason: 'no-workspace' }),
       'Ignored a delivery',
     );
+  });
+
+  it.each<[string, boolean, DeliveryFailure]>([
+    [
+      'a failure Work says may pass',
+      true,
+      DeliveryFailure.transient('changed meanwhile'),
+    ],
+    [
+      'a failure Work says is for good',
+      false,
+      DeliveryFailure.permanent('changed meanwhile'),
+    ],
+  ])('says whether to read again after %s', async (_, transient, failure) => {
+    const { handler, react } = reading([payloadOf()]);
+    react.mockResolvedValueOnce({
+      kind: 'failed',
+      transient,
+      reason: 'changed meanwhile',
+    });
+
+    await expect(
+      handler.execute(new ReadDeliveryCommand(stored)),
+    ).resolves.toEqual(failure);
+  });
+
+  it('says whether to read again when the service could not be read', async () => {
+    const { handler, read, react } = reading([payloadOf()]);
+    read.mockRejectedValueOnce(new UpstreamError('reading', 'no answer'));
+
+    await expect(
+      handler.execute(new ReadDeliveryCommand(stored)),
+    ).resolves.toEqual(DeliveryFailure.transient('reading: no answer'));
+    expect(react).not.toHaveBeenCalled();
+  });
+
+  it('lets a failure it does not know through', async () => {
+    const { handler, react } = reading([payloadOf()]);
+    react.mockRejectedValueOnce(new TypeError('a bug'));
+
+    await expect(
+      handler.execute(new ReadDeliveryCommand(stored)),
+    ).rejects.toThrow('a bug');
+  });
+
+  it('has no failure for a delivery it read', async () => {
+    const { handler } = reading([payloadOf()]);
+
+    await expect(
+      handler.execute(new ReadDeliveryCommand(stored)),
+    ).resolves.toBeNull();
   });
 });

@@ -1,5 +1,5 @@
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 

@@ -33,8 +33,8 @@ export class DeleteHarnessProfileHandler
     try {
       const existing = await this.profiles.withId(id);
       const permissions = existing
-        ? await this.access.permissionsOnTeam(
-            existing.teamId.value,
+        ? await this.access.permissionsInWorkspaceOfTeam(
+            existing.teamId,
             command.actor.principal,
           )
         : null;
@@ -49,10 +49,7 @@ export class DeleteHarnessProfileHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const named = await this.stationReferences.onTeam(
-        existing.teamId,
-        'profile',
-      );
+      const named = await this.stationReferences.profilesOn(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.profiles.save(

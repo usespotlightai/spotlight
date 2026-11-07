@@ -86,6 +86,20 @@ describe('Team', () => {
     expect((raised as TeamCreated).workspaceId).toEqual(WORKSPACE);
   });
 
+  it('keeps whether it was made at sign-up or by configuration', () => {
+    expect(createdAtSignUp().origin).toBe('sign-up');
+    expect(
+      Team.create({
+        workspaceId: WORKSPACE,
+        name: TeamName.of('Platform'),
+        key: TeamKey.of('core'),
+        createdBy: OWNER,
+        id: TeamId.of('team_1'),
+        by: BY,
+      }).origin,
+    ).toBe('configuration');
+  });
+
   it('says nothing of the sort once it has been read back', () => {
     expect(
       Team.rehydrate({
@@ -93,6 +107,7 @@ describe('Team', () => {
         workspaceId: WORKSPACE,
         key: TeamKey.of('platform'),
         name: TeamName.of('Platform'),
+        origin: 'configuration',
         members: [OWNER],
         version: 0,
       }).pullEvents(),
@@ -138,11 +153,11 @@ describe('Team', () => {
       workspaceId: WORKSPACE,
       key: TeamKey.of('platform'),
       name: TeamName.of('Platform'),
+      origin: 'configuration',
       members: [OWNER],
       version: 4,
     });
 
-    expect(read.rename(TeamName.of('Core')).version).toBe(4);
     expect(read.join(SECOND, acme()).version).toBe(4);
   });
 
@@ -153,6 +168,7 @@ describe('Team', () => {
         workspaceId: WORKSPACE,
         key: TeamKey.of('platform'),
         name: TeamName.of('Platform'),
+        origin: 'configuration',
         members: [],
         version: 0,
       }),
@@ -162,7 +178,7 @@ describe('Team', () => {
   it('is the same team as another that has its identity', () => {
     const created = createdAtSignUp();
 
-    expect(created.equals(created.rename(TeamName.of('Renamed')))).toBe(true);
+    expect(created.equals(created.join(SECOND, acme()))).toBe(true);
   });
 
   describe('as a resource', () => {
@@ -182,6 +198,7 @@ describe('Team', () => {
         workspaceId: WORKSPACE,
         key: TeamKey.of('core'),
         name: TeamName.of('Core'),
+        origin: 'configuration',
         members: [OWNER],
         version,
       });
@@ -226,6 +243,18 @@ describe('Team', () => {
       ]);
     });
 
+    it('stays as it is, and says nothing, when its definition is unchanged', () => {
+      const team = stored();
+
+      expect(
+        team.update({ key: TeamKey.of('core'), name: TeamName.of('Core') }, BY),
+      ).toBe(team);
+    });
+
+    it('is read back only at a version it could have been written at', () => {
+      expect(() => stored(-1)).toThrow(InconsistentStateError);
+    });
+
     it('keeps its key for its whole life', () => {
       expect(() =>
         stored().update(
@@ -237,7 +266,13 @@ describe('Team', () => {
 
     it('is deleted only once it has nothing', () => {
       expect(() =>
-        stored().delete(Dependents.of(['line delivery', 'skill grafana']), BY),
+        stored().delete(
+          Dependents.of([
+            { kind: 'skill', key: 'grafana' },
+            { kind: 'line', key: 'delivery' },
+          ]),
+          BY,
+        ),
       ).toThrow(/It still has: line delivery, skill grafana/);
 
       const deleted = stored().delete(Dependents.none(), BY);

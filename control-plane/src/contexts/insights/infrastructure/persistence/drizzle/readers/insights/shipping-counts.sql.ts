@@ -1,5 +1,4 @@
 import type { TeamInPeriod } from '@insights/application/ports/insights-reader.port';
-import type { BotActivity } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import {
   type Percentiles,
   percentilesOf,
@@ -18,13 +17,14 @@ import {
   type Timed,
   type TypeMerge,
 } from '@insights/domain/services/shipping';
-import type { StationLocation } from '@insights/domain/services/team-history';
+import type { StationLocation } from '@insights/domain/services/station-ranking';
 import { ROUND_BUCKETS } from '@insights/domain/services/team-pull-requests';
 import type { Window } from '@insights/domain/value-objects/insights-period.vo';
 import {
   PULL_REQUEST_TYPES,
   type PullRequestType,
 } from '@insights/domain/value-objects/pull-request-type';
+import type { BotActivity } from '@insights/domain/value-objects/seen-pull-request.vo';
 import {
   openedFor,
   ranOfOpened,
@@ -115,7 +115,7 @@ const byAuthor = (when: SQL): SQL => sql`json_build_object(
 )`;
 
 const mergedBetween = (from: SQL, to: SQL): SQL =>
-  sql`state = 'merged' and closed_at >= ${from} and closed_at < ${to}`;
+  sql`merged_at >= ${from} and merged_at < ${to}`;
 
 const days = (team: TeamInPeriod): SQL => sql`(
   select

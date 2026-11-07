@@ -7,20 +7,20 @@ import type {
   RunnerPoolRecord,
   RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
+import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
+import { occupancyOf } from '@runners/application/services/pool-occupancy';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
+import type { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
-
-const PLATFORM = 'spotlight';
-
-const usesEgress = (egress: string | null, platform: boolean): boolean =>
-  egress !== null && (egress !== PLATFORM || platform);
 
 export class RunnerPools implements RunnerPoolsPort {
   constructor(
     private readonly pools: RunnerPoolRepository,
     private readonly runners: RunnerRepository,
+    private readonly placements: SandboxPlacementsPort,
     private readonly resources: RunnerResourcesPort,
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly platform: boolean,
@@ -39,8 +39,8 @@ export class RunnerPools implements RunnerPoolsPort {
       return null;
     }
 
-    const id = RunnerPoolId.of(authenticated.source.id);
-    const pool = id.equals(RunnerPoolId.of(poolId))
+    const id = PoolId.of(authenticated.source.id);
+    const pool = id.equals(PoolId.of(poolId))
       ? await this.pools.find(id)
       : null;
 
@@ -50,7 +50,7 @@ export class RunnerPools implements RunnerPoolsPort {
           workspaceId: pool.workspaceId,
           key: pool.key.value,
           labels: RunnerOffer.of(pool.labels.values),
-          egress: usesEgress(pool.egress?.value ?? null, this.platform),
+          egress: pool.egress?.usableWith(this.platform) ?? false,
         }
       : null;
   }
@@ -62,16 +62,18 @@ export class RunnerPools implements RunnerPoolsPort {
   }
 
   async running(poolId: string, now: Date): Promise<number> {
-    return (await this.runners.aliveIn(RunnerPoolId.of(poolId), now)).length;
+    return (await this.occupancyOf(PoolId.of(poolId), now)).runners;
   }
 
   async roomIn(poolId: string, now: Date): Promise<number | null> {
-    const id = RunnerPoolId.of(poolId);
+    const id = PoolId.of(poolId);
     const pool = await this.pools.find(id);
 
-    return pool
-      ? pool.roomFor((await this.runners.aliveIn(id, now)).length)
-      : 0;
+    return pool ? pool.roomFor(await this.occupancyOf(id, now)) : 0;
+  }
+
+  private occupancyOf(id: PoolId, now: Date): Promise<PoolOccupancy> {
+    return occupancyOf(this.runners, this.placements, id, now);
   }
 
   private atWork(pool: RunnerPoolRecord): PoolAtWork {
@@ -80,7 +82,9 @@ export class RunnerPools implements RunnerPoolsPort {
       workspaceId: pool.workspaceId,
       key: pool.key,
       labels: RunnerOffer.of(pool.labels),
-      egress: usesEgress(pool.provision?.egress ?? null, this.platform),
+      egress: pool.provision?.egress
+        ? EgressReference.of(pool.provision.egress).usableWith(this.platform)
+        : false,
     };
   }
 }

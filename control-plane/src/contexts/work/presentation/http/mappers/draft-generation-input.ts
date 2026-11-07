@@ -5,11 +5,11 @@ export const draftGenerationInput = (value: unknown): number | null => {
     return null;
   }
 
-  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+  if (typeof value === 'number') {
     return value;
   }
 
   throw new BadRequestException(
-    'Field draftGeneration must be a whole number from zero, or null.',
+    'Field draftGeneration must be a number, or null.',
   );
 };

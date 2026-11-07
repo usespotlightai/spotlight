@@ -22,7 +22,12 @@ export class DisconnectIntegrationHandler
     try {
       const viewer = UserId.of(command.viewerId);
 
-      if (!(await this.access.onTeam(command.teamId, viewer))) {
+      if (
+        !(await this.access.inWorkspaceOfTeam(
+          TeamId.of(command.teamId),
+          viewer,
+        ))
+      ) {
         return false;
       }
 
@@ -34,7 +39,7 @@ export class DisconnectIntegrationHandler
 
       if (connection) {
         await this.transaction.inTransaction(() =>
-          this.connections.remove(connection.disconnect()),
+          this.connections.remove(connection),
         );
       }
 

@@ -3,7 +3,7 @@ import {
   CatalogSkill,
   CatalogTool,
 } from '@catalog/domain/entities/catalog-item.entity';
-import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
+import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
 import {
   resolveEntitled,
   resolveEntitledFor,
@@ -37,7 +37,7 @@ const skill = (name: string, requiredPlan: Plan, tools: readonly string[]) =>
     tools.map((each) => CatalogItemId.parse(each)),
   );
 
-const catalogOf = (items: readonly CatalogItem[]): CatalogRepository => ({
+const catalogOf = (items: readonly CatalogItem[]): CatalogItems => ({
   versionsOf: (kind, name) =>
     items.filter(
       (each) => each.kind === kind && each.metadata.name.equals(name),

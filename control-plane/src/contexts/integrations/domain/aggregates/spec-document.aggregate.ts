@@ -2,7 +2,8 @@ import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/inv
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
-import { repeatedIn } from '@shared-kernel/domain/services/distinct';
+import { repeatedIn } from '@shared-kernel/domain/distinct';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 interface State {
   readonly hash: ContentHash;
@@ -12,27 +13,45 @@ interface State {
   readonly readAt: Date;
 }
 
+interface Stored extends State {
+  readonly version: number;
+}
+
+const guardDistinct = (input: State): void => {
+  const twice = repeatedIn(input.operations.map((each) => each.name));
+
+  if (twice) {
+    throw new InvalidIntegrationPartError(
+      input.kind,
+      `was read with two operations called ${twice}`,
+    );
+  }
+};
+
 export class SpecDocument {
-  private constructor(private readonly state: State) {}
+  private constructor(private readonly state: Stored) {}
 
   static read(input: State): SpecDocument {
-    const twice = repeatedIn(input.operations.map((each) => each.name));
-
-    if (twice) {
-      throw new InvalidIntegrationPartError(
-        input.kind,
-        `was read with two operations called ${twice}`,
-      );
-    }
+    guardDistinct(input);
 
     return new SpecDocument({
       ...input,
       operations: [...input.operations],
       skipped: [...input.skipped],
+      version: 0,
     });
   }
 
-  static rehydrate(input: State): SpecDocument {
+  static rehydrate(input: Stored): SpecDocument {
+    if (!Number.isInteger(input.version) || input.version < 1) {
+      throw new InconsistentStateError(
+        'spec document',
+        `has an impossible version (${input.version})`,
+      );
+    }
+
+    guardDistinct(input);
+
     return new SpecDocument(input);
   }
 
@@ -54,6 +73,10 @@ export class SpecDocument {
 
   get readAt(): Date {
     return this.state.readAt;
+  }
+
+  get version(): number {
+    return this.state.version;
   }
 
   operation(name: string): SpecOperation | null {

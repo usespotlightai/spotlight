@@ -483,33 +483,33 @@ func TestReadsTheWorkspaceToRestoreAndLearnsWhenThereIsNone(t *testing.T) {
 	var received string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		received = r.Method + " " + r.URL.Path
-		if strings.HasSuffix(r.URL.Path, "/run_2/workspace-archive") {
+		if strings.HasSuffix(r.URL.Path, "/run_2/working-copy-archive") {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		_ = json.NewEncoder(w).Encode(protocol.StoredArchive{ID: "archive_1", URL: "https://storage.test/a", Size: 12, SHA256: "ab"})
 	})
 
-	stored, err := client.WorkspaceArchive(context.Background(), "run_1")
+	stored, err := client.WorkingCopyArchive(context.Background(), "run_1")
 	if err != nil || stored == nil || stored.ID != "archive_1" || stored.Size != 12 {
 		t.Fatalf("stored %+v, %v", stored, err)
 	}
-	if received != "GET /api/runs/run_1/workspace-archive" {
+	if received != "GET /api/runs/run_1/working-copy-archive" {
 		t.Errorf("received %s", received)
 	}
 
-	none, err := client.WorkspaceArchive(context.Background(), "run_2")
+	none, err := client.WorkingCopyArchive(context.Background(), "run_2")
 	if err != nil || none != nil {
 		t.Errorf("expected nothing to restore, got %+v, %v", none, err)
 	}
 }
 
-func TestRequestsAWorkspaceArchiveThenCompletesIt(t *testing.T) {
+func TestRequestsAWorkingCopyArchiveThenCompletesIt(t *testing.T) {
 	var calls []string
 	var received protocol.ArchiveRequest
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		calls = append(calls, r.Method+" "+r.URL.Path)
-		if r.URL.Path == "/api/runs/run_1/workspace-archive" {
+		if r.URL.Path == "/api/runs/run_1/working-copy-archive" {
 			_ = json.NewDecoder(r.Body).Decode(&received)
 			_ = json.NewEncoder(w).Encode(protocol.ArchiveGrant{
 				ID: "archive_1", URL: "https://storage.test/put", Headers: map[string]string{"content-type": "application/gzip"},
@@ -530,7 +530,7 @@ func TestRequestsAWorkspaceArchiveThenCompletesIt(t *testing.T) {
 	if err := client.CompleteArchive(context.Background(), "run_1", grant.ID); err != nil {
 		t.Fatalf("complete: %v", err)
 	}
-	if calls[1] != "POST /api/runs/run_1/workspace-archive/archive_1/complete" {
+	if calls[1] != "POST /api/runs/run_1/working-copy-archive/archive_1/complete" {
 		t.Errorf("completed with %s", calls[1])
 	}
 }
@@ -571,7 +571,7 @@ func TestSaysWhereTheRunStartedNamingAnArchiveOrNone(t *testing.T) {
 
 func TestSaysWhyTheWorkspaceCannotBeArchived(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, `{"message":"A workspace archive cannot be stored, because this deployment has nowhere to store one"}`, http.StatusUnprocessableEntity)
+		http.Error(w, `{"message":"A working copy archive cannot be stored, because this deployment has nowhere to store one"}`, http.StatusUnprocessableEntity)
 	})
 
 	_, err := client.GrantArchive(context.Background(), "run_1", 42, "ab")

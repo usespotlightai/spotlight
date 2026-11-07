@@ -17,6 +17,10 @@ export class ActsAs {
     return kind === 'requester' ? ActsAs.requester() : ActsAs.team();
   }
 
+  static chosen(kind: ActsAsKind | null): ActsAs {
+    return kind === null ? ActsAs.team() : ActsAs.of(kind);
+  }
+
   get byRequester(): boolean {
     return this.kind === 'requester';
   }

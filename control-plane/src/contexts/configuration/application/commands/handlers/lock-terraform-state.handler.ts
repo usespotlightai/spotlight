@@ -1,10 +1,12 @@
 import type { LockTerraformStateCommand } from '@configuration/application/commands/lock-terraform-state.command';
 import type { StateChanged } from '@configuration/application/dto/terraform-state-outcomes.dto';
+import { TerraformLockBody } from '@configuration/application/mappers/terraform-lock-body.mapper';
 import type { TerraformStates } from '@configuration/application/services/terraform-states.service';
 import { TerraformStateLockedError } from '@configuration/domain/exceptions/terraform-state-locked.error';
 import { TerraformStateVersionConflictError } from '@configuration/domain/exceptions/terraform-state-version-conflict.error';
 import type { TerraformStateRepository } from '@configuration/domain/repositories/terraform-state.repository';
-import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
+import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
+import type { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -38,11 +40,11 @@ export class LockTerraformStateHandler
         return forbiddenTo('plan');
       }
 
-      const lock = StateLock.of({
-        info: command.info,
-        lockedBy: command.actor.principal.toString(),
-        lockedAt: this.clock.now(),
-      });
+      const lock = TerraformLockBody.lockOf(
+        command.info,
+        PrincipalRef.of(command.actor.principal),
+        this.clock.now(),
+      );
       const name = StateName.of(command.name);
 
       try {
@@ -58,7 +60,7 @@ export class LockTerraformStateHandler
       return { outcome: 'done' };
     } catch (error) {
       if (error instanceof TerraformStateLockedError) {
-        return { outcome: 'locked', holder: error.holder.info };
+        return { outcome: 'locked', holder: error.holder.asWritten };
       }
 
       rethrowAsApplicationError(error);

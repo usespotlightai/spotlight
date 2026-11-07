@@ -3,18 +3,19 @@ import type {
   JournalStep,
   RunJournal,
   RunSpan,
-} from '@work/application/contracts/run-journal.contract';
+} from '@runs/application/contracts/run-journal.contract';
 import type {
   JournalledRunDto,
   JournalStepDto,
   RunJournalDto,
   RunSpanDto,
 } from '@work/application/dto/run-journal.dto';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 
 const isoOrNull = (at: Date | null): string | null => at?.toISOString() ?? null;
 
 export const stepToDto = (step: JournalStep): JournalStepDto => ({
-  kind: step.kind,
+  kind: RunReadingMapper.stepKind(step.kind),
   text: step.text,
   status: step.status,
   tool: step.tool,

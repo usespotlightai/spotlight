@@ -4,10 +4,10 @@ import type {
   TallyDeltasDto,
 } from '@insights/application/dto/insights.dto';
 import type {
-  TallyCounted,
-  TallySeen,
-} from '@insights/domain/services/run-tally';
-import type { DayTally } from '@insights/domain/services/station-reports';
+  DayTallyDto,
+  TallyCountedDto,
+  TallySeenDto,
+} from '@insights/application/dto/read-model.dto';
 import {
   RunFailureSummaryResponseDto,
   TaskFailureSummaryResponseDto,
@@ -103,7 +103,7 @@ export class TallySeenResponseDto {
   })
   readonly merged: boolean;
 
-  constructor(seen: TallySeen) {
+  constructor(seen: TallySeenDto) {
     this.accepted = seen.accepted;
     this.sentBack = seen.sentBack;
     this.merged = seen.merged;
@@ -138,7 +138,7 @@ export class TallyCountedResponseDto {
   @ApiProperty({ example: false })
   readonly cancelled: boolean;
 
-  constructor(counted: TallyCounted) {
+  constructor(counted: TallyCountedDto) {
     this.failed = counted.failed;
     this.stopped = counted.stopped;
     this.checksPassed = counted.checksPassed;
@@ -158,7 +158,7 @@ export class DayTallyResponseDto {
   @ApiProperty({ type: RunTallyResponseDto })
   readonly tally: RunTallyResponseDto;
 
-  constructor(day: DayTally) {
+  constructor(day: DayTallyDto) {
     this.day = day.day;
     this.tally = new RunTallyResponseDto(day.tally);
   }

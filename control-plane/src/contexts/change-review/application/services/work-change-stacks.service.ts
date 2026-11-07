@@ -5,6 +5,7 @@ import { ChangeStackVersionConflictError } from '@change-review/domain/exception
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -73,10 +74,9 @@ export class WorkChangeStacks implements PendingJobsPort {
       return this.generating.generated(stack);
     }
 
-    const check = await this.checks.find(stack.id, false);
-
-    return check
-      ? this.redrafting.redrafted(stack, check)
-      : stack.stopRedrafting();
+    return this.redrafting.redrafted(
+      stack,
+      await this.checks.find(StackCheckId.first(stack.id)),
+    );
   }
 }

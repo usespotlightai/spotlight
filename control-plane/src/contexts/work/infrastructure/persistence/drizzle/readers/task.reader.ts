@@ -2,18 +2,14 @@ import {
   PERSON_READER,
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
-import {
-  TEAM_DIRECTORY,
-  type TeamDirectoryPort,
-} from '@identity/application/ports/team-directory.port';
-import {
-  WORKSPACE_ACCESS,
-  type WorkspaceAccessPort,
-} from '@identity/application/ports/workspace-access.port';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { after, pageOf } from '@platform/persistence/drizzle/keyset';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@runs/application/ports/run-progress.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -32,43 +28,29 @@ import {
   awaitedReviewsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import {
   task,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, asc, desc, eq, inArray, isNull, ne, type SQL } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
-
-const setupNote = alias(taskNote, 'setup_note');
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
+import { and, asc, desc, eq, inArray, ne, type SQL } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleTaskReader implements TaskReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
-    @Inject(WORKSPACE_ACCESS) private readonly access: WorkspaceAccessPort,
-    @Inject(TEAM_DIRECTORY) private readonly teams: TeamDirectoryPort,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
+    @Inject(RUN_PROGRESS) private readonly progress: RunProgressPort,
   ) {}
 
-  async listForTeamMember(
+  async listForTeam(
     teamId: TeamId,
-    userId: UserId,
     listing: TaskListing,
-  ): Promise<Page<TaskSummary> | null> {
-    const visible = await this.teams.find(teamId);
-
-    if (!visible || !(await this.access.mayView(userId, visible.workspaceId))) {
-      return null;
-    }
-
-    if (listing.state === 'open') {
+  ): Promise<Page<TaskSummary>> {
+    if (listing.state === 'board') {
       return {
         items: await this.summariesIn(
           teamId,
-          and(ne(station.kind, 'completed'), isNull(setupNote.taskId)),
+          and(ne(workStation.kind, 'completed'), eq(task.isSetup, false)),
           null,
         ),
         next: null,
@@ -80,9 +62,9 @@ export class DrizzleTaskReader implements TaskReaderPort {
     const rows = await this.summariesIn(
       teamId,
       and(
-        eq(station.kind, 'completed'),
-        isNull(setupNote.taskId),
-        listing.lineId ? eq(line.id, listing.lineId) : undefined,
+        eq(workStation.kind, 'completed'),
+        eq(task.isSetup, false),
+        listing.lineId ? eq(workStation.lineId, listing.lineId) : undefined,
         before ? after(task.rank, task.id, before) : undefined,
       ),
       page.limit + 1,
@@ -91,17 +73,10 @@ export class DrizzleTaskReader implements TaskReaderPort {
     return pageOf(rows, page.limit, (row) => ({ key: row.rank, id: row.id }));
   }
 
-  async findForTeamMember(
+  async findInTeam(
     teamId: TeamId,
-    userId: UserId,
     taskId: TaskId,
   ): Promise<TaskSummary | null> {
-    const visible = await this.teams.find(teamId);
-
-    if (!visible || !(await this.access.mayView(userId, visible.workspaceId))) {
-      return null;
-    }
-
     const [found] = await this.summariesIn(
       teamId,
       eq(task.id, taskId.value),
@@ -131,13 +106,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
         assigneeId: task.assigneeId,
       })
       .from(task)
-      .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(line, eq(line.id, station.lineId))
-      .leftJoin(
-        setupNote,
-        and(eq(setupNote.taskId, task.id), eq(setupNote.form, 'setup')),
-      )
-      .where(and(eq(line.teamId, teamId.value), narrowedTo))
+      .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+      .where(and(eq(workStation.teamId, teamId.value), narrowedTo))
       .orderBy(asc(task.rank), asc(task.id))
       .$dynamic();
     const rows = await (limit === null ? listed : listed.limit(limit));
@@ -160,7 +130,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         ),
       ),
       progressOfCurrentRuns(
-        this.db,
+        this.progress,
         rows.map((row) => row.currentRunId),
         true,
       ),

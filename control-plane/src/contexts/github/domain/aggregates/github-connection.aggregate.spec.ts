@@ -49,6 +49,19 @@ describe('GitHubConnection', () => {
     );
   });
 
+  it('says it let the first installation go when it takes a second one', () => {
+    expect(connected().connectTo(REINSTALLED, allowed).pullEvents()).toEqual([
+      new WorkspaceDisconnected(WORKSPACE, INSTALLED),
+      new WorkspaceConnected(WORKSPACE, REINSTALLED),
+    ]);
+  });
+
+  it('lets no installation go when it takes again the one it has', () => {
+    expect(connected().connectTo(INSTALLED, allowed).pullEvents()).toEqual([
+      new WorkspaceConnected(WORKSPACE, INSTALLED),
+    ]);
+  });
+
   it('keeps the version it was read at, for the repository to check', () => {
     expect(connected().connectTo(REINSTALLED, allowed).version).toBe(3);
   });
@@ -96,12 +109,22 @@ describe('GitHubConnection', () => {
     ).toEqual(INSTALLED);
   });
 
-  it('does not read back a connection that was never written', () => {
-    expect(() =>
+  it('reads back a connection stored at its first version', () => {
+    expect(
       GitHubConnection.rehydrate({
         workspaceId: WORKSPACE,
         installation: INSTALLED,
         version: 0,
+      }).isStored,
+    ).toBe(true);
+  });
+
+  it('does not read back a connection with an impossible version', () => {
+    expect(() =>
+      GitHubConnection.rehydrate({
+        workspaceId: WORKSPACE,
+        installation: INSTALLED,
+        version: -1,
       }),
     ).toThrow(InconsistentStateError);
   });

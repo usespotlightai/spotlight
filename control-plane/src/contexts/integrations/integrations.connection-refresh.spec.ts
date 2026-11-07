@@ -1,3 +1,8 @@
+import {
+  scopedTo,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
@@ -7,7 +12,9 @@ import { IntegrationConnection } from '@integrations/domain/aggregates/integrati
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -24,12 +31,7 @@ import {
 } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -87,15 +89,16 @@ const nearing = (over: { refreshToken?: string | null } = {}) =>
     integration: SLACK,
     owner: ConnectionOwner.team(),
     accessToken: AccessToken.of('xoxb-old'),
-    refreshToken: AccessToken.maybe(
+    refreshToken: RefreshToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
     ),
     expiresAt: new Date('2026-09-07T10:02:00.000Z'),
-    scopes: ['chat:write'],
+    scopes: [OAuthScope.of('chat:write')],
     linkedAccount: 'Acme',
     refreshFailedAt: null,
     refreshClaim: null,
     version: 1,
+    connectedAt: new Date('2026-09-01T00:00:00.000Z'),
   });
 
 const refreshing = (
@@ -136,6 +139,7 @@ const refreshing = (
         hosts,
       ),
       clock,
+      { for: async () => {} },
     ),
     clock,
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -192,9 +196,6 @@ describe('RefreshConnections', () => {
     expect(stored?.accessToken.value).toBe('xoxb-old');
     expect(stored?.refreshFailedAt).toEqual(NOW);
     expect(stored?.refreshClaim).toBeNull();
-    expect(connections.events.map((each) => each.kind)).toEqual([
-      'integrations.connection-refresh-failed',
-    ]);
     expect(warn).toHaveBeenCalledWith(
       { team: 'team_1', integration: 'slack', owner: 'team' },
       'The integration did not refresh a connection',
@@ -202,7 +203,7 @@ describe('RefreshConnections', () => {
   });
 
   it('leaves a connection that someone else refreshes to them', async () => {
-    const claimed = nearing().claimRefresh(NOW, 30_000);
+    const claimed = nearing().claimRefresh(NOW);
     const { it, refresh } = refreshing([claimed]);
 
     await it.refresh();

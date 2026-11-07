@@ -1,7 +1,9 @@
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface SearchRepository {
@@ -11,29 +13,19 @@ export interface SearchRepository {
 
   findMany(ids: readonly SearchId[]): Promise<readonly Search[]>;
 
-  ofSetsStartedSince(
-    setIds: readonly ReplaySetId[],
-    since: Date,
-  ): Promise<readonly Search[]>;
-
-  ofLineStartedSince(lineId: string, since: Date): Promise<readonly Search[]>;
-
-  lockedOfLineStartedSince(
-    lineId: string,
-    since: Date,
-  ): Promise<readonly Search[]>;
+  ofLineStartedSince(lineId: LineId, since: Date): Promise<readonly Search[]>;
 
   ranAs(run: RunId): Promise<Search | null>;
 
-  activeAtStation(stationId: string): Promise<Search | null>;
+  activeAtStation(stationId: StationId): Promise<Search | null>;
 
-  activeOfLine(lineId: string): Promise<readonly Search[]>;
+  activeOfLine(lineId: LineId): Promise<readonly Search[]>;
 
-  newestAtStation(stationId: string): Promise<Search | null>;
+  newestAtStation(stationId: StationId): Promise<Search | null>;
 
   activeOfSet(setId: ReplaySetId): Promise<Search | null>;
 
-  ofStation(stationId: string): Promise<readonly Search[]>;
+  ofStation(stationId: StationId): Promise<readonly Search[]>;
 
   ofTeam(teamId: TeamId): Promise<readonly Search[]>;
 

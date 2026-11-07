@@ -1,10 +1,10 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
-import type { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import {
   ChangeChecks,
   reviewOf,
 } from '@replays/domain/value-objects/change-checks.vo';
+import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -60,10 +60,10 @@ export class RecordReplayChangeReview {
     });
   }
 
-  recheckUnavailable(event: ReplayRecheckUnavailable): Promise<void> {
+  recheckUnavailable(replayId: ReplayId, run: RunId): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      const replay = await this.replays.find(event.replayId);
-      const unchecked = replay?.recheck(event.run, ChangeChecks.of([]));
+      const replay = await this.replays.find(replayId);
+      const unchecked = replay?.recheck(run, ChangeChecks.of([]));
 
       if (replay && unchecked && unchecked !== replay) {
         await this.replays.save(unchecked);

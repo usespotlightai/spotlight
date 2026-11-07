@@ -1,11 +1,11 @@
-import type { UpdatedState } from '@github/domain/events/pull-request-updated.event';
+import type { PullRequestState } from '@github/domain/value-objects/pull-request-state.vo';
 
 const PULL_REQUEST_RETENTION_DAYS = 180;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface RetainedPullRequest {
-  readonly state: UpdatedState;
+  readonly state: PullRequestState;
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
 }

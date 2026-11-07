@@ -1,40 +1,47 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
+import type { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import type { RequestMemories } from '@memory/application/services/request-memories.service';
-import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import {
-  RUN_BRIEFED,
-  type RunBriefedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-briefed.integration-event';
+  DISPATCH_BRIEFED,
+  type DispatchBriefedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
 import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
+import {
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const memorySubscribers = (
   requesting: RequestMemories,
   deleting: DeleteMemoryDraft,
+  deletingMemories: DeleteTeamMemories,
   reactions: MemoryReactions,
   recording: RecordRunMemoryUses,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<RunBriefedIntegrationEvent>(
+  subscribing<DispatchBriefedIntegrationEvent>(
     'memory.record-briefed-memories',
-    [RUN_BRIEFED],
+    [DISPATCH_BRIEFED],
     (event) =>
       recording.runBriefed(
         {
@@ -45,10 +52,10 @@ export const memorySubscribers = (
         event.memories,
       ),
   ),
-  subscribing<MemoriesProposed>(
+  subscribing<MemoryReviewRequested>(
     'memory.create-review',
-    ['memory-draft.proposed'],
-    (event) => reactions.onProposed(event),
+    ['memory-draft.review-requested'],
+    (event) => reactions.onReviewRequested(event),
   ),
   subscribing<MemoryReviewResolved>(
     'memory.resolve-review',
@@ -65,9 +72,9 @@ export const memorySubscribers = (
     ['memory.created'],
     (event) => reactions.onCreated(event),
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'memory.record-memories-read',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) =>
       recording.runEnded({
         id: RunId.of(event.runId),
@@ -75,9 +82,9 @@ export const memorySubscribers = (
         taskId: event.taskId ? TaskId.of(event.taskId) : null,
       }),
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'memory.request-memories',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) =>
       event.taskId
         ? requesting.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))
@@ -87,5 +94,11 @@ export const memorySubscribers = (
     'memory.delete-draft-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.deleteForTask(TaskId.of(event.taskId)),
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'memory.delete-memories-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => deletingMemories.deleteForTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
 ];

@@ -1,9 +1,9 @@
 import type { HarnessReview } from '@configuration/application/ports/harness-review.port';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { HarnessProfileCompiler } from '@configuration/infrastructure/profiles/harness-profile.compile';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const DOCUMENT = {
@@ -23,12 +23,13 @@ const DROPPED = reviewed({
 });
 
 describe('HarnessProfileCompiler', () => {
-  it('rejects a profile a harness cannot take when it is written', () => {
-    const compiled = DROPPED.compile(DOCUMENT);
+  it('reports where a harness cannot take a profile as it is written', () => {
+    const parsed = DROPPED.parse(DOCUMENT);
+    const compatibility = parsed.ok ? DROPPED.compatibilityOf(parsed) : null;
 
-    expect(compiled.ok).toBe(false);
+    expect(compatibility?.isCompatible).toBe(false);
     expect(
-      compiled.ok ? [] : compiled.problems.map((each) => dottedOf(each.field)),
+      compatibility?.incompatibilities.map((each) => dottedOf(each.at)),
     ).toEqual(['native.gone']);
   });
 
@@ -43,11 +44,10 @@ describe('HarnessProfileCompiler', () => {
     });
   });
 
-  it('rejects a shape that does not read, whichever way it is read', () => {
+  it('rejects a shape that does not read', () => {
     const shapeless = { key: 'careful', permissions: { maybe: [] } };
 
     expect(DROPPED.parse(shapeless).ok).toBe(false);
-    expect(DROPPED.compile(shapeless).ok).toBe(false);
   });
 
   it('warns where a harness only approximates the profile', () => {

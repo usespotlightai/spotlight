@@ -22,10 +22,11 @@ import { ReconcileConfigPullRequests } from '@replays/application/services/recon
 import { replayedWorld } from '@replays/application/services/replayed-candidates.fake-spec';
 import {
   CLOCK,
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
+  liveFrom,
   peopleWho,
   QUIET,
   STATION_VIEW,
@@ -93,8 +94,10 @@ class FakeConfigs implements ConfigRepositoryPort {
       : null;
   }
 
-  async filesIn() {
-    return ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'];
+  async filesUnder() {
+    return ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'].map(
+      (path) => ({ path, content: 'resource "spotlight_line" "x" {}\n' }),
+    );
   }
 
   async committed(
@@ -125,7 +128,7 @@ class FakeConfigs implements ConfigRepositoryPort {
     return {
       url: `https://github.com/${repository.value}/pull/${number}`,
       number,
-      gitHubId: 100 + number,
+      hostId: 100 + number,
       repository: 'Acme/Platform',
     };
   }
@@ -206,7 +209,7 @@ const searchWithTerse = (): Search => {
 };
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let pullRequests: InMemoryConfigPullRequests;
 let configs: FakeConfigs;
 let editor: FakeEditor;
@@ -222,8 +225,12 @@ const picking = () =>
     pullRequests,
     memory.candidateRepository,
     memory.scheduleRepository,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-    work,
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
+    suppliers.lines,
     IDS,
     clock,
     TRANSACTION,
@@ -244,20 +251,30 @@ const opening = () =>
     memory.searchRepository,
     memory.candidateRepository,
     memory.replayRepository,
-    work,
+    suppliers.lines,
+    suppliers.trialableRuns,
     peopleWho(true),
     configs,
     editor,
     TRANSACTION,
     clock,
     QUIET,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
     memory.setRepository,
-    new SearchFindings(work),
+    new SearchFindings(suppliers.trialableRuns),
   );
 
 const following = () =>
-  new FollowConfigPullRequests(pullRequests, work, TRANSACTION, clock);
+  new FollowConfigPullRequests(
+    pullRequests,
+    suppliers.configs,
+    TRANSACTION,
+    clock,
+  );
 
 const closing = () =>
   new CloseStaleConfigPullRequests(
@@ -269,7 +286,12 @@ const closing = () =>
   );
 
 const schedules = () =>
-  new SearchSchedules(memory.scheduleRepository, work, TRANSACTION, clock);
+  new SearchSchedules(
+    memory.scheduleRepository,
+    suppliers.configs,
+    TRANSACTION,
+    clock,
+  );
 
 const reconciling = () =>
   new ReconcileConfigPullRequests(
@@ -281,15 +303,15 @@ const reconciling = () =>
   );
 
 const liveIs = (fingerprint: StationFingerprint) => {
-  const live = work.live;
+  const live = liveFrom(suppliers.configs);
 
-  work.live = async () => ({ ...(await live()), fingerprint });
+  suppliers.configs.live = async () => ({ ...(await live()), fingerprint });
 };
 
-const onGitHub = (
+const onHost = (
   over: {
     number?: number;
-    gitHubId?: number | null;
+    hostId?: number | null;
     repository?: string;
     workspaceId?: string;
   } = {},
@@ -305,15 +327,15 @@ const onGitHub = (
     pullRequest: PullRequestUrl.of(
       `https://github.com/${repository}/pull/${number}`,
     ),
-    gitHubId: over.gitHubId === undefined ? 100 + number : over.gitHubId,
+    hostId: over.hostId === undefined ? 100 + number : over.hostId,
     at: later(100),
   };
 };
 
-const closedOnGitHub = (
+const closedOnHost = (
   merged: boolean,
-  over: Parameters<typeof onGitHub>[0] = {},
-) => following().closedOnGitHub({ ...onGitHub(over), merged });
+  over: Parameters<typeof onHost>[0] = {},
+) => following().closedOnHost({ ...onHost(over), merged });
 
 const opened = async () => {
   await pick();
@@ -333,7 +355,7 @@ const only = (): ConfigPullRequest => {
 
 beforeEach(() => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   pullRequests = new InMemoryConfigPullRequests();
   configs = new FakeConfigs();
   editor = new FakeEditor();
@@ -354,9 +376,9 @@ describe('picking a search candidate', () => {
     await pick();
     await pick();
 
+    expect(only()?.repository?.value).toBe('acme/platform');
     expect(only()).toMatchObject({
       current: 'opening',
-      repository: 'acme/platform',
       path: 'teams/core/delivery.tf',
       branch: `spotlight/search-${search.id.value.slice(0, 8)}-terse`,
     });
@@ -369,9 +391,9 @@ describe('picking a search candidate', () => {
     await opening().processDue();
     await opening().processDue();
 
+    expect(only()?.url?.value).toBe('https://github.com/acme/platform/pull/1');
     expect(only()).toMatchObject({
       current: 'opened',
-      url: 'https://github.com/acme/platform/pull/1',
       lastCommit: 'commit_1',
     });
     expect(
@@ -403,7 +425,10 @@ describe('picking a search candidate', () => {
       lineKey: 'delivery',
       stationKey: 'build',
       file: { path: 'teams/core/delivery.tf' },
-      module: ['teams/core/skills.tf'],
+      configFiles: [
+        expect.objectContaining({ path: 'teams/core/skills.tf' }),
+        expect.objectContaining({ path: 'README.md' }),
+      ],
     });
   });
 
@@ -507,10 +532,8 @@ describe('picking a search candidate', () => {
     now = new Date(now.getTime() + 60 * 60_000);
     await opening().processDue();
 
-    expect(only()).toMatchObject({
-      current: 'opened',
-      url: 'https://github.com/acme/platform/pull/1',
-    });
+    expect(only().current).toBe('opened');
+    expect(only().url?.value).toBe('https://github.com/acme/platform/pull/1');
     expect(configs.openings).toHaveLength(1);
     expect(configs.commits[1]?.replacing).toBe('commit_1');
   });
@@ -537,7 +560,7 @@ describe('picking a search candidate', () => {
   });
 
   it('fails at once when the line names no source', async () => {
-    work.station = async () => ({ ...STATION_VIEW, source: null });
+    suppliers.lines.station = async () => ({ ...STATION_VIEW, source: null });
     await pick();
     await opening().processDue();
 
@@ -576,11 +599,11 @@ describe('following a config pull request after it opened', () => {
   it('records the canonical repository, GitHub id and number, and the live config it was based on', async () => {
     await opened();
 
+    expect(only()?.repository?.value).toBe('Acme/Platform');
     expect(only()).toMatchObject({
       current: 'opened',
-      repository: 'Acme/Platform',
       number: 1,
-      gitHubId: 101,
+      hostId: 101,
       basedOn: FINGERPRINT,
       proposing: PROPOSED,
     });
@@ -705,7 +728,7 @@ describe('following a config pull request after it opened', () => {
 
     expect(only().current).toBe('opened');
 
-    await closedOnGitHub(true);
+    await closedOnHost(true);
 
     expect(only()).toMatchObject({ current: 'merged' });
     expect(configs.closings).toEqual([]);
@@ -716,21 +739,21 @@ describe('following a config pull request after it opened', () => {
     liveIs(StationFingerprint.of('c'.repeat(64)));
     await following().lineChanged(STATION_VIEW.lineId);
     await closing().processDue();
-    await closedOnGitHub(true);
+    await closedOnHost(true);
 
     expect(only()).toMatchObject({ current: 'merged', closedBecause: null });
   });
 
   it('matches GitHub by workspace and GitHub id, or by repository in any case and number without an id', async () => {
     await opened();
-    await closedOnGitHub(false, { workspaceId: 'workspace_other' });
-    await closedOnGitHub(false, { gitHubId: 999 });
-    await closedOnGitHub(false, { number: 2, gitHubId: null });
+    await closedOnHost(false, { workspaceId: 'workspace_other' });
+    await closedOnHost(false, { hostId: 999 });
+    await closedOnHost(false, { number: 2, hostId: null });
 
     expect(only().current).toBe('opened');
 
-    await closedOnGitHub(false, {
-      gitHubId: null,
+    await closedOnHost(false, {
+      hostId: null,
       repository: 'ACME/platform',
     });
 
@@ -745,8 +768,8 @@ describe('following a config pull request after it opened', () => {
 
   it('reopens a pull request reopened on GitHub', async () => {
     await opened();
-    await closedOnGitHub(false);
-    await following().reopenedOnGitHub(onGitHub());
+    await closedOnHost(false);
+    await following().reopenedOnHost(onHost());
 
     expect(only()).toMatchObject({ current: 'opened', closedBecause: null });
   });
@@ -833,7 +856,7 @@ describe('following a config pull request after it opened', () => {
         candidateId: TERSE,
         station: search.station,
         stationKey: 'build',
-        candidateName: 'other',
+        candidateName: CandidateName.rehydrate('other'),
         lineKey: 'delivery',
         source: {
           repository: Repository.of('acme/platform'),
@@ -872,10 +895,12 @@ describe('following a config pull request after it opened', () => {
         later(50),
       );
 
-    memory.schedules.set(STATION_VIEW.stationId, schedule);
+    memory.schedules.set(STATION_VIEW.stationId.value, schedule);
     await schedules().rejected(closedBy('stale'));
 
-    expect(memory.schedules.get(STATION_VIEW.stationId)?.rejected).toEqual([]);
+    expect(
+      memory.schedules.get(STATION_VIEW.stationId.value)?.rejected,
+    ).toEqual([]);
 
     await schedules().rejected(closedBy('by-person'));
     await schedules().improved(
@@ -888,7 +913,7 @@ describe('following a config pull request after it opened', () => {
       ),
     );
 
-    expect(memory.schedules.get(STATION_VIEW.stationId)).toMatchObject({
+    expect(memory.schedules.get(STATION_VIEW.stationId.value)).toMatchObject({
       rejected: [PROPOSED],
       rejectedAgainst: FINGERPRINT,
       lastRejectedAt: later(50),
@@ -908,7 +933,7 @@ describe('following a config pull request after it opened', () => {
       ),
     );
 
-    expect(memory.schedules.get(STATION_VIEW.stationId)).toMatchObject({
+    expect(memory.schedules.get(STATION_VIEW.stationId.value)).toMatchObject({
       rejected: [],
       lastRejectedAt: later(50),
     });

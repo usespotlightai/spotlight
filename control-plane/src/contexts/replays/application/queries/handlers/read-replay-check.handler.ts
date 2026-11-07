@@ -2,15 +2,15 @@ import type {
   CheckSideDto,
   ReplayCheckDto,
 } from '@replays/application/dto/replay-checks.dto';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { TrialableRunsPort } from '@replays/application/ports/trialable-runs.port';
 import type { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
-import { taskRowsOf } from '@replays/application/rendering/task-rows';
-import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import {
   gainView,
   intervalView,
   moneyView,
-} from '@replays/application/services/replay-views';
+} from '@replays/application/queries/views/replay-views';
+import { taskRowsOf } from '@replays/application/rendering/task-rows';
+import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { UnknownReplayCheckError } from '@replays/domain/exceptions/unknown-replay-check.error';
@@ -39,7 +39,7 @@ export class ReadReplayCheckHandler
 {
   constructor(
     private readonly access: ReplaysAccess,
-    private readonly work: WorkPort,
+    private readonly trialableRuns: TrialableRunsPort,
     private readonly checks: ReplayCheckRepository,
     private readonly evaluations: CheckEvaluations,
   ) {}
@@ -56,7 +56,7 @@ export class ReadReplayCheckHandler
       const { evaluation, replay, baseline } = await this.evaluations.of(check);
       const titles = new Map(
         (
-          await this.work.runSummaries(
+          await this.trialableRuns.runSummaries(
             check.workspaceId,
             replay?.originals ?? [],
           )
@@ -66,8 +66,8 @@ export class ReadReplayCheckHandler
       return {
         id: check.id.value,
         teamId: check.teamId.value,
-        lineId: check.station.lineId,
-        stationId: check.station.stationId,
+        lineId: check.station.lineId.value,
+        stationId: check.station.stationId.value,
         stationKey: check.stationKey,
         setId: check.setId.value,
         candidateId: check.candidateId.value,
@@ -97,13 +97,7 @@ export class ReadReplayCheckHandler
         compared: evaluation.compared,
         candidate: sideOf(replay, evaluation.candidate),
         baseline: sideOf(baseline, evaluation.baseline),
-        tasks: replay
-          ? taskRowsOf(
-              evaluation.tasks,
-              { candidate: replay.scoring, live: baseline?.scoring ?? null },
-              titles,
-            )
-          : [],
+        tasks: replay ? taskRowsOf(evaluation.tasks, titles) : [],
         createdAt: check.createdAt.toISOString(),
       };
     } catch (error) {

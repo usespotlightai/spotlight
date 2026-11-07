@@ -1,14 +1,14 @@
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { ParsedPoolAccess } from '@runners/application/ports/runner-definitions.port';
 import type { AccessInput } from '@runners/domain/aggregates/runner-pool.aggregate';
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const poolAccessInput = async (
   access: ParsedPoolAccess,
-  to: { readonly id: RunnerPoolId; readonly workspaceId: WorkspaceId },
+  to: { readonly id: PoolId; readonly workspaceId: WorkspaceId },
   tokens: TokenIssuer,
   secrets: ProvisionSecretsPort,
 ): Promise<AccessInput> =>

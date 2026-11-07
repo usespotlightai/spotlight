@@ -1,4 +1,6 @@
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import {
   SECRET,
   type Secret,
@@ -11,9 +13,9 @@ export class OAuthTokens implements Secret {
 
   private constructor(
     readonly accessToken: AccessToken,
-    readonly refreshToken: AccessToken | null,
+    readonly refreshToken: RefreshToken | null,
     readonly expiresAt: Date | null,
-    readonly scopes: readonly string[],
+    readonly scopes: readonly OAuthScope[],
     readonly linkedAccount: string | null,
   ) {}
 
@@ -26,9 +28,9 @@ export class OAuthTokens implements Secret {
   }): OAuthTokens {
     return new OAuthTokens(
       AccessToken.of(input.accessToken),
-      AccessToken.maybe(input.refreshToken),
+      RefreshToken.maybe(input.refreshToken),
       input.expiresAt ?? null,
-      input.scopes ?? [],
+      (input.scopes ?? []).map(OAuthScope.of),
       input.linkedAccount?.trim() || null,
     );
   }

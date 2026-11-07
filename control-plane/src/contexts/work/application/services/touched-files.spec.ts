@@ -1,24 +1,25 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type { RunChanges } from '@runs/application/contracts/run-journal.contract';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunChanges } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { TouchedFiles } from '@work/application/services/touched-files';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
 const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/7');
 
-const changes = (
-  runId: string,
-  paths: string[],
-  checkouts: string[] = ['api'],
-): RunChanges => ({ runId, checkouts, paths });
+const changes = (runId: string, workingCopyPaths: string[]): RunChanges => ({
+  runId,
+  checkouts: [],
+  paths: workingCopyPaths,
+});
 
 const touching = (input: {
   changes: RunChanges[];
@@ -39,6 +40,7 @@ const touching = (input: {
       now: () => new Date(),
       sleep: input.sleep ?? (() => new Promise(() => {})),
     },
+    runJournalReadings({ workingCopyPathsIn: (changed) => changed.paths }),
   );
   const task = {
     id: TaskId.of('task_1'),
@@ -46,7 +48,7 @@ const touching = (input: {
     reviewedHead: null,
     pullRequest: input.pullRequest ?? null,
   } as unknown as Task;
-  const line = { repositories: { all: [API, WEB] } } as unknown as Line;
+  const line = { repositories: { all: [API, WEB] } } as unknown as LineMap;
 
   return { warn, onTask: () => files.onTask(task, line) };
 };
@@ -58,11 +60,8 @@ describe('TouchedFiles', () => {
   it('names each file earlier runs of the task changed, once, in its repository', async () => {
     const { onTask } = touching({
       changes: [
-        changes('run_1', ['/runs/run_1/api/src/uploads.ts', '/tmp/scratch']),
-        changes('run_2', [
-          '/runs/run_2/api/src/uploads.ts',
-          '/runs/run_2/api/src/retry.ts',
-        ]),
+        changes('run_1', ['api/src/uploads.ts']),
+        changes('run_2', ['api/src/uploads.ts', 'api/src/retry.ts']),
       ],
     });
 
@@ -72,19 +71,11 @@ describe('TouchedFiles', () => {
     ]);
   });
 
-  it('places each run’s files by that run’s own checkouts', async () => {
+  it('places each file in the repository of its working copy, and leaves out folders of no repository', async () => {
     const { onTask } = touching({
       changes: [
-        changes('run_1', ['/runs/run_1/api/src/uploads.ts']),
-        changes(
-          'run_2',
-          [
-            '/runs/run_2/web/src/Upload.tsx',
-            '/runs/run_2/api/src/retry.ts',
-            '/runs/run_2/docs/uploads.md',
-          ],
-          ['web', 'docs'],
-        ),
+        changes('run_1', ['api/src/uploads.ts']),
+        changes('run_2', ['web/src/Upload.tsx', 'docs/uploads.md']),
       ],
     });
 
@@ -123,7 +114,7 @@ describe('TouchedFiles', () => {
 
   it('goes on without the pull request’s files when GitHub does not send them', async () => {
     const { onTask, warn } = touching({
-      changes: [changes('run_1', ['/runs/run_1/api/src/uploads.ts'])],
+      changes: [changes('run_1', ['api/src/uploads.ts'])],
       pullRequest: PULL,
       changedIn: async () => {
         throw new Error('GitHub is down');
@@ -136,7 +127,7 @@ describe('TouchedFiles', () => {
 
   it('goes on without the pull request’s files once GitHub keeps it waiting too long', async () => {
     const { onTask, warn } = touching({
-      changes: [changes('run_1', ['/runs/run_1/api/src/uploads.ts'])],
+      changes: [changes('run_1', ['api/src/uploads.ts'])],
       pullRequest: PULL,
       changedIn: () => new Promise(() => {}),
       sleep: async () => {},

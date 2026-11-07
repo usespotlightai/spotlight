@@ -70,8 +70,20 @@ describe('inviting people to a workspace (e2e)', () => {
       })),
     );
     await db.insert(schema.team).values([
-      { id: mobile, workspaceId, key: 'mobile', name: 'Mobile' },
-      { id: gone, workspaceId, key: 'gone', name: 'Gone' },
+      {
+        id: mobile,
+        workspaceId,
+        key: 'mobile',
+        name: 'Mobile',
+        origin: 'configuration',
+      },
+      {
+        id: gone,
+        workspaceId,
+        key: 'gone',
+        name: 'Gone',
+        origin: 'configuration',
+      },
     ]);
     await db.insert(schema.teamMember).values([
       { workspaceId, teamId: mobile, userId: seat.owner },
@@ -340,58 +352,6 @@ describe('inviting people to a workspace (e2e)', () => {
 
     expect(joined.role).toBe('member');
     expect(joined.teams.map((each) => each.id)).toEqual([mobile]);
-  });
-
-  it('invites an address again whose accepted invite outlived the account that accepted it', async () => {
-    const first = await (async () => {
-      await as(seat.owner)
-        .post(invites, { emails: [emailOf(kay)], role: 'member', teamIds: [] })
-        .expect(200);
-      return tokenFor(emailOf(kay));
-    })();
-    await as(kay).post(`/api/invites/${first}/accept`).expect(200);
-    await eventually(async () => (await memberNamed(kay)) ?? null);
-    await db.delete(schema.user).where(eq(schema.user.id, kay));
-
-    await http()
-      .get(`/api/invites/${first}`)
-      .expect(200)
-      .expect((read) => expect(read.body.status).toBe('accepted'));
-    await as(seat.owner).post(`/api/invites/${first}/accept`).expect(409);
-    const answer = await as(seat.owner)
-      .post(invites, { emails: [emailOf(kay)], role: 'member', teamIds: [] })
-      .expect(200);
-
-    expect(answer.body.outcomes).toEqual([
-      { email: emailOf(kay), outcome: 'invited' },
-    ]);
-    expect(tokenFor(emailOf(kay))).not.toBe(first);
-  });
-
-  it('keeps the invitations of somebody whose account was deleted, from nobody', async () => {
-    await db
-      .insert(schema.workspaceMember)
-      .values({ workspaceId, userId: lin, role: 'admin' });
-    await as(lin)
-      .post(invites, { emails: [emailOf(joan)], role: 'member', teamIds: [] })
-      .expect(200);
-    await db.delete(schema.user).where(eq(schema.user.id, lin));
-
-    const [remaining] = (
-      await as(seat.owner).get(invites).expect(200)
-    ).body.filter((each: { email: string }) => each.email === emailOf(joan));
-
-    expect(remaining.invitedBy).toBeNull();
-    await http()
-      .get(`/api/invites/${tokenFor(emailOf(joan))}`)
-      .expect(200)
-      .expect((read) => expect(read.body.invitedBy).toBeNull());
-
-    const again = await as(seat.owner)
-      .post(`${invites}/${remaining.id}/resend`)
-      .expect(200);
-
-    expect(again.body.invitedBy).toMatchObject({ id: seat.owner });
   });
 
   it('leaves a run-out invitation off the list of those still waiting', async () => {

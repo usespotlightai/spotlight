@@ -1,8 +1,10 @@
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { GitService } from '@work/application/ports/git-gateway.port';
+import type { GitService } from '@work/application/dto/git-call.dto';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
+import { ChatRefused } from '@work/application/rendering/chat-refused';
 import type {
   Cleared,
   ConnectionAsked,
@@ -10,7 +12,6 @@ import type {
   RunWork,
 } from '@work/application/services/run-work';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
@@ -18,7 +19,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 
 export class ChatRunWork implements RunWork {
   constructor(
-    private readonly run: Run,
+    private readonly run: LeasedRunFacts,
     private readonly chat: Chat,
     private readonly chats: ChatRepository,
   ) {}
@@ -29,7 +30,11 @@ export class ChatRunWork implements RunWork {
 
   async acknowledgeUpTo(position: number, at: Date): Promise<void> {
     await this.chats.save(
-      this.chat.acknowledgeUpTo(this.run.id, MessagePosition.of(position), at),
+      this.chat.acknowledgeUpTo(
+        this.run.runId,
+        MessagePosition.of(position),
+        at,
+      ),
     );
   }
 
@@ -51,11 +56,10 @@ export class ChatRunWork implements RunWork {
   }
 
   async clearFor(declared: DeclaredTool): Promise<Cleared> {
-    return declared.approval
-      ? {
-          kind: 'dismissed',
-          reason: `${declared.tool.value} has to be approved by a person on a task, and a chat has nobody to put it to.`,
-        }
+    const refusal = this.chat.toolRefusal(declared);
+
+    return refusal
+      ? { kind: 'dismissed', reason: ChatRefused.text(refusal) }
       : { kind: 'approved', edited: null, returned: async () => {} };
   }
 
@@ -65,7 +69,9 @@ export class ChatRunWork implements RunWork {
   ): Promise<ConnectionAsked> {
     return {
       kind: 'denied',
-      reason: `${missing.integrationName} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`,
+      reason: ChatRefused.text(
+        this.chat.connectionAskRefusal(missing.integrationName),
+      ),
     };
   }
 
@@ -76,7 +82,7 @@ export class ChatRunWork implements RunWork {
   async toolContext(): Promise<ChatToolContext> {
     return {
       kind: 'chat',
-      runId: this.run.id,
+      runId: this.run.runId,
       workspaceId: this.chat.workspaceId,
       chatId: this.chat.id,
       teamId: this.chat.teamId,

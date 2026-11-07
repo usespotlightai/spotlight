@@ -1,28 +1,44 @@
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
-import type { RunOutcomes } from '@work/application/services/run-outcomes';
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
+import {
+  RunEndedFacts,
+  type RunEndingReactions,
+} from '@work/application/services/run-ending-reactions';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { DispatchEndedBy } from '@work/domain/value-objects/dispatch-ending.vo';
 
-export class ChatOutcomes implements RunOutcomes {
+export class ChatOutcomes implements RunEndingReactions {
   constructor(
     private readonly chats: ChatRepository,
     private readonly dispatch: ChatDispatching,
   ) {}
 
-  async onRunCompleted(event: RunCompleted): Promise<void> {
-    const chat = await this.waiting(event.runId, event.chatId);
+  private readonly reactions: Record<
+    DispatchEndedBy,
+    (event: RunEndedIntegrationEvent) => Promise<void>
+  > = {
+    turn: (event) => this.completed(event),
+    exhaustion: (event) => this.exhausted(event),
+    cancellation: () => Promise.resolve(),
+  };
+
+  async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
+    await this.reactions[RunEndedFacts.ending(event).endedBy](event);
+  }
+
+  private async completed(event: RunEndedIntegrationEvent): Promise<void> {
+    const runId = RunEndedFacts.runId(event);
+    const chat = await this.waiting(event);
 
     if (!chat) {
       return;
     }
 
-    const ended = chat.runEnded(event.runId, {
-      session: event.session,
-      claimedBy: event.claimedBy,
+    const ended = chat.runEnded(runId, {
+      session: RunEndedFacts.session(event),
+      claimedBy: RunEndedFacts.claimedBy(event),
     });
 
     await this.chats.save(
@@ -30,24 +46,25 @@ export class ChatOutcomes implements RunOutcomes {
     );
   }
 
-  async onRunExhausted(event: RunExhausted): Promise<void> {
-    const chat = await this.waiting(event.runId, event.chatId);
+  private async exhausted(event: RunEndedIntegrationEvent): Promise<void> {
+    const chat = await this.waiting(event);
 
     if (chat) {
-      await this.chats.save(chat.runEndedWithoutSession(event.runId));
+      await this.chats.save(
+        chat.runEndedWithoutSession(RunEndedFacts.runId(event)),
+      );
     }
   }
 
-  private async waiting(
-    runId: RunId,
-    chatId: ChatId | null,
-  ): Promise<Chat | null> {
+  private async waiting(event: RunEndedIntegrationEvent): Promise<Chat | null> {
+    const chatId = WorkRequesters.chatOf(event.requester);
+
     if (!chatId) {
       return null;
     }
 
     const chat = await this.chats.find(chatId);
 
-    return chat?.hasCurrentRun(runId) ? chat : null;
+    return chat?.hasCurrentRun(RunEndedFacts.runId(event)) ? chat : null;
   }
 }

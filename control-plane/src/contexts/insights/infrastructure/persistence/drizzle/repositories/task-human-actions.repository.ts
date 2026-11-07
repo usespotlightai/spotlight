@@ -1,14 +1,22 @@
 import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
 import { TaskHumanActionsVersionConflictError } from '@insights/domain/exceptions/task-human-actions-version-conflict.error';
 import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
 import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
-import { DrizzleRunFactProjection } from '@insights/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
 import { taskHumanAction } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { inList } from '@platform/persistence/drizzle/in-list';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -30,8 +38,8 @@ const openingOf = (row: HumanActionsRow): TaskOpening | null => {
 
   return TaskOpening.of({
     teamId: TeamId.of(row.teamId),
-    lineId: row.lineId,
-    stationId: row.stationId,
+    lineId: LineId.of(row.lineId),
+    stationId: StationId.of(row.stationId),
     by: row.openedById ? UserId.of(row.openedById) : null,
     at: row.openedAt,
   });
@@ -43,13 +51,13 @@ const toHumanActions = (row: HumanActionsRow): TaskHumanActions =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     opening: openingOf(row),
     asks: row.asks.map((each) =>
-      InboxAsk.of(each.stationId, new Date(each.at)),
+      InboxAsk.of(StationId.of(each.stationId), new Date(each.at)),
     ),
     actions: row.actions.map((each) =>
       TaskHumanAction.of({
         kind: each.kind,
         by: UserId.of(each.by),
-        stationId: each.stationId,
+        stationId: StationId.of(each.stationId),
         at: new Date(each.at),
       }),
     ),
@@ -59,18 +67,18 @@ const toHumanActions = (row: HumanActionsRow): TaskHumanActions =>
 const columnsOf = (humanActions: TaskHumanActions) =>
   ({
     teamId: humanActions.opening?.teamId.value ?? null,
-    lineId: humanActions.opening?.lineId ?? null,
-    stationId: humanActions.opening?.stationId ?? null,
+    lineId: humanActions.opening?.lineId.value ?? null,
+    stationId: humanActions.opening?.stationId.value ?? null,
     openedById: humanActions.opening?.by?.value ?? null,
     openedAt: humanActions.opening?.at ?? null,
     asks: humanActions.asks.map((each) => ({
-      stationId: each.stationId,
+      stationId: each.stationId.value,
       at: each.at.toISOString(),
     })),
     actions: humanActions.actions.map((each) => ({
       kind: each.kind,
       by: each.by.value,
-      stationId: each.stationId,
+      stationId: each.stationId.value,
       at: each.at.toISOString(),
     })),
     lastActionAt: humanActions.lastActionAt,
@@ -82,7 +90,8 @@ export class DrizzleTaskHumanActionsRepository
 {
   constructor(
     private readonly context: DrizzleContext,
-    private readonly facts: DrizzleRunFactProjection,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
   ) {}
 
   async add(added: TaskHumanActions): Promise<void> {
@@ -102,14 +111,15 @@ export class DrizzleTaskHumanActionsRepository
         throw new TaskHumanActionsVersionConflictError(added.taskId.value);
       }
 
-      await this.facts.refresh({
-        kind: 'tasks',
-        taskIds: [added.taskId.value],
-      });
+      await this.events.dispatch(added.pullEvents());
     });
   }
 
   async save(saved: TaskHumanActions): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(taskHumanAction)
@@ -126,10 +136,7 @@ export class DrizzleTaskHumanActionsRepository
         throw new TaskHumanActionsVersionConflictError(saved.taskId.value);
       }
 
-      await this.facts.refresh({
-        kind: 'tasks',
-        taskIds: [saved.taskId.value],
-      });
+      await this.events.dispatch(saved.pullEvents());
     });
   }
 
@@ -143,46 +150,56 @@ export class DrizzleTaskHumanActionsRepository
     return row ? toHumanActions(row) : null;
   }
 
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.inTransaction(async () => {
-      await this.context.db
-        .delete(taskHumanAction)
-        .where(eq(taskHumanAction.taskId, taskId.value));
+  async ofTasks(
+    taskIds: readonly TaskId[],
+  ): Promise<readonly TaskHumanActions[]> {
+    if (taskIds.length === 0) {
+      return [];
+    }
 
-      await this.facts.refresh({ kind: 'tasks', taskIds: [taskId.value] });
-    });
+    const rows = await this.context.db
+      .select()
+      .from(taskHumanAction)
+      .where(
+        inList(
+          taskHumanAction.taskId,
+          taskIds.map((each) => each.value),
+        ),
+      );
+
+    return rows.map(toHumanActions);
   }
 
-  async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
+  private async removed(removed: TaskHumanActions): Promise<void> {
     await this.context.inTransaction(async () => {
-      const removed = await this.context.db
+      const gone = await this.context.db
         .delete(taskHumanAction)
         .where(
           and(
-            eq(taskHumanAction.workspaceId, workspaceId.value),
-            eq(taskHumanAction.teamId, teamId.value),
+            eq(taskHumanAction.taskId, removed.taskId.value),
+            eq(taskHumanAction.version, removed.version),
           ),
         )
         .returning({ taskId: taskHumanAction.taskId });
 
-      await this.facts.deleteOpenings({
-        kind: 'tasks',
-        workspaceId: workspaceId.value,
-        taskIds: removed.map((each) => each.taskId),
-      });
+      if (gone.length === 0) {
+        throw new TaskHumanActionsVersionConflictError(removed.taskId.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
     });
   }
 
-  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.inTransaction(async () => {
-      await this.context.db
-        .delete(taskHumanAction)
-        .where(eq(taskHumanAction.workspaceId, workspaceId.value));
+  async ofScope(
+    scope: DeletionScope,
+    max: number,
+  ): Promise<readonly TaskHumanActions[]> {
+    const rows = await this.context.db
+      .select()
+      .from(taskHumanAction)
+      .where(inScope(taskHumanAction, scope))
+      .limit(max);
 
-      await this.facts.deleteOpenings({
-        kind: 'workspace',
-        workspaceId: workspaceId.value,
-      });
-    });
+    return rows.map(toHumanActions);
   }
 }

@@ -1,10 +1,13 @@
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
+import type { ToolCallResultDto } from '@work/application/ports/integration-tool-calls.port';
 import type {
   HookDecision,
   LifecycleHooksPort,
@@ -13,11 +16,13 @@ import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
+import type { ToolUsesPort } from '@work/application/ports/tool-uses.port';
 import type { RunWorks } from '@work/application/services/run-works.service';
+import { ToolCallFailures } from '@work/application/services/tool-call-failures';
 import type { ToolSources } from '@work/application/services/tool-sources.service';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { ToolUsed } from '@work/domain/events/tool-used.event';
-import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import { WorkRequesters } from '@work/application/services/work-requesters';
+import { RecordedToolUse } from '@work/domain/entities/recorded-tool-use.entity';
+import { LeaseLostError } from '@work/domain/exceptions/lease-lost.error';
 import { ToolApprovalDismissedError } from '@work/domain/exceptions/tool-approval-dismissed.error';
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
 import { ToolAwaitsConnectionError } from '@work/domain/exceptions/tool-awaits-connection.error';
@@ -25,10 +30,9 @@ import { ToolBlockedByPersonError } from '@work/domain/exceptions/tool-blocked-b
 import { ToolConnectionDeniedError } from '@work/domain/exceptions/tool-connection-denied.error';
 import { ToolHookDeniedError } from '@work/domain/exceptions/tool-hook-denied.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
-import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
 import { StricterRule } from '@work/domain/services/stricter-rule';
-import { Tool } from '@work/domain/value-objects/tool.vo';
+import { ToolEnablement } from '@work/domain/services/tool-enablement';
 import type { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
@@ -42,7 +46,8 @@ export class UseToolHandler
     private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly ids: IdGeneratorPort,
-    private readonly events: DomainEventDispatcher,
+    private readonly uses: ToolUsesPort,
+    private readonly clock: ClockPort,
   ) {}
 
   async execute(command: UseToolCommand): Promise<ToolAnswerDto> {
@@ -53,15 +58,16 @@ export class UseToolHandler
         command.runnerId,
       );
 
-      if (!run.isEnabled(tool)) {
-        throw new ToolNotEnabledError(tool.value);
-      }
+      ToolEnablement.assertEnabled(tool, {
+        actsBeyondItself: run.policy.actsBeyondItself,
+        manifest: run.manifest,
+      });
 
       if (!work) {
         throw new ToolNeedsWorkError(tool.value);
       }
 
-      const context = await work.toolContext();
+      const context = await work.toolContext(tool);
       const resolved = await this.sources.resolve(
         tool,
         run,
@@ -139,20 +145,20 @@ export class UseToolHandler
           throw new ToolHookDeniedError(tool.value, decision.reason);
         }
 
-        await this.works.stillOn(run.currentAttempt, command.runnerId);
+        await this.works.stillOn(run, command.runnerId);
       } catch (error) {
         await cleared.returned();
         throw error;
       }
 
-      let output: unknown;
+      let result: ToolCallResultDto;
 
       try {
-        output = await resolved.call(inputs);
+        result = await resolved.call(inputs);
       } catch (error) {
         await cleared.returned();
 
-        if (error instanceof RunAttemptOverError) {
+        if (error instanceof LeaseLostError) {
           throw error;
         }
 
@@ -166,6 +172,21 @@ export class UseToolHandler
         );
         throw error;
       }
+
+      if (result.outcome === 'failed') {
+        await cleared.returned();
+        await this.used(
+          run,
+          tool,
+          inputs,
+          ToolOutput.answered(result.failure.reason),
+          true,
+          resolved.actingAs,
+        );
+        throw ToolCallFailures.errorOf(result.failure);
+      }
+
+      const { output } = result;
 
       await this.used(
         run,
@@ -187,35 +208,39 @@ export class UseToolHandler
     }
   }
 
-  private taskViewOf(run: Run): Promise<TaskViewDto | null> {
-    return run.firesHooks && run.taskId
-      ? this.taskViews.of(run.taskId.value, run.id.value)
+  private taskViewOf(run: LeasedRunFacts): Promise<TaskViewDto | null> {
+    const task = WorkRequesters.taskOf(run.requester);
+
+    return task
+      ? this.taskViews.of(task.value, run.runId.value)
       : Promise.resolve(null);
   }
 
   private async used(
-    run: Run,
+    run: LeasedRunFacts,
     tool: Tool,
     inputs: ToolInputs,
     output: ToolOutput,
     failed: boolean,
     actingAs: ToolActingAs | null,
   ): Promise<void> {
-    if (!run.taskId) {
-      return;
-    }
+    const use = RecordedToolUse.of({
+      run: {
+        id: run.runId,
+        attempt: run.attempt,
+        task: WorkRequesters.taskOf(run.requester),
+      },
+      useId: this.ids.generate(),
+      tool,
+      inputs,
+      output,
+      failed,
+      actingAs,
+      at: this.clock.now(),
+    });
 
-    await this.events.dispatch([
-      new ToolUsed(
-        run.id,
-        run.taskId,
-        tool,
-        inputs,
-        output,
-        failed,
-        this.ids.generate(),
-        actingAs,
-      ),
-    ]);
+    if (use) {
+      await this.uses.record(use);
+    }
   }
 }

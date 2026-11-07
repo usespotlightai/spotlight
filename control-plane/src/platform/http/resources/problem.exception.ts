@@ -38,36 +38,6 @@ const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
   [HttpStatus.BAD_GATEWAY]: ['upstream-error', 'An upstream service failed'],
 };
 
-type ForbiddenText = (kind: string) => [title: string, detail: string];
-
-const changing: ForbiddenText = (kind) => [
-  `Not allowed to change the ${kind}`,
-  `You can read this ${kind} but not change it. Your workspace role or token scopes do not allow it.`,
-];
-
-const FORBIDDEN_TEXTS: Readonly<Record<ForbiddenAct, ForbiddenText>> = {
-  configure: changing,
-  secrets: changing,
-  runners: changing,
-  trusts: changing,
-  administer: (kind) => [
-    `Not allowed to administer the ${kind}`,
-    `Only workspace admins can do this. A token can never administer a ${kind}.`,
-  ],
-  'create-workspaces': () => [
-    'Not allowed to create a workspace',
-    'A workspace token cannot create a workspace. Only a person can create one.',
-  ],
-  plan: () => [
-    'Not allowed to plan',
-    'Planning needs a person or a token with the plan scope.',
-  ],
-};
-
-export const FORBIDDEN_ACTS = Object.keys(
-  FORBIDDEN_TEXTS,
-) as readonly ForbiddenAct[];
-
 const problemType = (slug: string): string => `urn:spotlight:problem:${slug}`;
 
 export const fieldErrorOf = (problem: ConfigurationProblem): FieldError => ({
@@ -76,8 +46,16 @@ export const fieldErrorOf = (problem: ConfigurationProblem): FieldError => ({
   severity: problem.severity,
 });
 
+export interface ForbiddenRequest {
+  readonly kind: string;
+  readonly act: ForbiddenAct;
+}
+
 export class ProblemException extends HttpException {
-  constructor(readonly problem: Problem) {
+  constructor(
+    readonly problem: Problem,
+    readonly forbiddenRequest: ForbiddenRequest | null = null,
+  ) {
     super(problem, problem.status);
   }
 
@@ -155,15 +133,16 @@ export class ProblemException extends HttpException {
   }
 
   static forbidden(kind: string, act: ForbiddenAct): ProblemException {
-    const [title, detail] = FORBIDDEN_TEXTS[act](kind);
-
-    return new ProblemException({
-      type: problemType('forbidden'),
-      title,
-      status: HttpStatus.FORBIDDEN,
-      detail,
-      permission: act,
-    });
+    return new ProblemException(
+      {
+        type: problemType('forbidden'),
+        title: `Not allowed to ${act}`,
+        status: HttpStatus.FORBIDDEN,
+        detail: `You may not ${act} this ${kind}.`,
+        permission: act,
+      },
+      { kind, act },
+    );
   }
 
   static notFound(

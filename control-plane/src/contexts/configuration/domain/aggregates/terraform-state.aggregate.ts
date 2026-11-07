@@ -1,3 +1,4 @@
+import { TerraformStateDeleted } from '@configuration/domain/events/terraform-state-deleted.event';
 import { TerraformStateLockReleased } from '@configuration/domain/events/terraform-state-lock-released.event';
 import { TerraformStateWritten } from '@configuration/domain/events/terraform-state-written.event';
 import { TerraformStateDivergedError } from '@configuration/domain/exceptions/terraform-state-diverged.error';
@@ -6,8 +7,10 @@ import { TerraformStateLockLostError } from '@configuration/domain/exceptions/te
 import { TerraformStateLockNotYoursError } from '@configuration/domain/exceptions/terraform-state-lock-not-yours.error';
 import { TerraformStateLockedError } from '@configuration/domain/exceptions/terraform-state-locked.error';
 import { TerraformStateSerialBehindError } from '@configuration/domain/exceptions/terraform-state-serial-behind.error';
+import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { StateChangeDetail } from '@configuration/domain/value-objects/state-change-detail.vo';
 import type { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
+import type { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
 import type { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import type { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
@@ -27,17 +30,18 @@ interface Props {
   readonly workspaceId: WorkspaceId;
   readonly name: StateName;
   readonly lock: StateLock | null;
-  readonly latest: StateVersion | null;
+  readonly versions: readonly StateVersion[];
+  readonly deleted: boolean;
   readonly version: number;
 }
 
 const KEPT_VERSIONS = 100;
 
+const keptFrom = (latest: number): number =>
+  latest > KEPT_VERSIONS ? latest - KEPT_VERSIONS + 1 : 1;
+
 export class TerraformState extends EventRecorder {
-  private constructor(
-    private readonly state: Props,
-    readonly written: StateVersion | null,
-  ) {
+  private constructor(private readonly state: Props) {
     super();
   }
 
@@ -46,13 +50,16 @@ export class TerraformState extends EventRecorder {
     workspaceId: WorkspaceId;
     name: StateName;
   }): TerraformState {
-    return new TerraformState(
-      { ...input, lock: null, latest: null, version: 0 },
-      null,
-    );
+    return new TerraformState({
+      ...input,
+      lock: null,
+      versions: [],
+      deleted: false,
+      version: 0,
+    });
   }
 
-  static rehydrate(input: Props): TerraformState {
+  static rehydrate(input: Omit<Props, 'deleted'>): TerraformState {
     if (!Number.isInteger(input.version) || input.version < 1) {
       throw new InconsistentStateError(
         'Terraform state',
@@ -60,14 +67,20 @@ export class TerraformState extends EventRecorder {
       );
     }
 
-    if (input.latest && input.latest.number < 1) {
+    const impossible = input.versions.find(
+      (each, at, all) =>
+        each.number < 1 ||
+        (at > 0 && each.number <= (all[at - 1]?.number ?? 0)),
+    );
+
+    if (impossible) {
       throw new InconsistentStateError(
         'Terraform state',
-        `points at an impossible state version (${input.latest.number})`,
+        `points at an impossible state version (${impossible.number})`,
       );
     }
 
-    return new TerraformState(input, null);
+    return new TerraformState({ ...input, deleted: false });
   }
 
   get id(): TerraformStateId {
@@ -87,7 +100,11 @@ export class TerraformState extends EventRecorder {
   }
 
   get latest(): StateVersion | null {
-    return this.state.latest;
+    return this.state.versions[this.state.versions.length - 1] ?? null;
+  }
+
+  get versions(): readonly StateVersion[] {
+    return this.state.versions;
   }
 
   get version(): number {
@@ -98,16 +115,14 @@ export class TerraformState extends EventRecorder {
     return this.state.version === 0;
   }
 
-  get keptFrom(): number | null {
-    const latest = this.state.latest?.number ?? 0;
-
-    return latest > KEPT_VERSIONS ? latest - KEPT_VERSIONS + 1 : null;
+  get isDeleted(): boolean {
+    return this.state.deleted;
   }
 
   lockAs(lock: StateLock): TerraformState {
     const held = this.state.lock;
 
-    if (held?.heldAs(lock.id) && held.lockedBy === lock.lockedBy) {
+    if (held?.sameAs(lock)) {
       return this;
     }
 
@@ -119,9 +134,9 @@ export class TerraformState extends EventRecorder {
   }
 
   unlock(
-    id: string,
+    id: StateLockId,
     by: {
-      readonly principal: string;
+      readonly principal: PrincipalRef;
       readonly mayForce: boolean;
       readonly changedBy: ChangeActor;
     },
@@ -136,12 +151,15 @@ export class TerraformState extends EventRecorder {
       throw new TerraformStateLockedError(this.state.name.value, held);
     }
 
-    if (held.lockedBy === by.principal) {
+    if (held.heldBy(by.principal)) {
       return this.with({ lock: null });
     }
 
     if (!by.mayForce) {
-      throw new TerraformStateLockNotYoursError(this.state.name.value, held.id);
+      throw new TerraformStateLockNotYoursError(
+        this.state.name.value,
+        held.id.value,
+      );
     }
 
     return this.released(held, false, by.changedBy);
@@ -156,7 +174,7 @@ export class TerraformState extends EventRecorder {
   write(input: {
     id: StateVersionId;
     snapshot: StateSnapshot;
-    lockId: string | null;
+    lockId: StateLockId | null;
     by: ChangeActor;
     at: Date;
   }): { readonly state: TerraformState; readonly version: StateVersion } {
@@ -169,43 +187,71 @@ export class TerraformState extends EventRecorder {
     if (!held && input.lockId !== null) {
       throw new TerraformStateLockLostError(
         this.state.name.value,
-        input.lockId,
+        input.lockId.value,
       );
     }
 
     this.assertFollows(input.snapshot);
 
+    const number = (this.latest?.number ?? 0) + 1;
     const written = StateVersion.of({
       id: input.id,
-      number: (this.state.latest?.number ?? 0) + 1,
+      number,
       snapshot: input.snapshot,
-      writtenBy: input.by.actor?.principal.toString() ?? 'spotlight',
+      writtenBy: input.by.actor
+        ? PrincipalRef.of(input.by.actor.principal)
+        : PrincipalRef.spotlight(),
       writtenAt: input.at,
     });
-    const next = new TerraformState(
-      { ...this.state, latest: written },
-      written,
-    );
+    const kept = keptFrom(number);
+    const next = this.with({
+      versions: [
+        ...this.state.versions.filter((each) => each.number >= kept),
+        written,
+      ],
+    });
 
-    next.inheritEvents(this);
     next.record(
       new TerraformStateWritten(
         this.state.id,
         this.state.workspaceId,
         this.state.name,
         this.changed(
-          this.state.latest ? 'updated' : 'created',
+          this.latest ? 'updated' : 'created',
           input.by,
           StateChangeDetail.written(written),
         ),
+        written,
+        this.state.versions
+          .filter((each) => each.number < kept)
+          .map((each) => each.id),
       ),
     );
 
     return { state: next, version: written };
   }
 
+  deleteWithWorkspace(by: ChangeActor): TerraformState {
+    if (this.state.deleted) {
+      return this;
+    }
+
+    const deleted = this.with({ deleted: true });
+
+    deleted.record(
+      new TerraformStateDeleted(
+        this.state.id,
+        this.state.workspaceId,
+        this.state.name,
+        ConfigurationChange.deleted(this.whatChanged, by),
+      ),
+    );
+
+    return deleted;
+  }
+
   private assertFollows(snapshot: StateSnapshot): void {
-    const kept = this.state.latest?.snapshot;
+    const kept = this.latest?.snapshot;
 
     if (!kept) {
       return;
@@ -255,24 +301,26 @@ export class TerraformState extends EventRecorder {
     return next;
   }
 
+  private get whatChanged() {
+    return {
+      resource: 'terraform-state' as const,
+      id: this.state.id.value,
+      key: this.state.name.value,
+    };
+  }
+
   private changed(
     action: 'created' | 'updated',
     by: ChangeActor,
     detail: ChangeDetail,
   ): ConfigurationChange {
-    const changed = {
-      resource: 'terraform-state' as const,
-      id: this.state.id.value,
-      key: this.state.name.value,
-    };
-
     return action === 'created'
-      ? ConfigurationChange.created(changed, by, detail)
-      : ConfigurationChange.updated(changed, by, detail);
+      ? ConfigurationChange.created(this.whatChanged, by, detail)
+      : ConfigurationChange.updated(this.whatChanged, by, detail);
   }
 
   private with(part: Partial<Props>): TerraformState {
-    const next = new TerraformState({ ...this.state, ...part }, this.written);
+    const next = new TerraformState({ ...this.state, ...part });
 
     next.inheritEvents(this);
 

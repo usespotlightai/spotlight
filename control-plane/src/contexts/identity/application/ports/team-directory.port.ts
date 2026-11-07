@@ -12,9 +12,6 @@ export interface TeamProfile {
   readonly members: readonly UserId[];
 }
 
-export const hasMember = (team: TeamProfile, userId: UserId): boolean =>
-  team.members.some((each) => each.equals(userId));
-
 export interface TeamDirectoryPort {
   find(teamId: TeamId): Promise<TeamProfile | null>;
 

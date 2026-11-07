@@ -1,5 +1,3 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
   type GainEstimate,
@@ -20,6 +18,7 @@ import {
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 interface CandidateScores {
@@ -44,6 +43,22 @@ interface CandidateScores {
   readonly spent: Money;
 }
 
+interface SearchedReplay {
+  readonly candidateId: CandidateId;
+  readonly replay: { readonly replayId: ReplayId };
+}
+
+export interface ScoredSearch {
+  readonly budget: { readonly ceiling: { readonly currency: string } };
+  readonly seed: SearchedReplay;
+  readonly proposals: readonly SearchedReplay[];
+  readonly heldOut: readonly SearchedReplay[];
+  readonly split: {
+    readonly searchedRuns: readonly RunId[];
+    readonly heldOutRuns: readonly RunId[];
+  };
+}
+
 export interface SearchScores {
   readonly seed: CandidateScores;
   readonly candidates: readonly CandidateScores[];
@@ -58,7 +73,7 @@ interface Scored {
 }
 
 export const scoredOn = (
-  replay: Replay | null,
+  replay: ReplayOutcome | null,
   runSubset: readonly RunId[] | null,
   currency: string,
 ): Scored => {
@@ -88,22 +103,22 @@ export const scoredOn = (
   };
 };
 
-const finished = (replay: Replay | null): boolean =>
+const finished = (replay: ReplayOutcome | null): boolean =>
   replay?.current === 'finished';
 
 const pairsOf = (
-  replay: Replay | null,
+  replay: ReplayOutcome | null,
   runSubset: readonly RunId[],
 ): PairTally | null => (replay ? pairTallyOf(replay, runSubset) : null);
 
 export const scoresOf = (
-  search: Search,
-  replays: readonly Replay[],
+  search: ScoredSearch,
+  replays: readonly ReplayOutcome[],
   minGain: number,
 ): SearchScores => {
   const currency = search.budget.ceiling.currency;
   const gains = searchGainsOf(search, replays, minGain);
-  const found = (id: ReplayId): Replay | null =>
+  const found = (id: ReplayId): ReplayOutcome | null =>
     replays.find((each) => each.id.equals(id)) ?? null;
   const seedReplay = found(search.seed.replay.replayId);
   const seedSearched = scoredOn(
@@ -197,8 +212,8 @@ interface SeedComparisonOptions {
 }
 
 const compareWithSeed = (
-  candidate: Replay | null,
-  seed: Replay | null,
+  candidate: ReplayOutcome | null,
+  seed: ReplayOutcome | null,
   options: SeedComparisonOptions,
   runSubset: readonly RunId[],
   minGain: number,
@@ -215,11 +230,11 @@ const compareWithSeed = (
     : { gain: null, regressions: null };
 
 const searchGainsOf = (
-  search: Search,
-  replays: readonly Replay[],
+  search: ScoredSearch,
+  replays: readonly ReplayOutcome[],
   minGain: number,
 ): ReadonlyMap<string, SearchGains> => {
-  const found = (id: ReplayId | null | undefined): Replay | null =>
+  const found = (id: ReplayId | null | undefined): ReplayOutcome | null =>
     (id && replays.find((each) => each.id.equals(id))) || null;
   const seed = found(search.seed.replay.replayId);
 
@@ -259,5 +274,23 @@ const searchGainsOf = (
         },
       ];
     }),
+  );
+};
+
+export const heldOutPendingFor = (
+  scores: SearchScores,
+  candidateId: CandidateId,
+  replays: readonly ReplayOutcome[],
+): boolean => {
+  const picked = scores.candidates.find((each) =>
+    each.candidateId.equals(candidateId),
+  );
+  const unended = (id: ReplayId | null): boolean =>
+    id !== null && !replays.find((each) => each.id.equals(id))?.endedAt;
+
+  return (
+    !picked?.heldOutGain &&
+    picked?.heldOutReplayId != null &&
+    [picked.heldOutReplayId, scores.seed.heldOutReplayId].some(unended)
   );
 };

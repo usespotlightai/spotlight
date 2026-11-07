@@ -1,4 +1,3 @@
-import type { LockInfo } from '@configuration/domain/value-objects/state-lock.vo';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 
 export type StateRead =
@@ -9,6 +8,9 @@ export type StateRead =
 
 export type StateChanged =
   | { readonly outcome: 'done' }
-  | { readonly outcome: 'locked'; readonly holder: LockInfo }
+  | {
+      readonly outcome: 'locked';
+      readonly holder: Readonly<Record<string, unknown>>;
+    }
   | Forbidden
   | null;

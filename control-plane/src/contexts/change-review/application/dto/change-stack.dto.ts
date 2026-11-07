@@ -1,3 +1,6 @@
+import type { SkipCode } from '@change-review/domain/value-objects/stack-check.vo';
+import type { StackFailure } from '@change-review/domain/value-objects/stack-progress.vo';
+
 export const CHANGE_STACK_STATE_NAMES = [
   'generating',
   'ready',
@@ -94,10 +97,17 @@ export interface CheckedStepDto {
   readonly durationMs: number;
 }
 
+interface StackSkipDto {
+  readonly code: SkipCode;
+  readonly detail: string | null;
+  readonly attempts: number | null;
+}
+
 export interface StackCheckDto {
   readonly command: string;
   readonly status: (typeof STACK_CHECK_STATUS_NAMES)[number];
-  readonly reason: string | null;
+  readonly skip: StackSkipDto | null;
+  readonly wholeFailed: boolean;
   readonly whole: CheckedStepDto | null;
   readonly layers: readonly CheckedStepDto[];
 }
@@ -106,7 +116,7 @@ export interface ChangeStackDto {
   readonly id: string;
   readonly repository: string | null;
   readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
-  readonly failure: string | null;
+  readonly failure: StackFailure | null;
   readonly startedAt: string;
   readonly completedAt: string | null;
   readonly files: readonly DiffFileDto[];

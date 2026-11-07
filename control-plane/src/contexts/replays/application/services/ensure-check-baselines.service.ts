@@ -1,6 +1,6 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
 import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
-import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
+import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -23,8 +23,8 @@ export class EnsureCheckBaselines implements PendingJobsPort {
     private readonly evaluations: CheckEvaluations,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
-    private readonly work: WorkPort,
-    private readonly snapshots: LiveSnapshots,
+    private readonly configs: StationConfigs,
+    private readonly snapshots: LiveCandidates,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -52,46 +52,75 @@ export class EnsureCheckBaselines implements PendingJobsPort {
       return;
     }
 
+    if (!replay) {
+      return;
+    }
+
     const live =
-      set && !set.isAtGoneStation && replay
-        ? await this.work.live(set.station.lineId, set.station.stationId)
+      set && !set.isAtGoneStation
+        ? await this.configs.live(set.station.lineId, set.station.stationId)
         : null;
 
-    if (!live || live.hashes.scoring !== check.liveHashes.scoring) {
+    if (!check.measuresAgainst(live?.hashes ?? null)) {
       await this.checks.save(check.markBaselineUnavailable());
       return;
     }
 
-    await this.transaction.inTransaction(async () => {
-      const locked = await this.sets.locked(check.setId);
+    const seen = await this.sets.find(check.setId);
 
-      if (
-        !locked ||
-        !needsBaseline(
-          locked,
-          await this.replays.ofSet(locked.id),
-          check.liveHashes.scoring,
-          check.repeats,
-        )
-      ) {
-        return;
+    if (
+      !seen ||
+      !needsBaseline(
+        seen,
+        await this.replays.ofSet(seen.id),
+        check.liveHashes.scoring,
+        check.repeats,
+      )
+    ) {
+      return;
+    }
+
+    const snapshot = await this.snapshots.taken(seen);
+    let started = false;
+
+    try {
+      started = await this.transaction.inTransaction(async () => {
+        const locked = await this.sets.locked(check.setId);
+
+        if (
+          !locked ||
+          !needsBaseline(
+            locked,
+            await this.replays.ofSet(locked.id),
+            check.liveHashes.scoring,
+            check.repeats,
+          )
+        ) {
+          return false;
+        }
+
+        await this.replays.add(
+          Replay.start({
+            id: ReplayId.of(this.ids.generate()),
+            set: locked.snapshot,
+            candidate: snapshot.asReplayed,
+            baseline: true,
+            ceiling: check.threshold.ceiling,
+            unpricedRate: check.threshold.unpricedRunIn(
+              locked.entries.length * check.repeats,
+            ),
+            repeats: check.repeats,
+            at: this.clock.now(),
+            by: ChangeActor.spotlight(locked.workspaceId),
+          }),
+        );
+
+        return true;
+      });
+    } finally {
+      if (!started) {
+        await this.snapshots.release(snapshot);
       }
-
-      await this.replays.add(
-        Replay.start({
-          id: ReplayId.of(this.ids.generate()),
-          set: locked,
-          candidate: await this.snapshots.taken(locked),
-          baseline: true,
-          ceiling: check.threshold.ceiling,
-          unpricedRate: check.threshold.unpricedRunIn(
-            locked.entries.length * check.repeats,
-          ),
-          repeats: check.repeats,
-          at: this.clock.now(),
-          by: ChangeActor.spotlight(locked.workspaceId),
-        }),
-      );
-    });
+    }
   }
 }

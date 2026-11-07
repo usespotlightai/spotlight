@@ -1,3 +1,4 @@
+import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 
 const UNJUDGED_BECAUSE = [
@@ -14,10 +15,15 @@ const UNJUDGED_BECAUSE = [
 
 export type Unjudged = (typeof UNJUDGED_BECAUSE)[number];
 
-const unjudgedOf = (why: string): Unjudged =>
-  (UNJUDGED_BECAUSE as readonly string[]).includes(why)
-    ? (why as Unjudged)
-    : 'errored';
+export const unjudgedOf = (why: string): Unjudged => {
+  const known = UNJUDGED_BECAUSE.find((each) => each === why);
+
+  if (!known) {
+    throw new InvalidReplayError(`judging failed with unknown code ${why}`);
+  }
+
+  return known;
+};
 
 export class EntryJudging {
   private constructor(
@@ -33,8 +39,8 @@ export class EntryJudging {
     return new EntryJudging(verdict, null);
   }
 
-  static failed(why: string): EntryJudging {
-    return new EntryJudging(null, unjudgedOf(why));
+  static failed(why: Unjudged): EntryJudging {
+    return new EntryJudging(null, why);
   }
 
   get pending(): boolean {

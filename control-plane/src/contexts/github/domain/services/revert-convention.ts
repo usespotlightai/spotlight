@@ -45,3 +45,17 @@ export const sameRevertTarget = (
         other.kind === 'title' &&
         one.title === other.title;
 };
+
+export interface MergeCandidate {
+  readonly merged: boolean;
+  readonly closedAt: Date | null;
+}
+
+export const lastMergedOf = <Candidate extends MergeCandidate>(
+  titled: readonly Candidate[],
+): Candidate | null =>
+  [...titled]
+    .filter((each) => each.merged)
+    .sort(
+      (a, b) => (b.closedAt?.getTime() ?? 0) - (a.closedAt?.getTime() ?? 0),
+    )[0] ?? null;

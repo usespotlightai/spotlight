@@ -1,24 +1,25 @@
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import {
   chatPlacement,
   chatSetupOf,
 } from '@work/domain/services/chat-placement';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
-import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  type RepositorySpec,
+  repositoryOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const API = Repository.of('acme/api');
@@ -27,36 +28,34 @@ const DOCS = Repository.of('acme/docs');
 
 const line = (
   key: string,
-  repositories: readonly (Repository | LineRepositoryConfig)[],
+  repositories: readonly (Repository | RepositorySpec)[],
   runners: string[],
 ) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of(key),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of(key),
     name: LineName.of(key),
     repositories: repositories.map((each) =>
-      each instanceof LineRepositoryConfig
-        ? each
-        : LineRepositoryConfig.of(each),
+      'setup' in each ? each : repositoryOf(each),
     ),
     placement: RunnerPlacement.of(runners),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of(`${key}-backlog`),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.plain(),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of(`${key}-completed`),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 1,
-        color: StationColor.plain(),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -88,13 +87,7 @@ describe('chatPlacement', () => {
     const image = RunnerImage.of('ghcr.io/acme/api:1');
     const placed = chatPlacement(
       [API],
-      [
-        line(
-          'api',
-          [LineRepositoryConfig.of(API, { image })],
-          ['vpc-internal'],
-        ),
-      ],
+      [line('api', [repositoryOf(API, { image })], ['vpc-internal'])],
     );
 
     expect(placed?.image?.equals(image)).toBe(true);
@@ -106,7 +99,7 @@ describe('chatPlacement', () => {
       line(
         'api',
         [
-          LineRepositoryConfig.of(API, {
+          repositoryOf(API, {
             image: RunnerImage.of('ghcr.io/acme/api:1'),
           }),
         ],
@@ -115,7 +108,7 @@ describe('chatPlacement', () => {
       line(
         'web',
         [
-          LineRepositoryConfig.of(WEB, {
+          repositoryOf(WEB, {
             image: RunnerImage.of('ghcr.io/acme/web:1'),
           }),
         ],
@@ -134,14 +127,10 @@ describe('chatSetupOf', () => {
   it('makes a chat’s checkout ready as a line working that repository says', () => {
     const lines = [
       line('web', [WEB], []),
-      line(
-        'api',
-        [LineRepositoryConfig.of(API, { setup: RepositorySetup.of('npm ci') })],
-        [],
-      ),
+      line('api', [repositoryOf(API, { setup: 'npm ci' })], []),
     ];
 
-    expect(chatSetupOf(API, lines)?.value).toBe('npm ci');
+    expect(chatSetupOf(API, lines)).toBe('npm ci');
     expect(chatSetupOf(WEB, lines)).toBeNull();
     expect(chatSetupOf(DOCS, lines)).toBeNull();
   });

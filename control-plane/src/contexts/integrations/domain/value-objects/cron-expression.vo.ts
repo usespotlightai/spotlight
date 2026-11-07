@@ -5,10 +5,7 @@ const reasoned = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 export class CronExpression {
-  private constructor(
-    readonly value: string,
-    private readonly calendar: CronCalendar,
-  ) {}
+  private constructor(readonly value: string) {}
 
   static of(raw: string, calendar: CronCalendar): CronExpression {
     const value = raw.trim();
@@ -22,11 +19,11 @@ export class CronExpression {
       );
     }
 
-    return new CronExpression(value, calendar);
+    return new CronExpression(value);
   }
 
-  nextAfter(from: Date): Date {
-    return this.calendar.nextAfter(this.value, from);
+  nextAfter(from: Date, calendar: CronCalendar): Date {
+    return calendar.nextAfter(this.value, from);
   }
 
   equals(other: CronExpression): boolean {

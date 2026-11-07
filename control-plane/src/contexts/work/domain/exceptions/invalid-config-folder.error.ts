@@ -1,6 +1,8 @@
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
 export type ConfigFolderField = 'repository' | 'folder';
 
-export class InvalidConfigFolderError extends Error {
+export class InvalidConfigFolderError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(

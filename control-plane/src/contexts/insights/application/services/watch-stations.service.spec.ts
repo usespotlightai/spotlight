@@ -1,25 +1,29 @@
+import { StationAlertStatesInMemory } from '@insights/alerts.fake-spec';
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
-import type { WorkPort } from '@insights/application/ports/work.port';
+import type { LineSettingsPort } from '@insights/application/ports/line-settings.port';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
 import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { StationAlertState } from '@insights/domain/aggregates/station-alert-state.aggregate';
-import { StationAlertStatesInMemory } from '@insights/domain/alerts.fake-spec';
+import { PullRequestRecordClosed } from '@insights/domain/events/pull-request-record-closed.event';
+import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
-import { RunRecordEnriched } from '@insights/domain/events/run-record-enriched.event';
-import { TaskPullRequestClosed } from '@insights/domain/events/task-pull-request-closed.event';
 import { StationAlertStateVersionConflictError } from '@insights/domain/exceptions/station-alert-state-version-conflict.error';
-import { day, taskPullRequestOf } from '@insights/domain/insights.fake-spec';
+import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
+import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
+import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
 import {
   endedRecord,
   inTransaction,
   RunRecordsInMemory,
-  TaskPullRequestsInMemory,
+  StationFactsInMemory,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
-import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
-import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+} from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -32,27 +36,23 @@ const SENT_BACK_RISES = AlertRule.of({
 const watching = (initially: readonly AlertRule[] | null) => {
   let alerts = initially;
   const records = new RunRecordsInMemory();
-  const taskPullRequests = new TaskPullRequestsInMemory();
+  const taskPullRequests = new PullRequestRecordsInMemory();
   const alertStates = new StationAlertStatesInMemory();
   const deletions = deletionsInMemory();
   let next = 0;
-  const work: WorkPort = {
-    unfinishedRuns: async () => [],
-    traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
-    endedRun: async () => null,
-    configsInOrder: async () => [],
+  const lines: LineSettingsPort = {
     teamRepositories: async () => [],
-    teamSkillKeys: async () => [],
     alertsAt: async () => alerts,
   };
   const service = new WatchStations(
-    work,
+    lines,
     {
-      records,
-      taskPullRequests,
+      facts: new StationFactsInMemory(records, {
+        pullRequests: taskPullRequests,
+      }),
       alertStates,
-      deletions,
     },
+    new FactRecorder(deletions),
     inTransaction,
     {
       generate: () => {
@@ -89,9 +89,9 @@ const watching = (initially: readonly AlertRule[] | null) => {
       HumanAction.of(act, day('2026-09-30', hour + 1)),
     );
     const [event] = acted?.pullEvents() ?? [];
-    expect(event).toBeInstanceOf(RunRecordEnriched);
+    expect(event).toBeInstanceOf(RunOutcomeChanged);
     await records.save(acted as RunRecord);
-    await service.runEnriched(event as RunRecordEnriched);
+    await service.outcomeChanged(event as RunOutcomeChanged);
   };
 
   const closedPullRequest = async (hour: number, merged: boolean) => {
@@ -100,10 +100,12 @@ const watching = (initially: readonly AlertRule[] | null) => {
       closedAt: day('2026-09-30', hour + 1),
       merged,
     });
-    const [event] = closed.pullEvents();
-    expect(event).toBeInstanceOf(TaskPullRequestClosed);
+    const event = closed
+      .pullEvents()
+      .find((each) => each instanceof PullRequestRecordClosed);
+    expect(event).toBeInstanceOf(PullRequestRecordClosed);
     await taskPullRequests.add(closed);
-    await service.pullRequestClosed(event as TaskPullRequestClosed);
+    await service.pullRequestClosed(event as PullRequestRecordClosed);
   };
 
   const kinds = () => alertStates.raised.map((each) => each.kind);
@@ -145,7 +147,8 @@ describe('WatchStations', () => {
 
     expect(station.kinds()).toEqual(['station-alert.fired']);
     expect(
-      (await station.alertStates.of('station_1'))?.open[0]?.taskId.value,
+      (await station.alertStates.of(StationId.of('station_1')))?.open[0]?.taskId
+        .value,
     ).toBe('task_4');
   });
 
@@ -245,7 +248,9 @@ describe('WatchStations', () => {
     const station = watching([
       AlertRule.of({ measure: 'sent_back_rate', above: 0.4, over: 1 }),
     ]);
-    await station.deletions.deleteTask(WORKSPACE, TaskId.of('task_1'));
+    await station.deletions.markDeleted(
+      DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1')),
+    );
 
     await station.ran(1, 'sent-back');
 
@@ -264,7 +269,7 @@ describe('WatchStations', () => {
     const station = watching([
       AlertRule.of({ measure: 'sent_back_rate', above: 0.4, over: 1 }),
     ]);
-    await station.deletions.deleteWorkspace(WORKSPACE);
+    await station.deletions.markDeleted(DeletionScope.ofWorkspace(WORKSPACE));
 
     await station.ran(1, 'sent-back');
 
@@ -326,18 +331,19 @@ describe('WatchStations', () => {
       AlertRule.of({ measure: 'accepted_rate', below: 0.5, over: 1 }),
     ]);
     await station.ran(1, 'sent-back');
-    const stale = await station.alertStates.of('station_1');
+    const stale = await station.alertStates.of(StationId.of('station_1'));
 
-    for (const stationId of await station.alertStates.stationsWithTask(
-      TaskId.of('task_1'),
+    const taskDeleted = DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1'));
+
+    for (const alertState of await station.alertStates.ofScope(
+      taskDeleted,
+      10,
     )) {
-      const alertState = await station.alertStates.of(
-        stationId,
-        TaskId.of('task_1'),
-      );
-      await station.alertStates.save(
-        (alertState as StationAlertState).withoutTask(TaskId.of('task_1')),
-      );
+      const erased = alertState.erasing(taskDeleted);
+
+      if (erased) {
+        await station.alertStates.save(erased);
+      }
     }
 
     await expect(
@@ -347,6 +353,8 @@ describe('WatchStations', () => {
         ),
       ),
     ).rejects.toBeInstanceOf(StationAlertStateVersionConflictError);
-    expect((await station.alertStates.of('station_1'))?.firings).toEqual([]);
+    expect(
+      (await station.alertStates.of(StationId.of('station_1')))?.firings,
+    ).toEqual([]);
   });
 });

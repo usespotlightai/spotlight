@@ -1,7 +1,7 @@
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import {
   OutboundBlockedError,
   type OutboundGuard,
-  UNLISTED_FOR_WORKSPACE,
 } from '@platform/outbound/outbound-guard';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type {
@@ -9,7 +9,7 @@ import type {
   ProvisionCall,
   ProvisionCallsPort,
 } from '@runners/application/ports/provision-calls.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -28,10 +28,10 @@ const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
     type: 'work.provision',
     timestamp: call.at.toISOString(),
     data: {
+      ...call.tags,
       kind: call.kind,
       runId: call.runId,
-      stackId: call.stackId,
-      taskId: call.taskId,
+      stackId: call.checkId,
       workspaceId: call.workspaceId,
       pool: call.pool,
       labels: call.labels,
@@ -69,7 +69,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
   ) {}
 
   call(call: ProvisionCall): Promise<ProvisionAnswer> {
-    return this.settings.scope.within(call.workspaceId, () =>
+    return this.settings.scope.within(WorkspaceId.of(call.workspaceId), () =>
       this.callInScope(call),
     );
   }
@@ -81,8 +81,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
       return {
         outcome: 'not-allowed',
         detail:
-          error instanceof OutboundBlockedError &&
-          error.reason === UNLISTED_FOR_WORKSPACE
+          error instanceof OutboundBlockedError && error.scoped
             ? `This workspace’s outbound allow-list doesn’t include ${call.url.hostname}.`
             : `This deployment’s outbound allow-list doesn’t include ${call.url.hostname}.`,
       };
@@ -101,7 +100,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
           'webhook-id': call.messageId,
           'webhook-timestamp': String(timestamp),
           'webhook-signature': signatureOf(
-            call.secret.key,
+            Buffer.from(call.secret.encodedKey, 'base64'),
             call.messageId,
             timestamp,
             body,

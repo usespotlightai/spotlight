@@ -1,9 +1,10 @@
 import { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import { JudgingVersionConflictError } from '@insights/domain/exceptions/judging-version-conflict.error';
 import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
-import { JudgingFailure } from '@insights/domain/value-objects/judging-failure.vo';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
 import { judging } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -12,8 +13,11 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -40,8 +44,8 @@ const toJudging = (row: JudgingRow): Judging =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     location: RunLocation.of({
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
       taskId: TaskId.of(row.taskId),
     }),
     fingerprint: row.fingerprint,
@@ -88,8 +92,8 @@ export class DrizzleJudgingRepository implements JudgingRepository {
           runId: added.runId.value,
           workspaceId: added.workspaceId.value,
           teamId: added.location.teamId.value,
-          lineId: added.location.lineId,
-          stationId: added.location.stationId,
+          lineId: added.location.lineId.value,
+          stationId: added.location.stationId.value,
           taskId: added.location.taskId.value,
           fingerprint: added.fingerprint,
           rubric: added.rubric.text,
@@ -112,6 +116,10 @@ export class DrizzleJudgingRepository implements JudgingRepository {
   }
 
   async save(saved: Judging): Promise<void> {
+    if (saved.isDeleted) {
+      return this.removed(saved);
+    }
+
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(judging)
@@ -142,17 +150,6 @@ export class DrizzleJudgingRepository implements JudgingRepository {
     return row ? toJudging(row) : null;
   }
 
-  async ofForScoring(runId: RunId): Promise<Judging | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(judging)
-      .where(eq(judging.runId, runId.value))
-      .limit(1)
-      .for('update');
-
-    return row ? toJudging(row) : null;
-  }
-
   async nextDueJob(now: Date): Promise<Judging | null> {
     const [row] = await this.context.db
       .select()
@@ -170,26 +167,32 @@ export class DrizzleJudgingRepository implements JudgingRepository {
     return row ? toJudging(row) : null;
   }
 
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(judging)
-      .where(eq(judging.taskId, taskId.value));
-  }
-
-  async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.db
+  private async removed(removed: Judging): Promise<void> {
+    const gone = await this.context.db
       .delete(judging)
       .where(
         and(
-          eq(judging.workspaceId, workspaceId.value),
-          eq(judging.teamId, teamId.value),
+          eq(judging.runId, removed.runId.value),
+          eq(judging.version, removed.version),
         ),
-      );
+      )
+      .returning({ runId: judging.runId });
+
+    if (gone.length === 0) {
+      throw new JudgingVersionConflictError(removed.runId.value);
+    }
   }
 
-  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(judging)
-      .where(eq(judging.workspaceId, workspaceId.value));
+  async ofScope(
+    scope: DeletionScope,
+    max: number,
+  ): Promise<readonly Judging[]> {
+    const rows = await this.context.db
+      .select()
+      .from(judging)
+      .where(inScope(judging, scope))
+      .limit(max);
+
+    return rows.map(toJudging);
   }
 }

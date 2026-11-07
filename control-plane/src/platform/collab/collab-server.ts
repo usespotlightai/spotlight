@@ -11,6 +11,7 @@ import { HttpAdapterHost } from '@nestjs/core';
 import type { CollabDocuments } from '@platform/collab/collab-documents';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
+import type { RequestHeaders } from '@platform/http/request-headers';
 import { API_PREFIX, COLLAB } from '@platform/http/routes';
 import {
   listenForUpgrades,
@@ -21,7 +22,6 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import type { RequestHeaders } from '@shared-kernel/application/ports/session.port';
 import IORedis from 'ioredis';
 import { WebSocketServer } from 'ws';
 import { type Doc, encodeStateAsUpdate } from 'yjs';

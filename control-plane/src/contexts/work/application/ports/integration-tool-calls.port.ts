@@ -17,15 +17,17 @@ export interface ToolActingAsDto {
   readonly linkedAccount: string | null;
 }
 
+export type MissingConnectionReason =
+  | 'not-connected'
+  | 'refresh-failed'
+  | 'no-requester'
+  | 'not-a-member';
+
 export interface ConnectionMissingDto {
   readonly integration: string;
   readonly integrationName: string;
   readonly personId: string | null;
-  readonly because:
-    | 'not-connected'
-    | 'refresh-failed'
-    | 'no-requester'
-    | 'not-a-member';
+  readonly because: MissingConnectionReason;
 }
 
 export interface PersonRuleDto {
@@ -34,13 +36,22 @@ export interface PersonRuleDto {
   readonly personName: string;
 }
 
+export interface ToolCallFailureDto {
+  readonly blocked: boolean;
+  readonly reason: string;
+}
+
+export type ToolCallResultDto =
+  | { readonly outcome: 'answered'; readonly output: unknown }
+  | { readonly outcome: 'failed'; readonly failure: ToolCallFailureDto };
+
 export interface IntegrationTool {
   readonly declared: ToolDeclaration;
   readonly actingAs: ToolActingAsDto | null;
   readonly missing: ConnectionMissingDto | null;
   readonly personRule: PersonRuleDto | null;
   defaultFor(input: string): unknown;
-  call(inputs: ToolInputValues): Promise<unknown>;
+  call(inputs: ToolInputValues): Promise<ToolCallResultDto>;
 }
 
 export interface IntegrationToolCallsPort {

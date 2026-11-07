@@ -19,13 +19,14 @@ import type { RepositoryName } from '@change-review/domain/value-objects/reposit
 import type {
   OutlinedCohort,
   ProposedCohort,
+  StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
-const SPLIT_ABOVE = 80;
+const MAX_HUNKS_PER_CALL = 80;
 
-export const splits = (facts: DiffFacts): boolean =>
-  placedHunks(facts).length > SPLIT_ABOVE;
+export const exceedsOneCall = (facts: DiffFacts): boolean =>
+  placedHunks(facts).length > MAX_HUNKS_PER_CALL;
 
 export type CohortLayering =
   | {
@@ -54,10 +55,10 @@ export const layerCohort = async (
     repository: RepositoryName | null;
     cohort: OutlinedCohort;
     redraft?: RedraftRequest | null;
-    changeLayersBefore?: number;
+    redrafting?: StackCohort;
   },
 ): Promise<CohortLayering> => {
-  const { cohort, repository, redraft, changeLayersBefore } = request;
+  const { cohort, repository, redraft, redrafting } = request;
   const part = stackPartOf(request.diff, request.facts, cohort.hunks);
   const usage: ModelCall[] = [];
   let problems: readonly StackProblem[] = [];
@@ -88,7 +89,7 @@ export const layerCohort = async (
           part,
           cohort,
           attempt.answer.layers,
-          changeLayersBefore,
+          redrafting,
         ),
         proposed: StackOutline.proposed(cohort, attempt.answer.layers),
         usage,

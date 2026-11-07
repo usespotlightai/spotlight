@@ -40,15 +40,15 @@ export class StartWantedBaseline {
           event.repeats,
         )
       ) {
-        await this.candidates.save(candidate.cascadeDelete());
+        await this.candidates.save(candidate.delete());
         return;
       }
 
       await this.replays.add(
         Replay.start({
           id: event.baselineId,
-          set,
-          candidate,
+          set: set.snapshot,
+          candidate: candidate.asReplayed,
           baseline: true,
           ceiling: event.ceiling,
           repeats: event.baselineRepeats,

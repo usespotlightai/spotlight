@@ -18,6 +18,10 @@ export class ModelSpent {
     readonly unpriced: number,
   ) {}
 
+  static none(): ModelSpent {
+    return new ModelSpent([], 0);
+  }
+
   static of(spends: readonly Money[], unpriced: number): ModelSpent {
     if (!Number.isInteger(unpriced) || unpriced < 0) {
       throw new InvalidMoneyError('unpriced calls must be a whole number');

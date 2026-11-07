@@ -1,8 +1,6 @@
 import type { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
-import type { TeamMemoryDetailDto } from '@memory/application/dto/team-memory.dto';
 import type { MemoryAccess } from '@memory/application/services/memory-access.service';
 import type { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
-import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -13,24 +11,25 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class WriteMemoryHandler
-  implements CommandHandlerPort<WriteMemoryCommand, TeamMemoryDetailDto>
+  implements CommandHandlerPort<WriteMemoryCommand, string>
 {
   constructor(
     private readonly access: MemoryAccess,
     private readonly loader: TeamMemoryLoader,
     private readonly memories: MemoryRepository,
-    private readonly views: TeamMemoryViews,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
 
-  async execute(command: WriteMemoryCommand): Promise<TeamMemoryDetailDto> {
+  async execute(command: WriteMemoryCommand): Promise<string> {
     try {
       const access = await this.access.forTeam(
-        command.teamId,
-        command.viewerId,
+        TeamId.of(command.teamId),
+        UserId.of(command.viewerId),
       );
       const layout = await this.loader.layoutOf(access);
       const written = Memory.write({
@@ -46,7 +45,7 @@ export class WriteMemoryHandler
 
       await this.memories.add(written);
 
-      return await this.views.detail(written);
+      return written.id.value;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

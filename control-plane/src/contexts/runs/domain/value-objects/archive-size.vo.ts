@@ -1,0 +1,27 @@
+import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
+
+const MAX_BYTES = 2 * 1024 ** 3;
+
+export class ArchiveSize {
+  private constructor(readonly bytes: number) {}
+
+  static of(bytes: number): ArchiveSize {
+    if (!Number.isSafeInteger(bytes) || bytes < 1) {
+      throw new InvalidWorkingCopyArchiveError(
+        'size must be a whole number of bytes',
+      );
+    }
+
+    if (bytes > MAX_BYTES) {
+      throw new InvalidWorkingCopyArchiveError(
+        `can be at most ${MAX_BYTES} bytes, not ${bytes}`,
+      );
+    }
+
+    return new ArchiveSize(bytes);
+  }
+
+  equals(other: ArchiveSize): boolean {
+    return this.bytes === other.bytes;
+  }
+}

@@ -1,22 +1,10 @@
-import type {
-  InboxWait,
-  TaskHumanActions,
-} from '@insights/domain/aggregates/task-human-actions.aggregate';
 import {
   between,
-  known,
   NO_SPREAD,
   type Spread,
   spreadOf,
 } from '@insights/domain/services/measures';
-import {
-  atStation,
-  endedWithin,
-  type StationLocation,
-  stationsOf,
-  type TeamHistory,
-  tasksOf,
-} from '@insights/domain/services/team-history';
+import type { StationLocation } from '@insights/domain/services/station-ranking';
 import { type Delta, deltaOf } from '@insights/domain/value-objects/delta.vo';
 import {
   type InsightsPeriod,
@@ -72,20 +60,6 @@ export interface Flow {
   readonly delivery: DeliveryFlow;
 }
 
-export const inboxWaitsWithin = (
-  history: TeamHistory,
-  window: Window,
-): readonly (InboxWait & { readonly taskId: string })[] =>
-  history.taskHumanActions.flatMap((humanActions) =>
-    humanActions
-      .waits()
-      .filter((wait) => within(window, wait.askedAt))
-      .map((wait) => ({ ...wait, taskId: humanActions.taskId.value })),
-  );
-
-const answerMs = (wait: InboxWait): number | null =>
-  wait.answeredAt ? between(wait.askedAt, wait.answeredAt) : null;
-
 export interface StationRunCounts extends StationLocation {
   readonly taskIds: readonly string[];
   readonly runs: number;
@@ -119,73 +93,6 @@ export interface FlowCounts {
   readonly previous: FlowWindowCounts;
   readonly deliveries: readonly DeliveryMoments[];
 }
-
-const windowCountsOf = (
-  history: TeamHistory,
-  window: Window,
-): FlowWindowCounts => {
-  const ended = endedWithin(history.records, window);
-  const waits = inboxWaitsWithin(history, window);
-  const asked = new Map<string, (InboxWait & { readonly taskId: string })[]>();
-
-  for (const wait of waits) {
-    const here = asked.get(wait.stationId) ?? [];
-    here.push(wait);
-    asked.set(wait.stationId, here);
-  }
-
-  return {
-    stations: stationsOf(ended).map((location) => {
-      const here = atStation(ended, location.stationId).filter(
-        (each) => each.ran,
-      );
-
-      return {
-        ...location,
-        taskIds: tasksOf(here),
-        runs: here.length,
-        queued: spreadOf(known(here.map((each) => each.end?.queuedMs ?? null))),
-        running: spreadOf(
-          known(here.map((each) => each.end?.runningMs ?? null)),
-        ),
-      };
-    }),
-    inbox: [...asked.entries()].map(([stationId, here]) => ({
-      stationId,
-      asks: here.length,
-      unanswered: here.filter((each) => each.answeredAt === null).length,
-      inbox: spreadOf(known(here.map(answerMs))),
-    })),
-  };
-};
-
-const touchedWithin = (each: DeliveryMoments, window: Window): boolean =>
-  within(window, each.openedAt) ||
-  within(window, each.firstReviewAt) ||
-  (each.merged && within(window, each.closedAt));
-
-export const flowCountsOf = (
-  history: TeamHistory,
-  period: InsightsPeriod,
-  openings: ReadonlyMap<string, TaskHumanActions>,
-): FlowCounts => ({
-  current: windowCountsOf(history, period.current),
-  previous: windowCountsOf(history, period.previous),
-  deliveries: history.taskPullRequests
-    .map((each) => ({
-      taskId: each.taskId.value,
-      openedAt: each.openedAt,
-      firstReviewAt: each.firstReviewAt,
-      closedAt: each.closedAt,
-      merged: each.merged,
-      taskOpenedAt: openings.get(each.taskId.value)?.opening?.at ?? null,
-    }))
-    .filter(
-      (each) =>
-        touchedWithin(each, period.current) ||
-        touchedWithin(each, period.previous),
-    ),
-});
 
 const flowWithin = (
   counts: FlowWindowCounts,

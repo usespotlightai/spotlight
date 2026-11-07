@@ -5,6 +5,7 @@ export class UnlockTerraformStateCommand {
     readonly slug: string,
     readonly name: string,
     readonly actor: Actor,
-    readonly info: unknown | null,
+    readonly force: boolean,
+    readonly info: unknown,
   ) {}
 }

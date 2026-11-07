@@ -1,5 +1,5 @@
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { SpotlightCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import {
   compileIntegration,
   type RequestIR,
@@ -15,7 +15,9 @@ import {
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -199,7 +201,7 @@ actions:
       out.run(
         action(),
         against,
-        new SpotlightCredentials(injection, async () => 'ws_1'),
+        new SpotlightCredentials(injection, async () => WorkspaceId.of('ws_1')),
       ),
     ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(forSpotlight).not.toHaveBeenCalled();
@@ -216,7 +218,7 @@ actions:
     ).run(
       action(),
       against,
-      new SpotlightCredentials(injection, async () => 'ws_1'),
+      new SpotlightCredentials(injection, async () => WorkspaceId.of('ws_1')),
     );
 
     expect(forSpotlight).toHaveBeenCalledWith({
@@ -228,7 +230,7 @@ actions:
 
   it('follows a redirect itself, and injects nothing for another host', async () => {
     const fetch = vi.fn(async (url: string) =>
-      url.startsWith('https://slack.com')
+      new URL(url).host === 'slack.com'
         ? new Response(null, {
             status: 307,
             headers: { location: 'https://files.slack-edge.com/post' },
@@ -539,7 +541,10 @@ describe('HttpOutbound, a secret injected in the query', () => {
     headers: { accept: 'application/json' },
   };
 
-  const auth = { kind: 'secrets', secrets: ['MAPS_KEY'] } as const;
+  const auth = {
+    kind: 'secrets',
+    secrets: [SecretName.of('MAPS_KEY')],
+  } as const;
 
   it('calls the host with the key in its parameter, and leaves the rest of the query unchanged', async () => {
     const fetch = replying({ results: [] });

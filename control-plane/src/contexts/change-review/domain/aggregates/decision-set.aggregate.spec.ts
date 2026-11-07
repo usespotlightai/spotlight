@@ -159,7 +159,7 @@ describe('a decision set, requested to generate', () => {
 
     expect(requested.hasPendingJob).toBe(true);
     expect(requested.generation?.isFor(FIRST)).toBe(true);
-    expect(kinds(requested)).toEqual(['decisions.requested']);
+    expect(kinds(requested)).toEqual([]);
   });
 
   it('takes the same run once', () => {
@@ -228,9 +228,9 @@ describe('a decision set, generated', () => {
     expect(generated.sourceRunId?.equals(FIRST)).toBe(true);
     expect(generated.hasPendingJob).toBe(false);
 
-    const [, recorded] = generated.pullEvents();
+    const [recorded] = generated.pullEvents();
     expect(recorded).toMatchObject({
-      kind: 'decisions.recorded',
+      kind: 'decision-set.recorded',
       recorded: 1,
       dropped: 3,
     });
@@ -303,7 +303,6 @@ describe('a decision set, failing to generate', () => {
     expect(failed.decisions).toHaveLength(1);
     expect(failed.sourceRunId?.equals(FIRST)).toBe(true);
     expect(failed.hasPendingJob).toBe(false);
-    expect(kinds(failed)).toContain('decisions.generation-failed');
   });
 
   it('is retried later, then dead-lettered', () => {
@@ -315,7 +314,6 @@ describe('a decision set, failing to generate', () => {
     }
 
     expect(set.hasPendingJob).toBe(false);
-    expect(kinds(set)).toContain('decisions.generation-failed');
   });
 
   it('says its job is exhausted once every attempt is spent', () => {
@@ -346,14 +344,8 @@ describe('a decision set, merged', () => {
     ]).merge(MERGE);
 
     expect(merged.status.isMerged).toBe(true);
-    expect(merged.status.merge?.commit).toBe('a'.repeat(40));
+    expect(merged.status.merge?.commit.value).toBe('a'.repeat(40));
     expect(merged.status.merge?.repository.value).toBe('acme/api');
-    expect(merged.pullEvents()).toContainEqual(
-      expect.objectContaining({
-        kind: 'decisions.merged',
-        commit: 'a'.repeat(40),
-      }),
-    );
   });
 
   it('merges once', () => {
@@ -385,25 +377,15 @@ describe('a decision set, merged', () => {
 });
 
 describe('a decision set, closed without a merge', () => {
-  it('is discarded', () => {
-    const discarded = generating(
-      opened().requestGeneration(FIRST, NOW),
-      FIRST,
-      [proposed()],
-    ).closeUnmerged();
-
-    expect(discarded.discarded).toBe(true);
-    expect(kinds(discarded)).toContain('decisions.discarded');
+  it('may be discarded', () => {
+    expect(
+      generating(opened().requestGeneration(FIRST, NOW), FIRST, [proposed()])
+        .discardable,
+    ).toBe(true);
   });
 
   it('keeps what is already merged', () => {
-    const merged = opened().merge(MERGE);
-    merged.pullEvents();
-
-    const closed = merged.closeUnmerged();
-
-    expect(closed.discarded).toBe(false);
-    expect(kinds(closed)).toEqual([]);
+    expect(opened().merge(MERGE).discardable).toBe(false);
   });
 });
 
@@ -442,7 +424,7 @@ describe('a decision set, disputed', () => {
     expect(disputed.decisions[0]?.disputes).toEqual([]);
     expect(disputed.pullEvents()).toContainEqual(
       expect.objectContaining({
-        kind: 'decisions.disputed',
+        kind: 'decision-set.disputed',
         decisionId: second?.id,
         path: FilePath.of('src/uploads.ts'),
       }),

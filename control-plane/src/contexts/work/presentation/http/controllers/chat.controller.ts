@@ -15,6 +15,7 @@ import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -24,8 +25,8 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
@@ -290,6 +291,10 @@ export class ChatController {
   @ApiNoContentResponse({ description: 'The task is being created' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   @ApiConflictResponse({ description: 'The proposal is already decided' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async accept(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,

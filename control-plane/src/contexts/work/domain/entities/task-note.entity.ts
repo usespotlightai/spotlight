@@ -1,3 +1,6 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { unread } from '@work/domain/services/unread';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type {
@@ -11,8 +14,6 @@ import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo
 import type { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import type { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
-import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import type { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { Voice } from '@work/domain/value-objects/voice.vo';
@@ -32,6 +33,7 @@ export const TASK_NOTE_FORMS = [
   'setup',
   'resolved',
   'approval',
+  'decision',
   'failure',
   'connection',
 ] as const;
@@ -41,7 +43,7 @@ export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 export class TaskNote {
   private constructor(
     readonly position: NotePosition,
-    readonly station: StationName,
+    readonly station: StationName | null,
     readonly stationId: StationId,
     readonly body: TaskNoteBody,
     readonly at: Date,
@@ -61,7 +63,7 @@ export class TaskNote {
 
   static of(input: {
     position: NotePosition;
-    station: StationName;
+    station: StationName | null;
     stationId: StationId;
     body: TaskNoteBody;
     at: Date;
@@ -78,6 +80,57 @@ export class TaskNote {
     deferredMove?: DeferredMove | null;
     connectionAsk?: ConnectionAsk | null;
   }): TaskNote {
+    const form = input.form ?? 'words';
+    const carried = {
+      approval: input.approval ?? null,
+      failure: input.failure ?? null,
+      connection: input.connectionAsk ?? null,
+    } as const;
+
+    for (const [payload, value] of Object.entries(carried)) {
+      if (value !== null && form !== payload) {
+        throw new InconsistentStateError(
+          'task note',
+          `has form ${form} but carries a ${payload}`,
+        );
+      }
+    }
+
+    if (form === 'failure' && carried.failure === null) {
+      throw new InconsistentStateError(
+        'task note',
+        'has form failure but carries no failure',
+      );
+    }
+
+    if (form === 'connection' && carried.connection === null) {
+      throw new InconsistentStateError(
+        'task note',
+        'has form connection but carries no connection ask',
+      );
+    }
+
+    if (form === 'approval' && carried.approval === null) {
+      throw new InconsistentStateError(
+        'task note',
+        'has form approval but carries no approval',
+      );
+    }
+
+    if (form === 'decision' && input.kind !== 'answered') {
+      throw new InconsistentStateError(
+        'task note',
+        `records a decision on a ${input.kind} note`,
+      );
+    }
+
+    if (input.deferredMove && input.kind !== 'message') {
+      throw new InconsistentStateError(
+        'task note',
+        `defers a move on a ${input.kind} note`,
+      );
+    }
+
     return new TaskNote(
       input.position,
       input.station,

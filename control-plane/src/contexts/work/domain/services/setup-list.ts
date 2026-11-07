@@ -4,6 +4,7 @@ import {
   conversationsOf,
   stillOpen,
 } from '@work/domain/services/conversations';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -23,6 +24,28 @@ export const TAKEN: Record<SetupStepKey, (state: SetupState) => boolean> = {
   configuration: (state) => state.configured,
 };
 
+export interface SetupChatCandidate {
+  readonly pullRequest: string | null;
+  readonly startedAt: Date;
+}
+
+export const setupChatOf = <C extends SetupChatCandidate>(
+  chats: readonly C[],
+): C | null => {
+  const newestFirst = [...chats].sort(
+    (a, b) => b.startedAt.getTime() - a.startedAt.getTime(),
+  );
+
+  return (
+    newestFirst.find((each) => each.pullRequest !== null) ??
+    newestFirst[0] ??
+    null
+  );
+};
+
+export const configuredBy = (setupChat: SetupChatCandidate | null): boolean =>
+  setupChat !== null && setupChat.pullRequest !== null;
+
 const setUp = (state: SetupState): boolean =>
   SETUP_STEPS.every((step) => TAKEN[step](state));
 
@@ -33,7 +56,7 @@ export const openSetupList = (notes: readonly TaskNote[]): TaskNote | null => {
     stillOpen,
   );
 
-  const opened = openConversation ? notes[openConversation.from] : undefined;
+  const opened = openConversation?.from.noteIn(notes);
 
   return opened?.form === 'setup' ? opened : null;
 };
@@ -42,6 +65,7 @@ export const setupDoneNote = (
   notes: readonly TaskNote[],
   state: SetupState,
   at: Date,
+  line: LineMap | null,
 ): NewNote | null => {
   const opened = openSetupList(notes);
 
@@ -50,7 +74,7 @@ export const setupDoneNote = (
   }
 
   return {
-    station: opened.station,
+    line,
     body: TaskNoteBody.of(ALL_DONE),
     form: 'resolved',
     at,

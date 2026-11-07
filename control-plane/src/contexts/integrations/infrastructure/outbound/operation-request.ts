@@ -1,14 +1,11 @@
+import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
 import type {
   OperationParameter,
   SpecOperation,
 } from '@integrations/domain/value-objects/spec-operation.vo';
 import type { PlainRequest } from '@integrations/infrastructure/outbound/http-outbound';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import {
-  isJsonObject,
-  type JsonValue,
-} from '@shared-kernel/domain/services/json-value';
-import type { ToolInputValues } from '@work/application/contracts/tools.contract';
+import { isJsonObject, type JsonValue } from '@shared-kernel/domain/json-value';
 
 const JSON_CONTENT = 'application/json';
 
@@ -62,7 +59,7 @@ const queried = (
 
 const httpRequest = (
   call: Extract<SpecOperation['call'], { kind: 'http' }>,
-  inputs: ToolInputValues,
+  inputs: ToolCallInputs,
 ): PlainRequest => {
   const inputOf = (name: string): JsonValue | undefined => inputs[name];
   let path = call.path;
@@ -106,7 +103,7 @@ const httpRequest = (
 
 export const operationRequest = (
   operation: SpecOperation,
-  inputs: ToolInputValues,
+  inputs: ToolCallInputs,
 ): PlainRequest => {
   const call = operation.call;
 

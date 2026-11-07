@@ -1,12 +1,12 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   TaskNote,
   type TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -36,7 +36,7 @@ const trail = (...notes: TaskNote[]) =>
 describe('Trail', () => {
   it('keeps the answer pending while nobody has given one', () => {
     expect(trail(note('passed'), note('asked')).pending).toEqual({
-      from: 1,
+      from: NotePosition.of(1),
       to: null,
     });
     expect(trail(note('asked'), note('answered')).pending).toBeNull();

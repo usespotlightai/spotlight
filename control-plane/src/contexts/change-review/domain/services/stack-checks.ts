@@ -7,6 +7,7 @@ import { factProblems } from '@change-review/domain/services/fact-rules';
 import { placementsOf } from '@change-review/domain/services/hunk-placements';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
+  type CohortKind,
   MAX_PROSE,
   needsFileNotes,
   type ProposedCohort,
@@ -177,7 +178,10 @@ export const shapeProblems = (
 };
 
 export const changeLayerCount = (
-  cohorts: readonly { kind: string; layers: readonly unknown[] }[],
+  cohorts: readonly {
+    readonly kind: CohortKind;
+    readonly layers: readonly unknown[];
+  }[],
 ): number =>
   cohorts
     .filter((cohort) => cohort.kind === 'change')

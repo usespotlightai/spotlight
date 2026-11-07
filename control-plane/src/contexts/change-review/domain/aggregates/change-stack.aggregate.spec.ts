@@ -1,6 +1,7 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
+import { NoStackOwnerError } from '@change-review/domain/exceptions/no-stack-owner.error';
+import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import type { HunkLink } from '@change-review/domain/services/diff-facts';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -10,6 +11,7 @@ import {
 } from '@change-review/domain/value-objects/diff.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
+  DraftedCohort,
   ProposedCohort,
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
@@ -28,6 +30,7 @@ import {
 } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -57,16 +60,17 @@ const DIFF = Diff.of([
 const NOW = new Date('2026-09-16T10:00:00Z');
 
 const generating = (
-  facts = StackFacts.none(),
-  replay = false,
-  isSearch = false,
+  facts = StackFacts.of({ hunks: [], links: [], imports: [] }),
+  trial = false,
+  checkouts = 1,
 ) =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
-    replay,
-    isSearch,
+    teamOfRun: TeamId.of('team_1'),
+    trial,
+    checkouts,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: ' web ',
     base: null,
@@ -86,7 +90,9 @@ const layer = (
   dependsOn,
   hunks: hunks.map((each) => ({ hunk: HunkId.of(each) })),
   notes: [
-    ...new Set(hunks.flatMap((each) => DIFF.fileOf(each)?.path ?? [])),
+    ...new Set(
+      hunks.flatMap((each) => DIFF.fileOf(HunkId.of(each))?.path ?? []),
+    ),
   ].map((path) => ({ path, note: 'Why it changes' })),
   questions: [],
 });
@@ -100,7 +106,7 @@ const invitations = (layers: ProposedLayer[]): ProposedCohort => ({
 
 const LATER = new Date(NOW.getTime() + 60_000);
 
-const problemsOf = (cohorts: ProposedCohort[]): readonly string[] => {
+const problemsOf = (cohorts: DraftedCohort[]): readonly string[] => {
   try {
     generating().propose(cohorts, LATER);
   } catch (error) {
@@ -113,12 +119,25 @@ const problemsOf = (cohorts: ProposedCohort[]): readonly string[] => {
 };
 
 describe('ChangeStack', () => {
-  describe('of a replay', () => {
+  it('is never generated for a run without checkouts, which changes no repository', () => {
+    expect(() =>
+      generating(
+        StackFacts.of({ hunks: [], links: [], imports: [] }),
+        false,
+        0,
+      ),
+    ).toThrow(NoStackWithoutCheckoutsError);
+  });
+
+  describe('of a trial', () => {
     const kindsOf = (stack: ChangeStack) =>
       stack.pullEvents().map((each) => each.kind);
 
-    it('stays in Spotlight: it says it completed for its replay, and shapes no task’s outcome', () => {
-      const stack = generating(StackFacts.none(), true);
+    it('stays in Spotlight: it says it completed for its trial, and shapes no task’s outcome', () => {
+      const stack = generating(
+        StackFacts.of({ hunks: [], links: [], imports: [] }),
+        true,
+      );
       stack.pullEvents();
 
       const ready = stack.propose(
@@ -126,27 +145,22 @@ describe('ChangeStack', () => {
         LATER,
       );
 
-      expect(ready.postsToGitHub).toBe(false);
       expect(kindsOf(ready)).toEqual([
         'change-stack.completed',
-        'change-stack.replay-completed',
+        'change-stack.trial-settled',
       ]);
     });
 
-    it('says it completed for its replay when it could not be generated', () => {
-      const stack = generating(StackFacts.none(), true);
+    it('says it completed for its trial when it could not be generated', () => {
+      const stack = generating(
+        StackFacts.of({ hunks: [], links: [], imports: [] }),
+        true,
+      );
       stack.pullEvents();
 
-      expect(kindsOf(stack.fail('No.', LATER))).toEqual([
-        'change-stack.failed',
-        'change-stack.replay-completed',
+      expect(kindsOf(stack.deadLetter(LATER))).toEqual([
+        'change-stack.trial-settled',
       ]);
-    });
-
-    it('is never generated for a search run, which changes no repository', () => {
-      expect(() => generating(StackFacts.none(), false, true)).toThrow(
-        NoStackForSearchesError,
-      );
     });
 
     it('belongs to no task', () => {
@@ -155,13 +169,14 @@ describe('ChangeStack', () => {
           id: ChangeStackId.of('stack-1'),
           runId: RunId.of('run-1'),
           taskId: TaskId.of('task-1'),
-          replay: true,
-          isSearch: false,
+          teamOfRun: TeamId.of('team_1'),
+          trial: true,
+          checkouts: 1,
           workspaceId: WorkspaceId.of('workspace-1'),
           repository: 'web',
           base: null,
           diff: DIFF,
-          facts: StackFacts.none(),
+          facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
           request: null,
           now: NOW,
         }),
@@ -177,11 +192,41 @@ describe('ChangeStack', () => {
         LATER,
       );
 
-      expect(ready.postsToGitHub).toBe(true);
       expect(kindsOf(ready)).toEqual([
         'change-stack.completed',
-        'change-stack.ready',
+        'change-stack.became-ready',
       ]);
+    });
+  });
+
+  describe('owner', () => {
+    const owned = (taskId: TaskId | null, teamOfRun: TeamId | null) =>
+      ChangeStack.startGeneration({
+        id: ChangeStackId.of('stack-1'),
+        runId: RunId.of('run-1'),
+        taskId,
+        teamOfRun,
+        trial: false,
+        checkouts: 1,
+        workspaceId: WorkspaceId.of('workspace-1'),
+        repository: 'web',
+        base: null,
+        diff: DIFF,
+        facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
+        request: null,
+        now: NOW,
+      });
+
+    it('belongs to its task, or without a task to the team of its run', () => {
+      const ofTask = owned(TaskId.of('task-1'), TeamId.of('team_1'));
+      const ofTeam = owned(null, TeamId.of('team_1'));
+
+      expect([ofTask.taskId?.value, ofTask.teamId]).toEqual(['task-1', null]);
+      expect([ofTeam.taskId, ofTeam.teamId?.value]).toEqual([null, 'team_1']);
+    });
+
+    it('is refused without a task or a team, since nobody could review it', () => {
+      expect(() => owned(null, null)).toThrow(NoStackOwnerError);
     });
   });
 
@@ -189,9 +234,7 @@ describe('ChangeStack', () => {
     const stack = generating();
 
     expect(stack.state).toBe('generating');
-    expect(stack.pullEvents().map((each) => each.kind)).toEqual([
-      'change-stack.generation-started',
-    ]);
+    expect(stack.pullEvents()).toEqual([]);
     expect(stack.repository?.value).toBe('web');
     expect(stack.cohorts).toEqual([]);
     expect(stack.completedAt).toBeNull();
@@ -265,28 +308,44 @@ describe('ChangeStack', () => {
     ]);
   });
 
+  it('rejects a stack that places a hunk the diff does not have, so the model can mend it', () => {
+    expect(
+      problemsOf([
+        {
+          ...invitations([layer('Everything', ['h1', 'h2', 'h3'])]),
+          layers: [
+            {
+              ...layer('Everything', ['h1', 'h2', 'h3']),
+              hunks: [{ hunk: 'h1' }, { hunk: 'h2' }, { hunk: 'hx' }],
+            },
+          ],
+        },
+      ]),
+    ).toEqual(['cohort 1, layer 1 names hx, which is not in the diff']);
+  });
+
   it('rejects a stack with an empty cohort or no cohorts at all', () => {
     expect(problemsOf([])).toContain('has no cohorts');
     expect(problemsOf([invitations([])])).toContain('cohort 1 has no layers');
   });
 
-  it('fails with the reason it receives, and says so', () => {
-    const generated = generating();
-    generated.pullEvents();
-
-    const failed = generated.fail('The model returned no answer', LATER);
+  it('fails with why it stopped, as a code', () => {
+    const failed = generating().stopForBrokenRules(LATER);
 
     expect(failed.state).toBe('failed');
-    expect(failed.failure).toBe('The model returned no answer');
-    expect(failed.pullEvents().map((each) => each.kind)).toEqual([
-      'change-stack.failed',
-    ]);
+    expect(failed.failure).toBe('broke-rules');
+    expect(failed.pullEvents()).toEqual([]);
   });
 
   it('completes only once', () => {
-    const failed = generating().fail('No', LATER);
+    const failed = generating().deadLetter(LATER);
 
-    expect(() => failed.fail('Again', LATER)).toThrow(InvalidChangeStackError);
+    expect(() =>
+      failed.propose(
+        [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+        LATER,
+      ),
+    ).toThrow(InvalidChangeStackError);
   });
 
   it('renews the lease of a worker still generating it, without counting another attempt', () => {
@@ -305,7 +364,7 @@ describe('ChangeStack', () => {
     const leased = generating().leaseJob(NOW);
 
     expect(leased.settleFailedCall({ truncated: true }, LATER).failure).toBe(
-      'The change is too large for one change stack.',
+      'too-large',
     );
     expect(leased.settleFailedCall({ truncated: false }, LATER).state).toBe(
       'generating',
@@ -345,10 +404,39 @@ describe('ChangeStack', () => {
     }
 
     expect(exhausted.state).toBe('failed');
-    expect(exhausted.failure).toBe(
-      'Spotlight couldn’t generate the change stack.',
-    );
+    expect(exhausted.failure).toBe('not-generated');
     expect(exhausted.hasPendingJob).toBe(false);
+  });
+
+  it('needs a model only for hunks it does not set aside as incidental', () => {
+    const facts = (incidental: boolean) =>
+      StackFacts.of({
+        hunks: DIFF.hunks.map((each) => ({
+          hunk: each.id,
+          path: DIFF.fileOf(each.id)?.path ?? '',
+          fileClass: incidental ? 'lockfile' : 'source',
+          incidental,
+          renamed: false,
+          moved: false,
+          linkable: !incidental,
+          defines: [],
+          outside: [],
+        })),
+        links: [],
+        imports: [],
+      });
+
+    expect(generating(facts(true)).needsModel).toBe(false);
+    expect(generating(facts(false)).needsModel).toBe(true);
+  });
+
+  it('asks for no redraft without a check', () => {
+    const ready = generating().propose(
+      [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+      LATER,
+    );
+
+    expect(ready.requestRedraft().redraftFor(null)).toBeNull();
   });
 
   it('has no pending job once it completes', () => {
@@ -565,12 +653,13 @@ describe('ChangeStack read back from what was stored', () => {
       id: ChangeStackId.of('stack-1'),
       runId: RunId.of('run-1'),
       taskId: null,
-      replay: false,
+      teamId: TeamId.of('team_1'),
+      trial: false,
       workspaceId: WorkspaceId.of('workspace-1'),
       repository: RepositoryName.of('web'),
       base: null,
       diff: DIFF,
-      facts: StackFacts.none(),
+      facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
       cohorts: ready().cohorts,
       progress: ready().progress,
       job: ready().job,
@@ -583,6 +672,12 @@ describe('ChangeStack read back from what was stored', () => {
 
   it('takes a stack back as it was left', () => {
     expect(stored({}).state).toBe('ready');
+  });
+
+  it('is refused when stored with both a task and a team', () => {
+    expect(() =>
+      stored({ taskId: TaskId.of('task-1'), teamId: TeamId.of('team_1') }),
+    ).toThrow(InconsistentStateError);
   });
 
   it('rejects a ready stack that leaves a hunk out, or assigns one twice', () => {
@@ -619,7 +714,7 @@ describe('ChangeStack read back from what was stored', () => {
           completedAt: LATER,
         }),
       }),
-    ).toThrow('failed without saying why');
+    ).toThrow('has a failure that does not match its state');
   });
 
   it('rejects a stack that is still generating, yet has cohorts', () => {

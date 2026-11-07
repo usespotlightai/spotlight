@@ -1,6 +1,6 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
-import { QuestionAlreadyAnsweredError } from '@change-review/domain/exceptions/question-already-answered.error';
+import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
@@ -40,8 +40,9 @@ const ready = ChangeStack.startGeneration({
   id: ChangeStackId.of('stack_1'),
   runId: RUN,
   taskId: TaskId.of('task_1'),
-  replay: false,
-  isSearch: false,
+  teamOfRun: null,
+  trial: false,
+  checkouts: 1,
   workspaceId: WorkspaceId.of('ws_1'),
   repository: null,
   base: null,
@@ -63,7 +64,7 @@ const ready = ChangeStack.startGeneration({
       ],
     },
   ]),
-  facts: StackFacts.none(),
+  facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
   request: null,
   now: NOW,
 }).propose(
@@ -98,8 +99,7 @@ const question = ready.question(QuestionId.of('c1.l1.q1'));
 const answered = (id: string, personId: UserId, asked = question) =>
   QuestionAnswer.given({
     id: QuestionAnswerId.of(id),
-    workspaceId: ready.workspaceId,
-    stackId: ready.id,
+    stack: ready,
     question: asked,
     personId,
     reply: 'The bot.',
@@ -156,9 +156,9 @@ describe('answers to the questions of a change stack', () => {
     expect(found?.usage.inputTokens).toBe(200);
   });
 
-  it('refuses a second answer by the same reviewer', async () => {
+  it('refuses a second answer by the same reviewer as a version conflict, for the caller to decide again', async () => {
     await expect(answers.add(answered('answer_ada_2', ADA))).rejects.toThrow(
-      QuestionAlreadyAnsweredError,
+      QuestionAnswerVersionConflictError,
     );
   });
 
@@ -170,11 +170,13 @@ describe('answers to the questions of a change stack', () => {
     expect((await questionsFor(BEA))?.[0]?.answered).toBeNull();
   });
 
-  it('forgets the answers of a task before its change stacks go', async () => {
-    await answers.removeForTask(TaskId.of('task_1'));
+  it('finds the answers of a task and removes each, whether or not its change stack is still there', async () => {
     await database.db.execute(
       sql`delete from change_stack where id = 'stack_1'`,
     );
+    for (const each of await answers.ofTask(TaskId.of('task_1'))) {
+      await answers.remove(each);
+    }
 
     const [{ count } = { count: -1 }] = (
       await database.db.execute<{ count: number }>(

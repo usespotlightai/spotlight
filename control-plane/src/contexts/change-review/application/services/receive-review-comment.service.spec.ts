@@ -57,7 +57,6 @@ const receiving = (stored: ReviewComment[] = []) => {
   const service = new ReceiveReviewComment(
     {
       run: async () => null,
-      wasClaimedBy: async () => false,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => null,
@@ -87,7 +86,7 @@ const onGitHub = (githubId: number, body = 'Earlier') =>
     anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 12 }),
     body,
     author: ReviewAuthor.onGitHub('octocat'),
-    replyTo: null,
+    inReplyTo: null,
     github: { id: githubId, url: `https://github.com/c/${githubId}` },
     at: NOW,
   });

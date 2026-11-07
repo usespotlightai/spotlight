@@ -1,29 +1,33 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
+import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
+import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -38,18 +42,18 @@ const station = (
   id: StationId,
   key: string,
   position: number,
-  extra: Partial<Parameters<typeof Station.of>[0]> = {},
+  extra: Partial<Parameters<typeof stationOf>[0]> = {},
 ) =>
-  Station.of({
+  stationOf({
     id,
     key: StationKey.of(key),
     name: StationName.of(key),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     ...extra,
   });
 
-const line = Line.rehydrate({
+const line = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -68,7 +72,7 @@ const line = Line.rehydrate({
 });
 
 const newNote = (body: string, voice: Voice) => ({
-  station: StationName.of('build'),
+  line: null,
   body: TaskNoteBody.of(body),
   at: NOW,
   voice,
@@ -141,7 +145,7 @@ describe('a task put to a person by its current run', () => {
       'The default one.',
     ]);
     expect(
-      task.acknowledgeUpTo(NotePosition.of(1), NOW).unacknowledged,
+      task.acknowledgeUpTo(RUN, NotePosition.of(1), NOW).unacknowledged,
     ).toHaveLength(0);
   });
 
@@ -164,7 +168,7 @@ describe('a task put to a person by its current run', () => {
 
     expect(again.awaitingReview).toBe(true);
     expect(again.hasCurrentRun(RUN)).toBe(true);
-    expect(again.openConversation?.from).toBe(0);
+    expect(again.openConversation?.from).toEqual(NotePosition.of(0));
   });
 
   it('is left by its run when that run ends while the person is still asked', () => {
@@ -187,7 +191,7 @@ describe('a task put to a person by its current run', () => {
     expect(received.awaitingReview).toBe(false);
     expect(received.notes[1]?.kind).toBe('answered');
     expect(received.pullEvents()).toContainEqual(
-      new TaskAnswered(received.id, received.workspaceId, RUN),
+      new TaskAnswered(received.id, received.workspaceId, RUN, null),
     );
   });
 
@@ -233,7 +237,7 @@ describe('a task put to a person by its current run', () => {
     const task = answer(paused());
 
     expect(task.pullEvents()).toContainEqual(
-      new TaskAnswered(task.id, task.workspaceId, RUN),
+      new TaskAnswered(task.id, task.workspaceId, RUN, null),
     );
     expect(task.takesUp(RUN)).toBe(true);
     expect(paused().takesUp(RUN)).toBe(false);
@@ -272,7 +276,91 @@ describe('a task put to a person by its current run', () => {
 
     expect(moved.running).toBe(false);
     expect(moved.pullEvents()).toContainEqual(
-      new RunDetached(moved.id, moved.workspaceId, RUN),
+      new TaskRunDetached(moved.id, moved.workspaceId, RUN),
     );
+  });
+});
+
+describe('a task awaiting the turn its run handed over', () => {
+  const TURN = AwaitedTurn.of(RUN, 1);
+  const awaiting = () =>
+    assigned().awaitTurn({
+      turn: TURN,
+      note: newNote('Which queue should I drain?', Voice.station(RUN)),
+      session: HarnessSession.of('session_1'),
+      runner: null,
+    });
+
+  it('puts itself to a person, records the session and remembers the turn it awaits', () => {
+    const task = awaiting();
+
+    expect(task.awaitingReview).toBe(true);
+    expect(task.session?.value).toBe('session_1');
+    expect(task.awaitedTurn?.equals(TURN)).toBe(true);
+    expect(task.hasCurrentRun(RUN)).toBe(true);
+  });
+
+  it('awaits a turn once, so a redelivered turn asks nobody twice', () => {
+    const task = awaiting();
+
+    expect(
+      task.awaitTurn({
+        turn: TURN,
+        note: newNote('Which queue?', Voice.station(RUN)),
+        session: null,
+        runner: null,
+      }),
+    ).toBe(task);
+  });
+
+  it('only records the turn when it already awaits a person', () => {
+    const task = paused().awaitTurn({
+      turn: TURN,
+      note: newNote('A second question.', Voice.station(RUN)),
+      session: null,
+      runner: null,
+    });
+
+    expect(task.notes).toHaveLength(1);
+    expect(task.awaitedTurn?.equals(TURN)).toBe(true);
+  });
+
+  it('says which turn an answer was to, and awaits it no more (R7)', () => {
+    const answered = answer(awaiting());
+    const said = answered
+      .pullEvents()
+      .find((each) => each instanceof TaskAnswered) as TaskAnswered;
+
+    expect(said.awaitedTurn?.equals(TURN)).toBe(true);
+    expect(answered.awaitedTurn).toBeNull();
+    expect(answered.answeredTurnAt).toEqual(NOW);
+  });
+
+  it('says an answer to an approval was to no turn (R7b)', () => {
+    const said = answer(paused())
+      .pullEvents()
+      .find((each) => each instanceof TaskAnswered) as TaskAnswered;
+
+    expect(said.awaitedTurn).toBeNull();
+  });
+
+  it('awaits no turn of a run it no longer holds', () => {
+    const left = awaiting().leaveRun(RUN, NOW);
+
+    expect(left.awaitedTurn).toBeNull();
+    expect(() => Task.rehydrate({ ...left, awaitedTurn: TURN })).toThrow(
+      InconsistentStateError,
+    );
+  });
+
+  it('awaits only a turn of the run it holds', () => {
+    expect(() =>
+      assigned().awaitTurn({
+        turn: AwaitedTurn.of(RunId.of('run_9'), 1),
+        note: newNote('Which?', Voice.station(RunId.of('run_9'))),
+        session: null,
+        runner: null,
+      }),
+    ).toThrow(InvalidTaskTransitionError);
   });
 });

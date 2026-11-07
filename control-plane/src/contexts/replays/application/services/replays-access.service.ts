@@ -1,8 +1,9 @@
-import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
+  LinesPort,
   StationView,
-  WorkPort,
-} from '@replays/application/ports/work.port';
+} from '@replays/application/ports/lines.port';
+import type { PeoplePort } from '@replays/application/ports/people.port';
+import { TeamAccess } from '@replays/application/services/team-access';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
@@ -14,17 +15,19 @@ import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
-import { TeamAccess } from '@replays/domain/services/team-access';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class ReplaysAccess {
   constructor(
     private readonly people: PeoplePort,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly searches: SearchRepository,
@@ -33,7 +36,7 @@ export class ReplaysAccess {
   async forTeam(teamId: string, principal: Principal): Promise<TeamAccess> {
     return TeamAccess.onTeam(
       teamId,
-      await this.people.membershipOn(teamId, principal),
+      await this.people.membershipOn(TeamId.of(teamId), principal),
     );
   }
 
@@ -42,7 +45,10 @@ export class ReplaysAccess {
     lineId: string,
     stationId: string,
   ): Promise<StationView> {
-    const station = await this.work.station(lineId, stationId);
+    const station = await this.lines.station(
+      LineId.of(lineId),
+      StationId.of(stationId),
+    );
 
     if (!station || !access.sees(station)) {
       throw new UnknownStationError(stationId);
@@ -56,7 +62,7 @@ export class ReplaysAccess {
     lineId: string,
     key: string,
   ): Promise<StationView> {
-    const station = await this.work.keyed(lineId, key);
+    const station = await this.lines.keyed(LineId.of(lineId), key);
 
     if (!station || !access.sees(station)) {
       throw new UnknownStationError(key);

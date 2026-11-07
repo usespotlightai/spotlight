@@ -39,7 +39,7 @@ export class ReconcileConfigPullRequests implements PendingJobsPort {
   }
 
   private async reconciled(due: ConfigPullRequest): Promise<void> {
-    const at = due.gitHubPullRequest;
+    const at = due.hostPullRequest;
     const claimed = at ? await this.claimed(due) : null;
 
     if (!at || !claimed) {
@@ -53,7 +53,7 @@ export class ReconcileConfigPullRequests implements PendingJobsPort {
     }
 
     await this.saved(
-      claimed.recordGitHubClose({
+      claimed.recordHostClose({
         merged: status.state === 'merged',
         at: status.closedAt ?? this.clock.now(),
       }),

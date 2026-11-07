@@ -1,7 +1,4 @@
-import {
-  NO_INDEX,
-  type SymbolIndex,
-} from '@change-review/domain/services/symbol-index';
+import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { indexedFacts } from '@change-review/domain/services/symbol-links';
 import type {
   Diff,
@@ -9,6 +6,10 @@ import type {
   DiffHunk,
 } from '@change-review/domain/value-objects/diff.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import {
+  NO_INDEX,
+  type SymbolIndex,
+} from '@change-review/domain/value-objects/symbol-index.vo';
 
 const FILE_CLASSES = [
   'lockfile',
@@ -56,8 +57,6 @@ export interface DiffFacts {
   readonly links: readonly HunkLink[];
   readonly imports: readonly FileImport[];
 }
-
-export const NO_FACTS: DiffFacts = { hunks: [], links: [], imports: [] };
 
 export const linkFact = ({ kind, to, because }: HunkLink): string => {
   const symbols = because.join(', ');
@@ -125,16 +124,6 @@ export const connectedGroups = (
 
 export const placedHunks = (facts: DiffFacts): HunkId[] =>
   facts.hunks.filter((each) => !each.incidental).map((each) => each.hunk);
-
-export interface CodeReading {
-  classOf(path: string): FileClass;
-
-  reads(path: string): boolean;
-
-  definitionsIn(path: string, added: readonly string[]): readonly string[];
-
-  importsIn(path: string, added: readonly string[]): readonly string[];
-}
 
 const MAX_DEFINERS = 3;
 

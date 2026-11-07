@@ -1,15 +1,18 @@
 import type { Duplex } from 'node:stream';
 import type { EditorConnectionDto } from '@runners/application/dto/sandbox-editor.dto';
-import type { EditorLeasesPort } from '@runners/application/ports/editor-leases.port';
-import type { EditorSandboxesPort } from '@runners/application/ports/editor-sandboxes.port';
+import type {
+  EditorSandbox,
+  EditorSandboxesPort,
+} from '@runners/application/ports/editor-sandboxes.port';
+import type { EditorSessionsPort } from '@runners/application/ports/editor-sessions.port';
 import type { SandboxTunnelsPort } from '@runners/application/ports/sandbox-tunnels.port';
-import type { SandboxState } from '@runners/domain/aggregates/sandbox.aggregate';
+import { SandboxDrainedError } from '@runners/domain/exceptions/sandbox-drained.error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 
 const ATTEMPTS = 3;
 
-export class SandboxEditors implements EditorLeasesPort {
+export class SandboxEditors implements EditorSessionsPort {
   constructor(
     private readonly sandboxes: EditorSandboxesPort,
     private readonly tunnels: SandboxTunnelsPort,
@@ -29,9 +32,7 @@ export class SandboxEditors implements EditorLeasesPort {
       }
     }
 
-    throw new Error(
-      `The sandbox of ${key} drained each time an editor tried to hold it`,
-    );
+    throw new SandboxDrainedError(key);
   }
 
   admits(connection: EditorConnectionDto): Promise<boolean> {
@@ -42,7 +43,7 @@ export class SandboxEditors implements EditorLeasesPort {
     );
   }
 
-  renew(connection: EditorConnectionDto): Promise<SandboxState | null> {
+  renew(connection: EditorConnectionDto): Promise<EditorSandbox | null> {
     return this.sandboxes.holdForEditor(
       connection.sandboxId,
       connection.holder,
@@ -58,8 +59,12 @@ export class SandboxEditors implements EditorLeasesPort {
     );
   }
 
-  stateOf(connection: EditorConnectionDto): Promise<SandboxState | null> {
+  stateOf(connection: EditorConnectionDto): Promise<EditorSandbox | null> {
     return this.sandboxes.stateOf(connection.sandboxId);
+  }
+
+  renewEvery(): number {
+    return this.sandboxes.renewEvery();
   }
 
   async stream(connection: EditorConnectionDto): Promise<Duplex | null> {

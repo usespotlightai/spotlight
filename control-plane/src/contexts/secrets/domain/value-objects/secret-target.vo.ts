@@ -2,7 +2,7 @@ import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.er
 import {
   SECRET_LOCATIONS,
   type SecretLocation,
-} from '@shared-kernel/domain/value-objects/secret-locations';
+} from '@secrets/domain/value-objects/secret-location.vo';
 
 const HEADER = /^[!#$%&'*+.^_`|~0-9a-z-]{1,128}$/;
 
@@ -72,6 +72,10 @@ export class SecretTarget {
     }
 
     return new SecretTarget('query', name);
+  }
+
+  get written(): string {
+    return this.location === 'query' ? `?${this.name}` : this.name;
   }
 
   equals(other: SecretTarget): boolean {

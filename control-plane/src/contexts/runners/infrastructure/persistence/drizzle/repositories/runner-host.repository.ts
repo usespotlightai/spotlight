@@ -11,6 +11,7 @@ import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import {
   type HostImageRecord,
   runnerHost,
@@ -53,6 +54,10 @@ const toHost = (row: Row): RunnerHost =>
       running: row.running,
       images: row.images,
     }),
+    sandboxes: SandboxReport.of({
+      sandboxes: row.sandboxes,
+      stopping: row.stopping,
+    }),
     firstHeartbeatAt: row.firstHeartbeatAt,
     onlineSince: row.onlineSince,
     lastHeartbeatAt: row.lastHeartbeatAt,
@@ -65,7 +70,7 @@ const columnsOf = (host: RunnerHost) => ({
   trustId: host.source.trustId?.value ?? null,
   bootId: host.bootId.value,
   name: host.report.name,
-  release: host.report.release,
+  release: host.report.release.value,
   containerRuntime: host.report.containerRuntime,
   capacity: host.report.capacity,
   running: host.report.running.map((each) => each.value),
@@ -85,6 +90,8 @@ const columnsOf = (host: RunnerHost) => ({
         : {}),
     }),
   ),
+  sandboxes: host.sandboxes.sandboxes.map((each) => each.value),
+  stopping: host.sandboxes.stopping,
   firstHeartbeatAt: host.firstHeartbeatAt,
   onlineSince: host.onlineSince,
   lastHeartbeatAt: host.lastHeartbeatAt,
@@ -150,37 +157,55 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   }
 
   async remove(host: RunnerHost): Promise<void> {
-    const removed = await this.context.db
-      .delete(runnerHost)
-      .where(
-        and(
-          eq(runnerHost.id, host.id.value),
-          eq(runnerHost.version, host.version),
-        ),
-      )
-      .returning({ id: runnerHost.id });
+    await this.context.inTransaction(async () => {
+      const removed = await this.context.db
+        .delete(runnerHost)
+        .where(
+          and(
+            eq(runnerHost.id, host.id.value),
+            eq(runnerHost.version, host.version),
+          ),
+        )
+        .returning({ id: runnerHost.id });
 
-    if (removed.length === 0) {
-      throw new RunnerHostVersionConflictError(host.id.value);
-    }
+      if (removed.length === 0) {
+        throw new RunnerHostVersionConflictError(host.id.value);
+      }
+
+      await this.events.dispatch(host.pullEvents());
+    });
   }
 
-  async removeThrough(source: CredentialSource): Promise<void> {
-    await this.context.db
-      .delete(runnerHost)
+  async servingThrough(
+    source: CredentialSource,
+  ): Promise<readonly RunnerHost[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runnerHost)
       .where(
         source.kind === 'pool'
           ? eq(runnerHost.poolId, source.id)
           : eq(runnerHost.trustId, source.id),
       );
+
+    return rows.map(toHost);
   }
 
-  async removeStaleBefore(cutoff: Date): Promise<number> {
-    const removed = await this.context.db
-      .delete(runnerHost)
-      .where(lte(runnerHost.lastHeartbeatAt, cutoff))
-      .returning({ id: runnerHost.id });
+  async inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerHost[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runnerHost)
+      .where(eq(runnerHost.workspaceId, workspaceId.value));
 
-    return removed.length;
+    return rows.map(toHost);
+  }
+
+  async silentSince(cutoff: Date): Promise<readonly RunnerHost[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runnerHost)
+      .where(lte(runnerHost.lastHeartbeatAt, cutoff));
+
+    return rows.map(toHost);
   }
 }

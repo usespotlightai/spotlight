@@ -1,10 +1,22 @@
+import type { ResourceType } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+
+interface SecretUse {
+  readonly kind: ResourceType;
+  readonly key: string;
+}
+
+const described = (use: SecretUse): string =>
+  `${use.kind.replaceAll('-', ' ')} ${use.key}`;
+
 export class SecretUses {
-  private readonly kind = 'secret-uses';
+  private constructor(readonly by: readonly SecretUse[]) {}
 
-  private constructor(readonly by: readonly string[]) {}
-
-  static of(by: readonly string[]): SecretUses {
-    return new SecretUses([...by].sort());
+  static of(by: readonly SecretUse[]): SecretUses {
+    return new SecretUses(
+      [...by].sort((one, other) =>
+        described(one).localeCompare(described(other)),
+      ),
+    );
   }
 
   static none(): SecretUses {
@@ -15,11 +27,7 @@ export class SecretUses {
     return this.by.length === 0;
   }
 
-  equals(other: SecretUses): boolean {
-    return (
-      this.kind === other.kind &&
-      this.by.length === other.by.length &&
-      this.by.every((each, at) => each === other.by[at])
-    );
+  get described(): readonly string[] {
+    return this.by.map(described);
   }
 }

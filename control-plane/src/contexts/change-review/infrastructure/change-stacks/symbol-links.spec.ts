@@ -3,7 +3,7 @@ import type {
   IndexedFile,
   IndexedSymbol,
   SymbolIndex,
-} from '@change-review/domain/services/symbol-index';
+} from '@change-review/domain/value-objects/symbol-index.vo';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
 import { describe, expect, it } from 'vitest';

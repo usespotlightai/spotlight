@@ -1,5 +1,5 @@
-import type { SourceSide } from '@change-review/domain/services/symbol-index';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
+import type { SourceSide } from '@change-review/domain/value-objects/symbol-index.vo';
 
 export const DIFF_READER = Symbol('DIFF_READER');
 

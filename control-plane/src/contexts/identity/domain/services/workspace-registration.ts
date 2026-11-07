@@ -1,6 +1,7 @@
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceSlugRegistry } from '@identity/domain/repositories/workspace.repository';
+import type { SignupSurvey } from '@identity/domain/value-objects/signup-survey.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -19,6 +20,7 @@ export class WorkspaceRegistration {
     slug: WorkspaceSlug;
     outboundHosts?: HostAllowList;
     firstTeam?: { id: TeamId; name: TeamName };
+    survey?: SignupSurvey;
     owner: UserId;
     by: ChangeActor;
   }): Promise<Workspace> {

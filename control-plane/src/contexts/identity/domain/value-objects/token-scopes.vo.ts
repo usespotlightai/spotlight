@@ -1,0 +1,47 @@
+import { InvalidTokenScopeError } from '@identity/domain/exceptions/invalid-token-scope.error';
+import { TokenScope } from '@identity/domain/value-objects/token-scope.vo';
+
+export class TokenScopes {
+  private constructor(readonly all: readonly TokenScope[]) {}
+
+  static of(scopes: readonly TokenScope[]): TokenScopes {
+    const distinct = new Set(scopes.map((each) => each.value));
+
+    if (distinct.size !== scopes.length) {
+      throw new InvalidTokenScopeError('must name each scope once');
+    }
+
+    if (!scopes.some((each) => each.isLadder)) {
+      throw new InvalidTokenScopeError(
+        'must include read, plan or configure. Secrets, runners and trusts need one of them',
+      );
+    }
+
+    return new TokenScopes(
+      TokenScope.all.filter((each) => distinct.has(each.value)),
+    );
+  }
+
+  static named(raw: readonly string[]): TokenScopes {
+    return TokenScopes.of(raw.map((each) => TokenScope.of(each)));
+  }
+
+  allow(scope: TokenScope): boolean {
+    return this.all.some((each) => each.grants(scope));
+  }
+
+  covers(other: TokenScopes): boolean {
+    return other.all.every((each) => this.allow(each));
+  }
+
+  equals(other: TokenScopes): boolean {
+    return (
+      this.all.length === other.all.length &&
+      this.all.every((each, at) => other.all[at]?.equals(each))
+    );
+  }
+
+  toString(): string {
+    return this.all.map((each) => each.value).join(', ');
+  }
+}

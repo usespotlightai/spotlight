@@ -19,6 +19,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { DeleteHostCommand } from '@runners/application/commands/host.commands';
@@ -27,7 +28,6 @@ import type { RunnerFleetDto } from '@runners/application/dto/runner-fleet.dto';
 import { ListRunnersQuery } from '@runners/application/queries/list-runners.query';
 import { RunnerFleetResponseDto } from '@runners/presentation/http/dto/runner-fleet.response.dto';
 import { RunnerFleetHttpMapper } from '@runners/presentation/http/mappers/runner-fleet.http.mapper';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 @ApiTags('runners')

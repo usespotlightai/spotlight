@@ -20,9 +20,8 @@ import type { RedraftRequest } from '@change-review/domain/services/redraft-requ
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
   COHORT_KINDS,
-  type ProposedLayer,
+  type DraftedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
-import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import {
   type Fetch,
   JsonSchema,
@@ -186,15 +185,11 @@ const problemsPrompt = (
     ? `A previous ${of} had these problems, so fix them:\n${problems.map((each) => `- ${describeProblem(each)}`).join('\n')}`
     : null;
 
-const layersOf = (layers: readonly z.infer<typeof LAYER>[]): ProposedLayer[] =>
-  layers.map(({ files, ranges, questions, ...layer }) => ({
+const layersOf = (layers: readonly z.infer<typeof LAYER>[]): DraftedLayer[] =>
+  layers.map(({ files, ranges, ...layer }) => ({
     ...layer,
-    hunks: ranges.map((range) => ({ hunk: HunkId.of(range.hunk) })),
+    hunks: ranges,
     notes: files,
-    questions: questions.map((each) => ({
-      ...each,
-      hunks: each.hunks.flatMap((hunk) => HunkId.parsed(hunk) ?? []),
-    })),
   }));
 
 const described = (diff: Diff, facts: DiffFacts): string => {
@@ -354,10 +349,7 @@ export class ChatCompletionsChangeStackGenerator
     ]);
 
     return {
-      cohorts: answer.cohorts.map(({ hunks, ...cohort }) => ({
-        ...cohort,
-        hunks: hunks.map((hunk) => HunkId.of(hunk)),
-      })),
+      cohorts: answer.cohorts,
       usage,
     };
   }

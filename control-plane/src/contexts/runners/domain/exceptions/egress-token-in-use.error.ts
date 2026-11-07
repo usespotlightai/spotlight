@@ -1,4 +1,6 @@
-export class EgressTokenInUseError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class EgressTokenInUseError extends DomainError {
   readonly kind = 'invalid' as const;
 
   readonly field = 'token';

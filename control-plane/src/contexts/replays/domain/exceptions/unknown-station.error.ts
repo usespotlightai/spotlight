@@ -1,4 +1,6 @@
-export class UnknownStationError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class UnknownStationError extends DomainError {
   readonly kind = 'not-found' as const;
 
   constructor(stationId: string) {

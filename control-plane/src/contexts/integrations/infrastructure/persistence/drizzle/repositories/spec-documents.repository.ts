@@ -3,61 +3,18 @@ import type { SpecDocumentRepository } from '@integrations/domain/repositories/s
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import {
-  type OperationCall,
-  SpecOperation,
-} from '@integrations/domain/value-objects/spec-operation.vo';
-import {
   specDocument,
   specOperation,
 } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
+import {
+  operationOf,
+  rowOf,
+} from '@integrations/infrastructure/persistence/drizzle/spec-operation-rows';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
-import { and, asc, eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 const ROWS_PER_INSERT = 500;
-
-interface OperationRow {
-  readonly upstream: string;
-  readonly description: string;
-  readonly inputs: readonly {
-    readonly name: string;
-    readonly schema: unknown;
-    readonly required: boolean;
-    readonly description: string | null;
-  }[];
-  readonly writes: boolean;
-  readonly call: OperationCall;
-}
-
-const rowOf = (operation: SpecOperation): OperationRow => ({
-  upstream: operation.upstream,
-  description: operation.description,
-  inputs: operation.inputs.map((each) => ({
-    name: each.name,
-    schema: each.schema.written,
-    required: each.required,
-    description: each.description,
-  })),
-  writes: operation.writes,
-  call: operation.call,
-});
-
-const operationOf = (name: string, raw: unknown): SpecOperation => {
-  const row = raw as OperationRow;
-
-  return SpecOperation.of({
-    name,
-    upstream: row.upstream,
-    description: row.description,
-    inputs: row.inputs.map((each) => ({
-      ...each,
-      schema: InputSchema.of(each.schema),
-    })),
-    writes: row.writes,
-    call: row.call,
-  });
-};
 
 @Injectable()
 export class DrizzleSpecDocuments implements SpecDocumentRepository {
@@ -91,22 +48,8 @@ export class DrizzleSpecDocuments implements SpecDocumentRepository {
       ),
       skipped: found.skipped,
       readAt: found.readAt,
+      version: found.version,
     });
-  }
-
-  async operation(
-    hash: ContentHash,
-    name: string,
-  ): Promise<SpecOperation | null> {
-    const [found] = await this.context.db
-      .select({ operation: specOperation.operation })
-      .from(specOperation)
-      .where(
-        and(eq(specOperation.hash, hash.value), eq(specOperation.name, name)),
-      )
-      .limit(1);
-
-    return found ? operationOf(name, found.operation) : null;
   }
 
   async save(document: SpecDocument): Promise<void> {

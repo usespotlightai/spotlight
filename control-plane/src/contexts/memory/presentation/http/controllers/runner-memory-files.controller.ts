@@ -11,15 +11,15 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
   description: 'Missing, no longer valid or wrong runner token',
 })
 @ApiParam({ name: 'runId', type: String })
-@RunnerOnly()
+@MachineOnly()
 @Controller('runs/:runId/memory-files')
 export class RunnerMemoryFilesController {
   constructor(private readonly queryBus: QueryBus) {}
@@ -28,13 +28,13 @@ export class RunnerMemoryFilesController {
   @ApiOperation({
     operationId: 'readMemoryFiles',
     summary:
-      'Every active memory that applies to the run, as files to write into its workspace',
+      'Every active memory that applies to the run, as files to write into its working copy',
   })
   @ApiOkResponse({ type: MemoryFileResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
   async files(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<MemoryFileResponseDto[]> {
     const files = await this.queryBus.execute<
       ReadMemoryFilesQuery,

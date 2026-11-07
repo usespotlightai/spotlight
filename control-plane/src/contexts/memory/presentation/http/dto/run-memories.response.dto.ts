@@ -51,7 +51,7 @@ export class RunMemoriesResponseDto {
     type: TeamMemoryResponseDto,
     isArray: true,
     description:
-      'What the run looked up with spotlight recall, or read from the memory folder in its workspace',
+      'What the run looked up with spotlight recall, or read from the memory folder in its working copy',
   })
   readonly recalled: readonly TeamMemoryResponseDto[];
 

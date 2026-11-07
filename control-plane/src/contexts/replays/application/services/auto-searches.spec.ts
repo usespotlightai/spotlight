@@ -1,18 +1,21 @@
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
 import { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import {
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
+  liveFrom,
   QUIET,
   refreshingFor,
   snapshotsFor,
+  stepsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { StartSearch } from '@replays/application/services/start-search.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
@@ -31,6 +34,7 @@ import {
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -52,7 +56,7 @@ const CHECKED = CandidateScoring.of({
 });
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let pullRequests: InMemoryConfigPullRequests;
 let now: Date;
 let policy: SearchPolicy;
@@ -82,35 +86,39 @@ const auto = () =>
     memory.setRepository,
     memory.searchRepository,
     pullRequests,
+    refreshingFor(memory, suppliers),
     new CheckSearchReadiness(
-      refreshingFor(memory, work),
       memory.setRepository,
-      new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-      work,
+      new SetHealths(
+        suppliers.configs,
+        memory.replayRepository,
+        memory.candidateRepository,
+      ),
+      suppliers.dispatch,
       { sha256 },
       IDS,
       clock,
     ),
     new StartSearch(
-      snapshotsFor(memory, work),
+      snapshotsFor(memory, suppliers),
+      stepsFor(memory, suppliers, clock),
       memory.setRepository,
-      memory.replayRepository,
-      memory.candidateRepository,
       memory.searchRepository,
       memory.scheduleRepository,
+      memory.budgetRepository,
       { sha256 },
       IDS,
       clock,
       TRANSACTION,
     ),
-    work,
+    suppliers.configs,
     clock,
     TRANSACTION,
     QUIET,
   );
 
 const schedule = (): StationSearchSchedule => {
-  const found = memory.schedules.get(STATION.stationId);
+  const found = memory.schedules.get(STATION.stationId.value);
 
   if (!found) {
     throw new Error('the station has no search schedule');
@@ -140,12 +148,13 @@ const skips = () =>
 
 beforeEach(async () => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  memory.startsPlannedReplays = true;
+  suppliers = new FakeSuppliers();
   pullRequests = new InMemoryConfigPullRequests();
   now = NOW;
   policy = policyOf();
   scoring = CHECKED;
-  work.live = async () => ({
+  suppliers.configs.live = async () => ({
     lineKey: 'delivery',
     block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
     fingerprint: LIVE_FINGERPRINT,
@@ -284,7 +293,10 @@ describe('AutoSearches', () => {
 
     memory.sets.clear();
     await memory.setRepository.add(aSet(10));
-    work.invalidAgent = { field: 'harness', reason: 'is unknown' };
+    suppliers.dispatch.invalidAgent = {
+      field: 'harness',
+      reason: 'is unknown',
+    };
     now = new Date(NOW.getTime() + DAY);
     await auto().processDue();
 
@@ -345,7 +357,9 @@ describe('AutoSearches', () => {
           inSet: aSet(10).entries.map((each) => each.taskId),
           at: new Date(NOW.getTime() - 30 * DAY),
           cooldownMilliseconds: 3 * DAY,
-          trigger: 'schedule',
+          searchId: SearchId.of('search_earlier'),
+          request: null,
+          candidates: [],
         })
         .postponed(NOW),
     );
@@ -364,7 +378,7 @@ describe('AutoSearches', () => {
         candidateId: CandidateId.of('candidate_one'),
         station: STATION,
         stationKey: 'build',
-        candidateName: 'one',
+        candidateName: CandidateName.rehydrate('one'),
         lineKey: 'delivery',
         source: {
           repository: Repository.of('acme/platform'),
@@ -405,11 +419,11 @@ describe('AutoSearches', () => {
   });
 
   it('leaves a schedule that changed while Spotlight looked at it due, and does not overwrite it', async () => {
-    const live = work.live;
+    const live = liveFrom(suppliers.configs);
 
-    work.live = async () => {
+    suppliers.configs.live = async () => {
       await memory.scheduleRepository.save(schedule().alerted(now));
-      work.live = live;
+      suppliers.configs.live = live;
       return live();
     };
     scoring = UNSCORED;
@@ -445,23 +459,27 @@ describe('AutoSearches', () => {
     );
   });
 
-  it('re-checks the monthly ceiling under the line lock, and skips when a search started there since it looked', async () => {
+  it('re-checks the monthly ceiling against the line’s search budget, and skips when the budget admitted another search since Spotlight looked', async () => {
     policy = policyOf({ monthlyCeiling: 10, ceiling: 10 });
-    const { ofLineStartedSince, activeAtStation, newestAtStation } =
-      memory.searchRepository;
+    const meanwhile = LineSearchBudget.open({
+      lineId: STATION.lineId,
+      workspaceId: STATION.workspaceId,
+      teamId: STATION.teamId,
+      at: now,
+    }).admit(
+      {
+        searchId: SearchId.of('search_meanwhile'),
+        ceiling: Money.of(10, 'USD'),
+        admittedAt: now,
+      },
+      policy,
+      [],
+    );
 
-    memory.searchRepository.ofLineStartedSince = async () => [];
-    memory.searchRepository.activeAtStation = async () => null;
-    memory.searchRepository.newestAtStation = async () => null;
-    await memory.searchRepository.add(aSearch({ id: 'search_meanwhile' }));
+    await memory.budgetRepository.add(meanwhile);
     await auto().processDue();
-    memory.searchRepository.ofLineStartedSince = ofLineStartedSince;
-    memory.searchRepository.activeAtStation = activeAtStation;
-    memory.searchRepository.newestAtStation = newestAtStation;
 
-    expect(searches().map((each) => each.id)).toEqual([
-      SearchId.of('search_meanwhile'),
-    ]);
+    expect(searches()).toEqual([]);
     expect(schedule().lastSkip?.reason).toBe('monthly-ceiling');
     expect(memory.candidates.size).toBe(0);
   });

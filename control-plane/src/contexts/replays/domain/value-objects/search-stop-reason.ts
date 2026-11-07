@@ -18,3 +18,8 @@ const RAN_ITS_COURSE = [
 export type SearchCourseStopReason = (typeof RAN_ITS_COURSE)[number];
 
 export type SearchCutShort = Exclude<SearchStopReason, SearchCourseStopReason>;
+
+export const isCutShort = (
+  reason: SearchStopReason,
+): reason is SearchCutShort =>
+  !(RAN_ITS_COURSE as readonly SearchStopReason[]).includes(reason);

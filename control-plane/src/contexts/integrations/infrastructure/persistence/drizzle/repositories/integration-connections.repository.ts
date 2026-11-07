@@ -4,10 +4,16 @@ import type { IntegrationConnectionRepository } from '@integrations/domain/repos
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { integrationConnection } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  codeOf,
+  UNIQUE_VIOLATION,
+} from '@platform/persistence/drizzle/violations';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
 import {
@@ -16,7 +22,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lt } from 'drizzle-orm';
 
 type Row = typeof integrationConnection.$inferSelect;
 
@@ -30,11 +36,15 @@ const labelFor = (
 ): string =>
   ['integration-connection', teamId, integration, owner, kind].join(':');
 
-const keyOf = (connection: IntegrationConnection) =>
+const collided = (error: unknown): boolean =>
+  codeOf(error) === UNIQUE_VIOLATION;
+
+const inPlace = (connection: IntegrationConnection) =>
   and(
     eq(integrationConnection.teamId, connection.teamId.value),
     eq(integrationConnection.integration, connection.integration.value),
     eq(integrationConnection.owner, connection.owner.key),
+    eq(integrationConnection.version, connection.version),
   );
 
 @Injectable()
@@ -77,9 +87,17 @@ export class DrizzleIntegrationConnections
 
   async remove(connection: IntegrationConnection): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.context.db
+      const removed = await this.context.db
         .delete(integrationConnection)
-        .where(keyOf(connection));
+        .where(inPlace(connection))
+        .returning({ integration: integrationConnection.integration });
+
+      if (removed.length === 0) {
+        throw new IntegrationConnectionVersionConflictError(
+          connection.integration.value,
+        );
+      }
+
       await this.events.dispatch(connection.pullEvents());
     });
   }
@@ -101,10 +119,13 @@ export class DrizzleIntegrationConnections
     return Promise.all(rows.map((row) => this.rehydrate(row)));
   }
 
-  async deleteForTeam(teamId: TeamId): Promise<void> {
-    await this.context.db
-      .delete(integrationConnection)
+  async ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]> {
+    const rows = await this.context.db
+      .select()
+      .from(integrationConnection)
       .where(eq(integrationConnection.teamId, teamId.value));
+
+    return Promise.all(rows.map((row) => this.rehydrate(row)));
   }
 
   private async stored(connection: IntegrationConnection): Promise<void> {
@@ -122,34 +143,31 @@ export class DrizzleIntegrationConnections
           )
         : null,
       expiresAt: connection.expiresAt,
-      scopes: connection.scopes.join(' '),
+      scopes: connection.scopes.map((each) => each.value).join(' '),
       linkedAccount: connection.linkedAccount,
       refreshFailedAt: connection.refreshFailedAt,
       refreshClaimedUntil: connection.refreshClaim?.until ?? null,
+      connectedAt: connection.connectedAt,
     };
 
     if (connection.isNew) {
-      await this.context.db
-        .insert(integrationConnection)
-        .values({
+      try {
+        await this.context.db.insert(integrationConnection).values({
           workspaceId: connection.workspaceId.value,
           teamId: connection.teamId.value,
           integration: connection.integration.value,
           owner: connection.owner.key,
           ...written,
-        })
-        .onConflictDoUpdate({
-          target: [
-            integrationConnection.teamId,
-            integrationConnection.integration,
-            integrationConnection.owner,
-          ],
-          set: {
-            ...written,
-            version: sql`${integrationConnection.version} + 1`,
-            connectedAt: sql`now()`,
-          },
         });
+      } catch (error) {
+        if (collided(error)) {
+          throw new IntegrationConnectionVersionConflictError(
+            connection.integration.value,
+          );
+        }
+
+        throw error;
+      }
 
       return;
     }
@@ -157,12 +175,7 @@ export class DrizzleIntegrationConnections
     const updated = await this.context.db
       .update(integrationConnection)
       .set({ ...written, version: connection.version + 1 })
-      .where(
-        and(
-          keyOf(connection),
-          eq(integrationConnection.version, connection.version),
-        ),
-      )
+      .where(inPlace(connection))
       .returning({ integration: integrationConnection.integration });
 
     if (updated.length === 0) {
@@ -207,21 +220,24 @@ export class DrizzleIntegrationConnections
     return IntegrationConnection.rehydrate({
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      integration: IntegrationKey.of(row.integration),
+      integration: IntegrationKey.rehydrate(row.integration),
       owner: ConnectionOwner.fromKey(row.owner),
       accessToken: AccessToken.of(
         await this.decrypted(row, 'access', row.accessToken),
       ),
       refreshToken: row.refreshToken
-        ? AccessToken.of(await this.decrypted(row, 'refresh', row.refreshToken))
+        ? RefreshToken.rehydrate(
+            await this.decrypted(row, 'refresh', row.refreshToken),
+          )
         : null,
       expiresAt: row.expiresAt,
-      scopes: row.scopes ? row.scopes.split(' ') : [],
+      scopes: row.scopes ? row.scopes.split(' ').map(OAuthScope.rehydrate) : [],
       linkedAccount: row.linkedAccount,
       refreshFailedAt: row.refreshFailedAt,
       refreshClaim: row.refreshClaimedUntil
         ? RefreshClaim.until(row.refreshClaimedUntil)
         : null,
+      connectedAt: row.connectedAt,
       version: row.version,
     });
   }

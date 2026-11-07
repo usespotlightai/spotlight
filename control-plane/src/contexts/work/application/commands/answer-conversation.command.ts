@@ -1,0 +1,17 @@
+import type {
+  ApprovalDecision,
+  ApprovalEdits,
+} from '@work/domain/value-objects/approval.vo';
+
+export class AnswerConversationCommand {
+  constructor(
+    readonly conversationId: string,
+    readonly answeredBy: string,
+    readonly body: string,
+    readonly attachments: readonly string[] = [],
+    readonly decision: ApprovalDecision | null = null,
+    readonly edits: ApprovalEdits | null = null,
+    readonly coAuthors: readonly string[] = [],
+    readonly draftGeneration: number | null = null,
+  ) {}
+}

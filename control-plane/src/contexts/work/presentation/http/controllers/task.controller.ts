@@ -16,6 +16,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -26,8 +27,8 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
@@ -36,7 +37,6 @@ import { SendMessageCommand } from '@work/application/commands/send-message.comm
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
-import type { RunNetworkDto } from '@work/application/dto/run-network.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
 import type { TaskDto } from '@work/application/dto/task.dto';
 import type {
@@ -56,31 +56,22 @@ import {
   ReadTeamRunQuery,
 } from '@work/application/queries/list-team-runs.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
-import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
-import {
-  InboxApprovalResponseDto,
-  InboxAuthorResponseDto,
-  InboxConnectionResponseDto,
-  InboxFailureResponseDto,
-  NoteResponseDto,
-} from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
-import { RunNetworkResponseDto } from '@work/presentation/http/dto/run-network.response.dto';
 import {
   TaskPageResponseDto,
   TaskResponseDto,
 } from '@work/presentation/http/dto/task.response.dto';
+import { SendMessageRequestDto } from '@work/presentation/http/dto/task-run.request.dto';
 import {
   LatestRunResponseDto,
   RunNotesResponseDto,
   RunSpendResponseDto,
   RunStationResponseDto,
-  SendMessageRequestDto,
   TaskRunResponseDto,
   TeamRunPageResponseDto,
   TeamRunResponseDto,
@@ -89,6 +80,7 @@ import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.res
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
+import { NoteHttpMapper } from '@work/presentation/http/mappers/note.http.mapper';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
@@ -112,14 +104,14 @@ export class TaskController {
   @ApiOperation({
     operationId: 'listTasks',
     summary:
-      'The tasks at a team’s stations in board order: every open task, or a page of completed tasks',
+      'The tasks at a team’s stations in board order: every task not at a completed station, or a page of the tasks at completed stations',
   })
   @ApiQuery({
     name: 'state',
     required: false,
     enum: TASK_LIST_STATES,
     description:
-      '`open` (the default) gives every task not at a completed station, in one page',
+      '`board` (the default) gives every task not at a completed station, in one page; `completed-station` gives a page of the tasks at completed stations',
   })
   @ApiQuery({
     name: 'lineId',
@@ -146,7 +138,7 @@ export class TaskController {
       new ListTasksQuery(
         teamId,
         user.id,
-        state ?? 'open',
+        state ?? 'board',
         lineId ?? null,
         pageRequestOf(before, limit),
       ),
@@ -171,6 +163,14 @@ export class TaskController {
     @Param('teamId') teamId: string,
     @Param('taskId') taskId: string,
     @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    return this.readBack(teamId, taskId, user);
+  }
+
+  private async readBack(
+    teamId: string,
+    taskId: string,
+    user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
     const found = await this.queryBus.execute<ReadTaskQuery, TaskDto | null>(
       new ReadTaskQuery(teamId, taskId, user.id),
@@ -255,31 +255,6 @@ export class TaskController {
     return new RunConfigResponseDto(found);
   }
 
-  @Get('runs/:runId/network')
-  @ApiOperation({
-    operationId: 'readRunNetwork',
-    summary:
-      'The connections a run made through a shared egress, and if egress was enforced',
-  })
-  @ApiParam({ name: 'runId', type: String })
-  @ApiOkResponse({ type: RunNetworkResponseDto })
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
-  async network(
-    @Param('runId') runId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<RunNetworkResponseDto> {
-    const found = await this.queryBus.execute<
-      ReadRunNetworkQuery,
-      RunNetworkDto | null
-    >(new ReadRunNetworkQuery(runId, user.id));
-
-    if (!found) {
-      throw new NotFoundException();
-    }
-
-    return new RunNetworkResponseDto(found);
-  }
-
   @Get('runs/:runId/notes')
   @ApiOperation({
     operationId: 'readRunNotes',
@@ -324,38 +299,7 @@ export class TaskController {
         found.latestRun.state,
         found.latestRun.progress,
       ),
-      found.notes.map(
-        (note) =>
-          new NoteResponseDto(
-            note.position,
-            note.kind,
-            note.form,
-            note.voice,
-            note.station,
-            note.stationColor,
-            note.stationPosition,
-            note.runId,
-            note.body,
-            note.attachments.map(AttachmentHttpMapper.toResponse),
-            note.at,
-            note.author
-              ? new InboxAuthorResponseDto(
-                  note.author.id,
-                  note.author.name,
-                  note.author.image,
-                )
-              : null,
-            note.coAuthors.map(
-              (each) =>
-                new InboxAuthorResponseDto(each.id, each.name, each.image),
-            ),
-            note.approval ? new InboxApprovalResponseDto(note.approval) : null,
-            note.failure ? new InboxFailureResponseDto(note.failure) : null,
-            note.connection
-              ? new InboxConnectionResponseDto(note.connection)
-              : null,
-          ),
-      ),
+      found.notes.map(NoteHttpMapper.toResponse),
       found.spend
         ? new RunSpendResponseDto(
             found.spend.cost,
@@ -384,6 +328,10 @@ export class TaskController {
   @ApiConflictResponse({
     description: 'The task has moved on from that station',
   })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async sendMessage(
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -411,6 +359,10 @@ export class TaskController {
   @ApiNoContentResponse({ description: 'The run received a stop request' })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   @ApiConflictResponse({ description: 'The run is no longer in progress' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async stop(
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -472,6 +424,10 @@ export class TaskController {
   @ApiNoContentResponse({ description: 'The task is gone' })
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async remove(
     @Param('teamId') teamId: string,
     @Param('taskId') taskId: string,
@@ -497,6 +453,10 @@ export class TaskController {
   @ApiUnprocessableEntityResponse({
     description: 'Invalid title or description',
   })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async add(
     @Param('teamId') teamId: string,
     @Param('lineId') lineId: string,
@@ -504,7 +464,7 @@ export class TaskController {
     @Body() body: AddTaskRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
-    const added = await this.commandBus.execute<AddTaskCommand, TaskDto>(
+    const added = await this.commandBus.execute<AddTaskCommand, string>(
       new AddTaskCommand(
         teamId,
         lineId,
@@ -516,7 +476,7 @@ export class TaskController {
       ),
     );
 
-    return TaskHttpMapper.toResponse(added);
+    return this.readBack(teamId, added, user);
   }
 
   @Post('lines/:lineId/tasks/:taskId/move')
@@ -538,6 +498,10 @@ export class TaskController {
       'A person may only start a task from the backlog, park it back there, or close it',
   })
   @HttpCode(HttpStatus.OK)
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async move(
     @Param('teamId') teamId: string,
     @Param('lineId') lineId: string,
@@ -545,7 +509,7 @@ export class TaskController {
     @Body() body: MoveTaskRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
-    const moved = await this.commandBus.execute<MoveTaskCommand, TaskDto>(
+    await this.commandBus.execute<MoveTaskCommand, void>(
       new MoveTaskCommand(
         teamId,
         lineId,
@@ -557,7 +521,7 @@ export class TaskController {
       ),
     );
 
-    return TaskHttpMapper.toResponse(moved);
+    return this.readBack(teamId, taskId, user);
   }
 
   @Put('tasks/:taskId/assignee')
@@ -572,16 +536,20 @@ export class TaskController {
   @ApiOkResponse({ type: TaskResponseDto })
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
   @HttpCode(HttpStatus.OK)
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async assign(
     @Param('teamId') teamId: string,
     @Param('taskId') taskId: string,
     @Body() body: AssignTaskRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
-    const assigned = await this.commandBus.execute<AssignTaskCommand, TaskDto>(
+    await this.commandBus.execute<AssignTaskCommand, void>(
       new AssignTaskCommand(teamId, taskId, body.assigneeId ?? null, user.id),
     );
 
-    return TaskHttpMapper.toResponse(assigned);
+    return this.readBack(teamId, taskId, user);
   }
 }

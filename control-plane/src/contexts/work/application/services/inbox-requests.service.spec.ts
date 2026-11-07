@@ -1,5 +1,6 @@
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { InboxRequestOf } from '@work/application/ports/inbox-requests.port';
 import { InboxRequests } from '@work/application/services/inbox-requests.service';
 import type { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -10,7 +11,11 @@ import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
 const TASK = TaskId.of('task_1');
-const MEMORIES = { taskId: TASK, form: 'memories', about: 'run_1' };
+const MEMORIES: InboxRequestOf = {
+  taskId: TASK,
+  form: 'memories',
+  about: 'run_1',
+};
 
 const asiding = (input: { task?: boolean } = {}) => {
   const stored: InboxRequest[] = [];

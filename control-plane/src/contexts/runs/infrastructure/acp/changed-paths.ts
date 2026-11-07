@@ -1,0 +1,50 @@
+import { type Content, diffIn } from '@runs/infrastructure/acp/content';
+import { decoded } from '@runs/infrastructure/journal/journalled';
+
+interface AcpNotification {
+  update?: {
+    sessionUpdate?: string;
+    toolCallId?: string;
+    content?: Content;
+  };
+}
+
+export class ChangedPaths {
+  #calls = new Map<string, number>();
+  #changes: (string | null)[] = [];
+
+  take(data: string): void {
+    let notification: AcpNotification;
+    try {
+      notification = JSON.parse(decoded(data)) as AcpNotification;
+    } catch {
+      return;
+    }
+
+    const update = notification?.update;
+    const id = update?.toolCallId;
+
+    if (!id) {
+      return;
+    }
+
+    if (update.sessionUpdate === 'tool_call') {
+      this.#calls.set(id, this.#changes.push(null) - 1);
+    }
+
+    const at = this.#calls.get(id);
+    const diff = diffIn(update.content);
+
+    if (
+      update.sessionUpdate === 'tool_call_update' &&
+      at !== undefined &&
+      diff
+    ) {
+      this.#changes[at] = diff.path ?? null;
+    }
+  }
+
+  paths(): string[] {
+    return this.#changes.filter((path): path is string => Boolean(path));
+  }
+}

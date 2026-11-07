@@ -9,7 +9,7 @@ export interface Person {
   readonly image: string | null;
 }
 
-export interface Membership {
+export interface TeamViewer {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly by: UserId;
@@ -18,7 +18,7 @@ export interface Membership {
 export interface PeoplePort {
   find(userId: UserId): Promise<Person | null>;
 
-  pictureOf(login: string): string | null;
+  viewerOf(teamId: TeamId, userId: UserId): Promise<TeamViewer | null>;
 
-  memberOf(teamId: string, userId: string): Promise<Membership | null>;
+  actsOnTeam(teamId: TeamId, userId: UserId): Promise<boolean>;
 }

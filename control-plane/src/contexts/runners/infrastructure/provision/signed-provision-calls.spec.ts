@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
+import { scopedTo } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
-import { scopedTo } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ProvisionCall } from '@runners/application/ports/provision-calls.port';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -24,9 +24,9 @@ const calling = (
   pool: 'sandboxes',
   workspaceId: 'ws_1',
   kind: 'run',
-  stackId: null,
+  checkId: null,
   runId: 'run_1',
-  taskId: 'task_1',
+  tags: { taskId: 'task_1' },
   labels: ['sandbox'],
   image: 'ghcr.io/acme/widgets:1',
   runnerId: 'runner_1',
@@ -90,7 +90,7 @@ describe('SignedProvisionCalls', () => {
 
     expect(url).toBe('https://provision.example.com/runs');
     expect(sent.headers['webhook-signature']).toBe(
-      `v1,${createHmac('sha256', SECRET.key).update(signed).digest('base64')}`,
+      `v1,${createHmac('sha256', Buffer.from(SECRET.encodedKey, 'base64')).update(signed).digest('base64')}`,
     );
     expect(JSON.parse(sent.body)).toEqual({
       type: 'work.provision',
@@ -119,8 +119,8 @@ describe('SignedProvisionCalls', () => {
     await provision.call({
       ...calling(),
       kind: 'check',
-      stackId: 'stack_1',
-      taskId: null,
+      checkId: 'stack_1',
+      tags: {},
     });
 
     const [, sent] = fetch.mock.calls[0] as unknown as [
@@ -132,8 +132,8 @@ describe('SignedProvisionCalls', () => {
       kind: 'check',
       stackId: 'stack_1',
       runId: 'run_1',
-      taskId: null,
     });
+    expect(JSON.parse(sent.body).data).not.toHaveProperty('taskId');
   });
 
   it('names no image when the work requests the default one', async () => {

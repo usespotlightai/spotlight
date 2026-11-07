@@ -16,14 +16,14 @@ export const userEmail = pgTable(
     id: text('id').primaryKey(),
     userId: text('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => user.id),
     email: text('email').notNull(),
     tokenHash: text('token_hash').notNull().unique(),
     addedAt: timestamptz('added_at').defaultNow().notNull(),
     sentAt: timestamptz('sent_at').notNull(),
     expiresAt: timestamptz('expires_at').notNull(),
     verifiedAt: timestamptz('verified_at'),
-    version: integer('version').notNull().default(1),
+    version: integer('version').notNull().default(0),
   },
   (table) => [
     uniqueIndex('user_email_user_email_idx').on(

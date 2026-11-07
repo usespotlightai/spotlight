@@ -1,12 +1,22 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import type {
+  RunEnding,
+  Search,
+} from '@replays/domain/aggregates/search.aggregate';
 import { chargeOf } from '@replays/domain/services/replay-charge';
 import { improvedOnBestBefore } from '@replays/domain/services/search-improvement';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+
+const SUCCEEDED: Readonly<Record<RunResult, boolean>> = {
+  completed: true,
+  failed: false,
+  exhausted: false,
+  cancelled: false,
+};
 
 const USAGE_WAIT_MS = 15 * 60_000;
 
@@ -29,7 +39,6 @@ const endOf = (replay: Replay): ReplayStopReason | null =>
 const withReplays = (
   search: Search,
   replays: readonly Replay[],
-  known: readonly ReplayId[],
   minGain: number,
   at: Date,
   runIds: () => RunId,
@@ -41,7 +50,11 @@ const withReplays = (
     );
 
     if (!replay) {
-      return unended && known.some((each) => each.equals(replayId))
+      const awaitsStart = reconciled.replaysAwaitingStart.some((each) =>
+        each.equals(replayId),
+      );
+
+      return unended && !awaitsStart
         ? reconciled.recordReplayStopReason(
             replayId,
             'deleted',
@@ -58,21 +71,105 @@ const withReplays = (
 
     const charge = chargeOf(replay);
     const end = endOf(replay);
+    const started = reconciled.replayStarted(replayId);
 
     return end && unended
-      ? reconciled.recordReplayStopReason(
+      ? started.recordReplayStopReason(
           replayId,
           end,
           charge,
           at,
           runIds,
-          improvedOnBestBefore(reconciled, replayId, replays, minGain),
+          improvedOnBestBefore(
+            started,
+            replayId,
+            replays.map((each) => each.outcome()),
+            minGain,
+          ),
         )
-      : reconciled.replaySpent(replayId, charge);
+      : started.replaySpent(replayId, charge);
   }, search);
 
 const past = (since: Date | null, wait: number, at: Date): boolean =>
   since !== null && at.getTime() - since.getTime() >= wait;
+
+export const searchRunEnding = (ended: {
+  readonly outcome: RunResult;
+  readonly asked: boolean;
+  readonly started: boolean;
+}): RunEnding => ({
+  failed: !SUCCEEDED[ended.outcome] || ended.asked,
+  started: ended.started,
+});
+
+const RUN_STATES = [
+  'queued',
+  'claimed',
+  'suspended',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
+
+export type RunState = (typeof RUN_STATES)[number];
+
+export interface SearchRunFact {
+  readonly run: RunId;
+  readonly state: RunState;
+  readonly askedAPerson: boolean;
+  readonly started: boolean;
+  readonly queuedAt: Date;
+  readonly endedAt: Date | null;
+}
+
+const PHASE: Readonly<Record<RunState, SeenRun['phase']>> = {
+  queued: 'queued',
+  claimed: 'running',
+  suspended: 'running',
+  completed: 'ended',
+  failed: 'ended',
+  cancelled: 'ended',
+};
+
+const ENDED_AS: Readonly<Record<RunState, RunResult | null>> = {
+  queued: null,
+  claimed: null,
+  suspended: null,
+  completed: 'completed',
+  failed: 'failed',
+  cancelled: 'cancelled',
+};
+
+export const seenRunOf = (fact: SearchRunFact): SeenRun => {
+  const result = ENDED_AS[fact.state];
+
+  return {
+    run: fact.run,
+    phase: PHASE[fact.state],
+    failed:
+      result === null ||
+      searchRunEnding({
+        outcome: result,
+        asked: fact.askedAPerson,
+        started: fact.started,
+      }).failed,
+    started: fact.started,
+    queuedAt: fact.queuedAt,
+    endedAt: fact.endedAt,
+  };
+};
+
+export const cancelledUnclaimed = (
+  runs: readonly SeenRun[],
+  unclaimed: RunId,
+  started: boolean,
+  at: Date,
+): readonly SeenRun[] =>
+  runs.map((each) =>
+    each.run.equals(unclaimed)
+      ? { ...each, phase: 'ended', failed: true, started, endedAt: at }
+      : each,
+  );
 
 export const runsToSee = (search: Search): readonly RunId[] => [
   ...(search.activeRun ? [search.activeRun] : []),
@@ -101,13 +198,12 @@ export const unclaimedTooLong = (
 export const reconciled = (
   search: Search,
   replays: readonly Replay[],
-  known: readonly ReplayId[],
   runs: readonly SeenRun[],
   minGain: number,
   at: Date,
   runIds: () => RunId,
 ): Search => {
-  let reconciled = withReplays(search, replays, known, minGain, at, runIds);
+  let reconciled = withReplays(search, replays, minGain, at, runIds);
   const activeRun = reconciled.activeRun;
   const running = activeRun
     ? runs.find((each) => each.run.equals(activeRun))

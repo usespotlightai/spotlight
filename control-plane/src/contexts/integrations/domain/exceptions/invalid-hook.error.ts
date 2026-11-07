@@ -1,6 +1,7 @@
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import type { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
-export class InvalidHookError extends Error {
+export class InvalidHookError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(

@@ -3,13 +3,13 @@ import { CreateWorkspaceTokenCommand } from '@identity/application/commands/work
 import type { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { WorkspaceTokenAlreadyIssuedError } from '@identity/domain/exceptions/workspace-token-already-issued.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import {
   access,
   creates,
   OWNER,
   transaction,
-} from '@identity/identity.resources.fake-spec';
-import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
+} from '@identity/testing/identity.resources.fake-spec';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentReservation } from '@shared-kernel/application/ports/idempotent-creates.port';

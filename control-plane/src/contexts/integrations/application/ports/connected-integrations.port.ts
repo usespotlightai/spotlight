@@ -5,6 +5,7 @@ export const CONNECTED_INTEGRATIONS = Symbol('CONNECTED_INTEGRATIONS');
 export interface ConnectedIntegration {
   readonly integration: string;
   readonly linkedAccount: string | null;
+  readonly refreshFailedAt: Date | null;
 }
 
 export interface ConnectedIntegrationsPort {

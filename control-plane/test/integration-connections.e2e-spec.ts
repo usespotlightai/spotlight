@@ -7,6 +7,8 @@ import { AccessToken } from '@integrations/domain/value-objects/access-token.vo'
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { DrizzleConnectedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/connected-integrations.reader';
 import { DrizzleIntegrationConnectionRoster } from '@integrations/infrastructure/persistence/drizzle/readers/integration-connection-roster.reader';
 import { DrizzleIntegrationConnections } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-connections.repository';
@@ -21,7 +23,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -89,6 +91,7 @@ const connection = (
       expiresAt: new Date('2026-10-05T11:00:00.000Z'),
       linkedAccount: `@${accessToken}`,
     }),
+    at: new Date('2026-09-01T00:00:00.000Z'),
   });
 
 describe('integration connections stored per owner', () => {
@@ -117,13 +120,15 @@ describe('integration connections stored per owner', () => {
       await new DrizzleConnectedIntegrations(new DrizzleContext(db)).ofTeam(
         teamId,
       ),
-    ).toEqual([{ integration: 'linear', linkedAccount: '@team' }]);
+    ).toEqual([
+      { integration: 'linear', linkedAccount: '@team', refreshFailedAt: null },
+    ]);
     expect(
       (
         await new DrizzleIntegrationConnectionRoster(
           new DrizzleContext(db),
         ).ofTeam(teamId)
-      ).map((each) => [each.personId, each.linkedAccount]),
+      ).map((each) => [each.personId.value, each.linkedAccount]),
     ).toEqual([['user_alice', '@alice']]);
   });
 
@@ -167,13 +172,9 @@ describe('integration connections stored per owner', () => {
     const one = await connections.of(teamId, LINEAR, alice);
     const other = await connections.of(teamId, LINEAR, alice);
 
-    await connections.save(
-      one?.claimRefresh(NOW, 30_000) as IntegrationConnection,
-    );
+    await connections.save(one?.claimRefresh(NOW) as IntegrationConnection);
     await expect(
-      connections.save(
-        other?.claimRefresh(NOW, 30_000) as IntegrationConnection,
-      ),
+      connections.save(other?.claimRefresh(NOW) as IntegrationConnection),
     ).rejects.toBeInstanceOf(IntegrationConnectionVersionConflictError);
 
     const claimed = await connections.of(teamId, LINEAR, alice);
@@ -195,17 +196,41 @@ describe('integration connections stored per owner', () => {
     expect(refreshed?.hasToken(AccessToken.of('alice'))).toBe(false);
   });
 
-  it('replaces a person’s connection when they connect again, and deletes it when they disconnect', async () => {
+  it('reconnects a person’s connection in place, and deletes it when they disconnect', async () => {
     const teamId = TeamId.of(randomUUID());
     const alice = ConnectionOwner.person(UserId.of('user_alice'));
+    const reconnectedAt = new Date('2026-09-02T00:00:00.000Z');
 
     await connections.save(connection(teamId, alice, 'alice'));
-    await connections.save(connection(teamId, alice, 'alice-again'));
+    await expect(
+      connections.save(connection(teamId, alice, 'alice-twice')),
+    ).rejects.toBeInstanceOf(IntegrationConnectionVersionConflictError);
 
-    const again = await connections.of(teamId, LINEAR, alice);
-    expect(again?.accessToken.value).toBe('alice-again');
+    const first = (await connections.of(
+      teamId,
+      LINEAR,
+      alice,
+    )) as IntegrationConnection;
+    await connections.save(
+      first.reconnectedWith(
+        OAuthTokens.of({ accessToken: 'alice-again' }),
+        reconnectedAt,
+      ),
+    );
 
-    await connections.remove((again as IntegrationConnection).disconnect());
+    const again = (await connections.of(
+      teamId,
+      LINEAR,
+      alice,
+    )) as IntegrationConnection;
+    expect(again.accessToken.value).toBe('alice-again');
+    expect(again.connectedAt).toEqual(reconnectedAt);
+    expect(again.version).toBe(first.version + 1);
+
+    await expect(connections.remove(first)).rejects.toBeInstanceOf(
+      IntegrationConnectionVersionConflictError,
+    );
+    await connections.remove(again);
     expect(await connections.of(teamId, LINEAR, alice)).toBeNull();
   });
 });
@@ -216,12 +241,17 @@ describe('OAuth client registrations', () => {
       workspaceId: WorkspaceId.of('ws_1'),
       teamId,
       integration: LINEAR,
-      registrationEndpoint: 'https://linear.app/oauth/register',
-      redirectUri: 'https://app.example/api/integrations/oauth/callback',
+      registrationEndpoint: OAuth2Endpoint.of(
+        'https://linear.app/oauth/register',
+      ),
+      redirectUri: OAuth2Endpoint.of(
+        'https://app.example/api/integrations/oauth/callback',
+      ),
       server: null,
-      clientId,
+      clientId: OAuth2ClientId.of(clientId),
       clientSecret: AccessToken.of(`${clientId}-secret`),
       secretExpiresAt: null,
+      registeredAt: new Date('2026-09-01T00:00:00.000Z'),
     });
 
   it('stores the first registration, encrypted, and rejects a second made at the same time', async () => {
@@ -233,7 +263,7 @@ describe('OAuth client registrations', () => {
     ).rejects.toBeInstanceOf(OAuth2ClientRegistrationVersionConflictError);
 
     const stored = await registrations.of(teamId, LINEAR);
-    expect(stored?.clientId).toBe('client-1');
+    expect(stored?.clientId.value).toBe('client-1');
     expect(stored?.clientSecret?.value).toBe('client-1-secret');
 
     await registrations.save(
@@ -241,7 +271,9 @@ describe('OAuth client registrations', () => {
         registered(teamId, 'client-3'),
       ),
     );
-    expect((await registrations.of(teamId, LINEAR))?.clientId).toBe('client-3');
+    expect((await registrations.of(teamId, LINEAR))?.clientId.value).toBe(
+      'client-3',
+    );
   });
 });
 
@@ -254,7 +286,7 @@ describe('tasks waiting on a connection', () => {
     );
     const runId = RunId.of(randomUUID());
     const newNote = {
-      station: StationName.of('Backlog'),
+      line: null,
       body: TaskNoteBody.of('Set up.'),
       at: NOW,
       voice: Voice.station(),
@@ -268,28 +300,49 @@ describe('tasks waiting on a connection', () => {
         { ...newNote, body: TaskNoteBody.of('Connect Linear.') },
         ConnectionAsk.of({
           teamId,
-          integration: 'linear',
-          integrationName: 'Linear',
+          integration: IntegrationName.of('linear'),
+          providedBy: 'Linear',
           personId: owner,
         }),
       ).task,
     );
 
-    const waiting = await tasks.awaitingConnection(teamId, owner, 'linear');
+    const waiting = await tasks.awaitingConnection(
+      teamId,
+      owner,
+      IntegrationName.of('linear'),
+    );
     expect(waiting.map((each) => each.id.value)).toEqual([list.id.value]);
-    expect(await tasks.awaitingConnection(teamId, owner, 'notion')).toEqual([]);
     expect(
-      await tasks.awaitingConnection(TeamId.of(randomUUID()), owner, 'linear'),
+      await tasks.awaitingConnection(
+        teamId,
+        owner,
+        IntegrationName.of('notion'),
+      ),
+    ).toEqual([]);
+    expect(
+      await tasks.awaitingConnection(
+        TeamId.of(randomUUID()),
+        owner,
+        IntegrationName.of('linear'),
+      ),
     ).toEqual([]);
 
-    const answered = waiting[0]?.connectionMade(teamId, 'linear', owner, {
-      ...newNote,
-      body: TaskNoteBody.of('Connected Linear.'),
-      voice: Voice.person(owner),
-    });
+    const answered = waiting[0]?.connectionMade(
+      teamId,
+      IntegrationName.of('linear'),
+      owner,
+      { line: null, at: NOW },
+    );
     await tasks.save(answered as Task);
 
-    expect(await tasks.awaitingConnection(teamId, owner, 'linear')).toEqual([]);
+    expect(
+      await tasks.awaitingConnection(
+        teamId,
+        owner,
+        IntegrationName.of('linear'),
+      ),
+    ).toEqual([]);
     const read = (await tasks.find(list.id)) as Task;
     expect(read.notes.find((each) => each.connectionAsk)?.form).toBe(
       'connection',

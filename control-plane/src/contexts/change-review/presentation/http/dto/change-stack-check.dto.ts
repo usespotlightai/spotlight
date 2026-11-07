@@ -1,4 +1,4 @@
-import { REPORTED_SKIPS } from '@change-review/domain/value-objects/stack-check.vo';
+import { REPORTED_SKIP_CODES } from '@change-review/application/dto/change-stack-check.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CheckedStepRequestDto {
@@ -20,7 +20,7 @@ export class CheckedStepRequestDto {
 
 export class SkippedCheckRequestDto {
   @ApiProperty({
-    enum: REPORTED_SKIPS,
+    enum: REPORTED_SKIP_CODES,
     description: 'Why the runner could not check the stack at all',
   })
   readonly code!: string;

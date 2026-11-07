@@ -30,6 +30,7 @@ import {
   taskHumanAction,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { sql } from 'drizzle-orm';
 
 interface TallyRow extends TallyColumns, Record<string, unknown> {
@@ -132,7 +133,6 @@ const runFailuresIn = async (
       from ${runFact}
       where ${onTeam(team)}
         and ${endedIn(current.from, current.to)}
-        and ${runFact.supersededAt} is null
         and ${runFact.ending} = 'failed'
       group by ${runFact.stationId}, ${runFact.failure}
       order by
@@ -172,6 +172,7 @@ export const failingIn = async (
     lineId: row.line_id,
     occurrence: FailureOccurrence.of({
       ...row.occurrence,
+      stationId: StationId.of(row.occurrence.stationId),
       at: new Date(row.occurrence.at),
     }),
   }));

@@ -1,4 +1,6 @@
-export class ToolHookDeniedError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class ToolHookDeniedError extends DomainError {
   readonly kind = 'not-allowed' as const;
 
   constructor(tool: string, reason: string) {

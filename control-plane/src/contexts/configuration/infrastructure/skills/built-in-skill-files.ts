@@ -2,11 +2,12 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BuiltInSkillsPort } from '@configuration/application/ports/built-in-skills.port';
 import type {
+  ReadSkillFolder,
   SkillFile,
-  SkillFolder,
-} from '@configuration/application/ports/skill-reader.port';
+} from '@configuration/application/ports/skill-folders.port';
+import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
-import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
+import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 
 const BUILT_IN_SKILLS_DIRECTORY = join(__dirname, 'built-in');
 
@@ -20,7 +21,7 @@ const filesIn = (root: string, within = ''): SkillFile[] =>
   });
 
 export class BuiltInSkillFiles implements BuiltInSkillsPort {
-  private readonly byKey: ReadonlyMap<string, SkillFolder>;
+  private readonly byKey: ReadonlyMap<string, ReadSkillFolder>;
 
   constructor(
     keys: readonly string[],
@@ -39,7 +40,7 @@ export class BuiltInSkillFiles implements BuiltInSkillsPort {
     for (const key of keys) {
       if (!folders.some((each) => each.skill.key.value === key)) {
         throw new Error(
-          `Spotlight has a built-in ${key} skill, and there is no ${key}/${SKILL_FILE} in ${directory}`,
+          `Spotlight has a built-in ${key} skill, and there is no ${key}/${SKILL_MAIN_FILE} in ${directory}`,
         );
       }
     }
@@ -47,7 +48,7 @@ export class BuiltInSkillFiles implements BuiltInSkillsPort {
     this.byKey = new Map(folders.map((each) => [each.skill.key.value, each]));
   }
 
-  named(key: string): SkillFolder | null {
-    return this.byKey.get(key) ?? null;
+  named(key: SkillKey): ReadSkillFolder | null {
+    return this.byKey.get(key.value) ?? null;
   }
 }

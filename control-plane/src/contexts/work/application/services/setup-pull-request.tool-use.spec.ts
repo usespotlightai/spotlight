@@ -11,7 +11,7 @@ import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-r
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
-import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
+import { InvalidPullRequestTitleError } from '@work/domain/exceptions/invalid-pull-request-title.error';
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -31,6 +31,7 @@ const INPUTS = ToolInputs.of({
 
 const using = (options: { setup?: boolean } = {}) => {
   let chat = Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
@@ -123,7 +124,7 @@ describe('SetupPullRequestToolUse', () => {
         context,
         ToolInputs.of({ branch: 'spotlight-configuration', title: '  ' }),
       ),
-    ).rejects.toThrow(InvalidToolInputError);
+    ).rejects.toThrow(InvalidPullRequestTitleError);
     expect(open).not.toHaveBeenCalled();
   });
 

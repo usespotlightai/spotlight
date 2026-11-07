@@ -2,7 +2,7 @@ import {
   loopStopFor,
   MAX_DEPTH,
 } from '@integrations/domain/services/loop-guard';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { describe, expect, it } from 'vitest';
 
 const moved = (from: string, to: string) => ({

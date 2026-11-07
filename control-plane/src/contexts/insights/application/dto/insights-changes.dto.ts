@@ -1,6 +1,6 @@
 import type { PeriodDto } from '@insights/application/dto/insights.dto';
+import type { StationJudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
 import type { ConfigPart } from '@insights/application/ports/work.port';
-import type { StationJudgeCalibration } from '@insights/application/services/qualified-judges.service';
 import type {
   AgentConfigOutcome,
   JudgeOmittedReason,
@@ -10,11 +10,6 @@ import type { JudgeRate } from '@insights/domain/services/judge-rates';
 import type { SizeBound } from '@insights/domain/services/run-size';
 import type { RunTally } from '@insights/domain/services/run-tally';
 import type { Delta } from '@insights/domain/value-objects/delta.vo';
-
-export type StationJudgeCalibrationDto = Omit<
-  StationJudgeCalibration,
-  'rubricVersion'
->;
 
 export interface ChangeMarkerDto {
   readonly lineId: string;

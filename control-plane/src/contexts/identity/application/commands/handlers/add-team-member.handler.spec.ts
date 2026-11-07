@@ -38,6 +38,7 @@ const platform = Team.rehydrate({
   workspaceId: WorkspaceId.of('ws_1'),
   key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
+  origin: 'configuration',
   members: [LEON, BEA],
   version: 0,
 });

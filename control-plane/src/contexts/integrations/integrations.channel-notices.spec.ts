@@ -1,12 +1,15 @@
+import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import { NotifyChannel } from '@integrations/application/services/notify-channel.service';
 import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
+import { WebInboxLinks } from '@integrations/infrastructure/links/web-inbox-links';
 import type {
   HttpOutbound,
   OutboundResult,
@@ -24,11 +27,22 @@ import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
-import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ChannelNoticeDto } from '@work/application/ports/channel-notices.port';
+import type { TaskLinksPort } from '@work/application/ports/task-links.port';
 import { describe, expect, it, vi } from 'vitest';
+
+const taskLinks: TaskLinksPort = {
+  taskPage: (slug, teamId, taskId) =>
+    `https://app.example/w/${slug}/team/${teamId}/tasks/${taskId}`,
+  conversationPage: (slug, conversationId) =>
+    `https://app.example/w/${slug}/inbox/${conversationId}`,
+  chatPage: (slug, teamId, chatId) =>
+    `https://app.example/w/${slug}/team/${teamId}/agent/${chatId}`,
+};
+
+const channelNotices = (...args: ConstructorParameters<typeof NotifyChannel>) =>
+  new ChannelNotices(new NotifyChannel(...args));
 
 const expressions = new CelExpressionEngine();
 
@@ -98,7 +112,7 @@ const notifying = (definition = SLACK) => {
   );
   const warn = vi.fn();
 
-  const notices = new ChannelNotices(
+  const notices = channelNotices(
     {
       ofTeam: vi.fn(async () => [defined(definition)]),
     } as unknown as DefinedIntegrationsPort,
@@ -106,7 +120,7 @@ const notifying = (definition = SLACK) => {
     callAuthFor(injecting().injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
-      'https://app.example',
+      taskLinks,
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
@@ -150,7 +164,7 @@ describe('ChannelNotices', () => {
   });
 
   it('runs each action bound to an event, in order', async () => {
-    const { notices, run } = notifying(`${SLACK}  chat.dispatched:
+    const { notices, run } = notifying(`${SLACK}  chat.run-assigned:
     - action: post-reply
       to:
         channel: '\${{ chat.marks["slack.channel"] }}'
@@ -161,7 +175,7 @@ describe('ChannelNotices', () => {
         thread: '\${{ "second" }}'
 `);
 
-    await notices.notify(notice(), 'chat.dispatched');
+    await notices.notify(notice(), 'chat.run-assigned');
 
     expect(
       run.mock.calls.map(
@@ -171,7 +185,7 @@ describe('ChannelNotices', () => {
   });
 
   it('runs the next action when one fails', async () => {
-    const { notices, run, warn } = notifying(`${SLACK}  chat.dispatched:
+    const { notices, run, warn } = notifying(`${SLACK}  chat.run-assigned:
     - action: post-reply
       to:
         channel: '\${{ chat.marks["slack.channel"] }}'
@@ -183,14 +197,14 @@ describe('ChannelNotices', () => {
 `);
     run.mockRejectedValueOnce(new Error('Slack is down'));
 
-    await notices.notify(notice(), 'chat.dispatched');
+    await notices.notify(notice(), 'chat.run-assigned');
 
     expect(run).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({
         error: { status: 0, output: 'Slack is down' },
       }),
-      'A service answered a chat’s word with an error',
+      'A service answered a chat notice with an error',
     );
   });
 

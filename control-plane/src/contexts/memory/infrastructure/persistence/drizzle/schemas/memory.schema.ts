@@ -9,7 +9,6 @@ import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
   check,
-  foreignKey,
   index,
   integer,
   jsonb,
@@ -17,7 +16,6 @@ import {
   pgTable,
   primaryKey,
   text,
-  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -88,7 +86,7 @@ export const memoryProposal = pgTable(
     notes: jsonb('notes').$type<number[]>().notNull(),
     source: memorySource('source').notNull(),
     proposedBy: memoryProposer('proposed_by').notNull(),
-    supersedes: text('supersedes').references(() => memory.id),
+    supersedes: text('supersedes'),
     recordedAt: timestamptz('recorded_at').notNull(),
     state: memoryProposalState('state').notNull().default('proposed'),
     decidedById: text('decided_by_id'),
@@ -143,18 +141,7 @@ export const memory = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    unique('memory_workspace_id_id_key').on(table.workspaceId, table.id),
     uniqueIndex('memory_handle_idx').on(table.handle),
-    foreignKey({
-      name: 'memory_supersedes_fk',
-      columns: [table.workspaceId, table.supersedes],
-      foreignColumns: [table.workspaceId, table.id],
-    }),
-    foreignKey({
-      name: 'memory_superseded_by_fk',
-      columns: [table.workspaceId, table.supersededBy],
-      foreignColumns: [table.workspaceId, table.id],
-    }),
     index('memory_superseded_by_idx').on(table.supersededBy),
     uniqueIndex('memory_supersedes_idx').on(table.supersedes),
     index('memory_status_idx').on(table.teamId, table.status, table.approvedAt),

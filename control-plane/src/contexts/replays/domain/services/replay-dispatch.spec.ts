@@ -4,12 +4,14 @@ import {
   FINGERPRINT,
   later,
   runIds,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import {
   dispatchedInTurn,
+  freeSlotsAmong,
   REPLAY_RUNS_AT_ONCE,
-  roomAmong,
 } from '@replays/domain/services/replay-dispatch';
+import { DispatchPool } from '@replays/domain/value-objects/dispatch-pool.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -32,27 +34,31 @@ describe('dispatchedInTurn', () => {
     expect(changed.flatMap((each) => each.occupying)).toHaveLength(
       REPLAY_RUNS_AT_ONCE,
     );
-    expect(roomAmong(changed)).toBe(0);
+    expect(freeSlotsAmong(changed).length).toBe(0);
   });
 
   it('counts runs still in flight against the room, though their replay stopped, until Work says one never was queued', () => {
     const waiting = aReplay({ id: 'replay_b', count: 3, at: later(2) });
     const neverQueued = aReplay({ id: 'replay_a', count: 1 })
-      .reserving(1, runIds())
+      .reserving(slots(1), runIds())
       .stop(later(1), BY);
     const stillRunning = aReplay({ id: 'replay_c', count: 1 })
-      .reserving(1, runIds())
+      .reserving(slots(1), runIds())
       .confirm(RunId.of('replay_run_0'), FINGERPRINT, later(1))
       .stop(later(2), BY);
 
-    expect(roomAmong([neverQueued, waiting])).toBe(REPLAY_RUNS_AT_ONCE - 1);
+    expect(freeSlotsAmong([neverQueued, waiting]).length).toBe(
+      REPLAY_RUNS_AT_ONCE - 1,
+    );
     expect(
-      roomAmong([
+      freeSlotsAmong([
         neverQueued.cancel(RunId.of('replay_run_0'), later(2)),
         waiting,
-      ]),
+      ]).length,
     ).toBe(REPLAY_RUNS_AT_ONCE);
-    expect(roomAmong([stillRunning, waiting])).toBe(REPLAY_RUNS_AT_ONCE - 1);
+    expect(freeSlotsAmong([stillRunning, waiting]).length).toBe(
+      REPLAY_RUNS_AT_ONCE - 1,
+    );
     expect(
       dispatchedInTurn([stillRunning, waiting], runIds(), NO_SEARCHES).flatMap(
         (each) => each.occupying,
@@ -61,7 +67,10 @@ describe('dispatchedInTurn', () => {
   });
 
   it('hands out nothing when the team’s runners are taken', () => {
-    const full = aReplay({ count: 5 }).reserving(REPLAY_RUNS_AT_ONCE, runIds());
+    const full = aReplay({ count: 5 }).reserving(
+      slots(REPLAY_RUNS_AT_ONCE),
+      runIds(),
+    );
 
     expect(
       dispatchedInTurn(
@@ -96,7 +105,7 @@ describe('dispatchedInTurn', () => {
       id: 'replay_search',
       count: 6,
       searchId: SEARCH,
-    }).reserving(3, runIds());
+    }).reserving(slots(3), runIds());
     const team = aReplay({ id: 'replay_team', count: 5, at: later(1) });
 
     const changed = dispatchedInTurn([searching, team], runIds(), () => 4);
@@ -113,5 +122,18 @@ describe('dispatchedInTurn', () => {
     const searched = aReplay({ count: 3, searchId: SEARCH });
 
     expect(dispatchedInTurn([searched], runIds(), NO_SEARCHES)).toEqual([]);
+  });
+});
+
+describe('Replay.dispatchPool', () => {
+  it('puts a search’s replays in the search’s pool and others in the team’s', () => {
+    const searched = aReplay({ id: 'replay_a', searchId: SEARCH });
+    const other = aReplay({ id: 'replay_b', searchId: SEARCH });
+    const team = aReplay({ id: 'replay_c' });
+
+    expect(searched.dispatchPool.equals(other.dispatchPool)).toBe(true);
+    expect(searched.dispatchPool.equals(team.dispatchPool)).toBe(false);
+    expect(searched.dispatchPool).toEqual(DispatchPool.ofSearch(SEARCH));
+    expect(team.dispatchPool).toEqual(DispatchPool.ofTeam(team.teamId));
   });
 });

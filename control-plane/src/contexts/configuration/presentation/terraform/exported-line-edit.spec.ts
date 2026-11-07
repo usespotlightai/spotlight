@@ -1,15 +1,14 @@
+import { STATION_SOURCE_FIELDS } from '@configuration/application/ports/station-source-edits.port';
+import { HclStationSourceEdits } from '@configuration/infrastructure/terraform/hcl-station-source-edits';
 import { CONFIGURATION } from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
-import type { HclLiteral } from '@platform/hcl/hcl.parse';
-import {
-  editedHclBlock,
-  type HclBlockEdit,
-  type HclField,
-} from '@platform/hcl/hcl-edit';
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
 import {
   formattedByTerraform,
   TERRAFORM_INSTALLED,
 } from '@platform/hcl/terraform-cli.fake-spec';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = 'infra/spotlight';
@@ -28,11 +27,13 @@ const LINE = EXPORTED.find(
 
 const PROMPT = `${ROOT}/prompts/core/delivery/implementation.md`;
 
-const SEED: Readonly<Record<string, HclLiteral>> = {
+const SEED: LineDefinitionStation = {
+  key: 'implementation',
+  name: 'Implementation',
+  kind: 'work',
+  alerts: [],
+  ends: false,
   harness: 'claude-code',
-  model: null,
-  effort: null,
-  description: null,
   profile: 'careful',
   prompt: 'Implement the task.\n\n',
   decisions: true,
@@ -40,78 +41,34 @@ const SEED: Readonly<Record<string, HclLiteral>> = {
   tools: ['linear.comment', 'github.comment', 'catalog.web-search@1.1.0'],
   skills: ['grafana', 'catalog.research@1.0.0'],
   check: 'npm test',
-  passes_to: [],
-};
-
-const RULES: Readonly<Record<string, HclField['references']>> = {
-  profile: {
-    type: 'spotlight_harness_profile',
-    attribute: 'key',
-    storedAt: 'key',
-    tool: false,
-  },
-  skills: {
-    type: 'spotlight_skill',
-    attribute: 'key',
-    storedAt: 'key',
-    tool: false,
-  },
-  tools: {
-    type: 'spotlight_integration',
-    attribute: 'integration',
-    storedAt: 'definition.integration',
-    tool: true,
+  passesTo: [],
+  judge: {
+    rubric: 'A good run changes only what the task requests.\n',
+    sample: 0.2,
+    minAgreement: 0.6,
   },
 };
 
-const LISTS = new Set(['tools', 'skills', 'passes_to']);
-
-const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
-  file: LINE,
-  owner: { attribute: 'team_id', type: 'spotlight_team', key: 'core' },
-  resource: { type: 'spotlight_line', key: 'delivery' },
-  block: { type: 'station', key: 'implementation' },
-  fields: Object.entries(SEED).map(([name, was]) => ({
-    name,
-    expected: was,
-    desired: name in now ? (now[name] ?? null) : was,
-    unset: LISTS.has(name)
-      ? []
-      : name === 'decisions' || name === 'memories'
-        ? false
-        : null,
-    ...(RULES[name] ? { references: RULES[name] } : {}),
-    ...(name === 'prompt'
-      ? { freshFile: 'prompts/core/delivery/implementation.md' }
-      : {}),
-  })),
-  blocks: [
-    {
-      type: 'judge',
-      expected: {
-        rubric: 'A good run changes only what the task requests.\n',
-        sample: 0.2,
-        min_agreement: 0.6,
-      },
-    },
-  ],
-  module: EXPORTED.map((each) => each.path).filter(
-    (path) => path.endsWith('.tf') && path !== LINE.path,
-  ),
-  read: async (path) =>
-    EXPORTED.find((each) => each.path === path)?.content ?? null,
-});
+const editedTo = (now: Partial<LineDefinitionStation>) =>
+  new HclStationSourceEdits().edited({
+    file: LINE,
+    teamKey: 'core',
+    lineKey: LineKey.of('delivery'),
+    stationKey: StationKey.of('implementation'),
+    seed: SEED,
+    candidate: { ...SEED, ...now },
+    fields: STATION_SOURCE_FIELDS,
+    configFiles: EXPORTED.filter((each) => each.path !== LINE.path),
+  });
 
 describe('editing a line Spotlight exported', () => {
   it('changes the station’s prompt file and values, leaving every other byte of the export', async () => {
-    const edited = await editedHclBlock(
-      editOf({
-        prompt: 'Implement the task, smallest change first.\n',
-        harness: 'codex',
-        model: 'gpt-5',
-        decisions: false,
-      }),
-    );
+    const edited = await editedTo({
+      prompt: 'Implement the task, smallest change first.\n',
+      harness: 'codex',
+      model: 'gpt-5',
+      decisions: false,
+    });
 
     expect(edited.ok && edited.unchecked).toEqual([]);
 
@@ -143,13 +100,11 @@ describe('editing a line Spotlight exported', () => {
   });
 
   it('changes tools, skills and the profile the export wrote as references, keeping references where the export has the resource', async () => {
-    const edited = await editedHclBlock(
-      editOf({
-        tools: ['github.comment', 'linear.comment'],
-        skills: ['catalog.research@1.0.0', 'grafana'],
-        profile: 'bold',
-      }),
-    );
+    const edited = await editedTo({
+      tools: ['github.comment', 'linear.comment'],
+      skills: ['catalog.research@1.0.0', 'grafana'],
+      profile: 'bold',
+    });
     const line = edited.ok ? (edited.files[0]?.content ?? '') : '';
 
     expect(edited.ok).toBe(true);

@@ -1,31 +1,39 @@
 import { randomUUID } from 'node:crypto';
-import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
-import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
+import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
+import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
-import { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
+import { Money } from '@runs/domain/value-objects/money.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
+import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+  type ServerCalls,
+  ToolUse,
+} from '@runs/domain/value-objects/tool-use.vo';
 import {
-  RUN_SUPERSEDED,
-  type RunSupersededIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-superseded.integration-event';
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import {
+  DISPATCH_SUPERSEDED,
+  type DispatchSupersededIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
-import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
@@ -33,19 +41,14 @@ import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { Money } from '@work/domain/value-objects/money.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
-import { Tokens } from '@work/domain/value-objects/tokens.vo';
-import {
-  type ServerCalls,
-  ToolUse,
-} from '@work/domain/value-objects/tool-use.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { endingFor } from './support/run-ended';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -54,11 +57,20 @@ const CONFIG = 'a'.repeat(64);
 const PULL = 'https://github.com/acme/api/pull/42';
 const MINUTE = 60_000;
 
+const taskRequester = (task: TaskId): RunRequester =>
+  RunRequester.of({
+    owner: 'work',
+    kind: 'task',
+    id: task.value,
+    token: '0',
+    team: null,
+  });
+
 const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'do the thing',
   handover: { options: [], noteLimit: 0 },
-  resume: { key: 'task:station' },
+  resume: {},
 };
 
 const NOW = Date.now();
@@ -122,32 +134,41 @@ beforeAll(async () => {
     id: RUN.value,
     workspaceId: workspaceId.value,
     harness: 'dev',
-    taskId: TASK.value,
-    taskRevision: 0,
-    stationId: team.stationId.value,
+    ...requestedByTask(TASK.value, { teamId: team.teamId.value }),
     state: 'completed',
     spec: SPEC,
-    stationFingerprint: CONFIG,
-    stationConfig: {
-      prompt: 'Implement the task.',
-      harness: 'claude-code',
-      model: 'sonnet',
-      effort: 'high',
-      profile: null,
-      image: null,
-      repositories: [{ name: 'acme/api', setup: null }],
-      skills: [{ key: 'grafana', hash: 'd'.repeat(64) }],
-      tools: [],
-      decisions: false,
-      memories: false,
-    },
     createdAt: ago(300),
     startedAt: ago(298),
-    endedAt: ago(240),
+    ...endingFor('completed', ago(240)),
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId: RUN.value,
+      workspaceId: workspaceId.value,
+      teamId: team.teamId.value,
+      taskId: TASK.value,
+      stationId: team.stationId.value,
+      fingerprint: CONFIG,
+      config: {
+        prompt: 'Implement the task.',
+        harness: 'claude-code',
+        model: 'sonnet',
+        effort: 'high',
+        profile: null,
+        image: null,
+        repositories: [{ name: 'acme/api', setup: null }],
+        skills: [{ key: 'grafana', hash: 'd'.repeat(64) }],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      orderedAt: ago(300),
+      endedAt: ago(240),
+    }),
+  );
 
-  const ended: RunEndedIntegrationEvent = {
-    kind: RUN_ENDED,
+  const ended: DispatchEndedIntegrationEvent = {
+    kind: DISPATCH_ENDED,
     runId: RUN.value,
     workspaceId: workspaceId.value,
     taskId: TASK.value,
@@ -159,8 +180,47 @@ beforeAll(async () => {
   };
 
   const record = () => app.get(DrizzleRunRecordRepository).of(RUN);
-  const taskPullRequest = () =>
-    app.get(DrizzleTaskPullRequestRepository).forTask(TASK);
+  const taskPullRequest = async () =>
+    (
+      await app
+        .get(DrizzlePullRequestRecordRepository)
+        .at(workspaceId, PullRequestUrl.of(PULL))
+    )?.forTask ?? null;
+  const updated = (version: number, merged: boolean) =>
+    new PullRequestUpdated(workspaceId, {
+      pullRequest: PullRequestUrl.of(PULL),
+      repository: { value: 'acme/api' },
+      number: 7,
+      title: 'Retry failed uploads',
+      author: 'grace',
+      authorIsBot: false,
+      branch: null,
+      additions: 1,
+      deletions: 1,
+      changedFiles: 1,
+      openedAt: ago(180),
+      state: merged ? 'merged' : 'open',
+      closedAt: merged ? ago(60) : null,
+      updatedAt: merged ? ago(60) : ago(120),
+      readyForReviewAt: ago(180),
+      draftPeriods: [],
+      reviews: [
+        {
+          id: 1,
+          state: 'approved',
+          login: 'ada',
+          byBot: false,
+          at: ago(120),
+        },
+      ],
+      dismissedReviews: [],
+      reviewComments: 0,
+      botComments: [],
+      threads: [],
+      isRevert: false,
+      revertedBy: null,
+      version,
+    } as never);
   const humanActions = () =>
     app.get(DrizzleTaskHumanActionsRepository).of(TASK);
   const failures = () => app.get(DrizzleTaskFailuresRepository).of(TASK);
@@ -196,7 +256,9 @@ beforeAll(async () => {
       new RunUsageRecorded(
         RUN,
         workspaceId,
-        TASK,
+        taskRequester(TASK),
+        true,
+        RunAttempt.of(RUN, 1),
         58 * MINUTE,
         30,
         1,
@@ -204,6 +266,8 @@ beforeAll(async () => {
         50_000,
         200_000,
         Money.of(1.25, 'USD'),
+        [Money.of(1.25, 'USD')],
+        0,
         Tokens.of({ input: 2_000, output: 1_000, cacheRead: 90_000 }),
         ToolUse.of({
           servers: [
@@ -310,30 +374,12 @@ beforeAll(async () => {
     taskPullRequest,
   );
   await delivered(
-    [
-      new PullRequestReviewed(
-        workspaceId,
-        PULL,
-        'approved',
-        'ada',
-        false,
-        ago(120),
-      ),
-    ],
+    [updated(1, false)],
     async () => (await taskPullRequest())?.firstReviewAt,
   );
   await delivered(
-    [
-      new PullRequestClosed(
-        workspaceId,
-        PULL,
-        'acme/api',
-        null,
-        { commit: 'c'.repeat(40) },
-        ago(60),
-      ),
-    ],
-    async () => (await taskPullRequest())?.merged,
+    [updated(2, true)],
+    async () => (await taskPullRequest())?.state === 'merged',
   );
   await delivered(
     [
@@ -363,7 +409,7 @@ describe('what the insights context receives for a team (e2e)', () => {
   it('stores on its record the run’s usage, agent config, waits and the station it passed the task to', async () => {
     const record = await app.get(DrizzleRunRecordRepository).of(RUN);
 
-    expect(record?.ending).toBe('completed');
+    expect(record?.end?.ending).toBe('completed');
     expect(record?.usage?.spend).toEqual({ amount: 1.25, currency: 'USD' });
     expect(record?.usage?.tokens).toEqual({
       input: 2_000,
@@ -371,7 +417,7 @@ describe('what the insights context receives for a team (e2e)', () => {
       cacheRead: 90_000,
       cacheWrite: null,
     });
-    expect(record?.passed?.to).toBe(NEXT);
+    expect(record?.passed?.to.value).toBe(NEXT);
     expect(record?.firstHumanAction?.kind).toBe('answered');
     expect(record?.end?.agentConfig).toMatchObject({
       harness: 'claude-code',
@@ -383,25 +429,27 @@ describe('what the insights context receives for a team (e2e)', () => {
     expect(record?.dismissals.map((each) => [each.server, each.tool])).toEqual([
       ['linear', 'create_issue'],
     ]);
-    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
-      LatencyHistogram.timing([200, 400, 900]),
-    );
+    expect(
+      record?.tools?.servers.find((each) => each.server === 'linear')?.latency,
+    ).toEqual(LatencyHistogram.timing([200, 400, 900]));
   });
 
   it('reads the tools a run used with each record it reads at once', async () => {
     const [record] = await app.get(DrizzleRunRecordRepository).ofRuns([RUN]);
 
-    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
-      LatencyHistogram.timing([200, 400, 900]),
-    );
-    expect(record?.tools?.read('grafana')).toBe(true);
+    expect(
+      record?.tools?.servers.find((each) => each.server === 'linear')?.latency,
+    ).toEqual(LatencyHistogram.timing([200, 400, 900]));
+    expect(record?.tools?.skillsRead.includes('grafana')).toBe(true);
     expect(record?.end?.queuedMs).toBe(2 * MINUTE);
   });
 
   it('dates the task’s pull request from opening to first review to merge', async () => {
-    const taskPullRequest = await app
-      .get(DrizzleTaskPullRequestRepository)
-      .forTask(TASK);
+    const taskPullRequest = (
+      await app
+        .get(DrizzlePullRequestRecordRepository)
+        .at(team.workspaceId, PullRequestUrl.of(PULL))
+    )?.forTask;
 
     expect(taskPullRequest?.state).toBe('merged');
     expect(taskPullRequest?.firstReviewAt).not.toBeNull();
@@ -418,8 +466,10 @@ describe('what the insights context receives for a team (e2e)', () => {
 
     expect(humanActions?.opening?.by?.equals(team.owner)).toBe(true);
     expect(humanActions?.opening?.teamId.equals(team.teamId)).toBe(true);
-    expect(humanActions?.waits()).toHaveLength(1);
-    expect(humanActions?.waits()[0]?.answeredBy).toBe(team.owner.value);
+    expect(humanActions?.asks).toHaveLength(1);
+    expect(
+      humanActions?.actions.some((each) => each.by.equals(team.owner)),
+    ).toBe(true);
     expect(
       failures?.occurrences.map((each) => [
         each.source,
@@ -597,7 +647,7 @@ describe('the team’s insights (e2e)', () => {
     expect(answer.body.judges).toEqual([]);
   });
 
-  it('sets runs with memories against runs without, with no benchmark yet', async () => {
+  it('sets runs with memories against runs without', async () => {
     const answer = await asOwner(insights('memory'));
 
     expect(answer.status).toBe(200);
@@ -605,8 +655,8 @@ describe('the team’s insights (e2e)', () => {
       activeCount: 0,
       memoriesBriefed: 0,
       flagged: [],
-      benchmark: null,
     });
+    expect(answer.body).not.toHaveProperty('benchmark');
     expect(answer.body.withMemories.runs).toBe(0);
     expect(answer.body.withoutMemories.runs).toBe(1);
   });
@@ -902,30 +952,40 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       id: cancelled.value,
       workspaceId: team.workspaceId.value,
       harness: 'dev',
-      taskId: task.value,
-      taskRevision: 0,
-      stationId: team.stationId.value,
+      ...requestedByTask(task.value, { teamId: team.teamId.value }),
       state: 'failed',
       spec: SPEC,
-      stationFingerprint: CONFIG,
-      stationConfig: {
-        prompt: 'Implement the task.',
-        harness: 'claude-code',
-        model: 'sonnet',
-        effort: 'high',
-        profile: null,
-        image: null,
-        repositories: [],
-        skills: [{ key: 'grafana', hash: 'd'.repeat(64) }],
-        tools: [],
-        decisions: false,
-        memories: false,
-      },
       createdAt: ago(120),
-      endedAt: ago(119),
+      ...endingFor('failed', ago(119)),
     });
-    const ended: RunEndedIntegrationEvent = {
-      kind: RUN_ENDED,
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: cancelled.value,
+        workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
+        taskId: task.value,
+        stationId: team.stationId.value,
+        fingerprint: CONFIG,
+        config: {
+          prompt: 'Implement the task.',
+          harness: 'claude-code',
+          model: 'sonnet',
+          effort: 'high',
+          profile: null,
+          image: null,
+          repositories: [],
+          skills: [{ key: 'grafana', hash: 'd'.repeat(64) }],
+          tools: [],
+          decisions: false,
+          memories: false,
+        },
+        orderedAt: ago(120),
+        endedAt: ago(119),
+        outcome: 'failed',
+      }),
+    );
+    const ended: DispatchEndedIntegrationEvent = {
+      kind: DISPATCH_ENDED,
       runId: cancelled.value,
       workspaceId: team.workspaceId.value,
       taskId: task.value,
@@ -945,7 +1005,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
 
     const record = await app.get(DrizzleRunRecordRepository).of(cancelled);
 
-    expect(record?.ending).toBe('cancelled');
+    expect(record?.end?.ending).toBe('cancelled');
     expect(record?.end?.agentConfig.skills).toEqual(['grafana']);
 
     const tools = await asOwner(insights('tools'));
@@ -969,32 +1029,42 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       id: runId.value,
       workspaceId: team.workspaceId.value,
       harness: 'dev',
-      taskId: task.value,
-      taskRevision: 0,
-      stationId: team.stationId.value,
+      ...requestedByTask(task.value, { teamId: team.teamId.value }),
       state: seed.outcome,
       spec: SPEC,
-      stationFingerprint: CONFIG,
-      stationConfig: {
-        prompt: 'Implement the task.',
-        harness: 'claude-code',
-        model: 'sonnet',
-        effort: 'high',
-        profile: null,
-        image: null,
-        repositories: [],
-        skills: [],
-        tools: [],
-        decisions: false,
-        memories: false,
-      },
       createdAt: ago(100),
       startedAt: ago(99),
-      endedAt: ago(90),
+      ...endingFor(seed.outcome, ago(90)),
     });
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: runId.value,
+        workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
+        taskId: task.value,
+        stationId: team.stationId.value,
+        fingerprint: CONFIG,
+        config: {
+          prompt: 'Implement the task.',
+          harness: 'claude-code',
+          model: 'sonnet',
+          effort: 'high',
+          profile: null,
+          image: null,
+          repositories: [],
+          skills: [],
+          tools: [],
+          decisions: false,
+          memories: false,
+        },
+        orderedAt: ago(100),
+        endedAt: ago(90),
+        outcome: seed.outcome,
+      }),
+    );
 
-    const ended: RunEndedIntegrationEvent = {
-      kind: RUN_ENDED,
+    const ended: DispatchEndedIntegrationEvent = {
+      kind: DISPATCH_ENDED,
       runId: runId.value,
       workspaceId: team.workspaceId.value,
       taskId: task.value,
@@ -1004,11 +1074,12 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       stopped: false,
       asked: false,
     };
-    const superseded: RunSupersededIntegrationEvent = {
-      kind: RUN_SUPERSEDED,
+    const superseded: DispatchSupersededIntegrationEvent = {
+      kind: DISPATCH_SUPERSEDED,
       runId: runId.value,
       workspaceId: team.workspaceId.value,
       taskId: task.value,
+      at: new Date().toISOString(),
     };
 
     await app
@@ -1018,7 +1089,9 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
         new RunUsageRecorded(
           runId,
           team.workspaceId,
-          task,
+          taskRequester(task),
+          true,
+          RunAttempt.of(runId, 1),
           MINUTE,
           4,
           0,
@@ -1026,6 +1099,8 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
           null,
           null,
           null,
+          [],
+          0,
           Tokens.UNREPORTED,
           ToolUse.of({ servers: seed.servers, skills: [] }),
         ),

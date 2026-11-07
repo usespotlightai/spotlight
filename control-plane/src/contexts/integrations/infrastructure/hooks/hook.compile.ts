@@ -2,18 +2,21 @@ import {
   HOOKS,
   hookAt,
 } from '@integrations/application/rendering/hook-problems';
+import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import { readsASecret } from '@integrations/domain/services/secret-reads';
+import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import {
   Hook,
   type HookSigning,
   type HookStep,
-} from '@integrations/domain/entities/hook.entity';
-import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
-import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+} from '@integrations/domain/value-objects/hook.vo';
 import {
   HookEvent,
   type HookEventName,
 } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   type HookFile,
@@ -80,14 +83,14 @@ export type HookStepIR =
       readonly fromNetwork: boolean;
     };
 
-export type HookSigningIR =
+type HookSigningIR =
   | { readonly kind: 'hmac' }
   | { readonly kind: 'oidc'; readonly audience: string };
 
 export interface HookIR {
   readonly hook: Hook;
   readonly on: HookEventName;
-  readonly conditions: readonly Expression[];
+  readonly when: Expression | null;
   readonly vars: Readonly<Record<string, string>>;
   readonly steps: readonly HookStepIR[];
   readonly signing: HookSigningIR | null;
@@ -105,74 +108,10 @@ export type CompiledHook =
       readonly problems: readonly ConfigurationProblem[];
     };
 
-const READS_A_SECRET = /(^|[^A-Za-z0-9_.])secret\s*(\.|\[)/;
-
-const REGEX_SPECIAL = /[.+^${}()|[\]\\]/g;
-
 const addressOf = (raw: unknown): string => {
   const key = (raw as { key?: unknown } | null)?.key;
 
   return typeof key === 'string' && key.trim() ? hookAt(key.trim()) : HOOKS;
-};
-
-export const globToRegex = (glob: string): string => {
-  const whole = glob.endsWith('/') ? `${glob}**` : glob;
-  let pattern = '';
-
-  for (let at = 0; at < whole.length; at += 1) {
-    const each = whole[at] as string;
-
-    if (each === '*' && whole[at + 1] === '*') {
-      pattern += '.*';
-      at += 1;
-    } else if (each === '*') {
-      pattern += '[^/]*';
-    } else if (each === '?') {
-      pattern += '[^/]';
-    } else {
-      pattern += each.replace(REGEX_SPECIAL, '\\$&');
-    }
-  }
-
-  return `^${pattern}$`;
-};
-
-const listed = (values: readonly string[]): string =>
-  `[${values.map((each) => JSON.stringify(each)).join(', ')}]`;
-
-const matchConditions = (file: HookFile, event: HookEvent): string[] => {
-  const conditions: string[] = [];
-  const { match } = file;
-
-  if (match.tools.length > 0 && event.aboutTool) {
-    conditions.push(`event.tool in ${listed(match.tools)}`);
-  }
-
-  if (match.lines.length > 0) {
-    conditions.push(`task.line in ${listed(match.lines)}`);
-  }
-
-  if (match.stations.length > 0) {
-    conditions.push(`task.stationKey in ${listed(match.stations)}`);
-  }
-
-  if (match.repositories.length > 0) {
-    conditions.push(
-      event.aboutChanges
-        ? `event.repository in ${listed(match.repositories)}`
-        : `task.repositories.exists(repository, repository in ${listed(match.repositories)})`,
-    );
-  }
-
-  if (match.paths.length > 0 && event.aboutChanges) {
-    conditions.push(
-      `event.changed.exists(path, ${match.paths
-        .map((glob) => `path.matches(${JSON.stringify(globToRegex(glob))})`)
-        .join(' || ')})`,
-    );
-  }
-
-  return conditions;
 };
 
 const staticUrl = (raw: string): URL | null => {
@@ -229,7 +168,7 @@ class HookCompiler {
     scope: Scope,
     returns: Returns,
   ): Expression | null {
-    if (READS_A_SECRET.test(raw)) {
+    if (readsASecret(raw)) {
       this.problem(
         at,
         'reads a secret’s value. No hook may read a secret. A hook signs its requests with its own secret',
@@ -411,12 +350,17 @@ export const checkedAgainst = (
 
 const domainStep = (step: HookStepFile): HookStep =>
   step.call !== undefined
-    ? { name: step.name, kind: 'call', tool: ToolName.of(step.call) }
+    ? {
+        name: HookStepName.of(step.name),
+        kind: 'call',
+        tool: ToolName.of(step.call),
+      }
     : {
-        name: step.name,
+        name: HookStepName.of(step.name),
         kind: 'request',
         url: staticUrl(step.request?.url ?? ''),
-        fromNetwork: step.request?.from === 'network',
+        headers: Object.keys(step.request?.headers ?? {}),
+        fromNetwork: (step.request?.from ?? Hook.DEFAULTS.from) === 'network',
       };
 
 const signingKind = (file: HookFile): HookSigning | null =>
@@ -452,10 +396,16 @@ export const compileHook = (
     hook = Hook.of({
       key: HookKey.of(file.key),
       event,
-      match: {
-        tools: file.match.tools.map((tool) => ToolName.of(tool)),
-        paths: file.match.paths,
-      },
+      match: HookMatch.written(
+        {
+          tools: file.match.tools.map((tool) => ToolName.of(tool)),
+          lines: file.match.lines,
+          stations: file.match.stations,
+          repositories: file.match.repositories,
+          paths: file.match.paths,
+        },
+        event,
+      ),
       steps: file.steps.map(domainStep),
       signing: signingKind(file),
       failure: file.failure,
@@ -470,9 +420,6 @@ export const compileHook = (
   }
 
   const scope = firingScope(on);
-  const conditions = matchConditions(file, event).map((source) =>
-    compiler.expression(source, FieldPath.of(['match']), scope, 'bool'),
-  );
   const when =
     file.when === undefined
       ? null
@@ -495,15 +442,35 @@ export const compileHook = (
     ir: {
       hook,
       on,
-      conditions: [...conditions, when].filter(
-        (each): each is Expression => each !== null,
-      ),
+      when,
       vars: file.vars,
       steps,
       signing: signingOf(file),
     },
     document: documented(file, raw),
     places: compiler.places,
+  };
+};
+
+export interface WrittenHook
+  extends Omit<HookFile, 'failure' | 'timeoutSeconds'> {
+  readonly failure: HookFile['failure'] | null;
+  readonly timeoutSeconds: number | null;
+}
+
+export const writtenHookOf = (raw: unknown): WrittenHook | null => {
+  const read = hookSchema.safeParse(raw);
+
+  if (!read.success) {
+    return null;
+  }
+
+  return {
+    ...read.data,
+    failure: wrote(raw, 'failure') ? read.data.failure : null,
+    timeoutSeconds: wrote(raw, 'timeoutSeconds')
+      ? read.data.timeoutSeconds
+      : null,
   };
 };
 

@@ -18,7 +18,11 @@ export class DismissProposalHandler
 
   async execute(command: DismissProposalCommand): Promise<void> {
     try {
-      const chat = await this.loader.inTeam(command.teamId, command.chatId);
+      const chat = await this.loader.openedBy(
+        command.teamId,
+        command.chatId,
+        command.dismissedBy,
+      );
       const dismissed = chat.dismiss(
         MessagePosition.of(command.position),
         UserId.of(command.dismissedBy),

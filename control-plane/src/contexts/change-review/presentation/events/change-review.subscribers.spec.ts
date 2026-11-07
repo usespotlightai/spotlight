@@ -1,27 +1,30 @@
 import type { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
+import type { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
+import type { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
-import type { DeleteTaskAcrossAggregates } from '@change-review/application/services/delete-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import type { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
-import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
-import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
-import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
+import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
+import { StackCheckLayersFailed } from '@change-review/domain/events/stack-check-layers-failed.event';
+import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
+import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
+import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
-import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
-import type { TaskDispatchedIntegrationEvent } from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
+import type { TaskRunAssignedIntegrationEvent } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -48,7 +51,8 @@ const receiving = () => {
   const subscriber = changeReviewSubscribers(
     {} as unknown as ChangeStackReactions,
     {} as unknown as StickyCommentPosterPort,
-    {} as unknown as DeleteTaskAcrossAggregates,
+    {} as unknown as TaskDeletionReactions,
+    {} as never,
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
     {} as unknown as SignalReviewing,
@@ -117,7 +121,8 @@ describe('change review receiving a run begin and end', () => {
     const subscribers = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
-      {} as unknown as DeleteTaskAcrossAggregates,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       { began, ended } as unknown as SignalReviewing,
@@ -143,8 +148,8 @@ describe('change review receiving a run begin and end', () => {
   it('signals a review begun when a task is dispatched to a run', async () => {
     const { receiving, began } = signalled();
 
-    const handed: TaskDispatchedIntegrationEvent = {
-      kind: 'work.task-dispatched.v1',
+    const handed: TaskRunAssignedIntegrationEvent = {
+      kind: 'work.task-run-assigned.v1',
       taskId: 'task_1',
       workspaceId: 'ws_1',
       runId: 'run_1',
@@ -157,10 +162,10 @@ describe('change review receiving a run begin and end', () => {
 
   it('signals a review ended when its run ends, and nothing for a run with no task', async () => {
     const { receiving, ended } = signalled();
-    const subscriber = receiving('work.run-ended.v1');
+    const subscriber = receiving('work.dispatch-ended.v1');
 
-    const ofTask: RunEndedIntegrationEvent = {
-      kind: 'work.run-ended.v1',
+    const ofTask: DispatchEndedIntegrationEvent = {
+      kind: 'work.dispatch-ended.v1',
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
@@ -170,7 +175,7 @@ describe('change review receiving a run begin and end', () => {
       stopped: false,
       asked: false,
     };
-    const ofChat: RunEndedIntegrationEvent = {
+    const ofChat: DispatchEndedIntegrationEvent = {
       ...ofTask,
       runId: 'run_2',
       taskId: null,
@@ -190,7 +195,8 @@ describe('change review receiving a run end', () => {
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
-      {} as unknown as DeleteTaskAcrossAggregates,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -201,8 +207,8 @@ describe('change review receiving a run end', () => {
       {} as never,
     ).find((each) => each.name === 'change-review.request-decisions');
 
-    const ofTask: RunEndedIntegrationEvent = {
-      kind: 'work.run-ended.v1',
+    const ofTask: DispatchEndedIntegrationEvent = {
+      kind: 'work.dispatch-ended.v1',
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
@@ -214,7 +220,7 @@ describe('change review receiving a run end', () => {
     };
 
     await subscriber?.handle(ofTask);
-    const ofChat: RunEndedIntegrationEvent = {
+    const ofChat: DispatchEndedIntegrationEvent = {
       ...ofTask,
       runId: 'run_2',
       taskId: null,
@@ -222,7 +228,7 @@ describe('change review receiving a run end', () => {
 
     await subscriber?.handle(ofChat);
 
-    expect(subscriber?.kinds).toEqual(['work.run-ended.v1']);
+    expect(subscriber?.kinds).toEqual(['work.dispatch-ended.v1']);
     expect(runEnded).toHaveBeenCalledTimes(1);
     expect(runEnded).toHaveBeenCalledWith(
       TaskId.of('task_1'),
@@ -237,7 +243,8 @@ describe('change review receiving a pull request close', () => {
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
-      {} as unknown as DeleteTaskAcrossAggregates,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -277,7 +284,8 @@ describe('change review receiving a stack’s check end', () => {
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
-      {} as unknown as DeleteTaskAcrossAggregates,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -301,14 +309,14 @@ describe('change review receiving a stack’s check end', () => {
     const { subscriber, released } = releasing();
 
     await subscriber.handle(
-      new ChangeStackChecked(
-        ChangeStackId.of('stack_1'),
+      new StackChecked(
+        StackCheckId.first(ChangeStackId.of('stack_1')),
         RunId.of('run_1'),
         null,
         WorkspaceId.of('ws_1'),
         true,
         false,
-        false,
+        new Date('2026-10-02T09:30:00.000Z'),
       ),
     );
 
@@ -319,7 +327,10 @@ describe('change review receiving a stack’s check end', () => {
     const { subscriber, released } = releasing();
 
     await subscriber.handle(
-      new LayersFailedCheck(ChangeStackId.of('stack_1'), RunId.of('run_1')),
+      new StackCheckLayersFailed(
+        StackCheckId.first(ChangeStackId.of('stack_1')),
+        RunId.of('run_1'),
+      ),
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
@@ -332,7 +343,8 @@ describe('change review receiving that a check was deleted while a runner leased
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
-      {} as unknown as DeleteTaskAcrossAggregates,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -350,7 +362,9 @@ describe('change review receiving that a check was deleted while a runner leased
     }
 
     await subscriber.handle(
-      new LeasedCheckDeleted(ChangeStackId.of('stack_1')),
+      new LeasedStackCheckDeleted(
+        StackCheckId.first(ChangeStackId.of('stack_1')),
+      ),
     );
 
     expect(released).toHaveBeenCalledWith(ChangeStackId.of('stack_1'));
@@ -363,7 +377,8 @@ describe('change review receiving a check drop the runner reserved for it', () =
     const subscriber = changeReviewSubscribers(
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
-      {} as unknown as DeleteTaskAcrossAggregates,
+      {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -387,12 +402,65 @@ describe('change review receiving a check drop the runner reserved for it', () =
     const { subscriber, reservationDropped } = releasing();
 
     await subscriber.handle(
-      new CheckReservationDropped(
-        ChangeStackId.of('stack_1'),
+      new StackCheckReservationDropped(
+        StackCheckId.first(ChangeStackId.of('stack_1')),
         RunnerId.of('pooled_1'),
       ),
     );
 
     expect(reservationDropped).toHaveBeenCalledWith(RunnerId.of('pooled_1'));
+  });
+});
+
+describe('change review removing what a deleted task or team owned', () => {
+  const removeStacks = vi.fn(async () => {});
+  const subscribers = changeReviewSubscribers(
+    {} as unknown as ChangeStackReactions,
+    {} as unknown as StickyCommentPosterPort,
+    {} as unknown as TaskDeletionReactions,
+    { removeStacks } as unknown as TeamDeletionReactions,
+    {} as unknown as ReviewReactions,
+    {} as unknown as ReceiveReviewComment,
+    {} as unknown as SignalReviewing,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+
+  it('removes each aggregate type in its own reaction, each aggregate in its own transaction', () => {
+    const removing = subscribers.filter(
+      (each) =>
+        each.name.startsWith('change-review.remove-') &&
+        !each.name.includes('decision-sets'),
+    );
+
+    expect(removing.map((each) => [each.name, each.callsOut])).toEqual([
+      ['change-review.remove-reviews-of-deleted-task', true],
+      ['change-review.remove-review-comments-of-deleted-task', true],
+      ['change-review.remove-stack-checks-of-deleted-task', true],
+      ['change-review.remove-question-answers-of-deleted-task', true],
+      ['change-review.remove-change-stacks-of-deleted-task', true],
+      ['change-review.remove-stack-checks-of-deleted-team', true],
+      ['change-review.remove-question-answers-of-deleted-team', true],
+      ['change-review.remove-change-stacks-of-deleted-team', true],
+    ]);
+  });
+
+  it('removes the stacks a deleted team owned without a task', async () => {
+    const subscriber = subscribers.find(
+      (each) =>
+        each.name === 'change-review.remove-change-stacks-of-deleted-team',
+    );
+
+    await subscriber?.handle({
+      kind: 'identity.team-deleted.v1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      key: 'core',
+    } as never);
+
+    expect(removeStacks).toHaveBeenCalledWith(TeamId.of('team_1'));
   });
 });

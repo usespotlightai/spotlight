@@ -2,6 +2,7 @@ import type { UpdateSkillCommand } from '@configuration/application/commands/upd
 import type { SkillCompilerPort } from '@configuration/application/ports/skill-compiler.port';
 import { SkillProblems } from '@configuration/application/rendering/skill-problems';
 import type { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
+import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
@@ -35,8 +36,8 @@ export class UpdateSkillHandler
       const existing = await this.definitions.withId(id);
       loaded = existing;
       const permissions = existing
-        ? await this.access.permissionsOnTeam(
-            existing.teamId.value,
+        ? await this.access.permissionsInWorkspaceOfTeam(
+            existing.teamId,
             command.actor.principal,
           )
         : null;
@@ -61,6 +62,7 @@ export class UpdateSkillHandler
         this.definitions.save(
           existing.update(
             compiled,
+            this.compiler,
             ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),
@@ -74,6 +76,13 @@ export class UpdateSkillHandler
         return current
           ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
+      }
+
+      if (error instanceof InvalidSkillError) {
+        return {
+          outcome: 'invalid',
+          problems: [SkillProblems.invalid(loaded?.key.value ?? '', error)],
+        };
       }
 
       if (error instanceof ImmutableFieldError) {

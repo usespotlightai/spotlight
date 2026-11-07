@@ -1,7 +1,3 @@
-import type {
-  RunListing,
-  TeamWindow,
-} from '@insights/domain/repositories/run-record.repository';
 import type { AgentConfigComparisonCounts } from '@insights/domain/services/agent-config-comparison';
 import type { ChangeCounts } from '@insights/domain/services/before-after';
 import type { CostCountsInPeriod } from '@insights/domain/services/cost-breakdown';
@@ -11,6 +7,7 @@ import type { OverviewCounts } from '@insights/domain/services/overview-counts';
 import type { PeopleCounts } from '@insights/domain/services/people-counts';
 import type { PullRequestFilter } from '@insights/domain/services/pull-request-filter';
 import type { PullRequestCounts } from '@insights/domain/services/pull-request-insights';
+import type { RunFilter } from '@insights/domain/services/run-filter';
 import type { RunSize } from '@insights/domain/services/run-size';
 import type { ShippingCounts } from '@insights/domain/services/shipping';
 import type { TeamCounts } from '@insights/domain/services/station-reports';
@@ -19,14 +16,28 @@ import type { ToolCounts } from '@insights/domain/services/tool-insights';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { HumanActionKind } from '@insights/domain/value-objects/human-action.vo';
 import type { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
+import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type {
   Money,
   TokenCounts,
 } from '@insights/domain/value-objects/run-usage.vo';
-import type { TaskPullRequestState } from '@insights/domain/value-objects/task-pull-request-state';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export interface TeamWindow {
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly from: Date;
+  readonly to: Date;
+}
+
+export interface RunListing {
+  readonly window: TeamWindow;
+  readonly filter: RunFilter;
+  readonly offset: number;
+  readonly limit: number;
+}
 
 export const INSIGHTS_READER = Symbol('INSIGHTS_READER');
 
@@ -85,7 +96,7 @@ export interface ListedRun {
     readonly at: Date;
   } | null;
   readonly passed: { readonly to: string; readonly at: Date } | null;
-  readonly pullRequestState: TaskPullRequestState | null;
+  readonly pullRequestState: PullRequestState | null;
 }
 
 export interface RunsListed {

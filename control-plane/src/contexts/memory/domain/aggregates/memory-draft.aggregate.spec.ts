@@ -3,10 +3,8 @@ import {
   MemoryProposal,
   type ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
-import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
-import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
-import { MemoryDraftingRequested } from '@memory/domain/events/memory-drafting-requested.event';
+import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
@@ -21,9 +19,11 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -49,8 +49,8 @@ const evidence = (
     runId,
     runContext: {
       teamId: TEAM,
-      lineId: 'line_1',
-      stationId: 'station_1',
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_1'),
       repositories: [API],
     },
     steps: [2, 5].map((index) => ({
@@ -131,9 +131,6 @@ describe('MemoryDraft', () => {
 
       expect(requested.hasPendingJob).toBe(true);
       expect(requested.drafting?.isFor(FIRST)).toBe(true);
-      expect(requested.pullEvents()).toEqual([
-        new MemoryDraftingRequested(requested.id, TASK, FIRST),
-      ]);
     });
 
     it('is requested once for a run, however often its ending arrives', () => {
@@ -176,7 +173,7 @@ describe('MemoryDraft', () => {
       expect(drafted.proposals).toHaveLength(1);
       expect(drafted.proposals[0]?.proposed).toBe(true);
       expect(drafted.pullEvents().slice(-1)[0]).toEqual(
-        new MemoriesProposed(drafted.id, TASK, FIRST, 1, 3, 0),
+        new MemoryReviewRequested(drafted.id, TASK, FIRST),
       );
     });
 
@@ -206,7 +203,7 @@ describe('MemoryDraft', () => {
         'CI has no network.',
       ]);
       expect(second.pullEvents().slice(-1)[0]).toEqual(
-        new MemoriesProposed(second.id, TASK, SECOND, 1, 0, 2),
+        new MemoryReviewRequested(second.id, TASK, SECOND),
       );
     });
 
@@ -223,8 +220,8 @@ describe('MemoryDraft', () => {
           runId: SECOND,
           runContext: {
             teamId: TEAM,
-            lineId: 'line_1',
-            stationId: 'station_1',
+            lineId: LineId.of('line_1'),
+            stationId: StationId.of('station_1'),
             repositories: [API],
           },
           steps: [],
@@ -240,8 +237,8 @@ describe('MemoryDraft', () => {
 
       expect(quiet.proposals).toEqual(first.proposals);
       expect(quiet.draftedIn?.equals(SECOND)).toBe(true);
-      expect(quiet.pullEvents().slice(-1)[0]).toEqual(
-        new MemoriesProposed(quiet.id, TASK, SECOND, 0, 0, 0),
+      expect(quiet.pullEvents()).not.toContainEqual(
+        new MemoryReviewRequested(quiet.id, TASK, SECOND),
       );
     });
 
@@ -306,9 +303,6 @@ describe('MemoryDraft', () => {
       expect(failed.drafting?.job.nextAttemptAt?.getTime()).toBe(
         NOW.getTime() + 30_000,
       );
-      expect(failed.pullEvents()).not.toContainEqual(
-        expect.any(MemoryDraftingFailed),
-      );
     });
 
     it('keeps nothing and says why when the failure allows no other attempt', () => {
@@ -320,9 +314,6 @@ describe('MemoryDraft', () => {
       expect(failed.hasPendingJob).toBe(false);
       expect(failed.proposals).toEqual([]);
       expect(failed.failure?.code).toBe('no-evidence');
-      expect(failed.pullEvents().slice(-1)[0]).toEqual(
-        new MemoryDraftingFailed(failed.id, TASK, FIRST, failure),
-      );
     });
 
     it('ends with the failure once it has used every attempt the failure allows', () => {
@@ -409,8 +400,8 @@ describe('MemoryDraft', () => {
             runId: FIRST,
             runContext: {
               teamId: TEAM,
-              lineId: 'line_1',
-              stationId: 'station_1',
+              lineId: LineId.of('line_1'),
+              stationId: StationId.of('station_1'),
               repositories: [API],
             },
             steps: [{ index: 5, kind: 'message', text: 'Wrote it.' }],
@@ -596,7 +587,7 @@ describe('MemoryDraft', () => {
       expect(later.pullEvents()).toEqual(
         expect.arrayContaining([
           new MemoryReviewResolved(later.id, TASK, FIRST),
-          new MemoriesProposed(later.id, TASK, SECOND, 1, 0, 3),
+          new MemoryReviewRequested(later.id, TASK, SECOND),
         ]),
       );
     });
@@ -633,8 +624,9 @@ describe('MemoryDraft', () => {
       Remembering.of({
         taskId: TASK,
         runId,
-        replay: false,
-        isSearch: false,
+        asOf: null,
+        isolated: false,
+        trial: false,
       }).proposalOf({
         id: MemoryId.of(id),
         remembered: {
@@ -647,8 +639,8 @@ describe('MemoryDraft', () => {
         at: {
           runContext: {
             teamId: TEAM,
-            lineId: 'line_1',
-            stationId: 'station_1',
+            lineId: LineId.of('line_1'),
+            stationId: StationId.of('station_1'),
             repositories: [API],
           },
           steps: [{ index: 3, kind: 'remember' }],
@@ -666,7 +658,7 @@ describe('MemoryDraft', () => {
       ]);
       expect(draft.stepsRemembered(FIRST)).toEqual([3]);
       expect(draft.pullEvents()).toEqual([
-        new MemoriesProposed(draft.id, TASK, FIRST, 1, 0, 0),
+        new MemoryReviewRequested(draft.id, TASK, FIRST),
       ]);
     });
 

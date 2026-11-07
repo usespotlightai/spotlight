@@ -6,6 +6,7 @@ import {
   TaskReviewResponseDto,
 } from '@work/presentation/http/dto/task.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
+import { stationLabelOf } from '@work/presentation/http/mappers/station-label';
 
 export const TaskHttpMapper = {
   toResponse(dto: TaskDto): TaskResponseDto {
@@ -39,7 +40,7 @@ export const TaskHttpMapper = {
       dto.note
         ? new TaskNoteResponseDto(
             dto.note.position,
-            dto.note.station,
+            stationLabelOf(dto.note.station),
             dto.note.body,
           )
         : null,

@@ -20,8 +20,8 @@ export const deleteRunsOf = async (
     .set({ runId: null })
     .where(inArray(schema.chatMessage.runId, runs));
   await db
-    .delete(schema.workspaceArchive)
-    .where(inArray(schema.workspaceArchive.grantedToRunId, runs));
+    .delete(schema.workingCopyArchive)
+    .where(inArray(schema.workingCopyArchive.grantedToRunId, runs));
   await db
     .delete(schema.startingPointHoldRun)
     .where(eq(schema.startingPointHoldRun.workspaceId, workspaceId));
@@ -72,10 +72,10 @@ export const deleteRunnersOf = async (
     .delete(schema.runner)
     .where(eq(schema.runner.workspaceId, workspaceId));
   await db
-    .delete(schema.poolToken)
+    .delete(schema.usedToken)
     .where(
       inArray(
-        schema.poolToken.poolId,
+        schema.usedToken.holderId,
         db
           .select({ id: schema.runnerPool.id })
           .from(schema.runnerPool)
@@ -89,10 +89,10 @@ export const deleteRunnersOf = async (
     .delete(schema.workspaceRunners)
     .where(eq(schema.workspaceRunners.workspaceId, workspaceId));
   await db
-    .delete(schema.egressToken)
+    .delete(schema.usedToken)
     .where(
       inArray(
-        schema.egressToken.egressId,
+        schema.usedToken.holderId,
         db
           .select({ id: schema.egress.id })
           .from(schema.egress)

@@ -1,4 +1,4 @@
-import { mcpToolWrites } from '@integrations/domain/services/mcp-tool-writes';
+import { mcpToolWrites } from '@integrations/domain/services/operation-writes';
 import {
   describedAs,
   firstByName,

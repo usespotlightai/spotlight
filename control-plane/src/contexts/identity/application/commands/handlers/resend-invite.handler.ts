@@ -9,7 +9,9 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ResendInviteHandler
   implements CommandHandlerPort<ResendInviteCommand, WorkspaceInviteDto | null>
@@ -29,7 +31,7 @@ export class ResendInviteHandler
     try {
       const administered = await this.administration.administeredBy(
         command.slug,
-        command.viewerId,
+        PersonPrincipal.of(UserId.of(command.viewerId)),
       );
 
       if (!administered) {
@@ -74,7 +76,7 @@ export class ResendInviteHandler
           id: team.id.value,
           name: team.name.value,
         })),
-        invitedBy: sender,
+        invitedBy: { ...sender, id: sender.id.value },
         invitedAt: resent.invitedAt.toISOString(),
         expiresAt: resent.expiresAt.toISOString(),
       };

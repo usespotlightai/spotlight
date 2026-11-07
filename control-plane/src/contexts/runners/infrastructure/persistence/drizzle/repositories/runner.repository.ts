@@ -8,7 +8,6 @@ import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import {
   RunnerWork,
   type RunnerWorkKind,
@@ -21,6 +20,7 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
@@ -214,7 +214,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
     return found ? toRunner(found) : null;
   }
 
-  async aliveIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]> {
+  async aliveIn(poolId: PoolId, now: Date): Promise<readonly Runner[]> {
     const rows = await this.context.db
       .select()
       .from(runner)

@@ -1,11 +1,9 @@
 import { CreateWorkspaceWithTeamCommand } from '@identity/application/commands/create-workspace-with-team.command';
 import { CreateWorkspaceWithTeamHandler } from '@identity/application/commands/handlers/create-workspace-with-team.handler';
-import type { SignupSurveysPort } from '@identity/application/ports/signup-surveys.port';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
-import type { SignupSurvey } from '@identity/domain/value-objects/signup-survey.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -25,12 +23,11 @@ const transaction: TransactionPort = { inTransaction: (work) => work() };
 let added: Workspace | undefined;
 let enqueued: DomainEvent[];
 let repository: WorkspaceRepository;
-let recorded: {
-  workspaceId: string;
-  respondent: string;
-  survey: SignupSurvey;
-}[];
-let surveys: SignupSurveysPort;
+
+const created = () =>
+  enqueued.find(
+    (each): each is WorkspaceCreated => each instanceof WorkspaceCreated,
+  );
 
 const ENGINEER = { jobFunction: 'engineering', referralSource: 'Hacker News' };
 
@@ -40,12 +37,7 @@ const handle = (
   teamName = 'Platform',
   survey: { jobFunction: string; referralSource: string | null } = ENGINEER,
 ) =>
-  new CreateWorkspaceWithTeamHandler(
-    repository,
-    surveys,
-    ids(),
-    transaction,
-  ).execute(
+  new CreateWorkspaceWithTeamHandler(repository, ids(), transaction).execute(
     new CreateWorkspaceWithTeamCommand(
       name,
       slug,
@@ -67,16 +59,6 @@ beforeEach(() => {
     find: vi.fn().mockResolvedValue(null),
     findBySlug: vi.fn().mockResolvedValue(null),
     save: vi.fn().mockResolvedValue(undefined),
-  };
-  recorded = [];
-  surveys = {
-    record: vi.fn(async (workspaceId, respondent, survey) => {
-      recorded.push({
-        workspaceId: workspaceId.value,
-        respondent: respondent.value,
-        survey,
-      });
-    }),
   };
 });
 
@@ -138,16 +120,13 @@ describe('CreateWorkspaceWithTeamHandler', () => {
     });
   });
 
-  it('records the survey answers of the person who created it', async () => {
+  it('says what the person who created it answered in the survey', async () => {
     await handle();
 
-    expect(recorded).toHaveLength(1);
-    expect(recorded[0]).toMatchObject({
-      workspaceId: 'id_1',
-      respondent: 'user_1',
-    });
-    expect(recorded[0]?.survey.jobFunction.value).toBe('engineering');
-    expect(recorded[0]?.survey.referralSource).toBe('Hacker News');
+    expect(created()?.workspaceId.value).toBe('id_1');
+    expect(created()?.owner.value).toBe('user_1');
+    expect(created()?.survey?.jobFunction.value).toBe('engineering');
+    expect(created()?.survey?.referralSource).toBe('Hacker News');
   });
 
   it('records a blank referral source as no answer', async () => {
@@ -156,7 +135,7 @@ describe('CreateWorkspaceWithTeamHandler', () => {
       referralSource: '   ',
     });
 
-    expect(recorded[0]?.survey.referralSource).toBeNull();
+    expect(created()?.survey?.referralSource).toBeNull();
   });
 
   it('reports an unknown job function as invalid input, without writing', async () => {
@@ -167,7 +146,6 @@ describe('CreateWorkspaceWithTeamHandler', () => {
       }),
     ).rejects.toMatchObject({ kind: 'invalid' });
     expect(repository.add).not.toHaveBeenCalled();
-    expect(surveys.record).not.toHaveBeenCalled();
   });
 
   it('reports a referral source over 200 characters as invalid input', async () => {

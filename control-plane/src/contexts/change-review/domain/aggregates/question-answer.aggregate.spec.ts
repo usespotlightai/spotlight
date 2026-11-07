@@ -7,6 +7,7 @@ import {
   HunkId,
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -24,8 +25,12 @@ const given = (
 ) =>
   QuestionAnswer.given({
     id: QuestionAnswerId.of('answer-1'),
-    workspaceId: WorkspaceId.of('workspace-1'),
-    stackId: ChangeStackId.of('stack-1'),
+    stack: {
+      id: ChangeStackId.of('stack-1'),
+      workspaceId: WorkspaceId.of('workspace-1'),
+      taskId: TaskId.of('task-1'),
+      teamId: null,
+    },
     question: QUESTION,
     personId: UserId.of('user-1'),
     reply,
@@ -46,6 +51,15 @@ describe('QuestionAnswer', () => {
     expect(answer.asked).toBe(QUESTION.question);
     expect(answer.expected).toBe('The integration signs it.');
     expect(answer.usage.calls).toBe(1);
+  });
+
+  it('keeps at most the feedback it has room for', () => {
+    const answer = given('The bot.', {
+      grade: { verdict: 'missed', feedback: 'x'.repeat(2_500) },
+      usage: null,
+    });
+
+    expect(answer.feedback).toHaveLength(2_000);
   });
 
   it('counts “I don’t know” as missed, with no grade and no feedback', () => {

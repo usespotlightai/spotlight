@@ -3,6 +3,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
@@ -11,9 +12,7 @@ import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo'
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -79,7 +78,7 @@ describe('an approval a run asked for', () => {
     });
     await tasks.save(
       list.closeConversation({
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Set up.'),
         at: NOW,
         voice: Voice.station(),
@@ -93,7 +92,7 @@ describe('an approval a run asked for', () => {
         subject,
         NEEDED,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(runId),
@@ -186,7 +185,7 @@ describe('an approval a run asked for', () => {
       task.answer(
         at,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(owner),
@@ -211,7 +210,7 @@ describe('an approval a run asked for', () => {
       CALL,
       NEEDED,
       {
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(runId),
@@ -241,7 +240,7 @@ describe('an approval a run asked for', () => {
       task.answer(
         at,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(owner),
@@ -258,7 +257,7 @@ describe('an approval a run asked for', () => {
         CALL,
         NEEDED,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(runId),
@@ -295,7 +294,7 @@ describe('an approval a run asked for', () => {
       task.answer(
         at,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(owner),
@@ -329,7 +328,7 @@ describe('an approval a run asked for', () => {
       task.answer(
         at,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approved, retitled.'),
           at: NOW,
           voice: Voice.person(owner),
@@ -356,7 +355,7 @@ describe('an approval a run asked for', () => {
 
     await tasks.save(
       list.closeConversation({
-        station: StationName.of('Backlog'),
+        line: null,
         body: TaskNoteBody.of('Set up.'),
         at: NOW,
         voice: Voice.station(),
@@ -369,7 +368,7 @@ describe('an approval a run asked for', () => {
         CALL,
         NEEDED,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(runId),
@@ -392,7 +391,7 @@ describe('an approval a run asked for', () => {
       task.answer(
         at,
         {
-          station: StationName.of('Backlog'),
+          line: null,
           body: TaskNoteBody.of('Not before the release.'),
           at: NOW,
           voice: Voice.person(owner),

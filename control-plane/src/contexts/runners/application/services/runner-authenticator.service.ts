@@ -1,3 +1,4 @@
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type {
   AuthenticatedHost,
@@ -12,7 +13,6 @@ import { CredentialSource } from '@runners/domain/value-objects/credential-sourc
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export class RunnerAuthenticator implements RunnerAuthenticatorPort {
@@ -56,9 +56,8 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
       TokenHash.of(this.tokens.hash(token)),
     );
 
-    return pool?.mode === 'pull' &&
-      !pool.isDeleted &&
-      (await this.workspaces.isOpen(pool.workspaceId.value))
+    return pool?.acceptsPullToken &&
+      (await this.workspaces.isOpen(pool.workspaceId))
       ? pool
       : null;
   }
@@ -69,11 +68,11 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
   ): Promise<RunnerTrust | null> {
     const trust = await this.trusts.find(RunnerTrustId.of(trustId));
 
-    if (!trust || !(await this.workspaces.isOpen(trust.workspaceId.value))) {
+    if (!trust || !(await this.workspaces.isOpen(trust.workspaceId))) {
       return null;
     }
 
-    const claims = await this.scope.within(trust.workspaceId.value, () =>
+    const claims = await this.scope.within(trust.workspaceId, () =>
       this.workloads.verify(token, {
         issuer: trust.workload.issuer,
         audience: trust.workload.audience,

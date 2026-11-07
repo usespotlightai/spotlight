@@ -1,6 +1,7 @@
 import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const FRESH_FOR_MS = 30_000;
 
@@ -20,35 +21,38 @@ export class CachedWorkspaceOutboundHosts
     private readonly freshForMs = FRESH_FOR_MS,
   ) {}
 
-  of(workspaceId: string): Promise<HostAllowList> {
-    const held = this.held.get(workspaceId);
+  of(workspaceId: WorkspaceId): Promise<HostAllowList> {
+    const held = this.held.get(workspaceId.value);
 
     return held && held.until > this.now()
       ? held.hosts
       : this.fresh(workspaceId);
   }
 
-  fresh(workspaceId: string): Promise<HostAllowList> {
+  fresh(workspaceId: WorkspaceId): Promise<HostAllowList> {
     const hosts = this.read(workspaceId);
-    this.held.set(workspaceId, { hosts, until: this.now() + this.freshForMs });
+    this.held.set(workspaceId.value, {
+      hosts,
+      until: this.now() + this.freshForMs,
+    });
     hosts.catch(() => {
-      if (this.held.get(workspaceId)?.hosts === hosts) {
-        this.held.delete(workspaceId);
+      if (this.held.get(workspaceId.value)?.hosts === hosts) {
+        this.held.delete(workspaceId.value);
       }
     });
 
     return hosts;
   }
 
-  forget(workspaceId: string): void {
-    this.held.delete(workspaceId);
+  forget(workspaceId: WorkspaceId): void {
+    this.held.delete(workspaceId.value);
   }
 
-  private async read(workspaceId: string): Promise<HostAllowList> {
+  private async read(workspaceId: WorkspaceId): Promise<HostAllowList> {
     const profile = await this.workspaces.profileOf(workspaceId);
 
     if (!profile) {
-      throw new Error(`workspace ${workspaceId} does not exist`);
+      throw new Error(`workspace ${workspaceId.value} does not exist`);
     }
 
     return HostAllowList.restored(profile.outboundHosts);

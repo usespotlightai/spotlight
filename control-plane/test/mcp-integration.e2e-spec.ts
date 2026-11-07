@@ -4,6 +4,13 @@ import {
   LISTED_SERVERS,
   type ListedServersPort,
 } from '@integrations/application/ports/listed-servers.port';
+import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
+import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
+import {
+  INTEGRATION_DEFINITIONS,
+  type IntegrationDefinitionRepository,
+} from '@integrations/domain/repositories/integration-definition.repository';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import {
   type FakeMcpServer,
   fakeMcpServer,
@@ -18,13 +25,16 @@ import {
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-mcp-${randomUUID().slice(0, 8)}`;
@@ -192,11 +202,9 @@ const aClaimedRun = async (): Promise<{
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
@@ -204,7 +212,7 @@ const aClaimedRun = async (): Promise<{
       command: { executable: 'sh', args: [] },
       briefing: 'Tidy the tracker.',
       handover: { options: ['review', 'done'], noteLimit: 0 },
-      resume: { key: `${taskId}:${BUILD}` },
+      resume: {},
       manifest: TOOLS.map((name) => ({
         name,
         description: name,
@@ -214,6 +222,15 @@ const aClaimedRun = async (): Promise<{
       })),
     },
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      taskId,
+      stationId: BUILD,
+    }),
+  );
 
   await http()
     .put(`/api/hosts/${HOST}`)
@@ -255,7 +272,7 @@ const toolsUsed = async (runId: string) =>
       .from(schema.eventOutbox)
       .where(
         and(
-          eq(schema.eventOutbox.kind, 'run.tool-used'),
+          eq(schema.eventOutbox.kind, 'tool.used'),
           sql`${schema.eventOutbox.payload}->'runId'->>'value' = ${runId}`,
         ),
       )
@@ -286,7 +303,7 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -403,30 +420,52 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       }),
     ]);
     expect(enabledIntegrations(declared)).toEqual([
-      { name: 'Tracker', tools: 2 },
+      { integration: IntegrationName.of('tracker'), name: 'Tracker', tools: 2 },
     ]);
   });
 
-  it('lets one claim to list a server again win, moving when it was read on without changing its version', async () => {
+  it('lets one claim to list a server again win, moving when it was read on through its definition', async () => {
     const servers = app.get<ListedServersPort>(LISTED_SERVERS);
+    const definitions = app.get<IntegrationDefinitionRepository>(
+      INTEGRATION_DEFINITIONS,
+    );
     const before = await integrationNamed('tracker');
     const due = new Date(Date.now() + 60_000);
     const at = new Date(Date.now() + 120_000);
 
-    const [one, other] = await Promise.all([
-      servers.claimListedBefore(due, at),
-      servers.claimListedBefore(due, at),
-    ]);
-    const claimed = [...one, ...other]
+    const listed = (await servers.listedBefore(due))
       .filter((each) => each.teamId.equals(team.teamId))
       .map((each) => each.integration.value);
 
-    expect(claimed).toEqual(['tracker']);
+    expect(listed).toEqual(['tracker']);
+
+    const stored = (await definitions.of(
+      team.teamId,
+      IntegrationKey.of('tracker'),
+    )) as IntegrationDefinition;
+    const claims = await Promise.allSettled([
+      definitions.save(stored.relistClaimed(at, due)),
+      definitions.save(stored.relistClaimed(at, due)),
+    ]);
+
+    expect(claims.filter((each) => each.status === 'fulfilled')).toHaveLength(
+      1,
+    );
+    expect(
+      claims.flatMap((each) =>
+        each.status === 'rejected' ? [each.reason] : [],
+      )[0],
+    ).toBeInstanceOf(IntegrationDefinitionVersionConflictError);
 
     const after = await integrationNamed('tracker');
 
-    expect(after?.version).toBe(before?.version);
+    expect(after?.version).toBe((before?.version ?? 0) + 1);
     expect(after?.spec.readAt).toBe(at.toISOString());
+    expect(
+      (await servers.listedBefore(due)).some((each) =>
+        each.teamId.equals(team.teamId),
+      ),
+    ).toBe(false);
   });
 
   it('runs a tool that only reads for a station, and journals it', async () => {
@@ -453,6 +492,12 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     });
 
     expect(JSON.stringify(journalled)).toContain('tracker.search-issues');
+    expect(
+      await db
+        .select({ tool: schema.toolUse.tool, failed: schema.toolUse.failed })
+        .from(schema.toolUse)
+        .where(eq(schema.toolUse.runId, runId)),
+    ).toEqual([{ tool: 'tracker.search-issues', failed: false }]);
 
     const inferred = await eventually(async () => {
       const [found] = await app

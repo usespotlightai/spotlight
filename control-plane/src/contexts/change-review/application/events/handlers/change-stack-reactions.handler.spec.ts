@@ -1,7 +1,8 @@
 import { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
-import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
+import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -19,15 +20,15 @@ const posting = () => {
   return { posted, reactions };
 };
 
-const checked = (replay: boolean) =>
-  new ChangeStackChecked(
-    STACK_ID,
+const checked = (trial: boolean) =>
+  new StackChecked(
+    StackCheckId.first(STACK_ID),
     RUN_ID,
     null,
     WorkspaceId.of('ws_1'),
     true,
-    replay,
-    false,
+    trial,
+    new Date('2026-10-02T09:30:00.000Z'),
   );
 
 describe('ChangeStackReactions', () => {
@@ -42,7 +43,7 @@ describe('ChangeStackReactions', () => {
     expect(posted).toEqual([RUN_ID, RUN_ID]);
   });
 
-  it('never posts a comment for a replay’s stack, completed or checked', async () => {
+  it('never posts a comment for a trial’s stack, completed or checked', async () => {
     const { posted, reactions } = posting();
 
     await reactions.onCompleted(

@@ -1,10 +1,10 @@
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
-import type { ReviewOutboxPort } from '@change-review/application/ports/review-outbox.port';
+import type { ReviewDeliveriesPort } from '@change-review/application/ports/review-deliveries.port';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { IncludedCommentPosted } from '@change-review/domain/events/included-comment-posted.event';
+import { IncludedCommentReturned } from '@change-review/domain/events/included-comment-returned.event';
 import { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
 import { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
-import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
-import { ReviewCommentPosted } from '@change-review/domain/events/review-comment-posted.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
 import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
@@ -46,7 +46,7 @@ const reacting = (stored: readonly ReviewComment[] = []) => {
       save: async (comment: ReviewComment) =>
         void comments.set(comment.id.value, comment),
     } as unknown as ReviewCommentRepository,
-    { enqueue } as unknown as ReviewOutboxPort,
+    { enqueue } as unknown as ReviewDeliveriesPort,
     { generate: () => 'sync_1' },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -63,7 +63,10 @@ describe('ReviewReactions', () => {
     );
 
     expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'file', subjectId: 'comment_1' }),
+      expect.objectContaining({
+        kind: 'file',
+        subject: ReviewCommentId.of('comment_1'),
+      }),
       NOW,
     );
   });
@@ -76,7 +79,10 @@ describe('ReviewReactions', () => {
     );
 
     expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'review', subjectId: 'review_1' }),
+      expect.objectContaining({
+        kind: 'review',
+        subject: ReviewId.of('review_1'),
+      }),
       NOW,
     );
   });
@@ -87,13 +93,13 @@ describe('ReviewReactions', () => {
     const { reactions, comments } = reacting([submitted, elsewhere]);
 
     await reactions.onCommentPosted(
-      new ReviewCommentPosted(REVIEW, submitted.id, {
+      new IncludedCommentPosted(REVIEW, submitted.id, {
         id: 101,
         url: 'https://github.com/c/101',
       }),
     );
     await reactions.onCommentPosted(
-      new ReviewCommentPosted(REVIEW, elsewhere.id, {
+      new IncludedCommentPosted(REVIEW, elsewhere.id, {
         id: 102,
         url: 'https://github.com/c/102',
       }),
@@ -110,14 +116,14 @@ describe('ReviewReactions', () => {
     const { reactions, comments } = reacting([submitted, deleted, elsewhere]);
 
     for (const each of [submitted, deleted, elsewhere]) {
-      await reactions.onCommentNotPosted(
-        new ReviewCommentNotPosted(REVIEW, each.id),
+      await reactions.onCommentReturned(
+        new IncludedCommentReturned(REVIEW, each.id),
       );
     }
 
     expect(comments.get('comment_1')?.state).toBe('draft');
     expect(comments.get('comment_2')?.sending).toBe(false);
-    expect(comments.get('comment_3')?.state).toBe('submitted');
+    expect(comments.get('comment_3')?.state).toBe('sending');
   });
 
   it('has an edit to send to GitHub that was made while the review was on its way', async () => {
@@ -128,7 +134,7 @@ describe('ReviewReactions', () => {
     const { reactions, comments } = reacting([sending]);
 
     await reactions.onCommentPosted(
-      new ReviewCommentPosted(REVIEW, sending.id, {
+      new IncludedCommentPosted(REVIEW, sending.id, {
         id: 101,
         url: 'https://github.com/c/101',
       }),

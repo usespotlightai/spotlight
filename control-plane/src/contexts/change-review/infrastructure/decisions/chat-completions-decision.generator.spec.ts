@@ -1,3 +1,4 @@
+import type { RunReasoning } from '@change-review/application/ports/work.port';
 import { ChatCompletionsDecisionGenerator } from '@change-review/infrastructure/decisions/chat-completions-decision.generator';
 import { describe, expect, it } from 'vitest';
 
@@ -29,7 +30,7 @@ const answering = (status: number, body: unknown) => {
   return { requests, fetch };
 };
 
-const REASONED = {
+const REASONED: RunReasoning = {
   steps: [
     { index: 3, kind: 'thought', text: 'Backoff is not in the client yet.' },
     { index: 7, kind: 'message', text: 'Retrying once for now.' },

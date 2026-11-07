@@ -2,9 +2,9 @@ import type { WriteTerraformStateCommand } from '@configuration/application/comm
 import type { StateChanged } from '@configuration/application/dto/terraform-state-outcomes.dto';
 import type { TerraformStateBodiesPort } from '@configuration/application/ports/terraform-state-bodies.port';
 import type { TerraformStates } from '@configuration/application/services/terraform-states.service';
-import type { TerraformState } from '@configuration/domain/aggregates/terraform-state.aggregate';
 import { TerraformStateLockedError } from '@configuration/domain/exceptions/terraform-state-locked.error';
 import type { TerraformStateRepository } from '@configuration/domain/repositories/terraform-state.repository';
+import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
@@ -14,7 +14,6 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class WriteTerraformStateHandler
@@ -27,7 +26,6 @@ export class WriteTerraformStateHandler
     private readonly bodies: TerraformStateBodiesPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
-    private readonly logger: LoggerPort,
   ) {}
 
   async execute(command: WriteTerraformStateCommand): Promise<StateChanged> {
@@ -57,56 +55,32 @@ export class WriteTerraformStateHandler
       const { state: written, version } = state.write({
         id: StateVersionId.of(this.ids.generate()),
         snapshot,
-        lockId: command.lockId,
+        lockId: command.lockId === null ? null : StateLockId.of(command.lockId),
         by: ChangeActor.of(command.actor, permissions.workspaceId),
         at: this.clock.now(),
       });
+      const body = {
+        workspaceId: written.workspaceId,
+        stateId: written.id,
+        versionId: version.id,
+      };
 
-      await this.bodies.put(written, version, command.body);
+      await this.bodies.put(body, command.body, version.snapshot.md5);
 
       try {
         await this.states.save(written);
       } catch (error) {
-        await this.bodies.remove(written, version).catch(() => undefined);
+        await this.bodies.remove([body]).catch(() => undefined);
         throw error;
       }
-
-      await this.pruned(written);
 
       return { outcome: 'done' };
     } catch (error) {
       if (error instanceof TerraformStateLockedError) {
-        return { outcome: 'locked', holder: error.holder.info };
+        return { outcome: 'locked', holder: error.holder.asWritten };
       }
 
       rethrowAsApplicationError(error);
-    }
-  }
-
-  private async pruned(state: TerraformState): Promise<void> {
-    const keptFrom = state.keptFrom;
-
-    if (keptFrom === null) {
-      return;
-    }
-
-    try {
-      const old = await this.states.versionsBefore(state, keptFrom);
-
-      for (const version of old) {
-        await this.bodies.remove(state, version);
-      }
-
-      await this.states.removeVersions(state, old);
-    } catch (error) {
-      this.logger.warn(
-        {
-          workspaceId: state.workspaceId.value,
-          state: state.name.value,
-          error,
-        },
-        'could not remove old Terraform state versions',
-      );
     }
   }
 }

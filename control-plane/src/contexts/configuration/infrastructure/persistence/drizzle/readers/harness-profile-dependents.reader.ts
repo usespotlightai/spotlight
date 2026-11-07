@@ -1,4 +1,5 @@
 import { harnessProfile } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
+import type { Dependent } from '@identity/application/ports/dependents.port';
 import type { TeamDependentSource } from '@identity/application/ports/team-dependents.port';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -9,13 +10,13 @@ import { asc, eq } from 'drizzle-orm';
 export class DrizzleHarnessProfileDependents implements TeamDependentSource {
   constructor(private readonly context: DrizzleContext) {}
 
-  async dependentsOf(teamId: TeamId): Promise<readonly string[]> {
+  async dependentsOf(teamId: TeamId): Promise<readonly Dependent[]> {
     return (
       await this.context.db
         .select({ key: harnessProfile.key })
         .from(harnessProfile)
         .where(eq(harnessProfile.teamId, teamId.value))
         .orderBy(asc(harnessProfile.key))
-    ).map((each) => `harness profile ${each.key}`);
+    ).map((each) => ({ kind: 'harness-profile', key: each.key }));
   }
 }

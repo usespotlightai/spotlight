@@ -1,6 +1,8 @@
-import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
+import type { ClientSecret } from '@integrations/domain/value-objects/client-secret.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import type { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -9,12 +11,13 @@ interface State {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly integration: IntegrationKey;
-  readonly registrationEndpoint: string;
-  readonly redirectUri: string;
+  readonly registrationEndpoint: OAuth2Endpoint;
+  readonly redirectUri: OAuth2Endpoint;
   readonly server: AuthorizationServer | null;
-  readonly clientId: string;
-  readonly clientSecret: AccessToken | null;
+  readonly clientId: OAuth2ClientId;
+  readonly clientSecret: ClientSecret | null;
   readonly secretExpiresAt: Date | null;
+  readonly registeredAt: Date;
   readonly version: number;
 }
 
@@ -24,13 +27,6 @@ export class OAuth2ClientRegistration {
   private constructor(private readonly state: State) {}
 
   static register(input: Registered): OAuth2ClientRegistration {
-    if (input.clientId.trim().length === 0) {
-      throw new InconsistentStateError(
-        'oauth2 client registration',
-        'was answered without a client id',
-      );
-    }
-
     return new OAuth2ClientRegistration({ ...input, version: 0 });
   }
 
@@ -57,11 +53,11 @@ export class OAuth2ClientRegistration {
     return this.state.integration;
   }
 
-  get registrationEndpoint(): string {
+  get registrationEndpoint(): OAuth2Endpoint {
     return this.state.registrationEndpoint;
   }
 
-  get redirectUri(): string {
+  get redirectUri(): OAuth2Endpoint {
     return this.state.redirectUri;
   }
 
@@ -69,16 +65,20 @@ export class OAuth2ClientRegistration {
     return this.state.server;
   }
 
-  get clientId(): string {
+  get clientId(): OAuth2ClientId {
     return this.state.clientId;
   }
 
-  get clientSecret(): AccessToken | null {
+  get clientSecret(): ClientSecret | null {
     return this.state.clientSecret;
   }
 
   get secretExpiresAt(): Date | null {
     return this.state.secretExpiresAt;
+  }
+
+  get registeredAt(): Date {
+    return this.state.registeredAt;
   }
 
   get version(): number {
@@ -99,15 +99,15 @@ export class OAuth2ClientRegistration {
 
   fits(
     wanted: {
-      registrationEndpoint: string;
-      redirectUri: string;
+      registrationEndpoint: OAuth2Endpoint;
+      redirectUri: OAuth2Endpoint;
       server: AuthorizationServer | null;
     },
     now: Date,
   ): boolean {
     return (
-      this.state.registrationEndpoint === wanted.registrationEndpoint &&
-      this.state.redirectUri === wanted.redirectUri &&
+      this.state.registrationEndpoint.equals(wanted.registrationEndpoint) &&
+      this.state.redirectUri.equals(wanted.redirectUri) &&
       this.servedBy(wanted.server) &&
       this.liveAt(now)
     );

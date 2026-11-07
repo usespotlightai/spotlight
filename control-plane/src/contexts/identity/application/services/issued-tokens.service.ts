@@ -8,8 +8,6 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 const EXPIRE_BATCH = 100;
 
 export class IssuedTokens {
-  readonly name = 'Revoking and expiring tokens issued by a trust';
-
   constructor(
     private readonly tokens: WorkspaceTokenRepository,
     private readonly clock: ClockPort,
@@ -30,9 +28,9 @@ export class IssuedTokens {
 
   async expireDue(): Promise<number> {
     const now = this.clock.now();
-    const expired = await this.tokens.issuedAndExpiredBy(now, EXPIRE_BATCH);
+    const expired = await this.tokens.dueToExpireBy(now, EXPIRE_BATCH);
 
-    for (const token of expired) {
+    for (const token of expired.filter((each) => each.isDueToExpireAt(now))) {
       await this.ignoringVersionConflict(() =>
         this.transaction.inTransaction(() =>
           this.tokens.save(token.expire(now)),

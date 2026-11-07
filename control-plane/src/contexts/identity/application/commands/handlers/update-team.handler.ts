@@ -56,14 +56,14 @@ export class UpdateTeamHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      await this.transaction.inTransaction(() =>
-        this.teams.save(
-          existing.update(
-            compiled,
-            ChangeActor.of(command.actor, existing.workspaceId),
-          ),
-        ),
+      const updated = existing.update(
+        compiled,
+        ChangeActor.of(command.actor, existing.workspaceId),
       );
+
+      if (updated !== existing) {
+        await this.transaction.inTransaction(() => this.teams.save(updated));
+      }
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {

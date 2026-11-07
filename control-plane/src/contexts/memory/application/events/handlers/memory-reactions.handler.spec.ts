@@ -1,9 +1,9 @@
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -89,17 +89,11 @@ describe('reacting to memories being proposed and decided', () => {
   it('creates a review on the task for a run that proposed memories', async () => {
     const { reactions, reviews } = reacting();
 
-    await reactions.onProposed(new MemoriesProposed(DRAFT, TASK, RUN, 3, 0, 0));
+    await reactions.onReviewRequested(
+      new MemoryReviewRequested(DRAFT, TASK, RUN),
+    );
 
     expect(reviews.create).toHaveBeenCalledWith(TASK, RUN);
-  });
-
-  it('creates nothing for a run that proposed none', async () => {
-    const { reactions, reviews } = reacting();
-
-    await reactions.onProposed(new MemoriesProposed(DRAFT, TASK, RUN, 0, 2, 0));
-
-    expect(reviews.create).not.toHaveBeenCalled();
   });
 
   it('resolves a run’s review once nothing is left to decide', async () => {
@@ -185,5 +179,40 @@ describe('reacting to memories being proposed and decided', () => {
     expect(
       stored[0]?.retirement?.supersededBy?.equals(MemoryId.of('memory_first')),
     ).toBe(true);
+  });
+
+  it('lets a correction stand on its own when its memory was retired before it could take over', async () => {
+    const old = Memory.create({
+      id: OLD,
+      handle: MemoryHandle.of(3),
+      workspaceId: WorkspaceId.of('ws_1'),
+      kind: 'preference',
+      body: MemoryBody.of('Name branches after the author.'),
+      scope: SCOPE,
+      provenance: PROVENANCE,
+      source: 'run',
+      supersedes: null,
+      approval: ADA,
+    });
+    const correction = old.correct({
+      id: NEW,
+      handle: MemoryHandle.of(4),
+      kind: 'preference',
+      body: MemoryBody.of('Name branches after the task.'),
+      scope: SCOPE,
+      by: ADA,
+    });
+    const retired = old.retire({
+      by: UserId.of('user_bob'),
+      reason: 'Wrong.',
+      at: NOW,
+    });
+    const { reactions, stored } = reacting([retired, correction]);
+
+    await reactions.onCreated(new MemoryCreated(NEW, OLD));
+
+    expect(stored[0]?.retirement?.supersededBy).toBeNull();
+    expect(stored[1]?.supersedes).toBeNull();
+    expect(stored[1]?.isActive).toBe(true);
   });
 });

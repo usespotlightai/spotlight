@@ -1,19 +1,10 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import { judgeGuidanceOf } from '@shared-kernel/domain/value-objects/judge-guidance';
-
-const JUDGE_SCALES = ['yes-no', 'number', 'claims'] as const;
-
-export type JudgeScale = (typeof JUDGE_SCALES)[number];
-
-export const PASSING_SCORE = 4;
-
-const YES = 1;
-
-const LOWEST = 1;
-
-const HIGHEST = 5;
-
-const LEEWAY = 1e-9;
+import {
+  isJudgeScaleKind,
+  JudgeScale,
+  type JudgeScaleKind,
+} from '@shared-kernel/domain/value-objects/judge-scale.vo';
 
 export interface CitedReason {
   readonly text: string;
@@ -22,55 +13,12 @@ export interface CitedReason {
   readonly claim: number | null;
 }
 
-const isScale = (raw: string): raw is JudgeScale =>
-  (JUDGE_SCALES as readonly string[]).includes(raw);
-
 const isRate = (value: number): boolean =>
-  Number.isFinite(value) && value >= 0 && value <= YES;
-
-const isOnScale = (scale: JudgeScale, value: number): boolean => {
-  switch (scale) {
-    case 'yes-no':
-      return value === 0 || value === YES;
-    case 'number':
-      return Number.isInteger(value) && value >= LOWEST && value <= HIGHEST;
-    default:
-      return isRate(value);
-  }
-};
-
-const shareOf = (claimResults: readonly boolean[]): number =>
-  claimResults.filter(Boolean).length / claimResults.length;
-
-const claimResultsAreValid = (
-  scale: JudgeScale,
-  value: number,
-  claimResults: readonly boolean[] | null,
-): boolean =>
-  scale === 'claims'
-    ? claimResults !== null &&
-      claimResults.length > 0 &&
-      Math.abs(shareOf(claimResults) - value) <= LEEWAY
-    : claimResults === null;
-
-const isPassing = (
-  scale: JudgeScale,
-  value: number,
-  passThreshold: number,
-): boolean => {
-  switch (scale) {
-    case 'yes-no':
-      return value === YES;
-    case 'number':
-      return value >= PASSING_SCORE;
-    default:
-      return value + LEEWAY >= passThreshold;
-  }
-};
+  Number.isFinite(value) && value >= 0 && value <= 1;
 
 export class JudgeVerdict {
   private constructor(
-    readonly scale: JudgeScale,
+    readonly scale: JudgeScaleKind,
     readonly value: number,
     readonly claimResults: readonly boolean[] | null,
     readonly claims: readonly string[],
@@ -94,17 +42,20 @@ export class JudgeVerdict {
   }): JudgeVerdict {
     const { claimResults, passThreshold } = input;
 
-    if (!isScale(input.scale)) {
+    if (!isJudgeScaleKind(input.scale)) {
       throw new InvalidReplayError(
-        `judge must score yes or no, ${LOWEST} to ${HIGHEST}, or by claims, not ${input.scale}`,
+        `judge must score yes or no, 1 to 5, or by claims, not ${input.scale}`,
       );
     }
-    if (!isOnScale(input.scale, input.value)) {
+
+    const scale = JudgeScale.of(input.scale);
+
+    if (!scale.includes(input.value)) {
       throw new InvalidReplayError(
         `judge score ${input.value} is not on the ${input.scale} scale`,
       );
     }
-    if (!claimResultsAreValid(input.scale, input.value, claimResults)) {
+    if (!scale.marks(input.value, claimResults)) {
       throw new InvalidReplayError(
         'judge must mark claims only when it judges by claims',
       );
@@ -132,14 +83,14 @@ export class JudgeVerdict {
         hunks: [...each.hunks],
         claim: each.claim,
       })),
-      isPassing(input.scale, input.value, passThreshold)
+      scale.passes(input.value, passThreshold)
         ? null
         : judgeGuidanceOf(input.guidance),
     );
   }
 
   get passes(): boolean {
-    return isPassing(this.scale, this.value, this.passThreshold);
+    return JudgeScale.of(this.scale).passes(this.value, this.passThreshold);
   }
 
   equals(other: JudgeVerdict): boolean {

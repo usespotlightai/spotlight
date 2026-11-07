@@ -57,8 +57,8 @@ const listing = (over: { mayView?: boolean } = {}) => {
     reader,
     {
       find: async () => ({ name: 'Maya Chen', image: null }),
-      pictureOf: () => null,
-      memberOf: async () => null,
+      viewerOf: async () => null,
+      actsOnTeam: async () => false,
     },
   );
 
@@ -83,13 +83,16 @@ const listing = (over: { mayView?: boolean } = {}) => {
 };
 
 describe('listing the decisions that shipped', () => {
-  it('queries paths as the workspace stores them, from the repository’s checkout', async () => {
+  it('queries paths as the working copy stores them, from the repository’s checkout', async () => {
     const { list, sought } = listing();
 
     await list('acme/api', ['src/uploads.ts', '/src/retry/'], '2026-09-01');
 
+    expect(sought[0]?.within.map((each) => each.value)).toEqual([
+      'api/src/uploads.ts',
+      'api/src/retry',
+    ]);
     expect(sought[0]).toMatchObject({
-      within: ['api/src/uploads.ts', 'api/src/retry'],
       since: new Date('2026-09-01'),
       until: null,
       max: 50,

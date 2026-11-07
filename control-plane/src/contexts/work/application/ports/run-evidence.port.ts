@@ -17,17 +17,6 @@ export interface EvidencedHunk {
   readonly lines: readonly string[];
 }
 
-export interface StationJudgeSettings {
-  readonly teamId: string;
-  readonly lineId: string;
-  readonly rubric: string | null;
-  readonly claims: readonly string[];
-  readonly passThreshold: number;
-  readonly rubricVersion: string;
-  readonly sample: number;
-  readonly minAgreement: number;
-}
-
 export interface EvidencedRun {
   readonly runId: string;
   readonly taskId: string;
@@ -41,10 +30,4 @@ export interface RunEvidencePort {
   hasTask(runId: string): Promise<boolean>;
 
   of(runId: string): Promise<EvidencedRun | null>;
-
-  judgeAt(stationId: string): Promise<StationJudgeSettings | null>;
-
-  judgesOnTeam(
-    teamId: string,
-  ): Promise<ReadonlyMap<string, StationJudgeSettings>>;
 }

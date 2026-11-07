@@ -127,7 +127,7 @@ const columnsOf = (set: DecisionSet) => ({
   jobDueAt: set.generation?.job.nextAttemptAt ?? null,
   status: set.status.state,
   mergedRepository: set.status.merge?.repository.value ?? null,
-  mergedCommit: set.status.merge?.commit ?? null,
+  mergedCommit: set.status.merge?.commit.value ?? null,
   mergedAt: set.status.merge?.at ?? null,
 });
 
@@ -167,11 +167,6 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
   }
 
   async save(saved: DecisionSet): Promise<void> {
-    if (saved.discarded) {
-      await this.removed(saved);
-      return;
-    }
-
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(decisionSet)
@@ -193,7 +188,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
     });
   }
 
-  private async removed(set: DecisionSet): Promise<void> {
+  async remove(set: DecisionSet): Promise<void> {
     await this.context.inTransaction(async () => {
       const removed = await this.context.db
         .delete(decisionSet)
@@ -267,12 +262,6 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
       .for('update', { skipLocked: true });
 
     return row ? this.withDecisions(row) : null;
-  }
-
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(decisionSet)
-      .where(eq(decisionSet.taskId, taskId.value));
   }
 
   private async withDecisions(row: DecisionSetRow): Promise<DecisionSet> {

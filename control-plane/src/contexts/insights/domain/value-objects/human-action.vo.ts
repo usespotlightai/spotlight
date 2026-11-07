@@ -1,3 +1,5 @@
+import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
+
 export const TASK_ACTIONS = [
   'started',
   'parked',
@@ -25,6 +27,11 @@ const FIRST_AT_THE_SAME_MOMENT: readonly HumanActionKind[] = [
 export const humanActionKindOf = (raw: string): HumanActionKind | null =>
   HUMAN_ACTION_KINDS.find((each) => each === raw) ?? null;
 
+export interface ActedOnTool {
+  readonly tool: string | null;
+  readonly server: string | null;
+}
+
 export class HumanAction {
   private constructor(
     readonly kind: HumanActionKind,
@@ -45,6 +52,12 @@ export class HumanAction {
 
   get sendsBack(): boolean {
     return this.kind === 'sent-back';
+  }
+
+  dismissalOf(acted: ActedOnTool): Dismissal | null {
+    return this.kind === 'dismissed' && acted.tool
+      ? Dismissal.of({ tool: acted.tool, server: acted.server, at: this.at })
+      : null;
   }
 
   before(other: HumanAction): boolean {

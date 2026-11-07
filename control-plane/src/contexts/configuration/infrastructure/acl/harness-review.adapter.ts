@@ -5,9 +5,9 @@ import type {
 } from '@configuration/application/ports/harness-review.port';
 import type { ParsedProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileShapeMapper } from '@configuration/infrastructure/acl/harness-profile-shape.mapper';
+import type { HarnessNote } from '@runs/application/contracts/harness-profile.contract';
+import type { HarnessProfileReviewPort } from '@runs/application/ports/harness-profile-review.port';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import type { HarnessNote } from '@work/application/contracts/harness-profile.contract';
-import type { HarnessProfileReviewPort } from '@work/application/ports/harness-profile-review.port';
 
 const fieldOf = (parsed: ParsedProfile, note: HarnessNote): FieldPath => {
   switch (note.about) {
@@ -32,7 +32,7 @@ const fieldOf = (parsed: ParsedProfile, note: HarnessNote): FieldPath => {
   }
 };
 
-export class HarnessReviewOfWork implements HarnessReviewPort {
+export class HarnessReviewOfRuns implements HarnessReviewPort {
   constructor(private readonly harnesses: HarnessProfileReviewPort) {}
 
   review(parsed: ParsedProfile): HarnessReview {

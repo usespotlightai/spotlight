@@ -1,5 +1,5 @@
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it } from 'vitest';

@@ -4,7 +4,6 @@ import type { CallbackTaskQuery } from '@integrations/application/queries/callba
 import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class CallbackTaskHandler
   implements QueryHandlerPort<CallbackTaskQuery, CallbackTaskView | null>
@@ -18,28 +17,28 @@ export class CallbackTaskHandler
     try {
       const callbackToken = await this.callbackTokens.findByToken(query.token);
       const task = callbackToken
-        ? await this.tasks.of(callbackToken.taskId.value, null)
+        ? await this.tasks.of(callbackToken.taskId, null)
         : null;
 
       if (
         !callbackToken ||
         !task ||
-        !callbackToken.coversTaskIn(WorkspaceId.of(task.workspaceId))
+        !callbackToken.coversTaskIn(task.workspaceId)
       ) {
         return null;
       }
 
       return {
-        id: task.taskId,
+        id: task.taskId.value,
         title: task.title,
         url: task.url,
-        line: task.line,
-        station: task.station,
-        stationKey: task.stationKey,
+        line: task.line.value,
+        station: task.station.value,
+        stationKey: task.stationKey.value,
         marks: task.marks,
-        repositories: task.repositories,
-        pullRequest: task.pullRequest,
-        hook: callbackToken.hook,
+        repositories: task.repositories.map((each) => each.value),
+        pullRequest: task.pullRequest?.value ?? null,
+        hook: callbackToken.hook.value,
       };
     } catch (error) {
       rethrowAsApplicationError(error);

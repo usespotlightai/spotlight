@@ -1,79 +1,100 @@
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import type { RunOutcomes } from '@work/application/services/run-outcomes';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { NewNote, Task } from '@work/domain/aggregates/task.aggregate';
-import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import {
+  RunEndedFacts,
+  type RunEndingReactions,
+} from '@work/application/services/run-ending-reactions';
+import type { RunRouting } from '@work/application/services/run-routing.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
-import { Placement } from '@work/domain/services/placement';
-import { routeAfterRun } from '@work/domain/services/route-after-run';
-import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { Voice } from '@work/domain/value-objects/voice.vo';
+import type { DispatchEndedBy } from '@work/domain/value-objects/dispatch-ending.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 interface WaitingTask {
   readonly task: Task;
-  readonly line: Line | null;
+  readonly line: LineMap | null;
 }
 
-export class HandOver implements RunOutcomes {
+export class HandOver implements RunEndingReactions {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly runs: RunRepository,
-    private readonly placements: TaskPlacementsPort,
-    private readonly lines: LineRepository,
-    private readonly dispatch: TaskDispatching,
-    private readonly clock: ClockPort,
+    private readonly lines: LineMapsPort,
+    private readonly routing: RunRouting,
+    private readonly journals: RunJournalReaderPort,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
-  async onRunCompleted(event: RunCompleted): Promise<void> {
+  private readonly reactions: Record<
+    DispatchEndedBy,
+    (event: RunEndedIntegrationEvent) => Promise<void>
+  > = {
+    turn: (event) => this.completed(event),
+    exhaustion: (event) => this.exhausted(event),
+    cancellation: () => Promise.resolve(),
+  };
+
+  async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
+    await this.reactions[RunEndedFacts.ending(event).endedBy](event);
+  }
+
+  private async completed(event: RunEndedIntegrationEvent): Promise<void> {
+    if (event.handsOver) {
+      return;
+    }
+
     const found = await this.waiting(event);
     if (!found) {
-      await this.superseded(event.runId, event.taskId);
       return;
     }
 
     const { task, line } = found;
+    const runId = RunEndedFacts.runId(event);
+    const handed = RunEndedFacts.handover(event);
+    const session = RunEndedFacts.session(event);
 
     const handover = HandoverFor.after({
-      outcome: event.outcome,
-      handover: event.handover,
+      outcome: RunEndedFacts.result(event),
+      handover: handed,
       line,
       currentStation: task.stationId,
-      lastWords: event.lastWords,
+      lastWords:
+        event.reported && !handed
+          ? this.readings.lastWordsIn(
+              await this.journals.attemptsOfRun(runId),
+              task.lastPersonNoteAt,
+            )
+          : null,
     });
 
-    const recorded = event.session
-      ? task.recordSession(event.session, event.claimedBy)
+    const recorded = session
+      ? task.recordSession(runId, session, RunEndedFacts.claimedBy(event))
       : task;
 
-    await this.saved(await this.applied(handover, recorded, line, event.runId));
+    await this.saved(
+      await this.routing.routed(handover, recorded, line, runId),
+    );
   }
 
-  async onRunExhausted(event: RunExhausted): Promise<void> {
+  private async exhausted(event: RunEndedIntegrationEvent): Promise<void> {
     const found = await this.waiting(event);
     if (!found) {
-      await this.superseded(event.runId, event.taskId);
       return;
     }
 
     await this.saved(
-      await this.applied(
+      await this.routing.routed(
         HandoverFor.exhausted(
           event.expiredLeases,
-          event.failure ?? 'runner-lost',
+          RunEndedFacts.failure(event) ?? 'runner-lost',
         ),
         found.task,
         found.line,
-        event.runId,
+        RunEndedFacts.runId(event),
       ),
     );
   }
@@ -83,30 +104,18 @@ export class HandOver implements RunOutcomes {
     await this.tasks.save(task);
   }
 
-  private async superseded(runId: RunId, taskId: TaskId | null): Promise<void> {
-    if (!taskId) {
-      return;
-    }
-
-    const run = await this.runs.findById(runId);
-    const superseded = run?.supersededByItsTask();
-
-    if (superseded && superseded !== run) {
-      await this.runs.save(superseded);
-    }
-  }
-
   private async waiting(
-    ended: RunCompleted | RunExhausted,
+    ended: RunEndedIntegrationEvent,
   ): Promise<WaitingTask | null> {
-    const revision = ended.subject?.revision ?? null;
+    const requested = WorkRequesters.decode(ended.requester);
 
-    if (!ended.taskId || revision === null) {
+    if (!requested || !('task' in requested)) {
       return null;
     }
 
-    const task = await this.tasks.find(ended.taskId);
-    if (!task?.hasCurrentRun(ended.runId)) {
+    const { task: taskId, revision } = requested;
+    const task = await this.tasks.find(taskId);
+    if (!task?.hasCurrentRun(RunEndedFacts.runId(ended))) {
       return null;
     }
 
@@ -118,74 +127,5 @@ export class HandOver implements RunOutcomes {
     }
 
     return { task, line: await this.lines.findByStation(task.stationId) };
-  }
-
-  private newNoteOf(
-    handover: ResolvedHandover,
-    task: Task,
-    line: Line | null,
-    run: RunId,
-  ): NewNote {
-    return {
-      station: line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
-      body: handover.body,
-      at: this.clock.now(),
-      voice: Voice.station(run),
-      attachments: handover.attachments,
-    };
-  }
-
-  private async applied(
-    handover: ResolvedHandover,
-    task: Task,
-    line: Line | null,
-    run: RunId,
-  ): Promise<Task> {
-    const newNote = this.newNoteOf(handover, task, line, run);
-    const routing = routeAfterRun(handover, line, task);
-
-    if (routing.kind === 'finish') {
-      return task.finishHere(run, routing.line, newNote);
-    }
-
-    if (routing.kind === 'detach') {
-      return (
-        routing.failure
-          ? task.failed(routing.failure, newNote, run, line)
-          : task
-      ).leaveRun(run, newNote.at);
-    }
-
-    if (routing.kind === 'ask') {
-      return routing.failure
-        ? task.failed(routing.failure, newNote, run, line)
-        : task.askedAbout(newNote, run);
-    }
-
-    const ranks = (await this.placements.placementsAt(routing.to.id)).map(
-      (each) => each.rank,
-    );
-    const moved =
-      routing.kind === 'advance'
-        ? task.passedOn(
-            run,
-            routing.line,
-            routing.to.id,
-            Placement.atTheBack(ranks),
-            newNote,
-          )
-        : task.moveAsDeferred(
-            run,
-            routing.line,
-            routing.to.id,
-            Placement.atTheTop(ranks),
-            { newNote, handover },
-          );
-
-    const runId = moved.wantsRun(routing.line)
-      ? await this.dispatch.runIdFor({ task: moved, line: routing.line })
-      : null;
-
-    return runId ? moved.assignRun(runId, routing.line) : moved;
   }
 }

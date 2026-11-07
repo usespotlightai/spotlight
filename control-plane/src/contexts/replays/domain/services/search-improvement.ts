@@ -1,4 +1,3 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { gainBetween } from '@replays/domain/services/gain-estimate';
 import {
@@ -7,11 +6,12 @@ import {
 } from '@replays/domain/services/search-ranking';
 import { scoredOn, scoresOf } from '@replays/domain/services/search-scores';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 
 export const improvedOnBestBefore = (
   search: Search,
   replayId: ReplayId,
-  replays: readonly Replay[],
+  replays: readonly ReplayOutcome[],
   minGain: number,
 ): boolean => {
   const at = search.iterations.findIndex((each) =>

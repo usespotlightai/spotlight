@@ -1,0 +1,93 @@
+import type { HarnessNote } from '@runs/application/contracts/harness-profile.contract';
+import type {
+  HarnessSettings,
+  PermissionRuleParts,
+} from '@runs/domain/value-objects/ready-profile';
+
+export interface SetupFile {
+  readonly path: string;
+  readonly text: string;
+}
+
+export interface TranslatedProfile {
+  readonly files: readonly SetupFile[];
+  readonly env: Readonly<Record<string, string>>;
+  readonly config: Readonly<Record<string, unknown>>;
+  readonly session: Readonly<Record<string, unknown>> | null;
+  readonly warnings: readonly HarnessNote[];
+}
+
+type NativeFormat = 'json' | 'toml';
+
+export interface ProfileTranslator {
+  readonly native: NativeFormat;
+  readonly lays: readonly string[];
+  translate(profile: HarnessSettings): TranslatedProfile;
+}
+
+type Json = Record<string, unknown>;
+
+export const isObject = (value: unknown): value is Json =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+export interface Layered {
+  readonly value: Json;
+  readonly replaced: readonly (readonly string[])[];
+}
+
+export const layered = (
+  under: Json,
+  over: Json,
+  at: string[] = [],
+): Layered => {
+  const value: Json = { ...under };
+  const replaced: (readonly string[])[] = [];
+
+  for (const [key, overValue] of Object.entries(over)) {
+    const existing = value[key];
+
+    if (isObject(existing) && isObject(overValue)) {
+      const deeper = layered(existing, overValue, [...at, key]);
+      value[key] = deeper.value;
+      replaced.push(...deeper.replaced);
+    } else {
+      if (key in value) {
+        replaced.push([...at, key]);
+      }
+      value[key] = overValue;
+    }
+  }
+
+  return { value, replaced };
+};
+
+export const nativeObject = (
+  profile: HarnessSettings,
+  harness: string,
+): Json => {
+  const native = profile.native[harness];
+
+  return isObject(native) ? native : {};
+};
+
+export const noteOn = (
+  harness: string,
+  rule: PermissionRuleParts,
+  reason: string,
+): HarnessNote => ({
+  about: 'rule',
+  harness,
+  rule: { decision: rule.decision, kind: rule.kind, pattern: rule.pattern },
+  reason,
+});
+
+export const noteOnNative = (
+  harness: string,
+  path: readonly string[],
+  reason: string,
+): HarnessNote => ({ about: 'native', harness, path, reason });
+
+export const jsonFile = (path: string, value: Json): SetupFile => ({
+  path,
+  text: `${JSON.stringify(value, null, 2)}\n`,
+});

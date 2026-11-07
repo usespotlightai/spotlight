@@ -1,5 +1,5 @@
 import type { DiffSource } from '@change-review/application/ports/diff-reader.port';
-import type { IndexedFile } from '@change-review/domain/services/symbol-index';
+import type { IndexedFile } from '@change-review/domain/value-objects/symbol-index.vo';
 import { TreeSitterSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/tree-sitter-symbol.indexer';
 import { describe, expect, it } from 'vitest';
 

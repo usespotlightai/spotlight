@@ -7,6 +7,8 @@ const byTime = (one: FailureOccurrence, other: FailureOccurrence): number =>
   one.at.getTime() - other.at.getTime();
 
 export class TaskFailures {
+  private deleted = false;
+
   private constructor(
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
@@ -55,5 +57,21 @@ export class TaskFailures {
       [...this.occurrences, occurrence].sort(byTime),
       this.version,
     );
+  }
+
+  get isDeleted(): boolean {
+    return this.deleted;
+  }
+
+  delete(): TaskFailures {
+    const deleted = new TaskFailures(
+      this.taskId,
+      this.workspaceId,
+      this.teamId,
+      this.occurrences,
+      this.version,
+    );
+    deleted.deleted = true;
+    return deleted;
   }
 }

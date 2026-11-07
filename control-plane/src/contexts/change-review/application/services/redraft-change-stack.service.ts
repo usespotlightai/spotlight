@@ -1,14 +1,13 @@
 import type { ChangeStackGeneratorPort } from '@change-review/application/ports/change-stack-generator.port';
 import {
   combined,
+  exceedsOneCall,
   layerCohort,
   layeredInRounds,
-  splits,
 } from '@change-review/application/services/cohort-layering';
 import {
   ATTEMPTS,
   attempted,
-  problemsOfProposal,
   settleBroken,
   settleUnanswered,
 } from '@change-review/application/services/generation-attempt';
@@ -23,9 +22,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import {
   cohortRedraft,
   type RedraftRequest,
-  redraftRequestOf,
 } from '@change-review/domain/services/redraft-request';
-import { changeLayerCount } from '@change-review/domain/services/stack-checks';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -38,18 +35,17 @@ export class RedraftChangeStack {
     private readonly logger: LoggerPort,
   ) {}
 
-  async redrafted(stack: ChangeStack, check: StackCheck): Promise<ChangeStack> {
-    if (check.failedLayers().length === 0) {
-      return stack.stopRedrafting();
-    }
-
-    const redraft = redraftRequestOf(stack, check);
+  async redrafted(
+    stack: ChangeStack,
+    check: StackCheck | null,
+  ): Promise<ChangeStack> {
+    const redraft = stack.redraftFor(check);
 
     if (!redraft) {
       return stack.stopRedrafting();
     }
 
-    return splits(stack.facts)
+    return exceedsOneCall(stack.facts)
       ? this.byCohort(stack, redraft)
       : this.whole(stack, redraft);
   }
@@ -116,7 +112,7 @@ export class RedraftChangeStack {
                   repository: stack.repository,
                   cohort: StackOutline.of(cohort),
                   redraft: scoped,
-                  changeLayersBefore: changeLayerCount([cohort]),
+                  redrafting: cohort,
                 })
             : async () => ({
                 outcome: 'layered' as const,
@@ -160,17 +156,18 @@ export class RedraftChangeStack {
     }
 
     try {
-      return redrafting.redrafted(layered.cohorts, this.clock.now());
+      return redrafting.redrafted(
+        layered.cohorts,
+        this.clock.now(),
+        layered.proposed,
+      );
     } catch (error) {
       if (!(error instanceof InvalidChangeStackError)) {
         throw error;
       }
       return settleBroken(
         redrafting,
-        problemsOfProposal(
-          () => redrafting.redrafted(layered.proposed, this.clock.now()),
-          error.problems,
-        ),
+        error.problems,
         this.clock.now(),
         this.logger,
       );

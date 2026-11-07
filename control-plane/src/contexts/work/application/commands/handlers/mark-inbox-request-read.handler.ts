@@ -30,7 +30,7 @@ export class MarkInboxRequestReadHandler
   }
 
   private async readOnce(command: MarkInboxRequestReadCommand): Promise<void> {
-    const inboxRequest = await this.loader.putTo(
+    const inboxRequest = await this.loader.seenBy(
       command.inboxRequestId,
       command.readBy,
     );

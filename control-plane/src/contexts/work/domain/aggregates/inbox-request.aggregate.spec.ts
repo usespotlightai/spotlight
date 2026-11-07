@@ -6,9 +6,8 @@ import {
   InboxRequest,
   type InboxRequestVisibility,
 } from '@work/domain/aggregates/inbox-request.aggregate';
-import { InboxRequestCreated } from '@work/domain/events/inbox-request-created.event';
-import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import { InvalidInboxRequestError } from '@work/domain/exceptions/invalid-inbox-request.error';
+import { inboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -24,7 +23,7 @@ const created = (change: { form?: string; about?: string } = {}) =>
     id: InboxRequestId.of('request_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     taskId: TaskId.of('task_1'),
-    form: change.form ?? 'memories',
+    form: inboxRequestForm(change.form ?? 'memories'),
     about: InboxRequestSubject.of(change.about ?? ' run_1 '),
     now: NOW,
   });
@@ -36,14 +35,6 @@ describe('InboxRequest', () => {
     expect(inboxRequest.open).toBe(true);
     expect(inboxRequest.unreadBy(ADA)).toBe(true);
     expect(inboxRequest.about.value).toBe('run_1');
-    expect(inboxRequest.pullEvents()).toEqual([
-      new InboxRequestCreated(
-        inboxRequest.id,
-        inboxRequest.taskId,
-        'memories',
-        InboxRequestSubject.of('run_1'),
-      ),
-    ]);
   });
 
   it('rejects a form it does not know, or nothing to be about', () => {
@@ -53,40 +44,22 @@ describe('InboxRequest', () => {
 
   it('resolves once, and stays resolved', () => {
     const resolved = created().resolve(LATER);
-    resolved.pullEvents();
 
     expect(resolved.open).toBe(false);
     expect(resolved.resolvedAt).toEqual(LATER);
     expect(resolved.resolve(NOW)).toBe(resolved);
   });
 
-  it('reopens unread once resolved, says it was created again, and leaves an open inbox request as it is', () => {
+  it('reopens unread once resolved, opened again but created when it was, and leaves an open inbox request as it is', () => {
     const resolved = created().readBy(ADA, NOW).resolve(NOW);
-    resolved.pullEvents();
 
     const reopened = resolved.reopen(LATER);
 
     expect(reopened.open).toBe(true);
-    expect(reopened.createdAt).toEqual(LATER);
+    expect(reopened.openedAt).toEqual(LATER);
+    expect(reopened.createdAt).toEqual(resolved.createdAt);
     expect(reopened.unreadBy(ADA)).toBe(true);
-    expect(reopened.pullEvents()).toEqual([
-      new InboxRequestCreated(
-        reopened.id,
-        reopened.taskId,
-        'memories',
-        InboxRequestSubject.of('run_1'),
-      ),
-    ]);
     expect(reopened.reopen(LATER)).toBe(reopened);
-  });
-
-  it('says it is resolved', () => {
-    const inboxRequest = created();
-    inboxRequest.pullEvents();
-
-    expect(inboxRequest.resolve(LATER).pullEvents()).toEqual([
-      new InboxRequestResolved(inboxRequest.id, inboxRequest.taskId),
-    ]);
   });
 
   it('is read by each person for themselves, once', () => {
@@ -101,6 +74,16 @@ describe('InboxRequest', () => {
     ]);
   });
 
+  it('counts as read for everyone once resolved, as the inbox shows it', () => {
+    const resolved = created().resolve(NOW);
+
+    expect(resolved.unreadBy(BEA)).toBe(false);
+    expect(
+      InboxRequest.unread({ readAt: null, resolvedAt: resolved.resolvedAt }),
+    ).toBe(false);
+    expect(InboxRequest.unread({ readAt: null, resolvedAt: null })).toBe(true);
+  });
+
   describe('rehydrating', () => {
     const rehydrated = (reads: InboxRequestRead[]) =>
       InboxRequest.rehydrate({
@@ -109,15 +92,33 @@ describe('InboxRequest', () => {
         taskId: TaskId.of('task_1'),
         form: 'memories',
         about: InboxRequestSubject.of('run_1'),
-        createdAt: LATER,
+        createdAt: NOW,
+        openedAt: LATER,
         reads,
         resolvedAt: null,
         version: 1,
       });
 
-    it('rejects a read before it was created', () => {
+    it('rejects a read before it was opened', () => {
       expect(() =>
         rehydrated([InboxRequestRead.of({ by: ADA, at: NOW })]),
+      ).toThrow(InconsistentStateError);
+    });
+
+    it('rejects being opened before it was created', () => {
+      expect(() =>
+        InboxRequest.rehydrate({
+          id: InboxRequestId.of('request_1'),
+          workspaceId: WorkspaceId.of('ws_1'),
+          taskId: TaskId.of('task_1'),
+          form: 'memories',
+          about: InboxRequestSubject.of('run_1'),
+          createdAt: LATER,
+          openedAt: NOW,
+          reads: [],
+          resolvedAt: null,
+          version: 1,
+        }),
       ).toThrow(InconsistentStateError);
     });
 
@@ -138,7 +139,7 @@ describe('InboxRequest', () => {
         viewer: BEA,
         assignee: null,
         seesTeam: true,
-        readsTeamInsights: true,
+        actsOnTeam: true,
         ...change,
       });
 
@@ -150,50 +151,46 @@ describe('InboxRequest', () => {
     });
 
     it('is anyone who sees the task’s team while nobody is assigned, whether or not they read the team’s insights', () => {
-      expect(attending({ readsTeamInsights: false })).toBe(true);
+      expect(attending({ actsOnTeam: false })).toBe(true);
       expect(attending({ seesTeam: false })).toBe(false);
     });
 
-    it('asks a grade of everyone who reads the team’s insights, whoever the task is assigned to', () => {
+    it('asks a grade of everyone who acts on the team, whoever the task is assigned to', () => {
       expect(attending({ form: 'grade', seesTeam: false })).toBe(true);
       expect(attending({ form: 'grade', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'grade', readsTeamInsights: false })).toBe(
-        false,
-      );
+      expect(attending({ form: 'grade', actsOnTeam: false })).toBe(false);
       expect(
         attending({
           form: 'grade',
           viewer: ADA,
           assignee: ADA,
-          readsTeamInsights: false,
+          actsOnTeam: false,
         }),
       ).toBe(false);
     });
 
-    it('creates an alert for everyone who reads the team’s insights, whoever the task is assigned to', () => {
+    it('creates an alert for everyone who acts on the team, whoever the task is assigned to', () => {
       expect(attending({ form: 'alert', seesTeam: false })).toBe(true);
       expect(attending({ form: 'alert', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'alert', readsTeamInsights: false })).toBe(
-        false,
-      );
+      expect(attending({ form: 'alert', actsOnTeam: false })).toBe(false);
       expect(
         attending({
           form: 'alert',
           viewer: ADA,
           assignee: ADA,
-          readsTeamInsights: false,
+          actsOnTeam: false,
         }),
       ).toBe(false);
     });
 
     it('needs only the access its form requires', () => {
       expect(InboxRequest.requiredAccess('memories')).toBe('seesTeam');
-      expect(InboxRequest.requiredAccess('grade')).toBe('readsTeamInsights');
-      expect(InboxRequest.requiredAccess('alert')).toBe('readsTeamInsights');
+      expect(InboxRequest.requiredAccess('grade')).toBe('actsOnTeam');
+      expect(InboxRequest.requiredAccess('alert')).toBe('actsOnTeam');
     });
   });
 });

@@ -1,6 +1,7 @@
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
-export class UnsearchableRequestError extends Error {
+export class UnsearchableRequestError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(readonly problems: readonly ConfigurationProblem[]) {

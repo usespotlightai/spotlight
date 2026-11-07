@@ -20,7 +20,7 @@ export class SecretValue implements Secret {
       throw new InvalidSecretError(field, 'must not be empty');
     }
 
-    if (Buffer.byteLength(raw, 'utf8') > MAX_BYTES) {
+    if (new TextEncoder().encode(raw).length > MAX_BYTES) {
       throw new InvalidSecretError(field, `must be at most ${MAX_BYTES} bytes`);
     }
 

@@ -1,4 +1,4 @@
-import type { RequestHeaders } from '@shared-kernel/application/ports/session.port';
+import type { RequestHeaders } from '@platform/http/request-headers';
 import type { Doc } from 'yjs';
 
 export interface CollabDocuments {

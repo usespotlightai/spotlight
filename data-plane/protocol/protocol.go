@@ -254,14 +254,14 @@ type Run struct {
 type EventType string
 
 const (
-	EventWorkspaceReady EventType = "workspace.ready"
-	EventOutput         EventType = "output"
-	EventFailed         EventType = "failed"
-	EventSpan           EventType = "span"
-	EventUsage          EventType = "usage"
-	EventToolRefused    EventType = "tool.refused"
-	EventEgressChecked  EventType = "egress.checked"
-	EventAgentStopped   EventType = "agent.stopped"
+	EventWorkingCopyReady EventType = "working-copy.ready"
+	EventOutput           EventType = "output"
+	EventFailed           EventType = "failed"
+	EventSpan             EventType = "span"
+	EventUsage            EventType = "usage"
+	EventToolRefused      EventType = "tool.refused"
+	EventEgressChecked    EventType = "egress.checked"
+	EventAgentStopped     EventType = "agent.stopped"
 )
 
 type Event struct {
@@ -402,13 +402,13 @@ type CheckStep struct {
 }
 
 const (
-	SkipNoBase          = "no-base"
-	SkipNoCheckout      = "no-checkout"
-	SkipCheckoutFailed  = "checkout-failed"
-	SkipSetupFailed     = "setup-failed"
-	SkipWorkspaceFailed = "workspace-failed"
-	SkipOutOfTime       = "out-of-time"
-	SkipNoImage         = "no-image"
+	SkipNoBase            = "no-base"
+	SkipNoCheckout        = "no-checkout"
+	SkipCheckoutFailed    = "checkout-failed"
+	SkipSetupFailed       = "setup-failed"
+	SkipWorkingCopyFailed = "working-copy-failed"
+	SkipOutOfTime         = "out-of-time"
+	SkipNoImage           = "no-image"
 )
 
 type SkippedCheck struct {

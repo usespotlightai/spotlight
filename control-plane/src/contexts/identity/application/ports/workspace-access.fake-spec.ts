@@ -15,12 +15,12 @@ export const teamAccess = (
   };
 
   return {
-    onTeam: vi.fn(async () => ({
+    inWorkspaceOfTeam: vi.fn(async () => ({
       ...permissions,
       viewer: UserId.of('user_1'),
       isAdmin: configures,
     })),
-    permissionsOnTeam: vi.fn(async () => ({
+    permissionsInWorkspaceOfTeam: vi.fn(async () => ({
       ...permissions,
       configures,
       isAdmin: configures,

@@ -1,22 +1,24 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { setupDoneNote } from '@work/domain/services/setup-list';
 
 export class ReconcileSetup {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly setup: SetupStatus,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
+    private readonly transaction: TransactionPort,
   ) {}
 
   async forWorkspace(workspaceId: WorkspaceId): Promise<void> {
@@ -52,7 +54,7 @@ export class ReconcileSetup {
 
   private async each(tasks: readonly Task[]): Promise<void> {
     for (const each of tasks) {
-      await this.reconcile(each);
+      await this.transaction.inTransaction(() => this.reconcile(each));
     }
   }
 
@@ -67,8 +69,8 @@ export class ReconcileSetup {
         return;
       }
 
-      const { state } = await this.setup.of(task.workspaceId, line.teamId);
-      const newNote = setupDoneNote(task.notes, state, this.clock.now());
+      const state = await this.setup.stateFor(task.workspaceId, line.teamId);
+      const newNote = setupDoneNote(task.notes, state, this.clock.now(), line);
 
       if (newNote) {
         await this.tasks.save(task.closeConversation(newNote));

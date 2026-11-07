@@ -1,34 +1,27 @@
+import type { SecretReferenceAt } from '@configuration/application/dto/secret-reference-at.dto';
 import type {
   HookConfigMatch,
   HookConfigSigning,
   HookConfigStep,
 } from '@configuration/application/ports/hook-configs.port';
-import type { SecretReferenceAt } from '@configuration/domain/value-objects/secret-reference-at.vo';
-import {
-  CONFIGURED_RESOURCES,
-  type ConfiguredResource,
-} from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import type { LineDefinition } from '@work/application/contracts/line-definition.contract';
-
-const NOT_EXPORTED = [
-  'workspace-token',
-  'replay',
-  'replay-search',
-  'replay-check',
-  'config-pull-request',
-  'terraform-state',
+import type { LineDefinition } from '@lines/application/contracts/line-definition.contract';
+export const EXPORTABLE_KINDS = [
+  'workspace',
+  'team',
+  'line',
+  'skill',
+  'harness-profile',
+  'integration',
+  'hook',
+  'secret',
+  'oidc-trust',
+  'runner-trust',
+  'runner-pool',
+  'egress',
+  'workspace-runners',
 ] as const;
 
-export type ExportableKind = Exclude<
-  ConfiguredResource,
-  (typeof NOT_EXPORTED)[number]
->;
-
-export const EXPORTABLE_KINDS: readonly ExportableKind[] =
-  CONFIGURED_RESOURCES.filter(
-    (kind): kind is ExportableKind =>
-      !(NOT_EXPORTED as readonly string[]).includes(kind),
-  );
+export type ExportableKind = (typeof EXPORTABLE_KINDS)[number];
 
 interface Exportable {
   readonly id: string;

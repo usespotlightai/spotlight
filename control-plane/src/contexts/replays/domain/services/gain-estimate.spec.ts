@@ -110,13 +110,19 @@ describe('gainBetween', () => {
       replayFor(set, 'replay_live', candidateOf('live').id.value, null, true),
       (original) => (original === 'original_3' ? 'completed' : 'failed'),
     );
-    const read = gainBetween(candidate, baseline, DEFAULT_MIN_GAIN);
+    const read = gainBetween(
+      candidate.outcome(),
+      baseline.outcome(),
+      DEFAULT_MIN_GAIN,
+    );
 
     expect(read?.tasks).toBe(4);
     expect(read?.gain).toBeCloseTo((0.5 + 1 + 1 + 0) / 4);
-    expect(gainBetween(candidate, baseline, DEFAULT_MIN_GAIN)).toEqual(read);
     expect(
-      gainBetween(candidate, baseline, DEFAULT_MIN_GAIN, [
+      gainBetween(candidate.outcome(), baseline.outcome(), DEFAULT_MIN_GAIN),
+    ).toEqual(read);
+    expect(
+      gainBetween(candidate.outcome(), baseline.outcome(), DEFAULT_MIN_GAIN, [
         RunId.of('original_3'),
       ]),
     ).toMatchObject({ gain: 0, tasks: 1, significance: 'within-noise' });

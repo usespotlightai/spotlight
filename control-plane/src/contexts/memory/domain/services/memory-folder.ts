@@ -1,11 +1,10 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
-import type { RunContext } from '@memory/domain/value-objects/run-context';
 
 export const MEMORY_FOLDER = '.spotlight/memory';
 
-export const MEMORY_FILE = /M-\d+\.md/;
+export const REPOSITORY_FOLDER = 'repositories/';
 
 const FILE = /(?:^|\/)(M-\d+)\.md$/;
 
@@ -24,33 +23,10 @@ const foldersOf = (memory: Memory): string[] => {
   return [lineId ? 'line' : 'team'];
 };
 
-export type FolderLevel = 'team' | 'line' | 'station' | 'repository';
-
-export interface LaidOutFolder {
-  readonly folder: string;
-  readonly level: FolderLevel;
-}
-
-const REPOSITORY_FOLDER = 'repositories/';
-
-export const repositoryFolderAt = (runContext: RunContext): string | null =>
-  runContext.repositories.length > 0 ? REPOSITORY_FOLDER : null;
-
-export const layoutAt = (runContext: RunContext): LaidOutFolder[] => [
-  { folder: 'team/', level: 'team' },
-  ...(runContext.lineId ? [{ folder: 'line/', level: 'line' } as const] : []),
-  ...(runContext.stationId
-    ? [{ folder: 'station/', level: 'station' } as const]
-    : []),
-  ...(runContext.repositories.length > 0
-    ? [
-        {
-          folder: `${REPOSITORY_FOLDER}<owner>/<name>/<path>/`,
-          level: 'repository',
-        } as const,
-      ]
-    : []),
-];
+export const laysOutFolder = (counted: {
+  readonly applying: number;
+  readonly briefed: number;
+}): boolean => counted.applying > 0 || counted.briefed > 0;
 
 export const filesOf = (memory: Memory): string[] =>
   foldersOf(memory).map(

@@ -1,5 +1,5 @@
+import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
 
 export const STATION_PROFILES = Symbol('STATION_PROFILES');
 

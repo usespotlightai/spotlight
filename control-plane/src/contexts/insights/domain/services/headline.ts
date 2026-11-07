@@ -1,20 +1,9 @@
-import type { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
-import {
-  activitiesOf,
-  peopleActiveIn,
-} from '@insights/domain/services/adoption';
 import {
   between,
   rateOf,
   type Spread,
-  spendingOf,
   spreadOf,
 } from '@insights/domain/services/measures';
-import {
-  endedWithin,
-  type TeamHistory,
-  tasksOf,
-} from '@insights/domain/services/team-history';
 import {
   type Delta,
   deltaOf,
@@ -60,48 +49,6 @@ export interface ResolvedDelivery {
   readonly closedAt: Date;
   readonly taskOpenedAt: Date | null;
 }
-
-export const headlineCountsOf = (
-  history: TeamHistory,
-  window: Window,
-): HeadlineCounts => {
-  const ended = endedWithin(history.records, window).filter((each) => each.ran);
-  const tasks = tasksOf(ended);
-  const worked = new Set(tasks);
-  const { spend, unpriced, mixedCurrencies } = spendingOf(
-    ended.map((each) => each.usage?.spend ?? null),
-  );
-
-  return {
-    runs: ended.length,
-    tasks: tasks.length,
-    spend,
-    unpriced,
-    mixedCurrencies,
-    humanActions: history.taskHumanActions
-      .filter((each) => worked.has(each.taskId.value))
-      .flatMap((each) => each.actions)
-      .filter((action) => within(window, action.at)).length,
-    people: peopleActiveIn(activitiesOf(history), window),
-  };
-};
-
-export const resolvedDeliveriesOf = (
-  history: TeamHistory,
-  openings: ReadonlyMap<string, TaskHumanActions>,
-): readonly ResolvedDelivery[] =>
-  history.taskPullRequests.flatMap((each) =>
-    each.state !== 'open' && each.closedAt
-      ? [
-          {
-            taskId: each.taskId.value,
-            merged: each.merged,
-            closedAt: each.closedAt,
-            taskOpenedAt: openings.get(each.taskId.value)?.opening?.at ?? null,
-          },
-        ]
-      : [],
-  );
 
 export const headlineFrom = (
   counts: HeadlineCounts,

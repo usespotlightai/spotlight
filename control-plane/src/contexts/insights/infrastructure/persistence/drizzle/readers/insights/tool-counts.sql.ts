@@ -127,7 +127,6 @@ const serversIn = async (
         (call.value->>'failed')::bigint as failed,
         call.value->'latency' as latency,
         ran.ending = 'failed'
-          and ran.superseded_at is null
           and (call.value->>'lastCallFailed')::boolean as failing
       from ran
       cross join lateral jsonb_array_elements(

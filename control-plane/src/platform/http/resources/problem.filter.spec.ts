@@ -5,14 +5,36 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
+import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
 import { API_VERSION } from '@platform/http/resources/resource-headers';
-import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import {
+  ApplicationError,
+  type ApplicationErrorKind,
+} from '@shared-kernel/application/errors/application-error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it, vi } from 'vitest';
+
+class Refused extends ApplicationError {
+  constructor(
+    readonly kind: ApplicationErrorKind,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+const forbiddenActs = new ForbiddenActs();
+forbiddenActs.register({
+  ring: (kind) => [
+    `Not allowed to ring the ${kind}`,
+    `Only a bell ringer rings a ${kind}.`,
+  ],
+});
 
 const responseTo = (exception: unknown) => {
   const headers = new Map<string, string>();
@@ -33,9 +55,12 @@ const responseTo = (exception: unknown) => {
     }),
   } as unknown as ArgumentsHost;
 
-  new ProblemFilter(adapterHost, { error } as unknown as LoggerPort, {
-    report,
-  }).catch(exception, host);
+  new ProblemFilter(
+    adapterHost,
+    { error } as unknown as LoggerPort,
+    { report },
+    forbiddenActs,
+  ).catch(exception, host);
 
   const [, body, status] = reply.mock.calls[0] as [unknown, unknown, number];
 
@@ -84,15 +109,16 @@ describe('ProblemFilter', () => {
       status: 401,
     });
     expect(responseTo(new NotFoundException()).status).toBe(404);
-    expect(
-      responseTo(new ApplicationError('conflict', 'it moved')).body,
-    ).toMatchObject({ status: 409, detail: 'it moved' });
+    expect(responseTo(new Refused('conflict', 'it moved')).body).toMatchObject({
+      status: 409,
+      detail: 'it moved',
+    });
   });
 
   it('returns a forbidden problem for a guard or use case that denies', () => {
     for (const denial of [
       new ForbiddenException(),
-      new ApplicationError('not-allowed', 'not yours'),
+      new Refused('not-allowed', 'not yours'),
     ]) {
       const { body, status, headers } = responseTo(denial);
 
@@ -103,6 +129,27 @@ describe('ProblemFilter', () => {
         status: 403,
       });
     }
+  });
+
+  it('says why a request was forbidden in the words its permission registered', () => {
+    expect(responseTo(ProblemException.forbidden('bell', 'ring')).body).toEqual(
+      {
+        type: 'urn:spotlight:problem:forbidden',
+        title: 'Not allowed to ring the bell',
+        status: 403,
+        detail: 'Only a bell ringer rings a bell.',
+        permission: 'ring',
+      },
+    );
+  });
+
+  it('names a permission nothing registered words for, in general words', () => {
+    expect(
+      responseTo(ProblemException.forbidden('bell', 'toll')).body,
+    ).toMatchObject({
+      title: 'Not allowed to toll',
+      permission: 'toll',
+    });
   });
 
   it('logs and reports a fault of its own, and says nothing of it to the caller', () => {
@@ -122,7 +169,7 @@ describe('ProblemFilter', () => {
 
   it('reports no fault of a service upstream, which ApplicationErrorFilter does not report either', () => {
     const { status, report } = responseTo(
-      new ApplicationError('upstream-error', 'GitHub failed'),
+      new UpstreamError('Open a pull request', 'GitHub failed'),
     );
 
     expect(status).toBe(502);

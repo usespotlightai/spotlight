@@ -4,7 +4,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class SearchPickDeclined implements DomainEvent {
-  readonly kind = 'replays.search-pick-declined';
+  readonly kind = 'search.pick-declined';
 
   constructor(
     readonly searchId: SearchId,

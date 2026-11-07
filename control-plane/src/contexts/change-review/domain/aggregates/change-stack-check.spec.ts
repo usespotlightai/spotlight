@@ -10,6 +10,7 @@ import type { ProposedCohort } from '@change-review/domain/value-objects/stack-c
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -54,7 +55,7 @@ const cohort = (
     dependsOn: [],
     hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: hunks.map((hunk) => ({
-      path: DIFF.fileOf(hunk)?.path ?? hunk,
+      path: DIFF.fileOf(HunkId.of(hunk))?.path ?? hunk,
       note: 'Why it changes',
     })),
     questions: [],
@@ -63,14 +64,15 @@ const cohort = (
 
 const ready = (
   request = CheckRequest.of('npx tsc --noEmit', null),
-  facts = StackFacts.none(),
+  facts = StackFacts.of({ hunks: [], links: [], imports: [] }),
 ) => {
   const stack = ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
-    replay: false,
-    isSearch: false,
+    teamOfRun: TeamId.of('team_1'),
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -149,7 +151,7 @@ describe('ChangeStack, on the check it requests', () => {
     expect(redrafted.hasPendingJob).toBe(false);
     expect(kinds(redrafted)).toEqual([
       'change-stack.redrafted',
-      'change-stack.ready',
+      'change-stack.became-ready',
     ]);
   });
 
@@ -214,21 +216,21 @@ describe('ChangeStack, on the check it requests', () => {
       id: ChangeStackId.of('stack-3'),
       runId: RunId.of('run-1'),
       taskId: null,
-      replay: false,
-      isSearch: false,
+      teamOfRun: TeamId.of('team_1'),
+      trial: false,
+      checkouts: 1,
       workspaceId: WorkspaceId.of('workspace-1'),
       repository: null,
       base: null,
       diff: DIFF,
-      facts: StackFacts.none(),
+      facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
       request: CheckRequest.of('npx tsc --noEmit', null),
       now: NOW,
     }).propose([cohort('All', [['h1', 'h2', 'h3', 'h4', 'h5']])], LATER);
 
     expect(kinds(stack)).toEqual([
-      'change-stack.generation-started',
       'change-stack.completed',
-      'change-stack.ready',
+      'change-stack.became-ready',
     ]);
   });
 });

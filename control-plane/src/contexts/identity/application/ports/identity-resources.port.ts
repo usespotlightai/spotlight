@@ -1,8 +1,9 @@
-import type { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
+import type { TokenScopeName } from '@identity/application/ports/workspace-access.port';
+import type { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
+import type { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export const IDENTITY_RESOURCES = Symbol('IDENTITY_RESOURCES');
 
@@ -28,7 +29,7 @@ export interface WorkspaceTokenRecord {
   readonly workspaceId: WorkspaceId;
   readonly name: string;
   readonly description: string;
-  readonly scopes: readonly string[];
+  readonly scopes: readonly TokenScopeName[];
   readonly issuedBy: string;
   readonly issuedAt: Date;
   readonly expiresAt: Date | null;
@@ -43,7 +44,7 @@ export interface OidcTrustRecord {
   readonly audience: string;
   readonly subject: string;
   readonly claims: Readonly<Record<string, string>>;
-  readonly scopes: readonly string[];
+  readonly scopes: readonly TokenScopeName[];
   readonly lifetimeMinutes: number;
   readonly description: string;
   readonly createdBy: string;
@@ -62,12 +63,6 @@ export interface IdentityResourcesPort {
 
   teamsIn(workspaceId: WorkspaceId): Promise<readonly TeamRecord[]>;
 
-  teamKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
-
-  tokenNamesIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
-
-  issuingTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
-
   tokensIn(workspaceId: WorkspaceId): Promise<readonly WorkspaceTokenRecord[]>;
 
   tokenWithId(id: WorkspaceTokenId): Promise<WorkspaceTokenRecord | null>;
@@ -85,6 +80,4 @@ export interface IdentityResourcesPort {
   ): Promise<OidcTrustRecord | null>;
 
   oidcTrustsIn(workspaceId: WorkspaceId): Promise<readonly OidcTrustRecord[]>;
-
-  oidcTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
 }

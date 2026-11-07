@@ -2,11 +2,12 @@ import type {
   OnGitHub,
   ReviewComment,
 } from '@change-review/domain/aggregates/review-comment.aggregate';
-import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
-import { ReviewCommentPosted } from '@change-review/domain/events/review-comment-posted.event';
+import { IncludedCommentPosted } from '@change-review/domain/events/included-comment-posted.event';
+import { IncludedCommentReturned } from '@change-review/domain/events/included-comment-returned.event';
 import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
+import type { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import type { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -15,9 +16,11 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface PostedComment {
-  readonly commentId: ReviewCommentId;
-  readonly github: OnGitHub | null;
+export interface ReviewPostingPlan {
+  readonly onLines: readonly ReviewComment[];
+  readonly onFiles: readonly ReviewComment[];
+  readonly deleted: readonly ReviewComment[];
+  readonly empty: boolean;
 }
 
 export const REVIEW_VERDICTS = [
@@ -36,6 +39,9 @@ export const REVIEW_STATES = [
 ] as const;
 
 export type ReviewState = (typeof REVIEW_STATES)[number];
+
+export const isListedReview = (state: ReviewState): boolean =>
+  state !== 'discarded';
 
 const hasContent = (verdict: ReviewVerdict, body: string, comments: number) =>
   verdict === 'approve' || body.length > 0 || comments > 0;
@@ -56,11 +62,20 @@ export class Review extends EventRecorder {
     readonly comments: readonly ReviewCommentId[],
     readonly state: ReviewState,
     readonly githubId: number | null,
+    readonly verdictOnGitHub: ReviewVerdict | null,
     readonly submittedAt: Date,
     readonly postedAt: Date | null,
+    readonly failure: DeliveryFailure | null,
     readonly version: number,
   ) {
     super();
+  }
+
+  static takesOnGitHub(
+    verdict: ReviewVerdict,
+    onGitHub: ReviewVerdict,
+  ): boolean {
+    return onGitHub === verdict || onGitHub === 'comment';
   }
 
   static submit(input: {
@@ -86,20 +101,15 @@ export class Review extends EventRecorder {
     const verdict = input.verdict as ReviewVerdict;
     const body = input.body.trim();
 
-    for (const draft of input.drafts) {
-      if (
-        draft.state !== 'draft' ||
-        draft.reviewId !== null ||
-        !input.author.isSameAs(draft.author) ||
-        !draft.taskId.equals(input.taskId)
-      ) {
-        throw new InvalidReviewError(
-          'can only include its author’s drafts on this task',
-        );
-      }
-    }
+    const drafts = input.drafts.filter(
+      (draft) =>
+        draft.state === 'draft' &&
+        draft.reviewId === null &&
+        input.author.isSameAs(draft.author) &&
+        draft.taskId.equals(input.taskId),
+    );
 
-    if (!hasContent(verdict, body, input.drafts.length)) {
+    if (!hasContent(verdict, body, drafts.length)) {
       throw new InvalidReviewError(
         verdict === 'request-changes'
           ? 'that requests changes must say which'
@@ -114,10 +124,12 @@ export class Review extends EventRecorder {
       input.author,
       verdict,
       body,
-      input.drafts.map((draft) => draft.id),
+      drafts.map((draft) => draft.id),
       'submitted',
       null,
+      null,
       input.now,
+      null,
       null,
       0,
     );
@@ -133,7 +145,7 @@ export class Review extends EventRecorder {
 
     return {
       review,
-      claimed: input.drafts.map((draft) => draft.submittedIn(review.id)),
+      claimed: drafts.map((draft) => draft.submittedIn(review.id)),
     };
   }
 
@@ -147,8 +159,10 @@ export class Review extends EventRecorder {
     comments: readonly ReviewCommentId[];
     state: ReviewState;
     githubId: number | null;
+    verdictOnGitHub: ReviewVerdict | null;
     submittedAt: Date;
     postedAt: Date | null;
+    failure: DeliveryFailure | null;
     version: number;
   }): Review {
     if (!input.author.inSpotlight) {
@@ -164,6 +178,22 @@ export class Review extends EventRecorder {
         'is posted without a number on GitHub, or numbered without being posted',
       );
     }
+    if (
+      (input.state === 'posted') !== (input.verdictOnGitHub !== null) ||
+      (input.verdictOnGitHub !== null &&
+        !Review.takesOnGitHub(input.verdict, input.verdictOnGitHub))
+    ) {
+      throw new InconsistentStateError(
+        'review',
+        'is posted without the verdict GitHub took, or GitHub took a verdict it cannot take',
+      );
+    }
+    if ((input.state === 'failed') !== (input.failure !== null)) {
+      throw new InconsistentStateError(
+        'review',
+        'failed to reach GitHub without a reason, or has a reason while it did not fail',
+      );
+    }
 
     return new Review(
       input.id,
@@ -175,65 +205,99 @@ export class Review extends EventRecorder {
       input.comments,
       input.state,
       input.githubId,
+      input.verdictOnGitHub,
       input.submittedAt,
       input.postedAt,
+      input.failure,
       input.version,
     );
   }
 
-  isEmpty(posted: readonly ReviewComment[]): boolean {
-    return !hasContent(
-      this.verdict,
-      this.body,
-      posted.filter((comment) => comment.belongsTo(this.id)).length,
+  postingPlan(comments: readonly (ReviewComment | null)[]): ReviewPostingPlan {
+    const own = comments.flatMap((comment) =>
+      comment?.sending && comment.belongsTo(this.id) ? [comment] : [],
     );
+    const sent = own.filter((comment) => comment.state === 'sending');
+
+    return {
+      onLines: sent.filter((comment) => !comment.anchor.wholeFile),
+      onFiles: sent.filter((comment) => comment.anchor.wholeFile),
+      deleted: own.filter((comment) => comment.state === 'deleted'),
+      empty: !hasContent(this.verdict, this.body, sent.length),
+    };
   }
 
-  postedAs(
-    githubId: number,
-    now: Date,
-    postedComments: readonly PostedComment[] = [],
-    onFiles: readonly ReviewCommentId[] = [],
-  ): Review {
+  get postedAsComment(): boolean {
+    return this.verdictOnGitHub === 'comment' && this.verdict !== 'comment';
+  }
+
+  postedAs(input: {
+    githubId: number;
+    verdictOnGitHub: ReviewVerdict;
+    comments: readonly (ReviewComment | null)[];
+    onLinesOnGitHub: readonly (OnGitHub | null)[];
+    now: Date;
+  }): Review {
     if (this.state !== 'submitted') {
       throw new InvalidReviewError('is already posted to GitHub');
     }
 
-    const posted = this.with('posted', githubId, now);
+    if (!Review.takesOnGitHub(this.verdict, input.verdictOnGitHub)) {
+      throw new InvalidReviewError(
+        `was posted to GitHub as ${input.verdictOnGitHub}, which is neither its verdict nor a comment`,
+      );
+    }
+
+    const plan = this.postingPlan(input.comments);
+    const posted = this.with('posted', input.githubId, input.now, null, {
+      verdictOnGitHub: input.verdictOnGitHub,
+    });
 
     posted.record(
-      new ReviewPosted(this.id, this.workspaceId, this.taskId, onFiles),
+      new ReviewPosted(
+        this.id,
+        this.workspaceId,
+        this.taskId,
+        plan.onFiles.map((comment) => comment.id),
+      ),
     );
-    for (const each of postedComments) {
+    plan.onLines.forEach((comment, position) => {
       posted.record(
-        new ReviewCommentPosted(this.id, each.commentId, each.github),
+        new IncludedCommentPosted(
+          this.id,
+          comment.id,
+          input.onLinesOnGitHub[position] ?? null,
+        ),
       );
+    });
+    for (const comment of plan.deleted) {
+      posted.record(new IncludedCommentPosted(this.id, comment.id, null));
     }
 
     return posted;
   }
 
-  discard(posted: readonly ReviewComment[]): Review {
+  discard(comments: readonly (ReviewComment | null)[]): Review {
     if (this.state !== 'submitted') {
       throw new InvalidReviewError('cannot be discarded after it is posted');
     }
-    if (!this.isEmpty(posted)) {
+    if (!this.postingPlan(comments).empty) {
       throw new InvalidReviewError('can only be discarded when it is empty');
     }
 
-    const discarded = this.with('discarded', null, null);
+    const discarded = this.with('discarded', null, null, null);
 
     discarded.returnCommentsToDraft();
 
     return discarded;
   }
 
-  failedToPost(): Review {
+  failedToPost(failure: DeliveryFailure): Review {
     if (this.state !== 'submitted') {
       return this;
     }
 
-    const failed = this.with('failed', null, null);
+    const failed = this.with('failed', null, null, failure);
 
     failed.returnCommentsToDraft();
 
@@ -242,7 +306,7 @@ export class Review extends EventRecorder {
 
   private returnCommentsToDraft(): void {
     for (const commentId of this.comments) {
-      this.record(new ReviewCommentNotPosted(this.id, commentId));
+      this.record(new IncludedCommentReturned(this.id, commentId));
     }
   }
 
@@ -250,6 +314,10 @@ export class Review extends EventRecorder {
     state: ReviewState,
     githubId: number | null,
     postedAt: Date | null,
+    failure: DeliveryFailure | null,
+    onGitHub: { verdictOnGitHub: ReviewVerdict | null } = {
+      verdictOnGitHub: null,
+    },
   ): Review {
     const next = new Review(
       this.id,
@@ -261,8 +329,10 @@ export class Review extends EventRecorder {
       this.comments,
       state,
       githubId,
+      onGitHub.verdictOnGitHub,
       this.submittedAt,
       postedAt,
+      failure,
       this.version,
     );
 

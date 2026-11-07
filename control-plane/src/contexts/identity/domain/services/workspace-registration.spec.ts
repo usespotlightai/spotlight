@@ -45,6 +45,7 @@ describe('WorkspaceRegistration', () => {
           { resource: 'workspace', id: 'ws_1', key: 'acme-inc' },
           changeActorIn('ws_1'),
         ),
+        null,
       ),
     ]);
   });

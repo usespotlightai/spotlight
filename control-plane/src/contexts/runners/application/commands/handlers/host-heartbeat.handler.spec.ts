@@ -32,7 +32,8 @@ import { CredentialSource } from '@runners/domain/value-objects/credential-sourc
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -89,12 +90,12 @@ const reporting = (
     hosts,
     new Sandboxes(
       placed.sandboxes,
+      hosts,
+      placed.placements,
       DRAIN_POLICY,
       { generate: () => 'sandbox_new' },
       sandboxTokens(),
-      {
-        inTransaction: (work: () => Promise<unknown>) => work(),
-      } as TransactionPort,
+      { now: () => now } as ClockPort,
       { info: vi.fn() } as unknown as LoggerPort,
     ),
     { now: () => now } as ClockPort,
@@ -104,6 +105,7 @@ const reporting = (
     stored,
     hosts,
     placed: placed.stored,
+    sandboxes: placed.sandboxes,
     authenticate,
     at: (ms: number) => {
       now = later(ms);
@@ -235,8 +237,8 @@ describe('HostHeartbeatHandler', () => {
     expect(host?.lastHeartbeatAt).toEqual(later(90_000));
   });
 
-  it('answers which reported sandboxes to drain, and keeps the state of those it reports', async () => {
-    const { report, placed, at } = reporting({
+  it('answers which reported sandboxes to drain, keeps what the host reports, and writes no sandbox', async () => {
+    const { report, placed, sandboxes, stored, at } = reporting({
       sandboxes: [
         aSandbox({
           id: 'sandbox_1',
@@ -250,9 +252,7 @@ describe('HostHeartbeatHandler', () => {
           workspaceId: WORKSPACE,
           hostId: HOST_ID,
           at: STARTED_AT,
-        })
-          .reported()
-          .drain(),
+        }).drain(),
       ],
     });
 
@@ -265,12 +265,51 @@ describe('HostHeartbeatHandler', () => {
       workspaceId: 'ws_1',
       drain: ['sandbox_2', 'sandbox_9'],
     });
-    expect(placed.get('sandbox_1')?.current).toBe('ready');
+    const reported = stored.get(HOST) ?? null;
+    expect(
+      placed
+        .get('sandbox_1')
+        ?.isReadyOn(reported, reported?.lastHeartbeatAt ?? STARTED_AT),
+    ).toBe(true);
 
     at(40_000);
     await report({}, CREDENTIAL, 'boot_1', ['sandbox_1']);
 
-    expect(placed.get('sandbox_2')?.current).toBe('gone');
+    expect(stored.get(HOST)?.reportsSandbox(SandboxId.of('sandbox_2'))).toBe(
+      false,
+    );
+    expect(placed.get('sandbox_2')?.current).toBe('draining');
+    expect(sandboxes.save).not.toHaveBeenCalled();
+  });
+
+  it('answers to drain the idle sandboxes of a host that stops, and keeps those a run holds', async () => {
+    const { report, at } = reporting({
+      sandboxes: [
+        aSandbox({
+          id: 'sandbox_1',
+          workspaceId: WORKSPACE,
+          hostId: HOST_ID,
+          at: STARTED_AT,
+        }),
+        aSandbox({
+          id: 'sandbox_2',
+          key: 'chat-chat_1',
+          workspaceId: WORKSPACE,
+          hostId: HOST_ID,
+          at: STARTED_AT,
+        }).releaseRun(RunId.of('run_1'), STARTED_AT),
+      ],
+    });
+
+    at(20_000);
+
+    await expect(
+      report({}, CREDENTIAL, 'boot_1', ['sandbox_1', 'sandbox_2'], true),
+    ).resolves.toMatchObject({ drain: ['sandbox_2'] });
+    at(30_000);
+    await expect(
+      report({}, CREDENTIAL, 'boot_1', ['sandbox_1', 'sandbox_2'], false),
+    ).resolves.toMatchObject({ drain: [] });
   });
 
   it('does not touch sandboxes when it does not accept the host', async () => {
@@ -282,13 +321,13 @@ describe('HostHeartbeatHandler', () => {
           workspaceId: WORKSPACE,
           hostId: HOST_ID,
           at: STARTED_AT,
-        }).reported(),
+        }),
       ],
     });
 
     await report();
 
-    expect(placed.get('sandbox_1')?.current).toBe('ready');
+    expect(placed.get('sandbox_1')?.current).toBe('open');
   });
 
   it('rejects a heartbeat it cannot read, or one with no boot id, as invalid', async () => {

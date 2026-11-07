@@ -18,6 +18,7 @@ import { Get, HttpStatus, Param } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiOkResponse, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   ApiProblemResponse,
   ConventionalApiController,
@@ -46,6 +47,7 @@ const COLLECTION_OF: Readonly<Record<ExportableKind, string>> = {
 const kindIn = (collection: string): ExportableKind | undefined =>
   EXPORTABLE_KINDS.find((kind) => COLLECTION_OF[kind] === collection);
 
+@InAudience('resources')
 @ConventionalApiController(RESOURCES, 'terraform')
 export class TerraformController {
   constructor(private readonly queryBus: QueryBus) {}

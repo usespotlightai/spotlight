@@ -6,6 +6,9 @@ import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-d
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadMemoryReviewHandler
   implements QueryHandlerPort<ReadMemoryReviewQuery, MemoryReviewDto | null>
@@ -19,9 +22,9 @@ export class ReadMemoryReviewHandler
   async execute(query: ReadMemoryReviewQuery): Promise<MemoryReviewDto | null> {
     try {
       const reviewing = await this.access.ofTask(
-        query.teamId,
-        query.taskId,
-        query.viewerId,
+        TeamId.of(query.teamId),
+        TaskId.of(query.taskId),
+        UserId.of(query.viewerId),
       );
       const draft = reviewing
         ? await this.drafts.forTask(reviewing.task.id)

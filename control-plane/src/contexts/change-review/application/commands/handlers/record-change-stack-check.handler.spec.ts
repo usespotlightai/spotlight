@@ -17,6 +17,7 @@ import { ApplicationError } from '@shared-kernel/application/errors/application-
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -56,7 +57,7 @@ const cohort = (hunks: string[]): ProposedCohort => ({
     summary: hunk,
     dependsOn: [],
     hunks: [{ hunk: HunkId.of(hunk) }],
-    notes: [{ path: DIFF.fileOf(hunk)?.path ?? hunk, note: 'Why' }],
+    notes: [{ path: DIFF.fileOf(HunkId.of(hunk))?.path ?? hunk, note: 'Why' }],
     questions: [],
   })),
 });
@@ -66,13 +67,14 @@ const ready = () =>
     id: ChangeStackId.of(STACK),
     runId: RunId.of(RUN),
     taskId: null,
-    replay: false,
-    isSearch: false,
+    teamOfRun: TeamId.of('team_1'),
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('ws_1'),
     repository: null,
     base: null,
     diff: DIFF,
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     request: CheckRequest.of('npm test', null),
     now: NOW,
   }).propose([cohort(['h1', 'h2'])], LATER);
@@ -82,7 +84,8 @@ const checkFor = (stack: ChangeStack) =>
     stackId: stack.id,
     runId: stack.runId,
     taskId: null,
-    replay: false,
+    teamId: TeamId.of('team_1'),
+    trial: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),
     entries: stack.entries(),
@@ -97,8 +100,10 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     save: async () => undefined,
     find: async () => stack,
     nextDueJob: async () => null,
-    removeForTask: async () => undefined,
     ofRun: async () => [],
+    ofTask: async () => [],
+    ofTeam: async () => [],
+    remove: async () => undefined,
   };
 
   const checks: StackCheckRepository = {
@@ -107,16 +112,15 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
       saved.push(each);
     },
     find: async () => check,
-    open: async () => check,
+    ofStack: async () => (check ? [check] : []),
     ofRun: async () => [],
     ofTask: async () => [],
+    ofTeam: async () => [],
     remove: async () => undefined,
-    dueForCheck: async () => null,
-    reservedTo: async () => null,
-    withExpiredWait: async () => [],
-    awaitingProvision: async () => [],
-    withExpiredReservations: async () => [],
+    waiting: async () => [],
     waitingIn: async () => [],
+    reserved: async () => [],
+    reservedFor: async () => [],
   };
 
   return {

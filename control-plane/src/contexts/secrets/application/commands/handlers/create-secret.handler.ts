@@ -60,7 +60,7 @@ export class CreateSecretHandler
         return null;
       }
 
-      if (!permissions.managesSecrets) {
+      if (!permissions.scopes.has('secrets')) {
         return forbiddenTo('secrets');
       }
 

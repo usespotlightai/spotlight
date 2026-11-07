@@ -10,14 +10,15 @@ import {
   REPOSITORY_ACCESS,
   type RepositoryAccessPort,
 } from '@github/application/ports/repository-access.port';
+import { pullRequestStateOf } from '@github/domain/value-objects/pull-request-state.vo';
 import {
   answered,
   call,
   sending,
 } from '@github/infrastructure/github/github.rest';
 import { Inject, Injectable } from '@nestjs/common';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -115,13 +116,19 @@ export class GitHubPullRequests implements PullRequestPort {
       `GitHub would not return ${at.repository.value}#${at.number}`,
     );
 
-    if (found.merged) {
-      return { state: 'merged', closedAt: dateOf(found.merged_at) };
+    const state = pullRequestStateOf({
+      state: found.state ?? null,
+      merged: found.merged === true,
+      mergedAt: found.merged_at ?? null,
+    });
+
+    if (state === 'merged') {
+      return { state, closedAt: dateOf(found.merged_at) };
     }
 
-    return found.state === 'closed'
-      ? { state: 'closed', closedAt: dateOf(found.closed_at) }
-      : { state: 'open', closedAt: null };
+    return state === 'closed'
+      ? { state, closedAt: dateOf(found.closed_at) }
+      : { state, closedAt: null };
   }
 
   async close(at: PullRequestAt): Promise<void> {

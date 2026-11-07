@@ -8,5 +8,7 @@ export interface HookCallbackTokenRepository {
 
   withToken(hash: TokenHash): Promise<HookCallbackToken | null>;
 
-  purgeExpiringBefore(at: Date): Promise<void>;
+  expiredBefore(at: Date, max: number): Promise<readonly HookCallbackToken[]>;
+
+  remove(callbackToken: HookCallbackToken): Promise<void>;
 }

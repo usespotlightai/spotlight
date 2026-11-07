@@ -13,13 +13,11 @@ const IDLE_BODY_MS = 120_000;
 
 const UNLISTED = 'Host is not on the allowed list.';
 
-export const UNLISTED_FOR_WORKSPACE =
-  "Host is not on the workspace's allowed list.";
-
 export class OutboundBlockedError extends Error {
   constructor(
     readonly host: string,
     readonly reason: string,
+    readonly scoped = false,
   ) {
     super(`${host}: ${reason}`);
     this.name = 'OutboundBlockedError';
@@ -108,12 +106,13 @@ export class OutboundGuard implements OnApplicationShutdown {
 
   private refusedFor(hostname: string): OutboundBlockedError | null {
     const host = hostname.toLowerCase();
+    const scopeRefusal = OutboundScope.refusalFor(host);
 
     return (
       this.unlisted(host) ??
-      (OutboundScope.allows(host)
+      (scopeRefusal === null
         ? null
-        : new OutboundBlockedError(host, UNLISTED_FOR_WORKSPACE))
+        : new OutboundBlockedError(host, scopeRefusal, true))
     );
   }
 

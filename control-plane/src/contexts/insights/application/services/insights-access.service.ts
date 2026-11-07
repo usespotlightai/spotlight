@@ -1,28 +1,23 @@
 import type { PeoplePort } from '@insights/application/ports/people.port';
-import { TeamAccess } from '@insights/domain/services/team-access';
+import { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import {
   PersonPrincipal,
   type Principal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class InsightsAccess {
   constructor(private readonly people: PeoplePort) {}
 
-  async forTeam(teamId: string, viewerId: string): Promise<TeamAccess> {
-    return TeamAccess.onTeam(
-      teamId,
-      await this.people.membershipOnTeam(
-        teamId,
-        PersonPrincipal.of(UserId.of(viewerId)),
-      ),
-    );
+  forTeam(teamId: TeamId, viewerId: UserId): Promise<ViewedTeam> {
+    return this.accessFor(teamId, PersonPrincipal.of(viewerId));
   }
 
-  async accessFor(teamId: string, principal: Principal): Promise<TeamAccess> {
-    return TeamAccess.onTeam(
+  async accessFor(teamId: TeamId, principal: Principal): Promise<ViewedTeam> {
+    return ViewedTeam.onTeam(
       teamId,
-      await this.people.membershipOnTeam(teamId, principal),
+      await this.people.viewerOf(teamId, principal),
     );
   }
 }

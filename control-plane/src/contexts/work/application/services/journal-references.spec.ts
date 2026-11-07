@@ -1,6 +1,8 @@
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import { referencesUnder } from '@work/application/services/journal-references';
 import { describe, expect, it } from 'vitest';
+
+const MEMORY_FILES = { folder: '.spotlight/memory', extension: '.md' };
 
 const step = (over: Record<string, unknown>) => ({
   kind: 'tool',
@@ -44,8 +46,7 @@ describe('what a run referred to under a folder', () => {
             text: 'cat .spotlight/memory/repositories/acme/api/docs/M-3.md/M-12.md',
           },
         ]),
-        '.spotlight/memory',
-        /M-\d+\.md/,
+        MEMORY_FILES,
       ),
     ).toEqual([
       '.spotlight/memory/team/M-3.md',
@@ -67,8 +68,7 @@ describe('what a run referred to under a folder', () => {
           },
           { text: 'grep -rl retry .spotlight/memory' },
         ]),
-        '.spotlight/memory',
-        /M-\d+\.md/,
+        MEMORY_FILES,
       ),
     ).toEqual([]);
   });
@@ -79,8 +79,7 @@ describe('what a run referred to under a folder', () => {
         journal([
           { kind: 'message', text: 'See .spotlight/memory/team/M-3.md' },
         ]),
-        '.spotlight/memory',
-        /M-\d+\.md/,
+        MEMORY_FILES,
       ),
     ).toEqual([]);
   });

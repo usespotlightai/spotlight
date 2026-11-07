@@ -1,4 +1,8 @@
-import type { BotActivity } from '@insights/domain/aggregates/pull-request-record.aggregate';
+import { RUN_SIZES } from '@insights/domain/services/run-size';
+import {
+  PULL_REQUEST_AUTHORS,
+  ROUND_BUCKETS,
+} from '@insights/domain/services/team-pull-requests';
 import {
   ALERT_CONDITIONS,
   ALERT_MEASURES,
@@ -8,8 +12,8 @@ import {
   type HumanActionKind,
   TASK_ACTIONS,
 } from '@insights/domain/value-objects/human-action.vo';
-import { JUDGING_FAILURES } from '@insights/domain/value-objects/judging-failure.vo';
-import { PAIR_ORDERS } from '@insights/domain/value-objects/pair-order';
+import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
+import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
 import { SCORE_KINDS } from '@insights/domain/value-objects/score-scale.vo';
 import { SCORE_SOURCES } from '@insights/domain/value-objects/score-source';
@@ -17,13 +21,14 @@ import type {
   SeenHunk,
   SeenStep,
 } from '@insights/domain/value-objects/seen-evidence.vo';
-import { TASK_PULL_REQUEST_STATES } from '@insights/domain/value-objects/task-pull-request-state';
+import type { BotActivity } from '@insights/domain/value-objects/seen-pull-request.vo';
 import {
   amount,
   isCurrencyCode,
   timestamptz,
 } from '@platform/persistence/drizzle/columns';
-import { type SQL, sql } from 'drizzle-orm';
+import { JUDGING_FAILURE_CODES } from '@shared-kernel/domain/value-objects/judging-failure.vo';
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -32,18 +37,12 @@ import {
   index,
   integer,
   jsonb,
-  type PgColumn,
   pgEnum,
   pgTable,
   primaryKey,
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-
-const JUDGING_FAILURE_CODES = Object.keys(JUDGING_FAILURES) as [
-  keyof typeof JUDGING_FAILURES,
-  ...(keyof typeof JUDGING_FAILURES)[],
-];
 
 export interface StoredServerCalls {
   readonly server: string;
@@ -109,36 +108,22 @@ export interface StoredReason {
 export const runRecordEnding = pgEnum('run_record_ending', RUN_ENDINGS);
 export const runRecordChecks = pgEnum('run_record_checks', CHECK_VERDICTS);
 export const humanAction = pgEnum('human_action', TASK_ACTIONS);
-export const taskPullRequestState = pgEnum(
-  'task_pull_request_state',
-  TASK_PULL_REQUEST_STATES,
+export const pullRequestState = pgEnum(
+  'pull_request_state',
+  PULL_REQUEST_STATES,
 );
-export const pullRequestRecordState = pgEnum(
-  'pull_request_record_state',
-  TASK_PULL_REQUEST_STATES,
+export const pullRequestType = pgEnum('pull_request_type', PULL_REQUEST_TYPES);
+export const pullRequestAuthor = pgEnum(
+  'pull_request_author',
+  PULL_REQUEST_AUTHORS,
 );
+export const reviewRoundBucket = pgEnum('review_round_bucket', ROUND_BUCKETS);
+export const runSize = pgEnum('run_size', RUN_SIZES);
 export const scoreSource = pgEnum('score_source', SCORE_SOURCES);
 export const alertMeasure = pgEnum('alert_measure', ALERT_MEASURES);
 export const alertCondition = pgEnum('alert_condition', ALERT_CONDITIONS);
 export const scoreKind = pgEnum('score_kind', SCORE_KINDS);
 export const judgingFailure = pgEnum('judging_failure', JUDGING_FAILURE_CODES);
-export const pairOrder = pgEnum('pair_order', PAIR_ORDERS);
-
-interface StartedColumns {
-  readonly runId: PgColumn;
-  readonly fingerprint: PgColumn;
-  readonly startedAt: PgColumn;
-  readonly endedAt: PgColumn;
-  readonly ending: PgColumn;
-}
-
-export const startOrderColumns = (table: StartedColumns): SQL[] => [
-  sql`coalesce(${table.startedAt}, ${table.endedAt})`,
-  sql`${table.runId} collate "C"`,
-];
-
-export const ranAConfig = (table: StartedColumns): SQL =>
-  sql`${table.startedAt} is not null and ${table.endedAt} is not null and ${table.fingerprint} is not null and ${table.ending} <> 'cancelled'`;
 
 export const runRecord = pgTable(
   'run_record',
@@ -198,20 +183,6 @@ export const runRecord = pgTable(
   (table) => [
     check('run_record_currency_code', isCurrencyCode(table.currency)),
     index('run_record_team_idx').on(table.teamId, table.endedAt),
-    index('run_record_station_idx').on(table.stationId, table.endedAt),
-    index('run_record_team_station_began_idx')
-      .on(
-        table.teamId,
-        table.stationId,
-        ...startOrderColumns(table),
-        table.fingerprint,
-        table.startedAt,
-        table.endedAt,
-      )
-      .where(ranAConfig(table)),
-    index('run_record_team_station_started_idx')
-      .on(table.teamId, table.stationId, ...startOrderColumns(table))
-      .where(sql`${table.endedAt} is not null`),
     index('run_record_task_idx').on(table.taskId, table.endedAt),
     index('run_record_workspace_idx').on(table.workspaceId),
     index('run_record_ended_idx').on(table.endedAt),
@@ -238,8 +209,11 @@ export const runFact = pgTable(
     startedAt: timestamptz('started_at'),
     endedAt: timestamptz('ended_at').notNull(),
     beganAt: timestamptz('began_at').notNull(),
+    endedAs: runRecordEnding('ended_as').notNull(),
     ending: runRecordEnding('ending').notNull(),
     ran: boolean('ran').notNull(),
+    ranAConfig: boolean('ran_a_config').notNull(),
+    size: runSize('size'),
     failure: text('failure'),
     visit: integer('visit').notNull(),
     asked: boolean('asked').notNull(),
@@ -270,7 +244,7 @@ export const runFact = pgTable(
     openedById: text('opened_by_id'),
     taskOpenedAt: timestamptz('task_opened_at'),
     pullRequest: text('pull_request'),
-    pullRequestState: taskPullRequestState('pull_request_state'),
+    pullRequestState: pullRequestState('pull_request_state'),
     pullRequestOpenedAt: timestamptz('pull_request_opened_at'),
     pullRequestClosedAt: timestamptz('pull_request_closed_at'),
   },
@@ -287,67 +261,43 @@ export const runFact = pgTable(
       table.teamId,
       table.stationId,
       table.beganAt,
+      sql`${table.runId} collate "C"`,
     ),
+    index('run_fact_station_ended_idx').on(
+      table.workspaceId,
+      table.teamId,
+      table.stationId,
+      table.endedAt,
+    ),
+    index('run_fact_config_idx')
+      .on(
+        table.teamId,
+        table.stationId,
+        table.beganAt,
+        sql`${table.runId} collate "C"`,
+      )
+      .where(sql`${table.ranAConfig}`),
     index('run_fact_task_idx').on(table.taskId),
   ],
 );
 
-export const taskPullRequest = pgTable(
-  'task_pull_request',
+export const taskPullRequestFact = pgTable(
+  'task_pull_request_fact',
   {
     taskId: text('task_id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
     pullRequest: text('pull_request').notNull(),
-    state: taskPullRequestState('state').notNull().default('open'),
+    state: pullRequestState('state').notNull(),
     openedAt: timestamptz('opened_at').notNull(),
     firstReviewAt: timestamptz('first_review_at'),
     closedAt: timestamptz('closed_at'),
-    version: integer('version').notNull().default(0),
   },
   (table) => [
-    index('task_pull_request_pull_request_idx').on(
-      table.workspaceId,
-      table.pullRequest,
-    ),
-    index('task_pull_request_team_idx').on(table.teamId, table.openedAt),
-  ],
-);
-
-export const pendingReview = pgTable(
-  'pending_review',
-  {
-    workspaceId: text('workspace_id').notNull(),
-    pullRequest: text('pull_request').notNull(),
-    at: timestamptz('at').notNull(),
-  },
-  (table) => [
-    primaryKey({
-      columns: [table.workspaceId, table.pullRequest, table.at],
-    }),
-  ],
-);
-
-export const stationConfigPullRequest = pgTable(
-  'station_config_pull_request',
-  {
-    configPullRequestId: text('config_pull_request_id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
-    teamId: text('team_id').notNull(),
-    stationId: text('station_id').notNull(),
-    fingerprint: text('fingerprint').notNull(),
-    url: text('url').notNull(),
-    openedAt: timestamptz('opened_at').notNull(),
-  },
-  (table) => [
-    index('station_config_pull_request_station_idx').on(
-      table.stationId,
-      table.fingerprint,
-      table.openedAt,
-    ),
-    index('station_config_pull_request_team_idx').on(
+    index('task_pull_request_fact_team_idx').on(
       table.workspaceId,
       table.teamId,
+      table.openedAt,
     ),
   ],
 );
@@ -417,19 +367,6 @@ export const deletedTeam = pgTable(
   (table) => [primaryKey({ columns: [table.workspaceId, table.teamId] })],
 );
 
-export const deletedPullRequest = pgTable(
-  'deleted_pull_request',
-  {
-    workspaceId: text('workspace_id').notNull(),
-    pullRequest: text('pull_request').notNull(),
-    updatedAt: timestamptz('updated_at').notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.workspaceId, table.pullRequest] }),
-    index('deleted_pull_request_updated_idx').on(table.updatedAt),
-  ],
-);
-
 export const pullRequestRecord = pgTable(
   'pull_request_record',
   {
@@ -445,7 +382,7 @@ export const pullRequestRecord = pgTable(
     deletions: integer('deletions'),
     changedFiles: integer('changed_files'),
     openedAt: timestamptz('opened_at'),
-    state: pullRequestRecordState('state'),
+    state: pullRequestState('state'),
     closedAt: timestamptz('closed_at'),
     updatedAt: timestamptz('updated_at'),
     readyForReviewAt: timestamptz('ready_for_review_at'),
@@ -472,7 +409,9 @@ export const pullRequestRecord = pgTable(
     seenVersion: integer('seen_version'),
     ownerTaskId: text('owner_task_id'),
     ownerTeamId: text('owner_team_id'),
+    ownerOpenedAt: timestamptz('owner_opened_at'),
     reviewTaskIds: text('review_task_ids').array().notNull().default([]),
+    reviewTeamIds: text('review_team_ids').array().notNull().default([]),
     githubPurgedAt: timestamptz('github_purged_at'),
     version: integer('version').notNull().default(0),
   },
@@ -488,11 +427,29 @@ export const pullRequestRecord = pgTable(
     ),
     index('pull_request_record_owner_idx').on(table.ownerTaskId),
     index('pull_request_record_team_idx').on(table.ownerTeamId),
+    index('pull_request_record_purged_idx').on(table.githubPurgedAt),
     index('pull_request_record_review_tasks_idx').using(
       'gin',
       table.reviewTaskIds,
     ),
+    index('pull_request_record_review_teams_idx').using(
+      'gin',
+      table.reviewTeamIds,
+    ),
   ],
+);
+
+export const pullRequestFact = pgTable(
+  'pull_request_fact',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    pullRequest: text('pull_request').notNull(),
+    type: pullRequestType('type').notNull(),
+    madeBy: pullRequestAuthor('made_by').notNull(),
+    rounds: reviewRoundBucket('rounds').notNull(),
+    mergedAt: timestamptz('merged_at'),
+  },
+  (table) => [primaryKey({ columns: [table.workspaceId, table.pullRequest] })],
 );
 
 export const taskChangeShape = pgTable(
@@ -519,7 +476,6 @@ export const chatRecord = pgTable(
     teamId: text('team_id').notNull(),
     startedById: text('started_by_id').notNull(),
     startedAt: timestamptz('started_at').notNull(),
-    version: integer('version').notNull().default(0),
   },
   (table) => [
     index('chat_record_team_idx').on(table.teamId, table.startedAt),
@@ -557,90 +513,6 @@ export const judging = pgTable(
       .where(sql`${table.pending}`),
     index('judging_task_idx').on(table.taskId),
     index('judging_workspace_idx').on(table.workspaceId, table.teamId),
-  ],
-);
-
-export interface StoredModelSpend {
-  readonly calls: number;
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly costs: readonly {
-    readonly amount: number;
-    readonly currency: string;
-  }[];
-  readonly unpriced: number;
-}
-
-export const changeJudging = pgTable(
-  'change_judging',
-  {
-    runId: text('run_id').notNull(),
-    attempt: integer('attempt').notNull(),
-    workspaceId: text('workspace_id').notNull(),
-    teamId: text('team_id').notNull(),
-    rubric: text('rubric'),
-    claims: jsonb('claims').$type<string[]>().notNull(),
-    passThreshold: doublePrecision('pass_threshold').notNull(),
-    referenceRunId: text('reference_run_id'),
-    spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
-    queuedAt: timestamptz('queued_at').notNull(),
-    pending: boolean('pending').notNull(),
-    jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamptz('job_due_at'),
-    judgedAt: timestamptz('judged_at'),
-    failure: judgingFailure('failure'),
-    failedAt: timestamptz('failed_at'),
-    version: integer('version').notNull().default(0),
-  },
-  (table) => [
-    check(
-      'change_judging_job_attempts_not_negative',
-      sql`${table.jobAttempts} >= 0`,
-    ),
-    primaryKey({ columns: [table.runId, table.attempt] }),
-    index('change_judging_pending_idx')
-      .on(table.queuedAt)
-      .where(sql`${table.pending}`),
-    index('change_judging_workspace_idx').on(table.workspaceId, table.teamId),
-  ],
-);
-
-export const sideBySideJudging = pgTable(
-  'side_by_side_judging',
-  {
-    runId: text('run_id').notNull(),
-    otherRunId: text('other_run_id').notNull(),
-    workspaceId: text('workspace_id').notNull(),
-    teamId: text('team_id').notNull(),
-    rubric: text('rubric'),
-    claims: jsonb('claims').$type<string[]>().notNull(),
-    passThreshold: doublePrecision('pass_threshold').notNull(),
-    referenceRunId: text('reference_run_id').notNull(),
-    maxAttempts: integer('most_attempts').notNull(),
-    shownOrder: pairOrder('shown_order').notNull(),
-    spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
-    queuedAt: timestamptz('queued_at').notNull(),
-    pending: boolean('pending').notNull(),
-    jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamptz('job_due_at'),
-    judgedAt: timestamptz('judged_at'),
-    failure: judgingFailure('failure'),
-    failedAt: timestamptz('failed_at'),
-    version: integer('version').notNull().default(0),
-  },
-  (table) => [
-    check(
-      'side_by_side_judging_job_attempts_not_negative',
-      sql`${table.jobAttempts} >= 0`,
-    ),
-    primaryKey({ columns: [table.runId, table.otherRunId] }),
-    index('side_by_side_judging_pending_idx')
-      .on(table.queuedAt)
-      .where(sql`${table.pending}`),
-    index('side_by_side_judging_workspace_idx').on(
-      table.workspaceId,
-      table.teamId,
-    ),
   ],
 );
 

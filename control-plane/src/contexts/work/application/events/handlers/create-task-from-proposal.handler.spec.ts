@@ -1,36 +1,38 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CreateTaskFromProposal } from '@work/application/events/handlers/create-task-from-proposal.handler';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { CreateTask } from '@work/application/services/create-task';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -48,27 +50,27 @@ const PLACED = ProposalPlacement.of({
   stationId: StationId.of('station_1'),
 });
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   stations: [
-    Station.of({
+    stationOf({
       id: StationId.of('station_1'),
       key: StationKey.of('backlog'),
       name: StationName.of('Backlog'),
       position: 0,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'backlog',
     }),
-    Station.of({
+    stationOf({
       id: StationId.of('station_2'),
       key: StationKey.of('completed'),
       name: StationName.of('Completed'),
       position: 1,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'completed',
     }),
   ],
@@ -76,6 +78,7 @@ const LINE = Line.rehydrate({
 
 const accepted = () =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
@@ -108,13 +111,13 @@ const acceptedWith = (attachments: readonly Attachment[]) =>
 
 const event = acceptedWith([]);
 
-const creating = (line: Line | null) => {
+const creating = (line: LineMap | null) => {
   const save = vi.fn(async (_saved: Chat) => undefined);
   const create = vi.fn(async ({ task }: { task: Task }) => task);
   const copy = vi.fn(async () => undefined);
   const handler = new CreateTaskFromProposal(
     { find: vi.fn(async () => accepted()), save } as unknown as ChatRepository,
-    { find: vi.fn(async () => line) } as unknown as LineRepository,
+    { find: vi.fn(async () => line) } as unknown as LineMapsPort,
     { placementsAt: vi.fn(async () => []) },
     { create } as unknown as CreateTask,
     new AttachmentCopies({ copy } as unknown as AttachmentStorePort),

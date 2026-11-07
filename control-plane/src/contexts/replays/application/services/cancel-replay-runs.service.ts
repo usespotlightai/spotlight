@@ -1,16 +1,24 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
+import type { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
+import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class CancelReplayRuns {
-  constructor(private readonly work: WorkPort) {}
+  constructor(private readonly replayRuns: ReplayRunDispatching) {}
 
-  async stopped(runs: readonly RunId[]): Promise<void> {
-    for (const run of runs) {
-      await this.work.cancel(run, false);
+  async stopped(event: ReplayStopped | ReplayDeleted): Promise<void> {
+    const owner = {
+      workspaceId: event.workspaceId,
+      teamId: event.teamId,
+      replayId: event.replayId,
+    };
+
+    for (const run of event.runs) {
+      await this.replayRuns.cancel(run, owner, false);
     }
   }
 
   ceilingReached(runs: readonly RunId[]): Promise<void> {
-    return this.work.cancelQueued(runs);
+    return this.replayRuns.cancelQueued(runs);
   }
 }

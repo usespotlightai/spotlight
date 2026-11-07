@@ -1,23 +1,31 @@
-import { takesLargeBody } from '@platform/http/large-bodies';
+import {
+  type LargeBodyRoute,
+  takingLargeBodies,
+} from '@platform/http/large-bodies';
 import { describe, expect, it } from 'vitest';
 
-describe('takesLargeBody', () => {
+const route = (path: string): LargeBodyRoute => ({
+  method: 'post',
+  segments: path.split('/').filter((part) => part !== ''),
+});
+
+const takesLargeBody = takingLargeBodies([
+  route('runs/:runId/events'),
+  route('webhooks/w/:slug/t/:teamKey/:integration'),
+  route('webhooks/:integration'),
+]);
+
+describe('takingLargeBodies', () => {
   it.each([
     '/api/runs/r1/events',
-    '/api/runs/r1/completion',
-    '/api/runs/r1/tools/github.comment',
-    '/api/runs/r1/change-stacks',
-    '/api/runs/r1/change-stack-checks/s1',
     '/api/webhooks/github',
     '/api/webhooks/w/acme/t/ENG/slack',
-    '/api/terraform/workspaces/acme/states/default',
   ])('takes a large body on POST %s', (path) => {
     expect(takesLargeBody('POST', path)).toBe(true);
   });
 
   it.each([
-    ['GET', '/api/runs/r1/change-stacks'],
-    ['POST', '/api/runs/r1/messages/ack'],
+    ['GET', '/api/runs/r1/events'],
     ['POST', '/api/runs/r1/events/extra'],
     ['POST', '/api/v1/resources/skills'],
     ['POST', '/runs/r1/events'],

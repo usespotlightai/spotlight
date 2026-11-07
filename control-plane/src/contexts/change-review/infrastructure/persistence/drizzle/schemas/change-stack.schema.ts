@@ -1,6 +1,8 @@
 import {
   CHANGE_STACK_STATES,
   type ChangeStackState,
+  STACK_FAILURES,
+  type StackFailure,
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import type {
   StoredCohort,
@@ -18,7 +20,6 @@ import {
   pgEnum,
   pgTable,
   text,
-  unique,
 } from 'drizzle-orm/pg-core';
 
 export interface StoredModelUsage {
@@ -37,20 +38,26 @@ export const changeStackState = pgEnum(
   CHANGE_STACK_STATES,
 );
 
+export const changeStackFailure = pgEnum(
+  'change_stack_failure',
+  STACK_FAILURES,
+);
+
 export const changeStack = pgTable(
   'change_stack',
   {
     id: text('id').primaryKey(),
     runId: text('run_id').notNull(),
     taskId: text('task_id'),
-    replay: boolean('replay').notNull().default(false),
+    teamId: text('team_id'),
+    trial: boolean('trial').notNull(),
     workspaceId: text('workspace_id').notNull(),
     repository: text('repository'),
     baseCommit: text('base_commit'),
     state: changeStackState('state').$type<ChangeStackState>().notNull(),
     files: jsonb('files').$type<StoredFile[]>().notNull(),
-    cohorts: jsonb('cohorts').$type<StoredCohort[]>().notNull().default([]),
-    failure: text('failure'),
+    cohorts: jsonb('cohorts').$type<StoredCohort[]>().notNull(),
+    failure: changeStackFailure('failure').$type<StackFailure>(),
     startedAt: timestamptz('started_at').notNull(),
     completedAt: timestamptz('completed_at'),
     facts: jsonb('facts').$type<StoredFacts>().notNull(),
@@ -58,22 +65,23 @@ export const changeStack = pgTable(
     checkSetup: text('check_setup'),
     checkPlacement: jsonb('check_placement')
       .$type<readonly (readonly string[])[]>()
-      .notNull()
-      .default([]),
+      .notNull(),
     checkPlacementImage: text('check_placement_image'),
-    redrafting: boolean('redrafting').notNull().default(false),
+    redrafting: boolean('redrafting').notNull(),
+    pendingJob: boolean('pending_job').notNull(),
     usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
-    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobAttempts: integer('job_attempts').notNull(),
     jobDueAt: timestamptz('job_due_at'),
-    version: integer('version').notNull().default(0),
+    version: integer('version').notNull(),
   },
   (table) => [
     check(
       'change_stack_job_attempts_not_negative',
       sql`${table.jobAttempts} >= 0`,
     ),
-    unique('change_stack_workspace_id_id_key').on(table.workspaceId, table.id),
     index('change_stack_run_idx').on(table.runId, table.startedAt),
     index('change_stack_task_idx').on(table.taskId, table.startedAt),
+    index('change_stack_team_idx').on(table.teamId),
+    index('change_stack_pending_job_idx').on(table.pendingJob, table.jobDueAt),
   ],
 );

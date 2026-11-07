@@ -11,19 +11,27 @@ import type {
   ListTeamRunsQuery,
   ReadTeamRunQuery,
 } from '@work/application/queries/list-team-runs.query';
+import type { RunAccess } from '@work/application/services/run-access.service';
 
 export class ListTeamRunsHandler
   implements QueryHandlerPort<ListTeamRunsQuery, Page<TeamRunDto>>
 {
-  constructor(private readonly runs: RunReaderPort) {}
+  constructor(
+    private readonly runs: RunReaderPort,
+    private readonly access: RunAccess,
+  ) {}
 
   async execute(query: ListTeamRunsQuery): Promise<Page<TeamRunDto>> {
     try {
-      const found = await this.runs.listForTeam(
-        TeamId.of(query.teamId),
-        UserId.of(query.viewerId),
-        query.page,
-      );
+      const teamId = TeamId.of(query.teamId);
+
+      if (
+        !(await this.access.seesTeamRuns(teamId, UserId.of(query.viewerId)))
+      ) {
+        return { items: [], next: null };
+      }
+
+      const found = await this.runs.listForTeam(teamId, query.page);
 
       return mapPage(found, TaskRunMapper.teamSummaryToDto);
     } catch (error) {
@@ -35,15 +43,22 @@ export class ListTeamRunsHandler
 export class ReadTeamRunHandler
   implements QueryHandlerPort<ReadTeamRunQuery, TeamRunDto | null>
 {
-  constructor(private readonly runs: RunReaderPort) {}
+  constructor(
+    private readonly runs: RunReaderPort,
+    private readonly access: RunAccess,
+  ) {}
 
   async execute(query: ReadTeamRunQuery): Promise<TeamRunDto | null> {
     try {
-      const found = await this.runs.findForTeam(
-        TeamId.of(query.teamId),
-        RunId.of(query.runId),
-        UserId.of(query.viewerId),
-      );
+      const teamId = TeamId.of(query.teamId);
+
+      if (
+        !(await this.access.seesTeamRuns(teamId, UserId.of(query.viewerId)))
+      ) {
+        return null;
+      }
+
+      const found = await this.runs.findForTeam(teamId, RunId.of(query.runId));
 
       return found ? TaskRunMapper.teamSummaryToDto(found) : null;
     } catch (error) {

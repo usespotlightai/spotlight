@@ -1,13 +1,14 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type {
   DefinedIntegrationsPort,
   TeamDefinedIntegrations,
 } from '@integrations/application/ports/defined-integrations.port';
-import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { ProcessDuePolls } from '@integrations/application/services/process-due-polls.service';
+import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery-reactions.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -18,7 +19,10 @@ import type {
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
-import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
+import {
+  FakePollCursors,
+  type PollState,
+} from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
@@ -30,9 +34,9 @@ import {
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
@@ -105,7 +109,7 @@ const REPLY: OutboundResult = {
 };
 
 const polling = (
-  cursors: FakeIntegrationCursors,
+  cursors: FakePollCursors,
   run: (
     request: unknown,
     against: { cursor: string },
@@ -130,12 +134,12 @@ const polling = (
     } as unknown as TeamDirectoryPort,
     callAuthFor(injection),
     cursors,
-    { react } as HappeningReactionsPort,
+    new WorkDeliveryReactions({ react } as HappeningReactionsPort),
     { now: () => NOW } as ClockPort,
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
-const working = (state: PollState = { cursor: null, ranAt: null }) => {
+const working = (state: PollState = { cursor: null, polledAt: null }) => {
   const run = vi.fn(
     async (_request: unknown, _against: { cursor: string }) => REPLY,
   );
@@ -145,11 +149,11 @@ const working = (state: PollState = { cursor: null, ranAt: null }) => {
       _teamId: unknown,
       _happenings: Happened[],
       _receivedAs: string | null,
-    ) => undefined,
+    ) => ({ kind: 'reacted' }) as const,
   );
-  const cursors = new FakeIntegrationCursors();
+  const cursors = new FakePollCursors();
 
-  if (state.ranAt || state.cursor) {
+  if (state.polledAt || state.cursor) {
     cursors.setState(TEAM, 'linear', state);
   }
 
@@ -158,7 +162,7 @@ const working = (state: PollState = { cursor: null, ranAt: null }) => {
 
 describe('ProcessDuePolls', () => {
   it('polls the service with the cursor it last stored', async () => {
-    const { polls, run } = working({ cursor: 'ENG-0', ranAt: null });
+    const { polls, run } = working({ cursor: 'ENG-0', polledAt: null });
 
     await polls.processDue();
 
@@ -179,7 +183,7 @@ describe('ProcessDuePolls', () => {
   });
 
   it('names what it received by the cursor it polled from, so a poll taken again acts once', async () => {
-    const { polls, react } = working({ cursor: 'ENG-0', ranAt: null });
+    const { polls, react } = working({ cursor: 'ENG-0', polledAt: null });
 
     await polls.processDue();
 
@@ -193,14 +197,14 @@ describe('ProcessDuePolls', () => {
 
     expect(cursors.stateOf(TEAM, 'linear')).toEqual({
       cursor: 'ENG-2',
-      ranAt: NOW,
+      polledAt: NOW,
     });
   });
 
   it('does not poll one that is not yet due', async () => {
     const { polls, run } = working({
       cursor: 'ENG-0',
-      ranAt: new Date(NOW.getTime() - 30_000),
+      polledAt: new Date(NOW.getTime() - 30_000),
     });
 
     await polls.processDue();
@@ -211,7 +215,7 @@ describe('ProcessDuePolls', () => {
   it('polls one due again after its interval', async () => {
     const { polls, run } = working({
       cursor: 'ENG-0',
-      ranAt: new Date(NOW.getTime() - 61_000),
+      polledAt: new Date(NOW.getTime() - 61_000),
     });
 
     await polls.processDue();
@@ -220,9 +224,9 @@ describe('ProcessDuePolls', () => {
   });
 
   it('keeps its cursor and does not react when the service answers with an error', async () => {
-    const react = vi.fn(async () => undefined);
-    const cursors = new FakeIntegrationCursors();
-    cursors.setState(TEAM, 'linear', { cursor: 'ENG-0', ranAt: null });
+    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
+    const cursors = new FakePollCursors();
+    cursors.setState(TEAM, 'linear', { cursor: 'ENG-0', polledAt: null });
 
     await polling(
       cursors,
@@ -233,7 +237,7 @@ describe('ProcessDuePolls', () => {
     expect(react).not.toHaveBeenCalled();
     expect(cursors.stateOf(TEAM, 'linear')).toEqual({
       cursor: 'ENG-0',
-      ranAt: NOW,
+      polledAt: NOW,
     });
   });
 
@@ -250,16 +254,16 @@ describe('ProcessDuePolls', () => {
     );
 
     await polling(
-      new FakeIntegrationCursors(),
+      new FakePollCursors(),
       run,
-      vi.fn(async () => undefined),
+      vi.fn(async () => ({ kind: 'reacted' }) as const),
       poll(READS_A_SECRET),
       injection,
     ).processDue();
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
     await credentials.injectedFor('https://api.linear.app/issues', [
-      'LINEAR_TOKEN',
+      SecretName.of('LINEAR_TOKEN'),
     ]);
 
     expect(forSpotlight).toHaveBeenCalledWith({
@@ -275,7 +279,7 @@ describe('ProcessDuePolls', () => {
     const together = new Promise<void>((resolve) => {
       bothRead = resolve;
     });
-    const cursors = new FakeIntegrationCursors(async () => {
+    const cursors = new FakePollCursors(async () => {
       reads += 1;
       if (reads === 2) {
         bothRead();
@@ -283,7 +287,7 @@ describe('ProcessDuePolls', () => {
       await together;
     });
     const run = vi.fn(async () => REPLY);
-    const react = vi.fn(async () => undefined);
+    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
 
     await Promise.all([
       polling(cursors, run, react).processDue(),
@@ -295,11 +299,11 @@ describe('ProcessDuePolls', () => {
   });
 
   it('will not move the cursor back when a later poll got the turn', async () => {
-    const cursors = new FakeIntegrationCursors();
+    const cursors = new FakePollCursors();
     const later = new Date(NOW.getTime() + 90_000);
-    const react = vi.fn(async () => undefined);
+    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
     const run = vi.fn(async () => {
-      cursors.setState(TEAM, 'linear', { cursor: 'ENG-9', ranAt: later });
+      cursors.setState(TEAM, 'linear', { cursor: 'ENG-9', polledAt: later });
       return REPLY;
     });
 
@@ -307,7 +311,7 @@ describe('ProcessDuePolls', () => {
 
     expect(cursors.stateOf(TEAM, 'linear')).toEqual({
       cursor: 'ENG-9',
-      ranAt: later,
+      polledAt: later,
     });
   });
 });

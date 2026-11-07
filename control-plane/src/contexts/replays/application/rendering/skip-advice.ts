@@ -1,20 +1,7 @@
-import {
-  isTransientSkip,
-  type SearchSkipReason,
-  type TRANSIENT_SKIP_REASONS,
-} from '@replays/domain/value-objects/search-skip-reason';
-
-export type AdvisedSkipReason = Exclude<
-  SearchSkipReason,
-  (typeof TRANSIENT_SKIP_REASONS)[number]
->;
-
-export const isAdvised = (
-  reason: SearchSkipReason,
-): reason is AdvisedSkipReason => !isTransientSkip(reason);
+import type { LastingSkipReason } from '@replays/domain/value-objects/search-skip-reason';
 
 export const SKIP_ADVICE: Readonly<
-  Record<AdvisedSkipReason, readonly string[]>
+  Record<LastingSkipReason, readonly string[]>
 > = {
   'no-scoring': [
     'The station has no judge and no check. Spotlight cannot score a config without one of them.',

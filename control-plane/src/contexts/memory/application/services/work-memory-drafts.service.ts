@@ -147,9 +147,7 @@ export class WorkMemoryDrafts implements PendingJobsPort {
             changed: evidence.changed,
             active: evidence.active.map(known),
             proposed: draft.stillRemembered.map(known),
-            rejected: recentRejectionsAt(rejected, runContext).map(
-              ({ id, kind, body }) => ({ id, kind, body }),
-            ),
+            rejected: recentRejectionsAt(rejected, runContext).map(known),
           });
     } catch (error) {
       if (error instanceof MemoryDraftingError) {

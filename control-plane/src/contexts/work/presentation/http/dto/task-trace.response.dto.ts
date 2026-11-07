@@ -1,10 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { TraceConnectionDto } from '@work/application/dto/task-trace.dto';
 import {
-  CONNECTION_ERRORS,
-  CONNECTION_OUTCOMES,
-  CONNECTION_REASONS,
-} from '@work/domain/value-objects/run-connection.vo';
+  TRACE_CONNECTION_ERRORS,
+  TRACE_CONNECTION_OUTCOMES,
+  TRACE_CONNECTION_REASONS,
+  type TraceConnectionDto,
+} from '@work/application/dto/task-trace.dto';
 import {
   JournalStepResponseDto,
   RunSpanResponseDto,
@@ -21,7 +21,7 @@ export class TraceConnectionResponseDto {
   readonly port: number;
 
   @ApiProperty({
-    enum: CONNECTION_OUTCOMES,
+    enum: TRACE_CONNECTION_OUTCOMES,
     description:
       'blocked: egress stopped it. failed: egress could not open it. injected: egress injected a secret into the request',
   })
@@ -36,14 +36,14 @@ export class TraceConnectionResponseDto {
   readonly status: number | null;
 
   @ApiProperty({
-    enum: [...CONNECTION_REASONS, null],
+    enum: [...TRACE_CONNECTION_REASONS, null],
     nullable: true,
     description: 'Why egress blocked the connection or could not open it',
   })
   readonly reason: string | null;
 
   @ApiProperty({
-    enum: [...CONNECTION_ERRORS, null],
+    enum: [...TRACE_CONNECTION_ERRORS, null],
     nullable: true,
     description:
       'The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error',

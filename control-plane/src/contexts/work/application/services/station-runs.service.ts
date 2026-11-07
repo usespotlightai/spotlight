@@ -1,20 +1,18 @@
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
-import type {
-  StationRunReaderPort,
-  TracedWanted,
-} from '@work/application/ports/station-run-reader.port';
+import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   EndedStationRun,
-  StationAlertShape,
   StationRunsPort,
+  StationTaskRun,
+  TracedRunsWanted,
   TracedWork,
   UnfinishedStationRun,
 } from '@work/application/ports/station-runs.port';
-import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { visitAfter } from '@work/domain/services/station-visit';
 import { reviewedOrAll } from '@work/domain/services/task-checkouts';
-import { progressOf } from '@work/domain/value-objects/run-state';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 const PREVIEW_LIMIT = 300;
@@ -27,8 +25,21 @@ const shortened = (text: string | null | undefined): string | null => {
 export class StationRuns implements StationRunsPort {
   constructor(
     private readonly reader: StationRunReaderPort,
-    private readonly skills: TeamSkillsPort,
+    private readonly dispatches: DispatchRepository,
   ) {}
+
+  async taskRunOf(runId: string): Promise<StationTaskRun | null> {
+    const dispatch = await this.dispatches.find(RunId.of(runId));
+    const subject = dispatch?.subject;
+
+    return subject?.kind === 'task' && dispatch?.teamId
+      ? {
+          runId,
+          taskId: subject.taskId.value,
+          teamId: dispatch.teamId.value,
+        }
+      : null;
+  }
 
   async ended(runId: string): Promise<EndedStationRun | null> {
     const found = await this.reader.endedRun(runId);
@@ -57,9 +68,7 @@ export class StationRuns implements StationRunsPort {
   async unfinished(teamId: string): Promise<readonly UnfinishedStationRun[]> {
     const rows = await this.reader.unfinishedOfTeam(TeamId.of(teamId));
 
-    return rows.flatMap(({ config, state, stopRequested, ...run }) => {
-      const progress = progressOf({ state, stopRequested });
-
+    return rows.flatMap(({ config, progress, ...run }) => {
       return progress
         ? [
             {
@@ -73,24 +82,7 @@ export class StationRuns implements StationRunsPort {
     });
   }
 
-  async alertsAt(
-    stationId: string,
-  ): Promise<readonly StationAlertShape[] | null> {
-    const alerts = await this.reader.alertsAt(stationId);
-
-    return (
-      alerts?.map((each) => ({
-        measure: each.measure,
-        risesBy: each.risesBy,
-        above: each.above,
-        fallsBy: each.fallsBy,
-        below: each.below,
-        over: each.over,
-      })) ?? null
-    );
-  }
-
-  async traced(wanted: TracedWanted): Promise<TracedWork> {
+  async traced(wanted: TracedRunsWanted): Promise<TracedWork> {
     const rows = await this.reader.traced(wanted);
 
     return {
@@ -114,10 +106,6 @@ export class StationRuns implements StationRunsPort {
         }),
       ),
     };
-  }
-
-  teamSkillKeys(teamId: string): Promise<readonly string[]> {
-    return this.skills.definedFor(TeamId.of(teamId));
   }
 
   async configsInOrder(

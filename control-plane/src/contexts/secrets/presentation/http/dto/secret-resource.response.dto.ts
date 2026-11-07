@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import type { SecretResourceDto } from '@secrets/application/dto/secret-resource.dto';
+import { SECRET_LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
 import {
   SECRET_SOURCE_KINDS,
   type SecretSourceKind,
 } from '@secrets/domain/value-objects/secret-source.vo';
-import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
 
 class SecretSourceResponseDto {
   @ApiProperty({

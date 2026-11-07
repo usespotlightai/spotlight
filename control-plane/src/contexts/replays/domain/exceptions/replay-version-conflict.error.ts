@@ -1,4 +1,6 @@
-export class ReplayVersionConflictError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class ReplayVersionConflictError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(replayId: string) {

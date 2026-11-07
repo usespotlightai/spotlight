@@ -1,7 +1,8 @@
+import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import type { PullRequestReviewingPort } from '@work/application/ports/pull-request-reviewing.port';
-import type { BuiltInToolUse } from '@work/application/services/built-in-tools.service';
-import { REVIEW_COMMENT } from '@work/domain/services/built-in-tools';
+import { REVIEW_COMMENT } from '@work/domain/value-objects/built-in-tools';
+import { DiffSide } from '@work/domain/value-objects/diff-side.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 export class ReviewCommentToolUse implements BuiltInToolUse<TaskToolContext> {
@@ -13,11 +14,11 @@ export class ReviewCommentToolUse implements BuiltInToolUse<TaskToolContext> {
     const comment = await this.reviewing.comment(
       { runId: context.runId, taskId: context.taskId },
       {
-        path: inputs.text('path') ?? '',
-        line: inputs.number('line') ?? 0,
+        path: inputs.requiredText(this.tool, 'path'),
+        line: inputs.requiredNumber(this.tool, 'line'),
         startLine: inputs.number('start-line'),
-        side: inputs.text('side')?.trim() || 'new',
-        body: inputs.text('body') ?? '',
+        side: DiffSide.fromInput(inputs.text('side')).value,
+        body: inputs.requiredText(this.tool, 'body'),
       },
     );
 

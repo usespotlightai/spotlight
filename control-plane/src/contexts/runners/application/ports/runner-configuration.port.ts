@@ -1,6 +1,9 @@
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const RUNNER_CONFIGURATION = Symbol('RUNNER_CONFIGURATION');
+
+export const PLATFORM_EGRESS = EgressReference.PLATFORM;
 
 export interface RunnerTrustView {
   readonly id: string;
@@ -62,5 +65,5 @@ export interface RunnerConfigurationPort {
 
   egressWithId(id: string): Promise<EgressView | null>;
 
-  declaredWithId(id: string): Promise<WorkspaceRunnersView | null>;
+  workspaceRunnersWithId(id: string): Promise<WorkspaceRunnersView | null>;
 }

@@ -11,12 +11,11 @@ export class Workspaces implements WorkspacesPort {
   ) {}
 
   slugOf(workspaceId: WorkspaceId): Promise<string | null> {
-    return this.reader.slugOf(workspaceId.value);
+    return this.reader.slugOf(workspaceId);
   }
 
-  async idOf(slug: string): Promise<WorkspaceId | null> {
-    const id = await this.reader.idForSlug(slug);
-    return id ? WorkspaceId.of(id) : null;
+  idOf(slug: string): Promise<WorkspaceId | null> {
+    return this.reader.idForSlug(slug);
   }
 
   mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean> {

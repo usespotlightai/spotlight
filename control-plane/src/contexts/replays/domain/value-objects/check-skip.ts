@@ -3,7 +3,7 @@ const CHECK_SKIPS = [
   'no-checkout',
   'checkout-failed',
   'setup-failed',
-  'workspace-failed',
+  'working-copy-failed',
   'out-of-time',
   'no-image',
   'provision-failed',

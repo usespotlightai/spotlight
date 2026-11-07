@@ -4,8 +4,10 @@ import { CreateTeamHandler } from '@identity/application/commands/handlers/creat
 import { DeleteTeamHandler } from '@identity/application/commands/handlers/delete-team.handler';
 import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
 import { UpdateTeamCommand } from '@identity/application/commands/update-team.command';
+import type { Dependent } from '@identity/application/ports/dependents.port';
 import type { Team } from '@identity/domain/aggregates/team.aggregate';
 import { TeamAlreadyExistsError } from '@identity/domain/exceptions/team-already-exists.error';
+import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import {
   access,
   creates,
@@ -14,8 +16,7 @@ import {
   teamAt,
   teams,
   transaction,
-} from '@identity/identity.resources.fake-spec';
-import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
+} from '@identity/testing/identity.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
@@ -140,12 +141,12 @@ describe('UpdateTeamHandler', () => {
 });
 
 describe('DeleteTeamHandler', () => {
-  const deleting = (names: readonly string[] = []) => {
+  const deleting = (all: readonly Dependent[] = []) => {
     const stored = teams({ existing: teamAt(3) });
     const handler = new DeleteTeamHandler(
       access(),
       stored,
-      dependents(names),
+      dependents(all),
       transaction,
     );
 
@@ -167,8 +168,8 @@ describe('DeleteTeamHandler', () => {
 
   it('will not delete a team that still has configuration, and says what', async () => {
     const { remove, stored } = deleting([
-      'line delivery',
-      'integration linear',
+      { kind: 'line', key: 'delivery' },
+      { kind: 'integration', key: 'linear' },
     ]);
 
     expect(await remove()).toEqual({

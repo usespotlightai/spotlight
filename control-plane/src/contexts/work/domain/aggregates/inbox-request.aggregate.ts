@@ -1,29 +1,32 @@
-import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { InboxRequestCreated } from '@work/domain/events/inbox-request-created.event';
-import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import {
+  INBOX_REQUEST_FORMS,
   type InboxRequestForm,
-  inboxRequestForm,
 } from '@work/domain/value-objects/inbox-request-form';
 import type { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import type { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
 
-export type InboxRequestAccess = 'seesTeam' | 'readsTeamInsights';
+export type InboxRequestAccess = 'seesTeam' | 'actsOnTeam';
 
 export interface InboxRequestVisibility {
   readonly form: InboxRequestForm;
   readonly viewer: UserId;
   readonly assignee: UserId | null;
   readonly seesTeam: boolean;
-  readonly readsTeamInsights: boolean;
+  readonly actsOnTeam: boolean;
 }
 
-export class InboxRequest extends EventRecorder {
+export interface InboxRequestAudience {
+  readonly assignee: UserId;
+  readonly unassigned: boolean;
+  readonly formsForTeamActors: readonly InboxRequestForm[];
+}
+
+export class InboxRequest {
   private constructor(
     readonly id: InboxRequestId,
     readonly workspaceId: WorkspaceId,
@@ -31,38 +34,32 @@ export class InboxRequest extends EventRecorder {
     readonly form: InboxRequestForm,
     readonly about: InboxRequestSubject,
     readonly createdAt: Date,
+    readonly openedAt: Date,
     readonly reads: readonly InboxRequestRead[],
     readonly resolvedAt: Date | null,
     readonly version: number,
-  ) {
-    super();
-  }
+  ) {}
 
   static create(input: {
     id: InboxRequestId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
-    form: string;
+    form: InboxRequestForm;
     about: InboxRequestSubject;
     now: Date;
   }): InboxRequest {
-    const form = inboxRequestForm(input.form);
-    const { about } = input;
-    const created = new InboxRequest(
+    return new InboxRequest(
       input.id,
       input.workspaceId,
       input.taskId,
-      form,
-      about,
+      input.form,
+      input.about,
+      input.now,
       input.now,
       [],
       null,
       0,
     );
-    created.record(
-      new InboxRequestCreated(input.id, input.taskId, form, about),
-    );
-    return created;
   }
 
   static rehydrate(input: {
@@ -72,21 +69,36 @@ export class InboxRequest extends EventRecorder {
     form: InboxRequestForm;
     about: InboxRequestSubject;
     createdAt: Date;
+    openedAt: Date;
     reads: readonly InboxRequestRead[];
     resolvedAt: Date | null;
     version: number;
   }): InboxRequest {
-    if (input.resolvedAt && input.resolvedAt < input.createdAt) {
+    if (input.version < 0) {
       throw new InconsistentStateError(
         'inbox request',
-        'was resolved before it was created',
+        'has a negative version',
       );
     }
 
-    if (input.reads.some((each) => each.at < input.createdAt)) {
+    if (input.openedAt < input.createdAt) {
       throw new InconsistentStateError(
         'inbox request',
-        'was read before it was created',
+        'was opened before it was created',
+      );
+    }
+
+    if (input.resolvedAt && input.resolvedAt < input.openedAt) {
+      throw new InconsistentStateError(
+        'inbox request',
+        'was resolved before it was opened',
+      );
+    }
+
+    if (input.reads.some((each) => each.at < input.openedAt)) {
+      throw new InconsistentStateError(
+        'inbox request',
+        'was read before it was opened',
       );
     }
 
@@ -107,6 +119,7 @@ export class InboxRequest extends EventRecorder {
       input.form,
       input.about,
       input.createdAt,
+      input.openedAt,
       input.reads,
       input.resolvedAt,
       input.version,
@@ -123,18 +136,37 @@ export class InboxRequest extends EventRecorder {
         return 'seesTeam';
       case 'grade':
       case 'alert':
-        return 'readsTeamInsights';
+        return 'actsOnTeam';
     }
   }
 
+  static audienceOf(viewer: UserId): InboxRequestAudience {
+    return {
+      assignee: viewer,
+      unassigned: true,
+      formsForTeamActors: INBOX_REQUEST_FORMS.filter(
+        (form) => InboxRequest.requiredAccess(form) === 'actsOnTeam',
+      ),
+    };
+  }
+
   static visibleTo(visibility: InboxRequestVisibility): boolean {
-    if (InboxRequest.requiredAccess(visibility.form) === 'readsTeamInsights') {
-      return visibility.readsTeamInsights;
+    const audience = InboxRequest.audienceOf(visibility.viewer);
+
+    if (audience.formsForTeamActors.includes(visibility.form)) {
+      return visibility.actsOnTeam;
     }
 
     return visibility.assignee
-      ? visibility.assignee.equals(visibility.viewer)
-      : visibility.seesTeam;
+      ? visibility.assignee.equals(audience.assignee)
+      : audience.unassigned && visibility.seesTeam;
+  }
+
+  static unread(seen: {
+    readonly readAt: Date | null;
+    readonly resolvedAt: Date | null;
+  }): boolean {
+    return seen.readAt === null && seen.resolvedAt === null;
   }
 
   get open(): boolean {
@@ -142,7 +174,10 @@ export class InboxRequest extends EventRecorder {
   }
 
   unreadBy(viewer: UserId): boolean {
-    return !this.reads.some((each) => each.by.equals(viewer));
+    return InboxRequest.unread({
+      readAt: this.reads.find((each) => each.by.equals(viewer))?.at ?? null,
+      resolvedAt: this.resolvedAt,
+    });
   }
 
   readBy(viewer: UserId, now: Date): InboxRequest {
@@ -158,9 +193,7 @@ export class InboxRequest extends EventRecorder {
       return this;
     }
 
-    const resolved = this.with({ resolvedAt: now });
-    resolved.record(new InboxRequestResolved(this.id, this.taskId));
-    return resolved;
+    return this.with({ resolvedAt: now });
   }
 
   reopen(now: Date): InboxRequest {
@@ -174,16 +207,13 @@ export class InboxRequest extends EventRecorder {
       this.taskId,
       this.form,
       this.about,
+      this.createdAt,
       now,
       [],
       null,
       this.version,
     );
 
-    reopened.inheritEvents(this);
-    reopened.record(
-      new InboxRequestCreated(this.id, this.taskId, this.form, this.about),
-    );
     return reopened;
   }
 
@@ -198,12 +228,11 @@ export class InboxRequest extends EventRecorder {
       this.form,
       this.about,
       this.createdAt,
+      this.openedAt,
       change.reads ?? this.reads,
       change.resolvedAt ?? this.resolvedAt,
       this.version,
     );
-
-    next.inheritEvents(this);
 
     return next;
   }

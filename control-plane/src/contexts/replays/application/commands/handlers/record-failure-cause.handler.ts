@@ -1,6 +1,6 @@
 import type { RecordFailureCauseCommand } from '@replays/application/commands/record-failure-cause.command';
 import type { FailureCauseRecorded } from '@replays/application/dto/replay-outcomes.dto';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
 import { SearchRunNotActiveError } from '@replays/domain/exceptions/search-run-not-active.error';
 import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
@@ -25,7 +25,7 @@ export class RecordFailureCauseHandler
   implements CommandHandlerPort<RecordFailureCauseCommand, FailureCauseRecorded>
 {
   constructor(
-    private readonly work: WorkPort,
+    private readonly searchRuns: SearchRunDispatching,
     private readonly searches: SearchRepository,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -36,7 +36,10 @@ export class RecordFailureCauseHandler
   ): Promise<FailureCauseRecorded> {
     try {
       const run = RunId.of(command.runId);
-      const leased = await this.work.leasedSearchRun(run, command.runnerId);
+      const leased = await this.searchRuns.leasedSearchRun(
+        run,
+        command.runnerId,
+      );
 
       if (!leased) {
         throw new SearchRunNotActiveError();

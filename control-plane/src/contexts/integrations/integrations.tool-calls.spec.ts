@@ -1,8 +1,16 @@
+import {
+  scopedTo,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { RecordToolOutputHandler } from '@integrations/application/commands/handlers/record-tool-output.handler';
+import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
+import { ResolveToolForRun } from '@integrations/application/services/resolve-tool-for-run.service';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -40,17 +48,11 @@ import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
+import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type {
   IntegrationTool,
@@ -58,6 +60,28 @@ import type {
 } from '@work/application/ports/integration-tool-calls.port';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+
+const integrationToolCalls = (
+  ...[defined, runtime, auth, inferring, personRules, links]: [
+    ConstructorParameters<typeof ResolveToolForRun>[0],
+    ConstructorParameters<typeof ResolveToolForRun>[1],
+    ConstructorParameters<typeof ResolveToolForRun>[2],
+    ConstructorParameters<typeof RecordToolOutputHandler>[0],
+    ConstructorParameters<typeof ResolveToolForRun>[3],
+    ConstructorParameters<typeof ResolveToolForRun>[4],
+  ]
+) =>
+  new IntegrationToolCalls(
+    new ResolveToolForRun(
+      defined,
+      runtime,
+      auth,
+      personRules,
+      links,
+      new RecordToolOutputHandler(inferring),
+      { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
+    ),
+  );
 
 const NO_LINKS = {
   task: async () => 'https://app.example/tasks/task_1',
@@ -146,7 +170,7 @@ const using = (
   );
   const schemas = over.schemas ?? new InMemoryInferredOutputSchemas();
 
-  const tools = new IntegrationToolCalls(
+  const tools = integrationToolCalls(
     {
       ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
     } as unknown as DefinedIntegrationsPort,
@@ -165,13 +189,13 @@ const using = (
   const resolving = (tool: string, marked = true) =>
     tools.resolve(tool, task(marked), ATTEMPT, null);
 
-  const comment = async (inputs: ToolInputValues, marked = true) => {
+  const comment = async (inputs: ToolCallInputs, marked = true) => {
     const resolved = (await resolving(
       'linear.comment',
       marked,
     )) as IntegrationTool;
 
-    return resolved.call(inputs);
+    return answerOf(resolved.call(inputs));
   };
 
   return { resolving, run, comment, schemas, tools };
@@ -267,7 +291,7 @@ describe('IntegrationToolCalls', () => {
           }),
       );
       const secrets = injecting(bound);
-      const tools = new IntegrationToolCalls(
+      const tools = integrationToolCalls(
         {
           ofTeam: vi.fn(async () => [defined(INJECTS_A_SECRET)]),
         } as unknown as DefinedIntegrationsPort,
@@ -286,7 +310,7 @@ describe('IntegrationToolCalls', () => {
           null,
         )) as IntegrationTool;
 
-        return resolved.call({ issue: 'ENG-12', body: 'Fixed.' });
+        return answerOf(resolved.call({ issue: 'ENG-12', body: 'Fixed.' }));
       };
 
       return { comment, fetch, ...secrets };
@@ -334,7 +358,7 @@ describe('IntegrationToolCalls', () => {
       });
 
       await expect(comment()).rejects.toMatchObject({
-        kind: 'not-allowed',
+        failure: { blocked: true },
       });
       expect(fetch).not.toHaveBeenCalled();
     });
@@ -367,9 +391,10 @@ describe('IntegrationToolCalls', () => {
     await comment({ body: 'Fixed.' });
 
     const output = await vi.waitFor(async () => {
-      const [stored] = await schemas.ofTools(TeamId.of('team_1'), [
-        'linear.comment',
-      ]);
+      const stored = await schemas.of(
+        TeamId.of('team_1'),
+        ToolName.of('linear.comment'),
+      );
       expect(stored).toBeDefined();
       return stored;
     });
@@ -384,10 +409,11 @@ describe('IntegrationToolCalls', () => {
     });
     await expect(failingService.comment({ body: 'Fixed.' })).rejects.toThrow();
     expect(
-      await failingService.schemas.ofTools(TeamId.of('team_1'), [
-        'linear.comment',
-      ]),
-    ).toEqual([]);
+      await failingService.schemas.of(
+        TeamId.of('team_1'),
+        ToolName.of('linear.comment'),
+      ),
+    ).toBeNull();
   });
 
   it('answers the call even when what it answered cannot be inferred', async () => {
@@ -435,7 +461,9 @@ describe('IntegrationToolCalls', () => {
       capture: {},
     });
 
-    await expect(comment({ body: 'x' })).rejects.toThrow(UpstreamError);
+    await expect(comment({ body: 'x' })).rejects.toMatchObject({
+      failure: { blocked: false },
+    });
     await expect(comment({ body: 'x' })).rejects.toThrow(
       /the integration answered 400: .*Entity not found/,
     );
@@ -543,7 +571,7 @@ graphql:
         },
       });
       const integration = String(parseYaml(text).integration);
-      const tools = new IntegrationToolCalls(
+      const tools = integrationToolCalls(
         {
           ofTeam: vi.fn(async () => [
             defined(text, {
@@ -629,7 +657,7 @@ graphql:
       const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
 
       await expect(
-        resolved.call({ body: { name: 'doggie' } }),
+        answerOf(resolved.call({ body: { name: 'doggie' } })),
       ).resolves.toEqual({
         id: 10,
         name: 'doggie',
@@ -657,7 +685,9 @@ graphql:
       );
       const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
 
-      await expect(resolved.call({ body: { name: 'doggie' } })).rejects.toThrow(
+      await expect(
+        answerOf(resolved.call({ body: { name: 'doggie' } })),
+      ).rejects.toThrow(
         "Outbound call to petstore3.swagger.io blocked. Host is not on the workspace's allowed list.",
       );
       expect(fetch).not.toHaveBeenCalled();
@@ -672,7 +702,7 @@ graphql:
       );
       const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
 
-      await resolved.call({ body: { name: 'doggie' } });
+      await answerOf(resolved.call({ body: { name: 'doggie' } }));
 
       expect(fetch).toHaveBeenCalledOnce();
     });
@@ -689,7 +719,7 @@ graphql:
         'linear.issue',
       )) as IntegrationTool;
 
-      await expect(resolved.call({ id: 'i1' })).resolves.toEqual({
+      await expect(answerOf(resolved.call({ id: 'i1' }))).resolves.toEqual({
         id: 'i1',
         title: 'Broken',
       });
@@ -708,7 +738,7 @@ graphql:
         'linear.issue',
       )) as IntegrationTool;
 
-      await expect(failing.call({ id: 'nope' })).rejects.toThrow(
+      await expect(answerOf(failing.call({ id: 'nope' }))).rejects.toThrow(
         /the integration answered 200: .*Entity not found/,
       );
     });

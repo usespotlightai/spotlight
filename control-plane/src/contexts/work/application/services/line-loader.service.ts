@@ -1,48 +1,59 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { UnknownLineError } from '@work/domain/exceptions/unknown-line.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 export class LineLoader {
   constructor(
-    private readonly access: WorkspaceAccessPort,
-    private readonly lines: LineRepository,
+    private readonly access: WorkAccess,
+    private readonly lines: LineMapsPort,
   ) {}
 
   async onTeam(
     teamId: string,
     lineId: string,
-    viewerId: string,
-  ): Promise<Line> {
-    const line = await this.lines.find(LineId.of(lineId));
-
-    if (!line || !(await this.visible(line, teamId, viewerId))) {
-      throw new UnknownLineError(lineId);
-    }
-
-    return line;
+    actorId: string,
+  ): Promise<LineMap> {
+    return this.actedOn(
+      await this.lines.find(LineId.of(lineId)),
+      teamId,
+      actorId,
+      () => new UnknownLineError(lineId),
+    );
   }
 
-  async findByStation(
+  async atStation(
     teamId: string,
     stationId: StationId,
-    viewerId: string,
-  ): Promise<Line | null> {
-    const line = await this.lines.findByStation(stationId);
-
-    return line && (await this.visible(line, teamId, viewerId)) ? line : null;
+    actorId: string,
+    unknown: () => Error,
+  ): Promise<LineMap> {
+    return this.actedOn(
+      await this.lines.findByStation(stationId),
+      teamId,
+      actorId,
+      unknown,
+    );
   }
 
-  private async visible(
-    line: Line,
+  private async actedOn(
+    line: LineMap | null,
     teamId: string,
-    viewerId: string,
-  ): Promise<boolean> {
-    const team = await this.access.onTeam(teamId, UserId.of(viewerId));
+    actorId: string,
+    unknown: () => Error,
+  ): Promise<LineMap> {
+    if (!line?.teamId.equals(TeamId.of(teamId))) {
+      throw unknown();
+    }
 
-    return team !== null && line.teamId.equals(team.teamId);
+    (
+      await this.access.standingOn(line.teamId, UserId.of(actorId))
+    ).assertActsOnTasks(unknown);
+
+    return line;
   }
 }

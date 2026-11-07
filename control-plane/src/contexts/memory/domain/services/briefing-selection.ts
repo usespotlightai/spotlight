@@ -40,7 +40,7 @@ const relevantAt = (
   const { memory, rank } = candidate;
 
   return (
-    memory.appliesAt(runContext) &&
+    memory.appliesAt(runContext, null) &&
     (memory.scope.matches(runContext) || matchOf(rank) > 0)
   );
 };

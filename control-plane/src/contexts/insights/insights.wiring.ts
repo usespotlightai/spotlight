@@ -1,4 +1,8 @@
 import {
+  TEAM_SKILL_KEYS,
+  type TeamSkillKeysPort,
+} from '@configuration/application/ports/team-skill-keys.port';
+import {
   PERSON_READER,
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
@@ -13,7 +17,8 @@ import {
   ALERT_INBOX_REQUESTS,
   type AlertInboxRequestsPort,
 } from '@insights/application/ports/alert-inbox-requests.port';
-import { CHANGE_JUDGING } from '@insights/application/ports/change-judging.port';
+import { CHANGE_JUDGMENTS } from '@insights/application/ports/change-judgments.port';
+import { DEFINED_SKILLS } from '@insights/application/ports/defined-skills.port';
 import {
   EVIDENCE,
   type EvidencePort,
@@ -29,25 +34,29 @@ import {
 } from '@insights/application/ports/insights-reader.port';
 import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
 import {
-  JUDGE_CALIBRATION,
-  type JudgeCalibrationPort,
-} from '@insights/application/ports/judge-calibration.port';
-import { MEMORY_BENCHMARK } from '@insights/application/ports/memory-benchmark.port';
+  LINE_SETTINGS,
+  type LineSettingsPort,
+} from '@insights/application/ports/line-settings.port';
 import { MEMORY_USE } from '@insights/application/ports/memory-use.port';
+import { PAIR_JUDGMENTS } from '@insights/application/ports/pair-judgments.port';
 import {
   PEOPLE,
   type PeoplePort,
 } from '@insights/application/ports/people.port';
 import { RUN_ACCEPTANCE } from '@insights/application/ports/run-acceptance.port';
 import {
-  RUN_FACTS,
-  type RunFactsPort,
-} from '@insights/application/ports/run-facts.port';
-import {
   SIDE_BY_SIDE_JUDGE,
   type SideBySideJudgePort,
 } from '@insights/application/ports/side-by-side-judge.port';
-import { SIDE_BY_SIDE_JUDGING } from '@insights/application/ports/side-by-side-judging.port';
+import { STATION_CONFIG_PULL_REQUESTS } from '@insights/application/ports/station-config-pull-requests.port';
+import {
+  STATION_FACTS,
+  type StationFactsPort,
+} from '@insights/application/ports/station-facts.port';
+import {
+  STATION_JUDGES,
+  type StationJudgesPort,
+} from '@insights/application/ports/station-judges.port';
 import { WORK, type WorkPort } from '@insights/application/ports/work.port';
 import { ListInsightsPullRequestsHandler } from '@insights/application/queries/handlers/list-insights-pull-requests.handler';
 import { ListInsightsTracesHandler } from '@insights/application/queries/handlers/list-insights-traces.handler';
@@ -84,21 +93,23 @@ import { ReadStationAlertQuery } from '@insights/application/queries/read-statio
 import { ReadStationInsightsQuery } from '@insights/application/queries/read-station-insights.query';
 import { ReadStationJudgeQuery } from '@insights/application/queries/read-station-judge.query';
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
+import { ChangeJudgments } from '@insights/application/services/change-judgments.service';
 import { CheckRunFacts } from '@insights/application/services/check-run-facts.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
+import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
+import { PairJudgments } from '@insights/application/services/pair-judgments.service';
+import { ProjectPullRequestFacts } from '@insights/application/services/project-pull-request-facts.service';
+import { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
 import { PurgeExpiredTombstones } from '@insights/application/services/purge-expired-tombstones.service';
 import { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
-import { RecordConfigPullRequest } from '@insights/application/services/record-config-pull-request.service';
 import { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
-import { RecordPullRequestClosing } from '@insights/application/services/record-pull-request-closing.service';
-import { RecordPullRequestOpening } from '@insights/application/services/record-pull-request-opening.service';
-import { RecordPullRequestReview } from '@insights/application/services/record-pull-request-review.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
 import { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
@@ -107,9 +118,7 @@ import { RecordStationPass } from '@insights/application/services/record-station
 import { RecordSupersededRun } from '@insights/application/services/record-superseded-run.service';
 import { RecordTaskFailure } from '@insights/application/services/record-task-failure.service';
 import { RecordTaskHumanAction } from '@insights/application/services/record-task-human-action.service';
-import { RequestChangeJudging } from '@insights/application/services/request-change-judging.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
-import { RequestSideBySideJudging } from '@insights/application/services/request-side-by-side-judging.service';
 import { RunAcceptance } from '@insights/application/services/run-acceptance.service';
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
@@ -117,42 +126,42 @@ import { StationJudgeReports } from '@insights/application/services/station-judg
 import { TeamPullRequests } from '@insights/application/services/team-pull-requests.service';
 import { TeamScopes } from '@insights/application/services/team-scopes.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
-import { WorkSideBySideJudgings } from '@insights/application/services/work-side-by-side-judgings.service';
-import { INSIGHTS_PAYLOAD_TYPES } from '@insights/domain/payload-types';
 import { AlertInboxRequests } from '@insights/infrastructure/acl/alert-inbox-requests.adapter';
+import { DefinedSkills } from '@insights/infrastructure/acl/defined-skills.adapter';
 import { Evidence } from '@insights/infrastructure/acl/evidence.adapter';
 import { Grades } from '@insights/infrastructure/acl/grades.adapter';
+import { Lines } from '@insights/infrastructure/acl/lines.adapter';
 import { MemoryUse } from '@insights/infrastructure/acl/memory-use.adapter';
-import { NoMemoryBenchmark } from '@insights/infrastructure/acl/no-memory-benchmark.adapter';
 import { People } from '@insights/infrastructure/acl/people.adapter';
+import { StationJudges } from '@insights/infrastructure/acl/station-judges.adapter';
 import { Work } from '@insights/infrastructure/acl/work.adapter';
+import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
+import { INSIGHTS_PAYLOAD_TYPES } from '@insights/infrastructure/events/insights-payload-types';
 import { ChatCompletionsJudge } from '@insights/infrastructure/judging/chat-completions-judge';
 import { ChatCompletionsSideBySideJudge } from '@insights/infrastructure/judging/chat-completions-side-by-side-judge';
+import { DrizzleChats } from '@insights/infrastructure/persistence/drizzle/ledgers/chats.ledger';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
-import { DrizzlePendingReviews } from '@insights/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
-import { DrizzleStationConfigPullRequests } from '@insights/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
-import { DrizzleRunFactProjection } from '@insights/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { DrizzlePullRequestFacts } from '@insights/infrastructure/persistence/drizzle/projections/pull-request-facts.projection';
+import { DrizzleRunFacts } from '@insights/infrastructure/persistence/drizzle/projections/run-facts.projection';
 import { DrizzleFirstSeen } from '@insights/infrastructure/persistence/drizzle/readers/first-seen.reader';
 import { DrizzleInsightsReader } from '@insights/infrastructure/persistence/drizzle/readers/insights.reader';
-import { DrizzleChangeJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/change-judging.repository';
-import { DrizzleChatRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/chat-record.repository';
+import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
-import { DrizzleSideBySideJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/side-by-side-judging.repository';
 import { DrizzleStationAlertStateRepository } from '@insights/infrastructure/persistence/drizzle/repositories/station-alert-state.repository';
 import { DrizzleTaskChangeShapeRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
-import { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
+import { insightsProjections } from '@insights/presentation/events/insights.projections';
 import { insightsSubscribers } from '@insights/presentation/events/insights.subscribers';
 import { RunScoresController } from '@insights/presentation/http/controllers/run-scores.controller';
 import { StationInsightsController } from '@insights/presentation/http/controllers/station-insights.controller';
 import { StationJudgeController } from '@insights/presentation/http/controllers/station-judge.controller';
 import { TeamInsightsController } from '@insights/presentation/http/controllers/team-insights.controller';
+import { LINES, type LinesPort } from '@lines/application/ports/lines.port';
 import {
   TEAM_MEMORY_USE,
   type TeamMemoryUsePort,
@@ -162,6 +171,7 @@ import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
+import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
@@ -196,14 +206,10 @@ import {
   type InboxRequestsPort,
 } from '@work/application/ports/inbox-requests.port';
 import {
-  LINE_RESOURCES,
-  type LineResourcesPort,
-} from '@work/application/ports/line-resources.port';
-import {
   RUN_EVIDENCE,
   type RunEvidencePort,
 } from '@work/application/ports/run-evidence.port';
-import { RUN_OUTCOMES } from '@work/application/ports/run-outcomes.port';
+import { RUN_RESULTS } from '@work/application/ports/run-results.port';
 import {
   STATION_RUNS,
   type StationRunsPort,
@@ -221,12 +227,20 @@ export const INSIGHTS_CONTROLLERS: readonly Type[] = [
 export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   {
     provide: WORK,
-    inject: [STATION_RUNS, LINE_RESOURCES, LOGGER],
-    useFactory: (
-      stations: StationRunsPort,
-      lines: LineResourcesPort,
-      logger: LoggerPort,
-    ) => new Work(stations, lines, logger),
+    inject: [STATION_RUNS, LOGGER],
+    useFactory: (stations: StationRunsPort, logger: LoggerPort) =>
+      new Work(stations, logger),
+  },
+  {
+    provide: DEFINED_SKILLS,
+    inject: [TEAM_SKILL_KEYS],
+    useFactory: (skills: TeamSkillKeysPort) => new DefinedSkills(skills),
+  },
+  {
+    provide: LINE_SETTINGS,
+    inject: [LINES, LOGGER],
+    useFactory: (lines: LinesPort, logger: LoggerPort) =>
+      new Lines(lines, logger),
   },
   {
     provide: PEOPLE,
@@ -238,6 +252,11 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     provide: EVIDENCE,
     inject: [RUN_EVIDENCE],
     useFactory: (runs: RunEvidencePort) => new Evidence(runs),
+  },
+  {
+    provide: STATION_JUDGES,
+    inject: [LINES],
+    useFactory: (lines: LinesPort) => new StationJudges(lines),
   },
   {
     provide: GRADES,
@@ -255,7 +274,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     inject: [TEAM_MEMORY_USE],
     useFactory: (memory: TeamMemoryUsePort) => new MemoryUse(memory),
   },
-  { provide: MEMORY_BENCHMARK, useClass: NoMemoryBenchmark },
   {
     provide: JUDGE,
     inject: [ENV],
@@ -268,57 +286,51 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     useFactory: (env: Env) =>
       new ChatCompletionsSideBySideJudge(modelEndpointOf(env, env.JUDGE_MODEL)),
   },
-  DrizzleRunFactProjection,
-  { provide: RUN_FACTS, useExisting: DrizzleRunFactProjection },
+  DrizzleRunFacts,
+  DrizzlePullRequestFacts,
+  DrizzleStationFacts,
+  { provide: STATION_FACTS, useExisting: DrizzleStationFacts },
   DrizzleRunRecordRepository,
-  DrizzleSideBySideJudgingRepository,
-  DrizzleTaskPullRequestRepository,
   DrizzleJudgingRepository,
-  DrizzleChangeJudgingRepository,
   DrizzleScoreRepository,
   DrizzleTaskHumanActionsRepository,
   DrizzleTaskFailuresRepository,
-  DrizzleChatRecordRepository,
+  DrizzleChats,
   DrizzlePullRequestRecordRepository,
   DrizzleTaskChangeShapeRepository,
   DrizzleStationAlertStateRepository,
   DrizzleFirstSeen,
   DrizzleDeletions,
-  DrizzlePendingReviews,
-  DrizzleStationConfigPullRequests,
+  {
+    provide: FactRecorder,
+    inject: [DrizzleDeletions],
+    useFactory: (deletions: DrizzleDeletions) => new FactRecorder(deletions),
+  },
   { provide: FIRST_SEEN, useExisting: DrizzleFirstSeen },
   DrizzleInsightsReader,
   { provide: INSIGHTS_READER, useExisting: DrizzleInsightsReader },
   {
     provide: StationJudgeReports,
-    inject: [
-      EVIDENCE,
-      DrizzleScoreRepository,
-      DrizzleRunRecordRepository,
-      DrizzleTaskPullRequestRepository,
-    ],
-    useFactory: (
-      evidence: EvidencePort,
-      scores: DrizzleScoreRepository,
-      records: DrizzleRunRecordRepository,
-      taskPullRequests: DrizzleTaskPullRequestRepository,
-    ) => new StationJudgeReports(evidence, scores, records, taskPullRequests),
+    inject: [STATION_JUDGES, STATION_FACTS],
+    useFactory: (judges: StationJudgesPort, facts: StationFactsPort) =>
+      new StationJudgeReports(judges, facts),
   },
-  { provide: JUDGE_CALIBRATION, useExisting: StationJudgeReports },
+  {
+    provide: GradingTermsOf,
+    inject: [STATION_JUDGES, DrizzleJudgingRepository],
+    useFactory: (
+      judges: StationJudgesPort,
+      judgings: DrizzleJudgingRepository,
+    ) => new GradingTermsOf(judges, judgings),
+  },
   {
     provide: RunScoresViews,
-    inject: [
-      DrizzleRunRecordRepository,
-      DrizzleScoreRepository,
-      StationJudgeReports,
-      DrizzleJudgingRepository,
-    ],
+    inject: [STATION_FACTS, StationJudgeReports, GradingTermsOf],
     useFactory: (
-      records: DrizzleRunRecordRepository,
-      scores: DrizzleScoreRepository,
+      facts: StationFactsPort,
       reports: StationJudgeReports,
-      judgings: DrizzleJudgingRepository,
-    ) => new RunScoresViews(records, scores, reports, judgings),
+      terms: GradingTermsOf,
+    ) => new RunScoresViews(facts, reports, terms),
   },
   {
     provide: InsightsAccess,
@@ -326,12 +338,10 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     useFactory: (people: PeoplePort) => new InsightsAccess(people),
   },
   {
-    provide: RUN_OUTCOMES,
-    inject: [DrizzleRunRecordRepository, DrizzleTaskPullRequestRepository],
-    useFactory: (
-      records: DrizzleRunRecordRepository,
-      taskPullRequests: DrizzleTaskPullRequestRepository,
-    ) => new RunOutcomes(records, taskPullRequests),
+    provide: RUN_RESULTS,
+    inject: [STATION_FACTS],
+    useFactory: (facts: StationFactsPort) =>
+      new WorkRunOutcomes(new RunOutcomes(facts)),
   },
   {
     provide: TeamScopes,
@@ -341,8 +351,8 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: QualifiedJudges,
-    inject: [JUDGE_CALIBRATION],
-    useFactory: (judges: JudgeCalibrationPort) => new QualifiedJudges(judges),
+    inject: [StationJudgeReports],
+    useFactory: (judges: StationJudgeReports) => new QualifiedJudges(judges),
   },
   ...bindQueryHandler(ReadInsightsChangesQuery, ReadInsightsChangesHandler, [
     TeamScopes,
@@ -359,41 +369,37 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     TeamScopes,
     INSIGHTS_READER,
     MEMORY_USE,
-    MEMORY_BENCHMARK,
     PEOPLE,
   ]),
   ...bindQueryHandler(ReadStationAlertQuery, ReadStationAlertHandler, [
     InsightsAccess,
-    DrizzleStationAlertStateRepository,
-    DrizzleRunRecordRepository,
-    DrizzleTaskPullRequestRepository,
+    STATION_FACTS,
     CLOCK,
   ]),
   {
     provide: WatchStations,
     inject: [
-      WORK,
-      DrizzleRunRecordRepository,
-      DrizzleTaskPullRequestRepository,
+      LINE_SETTINGS,
+      STATION_FACTS,
       DrizzleStationAlertStateRepository,
-      DrizzleDeletions,
+      FactRecorder,
       TRANSACTION,
       ID_GENERATOR,
       CLOCK,
     ],
     useFactory: (
-      work: WorkPort,
-      records: DrizzleRunRecordRepository,
-      taskPullRequests: DrizzleTaskPullRequestRepository,
+      lines: LineSettingsPort,
+      facts: StationFactsPort,
       alertStates: DrizzleStationAlertStateRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
     ) =>
       new WatchStations(
-        work,
-        { records, taskPullRequests, alertStates, deletions },
+        lines,
+        { facts, alertStates },
+        recorder,
         transaction,
         ids,
         clock,
@@ -433,16 +439,16 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadInsightsToolsQuery, ReadInsightsToolsHandler, [
     TeamScopes,
     INSIGHTS_READER,
-    WORK,
+    DEFINED_SKILLS,
   ]),
   {
     provide: TeamPullRequests,
-    inject: [TeamScopes, WORK, INSIGHTS_READER],
+    inject: [TeamScopes, LINE_SETTINGS, INSIGHTS_READER],
     useFactory: (
       scopes: TeamScopes,
-      work: WorkPort,
+      lines: LineSettingsPort,
       reader: InsightsReaderPort,
-    ) => new TeamPullRequests(scopes, work, reader),
+    ) => new TeamPullRequests(scopes, lines, reader),
   },
   ...bindQueryHandler(
     ReadInsightsPullRequestsQuery,
@@ -466,11 +472,9 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadStationInsightsQuery, ReadStationInsightsHandler, [
     InsightsAccess,
-    DrizzleRunRecordRepository,
-    DrizzleTaskPullRequestRepository,
-    DrizzleStationConfigPullRequests,
+    STATION_FACTS,
+    STATION_CONFIG_PULL_REQUESTS,
     WORK,
-    DrizzleTaskFailuresRepository,
   ]),
   ...bindQueryHandler(ReadStationJudgeQuery, ReadStationJudgeHandler, [
     InsightsAccess,
@@ -482,8 +486,10 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindCommandHandler(GradeRunCommand, GradeRunHandler, [
     InsightsAccess,
-    RunScoresViews,
+    GradingTermsOf,
+    DrizzleRunRecordRepository,
     DrizzleScoreRepository,
+    FactRecorder,
     TRANSACTION,
     ID_GENERATOR,
     CLOCK,
@@ -493,27 +499,30 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     inject: [
       WORK,
       EVIDENCE,
+      STATION_JUDGES,
       JUDGE,
       DrizzleJudgingRepository,
-      DrizzleDeletions,
+      FactRecorder,
       TRANSACTION,
       CLOCK,
     ],
     useFactory: (
       work: WorkPort,
       evidence: EvidencePort,
+      judges: StationJudgesPort,
       judge: JudgePort,
       judgings: DrizzleJudgingRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
       new RequestJudging(
         work,
         evidence,
+        judges,
         judge,
         judgings,
-        deletions,
+        recorder,
         transaction,
         clock,
       ),
@@ -552,151 +561,98 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
-    provide: CHANGE_JUDGING,
-    inject: [DrizzleChangeJudgingRepository, JUDGE, TRANSACTION, CLOCK],
-    useFactory: (
-      judgings: DrizzleChangeJudgingRepository,
-      judge: JudgePort,
-      transaction: TransactionPort,
-      clock: ClockPort,
-    ) => new RequestChangeJudging(judgings, judge, transaction, clock),
+    provide: CHANGE_JUDGMENTS,
+    inject: [EVIDENCE, JUDGE],
+    useFactory: (evidence: EvidencePort, judge: JudgePort) =>
+      new ChangeJudgments(evidence, judge),
   },
   {
-    provide: SIDE_BY_SIDE_JUDGING,
-    inject: [
-      DrizzleSideBySideJudgingRepository,
-      SIDE_BY_SIDE_JUDGE,
-      TRANSACTION,
-      CLOCK,
-    ],
-    useFactory: (
-      judgings: DrizzleSideBySideJudgingRepository,
-      judge: SideBySideJudgePort,
-      transaction: TransactionPort,
-      clock: ClockPort,
-    ) => new RequestSideBySideJudging(judgings, judge, transaction, clock),
-  },
-  {
-    provide: WorkSideBySideJudgings,
-    inject: [
-      DrizzleSideBySideJudgingRepository,
-      EVIDENCE,
-      SIDE_BY_SIDE_JUDGE,
-      CLOCK,
-      TRANSACTION,
-      LOGGER,
-      ERROR_REPORTS,
-      TELEMETRY,
-    ],
-    useFactory: (
-      judgings: DrizzleSideBySideJudgingRepository,
-      evidence: EvidencePort,
-      judge: SideBySideJudgePort,
-      clock: ClockPort,
-      transaction: TransactionPort,
-      logger: LoggerPort,
-      reports: ErrorReportsPort,
-      telemetry: TelemetryPort,
-    ) =>
-      new WorkSideBySideJudgings(
-        judgings,
-        evidence,
-        judge,
-        clock,
-        transaction,
-        logger,
-        reports,
-        telemetry,
-      ),
+    provide: PAIR_JUDGMENTS,
+    inject: [EVIDENCE, SIDE_BY_SIDE_JUDGE],
+    useFactory: (evidence: EvidencePort, judge: SideBySideJudgePort) =>
+      new PairJudgments(evidence, judge),
   },
   {
     provide: RUN_ACCEPTANCE,
-    inject: [DrizzleRunRecordRepository],
-    useFactory: (records: DrizzleRunRecordRepository) =>
-      new RunAcceptance(records),
-  },
-  {
-    provide: WorkChangeJudgings,
-    inject: [
-      DrizzleChangeJudgingRepository,
-      EVIDENCE,
-      JUDGE,
-      CLOCK,
-      TRANSACTION,
-      LOGGER,
-      ERROR_REPORTS,
-      TELEMETRY,
-    ],
-    useFactory: (
-      judgings: DrizzleChangeJudgingRepository,
-      evidence: EvidencePort,
-      judge: JudgePort,
-      clock: ClockPort,
-      transaction: TransactionPort,
-      logger: LoggerPort,
-      reports: ErrorReportsPort,
-      telemetry: TelemetryPort,
-    ) =>
-      new WorkChangeJudgings(
-        judgings,
-        evidence,
-        judge,
-        clock,
-        transaction,
-        logger,
-        reports,
-        telemetry,
-      ),
+    inject: [STATION_FACTS],
+    useFactory: (facts: StationFactsPort) => new RunAcceptance(facts),
   },
   {
     provide: PurgeExpiredTombstones,
-    inject: [DrizzleDeletions, CLOCK],
-    useFactory: (deletions: DrizzleDeletions, clock: ClockPort) =>
-      new PurgeExpiredTombstones(deletions, clock),
+    inject: [DrizzlePullRequestRecordRepository, TRANSACTION, CLOCK],
+    useFactory: (
+      records: DrizzlePullRequestRecordRepository,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new PurgeExpiredTombstones(records, transaction, clock),
   },
   {
-    provide: CheckRunFacts,
-    inject: [RUN_FACTS, CLOCK, LOGGER],
-    useFactory: (facts: RunFactsPort, clock: ClockPort, logger: LoggerPort) =>
-      new CheckRunFacts(facts, clock, logger),
-  },
-  {
-    provide: PendingJobWorker,
+    provide: ProjectRunFacts,
     inject: [
-      WorkJudgings,
-      WorkChangeJudgings,
-      WorkSideBySideJudgings,
-      PurgeExpiredTombstones,
-      CheckRunFacts,
-      LOGGER,
+      DrizzleRunRecordRepository,
+      DrizzleTaskHumanActionsRepository,
+      DrizzlePullRequestRecordRepository,
+      DrizzleRunFacts,
+      TRANSACTION,
     ],
     useFactory: (
-      judgings: WorkJudgings,
-      changes: WorkChangeJudgings,
-      pairs: WorkSideBySideJudgings,
-      tombstones: PurgeExpiredTombstones,
-      facts: CheckRunFacts,
-      logger: LoggerPort,
+      records: DrizzleRunRecordRepository,
+      humanActions: DrizzleTaskHumanActionsRepository,
+      pullRequests: DrizzlePullRequestRecordRepository,
+      facts: DrizzleRunFacts,
+      transaction: TransactionPort,
     ) =>
-      new PendingJobWorker(
-        [judgings, changes, pairs, tombstones, facts],
-        logger,
+      new ProjectRunFacts(
+        records,
+        humanActions,
+        pullRequests,
+        facts,
+        transaction,
       ),
   },
   {
-    provide: RecordJudgeScore,
+    provide: ProjectPullRequestFacts,
     inject: [
-      DrizzleJudgingRepository,
-      DrizzleScoreRepository,
+      DrizzlePullRequestRecordRepository,
+      DrizzleTaskChangeShapeRepository,
+      DrizzlePullRequestFacts,
       TRANSACTION,
-      ID_GENERATOR,
     ],
     useFactory: (
-      judgings: DrizzleJudgingRepository,
+      pullRequests: DrizzlePullRequestRecordRepository,
+      shapes: DrizzleTaskChangeShapeRepository,
+      facts: DrizzlePullRequestFacts,
+      transaction: TransactionPort,
+    ) => new ProjectPullRequestFacts(pullRequests, shapes, facts, transaction),
+  },
+  {
+    provide: CheckRunFacts,
+    inject: [ProjectRunFacts, CLOCK, LOGGER],
+    useFactory: (
+      facts: ProjectRunFacts,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new CheckRunFacts(facts, clock, logger),
+  },
+  {
+    provide: PendingJobWorker,
+    inject: [WorkJudgings, PurgeExpiredTombstones, CheckRunFacts, LOGGER],
+    useFactory: (
+      judgings: WorkJudgings,
+      tombstones: PurgeExpiredTombstones,
+      facts: CheckRunFacts,
+      logger: LoggerPort,
+    ) => new PendingJobWorker([judgings, tombstones, facts], logger),
+  },
+  {
+    provide: RecordJudgeScore,
+    inject: [DrizzleScoreRepository, FactRecorder, TRANSACTION, ID_GENERATOR],
+    useFactory: (
       scores: DrizzleScoreRepository,
+      recorder: FactRecorder,
       transaction: TransactionPort,
       ids: IdGeneratorPort,
-    ) => new RecordJudgeScore(judgings, scores, transaction, ids),
+    ) => new RecordJudgeScore(scores, recorder, transaction, ids),
   },
   {
     provide: GradeInboxRequests,
@@ -705,252 +661,158 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RecordRunEnding,
-    inject: [
-      WORK,
-      DrizzleRunRecordRepository,
-      DrizzleDeletions,
-      TRANSACTION,
-      LOGGER,
-    ],
+    inject: [WORK, DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-      logger: LoggerPort,
-    ) => new RecordRunEnding(work, records, deletions, transaction, logger),
+    ) => new RecordRunEnding(work, records, recorder, transaction),
   },
   {
     provide: RecordSupersededRun,
-    inject: [DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION, CLOCK],
+    inject: [DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-      clock: ClockPort,
-    ) => new RecordSupersededRun(records, deletions, transaction, clock),
+    ) => new RecordSupersededRun(records, recorder, transaction),
   },
   {
     provide: RecordChangeChecks,
-    inject: [DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION, CLOCK],
+    inject: [DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-      clock: ClockPort,
-    ) => new RecordChangeChecks(records, deletions, transaction, clock),
+    ) => new RecordChangeChecks(records, recorder, transaction),
   },
   {
     provide: RecordHumanAction,
-    inject: [WORK, DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordHumanAction(work, records, deletions, transaction),
-  },
-  {
-    provide: RecordPullRequestOpening,
-    inject: [
-      DrizzleTaskPullRequestRepository,
-      DrizzlePendingReviews,
-      DrizzleDeletions,
-      TRANSACTION,
-      CLOCK,
-    ],
-    useFactory: (
-      taskPullRequests: DrizzleTaskPullRequestRepository,
-      reviews: DrizzlePendingReviews,
-      deletions: DrizzleDeletions,
-      transaction: TransactionPort,
-      clock: ClockPort,
-    ) =>
-      new RecordPullRequestOpening(
-        taskPullRequests,
-        reviews,
-        deletions,
-        transaction,
-        clock,
-      ),
-  },
-  {
-    provide: RecordPullRequestClosing,
-    inject: [DrizzleTaskPullRequestRepository, TRANSACTION],
-    useFactory: (
-      taskPullRequests: DrizzleTaskPullRequestRepository,
-      transaction: TransactionPort,
-    ) => new RecordPullRequestClosing(taskPullRequests, transaction),
+    ) => new RecordHumanAction(work, records, recorder, transaction),
   },
   {
     provide: RecordRunUsageSummary,
-    inject: [WORK, DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordRunUsageSummary(work, records, deletions, transaction),
+    ) => new RecordRunUsageSummary(work, records, recorder, transaction),
   },
   {
     provide: RecordRunMemories,
-    inject: [WORK, DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION],
+    inject: [WORK, DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordRunMemories(work, records, deletions, transaction),
+    ) => new RecordRunMemories(work, records, recorder, transaction),
   },
   {
     provide: RecordStationPass,
-    inject: [DrizzleRunRecordRepository, DrizzleDeletions, TRANSACTION],
+    inject: [DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordStationPass(records, deletions, transaction),
-  },
-  {
-    provide: RecordPullRequestReview,
-    inject: [
-      DrizzleTaskPullRequestRepository,
-      DrizzlePendingReviews,
-      DrizzleDeletions,
-      TRANSACTION,
-      CLOCK,
-    ],
-    useFactory: (
-      taskPullRequests: DrizzleTaskPullRequestRepository,
-      reviews: DrizzlePendingReviews,
-      deletions: DrizzleDeletions,
-      transaction: TransactionPort,
-      clock: ClockPort,
-    ) =>
-      new RecordPullRequestReview(
-        taskPullRequests,
-        reviews,
-        deletions,
-        transaction,
-        clock,
-      ),
+    ) => new RecordStationPass(records, recorder, transaction),
   },
   {
     provide: RecordTaskFailure,
-    inject: [DrizzleTaskFailuresRepository, DrizzleDeletions, TRANSACTION],
+    inject: [DrizzleTaskFailuresRepository, FactRecorder, TRANSACTION],
     useFactory: (
       failures: DrizzleTaskFailuresRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordTaskFailure(failures, deletions, transaction),
+    ) => new RecordTaskFailure(failures, recorder, transaction),
   },
   {
     provide: RecordTaskHumanAction,
-    inject: [DrizzleTaskHumanActionsRepository, DrizzleDeletions, TRANSACTION],
+    inject: [DrizzleTaskHumanActionsRepository, FactRecorder, TRANSACTION],
     useFactory: (
       humanActions: DrizzleTaskHumanActionsRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordTaskHumanAction(humanActions, deletions, transaction),
+    ) => new RecordTaskHumanAction(humanActions, recorder, transaction),
   },
   {
     provide: RecordChat,
-    inject: [DrizzleChatRecordRepository, DrizzleDeletions, TRANSACTION],
+    inject: [DrizzleChats, DrizzleDeletions, TRANSACTION],
     useFactory: (
-      chats: DrizzleChatRecordRepository,
+      chats: DrizzleChats,
       deletions: DrizzleDeletions,
       transaction: TransactionPort,
     ) => new RecordChat(chats, deletions, transaction),
   },
   {
-    provide: RecordConfigPullRequest,
-    inject: [DrizzleStationConfigPullRequests, DrizzleDeletions, TRANSACTION],
-    useFactory: (
-      pullRequests: DrizzleStationConfigPullRequests,
-      deletions: DrizzleDeletions,
-      transaction: TransactionPort,
-    ) => new RecordConfigPullRequest(pullRequests, deletions, transaction),
-  },
-  {
     provide: RecordPullRequests,
-    inject: [DrizzlePullRequestRecordRepository, DrizzleDeletions, TRANSACTION],
+    inject: [DrizzlePullRequestRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       records: DrizzlePullRequestRecordRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordPullRequests(records, deletions, transaction),
+    ) => new RecordPullRequests(records, recorder, transaction),
   },
   {
     provide: RecordChangeShape,
-    inject: [
-      WORK,
-      DrizzleTaskChangeShapeRepository,
-      DrizzleDeletions,
-      TRANSACTION,
-    ],
+    inject: [WORK, DrizzleTaskChangeShapeRepository, FactRecorder, TRANSACTION],
     useFactory: (
       work: WorkPort,
       shapes: DrizzleTaskChangeShapeRepository,
-      deletions: DrizzleDeletions,
+      recorder: FactRecorder,
       transaction: TransactionPort,
-    ) => new RecordChangeShape(work, shapes, deletions, transaction),
+    ) => new RecordChangeShape(work, shapes, recorder, transaction),
   },
   {
     provide: DeleteInsights,
     inject: [
       DrizzleRunRecordRepository,
-      DrizzleTaskPullRequestRepository,
       DrizzleJudgingRepository,
-      DrizzleChangeJudgingRepository,
-      DrizzleSideBySideJudgingRepository,
       DrizzleScoreRepository,
       DrizzleTaskHumanActionsRepository,
       DrizzleTaskFailuresRepository,
-      DrizzleChatRecordRepository,
-      DrizzlePullRequestRecordRepository,
       DrizzleTaskChangeShapeRepository,
+      DrizzlePullRequestRecordRepository,
       DrizzleStationAlertStateRepository,
-      DrizzlePendingReviews,
-      DrizzleStationConfigPullRequests,
+      DrizzleChats,
       DrizzleDeletions,
       TRANSACTION,
     ],
     useFactory: (
       records: DrizzleRunRecordRepository,
-      taskPullRequests: DrizzleTaskPullRequestRepository,
       judgings: DrizzleJudgingRepository,
-      changeJudgings: DrizzleChangeJudgingRepository,
-      sideBySideJudgings: DrizzleSideBySideJudgingRepository,
       scores: DrizzleScoreRepository,
       humanActions: DrizzleTaskHumanActionsRepository,
       failures: DrizzleTaskFailuresRepository,
-      chats: DrizzleChatRecordRepository,
-      pullRequests: DrizzlePullRequestRecordRepository,
       shapes: DrizzleTaskChangeShapeRepository,
+      pullRequests: DrizzlePullRequestRecordRepository,
       alertStates: DrizzleStationAlertStateRepository,
-      reviews: DrizzlePendingReviews,
-      configPullRequests: DrizzleStationConfigPullRequests,
+      chats: DrizzleChats,
       deletions: DrizzleDeletions,
       transaction: TransactionPort,
     ) =>
       new DeleteInsights(
         {
           records,
-          taskPullRequests,
           judgings,
-          changeJudgings,
-          sideBySideJudgings,
           scores,
-          taskHumanActions: humanActions,
+          humanActions,
           failures,
-          chats,
-          pullRequests,
           shapes,
+          pullRequests,
           alertStates,
-          reviews,
-          configPullRequests,
-          deletions,
+          chats,
         },
+        deletions,
         transaction,
       ),
   },
@@ -960,12 +822,13 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       PayloadTypes,
       IntegrationEventMappers,
       EventSubscribers,
+      EventProjections,
+      ProjectRunFacts,
+      ProjectPullRequestFacts,
       RecordRunEnding,
       RecordSupersededRun,
       RecordChangeChecks,
       RecordHumanAction,
-      RecordPullRequestOpening,
-      RecordPullRequestClosing,
       DeleteInsights,
       RequestJudging,
       RecordJudgeScore,
@@ -973,7 +836,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       RecordRunUsageSummary,
       RecordRunMemories,
       RecordStationPass,
-      RecordPullRequestReview,
       RecordTaskFailure,
       RecordTaskHumanAction,
       RecordChat,
@@ -981,18 +843,18 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       RecordChangeShape,
       WatchStations,
       AlertInbox,
-      RecordConfigPullRequest,
     ],
     useFactory: (
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
+      projections: EventProjections,
+      runFacts: ProjectRunFacts,
+      pullRequestFacts: ProjectPullRequestFacts,
       ending: RecordRunEnding,
       superseding: RecordSupersededRun,
       checking: RecordChangeChecks,
       acting: RecordHumanAction,
-      opening: RecordPullRequestOpening,
-      closing: RecordPullRequestClosing,
       deleting: DeleteInsights,
       judging: RequestJudging,
       scoring: RecordJudgeScore,
@@ -1000,7 +862,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       recordingUsage: RecordRunUsageSummary,
       remembering: RecordRunMemories,
       passing: RecordStationPass,
-      reviewing: RecordPullRequestReview,
       failing: RecordTaskFailure,
       recordingHumanActions: RecordTaskHumanAction,
       chatting: RecordChat,
@@ -1008,18 +869,16 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
       shaping: RecordChangeShape,
       watching: WatchStations,
       alerting: AlertInbox,
-      openingConfigPullRequests: RecordConfigPullRequest,
     ) => {
       types.register('insights', INSIGHTS_PAYLOAD_TYPES);
       mappers.register(INSIGHTS_EVENT_MAPPERS);
+      projections.register(insightsProjections(runFacts, pullRequestFacts));
       subscribers.register(
         insightsSubscribers({
           ending,
           superseding,
           checking,
           acting,
-          opening,
-          closing,
           deleting,
           judging,
           scoring,
@@ -1027,7 +886,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           recordingUsage,
           remembering,
           passing,
-          reviewing,
           failing,
           recordingHumanActions,
           chatting,
@@ -1035,7 +893,6 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
           shaping,
           watching,
           alerting,
-          openingConfigPullRequests,
         }),
       );
       return true;

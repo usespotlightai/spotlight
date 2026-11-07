@@ -2,14 +2,6 @@ import {
   PERSON_READER,
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
-import {
-  WORKSPACE_ACCESS,
-  type WorkspaceAccessPort,
-} from '@identity/application/ports/workspace-access.port';
-import {
-  WORKSPACE_READER,
-  type WorkspaceReaderPort,
-} from '@identity/application/ports/workspace-reader.port';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -19,11 +11,15 @@ import {
   notNewerThan,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
-import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@runs/application/ports/run-progress.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   InboxEntrySummary,
@@ -33,12 +29,18 @@ import type {
   InboxNoticeSummary,
   InboxReaderPort,
   InboxRunSummary,
+  InboxScope,
 } from '@work/application/ports/inbox-reader.port';
+import { inboxSectionOf } from '@work/application/read-models/inbox-section';
 import {
   InboxRequest,
-  type InboxRequestAccess,
+  type InboxRequestAudience,
 } from '@work/domain/aggregates/inbox-request.aggregate';
-import { Notice } from '@work/domain/aggregates/notice.aggregate';
+import {
+  Notice,
+  type NoticeAudience,
+} from '@work/domain/aggregates/notice.aggregate';
+import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
   listedAsOpen,
@@ -46,18 +48,10 @@ import {
   stillOpen,
   worksOn,
 } from '@work/domain/services/conversations';
-import { inboxSectionOf } from '@work/domain/services/inbox-section';
 import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
-import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
-import {
-  progressOfCurrentRun,
-  type RunState,
-} from '@work/domain/value-objects/run-state';
-import {
-  closesAConversation,
-  hasAnUnseenAsk,
-} from '@work/infrastructure/persistence/drizzle/readers/conversation-filters';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
@@ -78,16 +72,12 @@ import {
   inboxRequest,
   inboxRequestRead,
 } from '@work/infrastructure/persistence/drizzle/schemas/inbox-request.schema';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
   and,
   desc,
@@ -101,11 +91,22 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-const FORMS_FOR_TEAM_READERS = INBOX_REQUEST_FORMS.filter(
-  (form) => InboxRequest.requiredAccess(form) === 'readsTeamInsights',
-);
-
 const PAGES_TO_SKIP_OVER = 5;
+
+const requestAudience = (audience: InboxRequestAudience): SQL | undefined =>
+  or(
+    eq(task.assigneeId, audience.assignee.value),
+    audience.unassigned ? isNull(task.assigneeId) : undefined,
+    audience.formsForTeamActors.length > 0
+      ? inArray(inboxRequest.form, [...audience.formsForTeamActors])
+      : undefined,
+  );
+
+const noticeAudience = (audience: NoticeAudience): SQL | undefined =>
+  or(
+    eq(notice.addresseeId, audience.addressee.value),
+    audience.unaddressed ? isNull(notice.addresseeId) : undefined,
+  );
 
 interface Keyed {
   readonly entry: InboxEntrySummary;
@@ -138,46 +139,76 @@ const floorOf = <T>(
   return rows.length === fetched && last ? at(last) : null;
 };
 
-const tasksWhere = (
+const inTeamsSeen = (scope: InboxScope): SQL =>
+  scope.teamsSeen.size > 0
+    ? inArray(workStation.teamId, [...scope.teamsSeen])
+    : sql`false`;
+
+const taskRowsWhere = (
   db: DrizzleDatabase,
-  workspaceId: string,
-  assignee: UserId | null,
+  scope: InboxScope,
   narrowedTo: SQL,
 ) => {
-  const origin = alias(station, 'origin');
+  const origin = alias(workStation, 'origin');
 
   return db
     .select({
       taskId: task.id,
-      teamId: line.teamId,
+      teamId: workStation.teamId,
       title: task.title,
       description: task.description,
-      lineId: line.id,
+      lineId: workStation.lineId,
       originStationName: origin.name,
       originColor: origin.color,
       originPosition: origin.position,
-      currentStationName: station.name,
-      currentStationColor: station.color,
-      currentStationPosition: station.position,
+      currentStationName: workStation.name,
+      currentStationColor: workStation.color,
+      currentStationPosition: workStation.position,
       createdAt: task.createdAt,
       finishedAt: task.finishedAt,
       working: task.currentRunId,
-      workingState: run.state,
-      workingStopRequestedAt: run.stopRequestedAt,
-      workingSince: run.queuedAt,
     })
     .from(task)
-    .innerJoin(station, eq(station.id, task.stationId))
-    .leftJoin(run, eq(run.id, task.currentRunId))
-    .innerJoin(line, eq(line.id, station.lineId))
-    .leftJoin(origin, eq(origin.id, task.originStationId))
+    .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+    .leftJoin(origin, eq(origin.stationId, task.originStationId))
     .where(
       and(
-        eq(task.workspaceId, workspaceId),
-        assignee ? eq(task.assigneeId, assignee.value) : undefined,
+        eq(task.workspaceId, scope.workspaceId),
+        eq(
+          task.assigneeId,
+          ConversationAudience.assigneeShownTo(scope.viewer).value,
+        ),
+        inTeamsSeen(scope),
         narrowedTo,
       ),
     );
+};
+
+const tasksWhere = async (
+  db: DrizzleDatabase,
+  progress: RunProgressPort,
+  scope: InboxScope,
+  narrowedTo: SQL,
+) => {
+  const rows = await taskRowsWhere(db, scope, narrowedTo);
+  const ids = [
+    ...new Set(rows.flatMap((row) => (row.working ? [row.working] : []))),
+  ];
+  const facts = new Map(
+    (ids.length === 0 ? [] : await progress.progressOf(ids.map(RunId.of))).map(
+      (each) => [each.runId.value, each],
+    ),
+  );
+
+  return rows.map((row) => {
+    const working = row.working ? facts.get(row.working) : undefined;
+
+    return {
+      ...row,
+      workingReading: RunReadingMapper.reading(working ?? null),
+      workingSince: working?.queuedAt ?? null,
+    };
+  });
 };
 
 const requestsWhere = (
@@ -192,20 +223,20 @@ const requestsWhere = (
       id: inboxRequest.id,
       form: inboxRequest.form,
       about: inboxRequest.about,
-      requestCreatedAt: inboxRequest.createdAt,
-      cursorAt: sortableTime(inboxRequest.createdAt),
+      requestOpenedAt: inboxRequest.openedAt,
+      cursorAt: sortableTime(inboxRequest.openedAt),
       readAt: inboxRequestRead.readAt,
       resolvedAt: inboxRequest.resolvedAt,
       taskId: task.id,
       assigneeId: task.assigneeId,
-      teamId: line.teamId,
-      lineId: line.id,
+      teamId: workStation.teamId,
+      lineId: workStation.lineId,
       title: task.title,
       description: task.description,
       createdAt: task.createdAt,
-      currentStationName: station.name,
-      currentStationColor: station.color,
-      currentStationPosition: station.position,
+      currentStationName: workStation.name,
+      currentStationColor: workStation.color,
+      currentStationPosition: workStation.position,
     })
     .from(inboxRequest)
     .leftJoin(
@@ -216,20 +247,15 @@ const requestsWhere = (
       ),
     )
     .innerJoin(task, eq(task.id, inboxRequest.taskId))
-    .innerJoin(station, eq(station.id, task.stationId))
-    .innerJoin(line, eq(line.id, station.lineId))
+    .innerJoin(workStation, eq(workStation.stationId, task.stationId))
     .where(
       and(
         eq(inboxRequest.workspaceId, workspaceId),
-        or(
-          eq(task.assigneeId, userId.value),
-          isNull(task.assigneeId),
-          inArray(inboxRequest.form, FORMS_FOR_TEAM_READERS),
-        ),
+        requestAudience(InboxRequest.audienceOf(userId)),
         narrowedTo,
       ),
     )
-    .orderBy(desc(inboxRequest.createdAt), desc(inboxRequest.id))
+    .orderBy(desc(inboxRequest.openedAt), desc(inboxRequest.id))
     .$dynamic();
 
   return limit === null ? query : query.limit(limit);
@@ -248,7 +274,7 @@ const noticesWhere = (
     .where(
       and(
         eq(notice.workspaceId, workspaceId),
-        or(eq(notice.addresseeId, userId.value), isNull(notice.addresseeId)),
+        noticeAudience(Notice.audienceOf(userId)),
         narrowedTo,
       ),
     )
@@ -266,22 +292,12 @@ interface TaskContext {
   readonly briefings: ReadonlyMap<string, string>;
 }
 
-const workingOf = (row: {
-  readonly workingState: RunState | null;
-  readonly workingStopRequestedAt: Date | null;
-}) =>
-  row.workingState
-    ? {
-        state: row.workingState,
-        stopRequested: row.workingStopRequestedAt !== null,
-      }
-    : null;
-
 const positionsOf = (
   conversation: MarkedConversation<{ readonly position: number }>,
 ): Conversation => ({
-  from: conversation.from.position,
-  to: conversation.to?.position ?? null,
+  from: NotePosition.of(conversation.from.position),
+  to:
+    conversation.to === null ? null : NotePosition.of(conversation.to.position),
 });
 
 const latestOf = (
@@ -312,7 +328,7 @@ const conversationItem = (
   const last = conversation.notes[conversation.notes.length - 1];
   const progress =
     open && worksOn(row.working !== null, conversation.notes)
-      ? progressOfCurrentRun(workingOf(row), true)
+      ? progressOfCurrentRun(row.workingReading, true)
       : null;
   const unread = anyUnread(conversation.notes);
 
@@ -350,7 +366,7 @@ const conversationItem = (
       running: progress !== null,
     }),
     reopenable: reopenable(
-      opening.position,
+      NotePosition.of(opening.position),
       latest,
       closingOf(conversation, lastNote),
     ),
@@ -369,7 +385,7 @@ const runItem = (
   working: string,
   context: TaskContext,
 ): InboxRunSummary | null => {
-  const progress = progressOfCurrentRun(workingOf(row), true);
+  const progress = progressOfCurrentRun(row.workingReading, true);
 
   return progress
     ? {
@@ -404,23 +420,15 @@ type NoticeRow = Awaited<ReturnType<typeof noticesWhere>>[number];
 export class DrizzleInboxReader implements InboxReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
-    @Inject(WORKSPACE_ACCESS) private readonly access: WorkspaceAccessPort,
-    @Inject(WORKSPACE_READER) private readonly workspaces: WorkspaceReaderPort,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
+    @Inject(RUN_PROGRESS) private readonly progress: RunProgressPort,
   ) {}
 
-  async openForWorkspaceMember(
-    slug: string,
-    userId: UserId,
-  ): Promise<InboxEntrySummary[] | null> {
-    const workspaceId = await this.visible(slug, userId);
-
-    if (!workspaceId) {
-      return null;
-    }
+  async open(scope: InboxScope): Promise<InboxEntrySummary[]> {
+    const { workspaceId, viewer: userId } = scope;
 
     const [tasks, requests, notices] = await Promise.all([
-      this.openTasks(workspaceId, userId),
+      this.openTasks(scope),
       requestsWhere(
         this.db,
         workspaceId,
@@ -438,33 +446,21 @@ export class DrizzleInboxReader implements InboxReaderPort {
     ]);
     const items: InboxEntrySummary[] = [
       ...tasks,
-      ...(await this.requestItems(userId, requests)).map((each) => each.entry),
-      ...(await this.noticeItems(userId, notices)).map((each) => each.entry),
+      ...(await this.requestItems(scope, requests)).map((each) => each.entry),
+      ...(await this.noticeItems(scope, notices)).map((each) => each.entry),
     ];
 
     return items.sort((one, other) => +other.askedAt - +one.askedAt);
   }
 
-  async resolvedForWorkspaceMember(
-    slug: string,
-    userId: UserId,
+  async resolved(
+    scope: InboxScope,
     page: PageRequest,
-  ): Promise<Page<InboxEntrySummary> | null> {
-    const workspaceId = await this.visible(slug, userId);
-
-    if (!workspaceId) {
-      return null;
-    }
-
+  ): Promise<Page<InboxEntrySummary>> {
     let before = timeCursorOf(page.before);
 
     for (let skipped = 0; skipped < PAGES_TO_SKIP_OVER; skipped++) {
-      const found = await this.resolvedPage(
-        workspaceId,
-        userId,
-        before,
-        page.limit,
-      );
+      const found = await this.resolvedPage(scope, before, page.limit);
 
       if (found.items.length > 0 || found.next === null) {
         return {
@@ -479,67 +475,40 @@ export class DrizzleInboxReader implements InboxReaderPort {
     return { items: [], next: before && encodeCursor(before) };
   }
 
-  async itemForWorkspaceMember(
-    slug: string,
-    userId: UserId,
-    itemId: string,
-  ): Promise<InboxItemView | null> {
-    const workspaceId = await this.visible(slug, userId);
-
-    if (!workspaceId) {
-      return null;
-    }
-
+  async item(scope: InboxScope, itemId: string): Promise<InboxItemView | null> {
     const conversationId = ConversationId.tryParse(itemId);
 
     return conversationId
-      ? this.conversationView(workspaceId, conversationId)
-      : this.requestView(workspaceId, userId, itemId);
+      ? this.conversationView(scope, conversationId)
+      : this.requestView(scope, itemId);
   }
 
-  async noticeForWorkspaceMember(
-    slug: string,
-    userId: UserId,
+  async notice(
+    scope: InboxScope,
     noticeId: string,
   ): Promise<InboxNoticeSummary | null> {
-    const workspaceId = await this.visible(slug, userId);
-
-    if (!workspaceId) {
-      return null;
-    }
-
     const rows = await noticesWhere(
       this.db,
-      workspaceId,
-      userId,
+      scope.workspaceId,
+      scope.viewer,
       eq(notice.id, noticeId),
       null,
     );
-    const [found] = await this.noticeItems(userId, rows);
+    const [found] = await this.noticeItems(scope, rows);
 
     return found && found.entry.kind === 'notice' ? found.entry : null;
   }
 
-  private async visible(slug: string, userId: UserId): Promise<string | null> {
-    const workspaceId = await this.workspaces.idForSlug(slug);
-
-    return workspaceId &&
-      (await this.access.mayView(userId, WorkspaceId.of(workspaceId)))
-      ? workspaceId
-      : null;
-  }
-
   private async resolvedPage(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
     before: Cursor | null,
     limit: number,
   ): Promise<{ items: readonly Keyed[]; next: Cursor | null }> {
     const fetched = limit + 1;
     const sources = await Promise.all([
-      this.resolvedConversations(workspaceId, userId, before, fetched),
-      this.resolvedRequests(workspaceId, userId, before, fetched),
-      this.resolvedNotices(workspaceId, userId, before, fetched),
+      this.resolvedConversations(scope, before, fetched),
+      this.resolvedRequests(scope, before, fetched),
+      this.resolvedNotices(scope, before, fetched),
     ]);
     const floors = sources.flatMap((each) => (each.floor ? [each.floor] : []));
     const floor = floors.sort()[floors.length - 1] ?? null;
@@ -566,11 +535,11 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async resolvedConversations(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
     before: Cursor | null,
     fetched: number,
   ): Promise<Gathered> {
+    const { workspaceId, viewer: userId } = scope;
     const closing = await this.db
       .select({
         taskId: taskNote.taskId,
@@ -582,8 +551,11 @@ export class DrizzleInboxReader implements InboxReaderPort {
       .where(
         and(
           eq(task.workspaceId, workspaceId),
-          eq(task.assigneeId, userId.value),
-          closesAConversation,
+          eq(
+            task.assigneeId,
+            ConversationAudience.assigneeShownTo(userId).value,
+          ),
+          eq(taskNote.closesConversation, true),
           before ? notNewerThan(taskNote.at, before) : undefined,
         ),
       )
@@ -600,8 +572,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
     const taskIds = [...new Set(closing.map((each) => each.taskId))];
     const rows = await tasksWhere(
       this.db,
-      workspaceId,
-      userId,
+      this.progress,
+      scope,
       inArray(task.id, taskIds),
     );
     const marks = await marksFor(this.db, taskIds);
@@ -663,38 +635,36 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async resolvedRequests(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
     before: Cursor | null,
     fetched: number,
   ): Promise<Gathered> {
     const rows = await requestsWhere(
       this.db,
-      workspaceId,
-      userId,
+      scope.workspaceId,
+      scope.viewer,
       and(
         isNotNull(inboxRequest.resolvedAt),
-        before ? notNewerThan(inboxRequest.createdAt, before) : undefined,
+        before ? notNewerThan(inboxRequest.openedAt, before) : undefined,
       ),
       fetched,
     );
 
     return {
-      keyed: await this.requestItems(userId, rows),
+      keyed: await this.requestItems(scope, rows),
       floor: floorOf(rows, fetched, (each) => each.cursorAt),
     };
   }
 
   private async resolvedNotices(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
     before: Cursor | null,
     fetched: number,
   ): Promise<Gathered> {
     const rows = await noticesWhere(
       this.db,
-      workspaceId,
-      userId,
+      scope.workspaceId,
+      scope.viewer,
       and(
         isNotNull(notice.resolvedAt),
         before ? notNewerThan(notice.createdAt, before) : undefined,
@@ -703,20 +673,19 @@ export class DrizzleInboxReader implements InboxReaderPort {
     );
 
     return {
-      keyed: await this.noticeItems(userId, rows),
+      keyed: await this.noticeItems(scope, rows),
       floor: floorOf(rows, fetched, (each) => each.cursorAt),
     };
   }
 
   private async openTasks(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
   ): Promise<(InboxItemSummary | InboxRunSummary)[]> {
     const rows = await tasksWhere(
       this.db,
-      workspaceId,
-      userId,
-      sql`(${isNull(task.finishedAt)} or ${hasAnUnseenAsk})`,
+      this.progress,
+      scope,
+      sql`(${isNull(task.finishedAt)} or ${task.unreadAsk})`,
     );
     const taskIds = rows.map((row) => row.taskId);
     const [marks, newest] = await Promise.all([
@@ -790,13 +759,13 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async conversationView(
-    workspaceId: string,
+    scope: InboxScope,
     conversationId: ConversationId,
   ): Promise<InboxItemView | null> {
     const [row] = await tasksWhere(
       this.db,
-      workspaceId,
-      null,
+      this.progress,
+      scope,
       eq(task.id, conversationId.taskId.value),
     );
 
@@ -832,18 +801,17 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async requestView(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
     requestId: string,
   ): Promise<InboxItemView | null> {
     const rows = await requestsWhere(
       this.db,
-      workspaceId,
-      userId,
+      scope.workspaceId,
+      scope.viewer,
       eq(inboxRequest.id, requestId),
       null,
     );
-    const [found] = await this.requestItems(userId, rows);
+    const [found] = await this.requestItems(scope, rows);
 
     return found && found.entry.kind === 'task'
       ? { ...found.entry, notes: [] }
@@ -875,52 +843,16 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async requestItems(
-    userId: UserId,
+    scope: InboxScope,
     rows: readonly RequestRow[],
   ): Promise<Keyed[]> {
-    const needing = (access: InboxRequestAccess) =>
-      rows.filter((row) => InboxRequest.requiredAccess(row.form) === access);
-
-    const onTeam = new Map(
-      await Promise.all(
-        [
-          ...new Set(
-            needing('seesTeam')
-              .filter((row) => row.assigneeId === null)
-              .map((row) => row.teamId),
-          ),
-        ].map(
-          async (teamId) =>
-            [
-              teamId,
-              (await this.access.onTeam(teamId, userId)) !== null,
-            ] as const,
-        ),
-      ),
-    );
-
-    const readerOf = new Map(
-      await Promise.all(
-        [...new Set(needing('readsTeamInsights').map((row) => row.teamId))].map(
-          async (teamId) =>
-            [
-              teamId,
-              (await this.access.permissionsAsTeamReader(
-                teamId,
-                PersonPrincipal.of(userId),
-              )) !== null,
-            ] as const,
-        ),
-      ),
-    );
-
     const attending = rows.filter((row) =>
       InboxRequest.visibleTo({
         form: row.form,
-        viewer: userId,
+        viewer: scope.viewer,
         assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
-        seesTeam: onTeam.get(row.teamId) ?? false,
-        readsTeamInsights: readerOf.get(row.teamId) ?? false,
+        seesTeam: scope.teamsSeen.has(row.teamId),
+        actsOnTeam: scope.teamsActedOn.has(row.teamId),
       }),
     );
 
@@ -962,17 +894,17 @@ export class DrizzleInboxReader implements InboxReaderPort {
           originStation: currentStation,
           currentStation,
           createdAt: row.createdAt,
-          askedAt: row.requestCreatedAt,
+          askedAt: row.requestOpenedAt,
           resolved: row.resolvedAt !== null,
           section: inboxSectionOf({
-            unread: row.readAt === null && row.resolvedAt === null,
+            unread: InboxRequest.unread(row),
             resolved: row.resolvedAt !== null,
             running: false,
           }),
           reopenable: InboxRequest.reopenable(row.resolvedAt),
           progress: null,
           runId: null,
-          unread: row.readAt === null && row.resolvedAt === null,
+          unread: InboxRequest.unread(row),
           briefing: null,
           failure: null,
           inboxRequest: { form: row.form, about: row.about },
@@ -984,23 +916,18 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async noticeItems(
-    userId: UserId,
+    scope: InboxScope,
     rows: readonly NoticeRow[],
   ): Promise<Keyed[]> {
-    const onTeam = new Map(
-      await Promise.all(
-        [...new Set(rows.map((row) => row.notice.teamId))].map(
-          async (teamId) =>
-            [
-              teamId,
-              (await this.access.onTeam(teamId, userId)) !== null,
-            ] as const,
-        ),
-      ),
-    );
-
     return rows
-      .filter((row) => onTeam.get(row.notice.teamId))
+      .filter(
+        (row) =>
+          scope.teamsSeen.has(row.notice.teamId) &&
+          Notice.addressedTo(
+            row.notice.addresseeId ? UserId.of(row.notice.addresseeId) : null,
+            scope.viewer,
+          ),
+      )
       .map(({ notice: row, cursorAt }) =>
         keyedAt(
           {
@@ -1017,10 +944,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
                 ? { url: row.externalUrl, label: row.externalLabel }
                 : null,
             askedAt: row.createdAt,
-            unread: row.resolvedAt === null,
+            unread: Notice.unread(row.resolvedAt),
             resolved: row.resolvedAt !== null,
             section: inboxSectionOf({
-              unread: row.resolvedAt === null,
+              unread: Notice.unread(row.resolvedAt),
               resolved: row.resolvedAt !== null,
               running: false,
             }),

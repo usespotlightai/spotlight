@@ -1,17 +1,17 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
+import type { InboxSection } from '@work/application/read-models/inbox-section';
 import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
-import type { InboxSection } from '@work/domain/services/inbox-section';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
-import type { Progress } from '@work/domain/value-objects/run-state';
-import type { AuthorKind } from '@work/domain/value-objects/voice.vo';
+import type { Progress } from '@work/domain/value-objects/progress';
+import type { VoiceKind } from '@work/domain/value-objects/voice.vo';
 
 interface InboxAuthor {
   readonly id: string;
@@ -58,8 +58,8 @@ export interface InboxNote {
   readonly position: number;
   readonly kind: TaskNoteKind;
   readonly form: TaskNoteForm;
-  readonly voice: AuthorKind;
-  readonly station: string;
+  readonly voice: VoiceKind;
+  readonly station: string | null;
   readonly stationId: string;
   readonly stationColor: string;
   readonly stationPosition: number;
@@ -81,7 +81,7 @@ interface InboxRequestView {
 }
 
 interface InboxStation {
-  readonly name: string;
+  readonly name: string | null;
   readonly color: string;
   readonly position: number;
 }
@@ -94,7 +94,7 @@ export interface InboxItemSummary {
   readonly title: string;
   readonly description: string | null;
   readonly attachments: readonly AttachmentSummary[];
-  readonly station: string;
+  readonly station: string | null;
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;
@@ -163,27 +163,25 @@ export type InboxEntrySummary =
 
 export const INBOX_READER = Symbol('INBOX_READER');
 
+export interface InboxScope {
+  readonly workspaceId: string;
+  readonly viewer: UserId;
+  readonly teamsSeen: ReadonlySet<string>;
+  readonly teamsActedOn: ReadonlySet<string>;
+}
+
 export interface InboxReaderPort {
-  openForWorkspaceMember(
-    slug: string,
-    userId: UserId,
-  ): Promise<InboxEntrySummary[] | null>;
+  open(scope: InboxScope): Promise<InboxEntrySummary[]>;
 
-  resolvedForWorkspaceMember(
-    slug: string,
-    userId: UserId,
+  resolved(
+    scope: InboxScope,
     page: PageRequest,
-  ): Promise<Page<InboxEntrySummary> | null>;
+  ): Promise<Page<InboxEntrySummary>>;
 
-  itemForWorkspaceMember(
-    slug: string,
-    userId: UserId,
-    itemId: string,
-  ): Promise<InboxItemView | null>;
+  item(scope: InboxScope, itemId: string): Promise<InboxItemView | null>;
 
-  noticeForWorkspaceMember(
-    slug: string,
-    userId: UserId,
+  notice(
+    scope: InboxScope,
     noticeId: string,
   ): Promise<InboxNoticeSummary | null>;
 }

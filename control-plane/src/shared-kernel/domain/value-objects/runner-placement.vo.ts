@@ -1,6 +1,6 @@
+import { distinct } from '@shared-kernel/domain/distinct';
 import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/invalid-runner-placement.error';
-import { distinct } from '@shared-kernel/domain/services/distinct';
-import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import {
   isSlug,
   MAX_SLUG_LENGTH,
@@ -52,6 +52,14 @@ export class RunnerPlacement {
     return RunnerPlacement.every(
       raw.map((each) => RunnerPlacement.of(each)),
     ).in(image);
+  }
+
+  static forStation(
+    station: RunnerPlacement | null,
+    line: RunnerPlacement,
+    image: RunnerImage | null,
+  ): RunnerPlacement {
+    return (station?.or(line) ?? line).in(image);
   }
 
   static every(placements: readonly RunnerPlacement[]): RunnerPlacement {

@@ -6,7 +6,7 @@ import type {
   OidcTrustConfigurationPort,
   OidcTrustView,
 } from '@identity/application/ports/oidc-trust-configuration.port';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const configured = (trust: OidcTrustRecord): OidcTrustView => ({

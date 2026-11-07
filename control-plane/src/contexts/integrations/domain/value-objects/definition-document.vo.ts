@@ -1,9 +1,6 @@
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import {
-  type JsonValue,
-  sameJson,
-} from '@shared-kernel/domain/services/json-value';
+import { type JsonValue, sameJson } from '@shared-kernel/domain/json-value';
 
 type Fields = Readonly<Record<string, unknown>>;
 

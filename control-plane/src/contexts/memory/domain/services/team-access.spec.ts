@@ -15,7 +15,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const ADA = UserId.of('user_ada');
 
 const teamAccess = () =>
-  TeamAccess.onTeam('team_1', { workspaceId: WORKSPACE, by: ADA });
+  TeamAccess.onTeam(TeamId.of('team_1'), { workspaceId: WORKSPACE, by: ADA });
 
 const approved = (teamId: string) =>
   Memory.write({
@@ -38,8 +38,10 @@ describe('TeamAccess', () => {
   });
 
   it('is denied to anyone not on the team, as if there were no team', () => {
-    expect(() => TeamAccess.onTeam('team_1', null)).toThrow(TeamNotFoundError);
-    expect(() => TeamAccess.onTeam('team_1', null)).toThrow(
+    expect(() => TeamAccess.onTeam(TeamId.of('team_1'), null)).toThrow(
+      TeamNotFoundError,
+    );
+    expect(() => TeamAccess.onTeam(TeamId.of('team_1'), null)).toThrow(
       'Team team_1 not found.',
     );
   });

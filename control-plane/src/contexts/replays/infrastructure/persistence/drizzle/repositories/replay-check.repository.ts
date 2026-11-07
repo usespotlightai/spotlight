@@ -1,22 +1,26 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  codeOf,
   UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
-import { ReplayCheckRaceError } from '@replays/domain/exceptions/replay-check-race.error';
+import { ReplayCheckAttemptTakenError } from '@replays/domain/exceptions/replay-check-attempt-taken.error';
+import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import {
   SCORING_FIELDS,
   type ScoringField,
 } from '@replays/domain/services/live-scoring';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { SetEntriesDigest } from '@replays/domain/value-objects/set-entries-digest.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { replayCheck } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
@@ -25,13 +29,15 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
-type CheckRow = typeof replayCheck.$inferSelect;
+const ATTEMPT_OF_CHANGE = 'replay_check_attempt_idx';
 
-const ATTEMPT_INDEX = 'replay_check_attempt_idx';
+type CheckRow = typeof replayCheck.$inferSelect;
 
 const scoringFieldOf = (raw: string): ScoringField => {
   const field = SCORING_FIELDS.find((each) => each === raw);
@@ -52,12 +58,12 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     stationKey: row.stationKey,
     setId: ReplaySetId.of(row.setId),
-    setEntries: row.setEntries,
+    setEntries: SetEntriesDigest.of(row.setEntries),
     attempt: row.attempt,
     candidateId: CandidateId.of(row.candidateId),
     replayId: ReplayId.of(row.replayId),
@@ -85,6 +91,7 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     scoringPinnedToLive: row.scoringPinnedToLive.map(scoringFieldOf),
     baseline: row.baseline,
     createdAt: row.createdAt,
+    version: row.version,
   });
 
 @Injectable()
@@ -101,16 +108,14 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
     return found ?? null;
   }
 
-  matching(
-    stationId: string,
-    candidate: StationHashes,
-    live: StationHashes,
+  ofChange(
+    stationId: StationId,
+    change: CheckedChange,
   ): Promise<readonly ReplayCheck[]> {
     return this.where(
       and(
-        eq(replayCheck.stationId, stationId),
-        eq(replayCheck.candidateBehaviour, candidate.behaviour),
-        eq(replayCheck.liveScoring, live.scoring),
+        eq(replayCheck.stationId, stationId.value),
+        eq(replayCheck.change, change.value),
       ) as SQL,
     );
   }
@@ -144,8 +149,8 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           id: added.id.value,
           workspaceId: added.workspaceId.value,
           teamId: added.teamId.value,
-          lineId: added.station.lineId,
-          stationId: added.station.stationId,
+          lineId: added.station.lineId.value,
+          stationId: added.station.stationId.value,
           stationKey: added.stationKey,
           setId: added.setId.value,
           setEntries: added.setEntries,
@@ -160,6 +165,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           liveScoring: added.liveHashes.scoring,
           candidateBehaviour: added.candidateHashes.behaviour,
           candidateScoring: added.candidateHashes.scoring,
+          change: added.change.value,
           maxRegressions: added.threshold.maxRegressions,
           ceilingAmount: added.threshold.ceiling.amount,
           ceilingCurrency: added.threshold.ceiling.currency,
@@ -168,10 +174,14 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           scoringPinnedToLive: [...added.scoringPinnedToLive],
           baseline: added.baseline,
           createdAt: added.createdAt,
+          version: added.version,
         })
         .catch((error: unknown) => {
-          if (violates(error, UNIQUE_VIOLATION, ATTEMPT_INDEX)) {
-            throw new ReplayCheckRaceError(added.stationKey);
+          if (violates(error, UNIQUE_VIOLATION, ATTEMPT_OF_CHANGE)) {
+            throw new ReplayCheckAttemptTakenError(added.attempt);
+          }
+          if (codeOf(error) === UNIQUE_VIOLATION) {
+            throw new ReplayCheckVersionConflictError(added.id.value);
           }
           throw error;
         });
@@ -181,16 +191,25 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
 
   async save(saved: ReplayCheck): Promise<void> {
     await this.context.inTransaction(async () => {
-      if (saved.isDeleted) {
-        await this.context.db
-          .delete(replayCheck)
-          .where(eq(replayCheck.id, saved.id.value));
-      } else {
-        await this.context.db
-          .update(replayCheck)
-          .set({ baseline: saved.baseline })
-          .where(eq(replayCheck.id, saved.id.value));
+      const at = and(
+        eq(replayCheck.id, saved.id.value),
+        eq(replayCheck.version, saved.version),
+      );
+      const written = saved.isDeleted
+        ? await this.context.db
+            .delete(replayCheck)
+            .where(at)
+            .returning({ id: replayCheck.id })
+        : await this.context.db
+            .update(replayCheck)
+            .set({ baseline: saved.baseline, version: saved.version + 1 })
+            .where(at)
+            .returning({ id: replayCheck.id });
+
+      if (written.length === 0) {
+        throw new ReplayCheckVersionConflictError(saved.id.value);
       }
+
       await this.events.dispatch(saved.pullEvents());
     });
   }

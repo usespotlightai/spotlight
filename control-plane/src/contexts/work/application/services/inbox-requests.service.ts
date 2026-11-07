@@ -2,15 +2,22 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type {
+  InboxRequestFormName,
   InboxRequestOf,
   InboxRequestsPort,
 } from '@work/application/ports/inbox-requests.port';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { inboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
+import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
+
+const FORMS: Readonly<Record<InboxRequestFormName, InboxRequestForm>> = {
+  memories: 'memories',
+  grade: 'grade',
+  alert: 'alert',
+};
 
 export class InboxRequests implements InboxRequestsPort {
   constructor(
@@ -34,7 +41,7 @@ export class InboxRequests implements InboxRequestsPort {
         !task ||
         (await this.inboxRequests.about(
           inboxRequest.taskId,
-          inboxRequestForm(inboxRequest.form),
+          FORMS[inboxRequest.form],
           inboxRequest.about,
         ))
       ) {
@@ -46,7 +53,7 @@ export class InboxRequests implements InboxRequestsPort {
           id: InboxRequestId.of(this.ids.generate()),
           workspaceId: task.workspaceId,
           taskId: task.id,
-          form: inboxRequest.form,
+          form: FORMS[inboxRequest.form],
           about: inboxRequest.about,
           now: this.clock.now(),
         }),
@@ -63,14 +70,12 @@ export class InboxRequests implements InboxRequestsPort {
     return this.transaction.inTransaction(async () => {
       const existing = await this.inboxRequests.about(
         inboxRequest.taskId,
-        inboxRequestForm(inboxRequest.form),
+        FORMS[inboxRequest.form],
         inboxRequest.about,
       );
 
       if (existing) {
-        if (!existing.open) {
-          await this.inboxRequests.save(existing.reopen(this.clock.now()));
-        }
+        await this.changed(existing, existing.reopen(this.clock.now()));
         return;
       }
 
@@ -82,7 +87,7 @@ export class InboxRequests implements InboxRequestsPort {
             id: InboxRequestId.of(this.ids.generate()),
             workspaceId: task.workspaceId,
             taskId: task.id,
-            form: inboxRequest.form,
+            form: FORMS[inboxRequest.form],
             about: inboxRequest.about,
             now: this.clock.now(),
           }),
@@ -94,7 +99,7 @@ export class InboxRequests implements InboxRequestsPort {
   async idOf(input: InboxRequestOf): Promise<string | null> {
     const existing = await this.inboxRequests.about(
       input.taskId,
-      inboxRequestForm(input.form),
+      FORMS[input.form],
       InboxRequestSubject.of(input.about),
     );
 
@@ -110,14 +115,12 @@ export class InboxRequests implements InboxRequestsPort {
     return this.transaction.inTransaction(async () => {
       const existing = await this.inboxRequests.about(
         inboxRequest.taskId,
-        inboxRequestForm(inboxRequest.form),
+        FORMS[inboxRequest.form],
         inboxRequest.about,
       );
 
       if (existing) {
-        if (existing.open) {
-          await this.inboxRequests.save(existing.resolve(this.clock.now()));
-        }
+        await this.changed(existing, existing.resolve(this.clock.now()));
         return;
       }
 
@@ -131,12 +134,21 @@ export class InboxRequests implements InboxRequestsPort {
             id: InboxRequestId.of(this.ids.generate()),
             workspaceId: task.workspaceId,
             taskId: task.id,
-            form: inboxRequest.form,
+            form: FORMS[inboxRequest.form],
             about: inboxRequest.about,
             now,
           }).resolve(now),
         );
       }
     });
+  }
+
+  private async changed(
+    existing: InboxRequest,
+    next: InboxRequest,
+  ): Promise<void> {
+    if (next !== existing) {
+      await this.inboxRequests.save(next);
+    }
   }
 }

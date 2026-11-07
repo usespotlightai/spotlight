@@ -1,4 +1,4 @@
-import type { JudgeCriteria } from '@insights/domain/value-objects/judge-criteria.vo';
+import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { judgeGuidanceOf } from '@shared-kernel/domain/value-objects/judge-guidance';
 
 const NGRAM_SIZE = 5;

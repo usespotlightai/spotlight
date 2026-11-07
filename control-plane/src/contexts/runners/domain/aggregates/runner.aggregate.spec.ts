@@ -8,6 +8,7 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
+import { RunnerEndedError } from '@runners/domain/exceptions/runner-ended.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
@@ -86,7 +87,7 @@ describe('Runner', () => {
       RunnerAlreadyClaimedError,
     );
     expect(() => aRunner({ claimWithinMs: 1 }).claim(RUN, later(5))).toThrow(
-      RunnerAlreadyClaimedError,
+      RunnerEndedError,
     );
   });
 
@@ -96,7 +97,7 @@ describe('Runner', () => {
     expect(ended.hasEnded).toBe(true);
     expect(ended.isAlive(later(3))).toBe(false);
     expect(ended.ended(later(4))).toBe(ended);
-    expect(() => ended.heartbeat(later(5))).toThrow(RunnerAlreadyClaimedError);
+    expect(() => ended.heartbeat(later(5))).toThrow(RunnerEndedError);
   });
 
   it('is discarded when released before it claimed anything, and ended after', () => {
@@ -152,8 +153,8 @@ describe('Runner', () => {
   it('knows the work it leases', () => {
     const working = aRunner().claim(RUN, later(1));
 
-    expect(working.hasLeaseOn(RunnerWork.run('run_1'))).toBe(true);
-    expect(working.hasLeaseOn(RunnerWork.check('run_1'))).toBe(false);
+    expect(working.work?.equals(RunnerWork.run('run_1'))).toBe(true);
+    expect(working.work?.equals(RunnerWork.check('run_1'))).toBe(false);
   });
 
   it('takes the credential source of the pool or trust it started under, on the host that requested it', () => {

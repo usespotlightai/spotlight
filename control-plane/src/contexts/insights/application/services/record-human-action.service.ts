@@ -1,16 +1,16 @@
-import type { DeletionsPort } from '@insights/application/ports/deletions.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
+import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
-import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
+import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import {
   HumanAction,
   humanActionKindOf,
 } from '@insights/domain/value-objects/human-action.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface HumanActionReceived {
@@ -28,7 +28,7 @@ export class RecordHumanAction {
   constructor(
     private readonly work: WorkPort,
     private readonly records: RunRecordRepository,
-    private readonly deletions: DeletionsPort,
+    private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -40,66 +40,38 @@ export class RecordHumanAction {
     }
 
     const action = HumanAction.of(kind, new Date(event.at));
-    const dismissal =
-      kind === 'dismissed' && event.tool
-        ? Dismissal.of({
-            tool: event.tool,
-            server: event.server,
-            at: action.at,
-          })
-        : null;
-    const withAction = (record: RunRecord): RunRecord => {
-      const acted = record.recordAction(action);
-
-      return dismissal ? acted.dismissed(dismissal) : acted;
-    };
-
+    const tool = { tool: event.tool, server: event.server };
     const workspaceId = WorkspaceId.of(event.workspaceId);
     const taskId = TaskId.of(event.taskId);
     const run = event.afterRunId
-      ? await this.work.endedRun(event.afterRunId)
+      ? await this.work.endedRun(RunId.of(event.afterRunId))
       : null;
-    const teamId = run ? TeamId.of(run.teamId) : null;
-
-    await this.transaction.inTransaction(async () => {
-      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
-      const existing = event.afterRunId
-        ? await this.records.of(RunId.of(event.afterRunId))
-        : await this.records.lastEndedOfTaskAt(
-            taskId,
-            event.stationId,
-            action.at,
-          );
-
-      if (
-        await this.deletions.isDeleted(
-          workspaceId,
-          taskId,
-          teamId ?? existing?.end?.location.teamId,
-        )
-      ) {
-        if (existing) {
-          await this.records.removeForTask(taskId);
-        }
-        return;
-      }
-
-      if (!existing) {
-        if (event.afterRunId) {
-          await this.records.add(
-            withAction(
-              RunRecord.empty(RunId.of(event.afterRunId), workspaceId, taskId),
-            ),
-          );
-        }
-        return;
-      }
-
-      const acted = withAction(existing);
-
-      if (acted !== existing) {
-        await this.records.save(acted);
-      }
+    const owner = FactOwner.of(workspaceId, {
+      teamId: run?.teamId ?? null,
+      taskId,
     });
+    const afterRunId = event.afterRunId ? RunId.of(event.afterRunId) : null;
+
+    await this.transaction.inTransaction(() =>
+      this.recorder.record(this.records, {
+        owner,
+        deleted: (existing) => existing.delete(),
+        load: async () =>
+          afterRunId
+            ? this.records.of(afterRunId)
+            : RunRecord.creditedWithActionAt(
+                await this.records.ofTaskAt(
+                  taskId,
+                  StationId.of(event.stationId),
+                ),
+                action.at,
+              ),
+        ownerOf: (existing) => owner.withTeam(existing.end?.location.teamId),
+        fresh: afterRunId
+          ? () => RunRecord.empty(afterRunId, workspaceId, taskId)
+          : undefined,
+        change: (record) => record.recordAction(action, tool),
+      }),
+    );
   }
 }

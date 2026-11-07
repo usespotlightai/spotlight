@@ -3,6 +3,7 @@ import { InviteMemberships } from '@identity/application/services/invite-members
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
+import { NotInTheWorkspaceError } from '@identity/domain/exceptions/not-in-the-workspace.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
@@ -39,6 +40,7 @@ const team = (id: string, workspaceId = ACME) =>
     workspaceId,
     key: TeamKey.of(id.replace('_', '-')),
     name: TeamName.of(id),
+    origin: 'configuration',
     members: [LEON],
     version: 0,
   });
@@ -87,24 +89,33 @@ const joining = (
     } as unknown as TeamRepository,
     {
       find: async (id: UserId) =>
-        over.adaLeft ? null : { id: id.value, name: 'Ada', image: null },
+        over.adaLeft ? null : { id, name: 'Ada', image: null },
     } as unknown as PersonReaderPort,
   );
 
   return { memberships, savedWorkspace, savedTeam };
 };
 
+const both = async (
+  memberships: InviteMemberships,
+  event: WorkspaceInviteAccepted,
+) => {
+  await memberships.joinWorkspace(event);
+  await memberships.joinTeams(event);
+};
+
 describe('InviteMemberships', () => {
   it('takes whoever accepted into the workspace with the role invited, and says so', async () => {
-    const { memberships, savedWorkspace } = joining();
+    const { memberships, savedWorkspace, savedTeam } = joining();
 
-    await memberships.joined(accepted());
+    await memberships.joinWorkspace(accepted());
 
     const saved = savedWorkspace.mock.calls[0]?.[0];
     expect(saved?.roleOf(ADA)).toBe(WorkspaceRole.admin);
     expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
       'workspace.member-joined',
     ]);
+    expect(savedTeam).not.toHaveBeenCalled();
   });
 
   it('keeps the role somebody already has, whether higher or lower', async () => {
@@ -116,28 +127,38 @@ describe('InviteMemberships', () => {
         adaIs: current,
       });
 
-      await memberships.joined(accepted(invited));
+      await both(memberships, accepted(invited));
 
       expect(savedWorkspace).not.toHaveBeenCalled();
       expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
     }
   });
 
-  it('takes them onto each team named that is still in the workspace, skipping the rest', async () => {
-    const { memberships, savedTeam } = joining();
+  it('takes them onto each team named that is still in the workspace, one team at a time, skipping the rest', async () => {
+    const { memberships, savedWorkspace, savedTeam } = joining();
 
-    await memberships.joined(accepted());
+    await both(memberships, accepted());
 
+    expect(savedWorkspace).toHaveBeenCalledTimes(1);
     expect(savedTeam).toHaveBeenCalledTimes(1);
     expect(savedTeam.mock.calls[0]?.[0].id.value).toBe('team_1');
     expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
   });
 
+  it('takes nobody onto a team before they are in the workspace, so the delivery is tried again', async () => {
+    const { memberships, savedTeam } = joining();
+
+    await expect(memberships.joinTeams(accepted())).rejects.toThrow(
+      NotInTheWorkspaceError,
+    );
+    expect(savedTeam).not.toHaveBeenCalled();
+  });
+
   it('changes nothing more when the acceptance is received twice', async () => {
     const { memberships, savedWorkspace, savedTeam } = joining();
 
-    await memberships.joined(accepted());
-    await memberships.joined(accepted());
+    await both(memberships, accepted());
+    await both(memberships, accepted());
 
     expect(savedWorkspace).toHaveBeenCalledTimes(1);
     expect(savedTeam).toHaveBeenCalledTimes(1);
@@ -148,7 +169,7 @@ describe('InviteMemberships', () => {
       found: false,
     });
 
-    await memberships.joined(accepted());
+    await both(memberships, accepted());
 
     expect(savedWorkspace).not.toHaveBeenCalled();
     expect(savedTeam).not.toHaveBeenCalled();
@@ -159,7 +180,7 @@ describe('InviteMemberships', () => {
       adaLeft: true,
     });
 
-    await memberships.joined(accepted());
+    await both(memberships, accepted());
 
     expect(savedWorkspace).not.toHaveBeenCalled();
     expect(savedTeam).not.toHaveBeenCalled();

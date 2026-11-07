@@ -5,17 +5,19 @@ import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknow
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import type {
+  CheckLeaseRenewal,
+  CheckWorkPort,
+  ClaimedCheck,
+} from '@runs/application/ports/check-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type {
-  CheckLeaseRenewal,
-  CheckWorkPort,
-  ClaimedCheck,
-} from '@work/application/ports/check-work.port';
 
 const ATTEMPTS = 3;
 
@@ -31,9 +33,9 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     workspaceId: WorkspaceId,
     now: Date,
   ): Promise<readonly RunnerPlacement[]> {
-    return (await this.checks.waitingIn(workspaceId, now)).map(
-      (each) => each.request.placement,
-    );
+    return (await this.checks.waitingIn(workspaceId))
+      .filter((each) => each.claimableAt(now))
+      .map((each) => each.request.placement);
   }
 
   claimNext(
@@ -42,16 +44,14 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     offer: RunnerOffer,
     now: Date,
   ): Promise<ClaimedCheck | null> {
-    return this.transaction.inTransaction(async () => {
-      const due = await this.checks.dueForCheck(
-        { workspaceId, runner, offer },
+    return this.transaction.inTransaction(async () =>
+      this.firstClaimed(
+        await this.checks.waitingIn(workspaceId),
+        runner,
+        offer,
         now,
-      );
-
-      return due?.claimableBy(runner, offer, now)
-        ? this.claimed(due, runner, offer, now)
-        : null;
-    });
+      ),
+    );
   }
 
   claimReserved(
@@ -59,25 +59,54 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     offer: RunnerOffer,
     now: Date,
   ): Promise<ClaimedCheck | null> {
-    return this.transaction.inTransaction(async () => {
-      const due = await this.checks.reservedTo(runner, now);
+    return this.transaction.inTransaction(async () =>
+      this.firstClaimed(
+        (await this.checks.reservedFor(runner)).filter((each) =>
+          each.reservation?.isActiveAt(now),
+        ),
+        runner,
+        offer,
+        now,
+      ),
+    );
+  }
 
-      return due?.claimableBy(runner, offer, now)
-        ? this.claimed(due, runner, offer, now)
-        : null;
-    });
+  private async firstClaimed(
+    candidates: readonly StackCheck[],
+    runner: RunnerId,
+    offer: RunnerOffer,
+    now: Date,
+  ): Promise<ClaimedCheck | null> {
+    for (const due of candidates) {
+      if (!due.claimableBy(runner, offer, now)) {
+        continue;
+      }
+
+      try {
+        const claimed = await this.claimed(due, runner, offer, now);
+
+        if (claimed) {
+          return claimed;
+        }
+      } catch (error) {
+        if (!(error instanceof StackCheckVersionConflictError)) {
+          throw error;
+        }
+      }
+    }
+
+    return null;
   }
 
   async unclaim(
-    stackId: string,
+    check: CheckWorkId,
     recheck: boolean,
     runner: RunnerId,
     now: Date,
   ): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       const existing = await this.checks.find(
-        ChangeStackId.of(stackId),
-        recheck,
+        StackCheckId.of(ChangeStackId.of(check.value), recheck),
       );
 
       if (!existing?.beingCheckedBy(runner, now)) {
@@ -98,22 +127,34 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     }
   }
 
+  async isLeasedBy(
+    check: CheckWorkId,
+    runner: RunnerId,
+    now: Date,
+  ): Promise<boolean> {
+    return (await this.checks.ofStack(ChangeStackId.of(check.value))).some(
+      (each) => each.beingCheckedBy(runner, now),
+    );
+  }
+
   async renewLease(
     runId: RunId,
-    stackId: string,
+    work: CheckWorkId,
     recheck: boolean,
     runner: RunnerId,
     now: Date,
   ): Promise<CheckLeaseRenewal> {
     for (let attempt = 1; ; attempt++) {
-      const check = await this.checks.find(ChangeStackId.of(stackId), recheck);
+      const check = await this.checks.find(
+        StackCheckId.of(ChangeStackId.of(work.value), recheck),
+      );
 
       if (!check?.beingCheckedBy(runner, now) || !check.checkableAt(now)) {
         return 'stop';
       }
       if (!check.runId.equals(runId)) {
         throw new UnknownChangeStackError(
-          `Run ${runId.value} has no change stack ${stackId}.`,
+          `Run ${runId.value} has no change stack ${work.value}.`,
         );
       }
 
@@ -140,7 +181,6 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     const stack = await this.stacks.find(due.stackId);
 
     if (!stack) {
-      await this.checks.remove(due.delete(now));
       return null;
     }
 
@@ -148,9 +188,9 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     await this.checks.save(claimed);
 
     return {
-      stackId: stack.id.value,
-      recheck: claimed.recheck,
-      runId: stack.runId.value,
+      checkId: CheckWorkId.of(stack.id.value),
+      repeat: claimed.recheck,
+      runId: stack.runId,
       repository: stack.repository?.value ?? null,
       base: stack.base?.value ?? null,
       setup: claimed.request.setup,

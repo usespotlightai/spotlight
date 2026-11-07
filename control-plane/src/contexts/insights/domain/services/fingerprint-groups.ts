@@ -1,7 +1,7 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { lastConfigsOf } from '@insights/domain/services/config-intervals';
 import { inStartOrder, startOf } from '@insights/domain/services/run-order';
 import { dayOf } from '@insights/domain/value-objects/insights-period.vo';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface FingerprintGroup {
@@ -9,7 +9,7 @@ export interface FingerprintGroup {
   readonly ran: boolean;
   readonly previous: string | null;
   readonly firstRunId: RunId;
-  readonly records: readonly RunRecord[];
+  readonly records: readonly RunFact[];
 }
 
 interface Gathering {
@@ -17,12 +17,12 @@ interface Gathering {
   readonly ran: boolean;
   readonly previous: string | null;
   readonly firstRunId: RunId;
-  readonly records: RunRecord[];
+  readonly records: RunFact[];
 }
 
 export const fingerprintGroupsNewestFirst = (
-  records: readonly RunRecord[],
-  before: readonly RunRecord[] = [],
+  records: readonly RunFact[],
+  before: readonly RunFact[] = [],
 ): readonly FingerprintGroup[] => {
   const inForce = lastConfigsOf(before);
   const groups: Gathering[] = [];
@@ -30,8 +30,8 @@ export const fingerprintGroupsNewestFirst = (
   for (const record of [...records].sort((one, other) =>
     inStartOrder(startOf(one), startOf(other)),
   )) {
-    const stationId = record.end?.location.stationId ?? '';
-    const intended = record.end?.fingerprint ?? null;
+    const stationId = record.end.location.stationId.value;
+    const intended = record.end.fingerprint;
     const running = inForce.get(stationId) ?? null;
     const last = groups[groups.length - 1];
     const open = (fingerprint: string | null, ran: boolean): void => {
@@ -44,7 +44,7 @@ export const fingerprintGroupsNewestFirst = (
       });
     };
 
-    if (record.end?.ranItsConfig && intended !== null) {
+    if (record.end.ranAConfig && intended !== null) {
       if (last?.ran && last.fingerprint === intended) {
         last.records.push(record);
       } else {
@@ -72,7 +72,7 @@ export const fingerprintGroupsNewestFirst = (
 export interface ConfigInForce {
   readonly fingerprint: string;
   readonly firstRunId: RunId;
-  readonly records: readonly RunRecord[];
+  readonly records: readonly RunFact[];
 }
 
 export const configInForce = (
@@ -88,7 +88,7 @@ export const configInForce = (
   }
 
   let oldest = newest;
-  const records: RunRecord[] = [];
+  const records: RunFact[] = [];
 
   for (const group of newestFirst.slice(at)) {
     if (!group.ran) {
@@ -113,10 +113,8 @@ export interface DaySpan {
   readonly lastDay: string | null;
 }
 
-export const daySpanOf = (records: readonly RunRecord[]): DaySpan => {
-  const days = records
-    .flatMap((each) => (each.end ? [dayOf(each.end.endedAt)] : []))
-    .sort();
+export const daySpanOf = (records: readonly RunFact[]): DaySpan => {
+  const days = records.map((each) => dayOf(each.end.endedAt)).sort();
 
   return { firstDay: days[0] ?? null, lastDay: days[days.length - 1] ?? null };
 };

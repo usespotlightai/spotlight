@@ -6,18 +6,17 @@ import type {
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
-import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { RunAttempt } from '@identity/domain/value-objects/run-attempt.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class RunTokens implements RunTokensPort {
   constructor(
@@ -33,13 +32,12 @@ export class RunTokens implements RunTokensPort {
     const id = this.ids.generate();
     const token = WorkspaceToken.forRun({
       id: WorkspaceTokenId.of(id),
-      workspaceId: WorkspaceId.of(wanted.workspaceId),
-      name: TokenName.of(`run-${id.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`),
+      workspaceId: wanted.workspaceId,
       scopes: TokenScopes.named(wanted.scopes),
       hash: TokenHash.of(newToken.hash),
-      issuedBy: UserId.of(wanted.issuedBy),
-      runId: RunId.of(wanted.runId),
-      attempt: wanted.attempt,
+      issuedBy: wanted.issuedBy,
+      runId: wanted.runId,
+      attempt: RunAttempt.of(wanted.attempt),
       expiresAt: wanted.expiresAt,
       now: this.clock.now(),
     });
@@ -49,23 +47,23 @@ export class RunTokens implements RunTokensPort {
     return { id, token: newToken.token };
   }
 
-  async revoke(workspaceId: string, tokenId: string): Promise<void> {
+  async revoke(workspaceId: WorkspaceId, tokenId: string): Promise<void> {
     const token = await this.tokens.find(WorkspaceTokenId.of(tokenId));
 
-    if (token?.workspaceId.value === workspaceId && token.runId) {
+    if (token?.isRunTokenIn(workspaceId)) {
       await this.revoked(token);
     }
   }
 
   async revokeFor(
-    workspaceId: string,
-    runId: string,
+    workspaceId: WorkspaceId,
+    runId: RunId,
     attempt: number | null,
   ): Promise<void> {
     for (const token of await this.tokens.issuedForRun(
-      WorkspaceId.of(workspaceId),
-      RunId.of(runId),
-      attempt,
+      workspaceId,
+      runId,
+      attempt === null ? null : RunAttempt.of(attempt),
     )) {
       await this.revoked(token);
     }

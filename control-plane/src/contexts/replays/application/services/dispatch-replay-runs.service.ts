@@ -1,11 +1,13 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplayRunOwner } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
+import { DispatchSlotTakenError } from '@replays/domain/exceptions/dispatch-slot-taken.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { dispatchedInTurn } from '@replays/domain/services/replay-dispatch';
-import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -14,6 +16,12 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
+const ownerOf = (replay: Replay): ReplayRunOwner => ({
+  workspaceId: replay.workspaceId,
+  teamId: replay.teamId,
+  replayId: replay.id,
+});
+
 export class DispatchReplayRuns implements PendingJobsPort {
   readonly name = 'Dispatching replay runs';
 
@@ -21,7 +29,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly searches: SearchRepository,
-    private readonly work: WorkPort,
+    private readonly replayRuns: ReplayRunDispatching,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -47,24 +55,36 @@ export class DispatchReplayRuns implements PendingJobsPort {
     }
   }
 
-  private reserveFor(team: TeamId): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const inProgress = await this.replays.inProgressOfTeamLocked(team);
-      const searches = await this.searches.findMany(
-        inProgress.flatMap((each) => (each.searchId ? [each.searchId] : [])),
-      );
-      const changed = dispatchedInTurn(
-        inProgress,
-        () => RunId.of(this.ids.generate()),
-        (searchId) =>
-          searches.find((each) => each.id.equals(searchId) && each.isActive)
-            ?.concurrency ?? 0,
-      );
+  private async reserveFor(team: TeamId): Promise<void> {
+    const inProgress = await this.replays.inProgressOfTeam(team);
+    const searches = await this.searches.findMany(
+      inProgress.flatMap((each) => (each.searchId ? [each.searchId] : [])),
+    );
+    const changed = dispatchedInTurn(
+      inProgress,
+      () => RunId.of(this.ids.generate()),
+      (searchId) =>
+        searches.find((each) => each.id.equals(searchId) && each.isActive)
+          ?.concurrency ?? 0,
+    );
 
-      for (const replay of changed) {
-        await this.replays.save(replay);
+    for (const replay of changed) {
+      try {
+        await this.transaction.inTransaction(() => this.replays.save(replay));
+      } catch (error) {
+        if (
+          !(error instanceof ReplayVersionConflictError) &&
+          !(error instanceof DispatchSlotTakenError)
+        ) {
+          throw error;
+        }
+
+        this.logger.info(
+          { replayId: replay.id.value, teamId: team.value },
+          'A replay or its dispatch pool changed before its runs were reserved; the next turn tries again',
+        );
       }
-    });
+    }
   }
 
   private resolve(replay: Replay, entry: ReplayEntry): Promise<void> {
@@ -91,10 +111,10 @@ export class DispatchReplayRuns implements PendingJobsPort {
       );
     }
 
-    const queued = await this.work.dispatch({
+    const queued = await this.replayRuns.dispatch({
       run,
+      owner: ownerOf(replay),
       original: entry.original,
-      workspaceId: replay.workspaceId,
       lineId: replay.station.lineId,
       stationId: replay.station.stationId,
       block: candidate.block,
@@ -109,7 +129,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
     );
 
     if (queued.queued && updated && !updated.isDispatching) {
-      await this.work.cancel(run, false);
+      await this.replayRuns.cancel(run, ownerOf(replay), false);
     }
   }
 
@@ -125,10 +145,14 @@ export class DispatchReplayRuns implements PendingJobsPort {
       return;
     }
 
-    const cancelled = await this.work.cancel(run, leaveRunAsIs);
+    const cancelled = await this.replayRuns.cancel(
+      run,
+      ownerOf(replay),
+      leaveRunAsIs,
+    );
 
     await this.changed(replay, (fresh, now) => {
-      if (cancelled.queued) {
+      if (cancelled.wasQueued) {
         return fresh.confirm(run, cancelled.fingerprint, now);
       }
       if (neverQueued) {

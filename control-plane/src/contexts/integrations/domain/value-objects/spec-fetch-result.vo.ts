@@ -1,6 +1,7 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class SpecFetchResult {
   private constructor(
@@ -49,6 +50,22 @@ export class SpecFetchResult {
     );
   }
 
+  static unread(input: {
+    spec: ApiSpec;
+    readAt: Date;
+    problem: string;
+    kept: {
+      readonly earlier: SpecFetchResult;
+      readonly skipped: readonly string[];
+    } | null;
+  }): SpecFetchResult {
+    return input.kept
+      ? input.kept.earlier
+          .stillAfter(input.problem)
+          .withSkipped(input.kept.skipped)
+      : SpecFetchResult.failed(input);
+  }
+
   static rehydrate(input: {
     fingerprint: string;
     hash: ContentHash | null;
@@ -56,12 +73,26 @@ export class SpecFetchResult {
     problem: string | null;
     skipped: readonly string[];
   }): SpecFetchResult {
+    if (input.problem !== null && input.problem.trim() === '') {
+      throw new InconsistentStateError(
+        'spec fetch',
+        'stores a failed fetch that says nothing about why',
+      );
+    }
+
+    if (!input.hash && input.problem === null) {
+      throw new InconsistentStateError(
+        'spec fetch',
+        'stores a fetch that neither read a spec nor failed',
+      );
+    }
+
     return new SpecFetchResult(
       input.fingerprint,
       input.hash,
       input.readAt,
       input.problem,
-      input.skipped,
+      [...new Set(input.skipped)],
     );
   }
 
@@ -84,8 +115,34 @@ export class SpecFetchResult {
     );
   }
 
+  readAgainAt(at: Date): SpecFetchResult {
+    return new SpecFetchResult(
+      this.fingerprint,
+      this.hash,
+      at,
+      this.problem,
+      this.skipped,
+    );
+  }
+
   isOf(spec: ApiSpec): boolean {
     return this.fingerprint === spec.fingerprint;
+  }
+
+  documentKeptFor(spec: ApiSpec): ContentHash | null {
+    return this.isOf(spec) ? this.hash : null;
+  }
+
+  spareReadingFor(spec: ApiSpec): boolean {
+    return this.documentKeptFor(spec) !== null && this.problem === null;
+  }
+
+  sameReadingAs(other: SpecFetchResult): boolean {
+    return (
+      this.fingerprint === other.fingerprint &&
+      (this.hash?.value ?? null) === (other.hash?.value ?? null) &&
+      this.problem === other.problem
+    );
   }
 
   withSkipped(skipped: readonly string[]): SpecFetchResult {

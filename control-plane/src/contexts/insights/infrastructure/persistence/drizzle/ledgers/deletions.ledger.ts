@@ -1,18 +1,18 @@
 import type { DeletionsPort } from '@insights/application/ports/deletions.port';
-import type { PullRequestTombstone } from '@insights/domain/services/pull-request-tombstone';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import type { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
+import { Tombstones } from '@insights/domain/value-objects/tombstones.vo';
 import {
-  deletedPullRequest,
   deletedTask,
   deletedTeam,
   deletedWorkspace,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 const workspaceKey = (workspaceId: WorkspaceId): string =>
   `insights-workspace:${workspaceId.value}`;
@@ -22,177 +22,104 @@ const teamKey = (workspaceId: WorkspaceId, teamId: TeamId): string =>
 
 const taskKey = (taskId: TaskId): string => `insights-task:${taskId.value}`;
 
-const pullRequestKey = (
-  workspaceId: WorkspaceId,
-  pullRequest: PullRequestUrl,
-): string => `insights-pull-request:${workspaceId.value}:${pullRequest.value}`;
-
 @Injectable()
 export class DrizzleDeletions implements DeletionsPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async deleteTask(workspaceId: WorkspaceId, taskId: TaskId): Promise<void> {
-    await this.lock(taskKey(taskId));
-    await this.context.db
-      .insert(deletedTask)
-      .values({ taskId: taskId.value, workspaceId: workspaceId.value })
-      .onConflictDoNothing();
-  }
-
-  async deleteTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.lock(teamKey(workspaceId, teamId));
-    await this.context.db
-      .insert(deletedTeam)
-      .values({ workspaceId: workspaceId.value, teamId: teamId.value })
-      .onConflictDoNothing();
-  }
-
-  async deleteWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.lock(workspaceKey(workspaceId));
-    await this.context.db
-      .insert(deletedWorkspace)
-      .values({ workspaceId: workspaceId.value })
-      .onConflictDoNothing();
-    await this.context.db
-      .delete(deletedTask)
-      .where(eq(deletedTask.workspaceId, workspaceId.value));
-    await this.context.db
-      .delete(deletedTeam)
-      .where(eq(deletedTeam.workspaceId, workspaceId.value));
-    await this.context.db
-      .delete(deletedPullRequest)
-      .where(eq(deletedPullRequest.workspaceId, workspaceId.value));
-  }
-
-  async lockDeletion(
-    workspaceId: WorkspaceId,
-    taskId: TaskId | null,
-    teamId: TeamId | null = null,
-  ): Promise<void> {
-    await this.share(workspaceKey(workspaceId));
-
-    if (teamId) {
-      await this.share(teamKey(workspaceId, teamId));
-    }
-
-    if (taskId) {
-      await this.lock(taskKey(taskId));
+  async markDeleted(scope: DeletionScope): Promise<void> {
+    switch (scope.kind) {
+      case 'task':
+        await this.lock(taskKey(scope.taskId));
+        await this.context.db
+          .insert(deletedTask)
+          .values({
+            taskId: scope.taskId.value,
+            workspaceId: scope.workspaceId.value,
+          })
+          .onConflictDoNothing();
+        return;
+      case 'team':
+        await this.lock(teamKey(scope.workspaceId, scope.teamId));
+        await this.context.db
+          .insert(deletedTeam)
+          .values({
+            workspaceId: scope.workspaceId.value,
+            teamId: scope.teamId.value,
+          })
+          .onConflictDoNothing();
+        return;
+      case 'workspace':
+        await this.lock(workspaceKey(scope.workspaceId));
+        await this.context.db
+          .insert(deletedWorkspace)
+          .values({ workspaceId: scope.workspaceId.value })
+          .onConflictDoNothing();
+        await this.context.db
+          .delete(deletedTask)
+          .where(eq(deletedTask.workspaceId, scope.workspaceId.value));
+        await this.context.db
+          .delete(deletedTeam)
+          .where(eq(deletedTeam.workspaceId, scope.workspaceId.value));
+        return;
     }
   }
 
-  async isDeleted(
-    workspaceId: WorkspaceId,
-    taskId: TaskId | null,
-    teamId: TeamId | null = null,
-  ): Promise<boolean> {
-    const [workspace] = await this.context.db
+  async tombstonesOf(owner: FactOwner): Promise<Tombstones> {
+    await this.share(workspaceKey(owner.workspaceId));
+
+    if (owner.teamId) {
+      await this.share(teamKey(owner.workspaceId, owner.teamId));
+    }
+
+    if (owner.taskId) {
+      await this.lock(taskKey(owner.taskId));
+    }
+
+    return Tombstones.of({
+      workspace: await this.workspaceDeleted(owner.workspaceId),
+      team:
+        owner.teamId !== null &&
+        (await this.teamDeleted(owner.workspaceId, owner.teamId)),
+      task: owner.taskId !== null && (await this.taskDeleted(owner.taskId)),
+    });
+  }
+
+  private async workspaceDeleted(workspaceId: WorkspaceId): Promise<boolean> {
+    const [found] = await this.context.db
       .select({ workspaceId: deletedWorkspace.workspaceId })
       .from(deletedWorkspace)
       .where(eq(deletedWorkspace.workspaceId, workspaceId.value))
       .limit(1);
 
-    if (workspace) {
-      return true;
-    }
+    return found !== undefined;
+  }
 
-    if (teamId) {
-      const [team] = await this.context.db
-        .select({ teamId: deletedTeam.teamId })
-        .from(deletedTeam)
-        .where(
-          and(
-            eq(deletedTeam.workspaceId, workspaceId.value),
-            eq(deletedTeam.teamId, teamId.value),
-          ),
-        )
-        .limit(1);
+  private async teamDeleted(
+    workspaceId: WorkspaceId,
+    teamId: TeamId,
+  ): Promise<boolean> {
+    const [found] = await this.context.db
+      .select({ teamId: deletedTeam.teamId })
+      .from(deletedTeam)
+      .where(
+        and(
+          eq(deletedTeam.workspaceId, workspaceId.value),
+          eq(deletedTeam.teamId, teamId.value),
+        ),
+      )
+      .limit(1);
 
-      if (team) {
-        return true;
-      }
-    }
+    return found !== undefined;
+  }
 
-    if (!taskId) {
-      return false;
-    }
-
-    const [task] = await this.context.db
+  private async taskDeleted(taskId: TaskId): Promise<boolean> {
+    const [found] = await this.context.db
       .select({ taskId: deletedTask.taskId })
       .from(deletedTask)
       .where(eq(deletedTask.taskId, taskId.value))
       .limit(1);
 
-    return task !== undefined;
-  }
-
-  async lockPullRequestDeletion(
-    workspaceId: WorkspaceId,
-    pullRequest: PullRequestUrl,
-  ): Promise<void> {
-    await this.lock(pullRequestKey(workspaceId, pullRequest));
-  }
-
-  async deletePullRequest(
-    workspaceId: WorkspaceId,
-    pullRequest: PullRequestUrl,
-    tombstone: PullRequestTombstone,
-  ): Promise<void> {
-    await this.context.db
-      .insert(deletedPullRequest)
-      .values({
-        workspaceId: workspaceId.value,
-        pullRequest: pullRequest.value,
-        updatedAt: tombstone.updatedAt,
-      })
-      .onConflictDoUpdate({
-        target: [
-          deletedPullRequest.workspaceId,
-          deletedPullRequest.pullRequest,
-        ],
-        set: {
-          updatedAt: sql`greatest(${deletedPullRequest.updatedAt}, excluded.updated_at)`,
-        },
-      });
-  }
-
-  async tombstoneOf(
-    workspaceId: WorkspaceId,
-    pullRequest: PullRequestUrl,
-  ): Promise<PullRequestTombstone | null> {
-    const [found] = await this.context.db
-      .select({ updatedAt: deletedPullRequest.updatedAt })
-      .from(deletedPullRequest)
-      .where(
-        and(
-          eq(deletedPullRequest.workspaceId, workspaceId.value),
-          eq(deletedPullRequest.pullRequest, pullRequest.value),
-        ),
-      )
-      .limit(1);
-
-    return found ?? null;
-  }
-
-  async purgeTombstonesBefore(before: Date, max: number): Promise<number> {
-    const expired = this.context.db
-      .select({
-        workspaceId: deletedPullRequest.workspaceId,
-        pullRequest: deletedPullRequest.pullRequest,
-      })
-      .from(deletedPullRequest)
-      .where(lt(deletedPullRequest.updatedAt, before))
-      .limit(max);
-    const dropped = await this.context.db
-      .delete(deletedPullRequest)
-      .where(
-        inArray(
-          sql`(${deletedPullRequest.workspaceId}, ${deletedPullRequest.pullRequest})`,
-          expired,
-        ),
-      )
-      .returning({ pullRequest: deletedPullRequest.pullRequest });
-
-    return dropped.length;
+    return found !== undefined;
   }
 
   private async lock(key: string): Promise<void> {

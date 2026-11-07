@@ -12,7 +12,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const RETENTION_MS = 7 * 24 * 60 * 60_000;
 
-interface State {
+interface Props {
   readonly lease: RunLease;
   readonly workspaceId: WorkspaceId;
   readonly grants: readonly SecretGrant[];
@@ -20,6 +20,10 @@ interface State {
   readonly leaseLost: boolean;
   readonly endedAt: Date | null;
   readonly version: number;
+}
+
+interface State extends Props {
+  readonly stored: boolean;
 }
 
 export class RunGrants extends EventRecorder {
@@ -39,11 +43,12 @@ export class RunGrants extends EventRecorder {
       leaseLost: false,
       endedAt: null,
       version: 0,
+      stored: false,
     });
   }
 
-  static rehydrate(record: State): RunGrants {
-    if (!Number.isInteger(record.version) || record.version < 1) {
+  static rehydrate(record: Props): RunGrants {
+    if (!Number.isInteger(record.version) || record.version < 0) {
       throw new InconsistentStateError(
         'run grants',
         `has an impossible version (${record.version})`,
@@ -57,7 +62,11 @@ export class RunGrants extends EventRecorder {
       );
     }
 
-    return new RunGrants({ ...record, grants: [...record.grants] });
+    return new RunGrants({
+      ...record,
+      grants: [...record.grants],
+      stored: true,
+    });
   }
 
   static retentionCutoff(now: Date): Date {
@@ -189,7 +198,7 @@ export class RunGrants extends EventRecorder {
   }
 
   get isNew(): boolean {
-    return this.state.version === 0;
+    return !this.state.stored;
   }
 
   private atLease(lease: RunLease): RunGrants {

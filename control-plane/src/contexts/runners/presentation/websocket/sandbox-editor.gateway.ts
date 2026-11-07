@@ -1,14 +1,19 @@
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import {
+  SESSION_READER,
+  type SessionReaderPort,
+} from '@identity/application/ports/session-reader.port';
+import {
   type BeforeApplicationShutdown,
   Inject,
   Injectable,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { bearerIn } from '@platform/http/bearer';
-import { API_PREFIX, SANDBOX_CONNECT } from '@platform/http/routes';
+import { API_PREFIX } from '@platform/http/routes';
 import {
   listenForUpgrades,
   refuseUpgrade,
@@ -16,20 +21,18 @@ import {
   upgradeUrl,
 } from '@platform/websocket/upgrades';
 import type { EditorConnectionDto } from '@runners/application/dto/sandbox-editor.dto';
-import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
+import {
+  EDITOR_SESSIONS,
+  type EditorSessionsPort,
+} from '@runners/application/ports/editor-sessions.port';
 import { EditorSession } from '@runners/presentation/websocket/editor-session';
 import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import {
-  type AuthenticatedUser,
-  SESSION_READER,
-  type SessionReaderPort,
-} from '@shared-kernel/application/ports/session.port';
 import { WebSocketServer } from 'ws';
 
-const CONNECT_PATH = `/${API_PREFIX}/${SANDBOX_CONNECT}`;
+const CONNECT_PATH = `/${API_PREFIX}/sandboxes/connect`;
 
 const MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 
@@ -53,7 +56,7 @@ export class SandboxEditorGateway
 
   constructor(
     private readonly adapters: HttpAdapterHost,
-    private readonly editors: SandboxEditors,
+    @Inject(EDITOR_SESSIONS) private readonly editors: EditorSessionsPort,
     @Inject(SESSION_READER) private readonly people: SessionReaderPort,
     @Inject(LOGGER) private readonly logger: LoggerPort,
   ) {}

@@ -31,8 +31,7 @@ const TITLES = new Map<string, string | null>([
 
 const rowsOf = (theirs: Replay | null, ours = candidate()) =>
   taskRowsOf(
-    taskComparisons(ours, theirs),
-    { candidate: ours.scoring, live: theirs?.scoring ?? null },
+    taskComparisons(ours.outcome(), theirs?.outcome() ?? null),
     TITLES,
   );
 

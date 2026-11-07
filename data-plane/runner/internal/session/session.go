@@ -38,6 +38,7 @@ type Journal interface {
 	ReplyToReviewComment(ctx context.Context, runID string, reply protocol.ReviewCommentReply) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	History(ctx context.Context, runID string, request protocol.HistoryRequest) (json.RawMessage, error)
+	SearchView(ctx context.Context, runID string) (json.RawMessage, error)
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.RememberRequest) (json.RawMessage, error)
@@ -48,7 +49,7 @@ type Journal interface {
 	AckMessages(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 	AskPermission(ctx context.Context, runID string, asked protocol.PermissionRequest) (protocol.PermissionResponse, error)
-	WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
+	WorkingCopyArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
 	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
 	GrantAttachment(ctx context.Context, runID string, request protocol.AttachmentRequest) (protocol.AttachmentGrant, error)
 	CompleteArchive(ctx context.Context, runID, archiveID string) error
@@ -217,7 +218,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	if err := lifecycle.advance(WorkspaceReady); err != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
-	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
+	journal.record(ctx, protocol.Event{Type: protocol.EventWorkingCopyReady, Message: space.Dir})
 	archiver.recordBaseline()
 
 	channel, err := agentapi.Serve(
@@ -252,7 +253,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	})
 
 	channel.Histories(func(ctx context.Context, request protocol.HistoryRequest) (json.RawMessage, error) {
-		return opts.Journal.History(ctx, run.ID, request)
+		return history(ctx, opts.Journal, run, request)
 	})
 
 	channel.Memories(

@@ -1,17 +1,19 @@
-import { AuthorAssociation } from '@github/application/contracts/author-association.contract';
-import type {
-  PullRequestActivity,
-  PullRequestActivityKind,
-} from '@github/application/dto/pull-request-activity.dto';
+import { isOutsideAuthor } from '@github/application/contracts/author-association.contract';
+import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
 import type {
   Delivered,
   HappeningDeclaration,
   WebhookProviderPort,
 } from '@integrations/application/ports/webhook-provider.port';
+import {
+  type PullRequestActivityFacts,
+  type PullRequestHappening,
+  PullRequestHappenings,
+  type ReportedActivity,
+  type ReviewTrigger,
+} from '@integrations/domain/services/pull-request-happenings';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
-import { WebhookProvider } from '@integrations/infrastructure/webhooks/webhook-provider.decorator';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
@@ -19,7 +21,6 @@ import {
   PULL_REQUEST_MARK,
   REVIEW_MARK,
   REVIEW_ROLE,
-  type ReviewTrigger,
 } from '@work/application/contracts/happenings.contract';
 
 const raised = (input: {
@@ -55,17 +56,7 @@ const REVIEW_REQUEST_RAISED: Readonly<
   }),
 };
 
-type ReviewRequestKind = Extract<
-  PullRequestActivityKind,
-  'opened' | 'labelled'
->;
-
-const RAISED: Readonly<
-  Record<
-    Exclude<PullRequestActivityKind, ReviewRequestKind>,
-    HappeningDeclaration
-  >
-> = {
+const RAISED: Readonly<Record<ReportedActivity, HappeningDeclaration>> = {
   merged: raised({
     key: 'github.pull_request.merged',
     label: 'Pull request merged',
@@ -95,13 +86,6 @@ const RAISED: Readonly<
   }),
 };
 
-const failUnnamed = (event: PullRequestActivity): never => {
-  throw new UpstreamError(
-    `reading a GitHub ${event.activity} delivery`,
-    'it names neither a branch nor a pull request',
-  );
-};
-
 const failedChecksOf = (event: PullRequestActivity): Happened['message'] =>
   event.failedChecks.length > 0
     ? { body: `Failed: ${event.failedChecks.join(', ')}.` }
@@ -118,18 +102,25 @@ const messageOf = (event: PullRequestActivity): Happened['message'] =>
       }
     : null;
 
-const describedFor = (pullRequest: string, body: string | null): string =>
-  [`Review ${pullRequest}`, body ?? ''].filter(Boolean).join('\n\n');
+const factsOf = (event: PullRequestActivity): PullRequestActivityFacts => ({
+  activity: event.activity,
+  pullRequest: event.pullRequest ? PullRequestUrl.of(event.pullRequest) : null,
+  branch: event.branch,
+  labelled: event.label !== null && event.label !== '',
+  described: event.details !== null,
+  body: event.details?.body ?? null,
+  comment: event.reviewComment?.body ?? null,
+});
 
-const reviewRequestFor = (
+type ReviewRequest = Extract<PullRequestHappening, { kind: 'review-request' }>;
+
+const reviewRequested = (
   event: PullRequestActivity,
-  trigger: ReviewTrigger,
-): Happened | null => {
-  if (!event.pullRequest || !event.details) {
-    return null;
-  }
-
-  const pullRequest = PullRequestUrl.of(event.pullRequest).value;
+  happening: ReviewRequest,
+  details: NonNullable<PullRequestActivity['details']>,
+): Happened => {
+  const { trigger } = happening;
+  const pullRequest = happening.pullRequest.value;
   const marks = [{ kind: REVIEW_MARK, value: pullRequest }];
   const raising = REVIEW_REQUEST_RAISED[trigger];
 
@@ -139,108 +130,83 @@ const reviewRequestFor = (
     answers: raising.answers,
     state: 'raised',
     correlationKeys: { branch: null, marks },
-    message: trigger === 'mentioned' ? messageOf(event) : null,
-    ourOwn: event.byBot,
+    message: happening.carriesComment ? messageOf(event) : null,
+    ourOwn: event.ignoredAsBot,
     opens: {
       lineRole: REVIEW_ROLE,
       station: null,
-      title: event.details.title,
-      description: describedFor(pullRequest, event.details.body),
+      title: details.title,
+      description: happening.description,
       assignEmail: null,
       marks,
       review: {
         trigger,
         label: event.label,
         pullRequest,
-        author: event.details.author,
-        outside: AuthorAssociation.of(event.details.authorAssociation)
-          .isOutside,
-        draft: event.details.draft,
+        author: details.author,
+        outside: isOutsideAuthor(details.authorAssociation),
+        draft: details.draft,
         branch: event.branch,
       },
     },
   };
 };
 
-const mentions = (event: PullRequestActivity): boolean =>
-  (event.activity === 'commented' || event.activity === 'changes-requested') &&
-  (event.reviewComment?.body.includes('@') ?? false);
-
-const happenedIn = (event: PullRequestActivity): readonly Happened[] => {
-  if (event.activity === 'opened') {
-    if (!event.pullRequest) {
-      failUnnamed(event);
-    }
-
-    const reviewRequest = reviewRequestFor(event, 'opened');
-
-    return reviewRequest ? [reviewRequest] : [];
-  }
-
-  if (event.activity === 'labelled') {
-    const reviewRequest = event.label
-      ? reviewRequestFor(event, 'labelled')
-      : null;
-
-    return reviewRequest ? [reviewRequest] : [];
-  }
-
-  const mentioned = mentions(event)
-    ? reviewRequestFor(event, 'mentioned')
-    : null;
-  const payload = happened({ ...event, activity: event.activity });
-
-  return [
-    payload,
-    ...(event.pullRequest ? [toItsReview(payload, event.pullRequest)] : []),
-    ...(mentioned ? [mentioned] : []),
-  ];
-};
-
-// The task that opened a pull request and the task that reviews it each receive the word through their own mark.
-const toItsReview = (payload: Happened, pullRequest: string): Happened => ({
-  ...payload,
-  correlationKeys: {
-    branch: null,
-    marks: [{ kind: REVIEW_MARK, value: PullRequestUrl.of(pullRequest).value }],
-  },
-});
-
-const happened = (
-  event: PullRequestActivity & {
-    activity: Exclude<PullRequestActivityKind, ReviewRequestKind>;
-  },
+const reported = (
+  event: PullRequestActivity,
+  activity: ReportedActivity,
+  correlationKeys: Happened['correlationKeys'],
 ): Happened => {
-  const raising = RAISED[event.activity];
-  const concerns = {
-    branch: event.branch,
-    marks: event.pullRequest
-      ? [
-          {
-            kind: PULL_REQUEST_MARK,
-            value: PullRequestUrl.of(event.pullRequest).value,
-          },
-        ]
-      : [],
-  };
-
-  if (!concerns.branch && concerns.marks.length === 0) {
-    failUnnamed(event);
-  }
+  const raising = RAISED[activity];
 
   return {
     happening: raising.happening.value,
     summary: raising.summary,
     answers: raising.answers,
     state: 'raised',
-    correlationKeys: concerns,
+    correlationKeys,
     message: messageOf(event) ?? failedChecksOf(event),
-    ourOwn: event.byBot,
+    ourOwn: event.ignoredAsBot,
     opens: null,
   };
 };
 
-@WebhookProvider()
+const happenedFrom = (
+  event: PullRequestActivity,
+  happening: PullRequestHappening,
+): Happened | null => {
+  if (happening.kind === 'review-request') {
+    return event.details
+      ? reviewRequested(event, happening, event.details)
+      : null;
+  }
+
+  const { pullRequest } = happening;
+
+  return reported(
+    event,
+    happening.activity,
+    happening.to === 'its-review' && pullRequest
+      ? {
+          branch: null,
+          marks: [{ kind: REVIEW_MARK, value: pullRequest.value }],
+        }
+      : {
+          branch: happening.branch,
+          marks: pullRequest
+            ? [{ kind: PULL_REQUEST_MARK, value: pullRequest.value }]
+            : [],
+        },
+  );
+};
+
+const happenedIn = (event: PullRequestActivity): readonly Happened[] =>
+  PullRequestHappenings.of(factsOf(event)).flatMap((happening) => {
+    const happened = happenedFrom(event, happening);
+
+    return happened ? [happened] : [];
+  });
+
 export class GitHubWebhookProvider implements WebhookProviderPort {
   readonly key = 'github';
 
@@ -269,9 +235,11 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
     return this.github.workspaceOf(delivered);
   }
 
-  async read(delivered: Delivered): Promise<readonly Happened[]> {
+  async received(delivered: Delivered): Promise<void> {
     await this.github.receive(delivered);
+  }
 
+  async read(delivered: Delivered): Promise<readonly Happened[]> {
     return (await this.github.activityIn(delivered)).flatMap(happenedIn);
   }
 }

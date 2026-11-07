@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AckMessagesData, AckMessagesErrors, AckMessagesResponses, AddMyEmailData, AddMyEmailErrors, AddMyEmailResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AddTeamMemberData, AddTeamMemberErrors, AddTeamMemberResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerStackQuestionData, AnswerStackQuestionErrors, AnswerStackQuestionResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ApproveMemoriesData, ApproveMemoriesErrors, ApproveMemoriesResponses, AskPermissionData, AskPermissionErrors, AskPermissionResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, AuthorizeRunnerData, AuthorizeRunnerErrors, AuthorizeRunnerResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CheckActiveRunsData, CheckActiveRunsErrors, CheckActiveRunsResponses, CheckExpressionData, CheckExpressionErrors, CheckExpressionResponses, ClaimHostCallData, ClaimHostCallErrors, ClaimHostCallResponses, ClaimHostWorkData, ClaimHostWorkErrors, ClaimHostWorkResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CompleteSandboxArchiveData, CompleteSandboxArchiveErrors, CompleteSandboxArchiveResponses, CompleteWorkspaceArchiveData, CompleteWorkspaceArchiveErrors, CompleteWorkspaceArchiveResponses, ConnectEditorData, ConnectEditorErrors, ConnectEditorResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateEgressData, CreateEgressErrors, CreateEgressResponses, CreateHarnessProfileData, CreateHarnessProfileErrors, CreateHarnessProfileResponses, CreateHookData, CreateHookErrors, CreateHookResponses, CreateIntegrationData, CreateIntegrationErrors, CreateIntegrationResponses, CreateLineData, CreateLineErrors, CreateLineResponses, CreateOidcTrustData, CreateOidcTrustErrors, CreateOidcTrustResponses, CreateRunnerPoolData, CreateRunnerPoolErrors, CreateRunnerPoolResponses, CreateRunnerTrustData, CreateRunnerTrustErrors, CreateRunnerTrustResponses, CreateSecretData, CreateSecretErrors, CreateSecretResponses, CreateSkillData, CreateSkillErrors, CreateSkillResponses, CreateTeamData, CreateTeamErrors, CreateTeamResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CreateWorkspaceRunnersData, CreateWorkspaceRunnersErrors, CreateWorkspaceRunnersResponses, CreateWorkspaceTokenData, CreateWorkspaceTokenErrors, CreateWorkspaceTokenResponses, CreateWorkspaceWithTeamData, CreateWorkspaceWithTeamErrors, CreateWorkspaceWithTeamResponses, DeleteEgressData, DeleteEgressErrors, DeleteEgressResponses, DeleteHarnessProfileData, DeleteHarnessProfileErrors, DeleteHarnessProfileResponses, DeleteHookData, DeleteHookErrors, DeleteHookResponses, DeleteHostData, DeleteHostErrors, DeleteHostResponses, DeleteIntegrationData, DeleteIntegrationErrors, DeleteIntegrationResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteOidcTrustData, DeleteOidcTrustErrors, DeleteOidcTrustResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteRunnerPoolData, DeleteRunnerPoolErrors, DeleteRunnerPoolResponses, DeleteRunnerTrustData, DeleteRunnerTrustErrors, DeleteRunnerTrustResponses, DeleteSecretData, DeleteSecretErrors, DeleteSecretResponses, DeleteSkillData, DeleteSkillErrors, DeleteSkillResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeleteTeamData, DeleteTeamErrors, DeleteTeamResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DeleteWorkspaceRunnersData, DeleteWorkspaceRunnersErrors, DeleteWorkspaceRunnersResponses, DeleteWorkspaceTokenData, DeleteWorkspaceTokenErrors, DeleteWorkspaceTokenResponses, DeregisterHostData, DeregisterHostErrors, DeregisterHostResponses, DisconnectIntegrationData, DisconnectIntegrationErrors, DisconnectIntegrationResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DisputeDecisionData, DisputeDecisionErrors, DisputeDecisionResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditMemoryData, EditMemoryErrors, EditMemoryResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, ExchangeWorkloadTokenData, ExchangeWorkloadTokenErrors, ExchangeWorkloadTokenResponses, ExportWorkspaceData, ExportWorkspaceErrors, ExportWorkspaceResponses, FetchRunSecretsData, FetchRunSecretsErrors, FetchRunSecretsResponses, GenerateChangeStackData, GenerateChangeStackErrors, GenerateChangeStackResponses, GetErrorReportingData, GetErrorReportingResponses, GetHealthData, GetHealthResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GradeRunData, GradeRunErrors, GradeRunResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, GrantRunAttachmentUploadData, GrantRunAttachmentUploadErrors, GrantRunAttachmentUploadResponses, GrantSandboxArchiveData, GrantSandboxArchiveErrors, GrantSandboxArchiveResponses, GrantWorkspaceArchiveData, GrantWorkspaceArchiveErrors, GrantWorkspaceArchiveResponses, HookIssuerData, HookIssuerResponses, HookSigningKeysData, HookSigningKeysResponses, HostHeartbeatData, HostHeartbeatErrors, HostHeartbeatResponses, HostRequirementsData, HostRequirementsErrors, HostRequirementsResponses, ImportEgressData, ImportEgressErrors, ImportEgressResponses, ImportHarnessProfileData, ImportHarnessProfileErrors, ImportHarnessProfileResponses, ImportHookData, ImportHookErrors, ImportHookResponses, ImportIntegrationData, ImportIntegrationErrors, ImportIntegrationResponses, ImportLineData, ImportLineErrors, ImportLineResponses, ImportOidcTrustData, ImportOidcTrustErrors, ImportOidcTrustResponses, ImportRunnerPoolData, ImportRunnerPoolErrors, ImportRunnerPoolResponses, ImportRunnerTrustData, ImportRunnerTrustErrors, ImportRunnerTrustResponses, ImportSecretData, ImportSecretErrors, ImportSecretResponses, ImportSkillData, ImportSkillErrors, ImportSkillResponses, ImportTeamData, ImportTeamErrors, ImportTeamResponses, ImportWorkspaceData, ImportWorkspaceErrors, ImportWorkspaceResponses, ImportWorkspaceRunnersData, ImportWorkspaceRunnersErrors, ImportWorkspaceRunnersResponses, ImportWorkspaceTokenData, ImportWorkspaceTokenErrors, ImportWorkspaceTokenResponses, InviteToWorkspaceData, InviteToWorkspaceErrors, InviteToWorkspaceResponses, ListChatJournalRunsData, ListChatJournalRunsErrors, ListChatJournalRunsResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListConfigurationChangesData, ListConfigurationChangesErrors, ListConfigurationChangesResponses, ListEgressesData, ListEgressesErrors, ListEgressesResponses, ListExpressionPositionsData, ListExpressionPositionsErrors, ListExpressionPositionsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListHarnessProbesData, ListHarnessProbesErrors, ListHarnessProbesResponses, ListHarnessProfilesData, ListHarnessProfilesErrors, ListHarnessProfilesResponses, ListHooksData, ListHooksErrors, ListHooksResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListInsightsPullRequestsData, ListInsightsPullRequestsErrors, ListInsightsPullRequestsResponses, ListInsightsTracesData, ListInsightsTracesErrors, ListInsightsTracesResponses, ListIntegrationConnectionsData, ListIntegrationConnectionsErrors, ListIntegrationConnectionsResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMemberWorkspacesData, ListMemberWorkspacesErrors, ListMemberWorkspacesResponses, ListMergedDecisionsData, ListMergedDecisionsErrors, ListMergedDecisionsResponses, ListMyEmailsData, ListMyEmailsErrors, ListMyEmailsResponses, ListOidcTrustsData, ListOidcTrustsErrors, ListOidcTrustsResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnerPoolsData, ListRunnerPoolsErrors, ListRunnerPoolsResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListRunnerTrustsData, ListRunnerTrustsErrors, ListRunnerTrustsResponses, ListSecretsData, ListSecretsErrors, ListSecretsResponses, ListSkillsData, ListSkillsErrors, ListSkillsResponses, ListTaskJournalRunsData, ListTaskJournalRunsErrors, ListTaskJournalRunsResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamLinesData, ListTeamLinesErrors, ListTeamLinesResponses, ListTeamMemoriesData, ListTeamMemoriesErrors, ListTeamMemoriesResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamsData, ListTeamsErrors, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamsResponses, ListWorkspaceInvitesData, ListWorkspaceInvitesErrors, ListWorkspaceInvitesResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, ListWorkspaceOidcTrustsData, ListWorkspaceOidcTrustsErrors, ListWorkspaceOidcTrustsResponses, ListWorkspaceRunnersData, ListWorkspaceRunnersErrors, ListWorkspaceRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, ListWorkspaceTokensData, ListWorkspaceTokensErrors, ListWorkspaceTokensResponses, MarkInboxItemReadData, MarkInboxItemReadErrors, MarkInboxItemReadResponses, MarkInboxRequestReadData, MarkInboxRequestReadErrors, MarkInboxRequestReadResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, NoteOnHookTaskData, NoteOnHookTaskErrors, NoteOnHookTaskResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, PoolQueueData, PoolQueueErrors, PoolQueueResponses, ProposeSearchCandidateData, ProposeSearchCandidateErrors, ProposeSearchCandidateResponses, ReadAttachmentData, ReadAttachmentErrors, ReadCatalogSkillData, ReadCatalogSkillErrors, ReadCatalogSkillResponses, ReadCatalogToolData, ReadCatalogToolErrors, ReadCatalogToolResponses, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadEgressData, ReadEgressErrors, ReadEgressResponses, ReadGitHubData, ReadGitHubErrors, ReadGitHubResponses, ReadHarnessProfileData, ReadHarnessProfileErrors, ReadHarnessProfileResponses, ReadHookData, ReadHookErrors, ReadHookResponses, ReadHookTaskData, ReadHookTaskErrors, ReadHookTaskResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadInboxNoticeData, ReadInboxNoticeErrors, ReadInboxNoticeResponses, ReadInsightsAgentConfigsData, ReadInsightsAgentConfigsErrors, ReadInsightsAgentConfigsResponses, ReadInsightsChangesData, ReadInsightsChangesErrors, ReadInsightsChangesResponses, ReadInsightsCostData, ReadInsightsCostErrors, ReadInsightsCostResponses, ReadInsightsFlowData, ReadInsightsFlowErrors, ReadInsightsFlowResponses, ReadInsightsMemoryData, ReadInsightsMemoryErrors, ReadInsightsMemoryResponses, ReadInsightsOverviewData, ReadInsightsOverviewErrors, ReadInsightsOverviewResponses, ReadInsightsPeopleData, ReadInsightsPeopleErrors, ReadInsightsPeopleResponses, ReadInsightsPullRequestsData, ReadInsightsPullRequestsErrors, ReadInsightsPullRequestsResponses, ReadInsightsShippingData, ReadInsightsShippingErrors, ReadInsightsShippingResponses, ReadInsightsStationsData, ReadInsightsStationsErrors, ReadInsightsStationsResponses, ReadInsightsToolsData, ReadInsightsToolsErrors, ReadInsightsToolsResponses, ReadIntegrationData, ReadIntegrationErrors, ReadIntegrationResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadLineData, ReadLineErrors, ReadLineResponses, ReadMemoryFilesData, ReadMemoryFilesErrors, ReadMemoryFilesResponses, ReadMemoryReviewData, ReadMemoryReviewErrors, ReadMemoryReviewResponses, ReadOidcTrustData, ReadOidcTrustErrors, ReadOidcTrustResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadReplayCheckData, ReadReplayCheckErrors, ReadReplayCheckResponses, ReadReplayedCandidatesData, ReadReplayedCandidatesErrors, ReadReplayedCandidatesResponses, ReadResourceHclData, ReadResourceHclErrors, ReadResourceHclResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConfigData, ReadRunConfigErrors, ReadRunConfigResponses, ReadRunHistoryData, ReadRunHistoryErrors, ReadRunHistoryResponses, ReadRunMemoriesData, ReadRunMemoriesErrors, ReadRunMemoriesResponses, ReadRunnerPoolData, ReadRunnerPoolErrors, ReadRunnerPoolResponses, ReadRunnerTrustData, ReadRunnerTrustErrors, ReadRunnerTrustResponses, ReadRunNetworkData, ReadRunNetworkErrors, ReadRunNetworkResponses, ReadRunNotesData, ReadRunNotesErrors, ReadRunNotesResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunScoresData, ReadRunScoresErrors, ReadRunScoresResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadSandboxArchiveData, ReadSandboxArchiveErrors, ReadSandboxArchiveResponses, ReadSecretData, ReadSecretErrors, ReadSecretResponses, ReadSkillData, ReadSkillErrors, ReadSkillResponses, ReadStationAlertData, ReadStationAlertErrors, ReadStationAlertResponses, ReadStationInsightsData, ReadStationInsightsErrors, ReadStationInsightsResponses, ReadStationJudgeData, ReadStationJudgeErrors, ReadStationJudgeResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskData, ReadTaskDecisionsData, ReadTaskDecisionsErrors, ReadTaskDecisionsResponses, ReadTaskErrors, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, ReadTeamData, ReadTeamErrors, ReadTeamMemoryData, ReadTeamMemoryErrors, ReadTeamMemoryResponses, ReadTeamResponses, ReadTeamRunData, ReadTeamRunErrors, ReadTeamRunResponses, ReadWorkspaceArchiveData, ReadWorkspaceArchiveErrors, ReadWorkspaceArchiveResponses, ReadWorkspaceData, ReadWorkspaceErrors, ReadWorkspaceResponses, ReadWorkspaceRunnersData, ReadWorkspaceRunnersErrors, ReadWorkspaceRunnersResponses, ReadWorkspaceTokenData, ReadWorkspaceTokenErrors, ReadWorkspaceTokenResponses, RecallMemoriesData, RecallMemoriesErrors, RecallMemoriesResponses, RecallMemoryData, RecallMemoryErrors, RecallMemoryResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RecordEgressConnectionsData, RecordEgressConnectionsErrors, RecordEgressConnectionsResponses, RecordFailureCauseData, RecordFailureCauseErrors, RecordFailureCauseResponses, RecordHostCallResponseData, RecordHostCallResponseErrors, RecordHostCallResponseResponses, RecordRunImageData, RecordRunImageErrors, RecordRunImageResponses, RecordStartingPointData, RecordStartingPointErrors, RecordStartingPointResponses, RedeemCallSecretsData, RedeemCallSecretsErrors, RedeemCallSecretsResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RejectMemoryData, RejectMemoryErrors, RejectMemoryResponses, RememberData, RememberErrors, RememberResponses, RemoveMyEmailData, RemoveMyEmailErrors, RemoveMyEmailResponses, RenewCheckLeaseData, RenewCheckLeaseErrors, RenewCheckLeaseResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReopenInboxItemData, ReopenInboxItemErrors, ReopenInboxItemResponses, ReopenInboxNoticeData, ReopenInboxNoticeErrors, ReopenInboxNoticeResponses, ReopenInboxRequestData, ReopenInboxRequestErrors, ReopenInboxRequestResponses, ReplyToReviewCommentData, ReplyToReviewCommentErrors, ReplyToReviewCommentResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, ResendMyEmailVerificationData, ResendMyEmailVerificationErrors, ResendMyEmailVerificationResponses, ResolveInboxItemData, ResolveInboxItemErrors, ResolveInboxItemResponses, ResolveInboxNoticeData, ResolveInboxNoticeErrors, ResolveInboxNoticeResponses, ResolveInboxRequestData, ResolveInboxRequestErrors, ResolveInboxRequestResponses, RetireMemoryData, RetireMemoryErrors, RetireMemoryResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SendChatMessageData, SendChatMessageErrors, SendChatMessageResponses, SendMessageData, SendMessageErrors, SendMessageResponses, SetMyToolRuleData, SetMyToolRuleErrors, SetMyToolRuleResponses, StartChatData, StartChatErrors, StartChatResponses, StartReplayCheckData, StartReplayCheckErrors, StartReplayCheckResponses, StopChatData, StopChatErrors, StopChatResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, UpdateEgressData, UpdateEgressErrors, UpdateEgressResponses, UpdateHarnessProfileData, UpdateHarnessProfileErrors, UpdateHarnessProfileResponses, UpdateHookData, UpdateHookErrors, UpdateHookResponses, UpdateIntegrationData, UpdateIntegrationErrors, UpdateIntegrationResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateOidcTrustData, UpdateOidcTrustErrors, UpdateOidcTrustResponses, UpdateRunnerPoolData, UpdateRunnerPoolErrors, UpdateRunnerPoolResponses, UpdateRunnerTrustData, UpdateRunnerTrustErrors, UpdateRunnerTrustResponses, UpdateSecretData, UpdateSecretErrors, UpdateSecretResponses, UpdateSkillData, UpdateSkillErrors, UpdateSkillResponses, UpdateTeamData, UpdateTeamErrors, UpdateTeamResponses, UpdateWorkspaceData, UpdateWorkspaceErrors, UpdateWorkspaceResponses, UpdateWorkspaceRunnersData, UpdateWorkspaceRunnersErrors, UpdateWorkspaceRunnersResponses, UpdateWorkspaceTokenData, UpdateWorkspaceTokenErrors, UpdateWorkspaceTokenResponses, UseToolData, UseToolErrors, UseToolResponses, VerifyMyEmailData, VerifyMyEmailErrors, VerifyMyEmailResponses, WriteMemoryData, WriteMemoryErrors, WriteMemoryResponses } from './types.gen';
+import type { AcceptInviteData, AcceptInviteErrors, AcceptInviteResponses, AcceptProposalData, AcceptProposalErrors, AcceptProposalResponses, AckMessagesData, AckMessagesErrors, AckMessagesResponses, AddMyEmailData, AddMyEmailErrors, AddMyEmailResponses, AddTaskData, AddTaskErrors, AddTaskResponses, AddTeamMemberData, AddTeamMemberErrors, AddTeamMemberResponses, AnswerInboxItemData, AnswerInboxItemErrors, AnswerInboxItemResponses, AnswerStackQuestionData, AnswerStackQuestionErrors, AnswerStackQuestionResponses, AppendRunEventsData, AppendRunEventsErrors, AppendRunEventsResponses, ApproveMemoriesData, ApproveMemoriesErrors, ApproveMemoriesResponses, AskPermissionData, AskPermissionErrors, AskPermissionResponses, AssignTaskData, AssignTaskErrors, AssignTaskResponses, AuthorizeRunnerData, AuthorizeRunnerErrors, AuthorizeRunnerResponses, ChangeMemberRoleData, ChangeMemberRoleErrors, ChangeMemberRoleResponses, CheckActiveRunsData, CheckActiveRunsErrors, CheckActiveRunsResponses, CheckExpressionData, CheckExpressionErrors, CheckExpressionResponses, ClaimHostCallData, ClaimHostCallErrors, ClaimHostCallResponses, ClaimHostWorkData, ClaimHostWorkErrors, ClaimHostWorkResponses, ClaimRunData, ClaimRunErrors, ClaimRunResponses, CompleteRunData, CompleteRunErrors, CompleteRunResponses, CompleteSandboxArchiveData, CompleteSandboxArchiveErrors, CompleteSandboxArchiveResponses, CompleteWorkingCopyArchiveData, CompleteWorkingCopyArchiveErrors, CompleteWorkingCopyArchiveResponses, ConnectEditorData, ConnectEditorErrors, ConnectEditorResponses, ConnectGitHubData, ConnectGitHubErrors, ConnectGitHubResponses, ConnectIntegrationData, ConnectIntegrationErrors, ConnectIntegrationResponses, CreateEgressData, CreateEgressErrors, CreateEgressResponses, CreateHarnessProfileData, CreateHarnessProfileErrors, CreateHarnessProfileResponses, CreateHookData, CreateHookErrors, CreateHookResponses, CreateIntegrationData, CreateIntegrationErrors, CreateIntegrationResponses, CreateLineData, CreateLineErrors, CreateLineResponses, CreateOidcTrustData, CreateOidcTrustErrors, CreateOidcTrustResponses, CreateRunnerPoolData, CreateRunnerPoolErrors, CreateRunnerPoolResponses, CreateRunnerTrustData, CreateRunnerTrustErrors, CreateRunnerTrustResponses, CreateSecretData, CreateSecretErrors, CreateSecretResponses, CreateSkillData, CreateSkillErrors, CreateSkillResponses, CreateTeamData, CreateTeamErrors, CreateTeamResponses, CreateWorkspaceData, CreateWorkspaceErrors, CreateWorkspaceResponses, CreateWorkspaceRunnersData, CreateWorkspaceRunnersErrors, CreateWorkspaceRunnersResponses, CreateWorkspaceTokenData, CreateWorkspaceTokenErrors, CreateWorkspaceTokenResponses, CreateWorkspaceWithTeamData, CreateWorkspaceWithTeamErrors, CreateWorkspaceWithTeamResponses, DeleteEgressData, DeleteEgressErrors, DeleteEgressResponses, DeleteHarnessProfileData, DeleteHarnessProfileErrors, DeleteHarnessProfileResponses, DeleteHookData, DeleteHookErrors, DeleteHookResponses, DeleteHostData, DeleteHostErrors, DeleteHostResponses, DeleteIntegrationData, DeleteIntegrationErrors, DeleteIntegrationResponses, DeleteLineData, DeleteLineErrors, DeleteLineResponses, DeleteOidcTrustData, DeleteOidcTrustErrors, DeleteOidcTrustResponses, DeleteReviewCommentData, DeleteReviewCommentErrors, DeleteReviewCommentResponses, DeleteRunnerPoolData, DeleteRunnerPoolErrors, DeleteRunnerPoolResponses, DeleteRunnerTrustData, DeleteRunnerTrustErrors, DeleteRunnerTrustResponses, DeleteSecretData, DeleteSecretErrors, DeleteSecretResponses, DeleteSkillData, DeleteSkillErrors, DeleteSkillResponses, DeleteTaskData, DeleteTaskErrors, DeleteTaskResponses, DeleteTeamData, DeleteTeamErrors, DeleteTeamResponses, DeleteWorkspaceData, DeleteWorkspaceErrors, DeleteWorkspaceResponses, DeleteWorkspaceRunnersData, DeleteWorkspaceRunnersErrors, DeleteWorkspaceRunnersResponses, DeleteWorkspaceTokenData, DeleteWorkspaceTokenErrors, DeleteWorkspaceTokenResponses, DeregisterHostData, DeregisterHostErrors, DeregisterHostResponses, DisconnectIntegrationData, DisconnectIntegrationErrors, DisconnectIntegrationResponses, DismissProposalData, DismissProposalErrors, DismissProposalResponses, DisputeDecisionData, DisputeDecisionErrors, DisputeDecisionResponses, DraftReviewCommentData, DraftReviewCommentErrors, DraftReviewCommentResponses, EditMemoryData, EditMemoryErrors, EditMemoryResponses, EditReviewCommentData, EditReviewCommentErrors, EditReviewCommentResponses, EnqueueRunData, EnqueueRunErrors, EnqueueRunResponses, ExchangeWorkloadTokenData, ExchangeWorkloadTokenErrors, ExchangeWorkloadTokenResponses, ExportWorkspaceData, ExportWorkspaceErrors, ExportWorkspaceResponses, FetchRunSecretsData, FetchRunSecretsErrors, FetchRunSecretsResponses, GenerateChangeStackData, GenerateChangeStackErrors, GenerateChangeStackResponses, GetErrorReportingData, GetErrorReportingResponses, GetHealthData, GetHealthResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetWorkspaceData, GetWorkspaceErrors, GetWorkspaceResponses, GradeRunData, GradeRunErrors, GradeRunResponses, GrantAttachmentUploadData, GrantAttachmentUploadErrors, GrantAttachmentUploadResponses, GrantRunAttachmentUploadData, GrantRunAttachmentUploadErrors, GrantRunAttachmentUploadResponses, GrantSandboxArchiveData, GrantSandboxArchiveErrors, GrantSandboxArchiveResponses, GrantWorkingCopyArchiveData, GrantWorkingCopyArchiveErrors, GrantWorkingCopyArchiveResponses, HookIssuerData, HookIssuerResponses, HookSigningKeysData, HookSigningKeysResponses, HostHeartbeatData, HostHeartbeatErrors, HostHeartbeatResponses, HostRequirementsData, HostRequirementsErrors, HostRequirementsResponses, ImportEgressData, ImportEgressErrors, ImportEgressResponses, ImportHarnessProfileData, ImportHarnessProfileErrors, ImportHarnessProfileResponses, ImportHookData, ImportHookErrors, ImportHookResponses, ImportIntegrationData, ImportIntegrationErrors, ImportIntegrationResponses, ImportLineData, ImportLineErrors, ImportLineResponses, ImportOidcTrustData, ImportOidcTrustErrors, ImportOidcTrustResponses, ImportRunnerPoolData, ImportRunnerPoolErrors, ImportRunnerPoolResponses, ImportRunnerTrustData, ImportRunnerTrustErrors, ImportRunnerTrustResponses, ImportSecretData, ImportSecretErrors, ImportSecretResponses, ImportSkillData, ImportSkillErrors, ImportSkillResponses, ImportTeamData, ImportTeamErrors, ImportTeamResponses, ImportWorkspaceData, ImportWorkspaceErrors, ImportWorkspaceResponses, ImportWorkspaceRunnersData, ImportWorkspaceRunnersErrors, ImportWorkspaceRunnersResponses, ImportWorkspaceTokenData, ImportWorkspaceTokenErrors, ImportWorkspaceTokenResponses, InviteToWorkspaceData, InviteToWorkspaceErrors, InviteToWorkspaceResponses, ListChatJournalRunsData, ListChatJournalRunsErrors, ListChatJournalRunsResponses, ListChatsData, ListChatsErrors, ListChatsResponses, ListConfigurationChangesData, ListConfigurationChangesErrors, ListConfigurationChangesResponses, ListEgressesData, ListEgressesErrors, ListEgressesResponses, ListExpressionPositionsData, ListExpressionPositionsErrors, ListExpressionPositionsResponses, ListHappeningsData, ListHappeningsErrors, ListHappeningsResponses, ListHarnessesData, ListHarnessesErrors, ListHarnessesResponses, ListHarnessProbesData, ListHarnessProbesErrors, ListHarnessProbesResponses, ListHarnessProfilesData, ListHarnessProfilesErrors, ListHarnessProfilesResponses, ListHooksData, ListHooksErrors, ListHooksResponses, ListInboxData, ListInboxErrors, ListInboxResponses, ListInsightsPullRequestsData, ListInsightsPullRequestsErrors, ListInsightsPullRequestsResponses, ListInsightsTracesData, ListInsightsTracesErrors, ListInsightsTracesResponses, ListIntegrationConnectionsData, ListIntegrationConnectionsErrors, ListIntegrationConnectionsResponses, ListIntegrationsData, ListIntegrationsErrors, ListIntegrationsResponses, ListLinesData, ListLinesErrors, ListLinesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListMemberWorkspacesData, ListMemberWorkspacesErrors, ListMemberWorkspacesResponses, ListMergedDecisionsData, ListMergedDecisionsErrors, ListMergedDecisionsResponses, ListMyEmailsData, ListMyEmailsErrors, ListMyEmailsResponses, ListOidcTrustsData, ListOidcTrustsErrors, ListOidcTrustsResponses, ListRepositoriesData, ListRepositoriesErrors, ListRepositoriesResponses, ListRunChangeStacksData, ListRunChangeStacksErrors, ListRunChangeStacksResponses, ListRunnerActivityData, ListRunnerActivityErrors, ListRunnerActivityResponses, ListRunnerPoolsData, ListRunnerPoolsErrors, ListRunnerPoolsResponses, ListRunnersData, ListRunnersErrors, ListRunnersResponses, ListRunnerTrustsData, ListRunnerTrustsErrors, ListRunnerTrustsResponses, ListSecretsData, ListSecretsErrors, ListSecretsResponses, ListSkillsData, ListSkillsErrors, ListSkillsResponses, ListTaskJournalRunsData, ListTaskJournalRunsErrors, ListTaskJournalRunsResponses, ListTaskRunsData, ListTaskRunsErrors, ListTaskRunsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTeamLinesData, ListTeamLinesErrors, ListTeamLinesResponses, ListTeamMemoriesData, ListTeamMemoriesErrors, ListTeamMemoriesResponses, ListTeamRunsData, ListTeamRunsErrors, ListTeamRunsResponses, ListTeamsData, ListTeamsErrors, ListTeamSkillsData, ListTeamSkillsErrors, ListTeamSkillsResponses, ListTeamsResponses, ListWorkspaceInvitesData, ListWorkspaceInvitesErrors, ListWorkspaceInvitesResponses, ListWorkspaceMembersData, ListWorkspaceMembersErrors, ListWorkspaceMembersResponses, ListWorkspaceOidcTrustsData, ListWorkspaceOidcTrustsErrors, ListWorkspaceOidcTrustsResponses, ListWorkspaceRunnersData, ListWorkspaceRunnersErrors, ListWorkspaceRunnersResponses, ListWorkspacesData, ListWorkspacesErrors, ListWorkspacesResponses, ListWorkspaceTokensData, ListWorkspaceTokensErrors, ListWorkspaceTokensResponses, MarkInboxItemReadData, MarkInboxItemReadErrors, MarkInboxItemReadResponses, MarkInboxRequestReadData, MarkInboxRequestReadErrors, MarkInboxRequestReadResponses, MoveTaskData, MoveTaskErrors, MoveTaskResponses, NoteOnHookTaskData, NoteOnHookTaskErrors, NoteOnHookTaskResponses, PendingMessagesData, PendingMessagesErrors, PendingMessagesResponses, PoolQueueData, PoolQueueErrors, PoolQueueResponses, ProposeSearchCandidateData, ProposeSearchCandidateErrors, ProposeSearchCandidateResponses, ReadAttachmentData, ReadAttachmentErrors, ReadCatalogSkillData, ReadCatalogSkillErrors, ReadCatalogSkillResponses, ReadCatalogToolData, ReadCatalogToolErrors, ReadCatalogToolResponses, ReadChatData, ReadChatErrors, ReadChatJournalData, ReadChatJournalErrors, ReadChatJournalResponses, ReadChatResponses, ReadConfigurationData, ReadConfigurationErrors, ReadConfigurationResponses, ReadEgressData, ReadEgressErrors, ReadEgressResponses, ReadGitHubData, ReadGitHubErrors, ReadGitHubResponses, ReadHarnessProfileData, ReadHarnessProfileErrors, ReadHarnessProfileResponses, ReadHookData, ReadHookErrors, ReadHookResponses, ReadHookTaskData, ReadHookTaskErrors, ReadHookTaskResponses, ReadInboxItemData, ReadInboxItemErrors, ReadInboxItemResponses, ReadInboxNoticeData, ReadInboxNoticeErrors, ReadInboxNoticeResponses, ReadInsightsAgentConfigsData, ReadInsightsAgentConfigsErrors, ReadInsightsAgentConfigsResponses, ReadInsightsChangesData, ReadInsightsChangesErrors, ReadInsightsChangesResponses, ReadInsightsCostData, ReadInsightsCostErrors, ReadInsightsCostResponses, ReadInsightsFlowData, ReadInsightsFlowErrors, ReadInsightsFlowResponses, ReadInsightsMemoryData, ReadInsightsMemoryErrors, ReadInsightsMemoryResponses, ReadInsightsOverviewData, ReadInsightsOverviewErrors, ReadInsightsOverviewResponses, ReadInsightsPeopleData, ReadInsightsPeopleErrors, ReadInsightsPeopleResponses, ReadInsightsPullRequestsData, ReadInsightsPullRequestsErrors, ReadInsightsPullRequestsResponses, ReadInsightsShippingData, ReadInsightsShippingErrors, ReadInsightsShippingResponses, ReadInsightsStationsData, ReadInsightsStationsErrors, ReadInsightsStationsResponses, ReadInsightsToolsData, ReadInsightsToolsErrors, ReadInsightsToolsResponses, ReadIntegrationData, ReadIntegrationErrors, ReadIntegrationResponses, ReadInviteData, ReadInviteErrors, ReadInviteResponses, ReadLineData, ReadLineErrors, ReadLineResponses, ReadMemoryFilesData, ReadMemoryFilesErrors, ReadMemoryFilesResponses, ReadMemoryReviewData, ReadMemoryReviewErrors, ReadMemoryReviewResponses, ReadOidcTrustData, ReadOidcTrustErrors, ReadOidcTrustResponses, ReadOnboardingData, ReadOnboardingErrors, ReadOnboardingResponses, ReadReplayCheckData, ReadReplayCheckErrors, ReadReplayCheckResponses, ReadReplayedCandidatesData, ReadReplayedCandidatesErrors, ReadReplayedCandidatesResponses, ReadResourceHclData, ReadResourceHclErrors, ReadResourceHclResponses, ReadRunAttachmentData, ReadRunAttachmentErrors, ReadRunAttachmentResponses, ReadRunConfigData, ReadRunConfigErrors, ReadRunConfigResponses, ReadRunHistoryData, ReadRunHistoryErrors, ReadRunHistoryResponses, ReadRunMemoriesData, ReadRunMemoriesErrors, ReadRunMemoriesResponses, ReadRunnerPoolData, ReadRunnerPoolErrors, ReadRunnerPoolResponses, ReadRunnerTrustData, ReadRunnerTrustErrors, ReadRunnerTrustResponses, ReadRunNetworkData, ReadRunNetworkErrors, ReadRunNetworkResponses, ReadRunNotesData, ReadRunNotesErrors, ReadRunNotesResponses, ReadRunReviewData, ReadRunReviewErrors, ReadRunReviewResponses, ReadRunScoresData, ReadRunScoresErrors, ReadRunScoresResponses, ReadRunTraceData, ReadRunTraceErrors, ReadRunTraceResponses, ReadSandboxArchiveData, ReadSandboxArchiveErrors, ReadSandboxArchiveResponses, ReadSearchViewData, ReadSearchViewErrors, ReadSearchViewResponses, ReadSecretData, ReadSecretErrors, ReadSecretResponses, ReadSkillData, ReadSkillErrors, ReadSkillResponses, ReadStationAlertData, ReadStationAlertErrors, ReadStationAlertResponses, ReadStationInsightsData, ReadStationInsightsErrors, ReadStationInsightsResponses, ReadStationJudgeData, ReadStationJudgeErrors, ReadStationJudgeResponses, ReadTaskChangeStackData, ReadTaskChangeStackErrors, ReadTaskChangeStackResponses, ReadTaskData, ReadTaskDecisionsData, ReadTaskDecisionsErrors, ReadTaskDecisionsResponses, ReadTaskErrors, ReadTaskJournalData, ReadTaskJournalErrors, ReadTaskJournalResponses, ReadTaskResponses, ReadTaskTraceData, ReadTaskTraceErrors, ReadTaskTraceResponses, ReadTeamData, ReadTeamErrors, ReadTeamlessRunNetworkData, ReadTeamlessRunNetworkErrors, ReadTeamlessRunNetworkResponses, ReadTeamMemoryData, ReadTeamMemoryErrors, ReadTeamMemoryResponses, ReadTeamResponses, ReadTeamRunData, ReadTeamRunErrors, ReadTeamRunResponses, ReadWorkingCopyArchiveData, ReadWorkingCopyArchiveErrors, ReadWorkingCopyArchiveResponses, ReadWorkspaceData, ReadWorkspaceErrors, ReadWorkspaceResponses, ReadWorkspaceRunnersData, ReadWorkspaceRunnersErrors, ReadWorkspaceRunnersResponses, ReadWorkspaceTokenData, ReadWorkspaceTokenErrors, ReadWorkspaceTokenResponses, RecallMemoriesData, RecallMemoriesErrors, RecallMemoriesResponses, RecallMemoryData, RecallMemoryErrors, RecallMemoryResponses, RecordChangeStackCheckData, RecordChangeStackCheckErrors, RecordChangeStackCheckResponses, RecordEgressConnectionsData, RecordEgressConnectionsErrors, RecordEgressConnectionsResponses, RecordFailureCauseData, RecordFailureCauseErrors, RecordFailureCauseResponses, RecordHostCallResponseData, RecordHostCallResponseErrors, RecordHostCallResponseResponses, RecordRunImageData, RecordRunImageErrors, RecordRunImageResponses, RecordStartingPointData, RecordStartingPointErrors, RecordStartingPointResponses, RedeemCallSecretsData, RedeemCallSecretsErrors, RedeemCallSecretsResponses, RegisterRunnerData, RegisterRunnerErrors, RegisterRunnerResponses, RejectMemoryData, RejectMemoryErrors, RejectMemoryResponses, RememberData, RememberErrors, RememberResponses, RemoveMyEmailData, RemoveMyEmailErrors, RemoveMyEmailResponses, RenewCheckLeaseData, RenewCheckLeaseErrors, RenewCheckLeaseResponses, RenewLeaseData, RenewLeaseErrors, RenewLeaseResponses, ReopenInboxItemData, ReopenInboxItemErrors, ReopenInboxItemResponses, ReopenInboxNoticeData, ReopenInboxNoticeErrors, ReopenInboxNoticeResponses, ReopenInboxRequestData, ReopenInboxRequestErrors, ReopenInboxRequestResponses, ReplyToReviewCommentData, ReplyToReviewCommentErrors, ReplyToReviewCommentResponses, ResendInviteData, ResendInviteErrors, ResendInviteResponses, ResendMyEmailVerificationData, ResendMyEmailVerificationErrors, ResendMyEmailVerificationResponses, ResolveInboxItemData, ResolveInboxItemErrors, ResolveInboxItemResponses, ResolveInboxNoticeData, ResolveInboxNoticeErrors, ResolveInboxNoticeResponses, ResolveInboxRequestData, ResolveInboxRequestErrors, ResolveInboxRequestResponses, RetireMemoryData, RetireMemoryErrors, RetireMemoryResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SendChatMessageData, SendChatMessageErrors, SendChatMessageResponses, SendMessageData, SendMessageErrors, SendMessageResponses, SetMyToolRuleData, SetMyToolRuleErrors, SetMyToolRuleResponses, StartChatData, StartChatErrors, StartChatResponses, StartReplayCheckData, StartReplayCheckErrors, StartReplayCheckResponses, StopChatData, StopChatErrors, StopChatResponses, StopRunData, StopRunErrors, StopRunResponses, StreamRunData, StreamRunErrors, StreamRunResponses, SubmitReviewData, SubmitReviewErrors, SubmitReviewResponses, UpdateEgressData, UpdateEgressErrors, UpdateEgressResponses, UpdateHarnessProfileData, UpdateHarnessProfileErrors, UpdateHarnessProfileResponses, UpdateHookData, UpdateHookErrors, UpdateHookResponses, UpdateIntegrationData, UpdateIntegrationErrors, UpdateIntegrationResponses, UpdateLineData, UpdateLineErrors, UpdateLineResponses, UpdateOidcTrustData, UpdateOidcTrustErrors, UpdateOidcTrustResponses, UpdateRunnerPoolData, UpdateRunnerPoolErrors, UpdateRunnerPoolResponses, UpdateRunnerTrustData, UpdateRunnerTrustErrors, UpdateRunnerTrustResponses, UpdateSecretData, UpdateSecretErrors, UpdateSecretResponses, UpdateSkillData, UpdateSkillErrors, UpdateSkillResponses, UpdateTeamData, UpdateTeamErrors, UpdateTeamResponses, UpdateWorkspaceData, UpdateWorkspaceErrors, UpdateWorkspaceResponses, UpdateWorkspaceRunnersData, UpdateWorkspaceRunnersErrors, UpdateWorkspaceRunnersResponses, UpdateWorkspaceTokenData, UpdateWorkspaceTokenErrors, UpdateWorkspaceTokenResponses, UseToolData, UseToolErrors, UseToolResponses, VerifyMyEmailData, VerifyMyEmailErrors, VerifyMyEmailResponses, WriteMemoryData, WriteMemoryErrors, WriteMemoryResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
   /**
@@ -99,670 +99,6 @@ export const listLines = <ThrowOnError extends boolean = false>(options: Options
   url: '/v1/resources/workspaces/{workspaceId}/lines',
   ...options
 });
-
-/**
- * Queue a run for a pool to pick up
- */
-export const enqueueRun = <ThrowOnError extends boolean = false>(options: Options<EnqueueRunData, ThrowOnError>): RequestResult<EnqueueRunResponses, EnqueueRunErrors, ThrowOnError> => (options.client ?? client).post<EnqueueRunResponses, EnqueueRunErrors, ThrowOnError>({
-  url: '/workspaces/{slug}/runs',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Watch a run’s journal, catching up on what was missed first
- */
-export const streamRun = <ThrowOnError extends boolean = false>(options: Options<StreamRunData, ThrowOnError>): RequestResult<StreamRunResponses, StreamRunErrors, ThrowOnError> => (options.client ?? client).get<StreamRunResponses, StreamRunErrors, ThrowOnError>({ url: '/runs/{runId}/stream', ...options });
-
-/**
- * What to look for on this runner, so it can say what it has
- */
-export const listHarnessProbes = <ThrowOnError extends boolean = false>(options?: Options<ListHarnessProbesData, ThrowOnError>): RequestResult<ListHarnessProbesResponses, ListHarnessProbesErrors, ThrowOnError> => (options?.client ?? client).get<ListHarnessProbesResponses, ListHarnessProbesErrors, ThrowOnError>({ url: '/runners/harnesses', ...options });
-
-/**
- * Long-poll for work, answering empty when the queue is
- *
- * Work is either a run to carry out or a change stack check to run against a fresh checkout. A run always comes first.
- */
-export const claimRun = <ThrowOnError extends boolean = false>(options?: Options<ClaimRunData, ThrowOnError>): RequestResult<ClaimRunResponses, ClaimRunErrors, ThrowOnError> => (options?.client ?? client).post<ClaimRunResponses, ClaimRunErrors, ThrowOnError>({ url: '/runners/claim', ...options });
-
-/**
- * The messages that a person sent to the agent of this run
- */
-export const pendingMessages = <ThrowOnError extends boolean = false>(options: Options<PendingMessagesData, ThrowOnError>): RequestResult<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError> => (options.client ?? client).get<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError>({ url: '/runs/{runId}/messages', ...options });
-
-/**
- * A file attached to the run’s task, to lay out in its workspace
- */
-export const readRunAttachment = <ThrowOnError extends boolean = false>(options: Options<ReadRunAttachmentData, ThrowOnError>): RequestResult<ReadRunAttachmentResponses, ReadRunAttachmentErrors, ThrowOnError> => (options.client ?? client).get<ReadRunAttachmentResponses, ReadRunAttachmentErrors, ThrowOnError>({ url: '/runs/{runId}/attachments/{attachmentId}', ...options });
-
-/**
- * Somewhere to upload one file the agent attaches to its handover
- *
- * The bytes go straight to where files are stored, not through here. The file joins the task when its id is sent with the run’s handover.
- */
-export const grantRunAttachmentUpload = <ThrowOnError extends boolean = false>(options: Options<GrantRunAttachmentUploadData, ThrowOnError>): RequestResult<GrantRunAttachmentUploadResponses, GrantRunAttachmentUploadErrors, ThrowOnError> => (options.client ?? client).post<GrantRunAttachmentUploadResponses, GrantRunAttachmentUploadErrors, ThrowOnError>({
-  url: '/runs/{runId}/attachments',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Read a task's trace, for an agent studying one of its own team
- */
-export const readRunTrace = <ThrowOnError extends boolean = false>(options: Options<ReadRunTraceData, ThrowOnError>): RequestResult<ReadRunTraceResponses, ReadRunTraceErrors, ThrowOnError> => (options.client ?? client).get<ReadRunTraceResponses, ReadRunTraceErrors, ThrowOnError>({ url: '/runs/{runId}/trace/{taskId}', ...options });
-
-/**
- * Read a station's recent runs, their configs, journals, changes and outcomes, for an agent studying its own team
- */
-export const readRunHistory = <ThrowOnError extends boolean = false>(options: Options<ReadRunHistoryData, ThrowOnError>): RequestResult<ReadRunHistoryResponses, ReadRunHistoryErrors, ThrowOnError> => (options.client ?? client).get<ReadRunHistoryResponses, ReadRunHistoryErrors, ThrowOnError>({ url: '/runs/{runId}/history', ...options });
-
-/**
- * Acknowledge the messages that the agent got
- */
-export const ackMessages = <ThrowOnError extends boolean = false>(options: Options<AckMessagesData, ThrowOnError>): RequestResult<AckMessagesResponses, AckMessagesErrors, ThrowOnError> => (options.client ?? client).post<AckMessagesResponses, AckMessagesErrors, ThrowOnError>({
-  url: '/runs/{runId}/messages/ack',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Say the run is still in progress
- *
- * The answer carries back whether a person has requested that the run stop, so the heartbeat also tells the runner about a stop.
- */
-export const renewLease = <ThrowOnError extends boolean = false>(options: Options<RenewLeaseData, ThrowOnError>): RequestResult<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError> => (options.client ?? client).post<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError>({ url: '/runs/{runId}/lease', ...options });
-
-/**
- * Say the check of a change stack is still in progress
- *
- * The runner with the lease on a check renews that lease while the check runs, so a second runner does not claim a long check. The answer carries back whether the runner should stop checking.
- */
-export const renewCheckLease = <ThrowOnError extends boolean = false>(options: Options<RenewCheckLeaseData, ThrowOnError>): RequestResult<RenewCheckLeaseResponses, RenewCheckLeaseErrors, ThrowOnError> => (options.client ?? client).post<RenewCheckLeaseResponses, RenewCheckLeaseErrors, ThrowOnError>({ url: '/runs/{runId}/change-stack-checks/{stackId}/lease', ...options });
-
-/**
- * Say which image, by digest, the run’s sandbox started from
- *
- * The host pulls the image named for the run just after it claims it, and records the digest it pulled here, so the run shows the environment it had.
- */
-export const recordRunImage = <ThrowOnError extends boolean = false>(options: Options<RecordRunImageData, ThrowOnError>): RequestResult<RecordRunImageResponses, RecordRunImageErrors, ThrowOnError> => (options.client ?? client).post<RecordRunImageResponses, RecordRunImageErrors, ThrowOnError>({
-  url: '/runs/{runId}/image',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Say where the run started: the archive it restored and the commit each checkout was at
- *
- * The runner reports this once the workspace is restored and its checkouts prepared, before the agent starts, and only for a run that works a task. A later attempt of the same run keeps where the first one started.
- */
-export const recordStartingPoint = <ThrowOnError extends boolean = false>(options: Options<RecordStartingPointData, ThrowOnError>): RequestResult<RecordStartingPointResponses, RecordStartingPointErrors, ThrowOnError> => (options.client ?? client).post<RecordStartingPointResponses, RecordStartingPointErrors, ThrowOnError>({
-  url: '/runs/{runId}/starting-point',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Add to the run’s journal
- */
-export const appendRunEvents = <ThrowOnError extends boolean = false>(options: Options<AppendRunEventsData, ThrowOnError>): RequestResult<AppendRunEventsResponses, AppendRunEventsErrors, ThrowOnError> => (options.client ?? client).post<AppendRunEventsResponses, AppendRunEventsErrors, ThrowOnError>({
-  url: '/runs/{runId}/events',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Do what a tool enabled for the run does
- *
- * The input and the answer are the tool’s own. Only for a tool enabled for the run; any credential it needs is added by Spotlight, never sent by the run.
- */
-export const useTool = <ThrowOnError extends boolean = false>(options: Options<UseToolData, ThrowOnError>): RequestResult<UseToolResponses, UseToolErrors, ThrowOnError> => (options.client ?? client).post<UseToolResponses, UseToolErrors, ThrowOnError>({
-  url: '/runs/{runId}/tools/{tool}',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Ask whether the harness may do what it asked to
- *
- * Only for a run whose station names a harness profile. An approval the task already has for this exact call is spent on it; otherwise a person is asked in their inbox, and the run waits for their answer once its turn ends.
- */
-export const askPermission = <ThrowOnError extends boolean = false>(options: Options<AskPermissionData, ThrowOnError>): RequestResult<AskPermissionResponses, AskPermissionErrors, ThrowOnError> => (options.client ?? client).post<AskPermissionResponses, AskPermissionErrors, ThrowOnError>({
-  url: '/runs/{runId}/permissions',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Reply to a review comment on the pull request, and resolve it
- *
- * Spotlight replies with its own credential. No GitHub credential is ever sent to a runner.
- */
-export const replyToReviewComment = <ThrowOnError extends boolean = false>(options: Options<ReplyToReviewCommentData, ThrowOnError>): RequestResult<ReplyToReviewCommentResponses, ReplyToReviewCommentErrors, ThrowOnError> => (options.client ?? client).post<ReplyToReviewCommentResponses, ReplyToReviewCommentErrors, ThrowOnError>({
-  url: '/runs/{runId}/review-comment-replies',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Report how the agent’s turn ended
- *
- * The run leaves its lease. When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run is suspended until they answer. The answer requeues it, and the sandbox that keeps its workspace takes it first.
- */
-export const completeRun = <ThrowOnError extends boolean = false>(options: Options<CompleteRunData, ThrowOnError>): RequestResult<CompleteRunResponses, CompleteRunErrors, ThrowOnError> => (options.client ?? client).post<CompleteRunResponses, CompleteRunErrors, ThrowOnError>({
-  url: '/runs/{runId}/completion',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * The archive to restore before the run starts: the workspace the conversation it carries on was left in
- */
-export const readWorkspaceArchive = <ThrowOnError extends boolean = false>(options: Options<ReadWorkspaceArchiveData, ThrowOnError>): RequestResult<ReadWorkspaceArchiveResponses, ReadWorkspaceArchiveErrors, ThrowOnError> => (options.client ?? client).get<ReadWorkspaceArchiveResponses, ReadWorkspaceArchiveErrors, ThrowOnError>({ url: '/runs/{runId}/workspace-archive', ...options });
-
-/**
- * Archive the workspace as the run leaves it: a place to upload its archive, for this size and SHA-256 only
- */
-export const grantWorkspaceArchive = <ThrowOnError extends boolean = false>(options: Options<GrantWorkspaceArchiveData, ThrowOnError>): RequestResult<GrantWorkspaceArchiveResponses, GrantWorkspaceArchiveErrors, ThrowOnError> => (options.client ?? client).post<GrantWorkspaceArchiveResponses, GrantWorkspaceArchiveErrors, ThrowOnError>({
-  url: '/runs/{runId}/workspace-archive',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Say the archive is uploaded, so the next run of this work restores it
- */
-export const completeWorkspaceArchive = <ThrowOnError extends boolean = false>(options: Options<CompleteWorkspaceArchiveData, ThrowOnError>): RequestResult<CompleteWorkspaceArchiveResponses, CompleteWorkspaceArchiveErrors, ThrowOnError> => (options.client ?? client).post<CompleteWorkspaceArchiveResponses, CompleteWorkspaceArchiveErrors, ThrowOnError>({ url: '/runs/{runId}/workspace-archive/{archiveId}/complete', ...options });
-
-/**
- * The archive a sandbox restores when it starts: the newest workspace its task or chat left
- *
- * The bearer is the sandbox token from the sandbox’s first assignment.
- */
-export const readSandboxArchive = <ThrowOnError extends boolean = false>(options: Options<ReadSandboxArchiveData, ThrowOnError>): RequestResult<ReadSandboxArchiveResponses, ReadSandboxArchiveErrors, ThrowOnError> => (options.client ?? client).get<ReadSandboxArchiveResponses, ReadSandboxArchiveErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/sandboxes/{sandboxId}/workspace-archive',
-  ...options
-});
-
-/**
- * Archive the workspace as the sandbox keeps it: a place to upload its archive, for this size and SHA-256 only
- *
- * The bearer is the sandbox token. The sandbox archives with it when it drains, also when no run is in it.
- */
-export const grantSandboxArchive = <ThrowOnError extends boolean = false>(options: Options<GrantSandboxArchiveData, ThrowOnError>): RequestResult<GrantSandboxArchiveResponses, GrantSandboxArchiveErrors, ThrowOnError> => (options.client ?? client).post<GrantSandboxArchiveResponses, GrantSandboxArchiveErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/sandboxes/{sandboxId}/workspace-archive',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Say the archive is uploaded, so the next sandbox or run of this task or chat restores it
- */
-export const completeSandboxArchive = <ThrowOnError extends boolean = false>(options: Options<CompleteSandboxArchiveData, ThrowOnError>): RequestResult<CompleteSandboxArchiveResponses, CompleteSandboxArchiveErrors, ThrowOnError> => (options.client ?? client).post<CompleteSandboxArchiveResponses, CompleteSandboxArchiveErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/sandboxes/{sandboxId}/workspace-archive/{archiveId}/complete',
-  ...options
-});
-
-/**
- * How many runs wait for this pool, per label, for an autoscaler such as a KEDA ScaledJob
- */
-export const poolQueue = <ThrowOnError extends boolean = false>(options: Options<PoolQueueData, ThrowOnError>): RequestResult<PoolQueueResponses, PoolQueueErrors, ThrowOnError> => (options.client ?? client).get<PoolQueueResponses, PoolQueueErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/pools/{id}/queue',
-  ...options
-});
-
-/**
- * Which runner images a host should serve, what to look for in them, and how new their runner must be
- */
-export const hostRequirements = <ThrowOnError extends boolean = false>(options?: Options<HostRequirementsData, ThrowOnError>): RequestResult<HostRequirementsResponses, HostRequirementsErrors, ThrowOnError> => (options?.client ?? client).get<HostRequirementsResponses, HostRequirementsErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/hosts/requirements',
-  ...options
-});
-
-/**
- * Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run
- *
- * Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a task or chat whose workspace a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the workspace of its task or chat and waits for runs.
- */
-export const claimHostWork = <ThrowOnError extends boolean = false>(options: Options<ClaimHostWorkData, ThrowOnError>): RequestResult<ClaimHostWorkResponses, ClaimHostWorkErrors, ThrowOnError> => (options.client ?? client).post<ClaimHostWorkResponses, ClaimHostWorkErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/hosts/claim',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Long-poll for one call that a hook requested, to send from inside the host’s network
- *
- * Assigns the oldest call waiting for this pool’s or trust’s workspace that has not expired. The host sends it once and records the response.
- */
-export const claimHostCall = <ThrowOnError extends boolean = false>(options: Options<ClaimHostCallData, ThrowOnError>): RequestResult<ClaimHostCallResponses, ClaimHostCallErrors, ThrowOnError> => (options.client ?? client).post<ClaimHostCallResponses, ClaimHostCallErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/hosts/calls/claim',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Record the response to a claimed call
- */
-export const recordHostCallResponse = <ThrowOnError extends boolean = false>(options: Options<RecordHostCallResponseData, ThrowOnError>): RequestResult<RecordHostCallResponseResponses, RecordHostCallResponseErrors, ThrowOnError> => (options.client ?? client).post<RecordHostCallResponseResponses, RecordHostCallResponseErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/hosts/calls/{id}/response',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * The secrets of a claimed call, sealed to the egress that sends it
- *
- * Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Values that Spotlight stores come back sealed to the recipient for this call alone. For a value in an external store, the response gives the external reference that egress reads.
- */
-export const redeemCallSecrets = <ThrowOnError extends boolean = false>(options: Options<RedeemCallSecretsData, ThrowOnError>): RequestResult<RedeemCallSecretsResponses, RedeemCallSecretsErrors, ThrowOnError> => (options.client ?? client).post<RedeemCallSecretsResponses, RedeemCallSecretsErrors, ThrowOnError>({
-  url: '/hosts/calls/{id}/secrets',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * The secrets that egress injects into the run’s requests, for their bound hosts
- *
- * Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.
- */
-export const fetchRunSecrets = <ThrowOnError extends boolean = false>(options: Options<FetchRunSecretsData, ThrowOnError>): RequestResult<FetchRunSecretsResponses, FetchRunSecretsErrors, ThrowOnError> => (options.client ?? client).post<FetchRunSecretsResponses, FetchRunSecretsErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/egress/secrets',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Whether a shared egress may serve the runner that presented a run proxy credential
- *
- * Called by a shared egress with its egress token. Before the runner has a run, the egress allows it to connect only to the control plane.
- */
-export const authorizeRunner = <ThrowOnError extends boolean = false>(options: Options<AuthorizeRunnerData, ThrowOnError>): RequestResult<AuthorizeRunnerResponses, AuthorizeRunnerErrors, ThrowOnError> => (options.client ?? client).post<AuthorizeRunnerResponses, AuthorizeRunnerErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/egress/authorize',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * The runs of a shared egress that their runners still lease
- *
- * Called by each node of a shared egress about every 30 seconds. The node evicts the secrets of every run that is not in the response.
- */
-export const checkActiveRuns = <ThrowOnError extends boolean = false>(options: Options<CheckActiveRunsData, ThrowOnError>): RequestResult<CheckActiveRunsResponses, CheckActiveRunsErrors, ThrowOnError> => (options.client ?? client).post<CheckActiveRunsResponses, CheckActiveRunsErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/egress/active-runs',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Records the connections a shared egress made for its runs
- *
- * Called by a shared egress with its egress token. Spotlight stores each record with its run for 30 days. It stores a record only when the run still names the runner of the proxy credential, and that runner is active, or ended at most 2 minutes before.
- */
-export const recordEgressConnections = <ThrowOnError extends boolean = false>(options: Options<RecordEgressConnectionsData, ThrowOnError>): RequestResult<RecordEgressConnectionsResponses, RecordEgressConnectionsErrors, ThrowOnError> => (options.client ?? client).post<RecordEgressConnectionsResponses, RecordEgressConnectionsErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/egress/connections',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Which run each of the workspace’s runners is working on
- *
- * A runner with no lease on a run is idle, and is not listed.
- */
-export const listRunnerActivity = <ThrowOnError extends boolean = false>(options: Options<ListRunnerActivityData, ThrowOnError>): RequestResult<ListRunnerActivityResponses, ListRunnerActivityErrors, ThrowOnError> => (options.client ?? client).get<ListRunnerActivityResponses, ListRunnerActivityErrors, ThrowOnError>({ url: '/workspaces/{slug}/runner-activity', ...options });
-
-/**
- * List the harnesses that can run a station
- */
-export const listHarnesses = <ThrowOnError extends boolean = false>(options: Options<ListHarnessesData, ThrowOnError>): RequestResult<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError> => (options.client ?? client).get<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError>({ url: '/workspaces/{slug}/harnesses', ...options });
-
-/**
- * What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work. Open entries come in one page; resolved entries come a page at a time
- */
-export const listInbox = <ThrowOnError extends boolean = false>(options: Options<ListInboxData, ThrowOnError>): RequestResult<ListInboxResponses, ListInboxErrors, ThrowOnError> => (options.client ?? client).get<ListInboxResponses, ListInboxErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox', ...options });
-
-/**
- * One conversation or inbox request with all its notes, open or resolved
- */
-export const readInboxItem = <ThrowOnError extends boolean = false>(options: Options<ReadInboxItemData, ThrowOnError>): RequestResult<ReadInboxItemResponses, ReadInboxItemErrors, ThrowOnError> => (options.client ?? client).get<ReadInboxItemResponses, ReadInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}', ...options });
-
-/**
- * One notice, open or resolved
- */
-export const readInboxNotice = <ThrowOnError extends boolean = false>(options: Options<ReadInboxNoticeData, ThrowOnError>): RequestResult<ReadInboxNoticeResponses, ReadInboxNoticeErrors, ThrowOnError> => (options.client ?? client).get<ReadInboxNoticeResponses, ReadInboxNoticeErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/notices/{noticeId}', ...options });
-
-/**
- * Answer what a conversation is waiting on, and let it carry on
- */
-export const answerInboxItem = <ThrowOnError extends boolean = false>(options: Options<AnswerInboxItemData, ThrowOnError>): RequestResult<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError> => (options.client ?? client).post<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError>({
-  url: '/workspaces/{slug}/inbox/{itemId}/answer',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Mark what was put to a person as seen
- */
-export const markInboxItemRead = <ThrowOnError extends boolean = false>(options: Options<MarkInboxItemReadData, ThrowOnError>): RequestResult<MarkInboxItemReadResponses, MarkInboxItemReadErrors, ThrowOnError> => (options.client ?? client).post<MarkInboxItemReadResponses, MarkInboxItemReadErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/read', ...options });
-
-/**
- * Close a conversation without an answer, stopping any run of its task
- */
-export const resolveInboxItem = <ThrowOnError extends boolean = false>(options: Options<ResolveInboxItemData, ThrowOnError>): RequestResult<ResolveInboxItemResponses, ResolveInboxItemErrors, ThrowOnError> => (options.client ?? client).post<ResolveInboxItemResponses, ResolveInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/resolve', ...options });
-
-/**
- * Resolve an inbox request without acting on it
- */
-export const resolveInboxRequest = <ThrowOnError extends boolean = false>(options: Options<ResolveInboxRequestData, ThrowOnError>): RequestResult<ResolveInboxRequestResponses, ResolveInboxRequestErrors, ThrowOnError> => (options.client ?? client).post<ResolveInboxRequestResponses, ResolveInboxRequestErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/requests/{requestId}/resolve', ...options });
-
-/**
- * Reopen a conversation a person resolved without an answer
- */
-export const reopenInboxItem = <ThrowOnError extends boolean = false>(options: Options<ReopenInboxItemData, ThrowOnError>): RequestResult<ReopenInboxItemResponses, ReopenInboxItemErrors, ThrowOnError> => (options.client ?? client).post<ReopenInboxItemResponses, ReopenInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/reopen', ...options });
-
-/**
- * Reopen a resolved inbox request
- */
-export const reopenInboxRequest = <ThrowOnError extends boolean = false>(options: Options<ReopenInboxRequestData, ThrowOnError>): RequestResult<ReopenInboxRequestResponses, ReopenInboxRequestErrors, ThrowOnError> => (options.client ?? client).post<ReopenInboxRequestResponses, ReopenInboxRequestErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/requests/{requestId}/reopen', ...options });
-
-/**
- * Mark an inbox request as seen
- */
-export const markInboxRequestRead = <ThrowOnError extends boolean = false>(options: Options<MarkInboxRequestReadData, ThrowOnError>): RequestResult<MarkInboxRequestReadResponses, MarkInboxRequestReadErrors, ThrowOnError> => (options.client ?? client).post<MarkInboxRequestReadResponses, MarkInboxRequestReadErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/requests/{requestId}/read', ...options });
-
-/**
- * Resolve a notice, once its person has dealt with it
- */
-export const resolveInboxNotice = <ThrowOnError extends boolean = false>(options: Options<ResolveInboxNoticeData, ThrowOnError>): RequestResult<ResolveInboxNoticeResponses, ResolveInboxNoticeErrors, ThrowOnError> => (options.client ?? client).post<ResolveInboxNoticeResponses, ResolveInboxNoticeErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/notices/{noticeId}/resolve', ...options });
-
-/**
- * Reopen a resolved notice
- */
-export const reopenInboxNotice = <ThrowOnError extends boolean = false>(options: Options<ReopenInboxNoticeData, ThrowOnError>): RequestResult<ReopenInboxNoticeResponses, ReopenInboxNoticeErrors, ThrowOnError> => (options.client ?? client).post<ReopenInboxNoticeResponses, ReopenInboxNoticeErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/notices/{noticeId}/reopen', ...options });
-
-/**
- * The runs of a task that have a journal, oldest first
- */
-export const listTaskJournalRuns = <ThrowOnError extends boolean = false>(options: Options<ListTaskJournalRunsData, ThrowOnError>): RequestResult<ListTaskJournalRunsResponses, ListTaskJournalRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTaskJournalRunsResponses, ListTaskJournalRunsErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal', ...options });
-
-/**
- * What one run of a task did to arrive at its result, per attempt
- */
-export const readTaskJournal = <ThrowOnError extends boolean = false>(options: Options<ReadTaskJournalData, ThrowOnError>): RequestResult<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal/{runId}', ...options });
-
-/**
- * Somewhere to upload one file, before attaching it
- *
- * The bytes go straight to where files are stored, not through here. The upload is only an upload: the file joins a task when its id is sent with one.
- */
-export const grantAttachmentUpload = <ThrowOnError extends boolean = false>(options: Options<GrantAttachmentUploadData, ThrowOnError>): RequestResult<GrantAttachmentUploadResponses, GrantAttachmentUploadErrors, ThrowOnError> => (options.client ?? client).post<GrantAttachmentUploadResponses, GrantAttachmentUploadErrors, ThrowOnError>({
-  url: '/workspaces/{slug}/attachments',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Open a file attached to a task
- */
-export const readAttachment = <ThrowOnError extends boolean = false>(options: Options<ReadAttachmentData, ThrowOnError>): RequestResult<unknown, ReadAttachmentErrors, ThrowOnError> => (options.client ?? client).get<unknown, ReadAttachmentErrors, ThrowOnError>({ url: '/workspaces/{slug}/attachments/{attachmentId}', ...options });
-
-/**
- * The tasks at a team’s stations in board order: every open task, or a page of completed tasks
- */
-export const listTasks = <ThrowOnError extends boolean = false>(options: Options<ListTasksData, ThrowOnError>): RequestResult<ListTasksResponses, ListTasksErrors, ThrowOnError> => (options.client ?? client).get<ListTasksResponses, ListTasksErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks', ...options });
-
-/**
- * Delete a task
- */
-export const deleteTask = <ThrowOnError extends boolean = false>(options: Options<DeleteTaskData, ThrowOnError>): RequestResult<DeleteTaskResponses, DeleteTaskErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTaskResponses, DeleteTaskErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}', ...options });
-
-/**
- * One task of the team, open or completed
- */
-export const readTask = <ThrowOnError extends boolean = false>(options: Options<ReadTaskData, ThrowOnError>): RequestResult<ReadTaskResponses, ReadTaskErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskResponses, ReadTaskErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}', ...options });
-
-/**
- * The runs of the team, across its stations, newest first
- */
-export const listTeamRuns = <ThrowOnError extends boolean = false>(options: Options<ListTeamRunsData, ThrowOnError>): RequestResult<ListTeamRunsResponses, ListTeamRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTeamRunsResponses, ListTeamRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/runs', ...options });
-
-/**
- * One run of the team
- */
-export const readTeamRun = <ThrowOnError extends boolean = false>(options: Options<ReadTeamRunData, ThrowOnError>): RequestResult<ReadTeamRunResponses, ReadTeamRunErrors, ThrowOnError> => (options.client ?? client).get<ReadTeamRunResponses, ReadTeamRunErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}', ...options });
-
-/**
- * The station config a run ran with, and what changed since the station’s run before it
- */
-export const readRunConfig = <ThrowOnError extends boolean = false>(options: Options<ReadRunConfigData, ThrowOnError>): RequestResult<ReadRunConfigResponses, ReadRunConfigErrors, ThrowOnError> => (options.client ?? client).get<ReadRunConfigResponses, ReadRunConfigErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/config', ...options });
-
-/**
- * The connections a run made through a shared egress, and if egress was enforced
- */
-export const readRunNetwork = <ThrowOnError extends boolean = false>(options: Options<ReadRunNetworkData, ThrowOnError>): RequestResult<ReadRunNetworkResponses, ReadRunNetworkErrors, ThrowOnError> => (options.client ?? client).get<ReadRunNetworkResponses, ReadRunNetworkErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/network', ...options });
-
-/**
- * The task and the trail since it arrived at this run’s station
- */
-export const readRunNotes = <ThrowOnError extends boolean = false>(options: Options<ReadRunNotesData, ThrowOnError>): RequestResult<ReadRunNotesResponses, ReadRunNotesErrors, ThrowOnError> => (options.client ?? client).get<ReadRunNotesResponses, ReadRunNotesErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/notes', ...options });
-
-/**
- * Send a message to the agent of a run
- */
-export const sendMessage = <ThrowOnError extends boolean = false>(options: Options<SendMessageData, ThrowOnError>): RequestResult<SendMessageResponses, SendMessageErrors, ThrowOnError> => (options.client ?? client).post<SendMessageResponses, SendMessageErrors, ThrowOnError>({
-  url: '/teams/{teamId}/runs/{runId}/messages',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Stop the agent working a run
- */
-export const stopRun = <ThrowOnError extends boolean = false>(options: Options<StopRunData, ThrowOnError>): RequestResult<StopRunResponses, StopRunErrors, ThrowOnError> => (options.client ?? client).post<StopRunResponses, StopRunErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/stop', ...options });
-
-/**
- * List what has been run on a task, most recent first
- */
-export const listTaskRuns = <ThrowOnError extends boolean = false>(options: Options<ListTaskRunsData, ThrowOnError>): RequestResult<ListTaskRunsResponses, ListTaskRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTaskRunsResponses, ListTaskRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/runs', ...options });
-
-/**
- * Every run of a task, as one trace
- */
-export const readTaskTrace = <ThrowOnError extends boolean = false>(options: Options<ReadTaskTraceData, ThrowOnError>): RequestResult<ReadTaskTraceResponses, ReadTaskTraceErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskTraceResponses, ReadTaskTraceErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/trace', ...options });
-
-/**
- * Add a task to a station
- */
-export const addTask = <ThrowOnError extends boolean = false>(options: Options<AddTaskData, ThrowOnError>): RequestResult<AddTaskResponses, AddTaskErrors, ThrowOnError> => (options.client ?? client).post<AddTaskResponses, AddTaskErrors, ThrowOnError>({
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/tasks',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Move a task to another station on the same line
- */
-export const moveTask = <ThrowOnError extends boolean = false>(options: Options<MoveTaskData, ThrowOnError>): RequestResult<MoveTaskResponses, MoveTaskErrors, ThrowOnError> => (options.client ?? client).post<MoveTaskResponses, MoveTaskErrors, ThrowOnError>({
-  url: '/teams/{teamId}/lines/{lineId}/tasks/{taskId}/move',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Assign a task to a team member, or clear its assignee
- */
-export const assignTask = <ThrowOnError extends boolean = false>(options: Options<AssignTaskData, ThrowOnError>): RequestResult<AssignTaskResponses, AssignTaskErrors, ThrowOnError> => (options.client ?? client).put<AssignTaskResponses, AssignTaskErrors, ThrowOnError>({
-  url: '/teams/{teamId}/tasks/{taskId}/assignee',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * The chats the caller has started with the team’s agent, latest first
- */
-export const listChats = <ThrowOnError extends boolean = false>(options: Options<ListChatsData, ThrowOnError>): RequestResult<ListChatsResponses, ListChatsErrors, ThrowOnError> => (options.client ?? client).get<ListChatsResponses, ListChatsErrors, ThrowOnError>({ url: '/teams/{teamId}/chats', ...options });
-
-/**
- * Start planning with the team’s agent
- */
-export const startChat = <ThrowOnError extends boolean = false>(options: Options<StartChatData, ThrowOnError>): RequestResult<StartChatResponses, StartChatErrors, ThrowOnError> => (options.client ?? client).post<StartChatResponses, StartChatErrors, ThrowOnError>({
-  url: '/teams/{teamId}/chats',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * A chat, with all its messages and proposals
- */
-export const readChat = <ThrowOnError extends boolean = false>(options: Options<ReadChatData, ThrowOnError>): RequestResult<ReadChatResponses, ReadChatErrors, ThrowOnError> => (options.client ?? client).get<ReadChatResponses, ReadChatErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}', ...options });
-
-/**
- * The runs of a chat that have a journal, oldest first
- */
-export const listChatJournalRuns = <ThrowOnError extends boolean = false>(options: Options<ListChatJournalRunsData, ThrowOnError>): RequestResult<ListChatJournalRunsResponses, ListChatJournalRunsErrors, ThrowOnError> => (options.client ?? client).get<ListChatJournalRunsResponses, ListChatJournalRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/journal', ...options });
-
-/**
- * What the agent did and wrote in one run of a chat, per attempt
- */
-export const readChatJournal = <ThrowOnError extends boolean = false>(options: Options<ReadChatJournalData, ThrowOnError>): RequestResult<ReadChatJournalResponses, ReadChatJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadChatJournalResponses, ReadChatJournalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/journal/{runId}', ...options });
-
-/**
- * Send a message to the agent in a chat
- */
-export const sendChatMessage = <ThrowOnError extends boolean = false>(options: Options<SendChatMessageData, ThrowOnError>): RequestResult<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError> => (options.client ?? client).post<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError>({
-  url: '/teams/{teamId}/chats/{chatId}/messages',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * Stop the agent answering in a chat
- */
-export const stopChat = <ThrowOnError extends boolean = false>(options: Options<StopChatData, ThrowOnError>): RequestResult<StopChatResponses, StopChatErrors, ThrowOnError> => (options.client ?? client).post<StopChatResponses, StopChatErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/stop', ...options });
-
-/**
- * Accept a task the agent proposed, so it is created
- */
-export const acceptProposal = <ThrowOnError extends boolean = false>(options: Options<AcceptProposalData, ThrowOnError>): RequestResult<AcceptProposalResponses, AcceptProposalErrors, ThrowOnError> => (options.client ?? client).post<AcceptProposalResponses, AcceptProposalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/acceptance', ...options });
-
-/**
- * Turn down a task the agent proposed
- */
-export const dismissProposal = <ThrowOnError extends boolean = false>(options: Options<DismissProposalData, ThrowOnError>): RequestResult<DismissProposalResponses, DismissProposalErrors, ThrowOnError> => (options.client ?? client).post<DismissProposalResponses, DismissProposalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal', ...options });
-
-/**
- * Hold the sandbox of a task or a chat for an editor, and get the lease that opens its socket
- */
-export const connectEditor = <ThrowOnError extends boolean = false>(options: Options<ConnectEditorData, ThrowOnError>): RequestResult<ConnectEditorResponses, ConnectEditorErrors, ThrowOnError> => (options.client ?? client).post<ConnectEditorResponses, ConnectEditorErrors, ThrowOnError>({
-  url: '/editor-connections',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
-});
-
-/**
- * What this team still needs
- */
-export const readOnboarding = <ThrowOnError extends boolean = false>(options: Options<ReadOnboardingData, ThrowOnError>): RequestResult<ReadOnboardingResponses, ReadOnboardingErrors, ThrowOnError> => (options.client ?? client).get<ReadOnboardingResponses, ReadOnboardingErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/onboarding', ...options });
 
 /**
  * Find the workspace with a slug, to import it
@@ -1172,6 +508,335 @@ export const removeMyEmail = <ThrowOnError extends boolean = false>(options: Opt
 export const verifyMyEmail = <ThrowOnError extends boolean = false>(options: Options<VerifyMyEmailData, ThrowOnError>): RequestResult<VerifyMyEmailResponses, VerifyMyEmailErrors, ThrowOnError> => (options.client ?? client).post<VerifyMyEmailResponses, VerifyMyEmailErrors, ThrowOnError>({ url: '/me/email-verifications/{token}', ...options });
 
 /**
+ * Resolve a catalog tool by name and version constraint, if the workspace’s plan includes it
+ */
+export const readCatalogTool = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogToolData, ThrowOnError>): RequestResult<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/v1/resources/workspaces/{workspaceId}/catalog/tools',
+  ...options
+});
+
+/**
+ * Resolve a catalog skill by name and version constraint, if the workspace’s plan includes it
+ */
+export const readCatalogSkill = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogSkillData, ThrowOnError>): RequestResult<ReadCatalogSkillResponses, ReadCatalogSkillErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogSkillResponses, ReadCatalogSkillErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/v1/resources/workspaces/{workspaceId}/catalog/skills',
+  ...options
+});
+
+/**
+ * Queue a run for a pool to pick up
+ */
+export const enqueueRun = <ThrowOnError extends boolean = false>(options: Options<EnqueueRunData, ThrowOnError>): RequestResult<EnqueueRunResponses, EnqueueRunErrors, ThrowOnError> => (options.client ?? client).post<EnqueueRunResponses, EnqueueRunErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/runs',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * What to look for on this runner, so it can say what it has
+ */
+export const listHarnessProbes = <ThrowOnError extends boolean = false>(options?: Options<ListHarnessProbesData, ThrowOnError>): RequestResult<ListHarnessProbesResponses, ListHarnessProbesErrors, ThrowOnError> => (options?.client ?? client).get<ListHarnessProbesResponses, ListHarnessProbesErrors, ThrowOnError>({ url: '/runners/harnesses', ...options });
+
+/**
+ * Long-poll for work, answering empty when the queue is
+ *
+ * Work is either a run to carry out or a change stack check to run against a fresh checkout. A run always comes first.
+ */
+export const claimRun = <ThrowOnError extends boolean = false>(options?: Options<ClaimRunData, ThrowOnError>): RequestResult<ClaimRunResponses, ClaimRunErrors, ThrowOnError> => (options?.client ?? client).post<ClaimRunResponses, ClaimRunErrors, ThrowOnError>({ url: '/runners/claim', ...options });
+
+/**
+ * Say the run is still in progress
+ *
+ * The answer carries back whether a person has requested that the run stop, so the heartbeat also tells the runner about a stop.
+ */
+export const renewLease = <ThrowOnError extends boolean = false>(options: Options<RenewLeaseData, ThrowOnError>): RequestResult<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError> => (options.client ?? client).post<RenewLeaseResponses, RenewLeaseErrors, ThrowOnError>({ url: '/runs/{runId}/lease', ...options });
+
+/**
+ * Say the check of a change stack is still in progress
+ *
+ * The runner with the lease on a check renews that lease while the check runs, so a second runner does not claim a long check. The answer carries back whether the runner should stop checking.
+ */
+export const renewCheckLease = <ThrowOnError extends boolean = false>(options: Options<RenewCheckLeaseData, ThrowOnError>): RequestResult<RenewCheckLeaseResponses, RenewCheckLeaseErrors, ThrowOnError> => (options.client ?? client).post<RenewCheckLeaseResponses, RenewCheckLeaseErrors, ThrowOnError>({ url: '/runs/{runId}/change-stack-checks/{stackId}/lease', ...options });
+
+/**
+ * Say which image, by digest, the run’s sandbox started from
+ *
+ * The host pulls the image named for the run just after it claims it, and records the digest it pulled here, so the run shows the environment it had.
+ */
+export const recordRunImage = <ThrowOnError extends boolean = false>(options: Options<RecordRunImageData, ThrowOnError>): RequestResult<RecordRunImageResponses, RecordRunImageErrors, ThrowOnError> => (options.client ?? client).post<RecordRunImageResponses, RecordRunImageErrors, ThrowOnError>({
+  url: '/runs/{runId}/image',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Say where the run started: the archive it restored and the commit each checkout was at
+ *
+ * The runner reports this once the working copy is restored and its checkouts prepared, before the agent starts, and only for a run whose spec asks for its starting point. A later attempt of the same run keeps where the first one started.
+ */
+export const recordStartingPoint = <ThrowOnError extends boolean = false>(options: Options<RecordStartingPointData, ThrowOnError>): RequestResult<RecordStartingPointResponses, RecordStartingPointErrors, ThrowOnError> => (options.client ?? client).post<RecordStartingPointResponses, RecordStartingPointErrors, ThrowOnError>({
+  url: '/runs/{runId}/starting-point',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Add to the run’s journal
+ */
+export const appendRunEvents = <ThrowOnError extends boolean = false>(options: Options<AppendRunEventsData, ThrowOnError>): RequestResult<AppendRunEventsResponses, AppendRunEventsErrors, ThrowOnError> => (options.client ?? client).post<AppendRunEventsResponses, AppendRunEventsErrors, ThrowOnError>({
+  url: '/runs/{runId}/events',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Report how the agent’s turn ended
+ *
+ * The run leaves its lease. When the run hands over and its requester holds the turn, the run is suspended until the requester finishes, keeps or resumes it. A resume requeues it, and the sandbox that keeps its working copy takes it first.
+ */
+export const completeRun = <ThrowOnError extends boolean = false>(options: Options<CompleteRunData, ThrowOnError>): RequestResult<CompleteRunResponses, CompleteRunErrors, ThrowOnError> => (options.client ?? client).post<CompleteRunResponses, CompleteRunErrors, ThrowOnError>({
+  url: '/runs/{runId}/completion',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The connections a run made through a shared egress, and if egress was enforced
+ */
+export const readRunNetwork = <ThrowOnError extends boolean = false>(options: Options<ReadRunNetworkData, ThrowOnError>): RequestResult<ReadRunNetworkResponses, ReadRunNetworkErrors, ThrowOnError> => (options.client ?? client).get<ReadRunNetworkResponses, ReadRunNetworkErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/network', ...options });
+
+/**
+ * The connections a run of no team made through a shared egress, and if egress was enforced
+ */
+export const readTeamlessRunNetwork = <ThrowOnError extends boolean = false>(options: Options<ReadTeamlessRunNetworkData, ThrowOnError>): RequestResult<ReadTeamlessRunNetworkResponses, ReadTeamlessRunNetworkErrors, ThrowOnError> => (options.client ?? client).get<ReadTeamlessRunNetworkResponses, ReadTeamlessRunNetworkErrors, ThrowOnError>({ url: '/runs/{runId}/network', ...options });
+
+/**
+ * Watch a run’s journal, catching up on what was missed first
+ */
+export const streamRun = <ThrowOnError extends boolean = false>(options: Options<StreamRunData, ThrowOnError>): RequestResult<StreamRunResponses, StreamRunErrors, ThrowOnError> => (options.client ?? client).get<StreamRunResponses, StreamRunErrors, ThrowOnError>({ url: '/runs/{runId}/stream', ...options });
+
+/**
+ * The archive to restore before the run starts: the working copy the conversation it carries on was left in
+ */
+export const readWorkingCopyArchive = <ThrowOnError extends boolean = false>(options: Options<ReadWorkingCopyArchiveData, ThrowOnError>): RequestResult<ReadWorkingCopyArchiveResponses, ReadWorkingCopyArchiveErrors, ThrowOnError> => (options.client ?? client).get<ReadWorkingCopyArchiveResponses, ReadWorkingCopyArchiveErrors, ThrowOnError>({ url: '/runs/{runId}/working-copy-archive', ...options });
+
+/**
+ * Archive the working copy as the run leaves it: a place to upload its archive, for this size and SHA-256 only
+ */
+export const grantWorkingCopyArchive = <ThrowOnError extends boolean = false>(options: Options<GrantWorkingCopyArchiveData, ThrowOnError>): RequestResult<GrantWorkingCopyArchiveResponses, GrantWorkingCopyArchiveErrors, ThrowOnError> => (options.client ?? client).post<GrantWorkingCopyArchiveResponses, GrantWorkingCopyArchiveErrors, ThrowOnError>({
+  url: '/runs/{runId}/working-copy-archive',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Say the archive is uploaded, so the next run of this work restores it
+ */
+export const completeWorkingCopyArchive = <ThrowOnError extends boolean = false>(options: Options<CompleteWorkingCopyArchiveData, ThrowOnError>): RequestResult<CompleteWorkingCopyArchiveResponses, CompleteWorkingCopyArchiveErrors, ThrowOnError> => (options.client ?? client).post<CompleteWorkingCopyArchiveResponses, CompleteWorkingCopyArchiveErrors, ThrowOnError>({ url: '/runs/{runId}/working-copy-archive/{archiveId}/complete', ...options });
+
+/**
+ * The archive a sandbox restores when it starts: the newest archive of its working copy key
+ *
+ * The bearer is the sandbox token from the sandbox’s first assignment.
+ */
+export const readSandboxArchive = <ThrowOnError extends boolean = false>(options: Options<ReadSandboxArchiveData, ThrowOnError>): RequestResult<ReadSandboxArchiveResponses, ReadSandboxArchiveErrors, ThrowOnError> => (options.client ?? client).get<ReadSandboxArchiveResponses, ReadSandboxArchiveErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/sandboxes/{sandboxId}/working-copy-archive',
+  ...options
+});
+
+/**
+ * Archive the working copy as the sandbox keeps it: a place to upload its archive, for this size and SHA-256 only
+ *
+ * The bearer is the sandbox token. The sandbox archives with it when it drains, also when no run is in it.
+ */
+export const grantSandboxArchive = <ThrowOnError extends boolean = false>(options: Options<GrantSandboxArchiveData, ThrowOnError>): RequestResult<GrantSandboxArchiveResponses, GrantSandboxArchiveErrors, ThrowOnError> => (options.client ?? client).post<GrantSandboxArchiveResponses, GrantSandboxArchiveErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/sandboxes/{sandboxId}/working-copy-archive',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Say the archive is uploaded, so the next sandbox or run of this working copy key restores it
+ */
+export const completeSandboxArchive = <ThrowOnError extends boolean = false>(options: Options<CompleteSandboxArchiveData, ThrowOnError>): RequestResult<CompleteSandboxArchiveResponses, CompleteSandboxArchiveErrors, ThrowOnError> => (options.client ?? client).post<CompleteSandboxArchiveResponses, CompleteSandboxArchiveErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/sandboxes/{sandboxId}/working-copy-archive/{archiveId}/complete',
+  ...options
+});
+
+/**
+ * How many runs wait for this pool, per label, for an autoscaler such as a KEDA ScaledJob
+ */
+export const poolQueue = <ThrowOnError extends boolean = false>(options: Options<PoolQueueData, ThrowOnError>): RequestResult<PoolQueueResponses, PoolQueueErrors, ThrowOnError> => (options.client ?? client).get<PoolQueueResponses, PoolQueueErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/pools/{id}/queue',
+  ...options
+});
+
+/**
+ * Which runner images a host should serve, what to look for in them, and how new their runner must be
+ */
+export const hostRequirements = <ThrowOnError extends boolean = false>(options?: Options<HostRequirementsData, ThrowOnError>): RequestResult<HostRequirementsResponses, HostRequirementsErrors, ThrowOnError> => (options?.client ?? client).get<HostRequirementsResponses, HostRequirementsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/hosts/requirements',
+  ...options
+});
+
+/**
+ * Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run
+ *
+ * Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs.
+ */
+export const claimHostWork = <ThrowOnError extends boolean = false>(options: Options<ClaimHostWorkData, ThrowOnError>): RequestResult<ClaimHostWorkResponses, ClaimHostWorkErrors, ThrowOnError> => (options.client ?? client).post<ClaimHostWorkResponses, ClaimHostWorkErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/hosts/claim',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Long-poll for one call that a hook requested, to send from inside the host’s network
+ *
+ * Assigns the oldest call waiting for this pool’s or trust’s workspace that has not expired. The host sends it once and records the response.
+ */
+export const claimHostCall = <ThrowOnError extends boolean = false>(options: Options<ClaimHostCallData, ThrowOnError>): RequestResult<ClaimHostCallResponses, ClaimHostCallErrors, ThrowOnError> => (options.client ?? client).post<ClaimHostCallResponses, ClaimHostCallErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/hosts/calls/claim',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Record the response to a claimed call
+ */
+export const recordHostCallResponse = <ThrowOnError extends boolean = false>(options: Options<RecordHostCallResponseData, ThrowOnError>): RequestResult<RecordHostCallResponseResponses, RecordHostCallResponseErrors, ThrowOnError> => (options.client ?? client).post<RecordHostCallResponseResponses, RecordHostCallResponseErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/hosts/calls/{id}/response',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The secrets of a claimed call, sealed to the egress that sends it
+ *
+ * Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Values that Spotlight stores come back sealed to the recipient for this call alone. For a value in an external store, the response gives the external reference that egress reads.
+ */
+export const redeemCallSecrets = <ThrowOnError extends boolean = false>(options: Options<RedeemCallSecretsData, ThrowOnError>): RequestResult<RedeemCallSecretsResponses, RedeemCallSecretsErrors, ThrowOnError> => (options.client ?? client).post<RedeemCallSecretsResponses, RedeemCallSecretsErrors, ThrowOnError>({
+  url: '/hosts/calls/{id}/secrets',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The secrets that egress injects into the run’s requests, for their bound hosts
+ *
+ * Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.
+ */
+export const fetchRunSecrets = <ThrowOnError extends boolean = false>(options: Options<FetchRunSecretsData, ThrowOnError>): RequestResult<FetchRunSecretsResponses, FetchRunSecretsErrors, ThrowOnError> => (options.client ?? client).post<FetchRunSecretsResponses, FetchRunSecretsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/egress/secrets',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Whether a shared egress may serve the runner that presented a run proxy credential
+ *
+ * Called by a shared egress with its egress token. Before the runner has a run, the egress allows it to connect only to the control plane.
+ */
+export const authorizeRunner = <ThrowOnError extends boolean = false>(options: Options<AuthorizeRunnerData, ThrowOnError>): RequestResult<AuthorizeRunnerResponses, AuthorizeRunnerErrors, ThrowOnError> => (options.client ?? client).post<AuthorizeRunnerResponses, AuthorizeRunnerErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/egress/authorize',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The runs of a shared egress that their runners still lease
+ *
+ * Called by each node of a shared egress about every 30 seconds. The node evicts the secrets of every run that is not in the response.
+ */
+export const checkActiveRuns = <ThrowOnError extends boolean = false>(options: Options<CheckActiveRunsData, ThrowOnError>): RequestResult<CheckActiveRunsResponses, CheckActiveRunsErrors, ThrowOnError> => (options.client ?? client).post<CheckActiveRunsResponses, CheckActiveRunsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/egress/active-runs',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Records the connections a shared egress made for its runs
+ *
+ * Called by a shared egress with its egress token. Spotlight stores each record with its run for 30 days. It stores a record only when the run still names the runner of the proxy credential, and that runner is active, or ended at most 2 minutes before.
+ */
+export const recordEgressConnections = <ThrowOnError extends boolean = false>(options: Options<RecordEgressConnectionsData, ThrowOnError>): RequestResult<RecordEgressConnectionsResponses, RecordEgressConnectionsErrors, ThrowOnError> => (options.client ?? client).post<RecordEgressConnectionsResponses, RecordEgressConnectionsErrors, ThrowOnError>({
+  security: [{ scheme: 'bearer', type: 'http' }],
+  url: '/egress/connections',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Which run each of the workspace’s runners is working on
+ *
+ * A runner with no lease on a run is idle, and is not listed.
+ */
+export const listRunnerActivity = <ThrowOnError extends boolean = false>(options: Options<ListRunnerActivityData, ThrowOnError>): RequestResult<ListRunnerActivityResponses, ListRunnerActivityErrors, ThrowOnError> => (options.client ?? client).get<ListRunnerActivityResponses, ListRunnerActivityErrors, ThrowOnError>({ url: '/workspaces/{slug}/runner-activity', ...options });
+
+/**
+ * List the harnesses a run can use
+ */
+export const listHarnesses = <ThrowOnError extends boolean = false>(options: Options<ListHarnessesData, ThrowOnError>): RequestResult<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError> => (options.client ?? client).get<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError>({ url: '/workspaces/{slug}/harnesses', ...options });
+
+/**
  * List every secret in a workspace, never their values
  */
 export const listSecrets = <ThrowOnError extends boolean = false>(options: Options<ListSecretsData, ThrowOnError>): RequestResult<ListSecretsResponses, ListSecretsErrors, ThrowOnError> => (options.client ?? client).get<ListSecretsResponses, ListSecretsErrors, ThrowOnError>({
@@ -1231,46 +896,6 @@ export const importSecret = <ThrowOnError extends boolean = false>(options: Opti
   security: [{ scheme: 'bearer', type: 'http' }],
   url: '/v1/resources/workspaces/{workspaceId}/secrets/import',
   ...options
-});
-
-/**
- * Resolve a catalog tool by name and version constraint, if the workspace’s plan includes it
- */
-export const readCatalogTool = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogToolData, ThrowOnError>): RequestResult<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/v1/resources/workspaces/{workspaceId}/catalog/tools',
-  ...options
-});
-
-/**
- * Resolve a catalog skill by name and version constraint, if the workspace’s plan includes it
- */
-export const readCatalogSkill = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogSkillData, ThrowOnError>): RequestResult<ReadCatalogSkillResponses, ReadCatalogSkillErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogSkillResponses, ReadCatalogSkillErrors, ThrowOnError>({
-  security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/v1/resources/workspaces/{workspaceId}/catalog/skills',
-  ...options
-});
-
-/**
- * List the repositories a task can be created against
- */
-export const listRepositories = <ThrowOnError extends boolean = false>(options: Options<ListRepositoriesData, ThrowOnError>): RequestResult<ListRepositoriesResponses, ListRepositoriesErrors, ThrowOnError> => (options.client ?? client).get<ListRepositoriesResponses, ListRepositoriesErrors, ThrowOnError>({ url: '/workspaces/{slug}/repositories', ...options });
-
-/**
- * Whether this workspace is connected to GitHub, and where to install the App
- */
-export const readGitHub = <ThrowOnError extends boolean = false>(options: Options<ReadGitHubData, ThrowOnError>): RequestResult<ReadGitHubResponses, ReadGitHubErrors, ThrowOnError> => (options.client ?? client).get<ReadGitHubResponses, ReadGitHubErrors, ThrowOnError>({ url: '/workspaces/{slug}/github', ...options });
-
-/**
- * Point this workspace at a GitHub App installation
- */
-export const connectGitHub = <ThrowOnError extends boolean = false>(options: Options<ConnectGitHubData, ThrowOnError>): RequestResult<ConnectGitHubResponses, ConnectGitHubErrors, ThrowOnError> => (options.client ?? client).post<ConnectGitHubResponses, ConnectGitHubErrors, ThrowOnError>({
-  url: '/workspaces/{slug}/github',
-  ...options,
-  headers: {
-    'Content-Type': 'application/json',
-    ...options.headers
-  }
 });
 
 /**
@@ -1566,9 +1191,384 @@ export const importWorkspaceRunners = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
- * The integrations of this team and their connection status
+ * The messages that a person sent to the agent of this run
  */
-export const readConfiguration = <ThrowOnError extends boolean = false>(options: Options<ReadConfigurationData, ThrowOnError>): RequestResult<ReadConfigurationResponses, ReadConfigurationErrors, ThrowOnError> => (options.client ?? client).get<ReadConfigurationResponses, ReadConfigurationErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration', ...options });
+export const pendingMessages = <ThrowOnError extends boolean = false>(options: Options<PendingMessagesData, ThrowOnError>): RequestResult<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError> => (options.client ?? client).get<PendingMessagesResponses, PendingMessagesErrors, ThrowOnError>({ url: '/runs/{runId}/messages', ...options });
+
+/**
+ * A file attached to the run’s task, to lay out in its workspace
+ */
+export const readRunAttachment = <ThrowOnError extends boolean = false>(options: Options<ReadRunAttachmentData, ThrowOnError>): RequestResult<ReadRunAttachmentResponses, ReadRunAttachmentErrors, ThrowOnError> => (options.client ?? client).get<ReadRunAttachmentResponses, ReadRunAttachmentErrors, ThrowOnError>({ url: '/runs/{runId}/attachments/{attachmentId}', ...options });
+
+/**
+ * Somewhere to upload one file the agent attaches to its handover
+ *
+ * The bytes go straight to where files are stored, not through here. The file joins the task when its id is sent with the run’s handover.
+ */
+export const grantRunAttachmentUpload = <ThrowOnError extends boolean = false>(options: Options<GrantRunAttachmentUploadData, ThrowOnError>): RequestResult<GrantRunAttachmentUploadResponses, GrantRunAttachmentUploadErrors, ThrowOnError> => (options.client ?? client).post<GrantRunAttachmentUploadResponses, GrantRunAttachmentUploadErrors, ThrowOnError>({
+  url: '/runs/{runId}/attachments',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Read a task's trace, for an agent studying one of its own team
+ */
+export const readRunTrace = <ThrowOnError extends boolean = false>(options: Options<ReadRunTraceData, ThrowOnError>): RequestResult<ReadRunTraceResponses, ReadRunTraceErrors, ThrowOnError> => (options.client ?? client).get<ReadRunTraceResponses, ReadRunTraceErrors, ThrowOnError>({ url: '/runs/{runId}/trace/{taskId}', ...options });
+
+/**
+ * Read a station's recent runs, their configs, journals, changes and outcomes, for an agent studying its own team
+ */
+export const readRunHistory = <ThrowOnError extends boolean = false>(options: Options<ReadRunHistoryData, ThrowOnError>): RequestResult<ReadRunHistoryResponses, ReadRunHistoryErrors, ThrowOnError> => (options.client ?? client).get<ReadRunHistoryResponses, ReadRunHistoryErrors, ThrowOnError>({ url: '/runs/{runId}/history', ...options });
+
+/**
+ * Acknowledge the messages that the agent got
+ */
+export const ackMessages = <ThrowOnError extends boolean = false>(options: Options<AckMessagesData, ThrowOnError>): RequestResult<AckMessagesResponses, AckMessagesErrors, ThrowOnError> => (options.client ?? client).post<AckMessagesResponses, AckMessagesErrors, ThrowOnError>({
+  url: '/runs/{runId}/messages/ack',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Do what a tool enabled for the run does
+ *
+ * The input and the answer are the tool’s own. Only for a tool enabled for the run; any credential it needs is added by Spotlight, never sent by the run.
+ */
+export const useTool = <ThrowOnError extends boolean = false>(options: Options<UseToolData, ThrowOnError>): RequestResult<UseToolResponses, UseToolErrors, ThrowOnError> => (options.client ?? client).post<UseToolResponses, UseToolErrors, ThrowOnError>({
+  url: '/runs/{runId}/tools/{tool}',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Ask whether the harness may do what it asked to
+ *
+ * Only for a run whose station names a harness profile. An approval the task already has for this exact call is spent on it; otherwise a person is asked in their inbox, and the run waits for their answer once its turn ends.
+ */
+export const askPermission = <ThrowOnError extends boolean = false>(options: Options<AskPermissionData, ThrowOnError>): RequestResult<AskPermissionResponses, AskPermissionErrors, ThrowOnError> => (options.client ?? client).post<AskPermissionResponses, AskPermissionErrors, ThrowOnError>({
+  url: '/runs/{runId}/permissions',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Reply to a review comment on the pull request, and resolve it
+ *
+ * Spotlight replies with its own credential. No GitHub credential is ever sent to a runner.
+ */
+export const replyToReviewComment = <ThrowOnError extends boolean = false>(options: Options<ReplyToReviewCommentData, ThrowOnError>): RequestResult<ReplyToReviewCommentResponses, ReplyToReviewCommentErrors, ThrowOnError> => (options.client ?? client).post<ReplyToReviewCommentResponses, ReplyToReviewCommentErrors, ThrowOnError>({
+  url: '/runs/{runId}/review-comment-replies',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work. Open entries come in one page; resolved entries come a page at a time
+ */
+export const listInbox = <ThrowOnError extends boolean = false>(options: Options<ListInboxData, ThrowOnError>): RequestResult<ListInboxResponses, ListInboxErrors, ThrowOnError> => (options.client ?? client).get<ListInboxResponses, ListInboxErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox', ...options });
+
+/**
+ * One conversation or inbox request with all its notes, open or resolved
+ */
+export const readInboxItem = <ThrowOnError extends boolean = false>(options: Options<ReadInboxItemData, ThrowOnError>): RequestResult<ReadInboxItemResponses, ReadInboxItemErrors, ThrowOnError> => (options.client ?? client).get<ReadInboxItemResponses, ReadInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}', ...options });
+
+/**
+ * One notice, open or resolved
+ */
+export const readInboxNotice = <ThrowOnError extends boolean = false>(options: Options<ReadInboxNoticeData, ThrowOnError>): RequestResult<ReadInboxNoticeResponses, ReadInboxNoticeErrors, ThrowOnError> => (options.client ?? client).get<ReadInboxNoticeResponses, ReadInboxNoticeErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/notices/{noticeId}', ...options });
+
+/**
+ * Answer what a conversation is waiting on, and let it carry on
+ */
+export const answerInboxItem = <ThrowOnError extends boolean = false>(options: Options<AnswerInboxItemData, ThrowOnError>): RequestResult<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError> => (options.client ?? client).post<AnswerInboxItemResponses, AnswerInboxItemErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/inbox/{itemId}/answer',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Mark what was put to a person as seen
+ */
+export const markInboxItemRead = <ThrowOnError extends boolean = false>(options: Options<MarkInboxItemReadData, ThrowOnError>): RequestResult<MarkInboxItemReadResponses, MarkInboxItemReadErrors, ThrowOnError> => (options.client ?? client).post<MarkInboxItemReadResponses, MarkInboxItemReadErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/read', ...options });
+
+/**
+ * Close a conversation without an answer, stopping any run of its task
+ */
+export const resolveInboxItem = <ThrowOnError extends boolean = false>(options: Options<ResolveInboxItemData, ThrowOnError>): RequestResult<ResolveInboxItemResponses, ResolveInboxItemErrors, ThrowOnError> => (options.client ?? client).post<ResolveInboxItemResponses, ResolveInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/resolve', ...options });
+
+/**
+ * Resolve an inbox request without acting on it
+ */
+export const resolveInboxRequest = <ThrowOnError extends boolean = false>(options: Options<ResolveInboxRequestData, ThrowOnError>): RequestResult<ResolveInboxRequestResponses, ResolveInboxRequestErrors, ThrowOnError> => (options.client ?? client).post<ResolveInboxRequestResponses, ResolveInboxRequestErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/requests/{requestId}/resolve', ...options });
+
+/**
+ * Reopen a conversation a person resolved without an answer
+ */
+export const reopenInboxItem = <ThrowOnError extends boolean = false>(options: Options<ReopenInboxItemData, ThrowOnError>): RequestResult<ReopenInboxItemResponses, ReopenInboxItemErrors, ThrowOnError> => (options.client ?? client).post<ReopenInboxItemResponses, ReopenInboxItemErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/{itemId}/reopen', ...options });
+
+/**
+ * Reopen a resolved inbox request
+ */
+export const reopenInboxRequest = <ThrowOnError extends boolean = false>(options: Options<ReopenInboxRequestData, ThrowOnError>): RequestResult<ReopenInboxRequestResponses, ReopenInboxRequestErrors, ThrowOnError> => (options.client ?? client).post<ReopenInboxRequestResponses, ReopenInboxRequestErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/requests/{requestId}/reopen', ...options });
+
+/**
+ * Mark an inbox request as seen
+ */
+export const markInboxRequestRead = <ThrowOnError extends boolean = false>(options: Options<MarkInboxRequestReadData, ThrowOnError>): RequestResult<MarkInboxRequestReadResponses, MarkInboxRequestReadErrors, ThrowOnError> => (options.client ?? client).post<MarkInboxRequestReadResponses, MarkInboxRequestReadErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/requests/{requestId}/read', ...options });
+
+/**
+ * Resolve a notice, once its person has dealt with it
+ */
+export const resolveInboxNotice = <ThrowOnError extends boolean = false>(options: Options<ResolveInboxNoticeData, ThrowOnError>): RequestResult<ResolveInboxNoticeResponses, ResolveInboxNoticeErrors, ThrowOnError> => (options.client ?? client).post<ResolveInboxNoticeResponses, ResolveInboxNoticeErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/notices/{noticeId}/resolve', ...options });
+
+/**
+ * Reopen a resolved notice
+ */
+export const reopenInboxNotice = <ThrowOnError extends boolean = false>(options: Options<ReopenInboxNoticeData, ThrowOnError>): RequestResult<ReopenInboxNoticeResponses, ReopenInboxNoticeErrors, ThrowOnError> => (options.client ?? client).post<ReopenInboxNoticeResponses, ReopenInboxNoticeErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/notices/{noticeId}/reopen', ...options });
+
+/**
+ * The runs of a task that have a journal, oldest first
+ */
+export const listTaskJournalRuns = <ThrowOnError extends boolean = false>(options: Options<ListTaskJournalRunsData, ThrowOnError>): RequestResult<ListTaskJournalRunsResponses, ListTaskJournalRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTaskJournalRunsResponses, ListTaskJournalRunsErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal', ...options });
+
+/**
+ * What one run of a task did to arrive at its result, per attempt
+ */
+export const readTaskJournal = <ThrowOnError extends boolean = false>(options: Options<ReadTaskJournalData, ThrowOnError>): RequestResult<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskJournalResponses, ReadTaskJournalErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal/{runId}', ...options });
+
+/**
+ * Somewhere to upload one file, before attaching it
+ *
+ * The bytes go straight to where files are stored, not through here. The upload is only an upload: the file joins a task when its id is sent with one.
+ */
+export const grantAttachmentUpload = <ThrowOnError extends boolean = false>(options: Options<GrantAttachmentUploadData, ThrowOnError>): RequestResult<GrantAttachmentUploadResponses, GrantAttachmentUploadErrors, ThrowOnError> => (options.client ?? client).post<GrantAttachmentUploadResponses, GrantAttachmentUploadErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/attachments',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Open a file attached to a task
+ */
+export const readAttachment = <ThrowOnError extends boolean = false>(options: Options<ReadAttachmentData, ThrowOnError>): RequestResult<unknown, ReadAttachmentErrors, ThrowOnError> => (options.client ?? client).get<unknown, ReadAttachmentErrors, ThrowOnError>({ url: '/workspaces/{slug}/attachments/{attachmentId}', ...options });
+
+/**
+ * The tasks at a team’s stations in board order: every task not at a completed station, or a page of the tasks at completed stations
+ */
+export const listTasks = <ThrowOnError extends boolean = false>(options: Options<ListTasksData, ThrowOnError>): RequestResult<ListTasksResponses, ListTasksErrors, ThrowOnError> => (options.client ?? client).get<ListTasksResponses, ListTasksErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks', ...options });
+
+/**
+ * Delete a task
+ */
+export const deleteTask = <ThrowOnError extends boolean = false>(options: Options<DeleteTaskData, ThrowOnError>): RequestResult<DeleteTaskResponses, DeleteTaskErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTaskResponses, DeleteTaskErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}', ...options });
+
+/**
+ * One task of the team, open or completed
+ */
+export const readTask = <ThrowOnError extends boolean = false>(options: Options<ReadTaskData, ThrowOnError>): RequestResult<ReadTaskResponses, ReadTaskErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskResponses, ReadTaskErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}', ...options });
+
+/**
+ * The runs of the team, across its stations, newest first
+ */
+export const listTeamRuns = <ThrowOnError extends boolean = false>(options: Options<ListTeamRunsData, ThrowOnError>): RequestResult<ListTeamRunsResponses, ListTeamRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTeamRunsResponses, ListTeamRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/runs', ...options });
+
+/**
+ * One run of the team
+ */
+export const readTeamRun = <ThrowOnError extends boolean = false>(options: Options<ReadTeamRunData, ThrowOnError>): RequestResult<ReadTeamRunResponses, ReadTeamRunErrors, ThrowOnError> => (options.client ?? client).get<ReadTeamRunResponses, ReadTeamRunErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}', ...options });
+
+/**
+ * The station config a run ran with, and what changed since the station’s run before it
+ */
+export const readRunConfig = <ThrowOnError extends boolean = false>(options: Options<ReadRunConfigData, ThrowOnError>): RequestResult<ReadRunConfigResponses, ReadRunConfigErrors, ThrowOnError> => (options.client ?? client).get<ReadRunConfigResponses, ReadRunConfigErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/config', ...options });
+
+/**
+ * The task and the trail since it arrived at this run’s station
+ */
+export const readRunNotes = <ThrowOnError extends boolean = false>(options: Options<ReadRunNotesData, ThrowOnError>): RequestResult<ReadRunNotesResponses, ReadRunNotesErrors, ThrowOnError> => (options.client ?? client).get<ReadRunNotesResponses, ReadRunNotesErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/notes', ...options });
+
+/**
+ * Send a message to the agent of a run
+ */
+export const sendMessage = <ThrowOnError extends boolean = false>(options: Options<SendMessageData, ThrowOnError>): RequestResult<SendMessageResponses, SendMessageErrors, ThrowOnError> => (options.client ?? client).post<SendMessageResponses, SendMessageErrors, ThrowOnError>({
+  url: '/teams/{teamId}/runs/{runId}/messages',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Stop the agent working a run
+ */
+export const stopRun = <ThrowOnError extends boolean = false>(options: Options<StopRunData, ThrowOnError>): RequestResult<StopRunResponses, StopRunErrors, ThrowOnError> => (options.client ?? client).post<StopRunResponses, StopRunErrors, ThrowOnError>({ url: '/teams/{teamId}/runs/{runId}/stop', ...options });
+
+/**
+ * List what has been run on a task, most recent first
+ */
+export const listTaskRuns = <ThrowOnError extends boolean = false>(options: Options<ListTaskRunsData, ThrowOnError>): RequestResult<ListTaskRunsResponses, ListTaskRunsErrors, ThrowOnError> => (options.client ?? client).get<ListTaskRunsResponses, ListTaskRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/runs', ...options });
+
+/**
+ * Every run of a task, as one trace
+ */
+export const readTaskTrace = <ThrowOnError extends boolean = false>(options: Options<ReadTaskTraceData, ThrowOnError>): RequestResult<ReadTaskTraceResponses, ReadTaskTraceErrors, ThrowOnError> => (options.client ?? client).get<ReadTaskTraceResponses, ReadTaskTraceErrors, ThrowOnError>({ url: '/teams/{teamId}/tasks/{taskId}/trace', ...options });
+
+/**
+ * Add a task to a station
+ */
+export const addTask = <ThrowOnError extends boolean = false>(options: Options<AddTaskData, ThrowOnError>): RequestResult<AddTaskResponses, AddTaskErrors, ThrowOnError> => (options.client ?? client).post<AddTaskResponses, AddTaskErrors, ThrowOnError>({
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/tasks',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Move a task to another station on the same line
+ */
+export const moveTask = <ThrowOnError extends boolean = false>(options: Options<MoveTaskData, ThrowOnError>): RequestResult<MoveTaskResponses, MoveTaskErrors, ThrowOnError> => (options.client ?? client).post<MoveTaskResponses, MoveTaskErrors, ThrowOnError>({
+  url: '/teams/{teamId}/lines/{lineId}/tasks/{taskId}/move',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Assign a task to a team member, or clear its assignee
+ */
+export const assignTask = <ThrowOnError extends boolean = false>(options: Options<AssignTaskData, ThrowOnError>): RequestResult<AssignTaskResponses, AssignTaskErrors, ThrowOnError> => (options.client ?? client).put<AssignTaskResponses, AssignTaskErrors, ThrowOnError>({
+  url: '/teams/{teamId}/tasks/{taskId}/assignee',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * The chats the caller has started with the team’s agent, latest first
+ */
+export const listChats = <ThrowOnError extends boolean = false>(options: Options<ListChatsData, ThrowOnError>): RequestResult<ListChatsResponses, ListChatsErrors, ThrowOnError> => (options.client ?? client).get<ListChatsResponses, ListChatsErrors, ThrowOnError>({ url: '/teams/{teamId}/chats', ...options });
+
+/**
+ * Start planning with the team’s agent
+ */
+export const startChat = <ThrowOnError extends boolean = false>(options: Options<StartChatData, ThrowOnError>): RequestResult<StartChatResponses, StartChatErrors, ThrowOnError> => (options.client ?? client).post<StartChatResponses, StartChatErrors, ThrowOnError>({
+  url: '/teams/{teamId}/chats',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * A chat, with all its messages and proposals
+ */
+export const readChat = <ThrowOnError extends boolean = false>(options: Options<ReadChatData, ThrowOnError>): RequestResult<ReadChatResponses, ReadChatErrors, ThrowOnError> => (options.client ?? client).get<ReadChatResponses, ReadChatErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}', ...options });
+
+/**
+ * The runs of a chat that have a journal, oldest first
+ */
+export const listChatJournalRuns = <ThrowOnError extends boolean = false>(options: Options<ListChatJournalRunsData, ThrowOnError>): RequestResult<ListChatJournalRunsResponses, ListChatJournalRunsErrors, ThrowOnError> => (options.client ?? client).get<ListChatJournalRunsResponses, ListChatJournalRunsErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/journal', ...options });
+
+/**
+ * What the agent did and wrote in one run of a chat, per attempt
+ */
+export const readChatJournal = <ThrowOnError extends boolean = false>(options: Options<ReadChatJournalData, ThrowOnError>): RequestResult<ReadChatJournalResponses, ReadChatJournalErrors, ThrowOnError> => (options.client ?? client).get<ReadChatJournalResponses, ReadChatJournalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/journal/{runId}', ...options });
+
+/**
+ * Send a message to the agent in a chat
+ */
+export const sendChatMessage = <ThrowOnError extends boolean = false>(options: Options<SendChatMessageData, ThrowOnError>): RequestResult<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError> => (options.client ?? client).post<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError>({
+  url: '/teams/{teamId}/chats/{chatId}/messages',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * Stop the agent answering in a chat
+ */
+export const stopChat = <ThrowOnError extends boolean = false>(options: Options<StopChatData, ThrowOnError>): RequestResult<StopChatResponses, StopChatErrors, ThrowOnError> => (options.client ?? client).post<StopChatResponses, StopChatErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/stop', ...options });
+
+/**
+ * Accept a task the agent proposed, so it is created
+ */
+export const acceptProposal = <ThrowOnError extends boolean = false>(options: Options<AcceptProposalData, ThrowOnError>): RequestResult<AcceptProposalResponses, AcceptProposalErrors, ThrowOnError> => (options.client ?? client).post<AcceptProposalResponses, AcceptProposalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/acceptance', ...options });
+
+/**
+ * Turn down a task the agent proposed
+ */
+export const dismissProposal = <ThrowOnError extends boolean = false>(options: Options<DismissProposalData, ThrowOnError>): RequestResult<DismissProposalResponses, DismissProposalErrors, ThrowOnError> => (options.client ?? client).post<DismissProposalResponses, DismissProposalErrors, ThrowOnError>({ url: '/teams/{teamId}/chats/{chatId}/proposals/{position}/dismissal', ...options });
+
+/**
+ * Hold the sandbox of a task or a chat for an editor, and get the lease that opens its socket
+ */
+export const connectEditor = <ThrowOnError extends boolean = false>(options: Options<ConnectEditorData, ThrowOnError>): RequestResult<ConnectEditorResponses, ConnectEditorErrors, ThrowOnError> => (options.client ?? client).post<ConnectEditorResponses, ConnectEditorErrors, ThrowOnError>({
+  url: '/editor-connections',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
+
+/**
+ * What this team still needs
+ */
+export const readOnboarding = <ThrowOnError extends boolean = false>(options: Options<ReadOnboardingData, ThrowOnError>): RequestResult<ReadOnboardingResponses, ReadOnboardingErrors, ThrowOnError> => (options.client ?? client).get<ReadOnboardingResponses, ReadOnboardingErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration/onboarding', ...options });
+
+/**
+ * List the repositories a task can be created against
+ */
+export const listRepositories = <ThrowOnError extends boolean = false>(options: Options<ListRepositoriesData, ThrowOnError>): RequestResult<ListRepositoriesResponses, ListRepositoriesErrors, ThrowOnError> => (options.client ?? client).get<ListRepositoriesResponses, ListRepositoriesErrors, ThrowOnError>({ url: '/workspaces/{slug}/repositories', ...options });
+
+/**
+ * Whether this workspace is connected to GitHub, and where to install the App
+ */
+export const readGitHub = <ThrowOnError extends boolean = false>(options: Options<ReadGitHubData, ThrowOnError>): RequestResult<ReadGitHubResponses, ReadGitHubErrors, ThrowOnError> => (options.client ?? client).get<ReadGitHubResponses, ReadGitHubErrors, ThrowOnError>({ url: '/workspaces/{slug}/github', ...options });
+
+/**
+ * Point this workspace at a GitHub App installation
+ */
+export const connectGitHub = <ThrowOnError extends boolean = false>(options: Options<ConnectGitHubData, ThrowOnError>): RequestResult<ConnectGitHubResponses, ConnectGitHubErrors, ThrowOnError> => (options.client ?? client).post<ConnectGitHubResponses, ConnectGitHubErrors, ThrowOnError>({
+  url: '/workspaces/{slug}/github',
+  ...options,
+  headers: {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+});
 
 /**
  * The skills this team defines
@@ -1954,9 +1954,14 @@ export const listExpressionPositions = <ThrowOnError extends boolean = false>(op
 });
 
 /**
- * The words a station here can be set to wait for
+ * The happenings a station here can wait for
  */
 export const listHappenings = <ThrowOnError extends boolean = false>(options: Options<ListHappeningsData, ThrowOnError>): RequestResult<ListHappeningsResponses, ListHappeningsErrors, ThrowOnError> => (options.client ?? client).get<ListHappeningsResponses, ListHappeningsErrors, ThrowOnError>({ url: '/workspaces/{slug}/happenings', ...options });
+
+/**
+ * The integrations of this team and their connection status
+ */
+export const readConfiguration = <ThrowOnError extends boolean = false>(options: Options<ReadConfigurationData, ThrowOnError>): RequestResult<ReadConfigurationResponses, ReadConfigurationErrors, ThrowOnError> => (options.client ?? client).get<ReadConfigurationResponses, ReadConfigurationErrors, ThrowOnError>({ url: '/teams/{teamId}/configuration', ...options });
 
 /**
  * Create a hook for a team
@@ -2157,7 +2162,7 @@ export const remember = <ThrowOnError extends boolean = false>(options: Options<
 });
 
 /**
- * Every active memory that applies to the run, as files to write into its workspace
+ * Every active memory that applies to the run, as files to write into its working copy
  */
 export const readMemoryFiles = <ThrowOnError extends boolean = false>(options: Options<ReadMemoryFilesData, ThrowOnError>): RequestResult<ReadMemoryFilesResponses, ReadMemoryFilesErrors, ThrowOnError> => (options.client ?? client).get<ReadMemoryFilesResponses, ReadMemoryFilesErrors, ThrowOnError>({ url: '/runs/{runId}/memory-files', ...options });
 
@@ -2363,6 +2368,11 @@ export const recordFailureCause = <ThrowOnError extends boolean = false>(options
     ...options.headers
   }
 });
+
+/**
+ * Read what a search’s agent run may see of its search: the candidates proposed so far, their replay runs, and the station block it started from
+ */
+export const readSearchView = <ThrowOnError extends boolean = false>(options: Options<ReadSearchViewData, ThrowOnError>): RequestResult<ReadSearchViewResponses, ReadSearchViewErrors, ThrowOnError> => (options.client ?? client).get<ReadSearchViewResponses, ReadSearchViewErrors, ThrowOnError>({ url: '/runs/{runId}/search-view', ...options });
 
 /**
  * The station configs the team replayed over past tasks in the period, by station and replay set, each beside its set’s baseline, the live config replayed

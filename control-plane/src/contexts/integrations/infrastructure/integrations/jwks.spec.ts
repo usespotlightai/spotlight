@@ -1,4 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto';
+import { UNLISTED_FOR_WORKSPACE } from '@identity/application/ports/workspace-outbound-scope.port';
 import { JwksCache } from '@integrations/infrastructure/integrations/jwks';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
@@ -43,10 +44,12 @@ describe('JwksCache', () => {
     await cache.keys('https://issuer.example/jwks.json');
 
     await expect(
-      OutboundScope.within(HostAllowList.of(['elsewhere.example']), () =>
-        cache.keys('https://issuer.example/jwks.json'),
+      OutboundScope.within(
+        HostAllowList.of(['elsewhere.example']),
+        UNLISTED_FOR_WORKSPACE,
+        () => cache.keys('https://issuer.example/jwks.json'),
       ),
-    ).rejects.toThrow("Host is not on the workspace's allowed list.");
+    ).rejects.toThrow(UNLISTED_FOR_WORKSPACE);
   });
 
   it('fetches again once the window has passed', async () => {

@@ -21,7 +21,7 @@ export const reviewTrigger = (raw: string): ReviewTrigger => {
   return trigger;
 };
 
-export interface ReviewRequest {
+export interface ReviewRequestParts {
   readonly trigger: ReviewTrigger;
   readonly label: string | null;
   readonly pullRequest: PullRequestUrl;
@@ -31,19 +31,55 @@ export interface ReviewRequest {
   readonly branch: Branch | null;
 }
 
-export const reviewRequested = (request: ReviewRequest): ReviewRequest => {
-  if (
-    !PullRequestLink.reviewing(request.pullRequest, {
-      outside: request.outside,
-    }).reviewedHead
-  ) {
-    throw new UnreviewablePullRequestError(request.pullRequest.value);
+export class ReviewRequest implements ReviewRequestParts {
+  private constructor(
+    readonly trigger: ReviewTrigger,
+    readonly label: string | null,
+    readonly pullRequest: PullRequestUrl,
+    readonly author: string | null,
+    readonly outside: boolean,
+    readonly draft: boolean,
+    readonly branch: Branch | null,
+  ) {}
+
+  static of(parts: ReviewRequestParts): ReviewRequest {
+    if (
+      !PullRequestLink.reviewing(parts.pullRequest, {
+        outside: parts.outside,
+      }).reviewedHead
+    ) {
+      throw new UnreviewablePullRequestError(parts.pullRequest.value);
+    }
+
+    return new ReviewRequest(
+      parts.trigger,
+      parts.label,
+      parts.pullRequest,
+      parts.author,
+      parts.outside,
+      parts.draft,
+      parts.branch,
+    );
   }
 
-  return request;
-};
+  with(changed: Partial<ReviewRequestParts>): ReviewRequest {
+    return ReviewRequest.of({ ...this.parts, ...changed });
+  }
 
-export interface ReviewRequestReceived extends ReviewRequest {
+  get parts(): ReviewRequestParts {
+    return {
+      trigger: this.trigger,
+      label: this.label,
+      pullRequest: this.pullRequest,
+      author: this.author,
+      outside: this.outside,
+      draft: this.draft,
+      branch: this.branch,
+    };
+  }
+}
+
+export interface ReviewRequestReceived extends ReviewRequestParts {
   readonly anchor: Anchor | null;
   readonly ours: boolean;
 }

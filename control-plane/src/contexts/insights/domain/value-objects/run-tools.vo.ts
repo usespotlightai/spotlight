@@ -62,12 +62,4 @@ export class RunTools {
 
     return new RunTools(servers, [...new Set(input.skillsRead)]);
   }
-
-  callsTo(server: string): ServerCalls | null {
-    return this.servers.find((each) => each.server === server) ?? null;
-  }
-
-  read(skill: string): boolean {
-    return this.skillsRead.includes(skill);
-  }
 }

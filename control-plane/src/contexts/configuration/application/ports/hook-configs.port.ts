@@ -14,7 +14,7 @@ interface HookConfigRequest {
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly body: unknown;
-  readonly from: 'spotlight' | 'network';
+  readonly from: 'spotlight' | 'network' | null;
 }
 
 export type HookConfigStep =

@@ -100,7 +100,7 @@ describe('ChatCompletionsChangeStackGenerator', () => {
     await expect(generate(generator)).rejects.toThrow('No model endpoint');
   });
 
-  it('requests a stack in the stack’s own shape from the model, from providers that follow it', async () => {
+  it('requests a stack in the stack’s own shape from the model, from providers that follow it, and leaves its hunk ids as written', async () => {
     const { requests, fetch } = answering(200, {
       choices: [
         {
@@ -135,7 +135,7 @@ describe('ChatCompletionsChangeStackGenerator', () => {
               {
                 question: 'What happens when the address is already a member?',
                 answer: 'It sends no invitation and answers 409.',
-                hunks: ['h1'],
+                hunks: ['h1', 'H7 '],
               },
             ],
           },
@@ -181,6 +181,34 @@ describe('ChatCompletionsChangeStackGenerator', () => {
     );
     expect(body.messages[1].content).toContain('Repository: web');
     expect(body.messages[1].content).toContain('- leaves h2 out');
+  });
+
+  it('leaves a range that names no hunk for the stack to report', async () => {
+    const { fetch } = answering(200, {
+      choices: [
+        {
+          finish_reason: 'stop',
+          message: {
+            content: JSON.stringify({
+              cohorts: [
+                {
+                  ...COHORTS[0],
+                  layers: [
+                    { ...COHORTS[0]?.layers[0], ranges: [{ hunk: 'hx' }] },
+                  ],
+                },
+              ],
+            }),
+          },
+        },
+      ],
+    });
+
+    const { cohorts } = await generate(
+      new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch),
+    );
+
+    expect(cohorts[0]?.layers[0]?.hunks).toEqual([{ hunk: 'hx' }]);
   });
 
   it('says why the model request failed', async () => {

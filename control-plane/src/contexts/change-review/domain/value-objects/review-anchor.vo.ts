@@ -59,6 +59,22 @@ export class ReviewAnchor {
     });
   }
 
+  static at(input: {
+    path: string;
+    side: string | null;
+    line: number | null;
+    startLine: number | null;
+  }): ReviewAnchor {
+    return input.line === null
+      ? ReviewAnchor.onFile(input.path)
+      : ReviewAnchor.onLines({
+          path: input.path,
+          side: input.side ?? '',
+          line: input.line,
+          startLine: input.startLine,
+        });
+  }
+
   get wholeFile(): boolean {
     return this.lines === null;
   }

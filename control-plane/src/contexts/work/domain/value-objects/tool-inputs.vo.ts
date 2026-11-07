@@ -1,4 +1,6 @@
-import type { JsonValue } from '@shared-kernel/domain/services/json-value';
+import type { JsonValue } from '@shared-kernel/domain/json-value';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 
 export class ToolInputs {
   private constructor(readonly values: Readonly<Record<string, JsonValue>>) {}
@@ -19,6 +21,26 @@ export class ToolInputs {
     return Array.isArray(value)
       ? value.filter((each): each is string => typeof each === 'string')
       : [];
+  }
+
+  requiredText(tool: Tool, name: string): string {
+    const value = this.text(name);
+
+    if (value === null) {
+      throw new InvalidToolInputError(tool.value, `needs ${name}`);
+    }
+
+    return value;
+  }
+
+  requiredNumber(tool: Tool, name: string): number {
+    const value = this.number(name);
+
+    if (value === null) {
+      throw new InvalidToolInputError(tool.value, `needs ${name}`);
+    }
+
+    return value;
   }
 
   number(name: string): number | null {

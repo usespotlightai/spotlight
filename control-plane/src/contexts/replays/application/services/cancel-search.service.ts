@@ -1,4 +1,4 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
@@ -11,14 +11,14 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 export class CancelSearch {
   constructor(
     private readonly replays: ReplayRepository,
-    private readonly work: WorkPort,
+    private readonly searchRuns: SearchRunDispatching,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
   ) {}
 
   async ended(event: SearchEnded): Promise<void> {
     if (event.runToCancel) {
-      await this.work.cancelSearchRun(event.runToCancel);
+      await this.searchRuns.cancelSearchRun(event.runToCancel);
     }
 
     for (const replayId of event.stopping) {
@@ -32,7 +32,7 @@ export class CancelSearch {
     }
 
     for (const replay of replays) {
-      if (replay.isDispatching) {
+      if (replay.isStoppable) {
         await this.stop(replay.id);
       }
     }
@@ -42,7 +42,7 @@ export class CancelSearch {
     return this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(replayId);
 
-      if (replay?.isDispatching && !replay.stoppedAt) {
+      if (replay?.isStoppable) {
         await this.replays.save(
           replay.stop(
             this.clock.now(),

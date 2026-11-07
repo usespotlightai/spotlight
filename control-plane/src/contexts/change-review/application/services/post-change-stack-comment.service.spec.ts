@@ -4,6 +4,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { MarkdownCommentBodies } from '@change-review/infrastructure/rendering/markdown-comment-bodies';
 import type { StickyComment } from '@github/application/ports/pull-request-comments.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -19,8 +20,9 @@ const ready = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
-    replay: false,
-    isSearch: false,
+    teamOfRun: TeamId.of('team_1'),
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -43,7 +45,7 @@ const ready = () =>
         ],
       },
     ]),
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     now: NOW,
   }).propose(
     [
@@ -74,7 +76,7 @@ const posting = (
   over: {
     pullRequest?: string | null;
     failing?: 'run' | 'task' | 'connection' | 'upsert';
-    replay?: boolean;
+    trial?: boolean;
   } = {},
 ) => {
   const upserted: StickyComment[] = [];
@@ -90,7 +92,7 @@ const posting = (
 
         return {
           id: stack.id.value,
-          runId: stack.runId.value,
+          runId: stack.runId,
           repository: stack.repository?.value ?? null,
           state: stack.state,
           cohorts: stack.cohorts,
@@ -100,6 +102,7 @@ const posting = (
         };
       },
       ofRun: async () => [],
+      answerOf: async () => null,
     },
     {
       slugOf: async () => 'acme',
@@ -120,11 +123,11 @@ const posting = (
           ended: false,
           completed: false,
           decisions: false,
-          isReplay: over.replay ?? false,
-          isSearch: false,
+          trial: over.trial ?? false,
+          isolated: over.trial ?? false,
+          checkouts: 1,
         };
       },
-      wasClaimedBy: async () => true,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => {
@@ -162,6 +165,7 @@ const posting = (
       decisionsOf: ({ taskId }) =>
         `https://app.example/tasks/${taskId}#decisions`,
     },
+    new MarkdownCommentBodies(),
   );
 
   return { poster, upserted };
@@ -180,8 +184,8 @@ describe('PostChangeStackComment', () => {
     );
   });
 
-  it('never comments for a replay, whatever its run says of a task', async () => {
-    const { poster, upserted } = posting({ replay: true });
+  it('never comments for a trial, whatever its run says of a task', async () => {
+    const { poster, upserted } = posting({ trial: true });
 
     await poster.ofRun(RunId.of('run-1'));
 

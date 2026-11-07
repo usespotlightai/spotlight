@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { and, eq, inArray } from 'drizzle-orm';
 import { autoSearched } from './app';
+import { eventually } from './eventually';
 import * as schema from './schema';
 
 export interface SearchPolicyTerms {
@@ -113,5 +114,18 @@ export const searchStarted = async (
     );
   }
 
-  return { id: started.id, seedReplayId: started.seedReplay.replayId };
+  const seedReplayId = started.seedReplay.replayId;
+
+  await eventually(
+    async () =>
+      (
+        await at.db
+          .select({ id: schema.replay.id })
+          .from(schema.replay)
+          .where(eq(schema.replay.id, seedReplayId))
+      ).length > 0,
+    60_000,
+  );
+
+  return { id: started.id, seedReplayId };
 };

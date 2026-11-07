@@ -1,26 +1,27 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import { listed } from '@work/application/rendering/setup-steps';
 import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
-import { listed } from '@work/application/services/setup-steps';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { SetupState } from '@work/domain/services/setup-list';
 import { welcomeTask } from '@work/domain/services/welcome-task';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -38,27 +39,27 @@ const nextId = (): string => {
   return `123e4567-e89b-42d3-a456-42661417400${ids}`;
 };
 
-const DELIVERY = Line.rehydrate({
+const DELIVERY = lineMapOf({
   id: LineId.of('123e4567-e89b-42d3-a456-426614174004'),
   workspaceId: WORKSPACE,
   teamId: TEAM,
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   stations: [
-    Station.of({
+    stationOf({
       id: STATION,
       key: StationKey.of('inbox'),
       name: StationName.of('Inbox'),
       position: 0,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'backlog',
     }),
-    Station.of({
+    stationOf({
       id: StationId.of('123e4567-e89b-42d3-a456-426614174005'),
       key: StationKey.of('completed'),
       name: StationName.of('Completed'),
       position: 1,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'completed',
     }),
   ],
@@ -67,10 +68,7 @@ const DELIVERY = Line.rehydrate({
 const list = (): Task =>
   welcomeTask({
     line: DELIVERY,
-    teamId: TEAM,
     noteBody: TaskNoteBody.of(listed()),
-    at: STATION,
-    station: StationName.of('Inbox'),
     owner: OWNER,
     now: new Date('2026-01-01T00:00:00.000Z'),
     newId: nextId,
@@ -90,16 +88,17 @@ const reconciling = (options: { task?: Task; state?: SetupState } = {}) => {
     save,
     settingUpIn: vi.fn(async () => [task]),
     settingUp: vi.fn(async () => [task]),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => task),
   } as unknown as TaskRepository;
 
   const setup = {
-    of: vi.fn(async () => ({ state: options.state ?? done, chat: null })),
+    stateFor: vi.fn(async () => options.state ?? done),
   } as unknown as SetupStatus;
 
   const lines = {
     findByStation: vi.fn(async () => DELIVERY),
-  } as unknown as LineRepository;
+  } as unknown as LineMapsPort;
 
   const logger = { warn: vi.fn(), error: vi.fn() } as unknown as LoggerPort;
 
@@ -114,6 +113,7 @@ const reconciling = (options: { task?: Task; state?: SetupState } = {}) => {
       setup,
       { now: () => NOW } as ClockPort,
       logger,
+      { inTransaction: (work) => work() },
     ),
   };
 };
@@ -133,6 +133,18 @@ describe('ReconcileSetup', () => {
 
     const task = savedTask(save);
     expect(task.notes[task.notes.length - 1]?.kind).toBe('passed');
+  });
+
+  it('stays the setup task once its list is closed, and is no longer setting up', async () => {
+    const { service, save } = reconciling();
+
+    expect(list().isSetup).toBe(true);
+    expect(list().setupOpen).toBe(true);
+
+    await service.forWorkspace(WORKSPACE);
+
+    expect(savedTask(save).isSetup).toBe(true);
+    expect(savedTask(save).setupOpen).toBe(false);
   });
 
   it('leaves the task otherwise exactly as it is', async () => {
@@ -173,7 +185,7 @@ describe('ReconcileSetup', () => {
 
   it('leaves a conversation somebody else closed alone', async () => {
     const gone = list().closeConversation({
-      station: StationName.of('Inbox'),
+      line: null,
       body: TaskNoteBody.of('Done here.'),
       at: NOW,
       voice: Voice.station(),
@@ -200,7 +212,7 @@ describe('ReconcileSetup', () => {
 
     await service.wherever();
 
-    expect(setup.of).toHaveBeenCalledWith(WORKSPACE, TEAM);
+    expect(setup.stateFor).toHaveBeenCalledWith(WORKSPACE, TEAM);
   });
 
   it('goes through the lists of one workspace alone', async () => {

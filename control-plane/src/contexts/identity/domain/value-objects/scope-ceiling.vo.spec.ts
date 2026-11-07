@@ -1,12 +1,10 @@
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
-import {
-  PersonPrincipal,
-  TokenPrincipal,
-} from '@shared-kernel/domain/value-objects/principal.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const SECRETS = TokenScopes.named(['configure', 'secrets']);
@@ -21,7 +19,7 @@ describe('ScopeCeiling', () => {
   it('grants through a token no more than the token has', () => {
     const token = (scopes: string[]) =>
       ScopeCeiling.of(
-        TokenPrincipal.of({
+        IssuedTokenGrant.principal({
           tokenId: WorkspaceTokenId.of('token_1'),
           workspaceId: WorkspaceId.of('ws_1'),
           scopes: TokenScopes.named(scopes),

@@ -3,7 +3,8 @@ import type {
   IntegrationRuntimePort,
   RefreshResult,
 } from '@integrations/application/ports/integration-runtime.port';
-import type { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
+import type { WaitPort } from '@integrations/application/ports/wait.port';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { IntegrationConnectionVersionConflictError } from '@integrations/domain/exceptions/integration-connection-version-conflict.error';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
@@ -12,20 +13,9 @@ import type { IntegrationKey } from '@integrations/domain/value-objects/integrat
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-const REFRESH_LEASE_MS = 30_000;
-
 const WATCH_EVERY_MS = 250;
 
-const WATCHES = REFRESH_LEASE_MS / WATCH_EVERY_MS;
-
 const MAX_SAVE_ATTEMPTS = 3;
-
-export type Wait = (ms: number) => Promise<void>;
-
-const waiting: Wait = (ms) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 
 export class ConnectionRefresh {
   constructor(
@@ -33,7 +23,7 @@ export class ConnectionRefresh {
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly clock: ClockPort,
-    private readonly wait: Wait = waiting,
+    private readonly wait: WaitPort,
   ) {}
 
   async afterUnauthorized(
@@ -42,7 +32,9 @@ export class ConnectionRefresh {
     owner: ConnectionOwner,
     unauthorizedToken: AccessToken,
   ): Promise<AccessToken | null> {
-    for (let round = 0; round <= WATCHES; round++) {
+    const watches = IntegrationConnection.refreshLeaseMs / WATCH_EVERY_MS;
+
+    for (let round = 0; round <= watches; round++) {
       const found = await this.connections.of(teamId, integration, owner);
 
       if (!found?.usable) {
@@ -60,7 +52,7 @@ export class ConnectionRefresh {
       const now = this.clock.now();
 
       if (found.isClaimedAt(now)) {
-        await this.wait(WATCH_EVERY_MS);
+        await this.wait.for(WATCH_EVERY_MS);
         continue;
       }
 
@@ -98,7 +90,7 @@ export class ConnectionRefresh {
     connection: IntegrationConnection,
     now: Date,
   ): Promise<IntegrationConnection | null> {
-    const claimed = connection.claimRefresh(now, REFRESH_LEASE_MS);
+    const claimed = connection.claimRefresh(now);
 
     try {
       await this.connections.save(claimed);
@@ -202,7 +194,7 @@ export class ConnectionRefresh {
         claimed.owner,
       );
 
-      current = reloaded?.refreshToken?.equals(used) ? reloaded : null;
+      current = reloaded?.refreshesWith(used) ? reloaded : null;
     }
   }
 }

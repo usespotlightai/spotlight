@@ -1,6 +1,6 @@
-import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import type { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
-import type { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
+import type { ChangeStackBecameReady } from '@change-review/domain/events/change-stack-became-ready.event';
+import type { StackChecked } from '@change-review/domain/events/stack-checked.event';
+import type { TrialStackSettled } from '@change-review/domain/events/trial-stack-settled.event';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -10,40 +10,40 @@ import {
   type ChangeStackReadyIntegrationEvent,
 } from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import {
-  REPLAY_CHANGE_CHECKED,
-  type ReplayChangeCheckedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-change-checked.integration-event';
+  TRIAL_CHANGE_CHECKED,
+  type TrialChangeCheckedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/trial-change-checked.integration-event';
 import {
-  REPLAY_CHANGE_RECHECKED,
-  type ReplayChangeRecheckedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-change-rechecked.integration-event';
+  TRIAL_CHANGE_RECHECKED,
+  type TrialChangeRecheckedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/trial-change-rechecked.integration-event';
 import {
-  REPLAY_STACK_COMPLETED,
-  type ReplayStackCompletedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-stack-completed.integration-event';
+  TRIAL_STACK_SETTLED,
+  type TrialStackSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/trial-stack-settled.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const CHANGE_REVIEW_EVENT_MAPPERS = [
-  mapping<ChangeStackChecked>(
-    'change-stack.checked',
+  mapping<StackChecked>(
+    'stack-check.checked',
     (
       event,
     ):
       | ChangeCheckedIntegrationEvent
-      | ReplayChangeCheckedIntegrationEvent
-      | ReplayChangeRecheckedIntegrationEvent => {
-      if (event.recheck) {
+      | TrialChangeCheckedIntegrationEvent
+      | TrialChangeRecheckedIntegrationEvent => {
+      if (event.checkId.recheck) {
         return {
-          kind: REPLAY_CHANGE_RECHECKED,
+          kind: TRIAL_CHANGE_RECHECKED,
           runId: event.runId.value,
           workspaceId: event.workspaceId.value,
           passed: event.passed,
         };
       }
 
-      return event.replay
+      return event.trial
         ? {
-            kind: REPLAY_CHANGE_CHECKED,
+            kind: TRIAL_CHANGE_CHECKED,
             runId: event.runId.value,
             workspaceId: event.workspaceId.value,
             passed: event.passed,
@@ -54,11 +54,12 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
             taskId: event.taskId?.value ?? null,
             workspaceId: event.workspaceId.value,
             passed: event.passed,
+            at: event.at.toISOString(),
           };
     },
   ),
-  mapping<ChangeStackReady>(
-    'change-stack.ready',
+  mapping<ChangeStackBecameReady>(
+    'change-stack.became-ready',
     (event): ChangeStackReadyIntegrationEvent => {
       const changes = event.cohorts.filter((each) => each.kind === 'change');
 
@@ -73,10 +74,10 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
       };
     },
   ),
-  mapping<ReplayStackCompleted>(
-    'change-stack.replay-completed',
-    (event): ReplayStackCompletedIntegrationEvent => ({
-      kind: REPLAY_STACK_COMPLETED,
+  mapping<TrialStackSettled>(
+    'change-stack.trial-settled',
+    (event): TrialStackSettledIntegrationEvent => ({
+      kind: TRIAL_STACK_SETTLED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
     }),

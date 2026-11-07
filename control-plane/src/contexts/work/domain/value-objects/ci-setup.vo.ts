@@ -2,7 +2,21 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 
 export type CiVariables = 'written' | 'not-permitted';
 
+export type CiApplyScope = 'configure' | 'secrets' | 'runners';
+
 export class CiSetup {
+  static readonly APPLY_SCOPES: readonly CiApplyScope[] = [
+    'configure',
+    'secrets',
+    'runners',
+  ];
+
+  static readonly VARIABLES = {
+    url: 'SPOTLIGHT_URL',
+    planTrust: 'SPOTLIGHT_PLAN_TRUST',
+    applyTrust: 'SPOTLIGHT_APPLY_TRUST',
+  } as const;
+
   private constructor(
     readonly defaultBranch: string,
     readonly defaultBranchProtected: boolean,

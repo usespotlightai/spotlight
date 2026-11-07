@@ -1,19 +1,23 @@
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { RunDetached } from '@work/domain/events/run-detached.event';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type { RunsPort } from '@runs/application/ports/runs.port';
+import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 
 export class CancelDetachedRun {
-  constructor(
-    private readonly runs: RunRepository,
-    private readonly clock: ClockPort,
-  ) {}
+  constructor(private readonly runs: RunsPort) {}
 
-  async on(event: RunDetached): Promise<void> {
-    const run = await this.runs.findById(event.runId);
-    const cancelled = run?.cancel(this.clock.now());
+  async on(event: TaskRunDetached): Promise<void> {
+    await this.runs.cancel(
+      event.runId,
+      'Task moved on before a runner claimed the run.',
+    );
+  }
 
-    if (run && cancelled && cancelled !== run) {
-      await this.runs.save(cancelled);
+  async onChatDeleted(event: ChatDeleted): Promise<void> {
+    if (event.runId) {
+      await this.runs.cancel(
+        event.runId,
+        'Chat was deleted before a runner claimed the run.',
+      );
     }
   }
 }

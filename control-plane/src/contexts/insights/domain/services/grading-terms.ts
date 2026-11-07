@@ -1,9 +1,10 @@
-import type { Score } from '@insights/domain/aggregates/score.aggregate';
+import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
 import {
   type JudgeCalibration,
   showsJudgeOf,
 } from '@insights/domain/services/judge-calibration';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
+import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 
 export interface GradingTerms {
@@ -13,6 +14,44 @@ export interface GradingTerms {
   readonly claims: readonly (string | null)[];
 }
 
+export interface Grade {
+  readonly scale: ScoreScale;
+  readonly value: number;
+  readonly claimResults: readonly boolean[] | null;
+  readonly rubricVersion: string | null;
+}
+
+export const gradeOn = (
+  terms: GradingTerms,
+  value: boolean | number | null,
+  claims: readonly boolean[] | null,
+): Grade => {
+  if (terms.scale.byClaims) {
+    if (claims === null || value !== null) {
+      throw new InvalidScoreError(
+        'on a claims scale must mark each claim as met or not met',
+      );
+    }
+
+    return {
+      scale: terms.scale,
+      value: terms.scale.valueOfClaims(claims, terms.claims.length),
+      claimResults: [...claims],
+      rubricVersion: terms.rubricVersion,
+    };
+  }
+  if (value === null || claims !== null) {
+    throw new InvalidScoreError('must include a grade');
+  }
+
+  return {
+    scale: terms.scale,
+    value: terms.scale.valueOf(value),
+    claimResults: null,
+    rubricVersion: terms.rubricVersion,
+  };
+};
+
 interface StationTerms {
   readonly scale: ScoreScale | null;
   readonly rubricVersion: string;
@@ -20,7 +59,7 @@ interface StationTerms {
   readonly claims?: readonly string[];
 }
 
-export const latestJudgeOf = (scores: readonly Score[]): Score | null =>
+export const latestJudgeOf = (scores: readonly Scored[]): Scored | null =>
   scores
     .filter((each) => each.fromJudge)
     .sort(
@@ -30,10 +69,10 @@ export const latestJudgeOf = (scores: readonly Score[]): Score | null =>
     )[0] ?? null;
 
 export const visibleJudgeOf = (
-  scores: readonly Score[],
+  scores: readonly Scored[],
   calibration: JudgeCalibration,
   current: string | null,
-): Score | null => {
+): Scored | null => {
   const judge = latestJudgeOf(
     scores.filter((each) => each.rubricVersion === current),
   );
@@ -44,7 +83,7 @@ export const visibleJudgeOf = (
 };
 
 export const gradingTermsOf = (
-  scores: readonly Score[],
+  scores: readonly Scored[],
   station: StationTerms | null,
   judgedBy: Rubric | null,
 ): GradingTerms => {

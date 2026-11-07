@@ -1,4 +1,6 @@
-export class TrustsNeedAnAdminError extends Error {
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+
+export class TrustsNeedAnAdminError extends ApplicationError {
   readonly kind = 'not-allowed' as const;
 
   constructor() {

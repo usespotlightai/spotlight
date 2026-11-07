@@ -1,20 +1,30 @@
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
+  ChangeHunk,
   JournalStep,
   RunJournal,
-} from '@work/application/contracts/run-journal.contract';
-import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
+} from '@runs/application/contracts/run-journal.contract';
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { RunEvidences } from '@work/application/services/run-evidences.service';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
+import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
+import {
+  runOrderOf,
+  trialOrderOf,
+} from '@work/domain/value-objects/dispatch-order.fake-spec';
+import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const stepOf = (change: Partial<JournalStep>): JournalStep => ({
   kind: 'message',
@@ -72,26 +82,98 @@ const journal: RunJournal = {
   egressEnforcement: null,
 };
 
-const TASK_RUN = {
-  id: RunId.of('run_1'),
-  taskId: TaskId.of('task_1'),
-  replayOf: null,
-  spec: { checkoutFolders: ['api'] },
+const TASK_RUN = { runId: RunId.of('run_1'), checkouts: ['api'] };
+
+const REPLAY = { runId: RunId.of('replay_1'), checkouts: ['api'] };
+
+const BRIEFED = BriefedTask.of({
+  stationId: StationId.of('station_1'),
+  title: 'Retry uploads, as briefed',
+  description: 'They failed then.',
+  reviewing: null,
+  attachments: [],
+  notes: [],
+  openReviewComments: [],
+});
+
+const CONFIG = StationConfig.rehydrate(
+  {
+    prompt: null,
+    harness: 'dev',
+    model: null,
+    effort: null,
+    profile: null,
+    image: null,
+    repositories: [],
+    skills: [],
+    tools: [],
+    decisions: false,
+    memories: false,
+  },
+  'f'.repeat(64),
+);
+
+const dispatchOf = (id: RunId, subject: DispatchSubject): Dispatch =>
+  Dispatch.trialOrdered({
+    id,
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: null,
+    subject,
+    configuredAs: CONFIG,
+    briefedTask: BRIEFED,
+    order: trialOrderOf(id),
+    now: new Date('2026-09-30T09:00:00.000Z'),
+  });
+
+const DISPATCHES = new Map<string, Dispatch>([
+  [
+    'run_1',
+    Dispatch.ordered({
+      id: TASK_RUN.runId,
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: null,
+      subject: {
+        kind: 'task',
+        taskId: TaskId.of('task_1'),
+        revision: TaskRevision.of(0),
+        stationId: StationId.of('station_1'),
+      },
+      configuredAs: null,
+      briefedTask: BRIEFED,
+      order: runOrderOf(TASK_RUN.runId),
+      now: new Date('2026-09-30T09:00:00.000Z'),
+    }),
+  ],
+  [
+    'replay_1',
+    dispatchOf(REPLAY.runId, {
+      kind: 'trial',
+      basedOn: TASK_RUN.runId,
+      taskId: TaskId.of('task_1'),
+      stationId: StationId.of('station_1'),
+      asOf: null,
+      repositories: [],
+      followUp: null,
+    }),
+  ],
+]);
+
+const HUNK: ChangeHunk = {
+  id: 'api/src/uploads.ts#1',
+  path: 'api/src/uploads.ts',
+  index: 1,
+  header: '@@ -1,3 +1,4 @@',
+  lines: [' a', '-b', '+B', ' c', '+d'],
 };
 
-const REPLAY = {
-  id: RunId.of('replay_1'),
-  taskId: null,
-  replayOf: RunId.of('run_1'),
-  spec: { checkoutFolders: ['api'] },
-};
+const hunksIn = vi.fn(() => [HUNK]);
 
-const evidences = (judge: StationJudge | null = null) =>
+const evidences = () =>
   new RunEvidences(
     {
-      findById: async (id: RunId) =>
-        [TASK_RUN, REPLAY].find((each) => each.id.equals(id)) ?? null,
-    } as unknown as RunRepository,
+      of: async ([id]: readonly RunId[]) =>
+        [TASK_RUN, REPLAY].filter((each) => id && each.runId.equals(id)),
+    } as unknown as RunFactsPort,
     {
       find: async () => ({
         id: TaskId.of('task_1'),
@@ -100,43 +182,15 @@ const evidences = (judge: StationJudge | null = null) =>
       }),
     } as unknown as TaskRepository,
     {
-      findByStation: async () => ({
-        teamId: TeamId.of('team_1'),
-        id: { value: 'line_1' },
-        stationAt: () => ({ judge }),
-      }),
-      ofTeam: async (teamId: TeamId) => [
-        {
-          teamId,
-          id: { value: 'line_1' },
-          stations: [
-            { id: { value: 'station_1' }, judge },
-            { id: { value: 'station_2' }, judge: null },
-          ],
-        },
-        {
-          teamId,
-          id: { value: 'line_2' },
-          stations: [{ id: { value: 'station_3' }, judge }],
-        },
-      ],
-    } as unknown as LineRepository,
-    {
       attemptsOfRun: async () => [
         { ...journal, steps: journal.steps.slice(0, 2) },
         { ...journal, attempt: 2, steps: journal.steps.slice(2) },
       ],
     } as unknown as RunJournalReaderPort,
     {
-      of: async (runId: RunId) =>
-        runId.equals(TASK_RUN.id)
-          ? {
-              title: 'Retry uploads, as briefed',
-              description: 'They failed then.',
-            }
-          : null,
-    } as unknown as BriefedTasksPort,
-    { sha256: (text: string) => `sha of ${text}` },
+      find: async (id: RunId) => DISPATCHES.get(id.value) ?? null,
+    } as unknown as DispatchRepository,
+    runJournalReadings({ hunksIn }),
   );
 
 describe('RunEvidences', () => {
@@ -159,98 +213,13 @@ describe('RunEvidences', () => {
       title: 'Retry uploads, as briefed',
       description: 'They failed then.',
     });
-    expect(evidence?.hunks.map((each) => each.id)).toEqual([
-      'api/src/uploads.ts#1',
-    ]);
+    expect(evidence?.hunks).toEqual([HUNK]);
   });
 
-  it('cuts the run’s file changes into hunks named by path and place', async () => {
+  it('hands on the hunks cut from the steps of every attempt in the run’s checkouts', async () => {
     const evidence = await evidences().of('run_1');
 
-    expect(evidence?.hunks).toEqual([
-      {
-        id: 'api/src/uploads.ts#1',
-        path: 'api/src/uploads.ts',
-        index: 1,
-        header: '@@ -1,3 +1,4 @@',
-        lines: [' a', '-b', '+B', ' c', '+d'],
-      },
-    ]);
-  });
-
-  it('versions the station’s judge by the hash of its rubric, claims and pass threshold together', async () => {
-    const judge = await evidences(
-      StationJudge.of({
-        rubric: 'Did it retry?',
-        sample: 0.5,
-        minAgreement: 0.6,
-      }),
-    ).judgeAt('station_1');
-
-    expect(judge).toEqual({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      rubric: 'Did it retry?',
-      claims: [],
-      passThreshold: 1,
-      rubricVersion: `sha of ${JSON.stringify({ rubric: 'Did it retry?', claims: [], passThreshold: 1 })}`,
-      sample: 0.5,
-      minAgreement: 0.6,
-    });
-  });
-
-  it('gives a judge of claims alone, with the share of them a run must meet', async () => {
-    const judge = await evidences(
-      StationJudge.of({
-        claims: ['It retries.', 'It adds a test.'],
-        passThreshold: 0.5,
-        sample: 0.5,
-        minAgreement: 0.6,
-      }),
-    ).judgeAt('station_1');
-
-    expect(judge).toMatchObject({
-      rubric: null,
-      claims: ['It retries.', 'It adds a test.'],
-      passThreshold: 0.5,
-    });
-    expect(judge?.rubricVersion).not.toBe(
-      (
-        await evidences(
-          StationJudge.of({
-            claims: ['It retries.', 'It adds a test.'],
-            passThreshold: 1,
-            sample: 0.5,
-            minAgreement: 0.6,
-          }),
-        ).judgeAt('station_1')
-      )?.rubricVersion,
-    );
-  });
-
-  it('gives the judges of a team’s stations on every line as the station sets each one', async () => {
-    const reader = evidences(
-      StationJudge.of({
-        rubric: 'Did it retry?',
-        sample: 0.5,
-        minAgreement: 0.6,
-      }),
-    );
-    const judge = await reader.judgeAt('station_1');
-
-    expect(await reader.judgesOnTeam('team_1')).toEqual(
-      new Map([
-        ['station_1', judge],
-        ['station_3', judge && { ...judge, lineId: 'line_2' }],
-      ]),
-    );
-  });
-
-  it('says a station without a judge has none', async () => {
-    expect(await evidences().judgeAt('station_1')).toBeNull();
-  });
-
-  it('says a run has a task while its task is still there', async () => {
-    expect(await evidences().hasTask('run_1')).toBe(true);
+    expect(evidence?.hunks).toEqual([HUNK]);
+    expect(hunksIn).toHaveBeenLastCalledWith(journal.steps, ['api']);
   });
 });

@@ -1,6 +1,7 @@
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RunnerHostRepository {
   find(id: HostId): Promise<RunnerHost | null>;
@@ -11,7 +12,9 @@ export interface RunnerHostRepository {
 
   remove(host: RunnerHost): Promise<void>;
 
-  removeThrough(source: CredentialSource): Promise<void>;
+  servingThrough(source: CredentialSource): Promise<readonly RunnerHost[]>;
 
-  removeStaleBefore(cutoff: Date): Promise<number>;
+  inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerHost[]>;
+
+  silentSince(cutoff: Date): Promise<readonly RunnerHost[]>;
 }

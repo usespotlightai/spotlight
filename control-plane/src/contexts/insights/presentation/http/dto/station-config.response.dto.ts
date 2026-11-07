@@ -54,9 +54,9 @@ export class ConfigSkillResponseDto {
 
 export class ConfigJudgeResponseDto {
   @ApiProperty({
-    description: 'The hash of the rubric the runs were judged by',
+    description: 'The version of the rubric the runs were judged by',
   })
-  readonly rubricHash: string;
+  readonly rubricVersion: string;
 
   @ApiProperty({ example: 0.2, description: 'The share of runs judged' })
   readonly sample: number;
@@ -68,11 +68,11 @@ export class ConfigJudgeResponseDto {
   readonly minAgreement: number;
 
   constructor(judge: {
-    rubricHash: string;
+    rubricVersion: string;
     sample: number;
     minAgreement: number;
   }) {
-    this.rubricHash = judge.rubricHash;
+    this.rubricVersion = judge.rubricVersion;
     this.sample = judge.sample;
     this.minAgreement = judge.minAgreement;
   }

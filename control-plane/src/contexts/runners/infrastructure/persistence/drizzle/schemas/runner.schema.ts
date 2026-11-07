@@ -1,6 +1,7 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { SANDBOX_STATES } from '@runners/domain/aggregates/sandbox.aggregate';
 import { RUNNER_WORK_KINDS } from '@runners/domain/value-objects/runner-work.vo';
+import { TOKEN_HOLDER_KINDS } from '@runners/domain/value-objects/token-holder.vo';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -10,6 +11,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
@@ -29,6 +31,7 @@ export interface HostImageRecord {
 
 export const runnerWorkKind = pgEnum('runner_work_kind', RUNNER_WORK_KINDS);
 export const sandboxState = pgEnum('sandbox_state', SANDBOX_STATES);
+export const tokenHolderKind = pgEnum('token_holder_kind', TOKEN_HOLDER_KINDS);
 
 export const runnerTrust = pgTable(
   'runner_trust',
@@ -100,12 +103,6 @@ export const runnerPool = pgTable(
   ],
 );
 
-export const poolToken = pgTable('pool_token', {
-  tokenHash: text('token_hash').primaryKey(),
-  poolId: text('pool_id').notNull(),
-  usedAt: timestamptz('used_at').defaultNow().notNull(),
-});
-
 export const egress = pgTable(
   'egress',
   {
@@ -124,11 +121,16 @@ export const egress = pgTable(
   ],
 );
 
-export const egressToken = pgTable('egress_token', {
-  tokenHash: text('token_hash').primaryKey(),
-  egressId: text('egress_id').notNull(),
-  usedAt: timestamptz('used_at').defaultNow().notNull(),
-});
+export const usedToken = pgTable(
+  'used_token',
+  {
+    holderKind: tokenHolderKind('holder_kind').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    holderId: text('holder_id').notNull(),
+    usedAt: timestamptz('used_at').defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.holderKind, table.tokenHash] })],
+);
 
 export const runner = pgTable(
   'runner',
@@ -200,6 +202,8 @@ export const runnerHost = pgTable(
     capacity: integer('capacity').notNull(),
     running: jsonb('running').$type<string[]>().notNull().default([]),
     images: jsonb('images').$type<HostImageRecord[]>().notNull().default([]),
+    sandboxes: jsonb('sandboxes').$type<string[]>().notNull().default([]),
+    stopping: boolean('stopping').notNull().default(false),
     bootId: text('boot_id').notNull(),
     firstHeartbeatAt: timestamptz('first_heartbeat_at').notNull(),
     onlineSince: timestamptz('online_since').notNull(),
@@ -232,6 +236,8 @@ export const sandbox = pgTable(
     workspaceId: text('workspace_id').notNull(),
     key: text('key'),
     hostId: text('host_id'),
+    poolId: text('pool_id'),
+    trustId: text('trust_id'),
     tokenHash: text('token_hash'),
     state: sandboxState('state').notNull(),
     leases: jsonb('leases').$type<SandboxLeaseRecord[]>().notNull().default([]),
@@ -243,23 +249,28 @@ export const sandbox = pgTable(
   (table) => [
     uniqueIndex('sandbox_open_key_idx')
       .on(table.workspaceId, table.key)
-      .where(
-        sql`${table.key} is not null and ${table.state} in ('starting', 'ready')`,
-      ),
+      .where(sql`${table.key} is not null and ${table.state} = 'open'`),
     index('sandbox_host_live_idx')
       .on(table.hostId)
       .where(sql`${table.state} <> 'gone'`),
     index('sandbox_idle_idx')
       .on(table.idleSince)
-      .where(sql`${table.state} in ('starting', 'ready')`),
+      .where(sql`${table.state} = 'open'`),
+    index('sandbox_pool_idle_idx')
+      .on(table.poolId)
+      .where(sql`${table.state} <> 'gone' and ${table.idleSince} is not null`),
     index('sandbox_gone_idx').on(table.goneAt),
     uniqueIndex('sandbox_token_hash_idx').on(table.tokenHash),
     index('sandbox_requested_idx')
       .on(table.workspaceId, table.startedAt)
-      .where(sql`${table.hostId} is null and ${table.state} = 'starting'`),
+      .where(sql`${table.hostId} is null and ${table.state} = 'open'`),
     check(
       'sandbox_host_has_token',
       sql`(${table.hostId} is null) = (${table.tokenHash} is null)`,
+    ),
+    check(
+      'sandbox_host_has_one_credential_source',
+      sql`(${table.hostId} is null) = (${table.poolId} is null and ${table.trustId} is null) and (${table.poolId} is null or ${table.trustId} is null)`,
     ),
     check(
       'sandbox_gone_at_matches_state',

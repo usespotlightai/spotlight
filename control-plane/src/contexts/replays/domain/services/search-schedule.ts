@@ -74,8 +74,47 @@ export const monthSpentOf = (
     .filter((each) => each.currency === currency)
     .reduce((sum, each) => sum.plus(each), Money.none(currency));
 
-export const fitsMonth = (policy: SearchPolicy, monthSpent: Money): boolean =>
+const fitsMonth = (policy: SearchPolicy, monthSpent: Money): boolean =>
   monthSpent.plus(policy.ceiling).isWithin(policy.monthlyCeiling);
+
+export const fitsMonthAfter = (
+  policy: SearchPolicy,
+  startedThisMonth: readonly SpendingSearch[],
+): boolean =>
+  fitsMonth(
+    policy,
+    monthSpentOf(startedThisMonth, policy.monthlyCeiling.currency),
+  );
+
+export type RequestRefusal =
+  | 'result-pending'
+  | 'pull-request-open'
+  | 'monthly-ceiling'
+  | 'request-limit'
+  | 'no-scoring';
+
+export const requestRefusalOf = (input: {
+  readonly resultPending: boolean;
+  readonly pullRequestOpen: boolean;
+  readonly fitsMonth: boolean;
+  readonly takesRequest: boolean;
+  readonly scores: boolean;
+}): RequestRefusal | null => {
+  if (input.resultPending) {
+    return 'result-pending';
+  }
+  if (input.pullRequestOpen) {
+    return 'pull-request-open';
+  }
+  if (!input.fitsMonth) {
+    return 'monthly-ceiling';
+  }
+  if (!input.takesRequest) {
+    return 'request-limit';
+  }
+
+  return input.scores ? null : 'no-scoring';
+};
 
 export interface DueInput {
   readonly policy: SearchPolicy | null;

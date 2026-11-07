@@ -16,7 +16,7 @@ import type {
 import {
   CHART_STATUSES,
   type ChartStatus,
-} from '@replays/domain/services/replayed-chart';
+} from '@replays/application/queries/views/replayed-chart';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import { REPLAYED_PERIODS } from '@replays/domain/value-objects/replayed-period.vo';
 import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';

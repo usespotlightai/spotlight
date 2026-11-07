@@ -1,9 +1,5 @@
 import type { DisputeDecisionCommand } from '@change-review/application/commands/dispute-decision.command';
-import type { TaskDecisionsDto } from '@change-review/application/dto/decision.dto';
-import { namedDisputes } from '@change-review/application/mappers/named-disputes';
-import type { DecisionReaderPort } from '@change-review/application/ports/decision-reader.port';
-import type { PeoplePort } from '@change-review/application/ports/people.port';
-import type { DecisionAccess } from '@change-review/application/services/decision-access.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
@@ -16,31 +12,24 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
 export class DisputeDecisionHandler
-  implements CommandHandlerPort<DisputeDecisionCommand, TaskDecisionsDto>
+  implements CommandHandlerPort<DisputeDecisionCommand, void>
 {
   constructor(
-    private readonly access: DecisionAccess,
+    private readonly access: TeamWorkAccess,
     private readonly sets: DecisionSetRepository,
-    private readonly decisions: DecisionReaderPort,
-    private readonly people: PeoplePort,
     private readonly transaction: TransactionPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
 
-  async execute(command: DisputeDecisionCommand): Promise<TaskDecisionsDto> {
+  async execute(command: DisputeDecisionCommand): Promise<void> {
     try {
-      const deciding = await this.access.ofTask(
+      const { task, by } = await this.access.actingOnTask(
         command.teamId,
         command.taskId,
         command.viewerId,
+        () => new UnknownDecisionError(),
       );
-
-      if (!deciding) {
-        throw new UnknownDecisionError();
-      }
-
-      const { task, by } = deciding;
 
       await this.transaction.inTransaction(async () => {
         const set = await this.sets.forTask(task.id);
@@ -60,17 +49,6 @@ export class DisputeDecisionHandler
           }),
         );
       });
-
-      const found = await this.decisions.ofTask(task.id);
-
-      if (!found) {
-        throw new UnknownDecisionError();
-      }
-
-      return {
-        ...found,
-        decisions: await namedDisputes(found.decisions, this.people),
-      };
     } catch (error) {
       rethrowAsApplicationError(error);
     }

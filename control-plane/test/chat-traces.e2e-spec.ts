@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type { RunReadModel } from '@runs/application/services/run-read-model.service';
+import type { RunState } from '@runs/domain/value-objects/run-state';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -10,21 +12,22 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import type { RunState } from '@work/domain/value-objects/run-state';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
-import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { endedAtFor } from './support/run-ended';
+import { endingFor } from './support/run-ended';
+import { runFactsOver } from './support/run-facts';
+import { requestedByChat, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
 let chats: DrizzleChatRepository;
-let traces: DrizzleRunnerTraceReader;
+let leases: RunReadModel;
 let traced: DrizzleTracedTaskReader;
 
 beforeAll(async () => {
@@ -33,7 +36,7 @@ beforeAll(async () => {
   chats = new DrizzleChatRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  traces = new DrizzleRunnerTraceReader(db);
+  leases = runFactsOver(db);
   traced = new DrizzleTracedTaskReader(db);
 }, 60_000);
 
@@ -51,6 +54,7 @@ const RETRIES = TraceReference.of({
 
 const started = () =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
@@ -67,14 +71,20 @@ const chatRun = async (state: RunState) => {
 
   await chats.add(chat);
   await db.insert(schema.run).values({
+    ...requestedByChat(chat.id.value, { teamId: 'team_1' }),
     id: runId,
     workspaceId: 'ws_1',
     harness: 'dev',
-    chatId: chat.id.value,
     state,
-    endedAt: endedAtFor(state),
-    claimedBy: RUNNER,
-    spec: {},
+    ...endingFor(state),
+    claimedBy: state === 'claimed' ? RUNNER : null,
+    leaseExpiresAt: state === 'claimed' ? new Date(Date.now() + 60_000) : null,
+    spec: {
+      command: { executable: 'sh', args: [] },
+      briefing: 'Why did this fail?',
+      handover: { options: ['done'], noteLimit: 0 },
+      resume: {},
+    },
   });
 
   return RunId.of(runId);
@@ -92,7 +102,7 @@ const taskOfTeam = async (teamId: string) => {
     teamId,
     name: 'Delivery',
   });
-  await db.insert(schema.station).values({
+  await insertStations(db, {
     id: stationId,
     key: 'triage',
     workspaceId: 'ws_1',
@@ -113,18 +123,23 @@ const taskOfTeam = async (teamId: string) => {
 };
 
 const taskRun = async (teamId: string) => {
-  const { taskId, stationId } = await taskOfTeam(teamId);
+  const { taskId } = await taskOfTeam(teamId);
   const runId = randomUUID();
 
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { teamId }),
     id: runId,
     workspaceId: 'ws_1',
     harness: 'dev',
-    taskId,
-    stationId,
     state: 'claimed',
     claimedBy: RUNNER,
-    spec: {},
+    leaseExpiresAt: new Date(Date.now() + 60_000),
+    spec: {
+      command: { executable: 'sh', args: [] },
+      briefing: 'Why did this fail?',
+      handover: { options: ['done'], noteLimit: 0 },
+      resume: {},
+    },
   });
 
   return RunId.of(runId);
@@ -143,7 +158,7 @@ describe('traces shared in a chat', () => {
     const runId = await taskRun('team_3');
 
     expect(
-      (await traces.leasedRunFacts(runId, RunnerId.of(RUNNER)))?.teamId.value,
+      (await leases.leasedBy(runId, RunnerId.of(RUNNER)))?.team?.value,
     ).toBe('team_3');
   });
 
@@ -165,7 +180,7 @@ describe('traces shared in a chat', () => {
     const runId = await chatRun('claimed');
 
     expect(
-      (await traces.leasedRunFacts(runId, RunnerId.of(RUNNER)))?.teamId.value,
+      (await leases.leasedBy(runId, RunnerId.of(RUNNER)))?.team?.value,
     ).toBe('team_1');
   });
 
@@ -174,10 +189,10 @@ describe('traces shared in a chat', () => {
     const finished = await chatRun('completed');
 
     await expect(
-      traces.leasedRunFacts(claimed, RunnerId.of('runner_2')),
+      leases.leasedBy(claimed, RunnerId.of('runner_2')),
     ).resolves.toBeNull();
     await expect(
-      traces.leasedRunFacts(finished, RunnerId.of(RUNNER)),
+      leases.leasedBy(finished, RunnerId.of(RUNNER)),
     ).resolves.toBeNull();
   });
 });

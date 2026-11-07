@@ -1,12 +1,13 @@
-import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
+import type { HookToolsPort } from '@integrations/application/ports/hook-tools.port';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
+import type { EnabledAtStationsPort } from '@lines/application/ports/enabled-at-stations.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { EnabledAtStationsPort } from '@work/application/ports/enabled-at-stations.port';
 
 export class EnabledTools {
   constructor(
     private readonly enabledAtStations: EnabledAtStationsPort,
-    private readonly hooks: HookDefinitionRepository,
+    private readonly hooks: HookToolsPort,
   ) {}
 
   async onTeam(teamId: TeamId): Promise<ToolUses> {
@@ -16,14 +17,17 @@ export class EnabledTools {
     ]);
 
     return ToolUses.of([
-      ...stations.map((each) => ({
-        tool: each.name,
-        by: `the station ${each.line}/${each.station}`,
-      })),
+      ...stations.flatMap((each) => {
+        const tool = ToolName.parsed(each.name);
+
+        return tool
+          ? [{ tool, by: `the station ${each.line}/${each.station}` }]
+          : [];
+      }),
       ...hooks.flatMap((hook) =>
         hook.tools.map((tool) => ({
-          tool: tool.value,
-          by: `the hook ${hook.key.value}`,
+          tool,
+          by: `the hook ${hook.hook.value}`,
         })),
       ),
     ]);

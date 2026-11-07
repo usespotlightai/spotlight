@@ -1,10 +1,4 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import { rateOf, spendingOf } from '@insights/domain/services/measures';
-import {
-  endedWithin,
-  type TeamHistory,
-} from '@insights/domain/services/team-history';
-import type { Window } from '@insights/domain/value-objects/insights-period.vo';
+import { rateOf } from '@insights/domain/services/measures';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 
 export interface CostSlice {
@@ -53,16 +47,6 @@ export interface CostBreakdown {
   readonly links: readonly FlowLink[];
   readonly cache: CacheUse;
   readonly cacheByStation: readonly StationCacheUse[];
-}
-
-interface Priced {
-  readonly record: RunRecord;
-  readonly amount: number;
-}
-
-interface Share {
-  readonly key: string | null;
-  readonly amount: number;
 }
 
 const COST_PARTS = ['harness', 'model', 'station', 'repository'] as const;
@@ -121,151 +105,7 @@ export interface CostCountsInPeriod {
   readonly spendBefore: Money | null;
 }
 
-const repositorySharesOf = (each: Priced): readonly Share[] => {
-  const repositories = each.record.end?.agentConfig.repositories ?? [];
-
-  return repositories.length === 0
-    ? [{ key: null, amount: each.amount }]
-    : repositories.map((key) => ({
-        key,
-        amount: each.amount / repositories.length,
-      }));
-};
-
 const nodeId = ({ kind, key }: FlowEnd): string => `${kind}:${key ?? ''}`;
-
-const cacheTotalsOf = (records: readonly RunRecord[]): CacheTotals | null => {
-  const known = records.flatMap((each) => {
-    const tokens = each.usage?.tokens;
-
-    return tokens && tokens.input !== null && tokens.cacheRead !== null
-      ? [
-          {
-            input: tokens.input,
-            cacheRead: tokens.cacheRead,
-            cacheWrite: tokens.cacheWrite,
-          },
-        ]
-      : [];
-  });
-
-  if (known.length === 0) {
-    return null;
-  }
-
-  const written = known.flatMap((each) =>
-    each.cacheWrite === null ? [] : [each.cacheWrite],
-  );
-
-  return {
-    input: known.reduce((sum, each) => sum + each.input, 0),
-    cacheRead: known.reduce((sum, each) => sum + each.cacheRead, 0),
-    cacheWrite:
-      written.length > 0 ? written.reduce((sum, each) => sum + each, 0) : null,
-  };
-};
-
-export const costCountsOf = (
-  history: TeamHistory,
-  window: Window,
-): CostCounts => {
-  const ran = endedWithin(history.records, window).filter((each) => each.ran);
-  const spending = spendingOf(ran.map((each) => each.usage?.spend ?? null));
-  const priced: Priced[] = ran.flatMap((record) =>
-    record.usage?.spend ? [{ record, amount: record.usage.spend.amount }] : [],
-  );
-  const shares = new Map<string, CostShareCount>();
-  const links = new Map<string, CostLinkCount>();
-  const share = (
-    part: CostPart,
-    key: string | null,
-    amount: number,
-    first: CostPlace,
-  ) => {
-    const id = `${part}\u0000${key ?? ''}\u0000${key === null}`;
-    const previous = shares.get(id);
-    shares.set(id, {
-      part,
-      key,
-      amount: (previous?.amount ?? 0) + amount,
-      runs: (previous?.runs ?? 0) + 1,
-      first: previous?.first ?? first,
-    });
-  };
-  const link = (
-    source: FlowEnd,
-    target: FlowEnd,
-    amount: number,
-    first: CostPlace,
-  ) => {
-    const id = `${nodeId(source)}\u0000${nodeId(target)}`;
-    const previous = links.get(id);
-    links.set(id, {
-      source,
-      target,
-      amount: (previous?.amount ?? 0) + amount,
-      first: previous?.first ?? first,
-    });
-  };
-
-  for (const [index, each] of priced.entries()) {
-    const end = each.record.end;
-
-    if (!end) {
-      continue;
-    }
-
-    const run = index + 1;
-    const model: FlowEnd = { kind: 'model', key: end.agentConfig.model };
-    const station: FlowEnd = { kind: 'station', key: end.location.stationId };
-
-    share('harness', end.agentConfig.harness, each.amount, { run, offset: 0 });
-    share('model', model.key, each.amount, { run, offset: 0 });
-    share('station', station.key, each.amount, { run, offset: 1 });
-    link(model, station, each.amount, { run, offset: 0 });
-
-    for (const [position, repository] of repositorySharesOf(each).entries()) {
-      share('repository', repository.key, repository.amount, {
-        run,
-        offset: 2 + position,
-      });
-      link(
-        station,
-        { kind: 'repository', key: repository.key },
-        repository.amount,
-        { run, offset: 1 + position },
-      );
-    }
-  }
-
-  const stations = new Map<string, { first: number; runs: RunRecord[] }>();
-
-  for (const [index, each] of ran.entries()) {
-    const stationId = each.end?.location.stationId;
-
-    if (stationId) {
-      const previous = stations.get(stationId);
-      stations.set(stationId, {
-        first: previous?.first ?? index + 1,
-        runs: [...(previous?.runs ?? []), each],
-      });
-    }
-  }
-
-  return {
-    spend: spending.spend,
-    unpriced: spending.unpriced,
-    mixedCurrencies: spending.mixedCurrencies,
-    shares: [...shares.values()],
-    links: [...links.values()],
-    cache: cacheTotalsOf(ran),
-    cacheByStation: [...stations.entries()].map(([stationId, totals]) => ({
-      stationId,
-      first: totals.first,
-      cache: cacheTotalsOf(totals.runs),
-    })),
-  };
-};
 
 const cacheUseOf = (totals: CacheTotals | null): CacheUse =>
   totals

@@ -1,4 +1,6 @@
 import { HookCallbackToken } from '@integrations/domain/aggregates/hook-callback-token.aggregate';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -14,8 +16,8 @@ const callbackToken = (firing: string | null = 'firing_1') =>
       tokenHash: TokenHash.of('a'.repeat(64)),
       workspaceId: WorkspaceId.of('workspace_1'),
       taskId: TaskId.of('task_1'),
-      hook: 'dba-review',
-      firing,
+      hook: HookKey.of('dba-review'),
+      firing: firing === null ? null : HookFiringId.of(firing),
     },
     NOW,
   );

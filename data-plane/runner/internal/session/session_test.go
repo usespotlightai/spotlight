@@ -127,6 +127,10 @@ func (j *journal) History(
 	return nil, nil
 }
 
+func (j *journal) SearchView(_ context.Context, _ string) (json.RawMessage, error) {
+	return nil, nil
+}
+
 func (j *journal) RecallMemories(
 	_ context.Context, _ string, words string,
 ) (json.RawMessage, error) {
@@ -227,7 +231,7 @@ func (j *journal) AskPermission(
 	return protocol.PermissionResponse{Decision: j.decision}, nil
 }
 
-func (j *journal) WorkspaceArchive(_ context.Context, _ string) (*protocol.StoredArchive, error) {
+func (j *journal) WorkingCopyArchive(_ context.Context, _ string) (*protocol.StoredArchive, error) {
 	j.mu.Lock()
 	j.restores++
 	j.mu.Unlock()
@@ -504,7 +508,7 @@ func agentOutput(t *testing.T, written *journal) string {
 func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
 	written := run(t, harness(t, `output = "worked";`, "end_turn"))
 
-	if ready := written.typed(protocol.EventWorkspaceReady); len(ready) != 1 {
+	if ready := written.typed(protocol.EventWorkingCopyReady); len(ready) != 1 {
 		t.Errorf("expected the workspace to be reported once, got %d", len(ready))
 	}
 	if output := agentOutput(t, written); output != "worked" {

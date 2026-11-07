@@ -8,8 +8,12 @@ import { ReadStationInsightsHandler } from '@insights/application/queries/handle
 import { ReadStationInsightsQuery } from '@insights/application/queries/read-station-insights.query';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
-import { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
-import { TaskFailuresInMemory } from '@insights/domain/insights.fake-spec';
+import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
+import {
+  TaskFailuresInMemory,
+  taskPullRequestOf,
+} from '@insights/insights.fake-spec';
+import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
 import {
   costedRecord,
   endedRecord,
@@ -17,13 +21,13 @@ import {
   NOBODY_ELSE,
   RunRecordsInMemory,
   SECOND_CONFIG,
-  TaskPullRequestsInMemory,
+  StationFactsInMemory,
   TEAM,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
-import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
+} from '@insights/runs.fake-spec';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -57,17 +61,15 @@ const CONFIGS: Record<string, StationConfigView> = {
 
 const reading = async (member = true) => {
   const records = new RunRecordsInMemory();
-  const taskPullRequests = new TaskPullRequestsInMemory();
+  const taskPullRequests = new PullRequestRecordsInMemory();
   const pullRequests = stationConfigPullRequestsInMemory();
   const failures = new TaskFailuresInMemory();
   const requested: string[][] = [];
   const work: WorkPort = {
     unfinishedRuns: async () => [],
     traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+    taskRunOf: async () => null,
     endedRun: async () => null,
-    teamRepositories: async () => [],
-    teamSkillKeys: async () => [],
-    alertsAt: async () => null,
     configsInOrder: async (fingerprints) => {
       requested.push([...fingerprints]);
       const known = fingerprints.filter((each) => each in CONFIGS);
@@ -94,7 +96,7 @@ const reading = async (member = true) => {
   };
   const access = new InsightsAccess({
     ...NOBODY_ELSE,
-    membershipOnTeam: async () =>
+    viewerOf: async () =>
       member ? { workspaceId: WORKSPACE, by: UserId.of('user_ada') } : null,
   });
 
@@ -107,11 +109,12 @@ const reading = async (member = true) => {
     read: (last: number | null = null, stationId = 'station_1') =>
       new ReadStationInsightsHandler(
         access,
-        records,
-        taskPullRequests,
+        new StationFactsInMemory(records, {
+          pullRequests: taskPullRequests,
+          failures,
+        }),
         pullRequests,
         work,
-        failures,
       ).execute(
         new ReadStationInsightsQuery(
           'team_1',
@@ -203,15 +206,12 @@ describe('reading how a station’s runs turned out', () => {
   it('shows each run with the state of its task’s pull request', async () => {
     const reader = await reading();
     await reader.records.add(endedRecord('run_1'));
-    const pullRequest = PullRequestUrl.of('https://github.com/acme/api/pull/1');
     await reader.taskPullRequests.add(
-      TaskPullRequest.open({
-        taskId: TaskId.of('task_1'),
-        workspaceId: WORKSPACE,
-        teamId: TEAM,
-        pullRequest,
-        at: at(4),
-      }).close({ pullRequest, merged: true, at: at(5) }),
+      taskPullRequestOf('task_1', {
+        openedAt: at(4),
+        closedAt: at(5),
+        merged: true,
+      }),
     );
 
     const insights = await reader.read();
@@ -384,21 +384,13 @@ describe('reading how a station’s runs turned out', () => {
         ms: 20_000,
       }),
     );
-    for (const [taskId, number] of [
-      ['task_a1', 1],
-      ['task_b', 2],
-    ] as const) {
-      const pullRequest = PullRequestUrl.of(
-        `https://github.com/acme/api/pull/${number}`,
-      );
+    for (const taskId of ['task_a1', 'task_b']) {
       await reader.taskPullRequests.add(
-        TaskPullRequest.open({
-          taskId: TaskId.of(taskId),
-          workspaceId: WORKSPACE,
-          teamId: TEAM,
-          pullRequest,
-          at: at(5),
-        }).close({ pullRequest, merged: true, at: at(6) }),
+        taskPullRequestOf(taskId, {
+          openedAt: at(5),
+          closedAt: at(6),
+          merged: true,
+        }),
       );
     }
 
@@ -451,7 +443,7 @@ describe('reading how a station’s runs turned out', () => {
         teamId: TEAM,
         occurrences: [
           FailureOccurrence.of({
-            stationId: 'station_1',
+            stationId: StationId.of('station_1'),
             runId: 'run_1',
             source: 'run',
             code: 'loop',
@@ -459,7 +451,7 @@ describe('reading how a station’s runs turned out', () => {
             at: at(1),
           }),
           FailureOccurrence.of({
-            stationId: 'station_1',
+            stationId: StationId.of('station_1'),
             runId: 'run_3',
             source: 'hook:notify',
             code: 'timeout',
@@ -596,11 +588,11 @@ describe('reading how a station’s runs turned out', () => {
       openedAt: Date,
       change: { stationId?: string; teamId?: TeamId } = {},
     ) =>
-      reader.pullRequests.note({
+      reader.pullRequests.opened({
         configPullRequestId: id,
         workspaceId: WORKSPACE,
         teamId: change.teamId ?? TEAM,
-        stationId: change.stationId ?? 'station_1',
+        stationId: StationId.of(change.stationId ?? 'station_1'),
         fingerprint,
         url: PullRequestUrl.of(`https://github.com/acme/platform/pull/${id}`),
         openedAt,

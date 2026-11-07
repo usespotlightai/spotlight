@@ -78,7 +78,7 @@ const layer = (
   dependsOn,
   hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
   notes: hunks.map((hunk) => ({
-    path: DIFF.fileOf(hunk)?.path ?? hunk,
+    path: DIFF.fileOf(HunkId.of(hunk))?.path ?? hunk,
     note: `Why ${title} changes`,
   })),
   questions: [],

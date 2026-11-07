@@ -13,39 +13,35 @@ import {
   type RepositoryContentsPort,
 } from '@github/application/ports/repository-contents.port';
 import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
+import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
+import {
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
-import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, expect } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
 import {
@@ -55,8 +51,11 @@ import {
 } from './auto-searches';
 import { eventually } from './eventually';
 import { keptSet } from './kept-sets';
+import { writtenStation } from './replays';
+import { aDispatch, requestedByTask } from './runs';
 import * as schema from './schema';
 import { searchReadOf } from './search-read';
+import { insertStations } from './stations';
 import { createTeam } from './team';
 
 const HOST = `host-search-flow-${randomUUID().slice(0, 8)}`;
@@ -74,11 +73,12 @@ export const STUB_GUIDANCE = 'Keep the oldest job first after a restart.';
 
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -172,10 +172,10 @@ const repositoryContents: RepositoryContentsPort = {
           defaultBranch: 'main',
         };
   },
-  filesIn: async (_workspace, _repository, directory) =>
-    [...github.files.keys()].filter(
-      (path) => path.slice(0, Math.max(path.lastIndexOf('/'), 0)) === directory,
-    ),
+  filesUnder: async (_workspace, _repository, directory) =>
+    [...github.files.entries()]
+      .filter(([path]) => !directory || path.startsWith(`${directory}/`))
+      .map(([path, content]) => ({ path, content })),
   committed: async (_workspace, _repository, commit) => {
     github.commits.push(commit);
     return `commit_${github.commits.length + 1}`;
@@ -289,13 +289,12 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -311,29 +310,36 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(stationId),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
   });
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(stationId),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      endedAt: at,
+    }),
+  );
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -355,7 +361,7 @@ export const createSet = async (
   );
 
 export const refreshedBefore = (setId: string): Promise<boolean> =>
-  app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(setId));
+  app.get(RefreshReplaySets).refreshBefore(ReplaySetId.of(setId));
 
 export const setRunsOf = async (setId: string): Promise<string[]> =>
   (
@@ -450,8 +456,8 @@ export const deliveredTo = async (
 export const searchOf = (id: string): Promise<SearchRead> =>
   searchReadOf(app, id);
 
-export const turnedOff = (id: string): Promise<void> =>
-  app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
+export const turnedOff = async (id: string): Promise<void> => {
+  await app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
     const searches = app.get(DrizzleSearchRepository);
     const search = await searches.locked(SearchId.of(id));
 
@@ -459,6 +465,10 @@ export const turnedOff = (id: string): Promise<void> =>
       await searches.save(search.turnOff(new Date()));
     }
   });
+  await eventually(async () =>
+    (await searchRunsOf(id)).every((each) => each.state !== 'queued'),
+  );
+};
 
 export const searchRow = async (id: string) => {
   const [row] = await db
@@ -491,7 +501,16 @@ export const originalsOf = async (replayId: string) =>
     .sort();
 
 export const searchRunsOf = async (searchId: string) =>
-  await db.select().from(schema.run).where(eq(schema.run.searchId, searchId));
+  await db
+    .select()
+    .from(schema.run)
+    .where(
+      and(
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'search'),
+        eq(schema.run.requesterId, searchId),
+      ),
+    );
 
 const queuedReplayRuns = async () =>
   db
@@ -501,7 +520,8 @@ const queuedReplayRuns = async () =>
       and(
         eq(schema.run.workspaceId, team.workspaceId.value),
         eq(schema.run.state, 'queued'),
-        isNotNull(schema.run.replayOfRunId),
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'replay'),
       ),
     );
 
@@ -599,7 +619,7 @@ const SETTLE_CHECKS = 50;
 
 const SETTLE_PAUSE_MS = 200;
 
-const inFlightReplayRuns = async () =>
+const unsettledReplayEntries = async () =>
   db
     .select({ runId: schema.replayEntry.runId })
     .from(schema.replayEntry)
@@ -607,10 +627,15 @@ const inFlightReplayRuns = async () =>
     .where(
       and(
         eq(schema.replay.workspaceId, team.workspaceId.value),
-        isNotNull(schema.replayEntry.runId),
-        isNull(schema.replayEntry.succeeded),
-        eq(schema.replayEntry.notRun, false),
         inArray(schema.replay.state, ['queued', 'running']),
+        or(
+          eq(schema.replayEntry.waiting, true),
+          and(
+            isNotNull(schema.replayEntry.runId),
+            isNull(schema.replayEntry.succeeded),
+            eq(schema.replayEntry.notRun, false),
+          ),
+        ),
       ),
     );
 
@@ -622,7 +647,7 @@ const settled = async (): Promise<boolean> => {
     if ((await queuedReplayRuns()).length > 0) {
       return false;
     }
-    if ((await inFlightReplayRuns()).length === 0) {
+    if ((await unsettledReplayEntries()).length === 0) {
       return true;
     }
 
@@ -632,7 +657,23 @@ const settled = async (): Promise<boolean> => {
   return true;
 };
 
+const REPLAY_STARTS = [
+  'replays.start-planned-search-replays',
+  'replays.start-replay-of-started-check',
+];
+
+const replaysStarted = async (): Promise<boolean> => {
+  const rows = await db
+    .select({ deliveredAt: schema.eventDelivery.deliveredAt })
+    .from(schema.eventDelivery)
+    .where(inArray(schema.eventDelivery.subscriber, REPLAY_STARTS));
+
+  return rows.every((each) => each.deliveredAt !== null);
+};
+
 export const drained = async (plan: Plan): Promise<void> => {
+  await eventually(replaysStarted, WITHIN);
+
   for (let turn = 0; turn < 200; turn += 1) {
     await app.get(DispatchReplayRuns).processDue();
 
@@ -681,7 +722,8 @@ export const leasedSearchRun = async (
     const runs = await searchRunsOf(searchId);
 
     return runs.some(
-      (each) => each.state === 'queued' && each.searchIteration === iteration,
+      (each) =>
+        each.state === 'queued' && each.requesterToken === String(iteration),
     );
   }, WITHIN);
 
@@ -691,7 +733,7 @@ export const leasedSearchRun = async (
     .from(schema.run)
     .where(eq(schema.run.id, assignment?.runId ?? ''));
 
-  expect(row?.searchId).toBe(searchId);
+  expect(row?.requesterId).toBe(searchId);
 
   return assignment as Claimed;
 };
@@ -728,17 +770,7 @@ export const endedSearchRun = async (
     .expect(204);
 };
 
-export const liveBlock = async () => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  if (!live) {
-    throw new Error('the build station is not live');
-  }
-
-  return live.station;
-};
+export const liveBlock = () => writtenStation(app, DELIVERY, 'build');
 
 export const proposing = (assignment: Claimed, body: object) =>
   bearing(assignment.token).post(
@@ -791,7 +823,7 @@ export const openSearchFlow = (): void => {
     github.commentFailing = null;
     app = await openApp((module) =>
       module
-        .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+        .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
         .useValue(archiveStore)
         .overrideProvider(ATTACHMENT_STORE)
         .useValue(attachmentStore)
@@ -828,7 +860,7 @@ export const openSearchFlow = (): void => {
       sample: 0.1,
       minAgreement: 0.6,
     };
-    await db.insert(schema.station).values([
+    await insertStations(db, [
       {
         id: randomUUID(),
         workspaceId: team.workspaceId.value,

@@ -11,24 +11,28 @@ import {
   type ReplaysReactions,
   replaysSubscribers,
 } from '@replays/presentation/events/replays.subscribers';
+import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
+import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { claimer } from '@runs/domain/aggregates/run.fake-spec';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
+import { Handover } from '@runs/domain/value-objects/handover.vo';
+import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { RunExtensions } from '@runs/domain/value-objects/run-extensions.vo';
+import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
+import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
+import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
+import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
+import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import {
+  RunWorkingCopy,
+  WorkingCopyKey,
+} from '@runs/domain/value-objects/working-copy-key.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { Handover } from '@work/domain/value-objects/handover.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationConfig } from '@work/domain/value-objects/station-config.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp } from './support/app';
 
@@ -42,41 +46,40 @@ const replayRun = (id = 'run_1') =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
     priority: RunPriority.of(-1),
-    subject: RunSubject.replay(
-      RunId.of('run_0'),
-      TaskId.of('task_1'),
-      StationId.of('station_1'),
-      TeamId.of('team_1'),
-    ),
-    spec: RunSpec.of({
-      checkouts: [{ remote: 'spotlight:repository', path: 'api', ref: COMMIT }],
-      command: { executable: 'sh', args: [] },
-      briefing: 'Fix the queue.',
-      handover: { options: ['review'], noteLimit: 0 },
-      resume: { key: 'replay-run_1' },
+    now: NOW,
+    requester: RunRequester.of({
+      owner: 'replays',
+      kind: 'replay',
+      id,
+      team: TeamId.of('team_1'),
+    }),
+    policy: RunPolicy.of({
+      holdsTurn: false,
+      gated: false,
+      actsBeyondItself: false,
+      asks: 'recorded',
+      listed: false,
+      exclusive: false,
+    }),
+    workingCopy: RunWorkingCopy.of({
+      key: WorkingCopyKey.of('replays', `replay-${id}`),
+      rejoinable: false,
+      restores: 'when-continuing',
+    }),
+    extensions: RunExtensions.of({
       replay: {
         archive: 'archive_1',
         checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
         movesOnAfter: ['build', 'done'],
       },
     }),
-    briefedWith: BriefedMemories.of({ briefed: [], omitted: [] }),
-    configuredAs: StationConfig.rehydrate(
-      {
-        prompt: null,
-        harness: 'dev',
-        model: null,
-        effort: null,
-        profile: null,
-        image: null,
-        repositories: [],
-        skills: [],
-        tools: [],
-        decisions: false,
-        memories: false,
-      },
-      'f'.repeat(64),
-    ),
+    spec: RunSpec.of({
+      checkouts: [{ remote: 'spotlight:repository', path: 'api', ref: COMMIT }],
+      command: { executable: 'sh', args: [] },
+      briefing: 'Fix the queue.',
+      handover: { options: ['review'], noteLimit: 0 },
+      resume: {},
+    }),
   });
 
 const receivedBy = async (
@@ -87,8 +90,8 @@ const receivedBy = async (
     ending: { ended: async (ended: ReplayRunEnded) => received.push(ended) },
   } as unknown as ReplaysReactions);
   const published = events.flatMap((event) =>
-    WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map((each) =>
-      each.map(event, new Date()),
+    RUNS_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
+      (each) => each.map(event, new Date()) ?? [],
     ),
   );
 
@@ -114,7 +117,14 @@ const scored = (ended: ReplayRunEnded) =>
     {
       unreplayableReason: null,
       notRun: false,
-      end: RunEnd.of({ ...ended, result: ended.outcome, at: NOW }),
+      end: RunEnd.of({
+        result: ended.outcome,
+        failure: ended.failure,
+        stopped: ended.stopped,
+        asked: ended.askedAPerson,
+        next: ended.next,
+        at: NOW,
+      }),
       measures: null,
       checks: null,
       judging: null,
@@ -127,7 +137,7 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
     let run = replayRun();
     for (let attempt = 0; attempt < 3; attempt += 1) {
       run = run
-        .claim(RUNNER, NOW)
+        .claim(claimer(RUNNER), NOW)
         .expireLease(new Date(NOW.getTime() + (attempt + 1) * 600_000));
     }
 
@@ -145,10 +155,16 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
 
   it('leaves unscored a replay run that failed before its agent received it', async () => {
     const run = replayRun()
-      .claim(RUNNER, NOW)
+      .claim(claimer(RUNNER), NOW)
       .complete(
         RUNNER,
-        RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
+        RunOutcome.of({
+          exitCode: ExitCode.of(-1),
+          failed: true,
+          setupFailed: true,
+        }),
+        HandoverReport.none(),
+        NOW,
       );
 
     const ended = await receivedBy(run.pullEvents());
@@ -159,8 +175,13 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
 
   it('fails a replay run whose agent failed', async () => {
     const run = replayRun()
-      .claim(RUNNER, NOW)
-      .complete(RUNNER, RunOutcome.of({ exitCode: 1, failed: true }));
+      .claim(claimer(RUNNER), NOW)
+      .complete(
+        RUNNER,
+        RunOutcome.of({ exitCode: ExitCode.of(1), failed: true }),
+        HandoverReport.none(),
+        NOW,
+      );
 
     const ended = await receivedBy(run.pullEvents());
 
@@ -180,6 +201,8 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     await app?.close();
   });
 
+  let nextSlot = 0;
+
   const storedAfter = async (end: (run: Run) => Run) => {
     const runId = randomUUID();
     const replayId = randomUUID();
@@ -187,19 +210,19 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
 
     await replays.add(
       aReplay({ id: replayId, count: 1 })
-        .reserving(1, () => RunId.of(runId))
+        .reserving([nextSlot++], () => RunId.of(runId))
         .confirm(RunId.of(runId), FINGERPRINT, NOW),
     );
 
-    const ended = end(replayRun(runId).claim(RUNNER, NOW));
+    const ended = end(replayRun(runId).claim(claimer(RUNNER), NOW));
     const subscribers = replaysSubscribers({
       ending: app.get(RecordReplayRunEnding),
     } as unknown as ReplaysReactions);
     const published = ended
       .pullEvents()
       .flatMap((event) =>
-        WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map(
-          (each) => each.map(event, new Date()),
+        RUNS_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
+          (each) => each.map(event, new Date()) ?? [],
         ),
       );
 
@@ -222,7 +245,12 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
   it('stores a run whose agent failed as failed', async () => {
     expect(
       await storedAfter((run) =>
-        run.complete(RUNNER, RunOutcome.of({ exitCode: 1, failed: true })),
+        run.complete(
+          RUNNER,
+          RunOutcome.of({ exitCode: ExitCode.of(1), failed: true }),
+          HandoverReport.none(),
+          NOW,
+        ),
       ),
     ).toEqual({ succeeded: false, reasons: [['run-failed', 'exited']] });
   });
@@ -232,11 +260,12 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       await storedAfter((run) =>
         run.askedAPersonBy(RUNNER).complete(
           RUNNER,
-          RunOutcome.of({ exitCode: 0, failed: false }),
+          RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
           HandoverReport.of({
             handover: Handover.of({ next: 'build' }),
             session: null,
           }),
+          NOW,
         ),
       ),
     ).toEqual({ succeeded: false, reasons: [['asked-a-person', null]] });
@@ -247,7 +276,13 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       await storedAfter((run) =>
         run.complete(
           RUNNER,
-          RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
+          RunOutcome.of({
+            exitCode: ExitCode.of(-1),
+            failed: true,
+            setupFailed: true,
+          }),
+          HandoverReport.none(),
+          NOW,
         ),
       ),
     ).toEqual({ succeeded: null, reasons: [['run-failed', 'unprepared']] });
@@ -258,7 +293,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       (lose: (run: Run, at: Date) => Run) => (run: Run) => {
         let lost = lose(run, NOW);
         for (let attempt = 1; attempt < 3; attempt += 1) {
-          lost = lose(lost.claim(RUNNER, NOW), NOW);
+          lost = lose(lost.claim(claimer(RUNNER), NOW), NOW);
         }
         return lost;
       };

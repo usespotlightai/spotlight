@@ -1,28 +1,27 @@
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
 import type { JudgePort } from '@insights/application/ports/judge.port';
 import type { EndedRun } from '@insights/application/ports/work.port';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
-import {
-  JudgingsInMemory,
-  RUBRIC_VERSION,
-} from '@insights/domain/judging.fake-spec';
-import {
-  FIRST_CONFIG,
-  inTransaction,
-  SET_UP,
-} from '@insights/domain/runs.fake-spec';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import { JudgingsInMemory, RUBRIC_VERSION } from '@insights/judging.fake-spec';
+import { FIRST_CONFIG, inTransaction, SET_UP } from '@insights/runs.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const ENDED: EndedRun = {
-  runId: 'run_1',
-  workspaceId: 'ws_1',
-  teamId: 'team_1',
-  lineId: 'line_1',
-  stationId: 'station_1',
-  taskId: 'task_1',
+  runId: RunId.of('run_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
+  taskId: TaskId.of('task_1'),
   fingerprint: FIRST_CONFIG,
   visit: 1,
   ...SET_UP,
@@ -53,22 +52,22 @@ const requesting = (
     {
       unfinishedRuns: async () => [],
       traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+      taskRunOf: async () => null,
       endedRun: async () => ENDED,
       configsInOrder: async () => [],
-      teamRepositories: async () => [],
-      teamSkillKeys: async () => [],
-      alertsAt: async () => null,
     },
     {
       hasTask: async () => change.hasEvidence ?? true,
       of: async () => null,
+    },
+    {
       judgesOnTeam: async () => new Map(),
       judgeAt: async () =>
         change.judged === false
           ? null
           : {
-              teamId: 'team_1',
-              lineId: 'line_1',
+              teamId: TeamId.of('team_1'),
+              lineId: LineId.of('line_1'),
               rubric: change.rubric ?? 'Did the run retry uploads?',
               rubricVersion: RUBRIC_VERSION,
               claims: [],
@@ -79,7 +78,7 @@ const requesting = (
     },
     judge,
     judgings,
-    deletions,
+    new FactRecorder(deletions),
     inTransaction,
     { now: () => new Date('2026-09-30T10:05:00.000Z'), sleep: async () => {} },
   );
@@ -87,17 +86,21 @@ const requesting = (
   return {
     judgings,
     deletions,
-    ended: (outcome = 'completed', stopped = false) =>
-      service.runEnded({ runId: 'run_1', outcome, stopped, failure: null }),
+    ended: (ending: RunEnding = 'completed') =>
+      service.runEnded({
+        runId: 'run_1',
+        taskId: 'task_1',
+        stationId: 'station_1',
+        ending,
+      }),
   };
 };
 
 describe('RequestJudging', () => {
   it('requests no verdict on a run whose end is received after its task was deleted', async () => {
     const requested = requesting();
-    await requested.deletions.deleteTask(
-      WorkspaceId.of('ws_1'),
-      TaskId.of('task_1'),
+    await requested.deletions.markDeleted(
+      DeletionScope.ofTask(WorkspaceId.of('ws_1'), TaskId.of('task_1')),
     );
 
     await requested.ended();
@@ -107,7 +110,9 @@ describe('RequestJudging', () => {
 
   it('requests no verdict on a run whose end is received after its workspace was deleted', async () => {
     const requested = requesting();
-    await requested.deletions.deleteWorkspace(WorkspaceId.of('ws_1'));
+    await requested.deletions.markDeleted(
+      DeletionScope.ofWorkspace(WorkspaceId.of('ws_1')),
+    );
 
     await requested.ended();
 
@@ -121,7 +126,7 @@ describe('RequestJudging', () => {
 
     const judging = await requested.judgings.of(RunId.of('run_1'));
     expect(judging?.rubric.text).toBe('Did the run retry uploads?');
-    expect(judging?.location.stationId).toBe('station_1');
+    expect(judging?.location.stationId.value).toBe('station_1');
     expect(judging?.fingerprint).toBe(FIRST_CONFIG);
   });
 
@@ -151,7 +156,7 @@ describe('RequestJudging', () => {
     expect(requested.judgings.stored.size).toBe(0);
   });
 
-  it.each(['failed', 'exhausted', 'cancelled'])(
+  it.each(['failed', 'exhausted', 'cancelled'] as const)(
     'requests nothing for a run that %s',
     async (outcome) => {
       const requested = requesting();
@@ -165,7 +170,7 @@ describe('RequestJudging', () => {
   it('requests a verdict on a run a person stopped', async () => {
     const requested = requesting();
 
-    await requested.ended('completed', true);
+    await requested.ended('stopped');
 
     expect(requested.judgings.stored.size).toBe(1);
   });

@@ -5,22 +5,22 @@ const SHA256_HEX = /^[0-9a-f]{64}$/;
 const textOrder = (a: string, b: string): number =>
   a < b ? -1 : a > b ? 1 : 0;
 
-interface ProfileView {
+interface ConfiguredProfile {
   readonly key: string;
   readonly settings: unknown;
 }
 
-interface RepositoryView {
+interface ConfiguredRepository {
   readonly name: string;
   readonly setup: string | null;
 }
 
-interface SkillView {
+interface ConfiguredSkill {
   readonly key: string;
   readonly hash: string;
 }
 
-interface JudgeView {
+interface ConfiguredJudge {
   readonly rubricHash: string;
   readonly sample: number;
   readonly minAgreement: number;
@@ -31,14 +31,14 @@ export interface StationConfigParts {
   readonly harness: string;
   readonly model: string | null;
   readonly effort: string | null;
-  readonly profile: ProfileView | null;
+  readonly profile: ConfiguredProfile | null;
   readonly image: string | null;
-  readonly repositories: readonly RepositoryView[];
-  readonly skills: readonly SkillView[];
+  readonly repositories: readonly ConfiguredRepository[];
+  readonly skills: readonly ConfiguredSkill[];
   readonly tools: readonly string[];
   readonly decisions: boolean;
   readonly memories: boolean;
-  readonly judge?: JudgeView;
+  readonly judge?: ConfiguredJudge;
 }
 
 const CONFIG_PARTS = [
@@ -180,8 +180,8 @@ const namedChanges = <T>(
 const switched = (value: boolean): string => (value ? 'on' : 'off');
 
 const judgeChanges = (
-  was: JudgeView | undefined,
-  now: JudgeView | undefined,
+  was: ConfiguredJudge | undefined,
+  now: ConfiguredJudge | undefined,
 ): ConfigChange[] => {
   if (!was || !now) {
     return was === now
@@ -259,14 +259,14 @@ export class StationConfig {
   ): StationConfig {
     if (!SHA256_HEX.test(fingerprint)) {
       throw new InconsistentStateError(
-        'run',
+        'dispatch',
         'names its station config by something other than a SHA-256',
       );
     }
 
     if (!parts.harness.trim()) {
       throw new InconsistentStateError(
-        'run',
+        'dispatch',
         'was configured without a harness',
       );
     }

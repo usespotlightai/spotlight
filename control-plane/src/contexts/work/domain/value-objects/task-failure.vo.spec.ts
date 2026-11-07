@@ -13,8 +13,8 @@ describe('TaskFailure', () => {
       ),
     ).toBe(true);
     expect(
-      TaskFailure.fromHook('notify', 'loop').sameAs(
-        TaskFailure.fromRun('loop'),
+      TaskFailure.fromHook('notify', 'exited').sameAs(
+        TaskFailure.fromRun('exited'),
       ),
     ).toBe(false);
   });
@@ -37,7 +37,9 @@ describe('TaskFailure', () => {
   });
 
   it('rejects a failure that says nothing of what went wrong, or of which hook', () => {
-    expect(() => TaskFailure.fromRun(' ')).toThrow(InvalidTaskFailureError);
+    expect(() => TaskFailure.fromHook('notify', ' ')).toThrow(
+      InvalidTaskFailureError,
+    );
     expect(() => TaskFailure.fromHook(' ', 'loop')).toThrow(
       InvalidTaskFailureError,
     );

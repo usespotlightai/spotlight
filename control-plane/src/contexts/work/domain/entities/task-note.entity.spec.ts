@@ -1,8 +1,11 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
+import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
@@ -56,5 +59,39 @@ describe('TaskNote', () => {
     expect(aNote({ kind: 'asked' }).unread).toBe(true);
     expect(aNote({ kind: 'asked' }).read(NOW).unread).toBe(false);
     expect(aNote({ kind: 'passed' }).unread).toBe(false);
+  });
+
+  it('carries a failure, approval or connection only in the form that holds it', () => {
+    expect(() =>
+      aNote({ form: 'words', failure: TaskFailure.fromRun('exited') }),
+    ).toThrow(InconsistentStateError);
+    expect(
+      aNote({ form: 'failure', failure: TaskFailure.fromRun('exited') })
+        .failure,
+    ).not.toBeNull();
+  });
+
+  it('holds the payload its form names', () => {
+    expect(() => aNote({ form: 'failure' })).toThrow(InconsistentStateError);
+    expect(() => aNote({ form: 'connection' })).toThrow(InconsistentStateError);
+    expect(() => aNote({ kind: 'asked', form: 'approval' })).toThrow(
+      InconsistentStateError,
+    );
+  });
+
+  it('records a decision only on an answer', () => {
+    expect(() => aNote({ kind: 'asked', form: 'decision' })).toThrow(
+      InconsistentStateError,
+    );
+    expect(aNote({ kind: 'answered', form: 'decision' }).form).toBe('decision');
+  });
+
+  it('defers a move only on a message', () => {
+    expect(() =>
+      aNote({
+        kind: 'passed',
+        deferredMove: DeferredMove.moveTo(StationId.of('station_build')),
+      }),
+    ).toThrow(InconsistentStateError);
   });
 });

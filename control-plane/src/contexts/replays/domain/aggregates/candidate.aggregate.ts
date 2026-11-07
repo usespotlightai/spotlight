@@ -1,14 +1,21 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind';
+import {
+  type CandidateKind,
+  isLiveKind,
+  isOracleKind,
+} from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
-import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
+import { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
+import type { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
+import type { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { SeedCandidate } from '@replays/domain/value-objects/seed-candidate.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -16,6 +23,8 @@ import type { StationHashes } from '@replays/domain/value-objects/station-hashes
 import type { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -227,15 +236,19 @@ export class Candidate extends EventRecorder {
   }
 
   get isLive(): boolean {
-    return this.state.kind === 'live';
+    return isLiveKind(this.state.kind);
   }
 
   get isOracle(): boolean {
-    return this.state.kind === 'oracle';
+    return isOracleKind(this.state.kind);
   }
 
   get basedOn(): StationFingerprint {
     return this.state.changedFrom.from;
+  }
+
+  isStaleAgainst(live: StationFingerprint | null): boolean {
+    return live === null || !this.basedOn.equals(live);
   }
 
   get search(): CandidateSearch | null {
@@ -258,7 +271,7 @@ export class Candidate extends EventRecorder {
     return this.state.scoring.judge;
   }
 
-  get rubricVersion(): string | null {
+  get rubricVersion(): RubricVersion | null {
     return this.state.scoring.rubricVersion;
   }
 
@@ -278,7 +291,7 @@ export class Candidate extends EventRecorder {
     return this.state.hashes;
   }
 
-  get scoringHash(): string {
+  get scoringHash(): ScoringHash {
     return this.state.hashes.scoring;
   }
 
@@ -298,11 +311,38 @@ export class Candidate extends EventRecorder {
     return this.state.version;
   }
 
-  cascadeDelete(): Candidate {
-    return new Candidate(this.state, true);
+  delete(): Candidate {
+    const deleted = new Candidate(this.state, true);
+
+    deleted.inheritEvents(this);
+
+    return deleted;
   }
 
-  isFor(stationId: string): boolean {
-    return this.state.station.stationId === stationId;
+  isFor(stationId: StationId): boolean {
+    return this.state.station.stationId.equals(stationId);
+  }
+
+  get asReplayed(): ReplayedCandidate {
+    return ReplayedCandidate.of({
+      id: this.state.id,
+      stationId: this.state.station.stationId,
+      isLive: this.isLive,
+      isOracle: this.isOracle,
+      judges: this.judges,
+      checksChanges: this.checksChanges,
+      rubricVersion: this.rubricVersion,
+      scoringHash: this.scoringHash,
+      basedOn: this.basedOn,
+    });
+  }
+
+  get asSeed(): SeedCandidate {
+    return SeedCandidate.of({
+      id: this.state.id,
+      stationId: this.state.station.stationId,
+      isLive: this.isLive,
+      fingerprint: this.fingerprint,
+    });
   }
 }

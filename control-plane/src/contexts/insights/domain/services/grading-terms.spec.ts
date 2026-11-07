@@ -1,16 +1,16 @@
 import {
-  judgeScore,
-  NEXT_RUBRIC_VERSION,
-  RUBRIC_VERSION,
-  rubricOf,
-} from '@insights/domain/judging.fake-spec';
-import {
   gradingTermsOf,
   latestJudgeOf,
   visibleJudgeOf,
 } from '@insights/domain/services/grading-terms';
 import type { JudgeCalibration } from '@insights/domain/services/judge-calibration';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import {
+  judgeScore,
+  NEXT_RUBRIC_VERSION,
+  RUBRIC_VERSION,
+  rubricOf,
+} from '@insights/judging.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 describe('gradingTermsOf', () => {

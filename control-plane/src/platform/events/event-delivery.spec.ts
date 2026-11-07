@@ -1,3 +1,4 @@
+import { CauseCarrier } from '@platform/events/cause-carrier';
 import {
   EventDelivery,
   LEASE_MS,
@@ -8,7 +9,6 @@ import {
 import type { EventOutbox } from '@platform/events/event-outbox';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { describe, expect, it, vi } from 'vitest';
@@ -169,7 +169,7 @@ const delivering = (
     subscribers,
     { now: () => clock.now(), sleep: async () => undefined },
     logger,
-    { runWith: (_chain, work) => work() } as CausationPort,
+    new CauseCarrier(),
     reports,
     telemetry as unknown as TelemetryPort,
   );

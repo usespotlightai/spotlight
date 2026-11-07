@@ -3,16 +3,21 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { PageRequest } from '@work/application/dto/page.dto';
 import { InvalidPageCursorError } from '@work/application/errors/invalid-page-cursor.error';
 import type { InboxItemSummary } from '@work/application/ports/inbox-reader.port';
+import { conversationsOf } from '@work/domain/services/conversations';
+import { anyUnread } from '@work/domain/services/unread';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { runFactsOver } from './support/run-facts';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -48,7 +53,7 @@ const aLine = async () => {
     teamId,
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: work,
       key: 'implementation',
@@ -90,7 +95,7 @@ const aLine = async () => {
     return taskId;
   };
 
-  const addNotes = (
+  const addNotes = async (
     taskId: string,
     kinds: readonly {
       kind: 'asked' | 'answered' | 'passed' | 'reopened';
@@ -98,8 +103,25 @@ const aLine = async () => {
       unseen?: boolean;
       form?: 'words' | 'resolved';
     }[],
-  ) =>
-    db.insert(schema.taskNote).values(
+  ) => {
+    const closing = new Set(
+      conversationsOf(kinds.map((each) => each.kind)).flatMap((each) =>
+        each.to === null ? [] : [each.to.value],
+      ),
+    );
+
+    await db
+      .update(schema.task)
+      .set({
+        unreadAsk: anyUnread(
+          kinds.map((each) => ({
+            kind: each.kind,
+            readAt: each.unseen ? null : each.at,
+          })),
+        ),
+      })
+      .where(eq(schema.task.id, taskId));
+    await db.insert(schema.taskNote).values(
       kinds.map((each, position) => ({
         taskId,
         position,
@@ -112,8 +134,10 @@ const aLine = async () => {
         kind: each.kind,
         form: each.form ?? ('words' as const),
         readAt: each.unseen ? null : each.at,
+        closesConversation: closing.has(position),
       })),
     );
+  };
 
   return {
     workspaceId,
@@ -126,23 +150,47 @@ const aLine = async () => {
   };
 };
 
-const inboxOf = (workspaceId: string) =>
-  new DrizzleInboxReader(
+const inboxOf = (workspaceId: string, teamId: string) => {
+  const reader = new DrizzleInboxReader(
     db,
-    { mayView: async () => true, onTeam: async () => null } as never,
-    { idForSlug: async () => workspaceId } as never,
     { findMany: async () => new Map() } as never,
+    runFactsOver(db),
+  );
+  const scope = (viewer: UserId) => ({
+    workspaceId,
+    viewer,
+    teamsSeen: new Set([teamId]),
+    teamsActedOn: new Set<string>(),
+  });
+
+  return {
+    openForWorkspaceMember: (_slug: string, viewer: UserId) =>
+      reader.open(scope(viewer)),
+    resolvedForWorkspaceMember: (
+      _slug: string,
+      viewer: UserId,
+      page: PageRequest,
+    ) => reader.resolved(scope(viewer), page),
+    itemForWorkspaceMember: (_slug: string, viewer: UserId, itemId: string) =>
+      reader.item(scope(viewer), itemId),
+  };
+};
+
+const boardOf = (_workspaceId: string) => {
+  const reader = new DrizzleTaskReader(
+    db,
+    { findMany: async () => new Map() } as never,
+    runFactsOver(db),
   );
 
-const boardOf = (workspaceId: string) =>
-  new DrizzleTaskReader(
-    db,
-    { mayView: async () => true } as never,
-    {
-      find: async () => ({ workspaceId: WorkspaceId.of(workspaceId) }),
-    } as never,
-    { findMany: async () => new Map() } as never,
-  );
+  return {
+    listForTeamMember: (
+      team: TeamId,
+      _viewer: UserId,
+      listing: Parameters<DrizzleTaskReader['listForTeam']>[1],
+    ) => reader.listForTeam(team, listing),
+  };
+};
 
 describe('the inbox, open and resolved', () => {
   it('lists open conversations with their newest note, and pages the resolved ones', async () => {
@@ -161,7 +209,7 @@ describe('the inbox, open and resolved', () => {
       { kind: 'passed', at: at(3) },
     ]);
 
-    const inbox = inboxOf(line.workspaceId);
+    const inbox = inboxOf(line.workspaceId, line.teamId);
     const viewer = UserId.of(line.viewer);
 
     const open = (await inbox.openForWorkspaceMember('acme', viewer)) ?? [];
@@ -214,7 +262,7 @@ describe('the inbox, open and resolved', () => {
     ]);
 
     const open =
-      (await inboxOf(line.workspaceId).openForWorkspaceMember(
+      (await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
         'acme',
         UserId.of(line.viewer),
       )) ?? [];
@@ -249,7 +297,10 @@ describe('the inbox, open and resolved', () => {
       })),
     );
 
-    const resolved = await inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+    const resolved = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).resolvedForWorkspaceMember(
       'acme',
       UserId.of(line.viewer),
       pageAfter(null, 1),
@@ -277,7 +328,10 @@ describe('the inbox, open and resolved', () => {
       { kind: 'asked', at: at(4) },
     ]);
 
-    const page = await inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+    const page = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).resolvedForWorkspaceMember(
       'acme',
       UserId.of(line.viewer),
       pageAfter(null, 10),
@@ -303,7 +357,7 @@ describe('the inbox, open and resolved', () => {
 
     for (const before of ['not-a-cursor', rankCursor]) {
       await expect(
-        inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+        inboxOf(line.workspaceId, line.teamId).resolvedForWorkspaceMember(
           'acme',
           UserId.of(line.viewer),
           pageAfter(before, 1),
@@ -322,11 +376,10 @@ describe('the inbox, open and resolved', () => {
       { kind: 'passed', at: at(2) },
     ]);
 
-    const found = await inboxOf(line.workspaceId).itemForWorkspaceMember(
-      'acme',
-      UserId.of(line.viewer),
-      `${taskId}:0`,
-    );
+    const found = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).itemForWorkspaceMember('acme', UserId.of(line.viewer), `${taskId}:0`);
 
     expect(found?.resolved).toBe(true);
     expect(found?.notes.map((each) => each.body)).toEqual([
@@ -334,6 +387,21 @@ describe('the inbox, open and resolved', () => {
       'answered 1',
       'passed 2',
     ]);
+  });
+
+  it('opens a conversation only for the person the task is assigned to, as the lists do', async () => {
+    const line = await aLine();
+    const taskId = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(taskId, [{ kind: 'asked', at: at(0) }]);
+
+    expect(
+      await inboxOf(line.workspaceId, line.teamId).itemForWorkspaceMember(
+        'acme',
+        UserId.of(`someone-else-${randomUUID()}`),
+        `${taskId}:0`,
+      ),
+    ).toBeNull();
   });
 });
 
@@ -356,15 +424,15 @@ describe('the board, open and completed', () => {
     const viewer = UserId.of(line.viewer);
 
     const open = await board.listForTeamMember(team, viewer, {
-      state: 'open',
+      state: 'board',
     });
     const first = await board.listForTeamMember(team, viewer, {
-      state: 'completed',
+      state: 'completed-station',
       lineId: null,
       page: pageAfter(null, 2),
     });
     const second = await board.listForTeamMember(team, viewer, {
-      state: 'completed',
+      state: 'completed-station',
       lineId: null,
       page: pageAfter(first?.next ?? null, 2),
     });
@@ -388,34 +456,44 @@ describe('the runs of a team', () => {
         id,
         workspaceId: line.workspaceId,
         harness: 'dev',
-        taskId,
-        stationId: line.work,
+        ...requestedByTask(taskId, { teamId: line.teamId }),
         state: 'completed' as const,
-        spec: {},
+        spec: {
+          command: { executable: 'sh', args: [] },
+          briefing: 'Fix the queue.',
+          handover: { options: ['done'], noteLimit: 0 },
+          resume: {},
+        },
         createdAt: at(minute),
         endedAt: at(minute),
+        exitCode: 0,
       })),
     );
+    await db.insert(schema.dispatch).values(
+      runIds.map((runId, minute) =>
+        aDispatch({
+          runId,
+          workspaceId: line.workspaceId,
+          teamId: line.teamId,
+          taskId,
+          stationId: line.work,
+          orderedAt: at(minute),
+        }),
+      ),
+    );
 
+    const facts = runFactsOver(db);
     const runs = new DrizzleRunReader(
       db,
-      { viewableBy: async () => new Set([line.workspaceId]) } as never,
       { findMany: async () => new Map() } as never,
+      facts,
+      facts,
     );
     const team = TeamId.of(line.teamId);
-    const viewer = UserId.of(line.viewer);
 
-    const first = await runs.listForTeam(team, viewer, pageAfter(null, 2));
-    const second = await runs.listForTeam(
-      team,
-      viewer,
-      pageAfter(first.next, 2),
-    );
-    const one = await runs.findForTeam(
-      team,
-      RunId.of(runIds[0] as string),
-      viewer,
-    );
+    const first = await runs.listForTeam(team, pageAfter(null, 2));
+    const second = await runs.listForTeam(team, pageAfter(first.next, 2));
+    const one = await runs.findForTeam(team, RunId.of(runIds[0] as string));
 
     expect(first.items.map((each) => each.id)).toEqual([runIds[2], runIds[1]]);
     expect(second.items.map((each) => each.id)).toEqual([runIds[0]]);

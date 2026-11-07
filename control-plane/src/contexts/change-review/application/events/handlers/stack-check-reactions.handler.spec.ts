@@ -17,6 +17,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -59,7 +60,7 @@ const cohort = (hunks: string[][]): ProposedCohort => ({
     dependsOn: [],
     hunks: each.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: each.map((hunk) => ({
-      path: DIFF.fileOf(hunk)?.path ?? hunk,
+      path: DIFF.fileOf(HunkId.of(hunk))?.path ?? hunk,
       note: 'Why',
     })),
     questions: [],
@@ -71,13 +72,14 @@ const stackWith = (request: CheckRequest | null) =>
     id: STACK,
     runId: RunId.of('run-1'),
     taskId: TASK,
-    replay: false,
-    isSearch: false,
+    teamOfRun: TeamId.of('team_1'),
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
     diff: DIFF,
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     request,
     now: NOW,
   }).propose([cohort([['h1'], ['h2']])], LATER);
@@ -120,7 +122,8 @@ const checkFor = (stack: ChangeStack) =>
     stackId: stack.id,
     runId: stack.runId,
     taskId: stack.taskId,
-    replay: false,
+    teamId: null,
+    trial: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),
     entries: stack.entries(),

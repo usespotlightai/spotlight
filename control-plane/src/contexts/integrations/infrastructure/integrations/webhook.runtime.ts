@@ -5,6 +5,8 @@ import {
   timingSafeEqual,
   verify as verifySignature,
 } from 'node:crypto';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
 import type {
   Credentials,
   SigningSecrets,
@@ -35,8 +37,8 @@ import {
 } from '@platform/expressions/cel-variables';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 
@@ -55,7 +57,7 @@ export class WebhookRuntime implements WebhookProviderPort {
     private readonly readable: ReadableIntegration,
     private readonly workspaceId: WorkspaceId,
     private readonly signing: SigningSecrets,
-    private readonly now: () => number = () => Date.now(),
+    private readonly clock: ClockPort,
     private readonly jwks: JwksResolver,
     private readonly outbound: HttpOutbound,
     private readonly credentials: Credentials,
@@ -115,7 +117,7 @@ export class WebhookRuntime implements WebhookProviderPort {
       return false;
     }
 
-    const secret = await this.signing.named(auth.secret);
+    const secret = await this.signing.named(SecretName.of(auth.secret));
 
     return equal(secret.revealed(), received);
   }
@@ -130,7 +132,9 @@ export class WebhookRuntime implements WebhookProviderPort {
       return false;
     }
 
-    const secret = (await this.signing.named(auth.secret)).revealed();
+    const secret = (
+      await this.signing.named(SecretName.of(auth.secret))
+    ).revealed();
 
     const material = auth.signed
       ? Buffer.from(evaluateText(auth.signed, this.bindings(delivered)) ?? '')
@@ -231,7 +235,10 @@ export class WebhookRuntime implements WebhookProviderPort {
       return false;
     }
 
-    if (typeof payload.exp === 'number' && this.now() / 1000 >= payload.exp) {
+    if (
+      typeof payload.exp === 'number' &&
+      this.clock.now().getTime() / 1000 >= payload.exp
+    ) {
       return false;
     }
 
@@ -261,7 +268,7 @@ export class WebhookRuntime implements WebhookProviderPort {
       return false;
     }
 
-    return Math.abs(this.now() / 1000 - at) <= freshness.within;
+    return Math.abs(this.clock.now().getTime() / 1000 - at) <= freshness.within;
   }
 
   private templated(template: Templated, delivered: Delivered): string | null {
@@ -371,17 +378,14 @@ export class WebhookRuntime implements WebhookProviderPort {
 
   private async onBehalfOf<T>(work: () => Promise<T>): Promise<T> {
     if (!(await this.limits.take(this.workspaceId.value))) {
-      throw new UpstreamError(
-        'calling a service',
-        `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
-      );
+      throw new OutboundLimitReachedError(this.limits.perSecond);
     }
 
     return this.scoped(work);
   }
 
   private async scoped<T>(work: () => Promise<T>): Promise<T> {
-    return this.scope.within(this.workspaceId.value, work);
+    return this.scope.within(this.workspaceId, work);
   }
 }
 

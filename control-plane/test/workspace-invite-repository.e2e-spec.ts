@@ -71,8 +71,20 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
       .insert(schema.workspace)
       .values({ id: 'ws_1', name: 'Acme', slug: 'acme' });
     await database.db.insert(schema.team).values([
-      { id: 'team_1', workspaceId: 'ws_1', key: 'platform', name: 'Platform' },
-      { id: 'team_2', workspaceId: 'ws_1', key: 'mobile', name: 'Mobile' },
+      {
+        id: 'team_1',
+        workspaceId: 'ws_1',
+        key: 'platform',
+        name: 'Platform',
+        origin: 'configuration',
+      },
+      {
+        id: 'team_2',
+        workspaceId: 'ws_1',
+        key: 'mobile',
+        name: 'Mobile',
+        origin: 'configuration',
+      },
     ]);
     invites = new DrizzleWorkspaceInviteRepository(
       new DrizzleContext(database.db),
@@ -99,7 +111,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
 
     const read = await readBack(invite);
 
-    expect(read.version).toBe(1);
+    expect(read.version).toBe(0);
     expect(read.spec.invitedAs).toBe('admin');
     expect(read.spec.teams.map((each) => each.value).sort()).toEqual([
       'team_1',
@@ -113,17 +125,17 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     );
   });
 
-  it('finds the pending invite to an address, however it was written', async () => {
+  it('finds the latest invite to an address, however it was written', async () => {
     const invite = newInvite('Ada@Example.com');
     await invites.add(invite);
 
     expect(
-      (await invites.notEndedTo(ACME, EmailAddress.of('ADA@example.com')))?.id
+      (await invites.latestTo(ACME, EmailAddress.of('ADA@example.com')))?.id
         .value,
     ).toBe(invite.id.value);
   });
 
-  it('finds no pending invite to an address whose invites were all accepted or revoked', async () => {
+  it('finds an ended latest invite to an address whose invites were all accepted or revoked', async () => {
     const taken = newInvite();
     await invites.add(taken);
     await invites.save(accepted(await readBack(taken)));
@@ -134,39 +146,50 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     );
 
     expect(
-      await invites.notEndedTo(ACME, EmailAddress.of('ada@example.com')),
-    ).toBeNull();
+      (
+        await invites.latestTo(ACME, EmailAddress.of('ada@example.com'))
+      )?.hasEndedAt(NOW),
+    ).toBe(true);
   });
 
-  it('reads back an invite accepted by an account since deleted, and creates a new one beside it', async () => {
-    const invite = newInvite();
-    await invites.add(invite);
-    await invites.save(accepted(await readBack(invite), 'user_gone'));
-    await database.db
-      .delete(schema.user)
-      .where(eq(schema.user.id, 'user_gone'));
-
-    const read = await invites.withToken(invite.tokenHash);
-
-    expect(read?.statusAt(NOW)).toBe('accepted');
-    expect(read?.acceptedBy).toBeNull();
-    expect(
-      await invites.notEndedTo(ACME, EmailAddress.of('ada@example.com')),
-    ).toBeNull();
-    await expect(invites.add(newInvite())).resolves.toBeUndefined();
-  });
-
-  it('keeps an invite whose inviter’s account was deleted, with nobody as its inviter', async () => {
+  it('keeps every account an invite names', async () => {
     const invite = newInvite('ada@example.com', [], 'user_left');
     await invites.add(invite);
-    await database.db
-      .delete(schema.user)
-      .where(eq(schema.user.id, 'user_left'));
 
+    await expect(
+      database.db.delete(schema.user).where(eq(schema.user.id, 'user_left')),
+    ).rejects.toThrow();
+    expect((await readBack(invite)).invitedBy?.value).toBe('user_left');
+  });
+
+  it('keeps the teams it was sent for as they were, after one of them is deleted', async () => {
+    await database.db.insert(schema.team).values({
+      id: 'team_9',
+      workspaceId: 'ws_1',
+      key: 'gone',
+      name: 'Gone',
+      origin: 'configuration',
+    });
+    const invite = newInvite('ada@example.com', ['team_1', 'team_9']);
+    await invites.add(invite);
+    await database.db.delete(schema.team).where(eq(schema.team.id, 'team_9'));
+
+    expect(
+      (await readBack(invite)).spec.teams.map((each) => each.value).sort(),
+    ).toEqual(['team_1', 'team_9']);
+  });
+
+  it('removes an invite only at the version it was read', async () => {
+    const invite = newInvite();
+    await invites.add(invite);
     const read = await readBack(invite);
+    await invites.save(read.revoke(UserId.of('user_leon'), NOW));
 
-    expect(read.invitedBy).toBeNull();
-    expect(read.statusAt(NOW)).toBe('pending');
+    await expect(invites.remove(read)).rejects.toThrow(
+      InviteVersionConflictError,
+    );
+    await invites.remove(await readBack(invite));
+    expect(await invites.withToken(invite.tokenHash)).toBeNull();
   });
 
   it('leaves the team links alone on a save that keeps the spec', async () => {
@@ -201,20 +224,6 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     await expect(invites.add(newInvite())).resolves.toBeUndefined();
   });
 
-  it('leaves out a team deleted since the invite was sent', async () => {
-    await database.db
-      .insert(schema.team)
-      .values({ id: 'team_3', workspaceId: 'ws_1', key: 'gone', name: 'Gone' });
-    const invite = newInvite('ada@example.com', ['team_1', 'team_3']);
-    await invites.add(invite);
-
-    await database.db.delete(schema.team).where(eq(schema.team.id, 'team_3'));
-
-    expect(
-      (await readBack(invite)).spec.teams.map((each) => each.value),
-    ).toEqual(['team_1']);
-  });
-
   it('rejects a revoke read before the invite was accepted, and records nothing for it', async () => {
     const invite = newInvite();
     await invites.add(invite);
@@ -234,7 +243,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
       invites.save(revoker.revoke(UserId.of('user_leon'), NOW)),
     ).rejects.toThrow(InviteVersionConflictError);
     expect((await readBack(invite)).acceptedAt).toEqual(NOW);
-    expect((await readBack(invite)).version).toBe(2);
+    expect((await readBack(invite)).version).toBe(1);
     expect(recorded.map((each) => each.kind)).toEqual([
       'workspace-invite.accepted',
     ]);

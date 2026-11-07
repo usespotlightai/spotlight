@@ -7,6 +7,8 @@ import type {
   IntegrationRecord,
   IntegrationResourcesPort,
 } from '@integrations/application/ports/integration-resources.port';
+import type { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { integrationDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -95,15 +97,18 @@ export class DrizzleDefinedIntegrations
     }));
   }
 
-  withId(id: string): Promise<IntegrationRecord | null> {
-    return this.findOne(eq(integrationDefinition.id, id));
+  withId(id: IntegrationDefinitionId): Promise<IntegrationRecord | null> {
+    return this.findOne(eq(integrationDefinition.id, id.value));
   }
 
-  at(teamId: TeamId, integration: string): Promise<IntegrationRecord | null> {
+  at(
+    teamId: TeamId,
+    integration: IntegrationKey,
+  ): Promise<IntegrationRecord | null> {
     return this.findOne(
       and(
         eq(integrationDefinition.teamId, teamId.value),
-        eq(integrationDefinition.integration, integration),
+        eq(integrationDefinition.integration, integration.value),
       ),
     );
   }

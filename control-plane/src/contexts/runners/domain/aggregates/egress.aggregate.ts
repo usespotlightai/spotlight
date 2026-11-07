@@ -9,6 +9,7 @@ import type { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import type { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -34,7 +35,7 @@ export class Egress extends EventRecorder {
     readonly key: EgressKey,
     readonly url: EgressUrl,
     readonly tokenHash: TokenHash,
-    readonly tokenVersion: number | null,
+    readonly tokenVersion: RotationVersion,
     readonly version: number,
     readonly isDeleted: boolean,
   ) {
@@ -62,7 +63,7 @@ export class Egress extends EventRecorder {
       input.key,
       input.url,
       input.token.tokenHash,
-      input.token.tokenVersion,
+      RotationVersion.of(input.token.tokenVersion),
       0,
       false,
     );
@@ -101,7 +102,7 @@ export class Egress extends EventRecorder {
       input.key,
       input.url,
       input.tokenHash,
-      input.tokenVersion,
+      RotationVersion.of(input.tokenVersion),
       input.version,
       false,
     );
@@ -109,6 +110,10 @@ export class Egress extends EventRecorder {
 
   belongsTo(workspaceId: WorkspaceId): boolean {
     return this.workspaceId.equals(workspaceId);
+  }
+
+  get isServing(): boolean {
+    return !this.isDeleted;
   }
 
   assertVersion(version: number): void {
@@ -134,10 +139,9 @@ export class Egress extends EventRecorder {
       );
     }
 
-    if (
-      !tokenInput.tokenHash &&
-      tokenInput.tokenVersion !== this.tokenVersion
-    ) {
+    const tokenVersion = RotationVersion.of(tokenInput.tokenVersion);
+
+    if (!tokenInput.tokenHash && this.tokenVersion.rotatesOn(tokenVersion)) {
       throw new InvalidEgressError(
         'token',
         'is required whenever tokenVersion changes',
@@ -148,7 +152,7 @@ export class Egress extends EventRecorder {
     const updated = this.with({
       url: definition.url,
       tokenHash,
-      tokenVersion: tokenInput.tokenVersion,
+      tokenVersion,
     });
 
     updated.record(
@@ -213,7 +217,7 @@ export class Egress extends EventRecorder {
   private with(part: {
     url?: EgressUrl;
     tokenHash?: TokenHash;
-    tokenVersion?: number | null;
+    tokenVersion?: RotationVersion;
     deleted?: boolean;
   }): Egress {
     const next = new Egress(
@@ -222,7 +226,7 @@ export class Egress extends EventRecorder {
       this.key,
       part.url ?? this.url,
       part.tokenHash ?? this.tokenHash,
-      part.tokenVersion !== undefined ? part.tokenVersion : this.tokenVersion,
+      part.tokenVersion ?? this.tokenVersion,
       this.version,
       part.deleted ?? this.isDeleted,
     );

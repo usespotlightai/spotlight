@@ -1,8 +1,6 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
-import {
-  JudgeVerdict,
-  PASSING_SCORE,
-} from '@replays/domain/value-objects/judge-verdict.vo';
+import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
+import { PASSING_SCORE } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 import { describe, expect, it } from 'vitest';
 
 const verdict = (scale: string, value: number) =>

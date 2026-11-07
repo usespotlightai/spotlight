@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { TeamDirectory } from '@identity/application/services/team-directory.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
-import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
-import { DrizzleViewableWorkspaces } from '@identity/infrastructure/persistence/drizzle/readers/viewable-workspaces.reader';
+import { DrizzleWorkspaceRoles } from '@identity/infrastructure/persistence/drizzle/readers/workspace-roles.reader';
 import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/drizzle/repositories/team.repository';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -17,13 +15,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { createTeam } from './support/team';
 
-const access = (db: DrizzleDatabase) =>
+const _access = (db: DrizzleDatabase) =>
   new WorkspaceAccess(
-    new DrizzleViewableWorkspaces(db),
+    new DrizzleWorkspaceRoles(db),
     new DrizzleWorkspaceRepository(new DrizzleContext(db), {
       dispatch: async () => {},
     }),
-    new DrizzleIdentityResources(new DrizzleContext(db)),
     new DrizzleTeamRepository(new DrizzleContext(db), {
       dispatch: async () => {},
     }),
@@ -42,16 +39,9 @@ beforeAll(async () => {
   tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  board = new DrizzleTaskReader(
-    db,
-    access(db),
-    new TeamDirectory(
-      new DrizzleTeamRepository(new DrizzleContext(db), {
-        dispatch: async () => {},
-      }),
-    ),
-    new DrizzlePersonReader(db),
-  );
+  board = new DrizzleTaskReader(db, new DrizzlePersonReader(db), {
+    progressOf: async () => [],
+  });
 }, 60_000);
 
 afterAll(async () => {
@@ -78,9 +68,7 @@ describe('the tasks the board reads for a team', () => {
 
     await tasks.add(work);
 
-    const listed = await board.listForTeamMember(teamId, owner, {
-      state: 'open',
-    });
+    const listed = await board.listForTeam(teamId, { state: 'board' });
 
     expect(listed?.items.map((each) => each.title)).toEqual(['Ship the thing']);
   });

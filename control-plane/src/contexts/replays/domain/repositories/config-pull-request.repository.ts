@@ -3,11 +3,13 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface GitHubPullRequestKey {
-  readonly gitHubId: number | null;
+export interface HostPullRequestKey {
+  readonly hostId: number | null;
   readonly repository: string;
   readonly number: number;
 }
@@ -22,25 +24,20 @@ export interface ConfigPullRequestRepository {
 
   ofSearch(searchId: SearchId): Promise<readonly ConfigPullRequest[]>;
 
-  ofSearches(
-    searchIds: readonly SearchId[],
+  findMany(
+    ids: readonly ConfigPullRequestId[],
   ): Promise<readonly ConfigPullRequest[]>;
 
   ofTeam(teamId: TeamId): Promise<readonly ConfigPullRequest[]>;
 
-  openAtStation(stationId: string): Promise<boolean>;
+  openAtStation(stationId: StationId): Promise<boolean>;
 
-  newestAtStation(
-    stationId: string,
-    states: readonly ConfigPullRequestState[],
-  ): Promise<ConfigPullRequest | null>;
-
-  fromGitHub(
+  fromHost(
     workspaceId: WorkspaceId,
-    pullRequest: GitHubPullRequestKey,
+    pullRequest: HostPullRequestKey,
   ): Promise<ConfigPullRequest | null>;
 
-  openedOnLine(lineId: string): Promise<readonly ConfigPullRequest[]>;
+  openedOnLine(lineId: LineId): Promise<readonly ConfigPullRequest[]>;
 
   dueForCheck(
     checkedBefore: Date,
@@ -52,7 +49,7 @@ export interface ConfigPullRequestRepository {
     now: Date,
   ): Promise<readonly ConfigPullRequest[]>;
 
-  add(pullRequest: ConfigPullRequest): Promise<ConfigPullRequest>;
+  add(pullRequest: ConfigPullRequest): Promise<void>;
 
   save(pullRequest: ConfigPullRequest): Promise<void>;
 }

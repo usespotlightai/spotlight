@@ -1,5 +1,5 @@
+import { STATION_CHANGE_REFUSALS } from '@replays/application/contracts/station-change-tests.contract';
 import { stationChangeRefusalReason } from '@replays/application/rendering/station-change-refusals';
-import { STATION_CHANGE_REFUSALS } from '@work/application/ports/station-change-tests.port';
 import { describe, expect, it } from 'vitest';
 
 const NEXT_MONTH = new Date('2026-11-01T00:00:00.000Z');

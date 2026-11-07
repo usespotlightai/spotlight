@@ -12,11 +12,11 @@ var urlFlag = help.Flag{Name: "url", Value: "<address>", Usage: "The Spotlight a
 var sshHelp = help.Command{
 	Path:    "ssh",
 	Group:   true,
-	Summary: "Open the workspace of a task or chat in VS Code, Cursor or ssh.",
+	Summary: "Open the working copy of a task or chat in VS Code, Cursor or ssh.",
 	Usage:   []string{"spotlight ssh <command> [flags]"},
 	Examples: []help.Example{
 		{Comment: "One time, after spotlight login", Command: "spotlight ssh setup"},
-		{Comment: "Then open the workspace of a task", Command: "ssh task-<id>.<workspace>.spotlight"},
+		{Comment: "Then open the working copy of a task", Command: "ssh task-<id>.<workspace>.spotlight"},
 	},
 	Docs: docs + "#spotlight-ssh",
 }

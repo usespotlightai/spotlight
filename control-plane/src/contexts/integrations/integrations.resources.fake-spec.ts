@@ -8,12 +8,15 @@ import type { CallAuthResolver } from '@integrations/application/services/call-a
 import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
 import { IntegrationSpecs } from '@integrations/application/services/integration-specs.service';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
-import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
+import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { documentsContaining } from '@integrations/integrations.documents.fake-spec';
 import type {
@@ -37,17 +40,22 @@ export const LINEAR = { integration: 'linear', name: 'Linear' };
 
 export const SLACK = { integration: 'slack', name: 'Slack' };
 
-const compiledFor = (integration: string, raw: object): ParsedIntegration => ({
-  ok: true,
-  integration: Integration.of({
+const compiledFor = (integration: string, raw: object): ParsedIntegration => {
+  const compiled = Integration.of({
     key: IntegrationKey.of(integration),
-    actions: DefinedActions.of(['comment']),
-  }),
-  document: DefinitionDocument.of(raw),
-  spec: null,
-  skipped: [],
-  warnings: [],
-});
+    actions: DefinedActions.of([actionNamed('comment')]),
+  });
+
+  return {
+    ok: true,
+    integration: compiled,
+    offered: OfferedTools.generatedFor(compiled, []),
+    document: DefinitionDocument.of(raw),
+    spec: null,
+    skipped: [],
+    warnings: [],
+  };
+};
 
 const compiler: IntegrationCompilerPort = {
   compile: (raw): ParsedIntegration =>
@@ -76,8 +84,9 @@ export const storedAt = (
     teamId: TEAM,
     integration: IntegrationKey.of('linear'),
     document: DefinitionDocument.of({ integration: 'linear' }),
-    tools,
+    tools: tools.map((tool) => ToolName.of(tool)),
     reading: null,
+    relistsTools: false,
     version,
   });
 

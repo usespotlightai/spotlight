@@ -1,4 +1,6 @@
-export class InvalidMemoryError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidMemoryError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(reason: string, subject = 'memory') {

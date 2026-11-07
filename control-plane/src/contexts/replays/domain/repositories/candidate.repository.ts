@@ -5,8 +5,6 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 export interface CandidateRepository {
   find(id: CandidateId): Promise<Candidate | null>;
 
-  locked(id: CandidateId): Promise<Candidate | null>;
-
   findMany(ids: readonly CandidateId[]): Promise<readonly Candidate[]>;
 
   add(candidate: Candidate): Promise<void>;

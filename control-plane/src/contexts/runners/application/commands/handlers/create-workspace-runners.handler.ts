@@ -31,7 +31,7 @@ export class CreateWorkspaceRunnersHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
-    private readonly declarations: WorkspaceRunnersRepository,
+    private readonly workspaceRunners: WorkspaceRunnersRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
     private readonly transaction: TransactionPort,
@@ -50,7 +50,7 @@ export class CreateWorkspaceRunnersHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.scopes.has('runners')) {
         return forbiddenTo('runners');
       }
 
@@ -81,7 +81,7 @@ export class CreateWorkspaceRunnersHandler
               pools: compiled.pools,
             });
 
-            await this.declarations.add(created);
+            await this.workspaceRunners.add(created);
 
             return created.id.value;
           }),
@@ -94,7 +94,7 @@ export class CreateWorkspaceRunnersHandler
         if (error instanceof InvalidWorkspaceRunnersError) {
           return {
             outcome: 'invalid',
-            problems: [RunnerProblems.declarationInvalid(error)],
+            problems: [RunnerProblems.workspaceRunnersInvalid(error)],
           };
         }
 
