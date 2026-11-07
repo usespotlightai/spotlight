@@ -5,7 +5,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { sql } from 'drizzle-orm';
 
 const keyOf = (workspaceId: WorkspaceId) =>
-  sql`hashtextextended(${`workspace-archive-references:${workspaceId.value}`}, 0)`;
+  sql`hashtextextended(${`working-copy-archive-references:${workspaceId.value}`}, 0)`;
 
 @Injectable()
 export class DrizzleArchiveReferenceLocks implements ArchiveReferenceLocksPort {

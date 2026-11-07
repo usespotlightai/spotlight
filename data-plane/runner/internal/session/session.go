@@ -49,7 +49,7 @@ type Journal interface {
 	AckMessages(ctx context.Context, runID string, upTo int) error
 	Attachment(ctx context.Context, runID, attachmentID string, into io.Writer) error
 	AskPermission(ctx context.Context, runID string, asked protocol.PermissionRequest) (protocol.PermissionResponse, error)
-	WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
+	WorkingCopyArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
 	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
 	GrantAttachment(ctx context.Context, runID string, request protocol.AttachmentRequest) (protocol.AttachmentGrant, error)
 	CompleteArchive(ctx context.Context, runID, archiveID string) error
@@ -218,7 +218,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	if err := lifecycle.advance(WorkspaceReady); err != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
-	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
+	journal.record(ctx, protocol.Event{Type: protocol.EventWorkingCopyReady, Message: space.Dir})
 	archiver.recordBaseline()
 
 	channel, err := agentapi.Serve(

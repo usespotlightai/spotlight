@@ -7,9 +7,9 @@ import { OpenSandboxCommand } from '@runners/application/commands/sandbox.comman
 import type { OpenedSandbox } from '@runners/application/ports/sandboxes.port';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
 import { eq, inArray } from 'drizzle-orm';
 import {
@@ -38,7 +38,7 @@ const HOST = 'host-sandboxes-1';
 
 const SHA256 = 'd'.repeat(64);
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -163,24 +163,26 @@ describe('sandboxes (e2e)', () => {
   const archive = (sandboxId: string, sandboxToken: string) => ({
     read: () =>
       http()
-        .get(`/api/sandboxes/${sandboxId}/workspace-archive`)
+        .get(`/api/sandboxes/${sandboxId}/working-copy-archive`)
         .set('Authorization', `Bearer ${sandboxToken}`),
     grant: () =>
       http()
-        .post(`/api/sandboxes/${sandboxId}/workspace-archive`)
+        .post(`/api/sandboxes/${sandboxId}/working-copy-archive`)
         .set('Authorization', `Bearer ${sandboxToken}`)
         .send({ size: 2_048, sha256: SHA256 }),
     complete: (archiveId: string) =>
       http()
         .post(
-          `/api/sandboxes/${sandboxId}/workspace-archive/${archiveId}/complete`,
+          `/api/sandboxes/${sandboxId}/working-copy-archive/${archiveId}/complete`,
         )
         .set('Authorization', `Bearer ${sandboxToken}`),
   });
 
   beforeAll(async () => {
     app = await openApp((module) =>
-      module.overrideProvider(WORKSPACE_ARCHIVE_STORE).useValue(archiveStore),
+      module
+        .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
+        .useValue(archiveStore),
     );
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
@@ -487,7 +489,7 @@ describe('sandboxes (e2e)', () => {
     ).toBe('queued');
   });
 
-  describe('the sandbox’s own workspace archive', () => {
+  describe('the sandbox’s own working copy archive', () => {
     it('restores the newest archive of its key and archives with the sandbox token alone', async () => {
       const runId = await queue({ key: 'work/task-task_10' });
       const claimed = await claim().expect(200);
@@ -510,10 +512,10 @@ describe('sandboxes (e2e)', () => {
       });
       const [stored] = await db
         .select()
-        .from(schema.workspaceArchive)
-        .where(eq(schema.workspaceArchive.id, granted.body.id));
+        .from(schema.workingCopyArchive)
+        .where(eq(schema.workingCopyArchive.id, granted.body.id));
       expect(stored).toMatchObject({
-        workspaceKey: 'work/task-task_10',
+        workingCopyKey: 'work/task-task_10',
         grantedToRunId: null,
         grantedToSandboxId: sandboxId,
       });

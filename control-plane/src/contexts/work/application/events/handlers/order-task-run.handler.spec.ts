@@ -94,7 +94,7 @@ const ORDERED: OrderedRun = {
       listed: true,
       exclusive: true,
     },
-    workspace: {
+    workingCopy: {
       key: 'work/task-task_1',
       rejoinable: true,
       restores: 'always',

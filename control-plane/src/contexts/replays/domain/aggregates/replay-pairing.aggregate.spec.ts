@@ -400,7 +400,7 @@ describe('pairOutcomeOf and pairTallyOf', () => {
     ]);
 
     expect(
-      taskComparisons(paired, against).map((each) => [
+      taskComparisons(paired.outcome(), against.outcome()).map((each) => [
         each.original,
         each.pair,
       ]),
@@ -408,8 +408,12 @@ describe('pairOutcomeOf and pairTallyOf', () => {
       ['original_0', 'win'],
       ['original_1', 'loss'],
     ]);
-    expect(pairTallyOf(paired)).toEqual({ wins: 1, losses: 1, ties: 0 });
-    expect(pairTallyOf(paired, [RunId.of('original_0')])).toEqual({
+    expect(pairTallyOf(paired.outcome())).toEqual({
+      wins: 1,
+      losses: 1,
+      ties: 0,
+    });
+    expect(pairTallyOf(paired.outcome(), [RunId.of('original_0')])).toEqual({
       wins: 1,
       losses: 0,
       ties: 0,
@@ -431,15 +435,20 @@ describe('pairOutcomeOf and pairTallyOf', () => {
       }),
     );
 
-    expect(taskComparisons(paired, newer).map((each) => each.pair)).toEqual([
-      'win',
-      'win',
-    ]);
-    expect(pairTallyOf(paired)).toEqual({ wins: 2, losses: 0, ties: 0 });
+    expect(
+      taskComparisons(paired.outcome(), newer.outcome()).map(
+        (each) => each.pair,
+      ),
+    ).toEqual(['win', 'win']);
+    expect(pairTallyOf(paired.outcome())).toEqual({
+      wins: 2,
+      losses: 0,
+      ties: 0,
+    });
   });
 
   it('tallies nothing for a replay paired with none', () => {
-    expect(pairTallyOf(concludedAll(baseline()))).toBeNull();
+    expect(pairTallyOf(concludedAll(baseline()).outcome())).toBeNull();
   });
 
   it('goes by most of a task’s repeats, and calls an even split a tie', () => {
@@ -451,13 +460,17 @@ describe('pairOutcomeOf and pairTallyOf', () => {
       'loss',
     ]);
     const [first, second] = [0, 1].map((original) =>
-      paired.entries.filter(
-        (each) => each.original.value === `original_${original}`,
-      ),
+      paired
+        .outcome()
+        .entries.filter(
+          (each) => each.original.value === `original_${original}`,
+        ),
     );
 
     expect(pairOutcomeOf(first ?? [])).toBe('win');
     expect(pairOutcomeOf(second ?? [])).toBe('tie');
-    expect(pairOutcomeOf(concludedAll(judging('replay_2')).entries)).toBeNull();
+    expect(
+      pairOutcomeOf(concludedAll(judging('replay_2')).outcome().entries),
+    ).toBeNull();
   });
 });

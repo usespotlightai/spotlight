@@ -57,9 +57,6 @@ const read = (period = '30d', mayPlan: boolean | null = false) => {
   return new ReadReplayedCandidatesHandler(
     accessFor(memory, suppliers, mayPlan),
     memory.readerOver(pullRequests),
-    memory.searchRepository,
-    memory.setRepository,
-    memory.candidateRepository,
     suppliers.trialableRuns,
     { now: () => now, sleep: async () => {} },
     new SetHealths(

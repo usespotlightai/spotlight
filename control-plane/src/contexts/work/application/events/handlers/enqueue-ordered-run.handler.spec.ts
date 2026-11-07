@@ -47,7 +47,11 @@ const ORDER: RunOrderContract = {
     listed: true,
     exclusive: true,
   },
-  workspace: { key: 'work/task-task_1', rejoinable: true, restores: 'always' },
+  workingCopy: {
+    key: 'work/task-task_1',
+    rejoinable: true,
+    restores: 'always',
+  },
   restore: null,
   extensions: {},
   apiGrant: null,

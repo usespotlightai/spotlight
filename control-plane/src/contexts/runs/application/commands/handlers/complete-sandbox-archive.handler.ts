@@ -1,8 +1,8 @@
-import type { CompleteSandboxArchiveCommand } from '@runs/application/commands/workspace-archive.commands';
+import type { CompleteSandboxArchiveCommand } from '@runs/application/commands/working-copy-archive.commands';
 import type { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import type { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
-import type { WorkspaceArchiveRepository } from '@runs/domain/repositories/workspace-archive.repository';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
@@ -11,7 +11,7 @@ export class CompleteSandboxArchiveHandler
 {
   constructor(
     private readonly sandboxes: SandboxArchives,
-    private readonly archives: WorkspaceArchiveRepository,
+    private readonly archives: WorkingCopyArchiveRepository,
     private readonly grants: ArchiveGrants,
   ) {}
 
@@ -22,7 +22,7 @@ export class CompleteSandboxArchiveHandler
         command.token,
       );
       const archive = sandbox
-        ? await this.archives.find(WorkspaceArchiveId.of(command.archiveId))
+        ? await this.archives.find(WorkingCopyArchiveId.of(command.archiveId))
         : null;
 
       if (!sandbox || !archive?.grantedForSandbox(sandbox.id)) {

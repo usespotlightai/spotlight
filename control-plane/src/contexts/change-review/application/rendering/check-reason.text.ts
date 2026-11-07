@@ -8,8 +8,8 @@ const SKIP_TEXT: Readonly<Record<SkipCode, string>> = {
   'checkout-failed':
     'Spotlight could not lay out a copy of the checkout to check.',
   'setup-failed': 'The setup of the checkout failed before the check ran.',
-  'workspace-failed':
-    'The runner could not open a workspace to check the layers.',
+  'working-copy-failed':
+    'The runner could not open a working copy to check the layers.',
   'out-of-time': 'There was no time left to check the layers.',
   'no-image': 'The host couldn’t pull the runner image that the line names.',
   'queue-timeout': 'No runner checked the layers in time.',

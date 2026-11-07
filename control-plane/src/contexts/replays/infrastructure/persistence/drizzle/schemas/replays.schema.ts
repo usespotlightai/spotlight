@@ -5,16 +5,21 @@ import {
 } from '@platform/persistence/drizzle/columns';
 import { BASELINE_STATUSES } from '@replays/domain/value-objects/baseline-status';
 import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
+import type { ChecksState } from '@replays/domain/value-objects/change-checks.vo';
 import type { WantedValue } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import {
   CONFIG_PULL_REQUEST_CLOSE_REASONS,
   CONFIG_PULL_REQUEST_ERRORS,
   CONFIG_PULL_REQUEST_STATES,
 } from '@replays/domain/value-objects/config-pull-request-state';
+import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { FailureCauseKind } from '@replays/domain/value-objects/failure-cause.vo';
 import { PAIR_ORDERS } from '@replays/domain/value-objects/pair-order';
 import { REFLECTION_RESULTS } from '@replays/domain/value-objects/reflection-result';
-import { RUN_RESULTS } from '@replays/domain/value-objects/replay-ending';
+import {
+  type ReplayEnding,
+  RUN_RESULTS,
+} from '@replays/domain/value-objects/replay-ending';
 import { REPLAY_RUN_DECISIONS } from '@replays/domain/value-objects/replay-run-decided';
 import {
   REPLAY_STATES,
@@ -34,6 +39,7 @@ import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { SEARCH_STOP_REASONS } from '@replays/domain/value-objects/search-stop-reason';
 import { SEARCH_TRIGGERS } from '@replays/domain/value-objects/search-trigger';
 import { UNREPLAYABLE_REASONS } from '@replays/domain/value-objects/unreplayable-reason';
+import type { JudgeScaleKind } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 import { JUDGING_FAILURE_CODES } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { sql } from 'drizzle-orm';
 import {
@@ -226,6 +232,56 @@ export interface StoredFailureCause extends StoredReflectedTask {
 export interface StoredHeldOutReplay {
   readonly candidateId: string;
   readonly replay: StoredSearchReplay;
+}
+
+export interface StoredOutcomeChecks {
+  readonly state: ChecksState;
+  readonly pending: boolean;
+}
+
+export interface StoredOutcomeEntry {
+  readonly position: number;
+  readonly original: string;
+  readonly taskId: string;
+  readonly repeat: number;
+  readonly run: string | null;
+  readonly hasEnded: boolean;
+  readonly ending: ReplayEnding | null;
+  readonly concluded: boolean;
+  readonly succeeded: boolean | null;
+  readonly reasons: readonly StoredEntryReason[];
+  readonly measures: {
+    readonly steps: number;
+    readonly ms: number | null;
+    readonly cost: {
+      readonly amount: number;
+      readonly currency: string;
+    } | null;
+  } | null;
+  readonly verdict: {
+    readonly value: number;
+    readonly scale: JudgeScaleKind;
+    readonly referenced: boolean;
+  } | null;
+  readonly pair: PairOutcome | null;
+  readonly secondJudging: { readonly pending: boolean } | null;
+  readonly judgeAgreed: boolean | null;
+  readonly checks: StoredOutcomeChecks | null;
+  readonly recheck: StoredOutcomeChecks | null;
+  readonly checksFlipped: boolean | null;
+  readonly spent: StoredModelSpent;
+}
+
+export interface StoredReplayOutcome {
+  readonly repeats: number;
+  readonly calibration: boolean;
+  readonly rubricVersion: string | null;
+  readonly currency: string;
+  readonly runSubset: readonly string[] | null;
+  readonly referenceReplayId: string | null;
+  readonly pairwiseReferenceId: string | null;
+  readonly originals: readonly string[];
+  readonly entries: readonly StoredOutcomeEntry[];
 }
 
 export interface StoredSetRefresh {
@@ -436,6 +492,39 @@ export const replayEntry = pgTable(
     uniqueIndex('replay_entry_slot_idx')
       .on(table.pool, table.slot)
       .where(sql`${table.occupying}`),
+  ],
+);
+
+export const replayOutcome = pgTable(
+  'replay_outcome',
+  {
+    replayId: text('replay_id')
+      .primaryKey()
+      .references(() => replay.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    lineId: text('line_id').notNull(),
+    stationId: text('station_id').notNull(),
+    setId: text('set_id').notNull(),
+    candidateId: text('candidate_id').notNull(),
+    searchId: text('search_id'),
+    state: replayState('state').notNull(),
+    servesAsBaseline: boolean('serves_as_baseline').notNull(),
+    healthSampleGroup: text('health_sample_group'),
+    sampledAt: timestamptz('sampled_at').notNull(),
+    startedAt: timestamptz('started_at').notNull(),
+    endedAt: timestamptz('ended_at'),
+    outcome: jsonb('outcome').$type<StoredReplayOutcome>().notNull(),
+  },
+  (table) => [
+    index('replay_outcome_team_started_idx').on(table.teamId, table.startedAt),
+    index('replay_outcome_set_baseline_idx')
+      .on(table.setId, table.startedAt)
+      .where(sql`${table.servesAsBaseline}`),
+    index('replay_outcome_set_health_sample_idx')
+      .on(table.setId, table.healthSampleGroup, table.sampledAt)
+      .where(sql`${table.healthSampleGroup} is not null`),
+    index('replay_outcome_search_idx').on(table.searchId),
   ],
 );
 

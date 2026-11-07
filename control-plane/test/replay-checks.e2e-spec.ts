@@ -5,9 +5,9 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
@@ -49,7 +49,7 @@ const attachmentStore = {
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -169,7 +169,7 @@ const anOriginal = async (): Promise<string> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-    workspaceReleasedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -217,10 +217,10 @@ const anOriginal = async (): Promise<string> => {
       endedAt: at,
     }),
   );
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    workspaceKey: `work/task-${taskId}`,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -337,7 +337,7 @@ const tokenWith = async (scopes: readonly string[]) => {
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore),

@@ -18,7 +18,7 @@ func TestASandboxArchivesWithItsOwnToken(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusNoContent)
-		case r.URL.Path == "/api/sandboxes/sandbox_1/workspace-archive":
+		case r.URL.Path == "/api/sandboxes/sandbox_1/working-copy-archive":
 			_ = json.NewEncoder(w).Encode(protocol.ArchiveGrant{ID: "archive_1", URL: "https://storage.test/put"})
 		default:
 			w.WriteHeader(http.StatusNoContent)
@@ -32,7 +32,7 @@ func TestASandboxArchivesWithItsOwnToken(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	stored, err := sandbox.WorkspaceArchive(ctx)
+	stored, err := sandbox.WorkingCopyArchive(ctx)
 	if err != nil || stored != nil {
 		t.Fatalf("restores %+v, %v", stored, err)
 	}
@@ -45,9 +45,9 @@ func TestASandboxArchivesWithItsOwnToken(t *testing.T) {
 	}
 
 	want := []string{
-		"GET /api/sandboxes/sandbox_1/workspace-archive Bearer sandbox-token",
-		"POST /api/sandboxes/sandbox_1/workspace-archive Bearer sandbox-token",
-		"POST /api/sandboxes/sandbox_1/workspace-archive/archive_1/complete Bearer sandbox-token",
+		"GET /api/sandboxes/sandbox_1/working-copy-archive Bearer sandbox-token",
+		"POST /api/sandboxes/sandbox_1/working-copy-archive Bearer sandbox-token",
+		"POST /api/sandboxes/sandbox_1/working-copy-archive/archive_1/complete Bearer sandbox-token",
 	}
 	if len(seen) != len(want) {
 		t.Fatalf("called %v", seen)

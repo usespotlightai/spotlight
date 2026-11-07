@@ -22,7 +22,7 @@ import {
   type RunOrderContract,
   type RunPolicyContract,
   type RunRequesterContract,
-  workspaceKeyOf,
+  workingCopyKeyOf,
 } from '@runs/application/contracts/run-order.contract';
 import type {
   RunFactsPort,
@@ -73,8 +73,8 @@ const requesterContractOf = (
   team: string,
 ): RunRequesterContract => ({ ...requester.encoded(), team });
 
-const workspaceOf = (name: string) => ({
-  key: workspaceKeyOf(REPLAYS_OWNER, name),
+const workingCopyOf = (name: string) => ({
+  key: workingCopyKeyOf(REPLAYS_OWNER, name),
   rejoinable: false,
   restores: 'when-continuing' as const,
 });
@@ -86,7 +86,7 @@ const trialOrderOf = (run: RunId, trial: WorkTrialRun): RunOrderContract => {
     ...order,
     requester: requesterContractOf(ReplaysRequester.replayOf(run), team),
     policy: RUN_POLICY,
-    workspace: workspaceOf(`replay-${run.value}`),
+    workingCopy: workingCopyOf(`replay-${run.value}`),
     extensions: {
       replay: {
         archive: order.restore?.archive ?? null,
@@ -159,7 +159,7 @@ export class Runs implements RunsPort {
         },
         requester,
         policy: RUN_POLICY,
-        workspace: workspaceOf(`search-${order.run.value}`),
+        workingCopy: workingCopyOf(`search-${order.run.value}`),
         restore: null,
         extensions: { search: {} },
         apiGrant: null,

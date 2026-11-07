@@ -93,7 +93,7 @@ const setUp = () => {
 };
 
 describe('ConnectEditorHandler', () => {
-  it('holds the sandbox of a task’s workspace and resume key for a person who may view it', async () => {
+  it('holds the sandbox of a task’s working copy and resume key for a person who may view it', async () => {
     const { connect, leases } = setUp();
 
     expect(await connect(BEA, TASK, 'acme')).toEqual({

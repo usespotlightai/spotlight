@@ -10,9 +10,9 @@ import type {
   EntryReason,
   EntryReasonCode,
 } from '@replays/domain/value-objects/entry-reason';
+import type { EntryOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
-import type { EntryOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 
 const MAX_REASON = 200;
 
@@ -69,7 +69,7 @@ const CHECK_SKIPS: Readonly<Record<CheckSkip, string>> = {
   'no-checkout': 'the checkout is missing',
   'checkout-failed': 'the checkout failed',
   'setup-failed': 'the repository setup failed',
-  'workspace-failed': 'the runner could not open a workspace',
+  'working-copy-failed': 'the runner could not open a working copy',
   'out-of-time': 'the checks ran out of time',
   'no-image': 'the check image is missing',
   'provision-failed': 'no runner was available for the check',

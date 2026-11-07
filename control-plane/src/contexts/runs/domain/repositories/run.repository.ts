@@ -5,7 +5,7 @@ import type {
 } from '@runs/domain/services/claim-order';
 import type { Claimant } from '@runs/domain/value-objects/claimant';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
-import type { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -29,12 +29,12 @@ export interface RunRepository {
 
   newestWithKey(
     workspaceId: WorkspaceId,
-    key: WorkspaceKey,
+    key: WorkingCopyKey,
   ): Promise<Run | null>;
 
   queuedWithKey(
     workspaceId: WorkspaceId,
-    key: WorkspaceKey,
+    key: WorkingCopyKey,
   ): Promise<readonly Run[]>;
 
   expiredLeases(now: Date): Promise<readonly Run[]>;
@@ -50,7 +50,7 @@ export interface RunRepository {
       readonly skip: number;
       readonly max: number;
       readonly withSecrets: boolean;
-      readonly avoiding: readonly WorkspaceKey[];
+      readonly avoiding: readonly WorkingCopyKey[];
     },
   ): Promise<QueuedRuns>;
 

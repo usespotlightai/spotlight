@@ -47,7 +47,11 @@ describe('failingSearchedTasksOf', () => {
     const heldOut = search.split.heldOut.map((each) => each.runId.value);
     const seed = seedFailing(new Set([searched[0], heldOut[0]] as string[]));
 
-    const { candidateId, tasks } = failingSearchedTasksOf(search, [seed], 0.05);
+    const { candidateId, tasks } = failingSearchedTasksOf(
+      search,
+      [seed.outcome()],
+      0.05,
+    );
 
     expect(candidateId).toEqual(search.seed.candidateId);
     expect(tasks.map((each) => each.originalRunId.value)).toEqual([
@@ -73,7 +77,11 @@ describe('failingSearchedTasksOf', () => {
       (original) => (original === searched[4] ? 'failed' : 'completed'),
     );
 
-    const failing = failingSearchedTasksOf(search, [seed, terse], 0.05);
+    const failing = failingSearchedTasksOf(
+      search,
+      [seed.outcome(), terse.outcome()],
+      0.05,
+    );
 
     expect(failing.candidateId.value).toBe('candidate_terse');
     expect(failing.tasks.map((each) => each.originalRunId.value)).toEqual([
@@ -90,7 +98,7 @@ describe('failingSearchedTasksOf', () => {
         original === first && repeat > 0 ? 'failed' : 'completed',
     );
 
-    const { tasks } = failingSearchedTasksOf(search, [seed], 0.05);
+    const { tasks } = failingSearchedTasksOf(search, [seed.outcome()], 0.05);
 
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.replayRunId).toEqual(
@@ -109,7 +117,9 @@ describe('failingSearchedTasksOf', () => {
         original === first && repeat === 0 ? 'failed' : 'completed',
     );
 
-    expect(failingSearchedTasksOf(search, [seed], 0.05).tasks).toEqual([]);
+    expect(
+      failingSearchedTasksOf(search, [seed.outcome()], 0.05).tasks,
+    ).toEqual([]);
   });
 
   it('leaves out a task that fails exactly half of its repeats, as it does not mostly fail', () => {
@@ -121,14 +131,17 @@ describe('failingSearchedTasksOf', () => {
         original === first && repeat === 1 ? 'failed' : 'completed',
     );
 
-    expect(failingSearchedTasksOf(search, [seed], 0.05).tasks).toEqual([]);
+    expect(
+      failingSearchedTasksOf(search, [seed.outcome()], 0.05).tasks,
+    ).toEqual([]);
   });
 
   it('finds nothing when every searched task succeeded', () => {
     const search = seeded();
 
     expect(
-      failingSearchedTasksOf(search, [seedFailing(new Set())], 0.05).tasks,
+      failingSearchedTasksOf(search, [seedFailing(new Set()).outcome()], 0.05)
+        .tasks,
     ).toEqual([]);
   });
 });

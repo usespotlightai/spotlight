@@ -56,6 +56,9 @@ const TABLE_WRITERS: Readonly<Record<string, readonly string[]>> = {
   pull_request_fact: [
     'contexts/insights/infrastructure/persistence/drizzle/projections/pull-request-facts.projection.ts',
   ],
+  replay_outcome: [
+    'contexts/replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection.ts',
+  ],
   review_delivery: [
     'contexts/change-review/infrastructure/persistence/drizzle/repositories/review-deliveries.repository.ts',
   ],

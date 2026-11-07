@@ -91,7 +91,7 @@ func (a *archiver) restore(ctx context.Context) error {
 }
 
 func (a *archiver) restored(ctx context.Context) {
-	stored, err := a.control.WorkspaceArchive(ctx, a.run.ID)
+	stored, err := a.control.WorkingCopyArchive(ctx, a.run.ID)
 	if err != nil {
 		a.report(restoreStep, "Started afresh: %v", err)
 		return
@@ -118,7 +118,7 @@ func (a *archiver) restoreReplayed(ctx context.Context) error {
 }
 
 func (a *archiver) restoredExactly(ctx context.Context, wanted string) error {
-	stored, err := a.control.WorkspaceArchive(ctx, a.run.ID)
+	stored, err := a.control.WorkingCopyArchive(ctx, a.run.ID)
 	if err != nil {
 		return fmt.Errorf("read the archive the replay starts from: %w", err)
 	}

@@ -1,6 +1,6 @@
 import { taskComparisons } from '@replays/domain/services/replay-results';
-import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
+import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface SearchRegressions {

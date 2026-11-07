@@ -607,7 +607,7 @@ describe('JournalBuilder', () => {
     it('says where the run turned from preparing to working', () => {
       const builder = new JournalBuilder(clock(0));
       builder.take({
-        type: 'workspace.ready',
+        type: 'working-copy.ready',
         at: clock(4),
         message: '/workspaces/run_1',
         data: null,

@@ -11,7 +11,7 @@ type ClaimedRun = Extract<ClaimedWorkDto, { kind: 'run' }>['run'];
 const wireSpecOf = (run: ClaimedRun): Readonly<Record<string, unknown>> => ({
   ...run.extensions,
   ...run.spec,
-  resume: { key: run.workspaceKey ?? '', ...run.spec.resume },
+  resume: { key: run.workingCopyKey ?? '', ...run.spec.resume },
 });
 
 export const ClaimedWorkHttpMapper = {

@@ -109,7 +109,7 @@ export const task = pgTable(
     reviewing: boolean('reviewing').notNull().default(false),
     reviewFromOutside: boolean('review_from_outside').notNull().default(false),
     finishedAt: timestamptz('finished_at'),
-    workspaceReleasedAt: timestamptz('workspace_released_at'),
+    workingCopyReleasedAt: timestamptz('working_copy_released_at'),
     revision: integer('revision').notNull().default(0),
     isSetup: boolean('is_setup').notNull().default(false),
     setupOpen: boolean('setup_open').notNull().default(false),

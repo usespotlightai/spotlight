@@ -124,7 +124,7 @@ export class HostWorkController {
     summary:
       'Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run',
     description:
-      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a workspace key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its workspace key and waits for runs.',
+      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs.',
   })
   @ApiOkResponse({ type: HostClaimResponseDto })
   @ApiConflictResponse({

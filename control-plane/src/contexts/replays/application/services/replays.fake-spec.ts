@@ -8,7 +8,10 @@ import type {
   StationView,
 } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
-import type { ReplaysReaderPort } from '@replays/application/ports/replays-reader.port';
+import type {
+  ReplayedCandidateRow,
+  ReplayedCandidatesReaderPort,
+} from '@replays/application/ports/replayed-candidates-reader.port';
 import type { AgentProblem } from '@replays/application/ports/runs.port';
 import type { StartingPointHoldsPort } from '@replays/application/ports/starting-point-holds.port';
 import type {
@@ -127,6 +130,16 @@ export const STATION_VIEW: StationView = {
   },
 };
 
+export const candidateRowOf = (candidate: Candidate): ReplayedCandidateRow => ({
+  id: candidate.id,
+  isLive: candidate.isLive,
+  isOracle: candidate.isOracle,
+  fingerprint: candidate.fingerprint,
+  basedOn: candidate.basedOn,
+  hypothesis: candidate.search?.hypothesis.value ?? null,
+  changes: candidate.changedFrom.changes,
+});
+
 export class InMemoryReplays {
   readonly sets = new Map<string, ReplaySet>();
   readonly candidates = new Map<string, Candidate>();
@@ -157,8 +170,14 @@ export class InMemoryReplays {
 
   readerOver(
     pullRequests: InMemoryConfigPullRequests = new InMemoryConfigPullRequests(),
-  ): ReplaysReaderPort {
+  ): ReplayedCandidatesReaderPort {
     const replays = () => [...this.replays.values()];
+    const outcomesWhere = (kept: (replay: Replay) => boolean) =>
+      replays()
+        .filter(kept)
+        .map((each) => each.outcome());
+    const searchesWhere = (kept: (search: Search) => boolean) =>
+      [...this.searches.values()].filter(kept);
 
     return {
       startedOfTeamSince: async (teamId, since, max) =>
@@ -174,32 +193,47 @@ export class InMemoryReplays {
               (one.id.value < other.id.value ? 1 : -1),
           )
           .slice(0, max),
-      ofSearches: async (searchIds) =>
-        replays().filter((each) =>
+      sets: async (setIds) =>
+        [...this.sets.values()].filter((each) =>
+          setIds.some((id) => each.id.equals(id)),
+        ),
+      searches: async (searchIds) =>
+        searchesWhere((each) => searchIds.some((id) => each.id.equals(id))),
+      searchesOfSetsStartedSince: async (setIds, since) =>
+        searchesWhere(
+          (each) =>
+            setIds.some((id) => each.setId.equals(id)) &&
+            each.startedAt.getTime() >= since.getTime(),
+        ),
+      outcomesOfSearches: async (searchIds) =>
+        outcomesWhere((each) =>
           searchIds.some((id) => each.searchId?.equals(id) ?? false),
         ),
       baselinesOfSets: async (setIds) =>
         setIds.flatMap((id) => {
           const found = servingBaselineOf(
-            replays().filter((each) => each.setId.equals(id)),
+            outcomesWhere((each) => each.setId.equals(id)),
           );
+
           return found ? [found] : [];
         }),
-      searchesOfSetsStartedSince: async (setIds, since) =>
-        [...this.searches.values()].filter(
+      healthSamplesOfSets: async (setIds) =>
+        outcomesWhere(
           (each) =>
-            setIds.some((id) => each.setId.equals(id)) &&
-            each.startedAt.getTime() >= since.getTime(),
+            each.healthSampleGroup !== null &&
+            setIds.some((id) => each.setId.equals(id)),
         ),
-      configPullRequestsOfSearches: async (searchIds) =>
+      outcomes: async (replayIds) =>
+        outcomesWhere((each) => replayIds.some((id) => each.id.equals(id))),
+      candidates: async (candidateIds) =>
+        [...this.candidates.values()]
+          .filter((each) => candidateIds.some((id) => each.id.equals(id)))
+          .map(candidateRowOf),
+      pullRequestsOfSearches: async (searchIds) =>
         [...pullRequests.stored.values()].filter((each) =>
           searchIds.some((id) => id.value === each.searchId.value),
         ),
     };
-  }
-
-  get replaysReader(): ReplaysReaderPort {
-    return this.readerOver();
   }
 
   private budgetKey(budget: { lineId: { value: string }; month: Date }) {

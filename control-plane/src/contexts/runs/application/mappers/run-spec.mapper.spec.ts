@@ -179,7 +179,7 @@ describe('RunSpecMapper.ordered', () => {
     expect(ordered.key).toBeNull();
   });
 
-  it('passes on the workspace a caller asks to carry on', () => {
+  it('passes on the working copy a caller asks to carry on', () => {
     expect(
       RunSpecMapper.ordered(
         { briefing: 'do the thing', resume: { key: ' scratch ' } },

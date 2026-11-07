@@ -86,7 +86,7 @@ describe('ProvisionChangeStackChecks', () => {
       retryScheduled,
       waiting('stack_4')
         .claimedFor(OTHER, RunnerOffer.none(), NOW)
-        .skip(OTHER, skipOf('workspace-failed', null), NOW),
+        .skip(OTHER, skipOf('working-copy-failed', null), NOW),
     ]);
 
     const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
@@ -241,7 +241,7 @@ describe('ProvisionChangeStackChecks', () => {
     const { service, save } = provisioning([
       waiting('stack_1')
         .claimedFor(OTHER, RunnerOffer.none(), NOW)
-        .skip(OTHER, skipOf('workspace-failed', null), NOW),
+        .skip(OTHER, skipOf('working-copy-failed', null), NOW),
     ]);
 
     await service.failed(CheckWorkId.of('stack_1'), RUNNER, HTTP_ERROR, NOW);

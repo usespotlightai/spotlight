@@ -56,7 +56,7 @@ describe('scoresOf', () => {
       2,
     );
 
-    const scores = scoresOf(search, [seed], 0.05);
+    const scores = scoresOf(search, [seed.outcome()], 0.05);
 
     expect(scores.seed.seed).toBe(true);
     expect(scores.seed.finished).toBe(true);
@@ -85,7 +85,7 @@ describe('scoresOf', () => {
       search.split.searchedRuns,
     );
 
-    const scores = scoresOf(search, [terse, wordy], 0.05);
+    const scores = scoresOf(search, [terse.outcome(), wordy.outcome()], 0.05);
     const [first, second] = scores.candidates;
     const searched = search.split.searched.length;
     const failedOne = search.split.searchedRuns.some(
@@ -127,7 +127,7 @@ describe('scoresOf', () => {
       () => 'completed',
     );
 
-    const scores = scoresOf(search, [seed, terse], 0.05);
+    const scores = scoresOf(search, [seed.outcome(), terse.outcome()], 0.05);
     const [first, second] = scores.candidates;
 
     expect(scores.seed.searchedPairs).toBeNull();
@@ -195,7 +195,11 @@ describe('scoresOf', () => {
     let heldOutCount = 0;
 
     search = search.heldOutFrom(
-      scoresOf(search, [seed, terse, wordy], 0.05),
+      scoresOf(
+        search,
+        [seed.outcome(), terse.outcome(), wordy.outcome()],
+        0.05,
+      ),
       () => ReplayId.of(`held_out_${++heldOutCount}`),
       later(4),
     );
@@ -215,7 +219,16 @@ describe('scoresOf', () => {
       () => 'completed',
     );
 
-    const scores = scoresOf(search, [seed, terse, wordy, heldOutTerse], 0.05);
+    const scores = scoresOf(
+      search,
+      [
+        seed.outcome(),
+        terse.outcome(),
+        wordy.outcome(),
+        heldOutTerse.outcome(),
+      ],
+      0.05,
+    );
     const terseScores = scores.candidates.find(
       (each) => each.candidateId.value === 'candidate_terse',
     );
@@ -255,7 +268,7 @@ describe('scoresOf', () => {
     );
     const [terse, wordy] = scoresOf(
       search,
-      [unpriced, elsewhere],
+      [unpriced.outcome(), elsewhere.outcome()],
       0.05,
     ).candidates;
 
@@ -274,7 +287,7 @@ describe('scoresOf', () => {
           ? 'failed'
           : 'completed',
     );
-    const [terse] = scoresOf(search, [stray], 0.05).candidates;
+    const [terse] = scoresOf(search, [stray.outcome()], 0.05).candidates;
 
     expect(terse?.searchScore).toBe(1);
     expect(terse?.searchScored).toBe(search.split.searched.length);
@@ -305,7 +318,11 @@ describe('scoresOf, gains', () => {
       search.split.searchedRuns,
     );
 
-    const scores = scoresOf(search, [seed, terse, wordy], 0.05);
+    const scores = scoresOf(
+      search,
+      [seed.outcome(), terse.outcome(), wordy.outcome()],
+      0.05,
+    );
     const [terseScores, wordyScores] = scores.candidates;
 
     expect(terseScores?.searchedGain).not.toBeNull();
@@ -345,7 +362,11 @@ describe('scoresOf, regressions', () => {
       search.split.searchedRuns,
     );
 
-    const scores = scoresOf(search, [seed, terse, wordy], 0.05);
+    const scores = scoresOf(
+      search,
+      [seed.outcome(), terse.outcome(), wordy.outcome()],
+      0.05,
+    );
     const [terseScores, wordyScores] = scores.candidates;
 
     expect(terseScores?.regressions).toEqual({
@@ -378,7 +399,11 @@ describe('scoresOf, regressions', () => {
       () => 'failed',
     );
 
-    const [terseScores] = scoresOf(search, [seed, terse], 0.05).candidates;
+    const [terseScores] = scoresOf(
+      search,
+      [seed.outcome(), terse.outcome()],
+      0.05,
+    ).candidates;
 
     expect(terseScores?.finished).toBe(true);
     expect(terseScores?.regressions).toEqual({

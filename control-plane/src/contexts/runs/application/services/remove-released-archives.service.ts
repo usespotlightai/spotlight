@@ -4,15 +4,15 @@ import type {
   ArchiveDue,
   ArchiveReferencesPort,
 } from '@runs/application/ports/archive-references.port';
-import type { WorkspaceArchiveStorePort } from '@runs/application/ports/workspace-archive-store.port';
+import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
 import type { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import {
   type ArchiveFacts,
   type HolderState,
-  WorkspaceArchive,
-} from '@runs/domain/aggregates/workspace-archive.aggregate';
-import { WorkspaceArchiveVersionConflictError } from '@runs/domain/exceptions/workspace-archive-version-conflict.error';
-import type { WorkspaceArchiveRepository } from '@runs/domain/repositories/workspace-archive.repository';
+  WorkingCopyArchive,
+} from '@runs/domain/aggregates/working-copy-archive.aggregate';
+import { WorkingCopyArchiveVersionConflictError } from '@runs/domain/exceptions/working-copy-archive-version-conflict.error';
+import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
@@ -22,14 +22,14 @@ const factsOf = (
   due: ArchiveDue,
   holders: ReadonlyMap<string, HolderState | null>,
 ): ArchiveFacts => ({
-  holder: holders.get(due.workspaceKey.value) ?? null,
+  holder: holders.get(due.workingCopyKey.value) ?? null,
   supersededAt: due.supersededAt,
   lastStartedFromAt: due.lastStartedFromAt,
   pinned: due.pinned,
 });
 
 export class RemoveReleasedArchives {
-  readonly name = 'Removing workspace archives no later run will restore';
+  readonly name = 'Removing working copy archives no later run will restore';
 
   private after: ArchiveCursor | null = null;
 
@@ -37,8 +37,8 @@ export class RemoveReleasedArchives {
     private readonly references: ArchiveReferencesPort,
     private readonly locks: ArchiveReferenceLocksPort,
     private readonly holders: ArchiveHolders,
-    private readonly archives: WorkspaceArchiveRepository,
-    private readonly store: WorkspaceArchiveStorePort,
+    private readonly archives: WorkingCopyArchiveRepository,
+    private readonly store: WorkingCopyArchiveStorePort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -47,7 +47,7 @@ export class RemoveReleasedArchives {
     const now = this.clock.now();
 
     const page = await this.references.due(
-      WorkspaceArchive.removalCutoffs(now),
+      WorkingCopyArchive.removalCutoffs(now),
       this.after,
       MAX_AT_ONCE,
     );
@@ -55,7 +55,7 @@ export class RemoveReleasedArchives {
     this.after = page.next;
 
     const holders = await this.holders.stateOf(
-      page.due.map((each) => each.workspaceKey),
+      page.due.map((each) => each.workingCopyKey),
     );
 
     for (const each of page.due) {
@@ -66,7 +66,7 @@ export class RemoveReleasedArchives {
           await this.removeStored(removed);
         }
       } catch (error) {
-        if (!(error instanceof WorkspaceArchiveVersionConflictError)) {
+        if (!(error instanceof WorkingCopyArchiveVersionConflictError)) {
           this.logger.error({ err: error, archive: each.id.value }, this.name);
         }
       }
@@ -77,7 +77,7 @@ export class RemoveReleasedArchives {
     due: ArchiveDue,
     holders: ReadonlyMap<string, HolderState | null>,
     now: Date,
-  ): Promise<WorkspaceArchive | null> {
+  ): Promise<WorkingCopyArchive | null> {
     const found = await this.archives.find(due.id);
 
     if (!found) {
@@ -99,7 +99,7 @@ export class RemoveReleasedArchives {
     });
   }
 
-  private async removeStored(archive: WorkspaceArchive): Promise<void> {
+  private async removeStored(archive: WorkingCopyArchive): Promise<void> {
     try {
       await this.store.remove(archive);
     } catch (error) {
@@ -109,7 +109,7 @@ export class RemoveReleasedArchives {
           archive: archive.id.value,
           workspaceId: archive.workspaceId.value,
         },
-        'A removed workspace archive was left behind in storage',
+        'A removed working copy archive was left behind in storage',
       );
     }
   }

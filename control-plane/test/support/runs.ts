@@ -138,9 +138,9 @@ type Requested = Pick<
   | 'asks'
   | 'listed'
   | 'exclusive'
-  | 'workspaceKey'
-  | 'workspaceRejoinable'
-  | 'workspaceRestores'
+  | 'workingCopyKey'
+  | 'workingCopyRejoinable'
+  | 'workingCopyRestores'
 >;
 
 const ACTS = {
@@ -173,9 +173,9 @@ export const requestedByTask = (
   holdsTurn: true,
   gated: true,
   exclusive: true,
-  workspaceKey: `work/task-${taskId}`,
-  workspaceRejoinable: true,
-  workspaceRestores: 'always',
+  workingCopyKey: `work/task-${taskId}`,
+  workingCopyRejoinable: true,
+  workingCopyRestores: 'always',
 });
 
 export const requestedByChat = (
@@ -189,9 +189,9 @@ export const requestedByChat = (
   teamId: input.teamId ?? null,
   ...ACTS,
   exclusive: true,
-  workspaceKey: `work/chat-${chatId}`,
-  workspaceRejoinable: true,
-  workspaceRestores: 'when-continuing',
+  workingCopyKey: `work/chat-${chatId}`,
+  workingCopyRejoinable: true,
+  workingCopyRestores: 'when-continuing',
 });
 
 export const requestedBySpec = (
@@ -205,9 +205,9 @@ export const requestedBySpec = (
   teamId: null,
   ...ACTS,
   exclusive: false,
-  workspaceKey: key ? `workspace/${key}` : null,
-  workspaceRejoinable: key ? false : null,
-  workspaceRestores: key ? 'when-continuing' : null,
+  workingCopyKey: key ? `workspace/${key}` : null,
+  workingCopyRejoinable: key ? false : null,
+  workingCopyRestores: key ? 'when-continuing' : null,
 });
 
 export const requestedByReplay = (
@@ -220,9 +220,9 @@ export const requestedByReplay = (
   requesterToken: null,
   teamId,
   ...ISOLATED,
-  workspaceKey: `replays/replay-${runId}`,
-  workspaceRejoinable: false,
-  workspaceRestores: 'when-continuing',
+  workingCopyKey: `replays/replay-${runId}`,
+  workingCopyRejoinable: false,
+  workingCopyRestores: 'when-continuing',
 });
 
 export const requestedBySearch = (
@@ -239,7 +239,7 @@ export const requestedBySearch = (
   requesterToken: String(input.iteration ?? 1),
   teamId,
   ...ISOLATED,
-  workspaceKey: `replays/search-${input.runId}`,
-  workspaceRejoinable: false,
-  workspaceRestores: 'when-continuing',
+  workingCopyKey: `replays/search-${input.runId}`,
+  workingCopyRejoinable: false,
+  workingCopyRestores: 'when-continuing',
 });

@@ -1,12 +1,12 @@
 import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface ArchivingSandbox {
   readonly id: SandboxId;
   readonly workspaceId: WorkspaceId;
-  readonly key: WorkspaceKey | null;
+  readonly key: WorkingCopyKey | null;
 }
 
 export class SandboxArchives {
@@ -25,7 +25,7 @@ export class SandboxArchives {
     return {
       id: SandboxId.of(found.id),
       workspaceId: WorkspaceId.of(found.workspaceId),
-      key: found.key === null ? null : WorkspaceKey.parse(found.key),
+      key: found.key === null ? null : WorkingCopyKey.parse(found.key),
     };
   }
 }

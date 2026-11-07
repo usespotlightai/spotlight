@@ -6,12 +6,12 @@ import type {
   ArchiveReferencesPort,
   ArchivesDue,
 } from '@runs/application/ports/archive-references.port';
-import type { ArchiveRemovalCutoffs } from '@runs/domain/aggregates/workspace-archive.aggregate';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import type { ArchiveRemovalCutoffs } from '@runs/domain/aggregates/working-copy-archive.aggregate';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { startingPointHoldRun } from '@runs/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
-import { workspaceArchive } from '@runs/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
+import { workingCopyArchive } from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
 import {
   and,
   asc,
@@ -28,9 +28,9 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-const newer = alias(workspaceArchive, 'newer');
+const newer = alias(workingCopyArchive, 'newer');
 
-const startedFromIt = eq(run.startedFromArchiveId, workspaceArchive.id);
+const startedFromIt = eq(run.startedFromArchiveId, workingCopyArchive.id);
 
 const holdsTheRun = and(
   eq(startingPointHoldRun.workspaceId, run.workspaceId),
@@ -38,21 +38,21 @@ const holdsTheRun = and(
 );
 
 const sameKey = and(
-  eq(newer.workspaceId, workspaceArchive.workspaceId),
-  eq(newer.workspaceKey, workspaceArchive.workspaceKey),
-  gt(newer.completedAt, workspaceArchive.completedAt),
+  eq(newer.workspaceId, workingCopyArchive.workspaceId),
+  eq(newer.workingCopyKey, workingCopyArchive.workingCopyKey),
+  gt(newer.completedAt, workingCopyArchive.completedAt),
 );
 
 const dueOf = (row: {
   readonly id: string;
-  readonly workspaceKey: string;
+  readonly workingCopyKey: string;
   readonly grantedAt: Date;
   readonly supersededAt: Date | null;
   readonly lastStartedFromAt: Date | null;
   readonly pinned: boolean;
 }): ArchiveDue => ({
-  id: WorkspaceArchiveId.of(row.id),
-  workspaceKey: WorkspaceKey.parse(row.workspaceKey),
+  id: WorkingCopyArchiveId.of(row.id),
+  workingCopyKey: WorkingCopyKey.parse(row.workingCopyKey),
   grantedAt: row.grantedAt,
   supersededAt: row.supersededAt,
   lastStartedFromAt: row.lastStartedFromAt,
@@ -62,10 +62,10 @@ const dueOf = (row: {
 const pastCursor = (after: ArchiveCursor | null) =>
   after
     ? or(
-        gt(workspaceArchive.grantedAt, after.grantedAt),
+        gt(workingCopyArchive.grantedAt, after.grantedAt),
         and(
-          eq(workspaceArchive.grantedAt, after.grantedAt),
-          gt(workspaceArchive.id, after.id.value),
+          eq(workingCopyArchive.grantedAt, after.grantedAt),
+          gt(workingCopyArchive.id, after.id.value),
         ),
       )
     : undefined;
@@ -78,9 +78,9 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
     return this.context.db;
   }
 
-  async of(id: WorkspaceArchiveId): Promise<ArchiveDue | null> {
+  async of(id: WorkingCopyArchiveId): Promise<ArchiveDue | null> {
     const [row] = await this.selected()
-      .where(eq(workspaceArchive.id, id.value))
+      .where(eq(workingCopyArchive.id, id.value))
       .limit(1);
 
     return row ? dueOf(row) : null;
@@ -97,14 +97,14 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
           pastCursor(after),
           or(
             and(
-              isNull(workspaceArchive.completedAt),
-              lte(workspaceArchive.grantedAt, grantedIncompleteBy),
+              isNull(workingCopyArchive.completedAt),
+              lte(workingCopyArchive.grantedAt, grantedIncompleteBy),
             ),
-            isNotNull(workspaceArchive.completedAt),
+            isNotNull(workingCopyArchive.completedAt),
           ),
         ),
       )
-      .orderBy(asc(workspaceArchive.grantedAt), asc(workspaceArchive.id))
+      .orderBy(asc(workingCopyArchive.grantedAt), asc(workingCopyArchive.id))
       .limit(limit);
 
     const due = rows.map(dueOf);
@@ -122,20 +122,20 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
   private selected() {
     return this.db
       .select({
-        id: workspaceArchive.id,
-        workspaceKey: workspaceArchive.workspaceKey,
-        grantedAt: workspaceArchive.grantedAt,
+        id: workingCopyArchive.id,
+        workingCopyKey: workingCopyArchive.workingCopyKey,
+        grantedAt: workingCopyArchive.grantedAt,
         supersededAt: sql<Date | null>`(${this.db
           .select({ at: min(newer.completedAt) })
           .from(newer)
-          .where(sameKey)})`.mapWith(workspaceArchive.completedAt),
+          .where(sameKey)})`.mapWith(workingCopyArchive.completedAt),
         lastStartedFromAt: sql<Date | null>`(${this.db
           .select({ at: max(run.startedFromAt) })
           .from(run)
           .where(startedFromIt)})`.mapWith(run.startedFromAt),
         pinned: exists(this.pinning()).mapWith(Boolean),
       })
-      .from(workspaceArchive);
+      .from(workingCopyArchive);
   }
 
   private pinning() {

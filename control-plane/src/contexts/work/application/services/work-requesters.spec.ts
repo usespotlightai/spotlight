@@ -65,20 +65,20 @@ describe('WorkRequesters', () => {
     ).toBeNull();
   });
 
-  it('gives every run of a task, at any station, the one workspace of that task', () => {
-    expect(WorkRequesters.taskWorkspace(TaskId.of('task_1'))).toEqual({
+  it('gives every run of a task, at any station, the one working copy of that task', () => {
+    expect(WorkRequesters.taskWorkingCopy(TaskId.of('task_1'))).toEqual({
       key: 'work/task-task_1',
       rejoinable: true,
       restores: 'always',
     });
-    expect(WorkRequesters.chatWorkspace(ChatId.of('chat_1'))).toEqual({
+    expect(WorkRequesters.chatWorkingCopy(ChatId.of('chat_1'))).toEqual({
       key: 'work/chat-chat_1',
       rejoinable: true,
       restores: 'when-continuing',
     });
   });
 
-  it('knows which task or chat holds a workspace it named', () => {
+  it('knows which task or chat holds a working copy it named', () => {
     expect(WorkRequesters.heldBy('task-task_1')).toEqual({
       task: TaskId.of('task_1'),
     });

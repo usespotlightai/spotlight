@@ -148,10 +148,10 @@ const anArchiveOf = async (
   const taskId = of.taskId as string;
   const id = randomUUID();
 
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id,
     workspaceId: team.workspaceId.value,
-    workspaceKey: `work/task-${taskId}`,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: of.runId,
     size: 1_024,
     sha256: 'a'.repeat(64),

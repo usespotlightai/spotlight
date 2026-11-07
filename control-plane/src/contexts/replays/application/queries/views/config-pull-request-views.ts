@@ -2,7 +2,7 @@ import type {
   CandidatePullRequestDto,
   ConfigPullRequestReasonDto,
 } from '@replays/application/dto/config-pull-requests.dto';
-import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import type { ReplayedPullRequestRow } from '@replays/application/ports/replayed-candidates-reader.port';
 import type { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 
 const configPullRequestReasonView = (
@@ -17,7 +17,7 @@ const configPullRequestReasonView = (
   };
 
 export const candidatePullRequestView = (
-  pullRequest: ConfigPullRequest,
+  pullRequest: ReplayedPullRequestRow,
 ): CandidatePullRequestDto => ({
   id: pullRequest.id.value,
   state: pullRequest.current,

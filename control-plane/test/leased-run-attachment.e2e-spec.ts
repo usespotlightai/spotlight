@@ -86,9 +86,9 @@ const aChatRun = async (): Promise<{
     asks: 'requester',
     listed: true,
     exclusive: true,
-    workspaceKey: `work/chat-${chatId}`,
-    workspaceRejoinable: true,
-    workspaceRestores: 'when-continuing',
+    workingCopyKey: `work/chat-${chatId}`,
+    workingCopyRejoinable: true,
+    workingCopyRestores: 'when-continuing',
     state: 'queued',
     spec: {
       checkouts: [],

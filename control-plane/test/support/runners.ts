@@ -20,8 +20,8 @@ export const deleteRunsOf = async (
     .set({ runId: null })
     .where(inArray(schema.chatMessage.runId, runs));
   await db
-    .delete(schema.workspaceArchive)
-    .where(inArray(schema.workspaceArchive.grantedToRunId, runs));
+    .delete(schema.workingCopyArchive)
+    .where(inArray(schema.workingCopyArchive.grantedToRunId, runs));
   await db
     .delete(schema.startingPointHoldRun)
     .where(eq(schema.startingPointHoldRun.workspaceId, workspaceId));

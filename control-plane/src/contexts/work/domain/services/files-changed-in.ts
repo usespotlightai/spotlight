@@ -8,10 +8,10 @@ export interface RepositoryFile {
 }
 
 export const filesChangedIn = (
-  workspacePaths: readonly string[],
+  workingCopyPaths: readonly string[],
   repositories: readonly Repository[],
 ): RepositoryFile[] =>
-  workspacePaths.flatMap((within) => {
+  workingCopyPaths.flatMap((within) => {
     const [folder, ...rest] = within.split(SEPARATOR);
     const repository = repositories.find((each) => each.name === folder);
 

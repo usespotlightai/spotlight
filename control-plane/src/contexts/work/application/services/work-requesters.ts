@@ -1,8 +1,8 @@
 import {
   type RunPolicyContract,
   type RunRequesterContract,
-  type RunWorkspaceContract,
-  workspaceKeyOf,
+  type RunWorkingCopyContract,
+  workingCopyKeyOf,
 } from '@runs/application/contracts/run-order.contract';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -77,25 +77,25 @@ export const WorkRequesters = {
 
   chatPolicy: CHAT_POLICY,
 
-  taskWorkspaceKey(taskId: TaskId): string {
-    return workspaceKeyOf(OWNER, `task-${taskId.value}`);
+  taskWorkingCopyKey(taskId: TaskId): string {
+    return workingCopyKeyOf(OWNER, `task-${taskId.value}`);
   },
 
-  chatWorkspaceKey(chatId: ChatId): string {
-    return workspaceKeyOf(OWNER, `chat-${chatId.value}`);
+  chatWorkingCopyKey(chatId: ChatId): string {
+    return workingCopyKeyOf(OWNER, `chat-${chatId.value}`);
   },
 
-  taskWorkspace(taskId: TaskId): RunWorkspaceContract {
+  taskWorkingCopy(taskId: TaskId): RunWorkingCopyContract {
     return {
-      key: WorkRequesters.taskWorkspaceKey(taskId),
+      key: WorkRequesters.taskWorkingCopyKey(taskId),
       rejoinable: true,
       restores: 'always',
     };
   },
 
-  chatWorkspace(chatId: ChatId): RunWorkspaceContract {
+  chatWorkingCopy(chatId: ChatId): RunWorkingCopyContract {
     return {
-      key: WorkRequesters.chatWorkspaceKey(chatId),
+      key: WorkRequesters.chatWorkingCopyKey(chatId),
       rejoinable: true,
       restores: 'when-continuing',
     };

@@ -147,7 +147,7 @@ const ORACLE = Candidate.oracleOf(PLAIN, {
 describe('setHealthOf', () => {
   it('reads a set as saturated when its newest finished live replay passes more than 95% of it', () => {
     const health = setHealthOf(
-      [plainly('replay_live', PLAIN, [])],
+      [plainly('replay_live', PLAIN, []).outcome()],
       [PLAIN],
       FINGERPRINT,
       MIN_GAIN,
@@ -157,7 +157,7 @@ describe('setHealthOf', () => {
     expect(health.saturation?.replayId.value).toBe('replay_live');
     expect(
       setHealthOf(
-        [plainly('replay_live', PLAIN, ['original_0'])],
+        [plainly('replay_live', PLAIN, ['original_0']).outcome()],
         [PLAIN],
         FINGERPRINT,
         MIN_GAIN,
@@ -172,11 +172,12 @@ describe('setHealthOf', () => {
     );
 
     expect(
-      setHealthOf([partial], [PLAIN], FINGERPRINT, MIN_GAIN).saturation,
+      setHealthOf([partial.outcome()], [PLAIN], FINGERPRINT, MIN_GAIN)
+        .saturation,
     ).toBeNull();
     expect(
       setHealthOf(
-        [plainly('replay_live', PLAIN, [])],
+        [plainly('replay_live', PLAIN, []).outcome()],
         [PLAIN],
         LIVE_FINGERPRINT,
         MIN_GAIN,
@@ -198,7 +199,12 @@ describe('setHealthOf', () => {
         built.recordRejudgment(entry.run as RunId, verdictOf(place >= 3), null),
       calibration,
     );
-    const health = setHealthOf([answered], [SCORED], FINGERPRINT, MIN_GAIN);
+    const health = setHealthOf(
+      [answered.outcome()],
+      [SCORED],
+      FINGERPRINT,
+      MIN_GAIN,
+    );
 
     expect(health.judge).toMatchObject({
       compared: 12,
@@ -208,7 +214,8 @@ describe('setHealthOf', () => {
       unstable: true,
     });
     expect(
-      setHealthOf([calibration], [SCORED], FINGERPRINT, MIN_GAIN).judge,
+      setHealthOf([calibration.outcome()], [SCORED], FINGERPRINT, MIN_GAIN)
+        .judge,
     ).toMatchObject({
       compared: 0,
       pending: 12,
@@ -228,7 +235,7 @@ describe('setHealthOf', () => {
       calibration,
     );
     const checks = setHealthOf(
-      [rechecked],
+      [rechecked.outcome()],
       [SCORED],
       FINGERPRINT,
       MIN_GAIN,
@@ -247,7 +254,7 @@ describe('setHealthOf', () => {
 
   it('has no judge or check consistency without a finished calibration', () => {
     const health = setHealthOf(
-      [plainly('replay_live', PLAIN, [])],
+      [plainly('replay_live', PLAIN, []).outcome()],
       [PLAIN],
       FINGERPRINT,
       MIN_GAIN,
@@ -264,8 +271,8 @@ describe('setHealthOf', () => {
           'original_0',
           'original_1',
           'original_2',
-        ]),
-        plainly('replay_oracle', ORACLE, []),
+        ]).outcome(),
+        plainly('replay_oracle', ORACLE, []).outcome(),
       ],
       [PLAIN, ORACLE],
       FINGERPRINT,
@@ -288,8 +295,8 @@ describe('setHealthOf', () => {
     const answered = SET.entries.slice(0, 5).map((each) => each.runId);
     const oracle = setHealthOf(
       [
-        plainly('replay_live', PLAIN, ['original_5']),
-        plainly('replay_oracle', ORACLE, [], answered),
+        plainly('replay_live', PLAIN, ['original_5']).outcome(),
+        plainly('replay_oracle', ORACLE, [], answered).outcome(),
       ],
       [PLAIN, ORACLE],
       FINGERPRINT,
@@ -309,8 +316,8 @@ describe('setHealthOf', () => {
     const answered = SET.entries.slice(0, 3).map((each) => each.runId);
     const oracle = setHealthOf(
       [
-        plainly('replay_live', PLAIN, ['original_0', 'original_1']),
-        plainly('replay_oracle', ORACLE, [], answered),
+        plainly('replay_live', PLAIN, ['original_0', 'original_1']).outcome(),
+        plainly('replay_oracle', ORACLE, [], answered).outcome(),
       ],
       [PLAIN, ORACLE],
       FINGERPRINT,
@@ -334,7 +341,7 @@ describe('setHealthOf', () => {
 
     expect(
       setHealthOf(
-        [plainly('replay_live', PLAIN, []), inProgress],
+        [plainly('replay_live', PLAIN, []).outcome(), inProgress.outcome()],
         [PLAIN, ORACLE],
         FINGERPRINT,
         MIN_GAIN,
@@ -348,7 +355,7 @@ describe('setHealthOf', () => {
     });
     expect(
       setHealthOf(
-        [plainly('replay_oracle', ORACLE, [])],
+        [plainly('replay_oracle', ORACLE, []).outcome()],
         [ORACLE],
         LIVE_FINGERPRINT,
         MIN_GAIN,
@@ -359,7 +366,7 @@ describe('setHealthOf', () => {
   it('says the replay it was compared with stopped, rather than waiting on it for ever', () => {
     const stoppedLive = started('replay_live', PLAIN, 1).stop(later(1), BY);
     const oracle = setHealthOf(
-      [stoppedLive, plainly('replay_oracle', ORACLE, [])],
+      [stoppedLive.outcome(), plainly('replay_oracle', ORACLE, []).outcome()],
       [PLAIN, ORACLE],
       FINGERPRINT,
       MIN_GAIN,
@@ -372,7 +379,7 @@ describe('setHealthOf', () => {
     });
     expect(
       setHealthOf(
-        [plainly('replay_oracle', ORACLE, [])],
+        [plainly('replay_oracle', ORACLE, []).outcome()],
         [ORACLE],
         FINGERPRINT,
         MIN_GAIN,
@@ -391,7 +398,12 @@ describe('wantsCalibration', () => {
 
   it('wants none while a calibration of these runs and this live config runs or finished', () => {
     expect(
-      wantsCalibration(SET, [calibrated(() => true)], [SCORED], FINGER),
+      wantsCalibration(
+        SET,
+        [calibrated(() => true).outcome()],
+        [SCORED],
+        FINGER,
+      ),
     ).toBe(false);
   });
 
@@ -399,11 +411,16 @@ describe('wantsCalibration', () => {
     const calibration = calibrated(() => true);
 
     expect(
-      wantsCalibration(SET, [calibration], [SCORED], LIVE_FINGERPRINT),
+      wantsCalibration(
+        SET,
+        [calibration.outcome()],
+        [SCORED],
+        LIVE_FINGERPRINT,
+      ),
     ).toBe(true);
-    expect(wantsCalibration(aSet(7), [calibration], [SCORED], FINGER)).toBe(
-      true,
-    );
+    expect(
+      wantsCalibration(aSet(7), [calibration.outcome()], [SCORED], FINGER),
+    ).toBe(true);
   });
 });
 

@@ -1,5 +1,4 @@
 import type { StationConfigs } from '@replays/application/services/station-configs.service';
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -7,9 +6,9 @@ import { minGainUnder } from '@replays/domain/services/gain-estimate';
 import {
   HEALTH_SAMPLES_PER_GROUP,
   healthSamplesOf,
+  missingReferencesOf,
   type SetHealth,
   setHealthOf,
-  UNREAD_HEALTH,
   wantsCalibration,
 } from '@replays/domain/services/set-health';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
@@ -63,30 +62,21 @@ export class SetHealths {
   }
 
   async ofSet(set: ReplaySet, standard: LiveStandard): Promise<SetHealth> {
-    return (
-      (
-        await this.ofSets(
-          [set],
-          new Map([[set.station.stationId.value, standard]]),
-        )
-      ).get(set.id.value) ?? UNREAD_HEALTH
-    );
-  }
-
-  async ofSets(
-    sets: readonly ReplaySet[],
-    standards: ReadonlyMap<string, LiveStandard>,
-  ): Promise<ReadonlyMap<string, SetHealth>> {
     const read = healthSamplesOf(
       await this.replays.healthSamplesOfSets(
-        sets.map((each) => each.id),
+        [set.id],
         HEALTH_SAMPLES_PER_GROUP,
       ),
     );
+    const references = await Promise.all(
+      missingReferencesOf(read).map((each) => this.replays.find(each)),
+    );
     const replayed = [
       ...read,
-      ...(await this.comparisonsMissingFrom(read)),
-    ].map((each) => each.outcome());
+      ...references.flatMap((each) => (each ? [each] : [])),
+    ]
+      .filter((each) => each.setId.equals(set.id))
+      .map((each) => each.outcome());
     const candidates =
       replayed.length === 0
         ? []
@@ -94,22 +84,11 @@ export class SetHealths {
             replayed.map((each) => each.candidateId),
           );
 
-    return new Map(
-      sets.map((set) => {
-        const standard = standards.get(set.station.stationId.value);
-
-        return [
-          set.id.value,
-          standard?.fingerprint
-            ? setHealthOf(
-                replayed.filter((each) => each.setId.equals(set.id)),
-                candidates,
-                standard.fingerprint,
-                standard.minGain,
-              )
-            : UNREAD_HEALTH,
-        ];
-      }),
+    return setHealthOf(
+      replayed,
+      candidates,
+      standard.fingerprint,
+      standard.minGain,
     );
   }
 
@@ -128,21 +107,5 @@ export class SetHealths {
       candidates,
       liveFingerprint,
     );
-  }
-
-  private async comparisonsMissingFrom(
-    read: readonly Replay[],
-  ): Promise<readonly Replay[]> {
-    const missing = read.flatMap((each) =>
-      each.referenceReplayId &&
-      !read.some((other) => each.referenceReplayId?.equals(other.id))
-        ? [each.referenceReplayId]
-        : [],
-    );
-    const found = await Promise.all(
-      missing.map((each) => this.replays.find(each)),
-    );
-
-    return found.flatMap((each) => (each ? [each] : []));
   }
 }

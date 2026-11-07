@@ -3,7 +3,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunExtensions } from '@runs/domain/value-objects/run-extensions.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -20,7 +20,7 @@ const wire = (run: Run) =>
   ) as { kind: string; run: { spec: unknown } | null };
 
 describe('the run a runner claims', () => {
-  it('carries the requester’s extensions beside the spec and the workspace as its resume key, as runners read them', () => {
+  it('carries the requester’s extensions beside the spec and the working copy key as its resume key, as runners read them', () => {
     const replay = {
       archive: 'archive_1',
       checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
@@ -31,7 +31,7 @@ describe('the run a runner claims', () => {
       workspaceId: WorkspaceId.of('ws_1'),
       harness: HarnessId.of('dev'),
       ...orderedFor.isolated('run_1'),
-      restore: WorkspaceArchiveId.of('archive_1'),
+      restore: WorkingCopyArchiveId.of('archive_1'),
       extensions: RunExtensions.of({ replay }),
       spec: RunSpec.of({
         checkouts: [
@@ -64,7 +64,7 @@ describe('the run a runner claims', () => {
     });
   });
 
-  it('names an empty key for a run without a workspace', () => {
+  it('names an empty key for a run without a working copy', () => {
     const run = Run.enqueue({
       id: RunId.of('run_1'),
       workspaceId: WorkspaceId.of('ws_1'),

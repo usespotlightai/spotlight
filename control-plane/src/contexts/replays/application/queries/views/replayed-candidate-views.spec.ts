@@ -8,6 +8,7 @@ import {
   type ReplayedWorld,
   replayedWorld,
 } from '@replays/application/services/replayed-candidates.fake-spec';
+import { candidateRowOf } from '@replays/application/services/replays.fake-spec';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import {
@@ -53,14 +54,15 @@ const seenIn = (
 ): ReplayedCandidatesSeen => ({
   period: ReplayedPeriod.of('30d', NOW),
   truncated: false,
-  recent: [...world.replays].sort(
-    (one, other) => other.startedAt.getTime() - one.startedAt.getTime(),
-  ),
   searches: [world.search],
-  searchReplays: world.replays.filter((each) => each.searchId !== null),
+  searchReplays: world.replays
+    .filter((each) => each.searchId !== null)
+    .map((each) => each.outcome()),
   sets: [world.set],
-  baselines: world.replays.filter((each) => each.baseline),
-  candidates: world.candidates,
+  baselines: world.replays
+    .filter((each) => each.baseline)
+    .map((each) => each.outcome()),
+  candidates: world.candidates.map(candidateRowOf),
   pullRequests: [],
   summaries: [],
   standards: STANDARDS,
@@ -100,7 +102,11 @@ beforeEach(() => {
 
 describe('replayedCandidatesView', () => {
   it('scores a searched candidate as its search scores it', () => {
-    const scores = scoresOf(world.search, world.replays, DEFAULT_MIN_GAIN);
+    const scores = scoresOf(
+      world.search,
+      world.replays.map((each) => each.outcome()),
+      DEFAULT_MIN_GAIN,
+    );
 
     for (const name of ['terse', 'wordy']) {
       const shown = candidateNamed(name);
@@ -219,7 +225,9 @@ describe('replayedCandidatesView', () => {
       'EUR',
     );
 
-    expect(candidateNamed('terse', { baselines: [euros] })).toMatchObject({
+    expect(
+      candidateNamed('terse', { baselines: [euros.outcome()] }),
+    ).toMatchObject({
       currency: 'USD',
       live: { successRate: 1, costPerRun: 4, currency: 'EUR' },
     });
@@ -229,7 +237,7 @@ describe('replayedCandidatesView', () => {
     world = replayedWorld(true);
     const searched = scoresOf(
       world.search,
-      world.replays,
+      world.replays.map((each) => each.outcome()),
       DEFAULT_MIN_GAIN,
     ).candidates.find((each) => each.candidateId.value === 'candidate_terse');
 
@@ -267,7 +275,11 @@ describe('replayedCandidatesView', () => {
   });
 
   it('sets the seed beside each searched candidate, scored on the same searched runs as its search scores it', () => {
-    const { seed } = scoresOf(world.search, world.replays, DEFAULT_MIN_GAIN);
+    const { seed } = scoresOf(
+      world.search,
+      world.replays.map((each) => each.outcome()),
+      DEFAULT_MIN_GAIN,
+    );
 
     expect(candidateNamed('terse').search?.seed).toMatchObject({
       successRate: seed.searchScore,
@@ -286,7 +298,7 @@ describe('replayedCandidatesView', () => {
       () => 'completed',
       2,
     );
-    const shown = candidateNamed('terse', { baselines: [partial] });
+    const shown = candidateNamed('terse', { baselines: [partial.outcome()] });
 
     expect(shown).toMatchObject({
       successRate: 6 / 7,
@@ -320,12 +332,11 @@ describe('replayedCandidatesView', () => {
       replayedCandidatesView({
         period: ReplayedPeriod.of('30d', NOW),
         truncated: true,
-        recent: [],
         searches: [],
         searchReplays: [],
         sets: [world.set],
-        baselines: world.replays,
-        candidates: world.candidates,
+        baselines: world.replays.map((each) => each.outcome()),
+        candidates: world.candidates.map(candidateRowOf),
         pullRequests: [],
         summaries: [],
         standards: STANDARDS,

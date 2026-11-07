@@ -293,12 +293,31 @@ const oracleOf = (
   };
 };
 
+export const missingReferencesOf = <
+  T extends {
+    readonly id: ReplayId;
+    readonly referenceReplayId: ReplayId | null;
+  },
+>(
+  read: readonly T[],
+): readonly ReplayId[] =>
+  read.flatMap((each) =>
+    each.referenceReplayId &&
+    !read.some((other) => each.referenceReplayId?.equals(other.id))
+      ? [each.referenceReplayId]
+      : [],
+  );
+
 export const setHealthOf = (
   replays: readonly ReplayOutcome[],
   candidates: readonly HealthCandidate[],
-  liveFingerprint: StationFingerprint,
+  liveFingerprint: StationFingerprint | null,
   minGain: number,
 ): SetHealth => {
+  if (!liveFingerprint) {
+    return UNREAD_HEALTH;
+  }
+
   const newest = [...replays].sort(newestFirst);
   const live = newest.filter(
     (each) =>

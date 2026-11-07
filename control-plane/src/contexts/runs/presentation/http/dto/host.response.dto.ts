@@ -40,7 +40,7 @@ export class HostClaimResponseDto {
     type: String,
     nullable: true,
     description:
-      'The credential of a new sandbox, for its own calls only: restore and archive its workspace. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check.',
+      'The credential of a new sandbox, for its own calls only: restore and archive its working copy. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check.',
   })
   readonly sandboxToken: string | null;
 
@@ -48,7 +48,7 @@ export class HostClaimResponseDto {
     type: [String],
     example: ['spotlight-archives.s3.eu-west-1.amazonaws.com'],
     description:
-      'Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its workspace archives. Empty for a run: its egress reads them with the run’s secrets.',
+      'Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its working copy archives. Empty for a run: its egress reads them with the run’s secrets.',
   })
   readonly allowedHosts: readonly string[];
 

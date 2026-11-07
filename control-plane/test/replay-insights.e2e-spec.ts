@@ -4,9 +4,9 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  REPLAYS_READER,
-  type ReplaysReaderPort,
-} from '@replays/application/ports/replays-reader.port';
+  REPLAYED_CANDIDATES_READER,
+  type ReplayedCandidatesReaderPort,
+} from '@replays/application/ports/replayed-candidates-reader.port';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
@@ -14,9 +14,9 @@ import { servingBaselineOf } from '@replays/domain/services/baseline';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
@@ -57,7 +57,7 @@ const attachmentStore = {
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -146,7 +146,7 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-    workspaceReleasedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -193,10 +193,10 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
       endedAt: at,
     }),
   );
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    workspaceKey: `work/task-${taskId}`,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -522,7 +522,7 @@ let fiveTasks: Original[];
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
@@ -767,7 +767,9 @@ describe('replayed candidates beside live runs', () => {
 
   it('reads each set’s current baseline as the baseline rule picks it, past newer stopped ones', async () => {
     const replays = app.get(DrizzleReplayRepository);
-    const reader = app.get<ReplaysReaderPort>(REPLAYS_READER);
+    const reader = app.get<ReplayedCandidatesReaderPort>(
+      REPLAYED_CANDIDATES_READER,
+    );
     const sets = await db
       .selectDistinct({ setId: schema.replay.setId })
       .from(schema.replay)
@@ -780,7 +782,12 @@ describe('replayed candidates beside live runs', () => {
         .from(schema.replay)
         .where(eq(schema.replay.id, each.id.value));
 
+      const [outcome] = await db
+        .select()
+        .from(schema.replayOutcome)
+        .where(eq(schema.replayOutcome.replayId, each.id.value));
       const stoppedId = randomUUID();
+      const startedAt = new Date(Date.now() + 60_000);
       const entries = await db
         .select()
         .from(schema.replayEntry)
@@ -793,8 +800,16 @@ describe('replayed candidates beside live runs', () => {
         servesAsBaseline: false,
         takesPairings: false,
         healthSampleGroup: null,
-        startedAt: new Date(Date.now() + 60_000),
+        startedAt,
         version: 0,
+      });
+      await db.insert(schema.replayOutcome).values({
+        ...(outcome as typeof schema.replayOutcome.$inferInsert),
+        replayId: stoppedId,
+        state: 'stopped',
+        servesAsBaseline: false,
+        healthSampleGroup: null,
+        startedAt,
       });
       await db.insert(schema.replayEntry).values(
         entries.map((entry) => ({

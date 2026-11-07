@@ -1,4 +1,4 @@
-import { InvalidWorkspaceArchiveError } from '@runs/domain/exceptions/invalid-workspace-archive.error';
+import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -8,6 +8,6 @@ describe('ArchiveDigest', () => {
   });
 
   it.each(['', 'ab', 'g'.repeat(64), 'a'.repeat(65)])('rejects %o', (raw) => {
-    expect(() => ArchiveDigest.of(raw)).toThrow(InvalidWorkspaceArchiveError);
+    expect(() => ArchiveDigest.of(raw)).toThrow(InvalidWorkingCopyArchiveError);
   });
 });

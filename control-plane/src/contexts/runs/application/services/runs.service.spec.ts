@@ -39,7 +39,11 @@ const ORDER: RunOrderContract = {
     listed: true,
     exclusive: true,
   },
-  workspace: { key: 'work/task-task_1', rejoinable: true, restores: 'always' },
+  workingCopy: {
+    key: 'work/task-task_1',
+    rejoinable: true,
+    restores: 'always',
+  },
   restore: null,
   extensions: {},
   apiGrant: null,
@@ -64,7 +68,7 @@ const ISOLATED: RunOrderContract = {
     listed: false,
     exclusive: false,
   },
-  workspace: {
+  workingCopy: {
     key: 'replays/replay-run_1',
     rejoinable: false,
     restores: 'when-continuing',
@@ -113,13 +117,13 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     expect(run?.orderFingerprint).toMatch(/^sha:/);
   });
 
-  it('keeps what the order asks of the run: its workspace, the exact archive, extensions and tags', async () => {
+  it('keeps what the order asks of the run: its working copy, the exact archive, extensions and tags', async () => {
     const { runs, stored } = inMemory();
 
     await runs.enqueue(ISOLATED);
 
     const run = stored.get('run_1');
-    expect(run?.workspaceKey?.value).toBe('replays/replay-run_1');
+    expect(run?.workingCopyKey?.value).toBe('replays/replay-run_1');
     expect(run?.restore?.value).toBe('archive_1');
     expect(run?.extensions.value).toEqual({
       replay: { archive: 'archive_1', movesOnAfter: ['spec'] },
@@ -128,13 +132,13 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     expect(run?.policy.actsBeyondItself).toBe(false);
   });
 
-  it('refuses an order whose workspace belongs to another requester, or whose extension takes the name of a run field', async () => {
+  it('refuses an order whose working copy belongs to another requester, or whose extension takes the name of a run field', async () => {
     const { runs, stored } = inMemory();
 
     await expect(
       runs.enqueue({
         ...ISOLATED,
-        workspace: { ...ORDER.workspace, key: 'work/task-task_1' } as never,
+        workingCopy: { ...ORDER.workingCopy, key: 'work/task-task_1' } as never,
       }),
     ).resolves.toMatchObject({ outcome: 'refused' });
     await expect(

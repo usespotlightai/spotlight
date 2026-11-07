@@ -35,11 +35,11 @@ import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import {
-  RunWorkspace,
-  WorkspaceKey,
-} from '@runs/domain/value-objects/workspace-key.vo';
+  RunWorkingCopy,
+  WorkingCopyKey,
+} from '@runs/domain/value-objects/working-copy-key.vo';
 import { placementMatches } from '@runs/infrastructure/persistence/drizzle/placement-matches';
 import { RunSpecPersistence } from '@runs/infrastructure/persistence/drizzle/run-spec.persistence';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
@@ -73,7 +73,7 @@ import {
   sql,
 } from 'drizzle-orm';
 
-const keyOf = sql`coalesce(${run.workspaceKey}, '')`;
+const keyOf = sql`coalesce(${run.workingCopyKey}, '')`;
 
 const routedBy = (routing: SandboxRouting | undefined): SQL => {
   if (!routing) {
@@ -242,13 +242,13 @@ export class DrizzleRunRepository implements RunRepository {
 
   async newestWithKey(
     workspaceId: WorkspaceId,
-    key: WorkspaceKey,
+    key: WorkingCopyKey,
   ): Promise<Run | null> {
     const [row] = await this.selected()
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
-          eq(run.workspaceKey, key.value),
+          eq(run.workingCopyKey, key.value),
         ),
       )
       .orderBy(desc(run.createdAt), desc(run.id))
@@ -259,13 +259,13 @@ export class DrizzleRunRepository implements RunRepository {
 
   async queuedWithKey(
     workspaceId: WorkspaceId,
-    key: WorkspaceKey,
+    key: WorkingCopyKey,
   ): Promise<readonly Run[]> {
     const rows = await this.selected().where(
       and(
         eq(run.workspaceId, workspaceId.value),
         eq(run.state, 'queued'),
-        eq(run.workspaceKey, key.value),
+        eq(run.workingCopyKey, key.value),
       ),
     );
 
@@ -346,7 +346,7 @@ export class DrizzleRunRepository implements RunRepository {
       readonly skip: number;
       readonly max: number;
       readonly withSecrets: boolean;
-      readonly avoiding: readonly WorkspaceKey[];
+      readonly avoiding: readonly WorkingCopyKey[];
     },
   ): Promise<QueuedRuns> {
     const rows = await this.selected()
@@ -389,7 +389,7 @@ export class DrizzleRunRepository implements RunRepository {
 }
 
 const orderedOf = (added: Run) => {
-  const { requester, policy, workspace } = added;
+  const { requester, policy, workingCopy } = added;
 
   return {
     requesterOwner: requester.owner.value,
@@ -398,9 +398,9 @@ const orderedOf = (added: Run) => {
     requesterToken: requester.token,
     teamId: requester.team?.value ?? null,
     ...policy.parts,
-    workspaceKey: workspace?.key.value ?? null,
-    workspaceRejoinable: workspace?.rejoinable ?? null,
-    workspaceRestores: workspace?.restores ?? null,
+    workingCopyKey: workingCopy?.key.value ?? null,
+    workingCopyRejoinable: workingCopy?.rejoinable ?? null,
+    workingCopyRestores: workingCopy?.restores ?? null,
     restoreArchiveId: added.restore?.value ?? null,
     extensions: added.extensions.value,
     tags: added.tags.value,
@@ -429,22 +429,22 @@ const apiGrantFrom = (row: Row): RunApiGrant | null => {
   return grant ? storedAs(row.id, () => RunApiGrant.of(grant)) : null;
 };
 
-const workspaceFrom = (row: Row): RunWorkspace | null => {
-  if (row.workspaceKey === null) {
+const workingCopyFrom = (row: Row): RunWorkingCopy | null => {
+  if (row.workingCopyKey === null) {
     return null;
   }
 
-  if (row.workspaceRejoinable === null || row.workspaceRestores === null) {
+  if (row.workingCopyRejoinable === null || row.workingCopyRestores === null) {
     throw new InconsistentStateError(
       'run',
-      `names a workspace without saying how it is used (${row.id})`,
+      `names a working copy without saying how it is used (${row.id})`,
     );
   }
 
-  return RunWorkspace.of({
-    key: WorkspaceKey.parse(row.workspaceKey),
-    rejoinable: row.workspaceRejoinable,
-    restores: row.workspaceRestores,
+  return RunWorkingCopy.of({
+    key: WorkingCopyKey.parse(row.workingCopyKey),
+    rejoinable: row.workingCopyRejoinable,
+    restores: row.workingCopyRestores,
   });
 };
 
@@ -600,9 +600,9 @@ export const toRun = ({ run: row }: Selected): Run =>
       listed: row.listed,
       exclusive: row.exclusive,
     }),
-    workspace: workspaceFrom(row),
+    workingCopy: workingCopyFrom(row),
     restore: row.restoreArchiveId
-      ? WorkspaceArchiveId.of(row.restoreArchiveId)
+      ? WorkingCopyArchiveId.of(row.restoreArchiveId)
       : null,
     extensions: storedAs(row.id, () => RunExtensions.of(row.extensions)),
     tags: storedAs(row.id, () => RunTags.of(row.tags)),

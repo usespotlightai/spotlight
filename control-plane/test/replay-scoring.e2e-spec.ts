@@ -31,9 +31,9 @@ import {
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { JournalEntry } from '@runs/application/ports/run-journal.port';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -79,7 +79,7 @@ const attachmentStore = {
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -256,7 +256,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-    workspaceReleasedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -303,10 +303,10 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
       endedAt: at,
     }),
   );
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    workspaceKey: `work/task-${taskId}`,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -421,7 +421,7 @@ const processed = async () => {
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
@@ -689,11 +689,14 @@ describe('a replay at a station that checks and judges', () => {
     );
 
     const replay = await replayOf(app, id);
-    const comparison = taskComparisons(replay, await replayOf(app, baselineId));
+    const comparison = taskComparisons(
+      replay.outcome(),
+      (await replayOf(app, baselineId)).outcome(),
+    );
 
     expect(replay.judges).toBe(true);
     expect(replay.checked).toBe(true);
-    expect(totalsOf(replay)).toMatchObject({
+    expect(totalsOf(replay.outcome())).toMatchObject({
       scored: 2,
       unscored: 0,
       successRate: 0.5,
@@ -711,7 +714,9 @@ describe('a replay at a station that checks and judges', () => {
       [first.runId, false, 1, true, true],
     ]);
 
-    const [regressed, steady] = comparison;
+    const [regressed, steady] = comparison.map((row) =>
+      replay.entries.find((each) => each.original.value === row.original),
+    );
     const spentOf = (spent: ModelSpent | null | undefined) =>
       spent && {
         spends: spent.spends.map((each) => ({
@@ -721,29 +726,29 @@ describe('a replay at a station that checks and judges', () => {
         unpriced: spent.unpriced,
       };
 
-    expect(spentOf(steady?.candidate[0]?.generationSpent)).toEqual({
+    expect(spentOf(steady?.generationSpent)).toEqual({
       spends: [{ amount: 0.02, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(spentOf(steady?.candidate[0]?.judgingSpent)).toEqual({
+    expect(spentOf(steady?.judgingSpent)).toEqual({
       spends: [{ amount: 0.01, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(regressed?.candidate[0]?.checks).toMatchObject({
+    expect(regressed?.checks).toMatchObject({
       state: 'failed',
       failedAt: ['the whole change'],
       why: null,
     });
-    expect(regressed?.candidate[0]?.verdict).toMatchObject({
+    expect(regressed?.verdict).toMatchObject({
       value: 2,
       passes: false,
       referenced: false,
     });
-    expect(regressed?.candidate[0]?.reasons.map((each) => each.code)).toEqual([
+    expect(regressed?.reasons.map((each) => each.code)).toEqual([
       'check-failed',
       'judge-failed',
     ]);
-    expect(steady?.candidate[0]?.verdict).toMatchObject({
+    expect(steady?.verdict).toMatchObject({
       value: 5,
       passes: true,
       referenced: true,

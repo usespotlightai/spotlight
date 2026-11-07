@@ -43,7 +43,7 @@ import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import { TeamStanding } from '@change-review/domain/value-objects/team-standing.vo';
-import { WorkspacePath } from '@change-review/domain/value-objects/workspace-path.vo';
+import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 
 export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   AuthorName,
@@ -83,7 +83,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   DecisionMerge,
   CommitSha,
   FilePath,
-  WorkspacePath,
+  WorkingCopyPath,
   DecisionSetId,
   DecisionStatus,
   DeliveryAttempts,

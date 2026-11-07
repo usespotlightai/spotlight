@@ -1238,7 +1238,7 @@ describe('Search', () => {
               replayFor(SET, 'replay_seed', 'candidate_live', null, true),
               () => 'completed',
               3,
-            ),
+            ).outcome(),
             replayedAs(
               replayFor(
                 SET,
@@ -1248,7 +1248,7 @@ describe('Search', () => {
               ),
               () => 'completed',
               1,
-            ),
+            ).outcome(),
           ],
           0.05,
         ),
@@ -1331,9 +1331,9 @@ describe('Search', () => {
         scoresOf(
           search,
           [
-            seedRan(),
-            candidateRan(search, 'one', 1),
-            candidateRan(search, 'two', 2),
+            seedRan().outcome(),
+            candidateRan(search, 'one', 1).outcome(),
+            candidateRan(search, 'two', 2).outcome(),
           ],
           0.05,
         ),
@@ -1382,10 +1382,10 @@ describe('Search', () => {
         scoresOf(
           search,
           [
-            seedRan(),
-            candidateRan(search, 'best', 3),
-            candidateRan(search, 'good', 2, 1),
-            candidateRan(search, 'cheap', 1, 2),
+            seedRan().outcome(),
+            candidateRan(search, 'best', 3).outcome(),
+            candidateRan(search, 'good', 2, 1).outcome(),
+            candidateRan(search, 'cheap', 1, 2).outcome(),
           ],
           0.05,
         ),
@@ -1413,7 +1413,15 @@ describe('Search', () => {
         );
 
         return search
-          .heldOutFrom(scoresOf(search, ran(search), 0.05), heldOutIds(), NOW)
+          .heldOutFrom(
+            scoresOf(
+              search,
+              ran(search).map((each) => each.outcome()),
+              0.05,
+            ),
+            heldOutIds(),
+            NOW,
+          )
           .heldOut.map((each) => each.candidateId.value);
       };
 
@@ -1432,7 +1440,10 @@ describe('Search', () => {
         search.heldOutFrom(
           scoresOf(
             search,
-            [seedRan(), candidateRan(search, 'worse', 5, 3)],
+            [
+              seedRan().outcome(),
+              candidateRan(search, 'worse', 5, 3).outcome(),
+            ],
             0.05,
           ),
           heldOutIds(),
@@ -1445,7 +1456,11 @@ describe('Search', () => {
       const search = holdingOut();
       const other = holdingOut([['one']]);
       const replays = [seedRan(), candidateRan(other, 'one', 1)];
-      const scores = scoresOf(other, replays, 0.05);
+      const scores = scoresOf(
+        other,
+        replays.map((each) => each.outcome()),
+        0.05,
+      );
 
       expect(() =>
         search.heldOutFrom(
@@ -1468,17 +1483,33 @@ describe('Search', () => {
       ];
 
       const once = search.heldOutFrom(
-        scoresOf(search, replays, 0.05),
+        scoresOf(
+          search,
+          replays.map((each) => each.outcome()),
+          0.05,
+        ),
         heldOutIds(),
         NOW,
       );
 
       expect(() =>
-        once.heldOutFrom(scoresOf(once, replays, 0.05), heldOutIds(), NOW),
+        once.heldOutFrom(
+          scoresOf(
+            once,
+            replays.map((each) => each.outcome()),
+            0.05,
+          ),
+          heldOutIds(),
+          NOW,
+        ),
       ).toThrow(InvalidSearchError);
       expect(() =>
         searching().heldOutFrom(
-          scoresOf(searching(), replays, 0.05),
+          scoresOf(
+            searching(),
+            replays.map((each) => each.outcome()),
+            0.05,
+          ),
           heldOutIds(),
           NOW,
         ),
@@ -1494,7 +1525,10 @@ describe('Search', () => {
         .heldOutFrom(
           scoresOf(
             holdingOut(),
-            [seedRan(), candidateRan(holdingOut(), 'one', 1)],
+            [
+              seedRan().outcome(),
+              candidateRan(holdingOut(), 'one', 1).outcome(),
+            ],
             0.05,
           ),
           heldOutIds(),

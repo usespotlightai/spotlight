@@ -44,11 +44,11 @@ import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo'
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import { ToolUse } from '@runs/domain/value-objects/tool-use.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import {
-  RunWorkspace,
-  WorkspaceKey,
-} from '@runs/domain/value-objects/workspace-key.vo';
+  RunWorkingCopy,
+  WorkingCopyKey,
+} from '@runs/domain/value-objects/working-copy-key.vo';
 
 export const RUNS_PAYLOAD_TYPES = [
   RunHandedOverFile,
@@ -74,14 +74,14 @@ export const RUNS_PAYLOAD_TYPES = [
   RunApiGrant,
   RunExtensions,
   RunTags,
-  RunWorkspace,
-  WorkspaceKey,
+  RunWorkingCopy,
+  WorkingCopyKey,
   RunConnection,
   RunOutcome,
   ExitCode,
   RunFailure,
   RunSpec,
-  WorkspaceArchiveId,
+  WorkingCopyArchiveId,
   RestoredArchive,
   StartedCheckout,
   StartingPoint,

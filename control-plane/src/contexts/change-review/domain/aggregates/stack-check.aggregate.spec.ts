@@ -530,7 +530,7 @@ describe('StackCheck', () => {
         check.recordResult(OTHER, planned(), [step(WHOLE_STEP, true)], LATER),
       ).toThrow(StackCheckNotLeasedError);
       expect(() =>
-        check.skip(OTHER, skipOf('workspace-failed', null), LATER),
+        check.skip(OTHER, skipOf('working-copy-failed', null), LATER),
       ).toThrow(StackCheckNotLeasedError);
       expect(() =>
         waiting().recordResult(
@@ -541,7 +541,7 @@ describe('StackCheck', () => {
         ),
       ).toThrow(StackCheckNotLeasedError);
       expect(() =>
-        waiting().skip(RUNNER, skipOf('workspace-failed', null), LATER),
+        waiting().skip(RUNNER, skipOf('working-copy-failed', null), LATER),
       ).toThrow(StackCheckNotLeasedError);
     });
 
@@ -553,7 +553,7 @@ describe('StackCheck', () => {
           .claim.claimedBy,
       ).toBeNull();
       expect(
-        leased.skip(RUNNER, skipOf('workspace-failed', null), LATER).claim
+        leased.skip(RUNNER, skipOf('working-copy-failed', null), LATER).claim
           .claimedBy,
       ).toBeNull();
     });
@@ -601,7 +601,7 @@ describe('StackCheck', () => {
       );
       const skipped = check.skip(
         RUNNER,
-        skipOf('workspace-failed', null),
+        skipOf('working-copy-failed', null),
         LATER,
       );
 
@@ -792,9 +792,9 @@ describe('StackCheck', () => {
 
     it('takes back a reported skip as a runner reported it', () => {
       expect(
-        parseStoredSkip('workspace-failed', '  disk full  ', null),
+        parseStoredSkip('working-copy-failed', '  disk full  ', null),
       ).toEqual({
-        code: 'workspace-failed',
+        code: 'working-copy-failed',
         detail: 'disk full',
       });
       expect(() => parseStoredSkip('made-up', null, null)).toThrow(
@@ -840,7 +840,7 @@ describe('StackCheck', () => {
       const claimed = waiting().claimedFor(RUNNER, ANY, LATER);
       const skipped = checking().skip(
         RUNNER,
-        skipOf('workspace-failed', null),
+        skipOf('working-copy-failed', null),
         LATER,
       );
 
@@ -1071,7 +1071,7 @@ describe('StackCheck', () => {
       expect(leased.waitExpiredAt(WAIT_EXPIRED)).toBe(false);
       expect(
         checking()
-          .skip(RUNNER, skipOf('workspace-failed', null), LATER)
+          .skip(RUNNER, skipOf('working-copy-failed', null), LATER)
           .waitExpiredAt(WAIT_EXPIRED),
       ).toBe(false);
     });

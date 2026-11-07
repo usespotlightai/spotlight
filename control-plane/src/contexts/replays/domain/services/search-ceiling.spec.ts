@@ -166,7 +166,11 @@ const searched = (
 
   if (search.wantsHoldingOut) {
     search = search.heldOutFrom(
-      scoresOf(search, replays, 0.05),
+      scoresOf(
+        search,
+        replays.map((each) => each.outcome()),
+        0.05,
+      ),
       () => ReplayId.of(`held_out_${next++}`),
       later(6),
     );

@@ -4,14 +4,14 @@ import type {
 } from '@runners/application/ports/sandboxes.port';
 import { CompleteSandboxArchiveHandler } from '@runs/application/commands/handlers/complete-sandbox-archive.handler';
 import { GrantSandboxArchiveHandler } from '@runs/application/commands/handlers/grant-sandbox-archive.handler';
-import { GrantWorkspaceArchiveHandler } from '@runs/application/commands/handlers/grant-workspace-archive.handler';
+import { GrantWorkingCopyArchiveHandler } from '@runs/application/commands/handlers/grant-working-copy-archive.handler';
 import {
   CompleteSandboxArchiveCommand,
   GrantSandboxArchiveCommand,
-  GrantWorkspaceArchiveCommand,
-} from '@runs/application/commands/workspace-archive.commands';
+  GrantWorkingCopyArchiveCommand,
+} from '@runs/application/commands/working-copy-archive.commands';
 import { StoredSandboxArchiveHandler } from '@runs/application/queries/handlers/stored-sandbox-archive.handler';
-import { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-workspace-archive.query';
+import { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-working-copy-archive.query';
 import { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
 import {
@@ -20,12 +20,12 @@ import {
   InMemoryArchiveStore,
   InMemoryArchives,
   runsOf,
-} from '@runs/application/services/workspace-archives.fake-spec';
+} from '@runs/application/services/working-copy-archives.fake-spec';
 import {
   GRANTED_AT,
   SHA256,
   storedAs,
-} from '@runs/domain/aggregates/workspace-archive.fake-spec';
+} from '@runs/domain/aggregates/working-copy-archive.fake-spec';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -62,11 +62,14 @@ const setUp = (
     grant: new GrantSandboxArchiveHandler(sandboxes, grants),
     complete: new CompleteSandboxArchiveHandler(sandboxes, archives, grants),
     read: new StoredSandboxArchiveHandler(sandboxes, archives, store),
-    grantForRun: new GrantWorkspaceArchiveHandler(runsOf(aLeasedRun()), grants),
+    grantForRun: new GrantWorkingCopyArchiveHandler(
+      runsOf(aLeasedRun()),
+      grants,
+    ),
   };
 };
 
-describe('archiving a sandbox’s workspace with its own token', () => {
+describe('archiving a sandbox’s working copy with its own token', () => {
   it('grants an archive to the sandbox, for the task its key names', async () => {
     const { grant, archives } = setUp();
 
@@ -78,7 +81,7 @@ describe('archiving a sandbox’s workspace with its own token', () => {
 
     const granted = archives.stored.get('archive_1');
     expect(granted?.grantedForSandbox(SandboxId.of('sandbox_1'))).toBe(true);
-    expect(granted?.workspaceKey.value).toBe('requester/subject-task_1');
+    expect(granted?.workingCopyKey.value).toBe('requester/subject-task_1');
   });
 
   it('grants nothing for a wrong token, or for another sandbox', async () => {
@@ -148,7 +151,7 @@ describe('archiving a sandbox’s workspace with its own token', () => {
     const { grantForRun, read, archives, store } = setUp();
 
     await grantForRun.execute(
-      new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
     );
     store.uploaded.set('archive_1', storedAs(1_024));
     const granted = archives.stored.get('archive_1');
@@ -168,7 +171,7 @@ describe('archiving a sandbox’s workspace with its own token', () => {
     const { grantForRun, complete } = setUp();
 
     await grantForRun.execute(
-      new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
+      new GrantWorkingCopyArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
     );
 
     await expect(

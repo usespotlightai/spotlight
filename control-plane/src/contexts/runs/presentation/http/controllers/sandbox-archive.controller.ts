@@ -28,17 +28,17 @@ import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   CompleteSandboxArchiveCommand,
   GrantSandboxArchiveCommand,
-} from '@runs/application/commands/workspace-archive.commands';
+} from '@runs/application/commands/working-copy-archive.commands';
 import type {
   ArchiveGrantDto,
   SandboxArchiveAnswer,
-} from '@runs/application/dto/workspace-archive.dto';
-import { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-workspace-archive.query';
-import { GrantWorkspaceArchiveRequestDto } from '@runs/presentation/http/dto/workspace-archive.request.dto';
+} from '@runs/application/dto/working-copy-archive.dto';
+import { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-working-copy-archive.query';
+import { GrantWorkingCopyArchiveRequestDto } from '@runs/presentation/http/dto/working-copy-archive.request.dto';
 import {
   ArchiveGrantResponseDto,
   StoredArchiveResponseDto,
-} from '@runs/presentation/http/dto/workspace-archive.response.dto';
+} from '@runs/presentation/http/dto/working-copy-archive.response.dto';
 
 interface Answerable {
   status(code: number): unknown;
@@ -52,7 +52,7 @@ const UNKNOWN =
 @ApiNotFoundResponse({ description: UNKNOWN })
 @AllowAnonymous()
 @InAudience('hosts')
-@Controller('sandboxes/:sandboxId/workspace-archive')
+@Controller('sandboxes/:sandboxId/working-copy-archive')
 export class SandboxArchiveController {
   constructor(
     private readonly commandBus: CommandBus,
@@ -63,14 +63,14 @@ export class SandboxArchiveController {
   @ApiOperation({
     operationId: 'readSandboxArchive',
     summary:
-      'The archive a sandbox restores when it starts: the newest archive of its workspace key',
+      'The archive a sandbox restores when it starts: the newest archive of its working copy key',
     description:
       'The bearer is the sandbox token from the sandbox’s first assignment.',
   })
   @ApiOkResponse({ type: StoredArchiveResponseDto })
   @ApiNoContentResponse({
     description:
-      'Nothing to restore: the sandbox starts with an empty workspace',
+      'Nothing to restore: the sandbox starts with an empty working copy',
   })
   async storedArchive(
     @Param('sandboxId') sandboxId: string,
@@ -100,19 +100,19 @@ export class SandboxArchiveController {
   @ApiOperation({
     operationId: 'grantSandboxArchive',
     summary:
-      'Archive the workspace as the sandbox keeps it: a place to upload its archive, for this size and SHA-256 only',
+      'Archive the working copy as the sandbox keeps it: a place to upload its archive, for this size and SHA-256 only',
     description:
       'The bearer is the sandbox token. The sandbox archives with it when it drains, also when no run is in it.',
   })
   @ApiCreatedResponse({ type: ArchiveGrantResponseDto })
   @ApiUnprocessableEntityResponse({
     description:
-      'Too large, not a SHA-256, a sandbox with no workspace key, or nowhere to store it',
+      'Too large, not a SHA-256, a sandbox with no working copy key, or nowhere to store it',
   })
   async grant(
     @Param('sandboxId') sandboxId: string,
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: GrantWorkspaceArchiveRequestDto,
+    @Body() body: GrantWorkingCopyArchiveRequestDto,
   ): Promise<ArchiveGrantResponseDto> {
     const granted = await this.commandBus.execute<
       GrantSandboxArchiveCommand,
@@ -142,7 +142,7 @@ export class SandboxArchiveController {
   @ApiOperation({
     operationId: 'completeSandboxArchive',
     summary:
-      'Say the archive is uploaded, so the next sandbox or run of this workspace key restores it',
+      'Say the archive is uploaded, so the next sandbox or run of this working copy key restores it',
   })
   @ApiNoContentResponse()
   @ApiConflictResponse({

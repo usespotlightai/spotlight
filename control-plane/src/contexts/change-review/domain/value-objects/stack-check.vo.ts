@@ -72,7 +72,7 @@ export const REPORTED_SKIPS = [
   'no-checkout',
   'checkout-failed',
   'setup-failed',
-  'workspace-failed',
+  'working-copy-failed',
   'out-of-time',
   'no-image',
 ] as const;

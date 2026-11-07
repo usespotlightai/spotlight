@@ -265,7 +265,7 @@ export class JournalBuilder {
     this.#closed = event.at;
 
     switch (event.type) {
-      case 'workspace.ready':
+      case 'working-copy.ready':
         this.#ready = event.at;
         break;
       case 'output':

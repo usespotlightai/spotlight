@@ -26,14 +26,14 @@ import {
   resumable,
   progressOf as runProgressOf,
 } from '@runs/domain/value-objects/run-state';
-import type { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 const factsOf = (
   run: Run,
-  archiveStored: (archive: WorkspaceArchiveId) => boolean,
+  archiveStored: (archive: WorkingCopyArchiveId) => boolean,
 ): RunFactsDto => {
   const startedFrom = run.startedFrom;
 

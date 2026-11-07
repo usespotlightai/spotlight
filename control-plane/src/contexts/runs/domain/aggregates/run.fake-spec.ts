@@ -5,14 +5,14 @@ import type {
 import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import {
-  RunWorkspace,
-  WorkspaceKey,
-} from '@runs/domain/value-objects/workspace-key.vo';
+  RunWorkingCopy,
+  WorkingCopyKey,
+} from '@runs/domain/value-objects/working-copy-key.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-type Ordering = Pick<RunOrdered, 'requester' | 'policy' | 'workspace'> & {
+type Ordering = Pick<RunOrdered, 'requester' | 'policy' | 'workingCopy'> & {
   readonly now: Date;
 };
 
@@ -74,8 +74,8 @@ export const orderedFor = {
       }),
       policy: TURN_POLICY,
       now: ORDERED_AT,
-      workspace: RunWorkspace.of({
-        key: WorkspaceKey.of(owner, `${kind}-${id}`),
+      workingCopy: RunWorkingCopy.of({
+        key: WorkingCopyKey.of(owner, `${kind}-${id}`),
         rejoinable: true,
         restores: 'always',
       }),
@@ -92,8 +92,8 @@ export const orderedFor = {
       requester: RunRequester.of({ owner, kind, id, team }),
       policy: CONVERSATION_POLICY,
       now: ORDERED_AT,
-      workspace: RunWorkspace.of({
-        key: WorkspaceKey.of(owner, `${kind}-${id}`),
+      workingCopy: RunWorkingCopy.of({
+        key: WorkingCopyKey.of(owner, `${kind}-${id}`),
         rejoinable: true,
         restores: 'when-continuing',
       }),
@@ -110,9 +110,9 @@ export const orderedFor = {
       }),
       policy: SPEC_POLICY,
       now: ORDERED_AT,
-      workspace: key
-        ? RunWorkspace.of({
-            key: WorkspaceKey.of('workspace', key),
+      workingCopy: key
+        ? RunWorkingCopy.of({
+            key: WorkingCopyKey.of('workspace', key),
             rejoinable: false,
             restores: 'when-continuing',
           })
@@ -130,8 +130,8 @@ export const orderedFor = {
       requester: RunRequester.of({ owner, kind, id, team }),
       policy: ISOLATED_POLICY,
       now: ORDERED_AT,
-      workspace: RunWorkspace.of({
-        key: WorkspaceKey.of(owner, `${kind}-${id}`),
+      workingCopy: RunWorkingCopy.of({
+        key: WorkingCopyKey.of(owner, `${kind}-${id}`),
         rejoinable: false,
         restores: 'when-continuing',
       }),

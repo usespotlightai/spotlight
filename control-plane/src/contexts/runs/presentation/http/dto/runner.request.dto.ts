@@ -60,7 +60,7 @@ export class CompleteRunRequestDto {
   @ApiPropertyOptional({
     example: false,
     description:
-      'With failed: it failed before the agent was handed the run, while the runner made its workspace ready',
+      'With failed: it failed before the agent was handed the run, while the runner made its working copy ready',
   })
   readonly setupFailed?: boolean;
 
@@ -127,14 +127,14 @@ export class StartedCheckoutRequestDto {
   @ApiProperty({
     example: 'service',
     description:
-      'The checkout, by its path in the workspace, as the run received it',
+      'The checkout, by its path in the working copy, as the run received it',
   })
   readonly path!: string;
 
   @ApiProperty({
     example: '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a',
     description:
-      'The commit HEAD was at once the workspace was restored and the checkout prepared, as its full SHA',
+      'The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA',
   })
   readonly commit!: string;
 }
@@ -152,7 +152,7 @@ export class RecordStartingPointRequestDto {
     nullable: true,
     example: '0b8e2f4c-6a1d-4e3b-9c7f-5d2a8e1b4c6f',
     description:
-      'The workspace archive the run restored, or null where it started afresh',
+      'The working copy archive the run restored, or null where it started afresh',
   })
   readonly archiveId!: string | null;
 

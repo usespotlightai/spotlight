@@ -1,5 +1,5 @@
-import type { GrantSandboxArchiveCommand } from '@runs/application/commands/workspace-archive.commands';
-import type { ArchiveGrantDto } from '@runs/application/dto/workspace-archive.dto';
+import type { GrantSandboxArchiveCommand } from '@runs/application/commands/working-copy-archive.commands';
+import type { ArchiveGrantDto } from '@runs/application/dto/working-copy-archive.dto';
 import type { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import type { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
@@ -30,7 +30,7 @@ export class GrantSandboxArchiveHandler
 
       return await this.grants.grant({
         workspaceId: sandbox.workspaceId,
-        workspaceKey: sandbox.key,
+        workingCopyKey: sandbox.key,
         grantee: ArchiveGrantee.sandbox(sandbox.id),
         size: command.size,
         sha256: command.sha256,

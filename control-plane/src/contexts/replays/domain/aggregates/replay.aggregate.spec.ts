@@ -1140,10 +1140,14 @@ describe('Replay', () => {
       replay = ranToEnd(replay, run(1), 'completed', 2);
 
       expect(replay.spent.amount).toBe(3);
-      expect(replay.spendAmong([RunId.of('original_1')]).spent.amount).toBe(2);
       expect(
-        replay.spendAmong([RunId.of('original_0'), RunId.of('original_2')])
-          .spent.amount,
+        replay.outcome().spendAmong([RunId.of('original_1')]).spent.amount,
+      ).toBe(2);
+      expect(
+        replay
+          .outcome()
+          .spendAmong([RunId.of('original_0'), RunId.of('original_2')]).spent
+          .amount,
       ).toBe(1);
     });
   });

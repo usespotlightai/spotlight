@@ -124,7 +124,7 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
         team.teamId,
       ),
       policy: WorkRequesters.taskPolicy,
-      workspace: WorkRequesters.taskWorkspace(TaskId.of(taskId)),
+      workingCopy: WorkRequesters.taskWorkingCopy(TaskId.of(taskId)),
       restore: null,
       extensions: {},
       apiGrant: null,

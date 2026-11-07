@@ -97,9 +97,7 @@ export class ReadReplayCheckHandler
         compared: evaluation.compared,
         candidate: sideOf(replay, evaluation.candidate),
         baseline: sideOf(baseline, evaluation.baseline),
-        tasks: replay
-          ? taskRowsOf(evaluation.tasks, titles)
-          : [],
+        tasks: replay ? taskRowsOf(evaluation.tasks, titles) : [],
         createdAt: check.createdAt.toISOString(),
       };
     } catch (error) {

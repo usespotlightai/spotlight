@@ -66,14 +66,24 @@ const failingOn =
 
 describe('evaluationOf', () => {
   it('runs while its replay runs', () => {
-    expect(evaluationOf(checkOf(), candidate(), baseline(), false).result).toBe(
-      'running',
-    );
+    expect(
+      evaluationOf(
+        checkOf(),
+        candidate().outcome(),
+        baseline().outcome(),
+        false,
+      ).result,
+    ).toBe('running');
   });
 
   it('passes when no more tasks regressed than the threshold allows', () => {
     const replay = replayedAs(candidate(), failingOn('original_1'));
-    const evaluation = evaluationOf(checkOf(1), replay, baseline(), false);
+    const evaluation = evaluationOf(
+      checkOf(1),
+      replay.outcome(),
+      baseline().outcome(),
+      false,
+    );
 
     expect(evaluation).toMatchObject({
       result: 'passed',
@@ -101,13 +111,17 @@ describe('evaluationOf', () => {
       failingOn('original_1', 'original_2'),
     );
 
-    expect(evaluationOf(checkOf(1), replay, baseline(), false).result).toBe(
-      'failed',
-    );
     expect(
-      evaluationOf(checkOf(0), replay, baseline(), false).tasks.filter(
-        (each) => each.regressed,
-      ),
+      evaluationOf(checkOf(1), replay.outcome(), baseline().outcome(), false)
+        .result,
+    ).toBe('failed');
+    expect(
+      evaluationOf(
+        checkOf(0),
+        replay.outcome(),
+        baseline().outcome(),
+        false,
+      ).tasks.filter((each) => each.regressed),
     ).toHaveLength(2);
   });
 
@@ -122,15 +136,21 @@ describe('evaluationOf', () => {
       true,
     ).stop(NOW, BY);
 
-    expect(evaluationOf(checkOf(), stopped, baseline(), false)).toMatchObject({
+    expect(
+      evaluationOf(checkOf(), stopped.outcome(), baseline().outcome(), false),
+    ).toMatchObject({
       result: 'undecided',
       because: 'stopped',
     });
-    expect(evaluationOf(checkOf(), finished, unfinished, false)).toMatchObject({
+    expect(
+      evaluationOf(checkOf(), finished.outcome(), unfinished.outcome(), false),
+    ).toMatchObject({
       result: 'undecided',
       because: 'baseline-unfinished',
     });
-    expect(evaluationOf(checkOf(), null, baseline(), false)).toMatchObject({
+    expect(
+      evaluationOf(checkOf(), null, baseline().outcome(), false),
+    ).toMatchObject({
       result: 'undecided',
       because: 'replay-gone',
     });
@@ -139,10 +159,12 @@ describe('evaluationOf', () => {
   it('runs while the baseline it waits for is still being started, and is undecided once none will come', () => {
     const finished = replayedAs(candidate(), () => 'completed');
 
-    expect(evaluationOf(checkOf(), finished, null, true).result).toBe(
+    expect(evaluationOf(checkOf(), finished.outcome(), null, true).result).toBe(
       'running',
     );
-    expect(evaluationOf(checkOf(), finished, null, false)).toMatchObject({
+    expect(
+      evaluationOf(checkOf(), finished.outcome(), null, false),
+    ).toMatchObject({
       result: 'undecided',
       because: 'no-baseline',
     });
@@ -155,7 +177,9 @@ describe('evaluationOf', () => {
         : 'completed',
     );
 
-    expect(evaluationOf(checkOf(), replay, baseline(), false)).toMatchObject({
+    expect(
+      evaluationOf(checkOf(), replay.outcome(), baseline().outcome(), false),
+    ).toMatchObject({
       result: 'undecided',
       because: 'too-few-scored',
       compared: 1,

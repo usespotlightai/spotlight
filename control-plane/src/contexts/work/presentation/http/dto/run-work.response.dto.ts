@@ -7,7 +7,7 @@ export class RunAttachmentResponseDto {
   @ApiProperty({
     example:
       '.spotlight/attachments/5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47/queue-stuck.png',
-    description: 'Where in the workspace to put it',
+    description: 'Where in the working copy to put it',
   })
   readonly path: string;
 

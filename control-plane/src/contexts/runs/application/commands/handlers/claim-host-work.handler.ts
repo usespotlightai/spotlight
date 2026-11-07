@@ -26,7 +26,7 @@ import type {
   Claimant,
   SandboxRouting,
 } from '@runs/domain/value-objects/claimant';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -198,7 +198,7 @@ export class ClaimHostWorkHandler
       );
       const run = await this.startedRun(
         claimantOf(runner, registered, {
-          avoiding: held.map((each) => WorkspaceKey.parse(each)),
+          avoiding: held.map((each) => WorkingCopyKey.parse(each)),
         }),
         host,
         until,
@@ -257,7 +257,7 @@ export class ClaimHostWorkHandler
       .holdForRun(
         {
           workspaceId: run.workspaceId.value,
-          key: run.workspaceKey?.value ?? null,
+          key: run.workingCopyKey?.value ?? null,
           hostId: host,
           runId: run.id.value,
         },
@@ -286,7 +286,7 @@ export class ClaimHostWorkHandler
     for (const requested of await this.sandboxes.requestedIn(
       registered.workspaceId.value,
     )) {
-      const key = WorkspaceKey.parse(requested.key);
+      const key = WorkingCopyKey.parse(requested.key);
       const newest = await this.runs.newestWithKey(registered.workspaceId, key);
       const claim = ClaimOrder.forRequested(newest, registered);
 
@@ -336,12 +336,12 @@ export class ClaimHostWorkHandler
     }
 
     const claimant = claimantOf(runner, registered, {
-      into: WorkspaceKey.parse(into.key),
+      into: WorkingCopyKey.parse(into.key),
     });
 
     const queued = await this.runs.queuedWithKey(
       registered.workspaceId,
-      WorkspaceKey.parse(into.key),
+      WorkingCopyKey.parse(into.key),
     );
 
     if (queued.some((each) => !ClaimOrder.fits(each, claimant))) {
@@ -368,7 +368,7 @@ export class ClaimHostWorkHandler
       into.id,
       {
         workspaceId: found.workspaceId.value,
-        key: found.workspaceKey?.value ?? null,
+        key: found.workingCopyKey?.value ?? null,
         hostId: host,
         runId: found.id.value,
       },

@@ -49,7 +49,7 @@ import type { TargetStation } from '@work/domain/value-objects/target-station.vo
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
-import { WorkspaceRelease } from '@work/domain/value-objects/workspace-release.vo';
+import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
 export interface NumberedProposal {
   readonly number: number;
@@ -657,10 +657,10 @@ export class Chat extends EventRecorder {
     }
   }
 
-  get workspaceRelease(): WorkspaceRelease {
+  get workingCopyRelease(): WorkingCopyRelease {
     return this.session
-      ? WorkspaceRelease.held()
-      : WorkspaceRelease.since(this.createdAt);
+      ? WorkingCopyRelease.held()
+      : WorkingCopyRelease.since(this.createdAt);
   }
 
   isStartedBy(by: UserId): boolean {

@@ -37,6 +37,7 @@ import { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { isUnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import {
   replay,
   replayEntry,
@@ -366,6 +367,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
+    private readonly outcomes: DrizzleReplayOutcomes,
   ) {}
 
   async find(id: ReplayId): Promise<Replay | null> {
@@ -505,6 +507,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
         version: added.version,
       });
       await this.writeEntries(added);
+      await this.outcomes.put(added);
       await this.events.dispatch(added.pullEvents());
     });
   }
@@ -532,6 +535,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
 
       if (!saved.isDeleted) {
         await this.writeEntries(saved);
+        await this.outcomes.put(saved);
       }
       await this.events.dispatch(saved.pullEvents());
     });

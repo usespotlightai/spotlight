@@ -20,7 +20,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -180,7 +180,7 @@ describe('ClaimRunHandler', () => {
       handover: { options: ['Spec'], noteLimit: 4_000 },
       resume: {},
     });
-    expect(runOf(claimed)?.workspaceKey).toBe('requester/subject-task_1');
+    expect(runOf(claimed)?.workingCopyKey).toBe('requester/subject-task_1');
   });
 
   it('only looks for work in the runner’s own workspace', async () => {
@@ -224,7 +224,9 @@ describe('ClaimRunHandler', () => {
 
     expect(claimNext).toHaveBeenCalledWith(
       expect.objectContaining({
-        sandbox: { avoiding: [WorkspaceKey.parse('requester/subject-task_1')] },
+        sandbox: {
+          avoiding: [WorkingCopyKey.parse('requester/subject-task_1')],
+        },
       }),
       NOW,
     );

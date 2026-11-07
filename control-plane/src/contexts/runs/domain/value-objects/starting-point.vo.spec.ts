@@ -1,7 +1,7 @@
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
 import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { describe, expect, it } from 'vitest';
 
@@ -30,7 +30,7 @@ describe('StartedCheckout', () => {
 describe('StartingPoint', () => {
   const point = (...checkouts: StartedCheckout[]) =>
     StartingPoint.of({
-      archive: WorkspaceArchiveId.of('archive_1'),
+      archive: WorkingCopyArchiveId.of('archive_1'),
       checkouts,
       attempt: 1,
       at: AT,
@@ -54,7 +54,7 @@ describe('StartingPoint', () => {
 
     expect(
       recorded.sameAs({
-        archive: WorkspaceArchiveId.of('archive_1'),
+        archive: WorkingCopyArchiveId.of('archive_1'),
         checkouts: [checkout('web'), checkout('api')],
       }),
     ).toBe(true);

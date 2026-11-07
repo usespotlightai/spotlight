@@ -49,12 +49,12 @@ import { ClaimHostWorkHandler } from '@runs/application/commands/handlers/claim-
 import { ClaimRunHandler } from '@runs/application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@runs/application/commands/handlers/complete-run.handler';
 import { CompleteSandboxArchiveHandler } from '@runs/application/commands/handlers/complete-sandbox-archive.handler';
-import { CompleteWorkspaceArchiveHandler } from '@runs/application/commands/handlers/complete-workspace-archive.handler';
+import { CompleteWorkingCopyArchiveHandler } from '@runs/application/commands/handlers/complete-working-copy-archive.handler';
 import { EnqueueRunHandler } from '@runs/application/commands/handlers/enqueue-run.handler';
 import { FetchRunSecretsHandler } from '@runs/application/commands/handlers/fetch-run-secrets.handler';
 import { FetchSharedRunSecretsHandler } from '@runs/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { GrantSandboxArchiveHandler } from '@runs/application/commands/handlers/grant-sandbox-archive.handler';
-import { GrantWorkspaceArchiveHandler } from '@runs/application/commands/handlers/grant-workspace-archive.handler';
+import { GrantWorkingCopyArchiveHandler } from '@runs/application/commands/handlers/grant-working-copy-archive.handler';
 import { RecordEgressConnectionsHandler } from '@runs/application/commands/handlers/record-egress-connections.handler';
 import { RecordHostCallResponseHandler } from '@runs/application/commands/handlers/record-host-call-response.handler';
 import { RecordRunImageHandler } from '@runs/application/commands/handlers/record-run-image.handler';
@@ -80,10 +80,10 @@ import {
 } from '@runs/application/commands/runner.commands';
 import {
   CompleteSandboxArchiveCommand,
-  CompleteWorkspaceArchiveCommand,
+  CompleteWorkingCopyArchiveCommand,
   GrantSandboxArchiveCommand,
-  GrantWorkspaceArchiveCommand,
-} from '@runs/application/commands/workspace-archive.commands';
+  GrantWorkingCopyArchiveCommand,
+} from '@runs/application/commands/working-copy-archive.commands';
 import { RecordRunUsage } from '@runs/application/events/handlers/record-run-usage.handler';
 import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
 import { ARCHIVE_HOLDERS } from '@runs/application/ports/archive-holders.port';
@@ -169,9 +169,9 @@ import {
 } from '@runs/application/ports/sandbox-hosts.port';
 import { STARTING_POINT_HOLDS } from '@runs/application/ports/starting-point-holds.port';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import {
   ActiveRunsQuery,
   AuthorizeRunnerQuery,
@@ -188,7 +188,7 @@ import { PoolQueueHandler } from '@runs/application/queries/handlers/pool-queue.
 import { ReadRunNetworkHandler } from '@runs/application/queries/handlers/read-run-network.handler';
 import { RunStopRequestedHandler } from '@runs/application/queries/handlers/run-stop-requested.handler';
 import { StoredSandboxArchiveHandler } from '@runs/application/queries/handlers/stored-sandbox-archive.handler';
-import { StoredWorkspaceArchiveHandler } from '@runs/application/queries/handlers/stored-workspace-archive.handler';
+import { StoredWorkingCopyArchiveHandler } from '@runs/application/queries/handlers/stored-working-copy-archive.handler';
 import { HostRequirementsQuery } from '@runs/application/queries/host.queries';
 import {
   HarnessCatalogueQuery,
@@ -200,8 +200,8 @@ import { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.
 import { RunStopRequestedQuery } from '@runs/application/queries/run-stop-requested.query';
 import {
   StoredSandboxArchiveQuery,
-  StoredWorkspaceArchiveQuery,
-} from '@runs/application/queries/stored-workspace-archive.query';
+  StoredWorkingCopyArchiveQuery,
+} from '@runs/application/queries/stored-working-copy-archive.query';
 import { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import { ClaimGate } from '@runs/application/services/claim-gate.service';
@@ -244,9 +244,9 @@ import {
   type StartingPointHoldRepository,
 } from '@runs/domain/repositories/starting-point-hold.repository';
 import {
-  WORKSPACE_ARCHIVE_REPOSITORY,
-  type WorkspaceArchiveRepository,
-} from '@runs/domain/repositories/workspace-archive.repository';
+  WORKING_COPY_ARCHIVE_REPOSITORY,
+  type WorkingCopyArchiveRepository,
+} from '@runs/domain/repositories/working-copy-archive.repository';
 import { AcpHarnessToolNames } from '@runs/infrastructure/acp/harness-tools';
 import { RUNS_PAYLOAD_TYPES } from '@runs/infrastructure/events/runs-payload-types';
 import { BuiltInHarnesses } from '@runs/infrastructure/harnesses/built-in-harnesses';
@@ -266,8 +266,8 @@ import { DrizzleRunnerActivityReader } from '@runs/infrastructure/persistence/dr
 import { DrizzleNetworkCallRepository } from '@runs/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleStartingPointHoldRepository } from '@runs/infrastructure/persistence/drizzle/repositories/starting-point-hold.repository';
-import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
-import { S3WorkspaceArchiveStore } from '@runs/infrastructure/storage/s3-workspace-archive.store';
+import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
+import { S3WorkingCopyArchiveStore } from '@runs/infrastructure/storage/s3-working-copy-archive.store';
 import { StorageHosts } from '@runs/infrastructure/storage/storage-hosts';
 import { InMemoryRunStream } from '@runs/infrastructure/streaming/in-memory-run-stream';
 import { RedisRunStream } from '@runs/infrastructure/streaming/redis-run-stream';
@@ -285,13 +285,13 @@ import { RunStreamController } from '@runs/presentation/http/controllers/run-str
 import { RunnerController } from '@runs/presentation/http/controllers/runner.controller';
 import { RunnerActivityController } from '@runs/presentation/http/controllers/runner-activity.controller';
 import { SandboxArchiveController } from '@runs/presentation/http/controllers/sandbox-archive.controller';
-import { WorkspaceArchiveController } from '@runs/presentation/http/controllers/workspace-archive.controller';
+import { WorkingCopyArchiveController } from '@runs/presentation/http/controllers/working-copy-archive.controller';
 import { LongPollShutdown } from '@runs/presentation/http/long-poll-shutdown';
 import { NetworkCallsWorker } from '@runs/presentation/workers/network-calls.worker';
 import { ProvisionWorkWorker } from '@runs/presentation/workers/provision-work.worker';
 import { RunConnectionsWorker } from '@runs/presentation/workers/run-connections.worker';
 import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
-import { WorkspaceArchivesWorker } from '@runs/presentation/workers/workspace-archives.worker';
+import { WorkingCopyArchivesWorker } from '@runs/presentation/workers/working-copy-archives.worker';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import {
   RUN_GRANTS,
@@ -334,7 +334,7 @@ export const RUNS_CONTROLLERS: readonly Type[] = [
   RunnerController,
   RunNetworkController,
   RunStreamController,
-  WorkspaceArchiveController,
+  WorkingCopyArchiveController,
   SandboxArchiveController,
   PoolController,
   HostWorkController,
@@ -390,11 +390,11 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   { provide: RUN_LEASES, useExisting: RunReadModel },
 
-  DrizzleWorkspaceArchiveRepository,
+  DrizzleWorkingCopyArchiveRepository,
 
   {
-    provide: WORKSPACE_ARCHIVE_REPOSITORY,
-    useExisting: DrizzleWorkspaceArchiveRepository,
+    provide: WORKING_COPY_ARCHIVE_REPOSITORY,
+    useExisting: DrizzleWorkingCopyArchiveRepository,
   },
 
   DrizzleNetworkCallRepository,
@@ -638,20 +638,24 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ]),
 
   {
-    provide: WORKSPACE_ARCHIVE_STORE,
+    provide: WORKING_COPY_ARCHIVE_STORE,
     inject: [ENV],
-    useFactory: (env: Env) => new S3WorkspaceArchiveStore(env),
+    useFactory: (env: Env) => new S3WorkingCopyArchiveStore(env),
   },
 
   ...bindQueryHandler(
-    StoredWorkspaceArchiveQuery,
-    StoredWorkspaceArchiveHandler,
-    [RUN_REPOSITORY, WORKSPACE_ARCHIVE_REPOSITORY, WORKSPACE_ARCHIVE_STORE],
+    StoredWorkingCopyArchiveQuery,
+    StoredWorkingCopyArchiveHandler,
+    [
+      RUN_REPOSITORY,
+      WORKING_COPY_ARCHIVE_REPOSITORY,
+      WORKING_COPY_ARCHIVE_STORE,
+    ],
   ),
 
   ...bindCommandHandler(
-    GrantWorkspaceArchiveCommand,
-    GrantWorkspaceArchiveHandler,
+    GrantWorkingCopyArchiveCommand,
+    GrantWorkingCopyArchiveHandler,
     [RUN_REPOSITORY, ArchiveGrants],
   ),
 
@@ -660,7 +664,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     RecordStartingPointHandler,
     [
       RUN_REPOSITORY,
-      WORKSPACE_ARCHIVE_REPOSITORY,
+      WORKING_COPY_ARCHIVE_REPOSITORY,
       RUNNER_CLAIMANTS,
       CLOCK,
       ARCHIVE_REFERENCE_LOCKS,
@@ -668,9 +672,9 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ),
 
   ...bindCommandHandler(
-    CompleteWorkspaceArchiveCommand,
-    CompleteWorkspaceArchiveHandler,
-    [RUN_REPOSITORY, WORKSPACE_ARCHIVE_REPOSITORY, ArchiveGrants],
+    CompleteWorkingCopyArchiveCommand,
+    CompleteWorkingCopyArchiveHandler,
+    [RUN_REPOSITORY, WORKING_COPY_ARCHIVE_REPOSITORY, ArchiveGrants],
   ),
 
   {
@@ -681,8 +685,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(StoredSandboxArchiveQuery, StoredSandboxArchiveHandler, [
     SandboxArchives,
-    WORKSPACE_ARCHIVE_REPOSITORY,
-    WORKSPACE_ARCHIVE_STORE,
+    WORKING_COPY_ARCHIVE_REPOSITORY,
+    WORKING_COPY_ARCHIVE_STORE,
   ]),
 
   ...bindCommandHandler(
@@ -694,21 +698,21 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(
     CompleteSandboxArchiveCommand,
     CompleteSandboxArchiveHandler,
-    [SandboxArchives, WORKSPACE_ARCHIVE_REPOSITORY, ArchiveGrants],
+    [SandboxArchives, WORKING_COPY_ARCHIVE_REPOSITORY, ArchiveGrants],
   ),
 
   {
     provide: ArchiveGrants,
     inject: [
-      WORKSPACE_ARCHIVE_REPOSITORY,
-      WORKSPACE_ARCHIVE_STORE,
+      WORKING_COPY_ARCHIVE_REPOSITORY,
+      WORKING_COPY_ARCHIVE_STORE,
       ArchiveHolders,
       ID_GENERATOR,
       CLOCK,
     ],
     useFactory: (
-      archives: WorkspaceArchiveRepository,
-      store: WorkspaceArchiveStorePort,
+      archives: WorkingCopyArchiveRepository,
+      store: WorkingCopyArchiveStorePort,
       holders: ArchiveHolders,
       ids: IdGeneratorPort,
       clock: ClockPort,
@@ -721,8 +725,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       ARCHIVE_REFERENCES,
       ARCHIVE_REFERENCE_LOCKS,
       ArchiveHolders,
-      WORKSPACE_ARCHIVE_REPOSITORY,
-      WORKSPACE_ARCHIVE_STORE,
+      WORKING_COPY_ARCHIVE_REPOSITORY,
+      WORKING_COPY_ARCHIVE_STORE,
       CLOCK,
       LOGGER,
     ],
@@ -730,8 +734,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       references: ArchiveReferencesPort,
       locks: ArchiveReferenceLocksPort,
       holders: ArchiveHolders,
-      archives: WorkspaceArchiveRepository,
-      store: WorkspaceArchiveStorePort,
+      archives: WorkingCopyArchiveRepository,
+      store: WorkingCopyArchiveStorePort,
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
@@ -747,10 +751,10 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: WorkspaceArchivesWorker,
+    provide: WorkingCopyArchivesWorker,
     inject: [RemoveReleasedArchives, LOGGER],
     useFactory: (released: RemoveReleasedArchives, logger: LoggerPort) =>
-      new WorkspaceArchivesWorker(released, logger),
+      new WorkingCopyArchivesWorker(released, logger),
   },
 
   ...bindQueryHandler(RunStopRequestedQuery, RunStopRequestedHandler, [

@@ -32,7 +32,7 @@ describe('setNoiseOf', () => {
       'original_1#2',
       'original_2#2',
     ]);
-    const noise = setNoiseOf([replay], [LIVE], LIVE.fingerprint);
+    const noise = setNoiseOf([replay.outcome()], [LIVE], LIVE.fingerprint);
 
     expect(noise).toMatchObject({
       repeats: 3,
@@ -46,7 +46,11 @@ describe('setNoiseOf', () => {
 
   it('has no noise without a live replay that ran the set more than once', () => {
     expect(
-      setNoiseOf([liveReplay('replay_once', 1, [])], [LIVE], LIVE.fingerprint),
+      setNoiseOf(
+        [liveReplay('replay_once', 1, []).outcome()],
+        [LIVE],
+        LIVE.fingerprint,
+      ),
     ).toBeNull();
     expect(setNoiseOf([], [LIVE], LIVE.fingerprint)).toBeNull();
   });
@@ -55,10 +59,10 @@ describe('setNoiseOf', () => {
     const replay = liveReplay('replay_noise', 2, ['original_0#1']);
 
     expect(FINGERPRINT.equals(LIVE_FINGERPRINT)).toBe(false);
-    expect(setNoiseOf([replay], [LIVE], LIVE_FINGERPRINT)).toBeNull();
+    expect(setNoiseOf([replay.outcome()], [LIVE], LIVE_FINGERPRINT)).toBeNull();
     expect(
       setNoiseOf(
-        [replay],
+        [replay.outcome()],
         [candidateOf('searched', LIVE.id.value)],
         LIVE.fingerprint,
       ),
@@ -77,7 +81,8 @@ describe('setNoiseOf', () => {
     );
 
     expect(
-      setNoiseOf([running, older], [LIVE], LIVE.fingerprint)?.replayId.value,
+      setNoiseOf([running.outcome(), older.outcome()], [LIVE], LIVE.fingerprint)
+        ?.replayId.value,
     ).toBe('replay_older');
   });
 });
@@ -108,7 +113,7 @@ describe('noiseReadingOf', () => {
       'original_1#2',
       'original_2#2',
     ]);
-    const noise = setNoiseOf([replay], [LIVE], LIVE.fingerprint);
+    const noise = setNoiseOf([replay.outcome()], [LIVE], LIVE.fingerprint);
 
     expect(noise && noiseReadingOf(noise, 0.05).noisyInOneRepeat).toBe(true);
     expect(noise && noiseReadingOf(noise, 0.5).noisyInOneRepeat).toBe(false);

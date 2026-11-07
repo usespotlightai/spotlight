@@ -1,27 +1,27 @@
-import type { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
-import type { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class RestoredArchive {
   private constructor(
-    readonly id: WorkspaceArchiveId,
+    readonly id: WorkingCopyArchiveId,
     readonly workspaceId: WorkspaceId,
-    readonly workspaceKey: WorkspaceKey,
+    readonly workingCopyKey: WorkingCopyKey,
   ) {}
 
   static of(
-    id: WorkspaceArchiveId,
+    id: WorkingCopyArchiveId,
     workspaceId: WorkspaceId,
-    workspaceKey: WorkspaceKey,
+    workingCopyKey: WorkingCopyKey,
   ): RestoredArchive {
-    return new RestoredArchive(id, workspaceId, workspaceKey);
+    return new RestoredArchive(id, workspaceId, workingCopyKey);
   }
 
   equals(other: RestoredArchive): boolean {
     return (
       this.id.equals(other.id) &&
       this.workspaceId.equals(other.workspaceId) &&
-      this.workspaceKey.equals(other.workspaceKey)
+      this.workingCopyKey.equals(other.workingCopyKey)
     );
   }
 }

@@ -1,4 +1,4 @@
-import { InvalidWorkspaceArchiveError } from '@runs/domain/exceptions/invalid-workspace-archive.error';
+import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
 
 const MAX_BYTES = 2 * 1024 ** 3;
 
@@ -7,13 +7,13 @@ export class ArchiveSize {
 
   static of(bytes: number): ArchiveSize {
     if (!Number.isSafeInteger(bytes) || bytes < 1) {
-      throw new InvalidWorkspaceArchiveError(
+      throw new InvalidWorkingCopyArchiveError(
         'size must be a whole number of bytes',
       );
     }
 
     if (bytes > MAX_BYTES) {
-      throw new InvalidWorkspaceArchiveError(
+      throw new InvalidWorkingCopyArchiveError(
         `can be at most ${MAX_BYTES} bytes, not ${bytes}`,
       );
     }

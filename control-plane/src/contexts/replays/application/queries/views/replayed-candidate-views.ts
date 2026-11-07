@@ -8,6 +8,12 @@ import type {
   ReplayedStationDto,
   ReplaySetHealthDto,
 } from '@replays/application/dto/replayed-candidates.dto';
+import type {
+  ReplayedCandidateRow,
+  ReplayedPullRequestRow,
+  ReplayedSearchRow,
+  ReplayedSetRow,
+} from '@replays/application/ports/replayed-candidates-reader.port';
 import type { RunSummary } from '@replays/application/ports/trialable-runs.port';
 import { candidatePullRequestView } from '@replays/application/queries/views/config-pull-request-views';
 import {
@@ -19,11 +25,6 @@ import {
   chartCurrencyOf,
   chartStatusOf,
 } from '@replays/application/queries/views/replayed-chart';
-import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { servingBaselineOf } from '@replays/domain/services/baseline';
 import { frontierOf } from '@replays/domain/services/frontier';
 import { gainBetween } from '@replays/domain/services/gain-estimate';
@@ -36,6 +37,7 @@ import {
 } from '@replays/domain/services/shown-over-live';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -43,13 +45,12 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export interface ReplayedCandidatesSeen {
   readonly period: ReplayedPeriod;
   readonly truncated: boolean;
-  readonly recent: readonly Replay[];
-  readonly searches: readonly Search[];
-  readonly searchReplays: readonly Replay[];
-  readonly sets: readonly ReplaySet[];
-  readonly baselines: readonly Replay[];
-  readonly candidates: readonly Candidate[];
-  readonly pullRequests: readonly ConfigPullRequest[];
+  readonly searches: readonly ReplayedSearchRow[];
+  readonly searchReplays: readonly ReplayOutcome[];
+  readonly sets: readonly ReplayedSetRow[];
+  readonly baselines: readonly ReplayOutcome[];
+  readonly candidates: readonly ReplayedCandidateRow[];
+  readonly pullRequests: readonly ReplayedPullRequestRow[];
   readonly summaries: readonly RunSummary[];
   readonly standards: ReadonlyMap<string, SetStandard>;
 }
@@ -106,7 +107,7 @@ const extremes = (
 };
 
 const healthOf = (
-  set: ReplaySet,
+  set: ReplayedSetRow,
   summaries: readonly RunSummary[],
   standard: SetStandard,
 ): ReplaySetHealthDto => {
@@ -130,10 +131,10 @@ const healthOf = (
 };
 
 const baselineView = (
-  baseline: Replay,
-  candidates: readonly Candidate[],
+  baseline: ReplayOutcome,
+  candidates: readonly ReplayedCandidateRow[],
 ): Omit<ReplayedBaselineDto, 'chartStatus'> => {
-  const currency = baseline.ceiling.currency;
+  const currency = baseline.currency;
   const scored = scoredOn(baseline, null, currency);
 
   return {
@@ -152,8 +153,8 @@ const baselineView = (
 };
 
 const gainOverReference = (
-  replay: Replay | null,
-  baseline: Replay | null,
+  replay: ReplayOutcome | null,
+  baseline: ReplayOutcome | null,
   minGain: number,
 ): Pick<
   ReplayedCandidateDto,
@@ -171,9 +172,9 @@ const gainOverReference = (
     (each) => each.baseline.length > 0,
   );
   const shared = compared.map((each) => RunId.of(each.original));
-  const theirs = live ? scoredOn(live, shared, live.ceiling.currency) : null;
+  const theirs = live ? scoredOn(live, shared, live.currency) : null;
   const ours =
-    replay && live ? scoredOn(replay, shared, replay.ceiling.currency) : null;
+    replay && live ? scoredOn(replay, shared, replay.currency) : null;
 
   return {
     live:
@@ -182,7 +183,7 @@ const gainOverReference = (
             successRate: theirs.score,
             interval: intervalView(theirs.interval),
             costPerRun: theirs.costPerRun,
-            currency: live.ceiling.currency,
+            currency: live.currency,
           }
         : null,
     successRateOnCompared: ours?.score ?? null,
@@ -199,15 +200,15 @@ const gainOverReference = (
 const tasksIn = (tasks: readonly { value: string }[]): number =>
   new Set(tasks.map((each) => each.value)).size;
 
-const changesOf = (candidate: Candidate | null) =>
-  candidate?.changedFrom.changes.map((change) => ({ ...change })) ?? [];
+const changesOf = (candidate: ReplayedCandidateRow | null) =>
+  candidate?.changes.map((change) => ({ ...change })) ?? [];
 
 const searchedOf = (
-  search: Search,
-  searchReplays: readonly Replay[],
-  candidates: readonly Candidate[],
-  pullRequests: readonly ConfigPullRequest[],
-  baseline: Replay | null,
+  search: ReplayedSearchRow,
+  searchReplays: readonly ReplayOutcome[],
+  candidates: readonly ReplayedCandidateRow[],
+  pullRequests: readonly ReplayedPullRequestRow[],
+  baseline: ReplayOutcome | null,
   minGain: number,
 ): readonly CandidateWithoutChartStatus[] => {
   const scores = scoresOf(search, searchReplays, minGain);
@@ -216,7 +217,7 @@ const searchedOf = (
     search.objective,
   );
   const currency = search.budget.ceiling.currency;
-  const found = (id: ReplayId | null): Replay | null =>
+  const found = (id: ReplayId | null): ReplayOutcome | null =>
     (id && searchReplays.find((each) => each.id.equals(id))) || null;
   const pullRequestOf = (id: CandidateId) => {
     const opened = pullRequests.find(
@@ -242,7 +243,7 @@ const searchedOf = (
       {
         candidateId: each.candidateId.value,
         name: proposal.name.value,
-        hypothesis: candidate?.search?.hypothesis.value ?? null,
+        hypothesis: candidate?.hypothesis ?? null,
         fingerprint: candidate?.fingerprint.value ?? null,
         changes: changesOf(candidate),
         replayId: each.replayId.value,

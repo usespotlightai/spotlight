@@ -1,4 +1,4 @@
-import { InvalidWorkspaceArchiveError } from '@runs/domain/exceptions/invalid-workspace-archive.error';
+import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -11,7 +11,9 @@ describe('ArchiveSize', () => {
   it.each([0, -1, 1.5, Number.NaN, 2 * 1024 ** 3 + 1])(
     'rejects %s',
     (bytes) => {
-      expect(() => ArchiveSize.of(bytes)).toThrow(InvalidWorkspaceArchiveError);
+      expect(() => ArchiveSize.of(bytes)).toThrow(
+        InvalidWorkingCopyArchiveError,
+      );
     },
   );
 });

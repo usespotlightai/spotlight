@@ -22,9 +22,9 @@ import { DrizzleReplayRunDecisionRepository } from '@replays/infrastructure/pers
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -66,7 +66,7 @@ const attachmentStore = {
   }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -195,10 +195,10 @@ const anOriginal = async (): Promise<Original> => {
       endedAt: new Date(),
     }),
   );
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    workspaceKey: `work/task-${taskId}`,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -444,7 +444,7 @@ const finishing = (next: string) => ({
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore),
@@ -609,17 +609,17 @@ describe('a replay claimed by a runner', () => {
     const { original, replayId, token } = await aClaimedReplay();
 
     const archive = await runner(token)
-      .get(`/api/runs/${replayId}/workspace-archive`)
+      .get(`/api/runs/${replayId}/working-copy-archive`)
       .expect(200);
 
     expect(archive.body.id).toBe(original.archiveId);
   });
 
-  it('archives no workspace of its own, and says nothing of where it started', async () => {
+  it('archives no working copy of its own, and says nothing of where it started', async () => {
     const { replayId, token } = await aClaimedReplay();
 
     await runner(token)
-      .post(`/api/runs/${replayId}/workspace-archive`, {
+      .post(`/api/runs/${replayId}/working-copy-archive`, {
         size: 10,
         sha256: 'b'.repeat(64),
       })
@@ -777,7 +777,7 @@ describe('an order under a run id Runs already knows', () => {
         listed: false,
         exclusive: false,
       },
-      workspace: null,
+      workingCopy: null,
       restore: null,
       extensions: {},
       apiGrant: null,

@@ -10,12 +10,12 @@ export interface RunRefusalContract {
   readonly description: string;
 }
 
-type WorkspaceRestores = 'always' | 'when-continuing';
+type WorkingCopyRestores = 'always' | 'when-continuing';
 
-export interface RunWorkspaceContract {
+export interface RunWorkingCopyContract {
   readonly key: string;
   readonly rejoinable: boolean;
-  readonly restores: WorkspaceRestores;
+  readonly restores: WorkingCopyRestores;
 }
 
 export interface RunRestoreContract {
@@ -37,7 +37,7 @@ export interface RunOrderContract {
   readonly spec: RunSpecShape;
   readonly requester: RunRequesterContract;
   readonly policy: RunPolicyContract;
-  readonly workspace: RunWorkspaceContract | null;
+  readonly workingCopy: RunWorkingCopyContract | null;
   readonly restore: RunRestoreContract | null;
   readonly extensions: Readonly<Record<string, JsonValue>>;
   readonly apiGrant: RunApiGrantContract | null;
@@ -45,7 +45,7 @@ export interface RunOrderContract {
   readonly refusal: readonly RunRefusalContract[] | null;
 }
 
-export const workspaceKeyOf = (owner: string, name: string): string =>
+export const workingCopyKeyOf = (owner: string, name: string): string =>
   `${owner}/${name}`;
 
 export interface RunRequesterContract {

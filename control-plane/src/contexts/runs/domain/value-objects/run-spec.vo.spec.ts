@@ -84,7 +84,7 @@ describe('RunSpec', () => {
     }
   });
 
-  it('rejects a checkout that points outside the workspace', () => {
+  it('rejects a checkout that points outside the working copy', () => {
     for (const path of ['/etc', '../elsewhere', 'a/../../b']) {
       expect(() =>
         RunSpec.of(
@@ -127,7 +127,7 @@ describe('RunSpec', () => {
     );
   });
 
-  it('rejects a skill or attachment laid outside the workspace', () => {
+  it('rejects a skill or attachment laid outside the working copy', () => {
     expect(() =>
       RunSpec.of(parts({ skills: [{ path: '/root/SKILL.md', text: '' }] })),
     ).toThrow(InvalidRunSpecError);

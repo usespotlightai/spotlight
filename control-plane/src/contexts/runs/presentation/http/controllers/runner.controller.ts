@@ -257,7 +257,7 @@ export class RunnerController {
     summary:
       'Say where the run started: the archive it restored and the commit each checkout was at',
     description:
-      'The runner reports this once the workspace is restored and its checkouts prepared, before the agent starts, and only for a run whose spec asks for its starting point. A later attempt of the same run keeps where the first one started.',
+      'The runner reports this once the working copy is restored and its checkouts prepared, before the agent starts, and only for a run whose spec asks for its starting point. A later attempt of the same run keeps where the first one started.',
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: 'No such run' })
@@ -313,7 +313,7 @@ export class RunnerController {
     operationId: 'completeRun',
     summary: 'Report how the agent’s turn ended',
     description:
-      'The run leaves its lease. When the run hands over and its requester holds the turn, the run is suspended until the requester finishes, keeps or resumes it. A resume requeues it, and the sandbox that keeps its workspace takes it first.',
+      'The run leaves its lease. When the run hands over and its requester holds the turn, the run is suspended until the requester finishes, keeps or resumes it. A resume requeues it, and the sandbox that keeps its working copy takes it first.',
   })
   @ApiNoContentResponse({ description: 'Turn reported' })
   async complete(

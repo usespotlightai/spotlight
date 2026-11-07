@@ -1,8 +1,8 @@
-import type { SandboxArchiveAnswer } from '@runs/application/dto/workspace-archive.dto';
-import type { WorkspaceArchiveStorePort } from '@runs/application/ports/workspace-archive-store.port';
-import type { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-workspace-archive.query';
+import type { SandboxArchiveAnswer } from '@runs/application/dto/working-copy-archive.dto';
+import type { WorkingCopyArchiveStorePort } from '@runs/application/ports/working-copy-archive-store.port';
+import type { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-working-copy-archive.query';
 import type { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
-import type { WorkspaceArchiveRepository } from '@runs/domain/repositories/workspace-archive.repository';
+import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -11,8 +11,8 @@ export class StoredSandboxArchiveHandler
 {
   constructor(
     private readonly sandboxes: SandboxArchives,
-    private readonly archives: WorkspaceArchiveRepository,
-    private readonly store: WorkspaceArchiveStorePort,
+    private readonly archives: WorkingCopyArchiveRepository,
+    private readonly store: WorkingCopyArchiveStorePort,
   ) {}
 
   async execute(

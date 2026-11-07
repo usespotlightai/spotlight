@@ -30,7 +30,11 @@ export const searchReadOf = async (app: INestApplication, id: string) => {
 
   const replays = await app.get(DrizzleReplayRepository).ofSearch(search.id);
   const { minGain } = await app.get(SetHealths).standardAt(search.station);
-  const scores = scoresOf(search, replays, minGain);
+  const scores = scoresOf(
+    search,
+    replays.map((each) => each.outcome()),
+    minGain,
+  );
   const frontier = frontierOf(
     [scores.seed, ...scores.candidates],
     search.objective,

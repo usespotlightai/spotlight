@@ -397,7 +397,7 @@ describe('a search run claimed by a runner', () => {
     ).toBeNull();
   });
 
-  it('touches no repository, uses no tool, replies to no review comment, acknowledges no message, archives no workspace and reads no memory', async () => {
+  it('touches no repository, uses no tool, replies to no review comment, acknowledges no message, archives no working copy and reads no memory', async () => {
     const { runId, token } = await aClaimedSearch();
 
     await runner(token)
@@ -420,7 +420,7 @@ describe('a search run claimed by a runner', () => {
       .post(`/api/runs/${runId}/messages/ack`, { upTo: 0 })
       .expect(409);
     await runner(token)
-      .post(`/api/runs/${runId}/workspace-archive`, {
+      .post(`/api/runs/${runId}/working-copy-archive`, {
         size: 10,
         sha256: 'b'.repeat(64),
       })

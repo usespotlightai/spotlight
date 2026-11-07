@@ -45,7 +45,7 @@ describe('CheckedRunJournal', () => {
         message: 'npm test',
         data: encoded('plain text'),
       },
-      { seq: 5, type: 'workspace.ready', at: AT, data: encoded('not json') },
+      { seq: 5, type: 'working-copy.ready', at: AT, data: encoded('not json') },
     ];
 
     await checked.append(ATTEMPT, entries);

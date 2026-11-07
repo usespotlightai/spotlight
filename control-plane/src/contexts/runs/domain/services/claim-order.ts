@@ -21,7 +21,7 @@ const fits = (run: Run, by: Pick<Claimant, 'harnesses' | 'offer'>): boolean =>
   run.placement.matches(by.offer);
 
 const routed = (run: Run, routing: SandboxRouting | undefined): boolean => {
-  const key = run.workspaceKey?.value ?? '';
+  const key = run.workingCopyKey?.value ?? '';
 
   if (!routing) {
     return true;

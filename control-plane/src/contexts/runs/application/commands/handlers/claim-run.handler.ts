@@ -12,7 +12,7 @@ import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { UnknownRunnerError } from '@runs/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { Claimant } from '@runs/domain/value-objects/claimant';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -93,7 +93,9 @@ export class ClaimRunHandler
         const claimed = await this.claims.next(
           {
             ...claimant,
-            sandbox: { avoiding: held.map((each) => WorkspaceKey.parse(each)) },
+            sandbox: {
+              avoiding: held.map((each) => WorkingCopyKey.parse(each)),
+            },
           },
           this.clock.now(),
         );

@@ -444,7 +444,7 @@ describe('ClaimChangeStackCheck', () => {
 
     it('tells the runner to stop once the check ended, or its lease expired past the hour', async () => {
       const skipped = renewing(
-        leased().skip(RUNNER, skipOf('workspace-failed', null), NOW),
+        leased().skip(RUNNER, skipOf('working-copy-failed', null), NOW),
       );
       const expired = renewing(leased());
 

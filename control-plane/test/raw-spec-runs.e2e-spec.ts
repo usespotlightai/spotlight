@@ -44,7 +44,7 @@ afterAll(async () => {
 });
 
 describe('a run ordered with a raw spec (e2e)', () => {
-  it('queues it as the workspace’s own run, carrying on in the workspace’s key', async () => {
+  it('queues it as the workspace’s own run, carrying on in a working copy the workspace owns', async () => {
     const queued = await ordered({ resume: { key: 'nightly' } }).expect(201);
     const again = await ordered({
       resume: { key: 'workspace/nightly' },
@@ -55,8 +55,8 @@ describe('a run ordered with a raw spec (e2e)', () => {
         requesterOwner: 'workspace',
         requesterKind: 'spec',
         requesterId: id,
-        workspaceKey: 'workspace/nightly',
-        workspaceRejoinable: false,
+        workingCopyKey: 'workspace/nightly',
+        workingCopyRejoinable: false,
         exclusive: false,
       });
     }
@@ -68,13 +68,13 @@ describe('a run ordered with a raw spec (e2e)', () => {
     const refused = await ordered({ resume: { key: taskKey } }).expect(409);
 
     expect(refused.body.message).toBe(
-      `Workspace ${taskKey} belongs to work Spotlight orders. A run you order can only carry on its own workspaces.`,
+      `Working copy ${taskKey} belongs to work Spotlight orders. A run you order can only carry on its own working copies.`,
     );
     expect(
       await db
         .select()
         .from(schema.run)
-        .where(eq(schema.run.workspaceKey, taskKey)),
+        .where(eq(schema.run.workingCopyKey, taskKey)),
     ).toEqual([]);
   });
 

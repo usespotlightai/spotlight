@@ -3,9 +3,9 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -52,7 +52,7 @@ const SHIP = randomUUID();
 const DEPLOY = randomUUID();
 const SHA256 = 'a'.repeat(64);
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -244,7 +244,7 @@ const journalled = (token: string, runId: string, message: string) =>
 
 beforeAll(async () => {
   app = await openApp((module) =>
-    module.overrideProvider(WORKSPACE_ARCHIVE_STORE).useValue(archiveStore),
+    module.overrideProvider(WORKING_COPY_ARCHIVE_STORE).useValue(archiveStore),
   );
   db = app.get(DRIZZLE);
   team = await createTeam(
@@ -360,21 +360,21 @@ describe('a run that asks a person', () => {
     expect(item.runId).toBe(runId);
   });
 
-  it('requeues the same run as a new attempt once answered, to resume its session from its workspace', async () => {
+  it('requeues the same run as a new attempt once answered, to resume its session from its working copy', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const first = await claimed(runId);
 
     await journalled(first, runId, 'before the question');
     const granted = (
       await runner(first)
-        .post(`/api/runs/${runId}/workspace-archive`, {
+        .post(`/api/runs/${runId}/working-copy-archive`, {
           size: 2_048,
           sha256: SHA256,
         })
         .expect(201)
     ).body as { id: string };
     await runner(first)
-      .post(`/api/runs/${runId}/workspace-archive/${granted.id}/complete`)
+      .post(`/api/runs/${runId}/working-copy-archive/${granted.id}/complete`)
       .expect(204);
     await runner(first)
       .post(`/api/runs/${runId}/completion`, askingForReview)
@@ -387,7 +387,7 @@ describe('a run that asks a person', () => {
     expect(requeued?.spec).toMatchObject({
       resume: { sessionId: 'session_1', resumeSession: true },
     });
-    expect(requeued?.workspaceKey).toBe(`work/task-${taskId}`);
+    expect(requeued?.workingCopyKey).toBe(`work/task-${taskId}`);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
     expect((await inboxItemOf(taskId)).progress).toBe('queued');
 
@@ -395,7 +395,7 @@ describe('a run that asks a person', () => {
     expect(second).not.toBe(first);
 
     const restored = await runner(second)
-      .get(`/api/runs/${runId}/workspace-archive`)
+      .get(`/api/runs/${runId}/working-copy-archive`)
       .expect(200);
     expect(restored.body).toMatchObject({ id: granted.id, sha256: SHA256 });
 
@@ -652,7 +652,7 @@ describe('a message in a run chat', () => {
       .from(schema.dispatch)
       .where(eq(schema.dispatch.id, next));
     expect(dispatched?.stationId).toBe(DEPLOY);
-    expect(queued?.workspaceKey).toBe(`work/task-${taskId}`);
+    expect(queued?.workingCopyKey).toBe(`work/task-${taskId}`);
     expect(queued?.spec).toMatchObject({
       briefing: expect.stringContaining('Deploy the docs with it too.'),
       resume: { sessionId: 'session_1' },
@@ -715,7 +715,7 @@ describe('a run queued while an earlier run of its task is still leased', () => 
     ['the same station', BUILD],
     ['another station', DEPLOY],
   ])(
-    'is claimed only once the earlier run has ended, so the two never share the task’s workspace, at %s',
+    'is claimed only once the earlier run has ended, so the two never share the task’s working copy, at %s',
     async (_, station) => {
       const { taskId, runId } = await aTaskWithLeasedRun();
       const token = await claimed(runId);

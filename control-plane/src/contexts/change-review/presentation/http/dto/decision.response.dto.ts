@@ -62,7 +62,7 @@ export class DecisionResponseDto {
   @ApiProperty({
     type: [String],
     example: ['api/src/uploads.ts'],
-    description: 'The changed files it covers, from the workspace root',
+    description: 'The changed files it covers, from the working copy root',
   })
   readonly paths: string[];
 

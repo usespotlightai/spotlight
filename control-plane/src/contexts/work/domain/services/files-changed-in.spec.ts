@@ -2,7 +2,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { filesChangedIn } from '@work/domain/services/files-changed-in';
 import { describe, expect, it } from 'vitest';
 
-describe('the files changed in a workspace', () => {
+describe('the files changed in a working copy', () => {
   const API = Repository.of('acme/api');
   const WEB = Repository.of('acme/web');
 

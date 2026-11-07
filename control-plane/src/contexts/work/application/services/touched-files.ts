@@ -40,7 +40,7 @@ export class TouchedFiles {
     repositories: readonly Repository[],
   ): Promise<TouchedFile[]> {
     return (await this.journals.changesOfTask(task.id)).flatMap((changes) =>
-      filesChangedIn(this.readings.workspacePathsIn(changes), repositories),
+      filesChangedIn(this.readings.workingCopyPathsIn(changes), repositories),
     );
   }
 

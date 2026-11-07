@@ -41,11 +41,11 @@ import {
   type ReportedStart,
   StartingPoint,
 } from '@runs/domain/value-objects/starting-point.vo';
-import type { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import type {
-  RunWorkspace,
-  WorkspaceKey,
-} from '@runs/domain/value-objects/workspace-key.vo';
+  RunWorkingCopy,
+  WorkingCopyKey,
+} from '@runs/domain/value-objects/working-copy-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -101,29 +101,29 @@ export type QueuedCancellation =
 export interface RunOrdered {
   readonly requester: RunRequester;
   readonly policy: RunPolicy;
-  readonly workspace: RunWorkspace | null;
-  readonly restore: WorkspaceArchiveId | null;
+  readonly workingCopy: RunWorkingCopy | null;
+  readonly restore: WorkingCopyArchiveId | null;
   readonly extensions: RunExtensions;
   readonly tags: RunTags;
   readonly apiGrant: RunApiGrant | null;
 }
 
 interface RestoreCandidate {
-  readonly id: WorkspaceArchiveId;
-  readonly workspaceKey: WorkspaceKey;
+  readonly id: WorkingCopyArchiveId;
+  readonly workingCopyKey: WorkingCopyKey;
   readonly completedAt: Date | null;
   isAvailableIn(workspaceId: WorkspaceId): boolean;
 }
 
 type RestoreSource =
-  | { readonly archive: WorkspaceArchiveId }
-  | { readonly newestOf: WorkspaceKey };
+  | { readonly archive: WorkingCopyArchiveId }
+  | { readonly newestOf: WorkingCopyKey };
 
 const orderProblem = (ordered: RunOrdered, spec: RunSpec): string | null => {
-  const { requester, policy, workspace, apiGrant } = ordered;
+  const { requester, policy, workingCopy, apiGrant } = ordered;
 
-  if (workspace && !workspace.key.owner.equals(requester.owner)) {
-    return `names workspace ${workspace.key.value}, which belongs to another requester than ${requester.owner.value}`;
+  if (workingCopy && !workingCopy.key.owner.equals(requester.owner)) {
+    return `names working copy ${workingCopy.key.value}, which belongs to another requester than ${requester.owner.value}`;
   }
 
   if ((apiGrant !== null) !== spec.injectsSpotlightApi) {
@@ -177,8 +177,8 @@ export class Run extends EventRecorder {
     priority?: RunPriority;
     requester: RunRequester;
     policy: RunPolicy;
-    workspace?: RunWorkspace | null;
-    restore?: WorkspaceArchiveId | null;
+    workingCopy?: RunWorkingCopy | null;
+    restore?: WorkingCopyArchiveId | null;
     extensions?: RunExtensions;
     tags?: RunTags;
     apiGrant?: RunApiGrant | null;
@@ -241,8 +241,8 @@ export class Run extends EventRecorder {
   private static orderedFrom(input: {
     requester: RunRequester;
     policy: RunPolicy;
-    workspace?: RunWorkspace | null;
-    restore?: WorkspaceArchiveId | null;
+    workingCopy?: RunWorkingCopy | null;
+    restore?: WorkingCopyArchiveId | null;
     extensions?: RunExtensions;
     tags?: RunTags;
     apiGrant?: RunApiGrant | null;
@@ -250,7 +250,7 @@ export class Run extends EventRecorder {
     return {
       requester: input.requester,
       policy: input.policy,
-      workspace: input.workspace ?? null,
+      workingCopy: input.workingCopy ?? null,
       restore: input.restore ?? null,
       extensions: input.extensions ?? RunExtensions.none(),
       tags: input.tags ?? RunTags.none(),
@@ -265,8 +265,8 @@ export class Run extends EventRecorder {
     priority: RunPriority;
     requester: RunRequester;
     policy: RunPolicy;
-    workspace?: RunWorkspace | null;
-    restore?: WorkspaceArchiveId | null;
+    workingCopy?: RunWorkingCopy | null;
+    restore?: WorkingCopyArchiveId | null;
     extensions?: RunExtensions;
     tags?: RunTags;
     apiGrant?: RunApiGrant | null;
@@ -456,11 +456,11 @@ export class Run extends EventRecorder {
     return this.ordered.requester.team;
   }
 
-  get workspace(): RunWorkspace | null {
-    return this.ordered.workspace;
+  get workingCopy(): RunWorkingCopy | null {
+    return this.ordered.workingCopy;
   }
 
-  get restore(): WorkspaceArchiveId | null {
+  get restore(): WorkingCopyArchiveId | null {
     return this.ordered.restore;
   }
 
@@ -476,12 +476,12 @@ export class Run extends EventRecorder {
     return this.ordered.apiGrant;
   }
 
-  get workspaceKey(): WorkspaceKey | null {
-    return this.ordered.workspace?.key ?? null;
+  get workingCopyKey(): WorkingCopyKey | null {
+    return this.ordered.workingCopy?.key ?? null;
   }
 
   get sandboxIsRejoinable(): boolean {
-    return this.ordered.workspace?.rejoinable ?? false;
+    return this.ordered.workingCopy?.rejoinable ?? false;
   }
 
   get restoresFrom(): RestoreSource | null {
@@ -489,10 +489,10 @@ export class Run extends EventRecorder {
       return { archive: this.ordered.restore };
     }
 
-    const workspace = this.ordered.workspace;
+    const workingCopy = this.ordered.workingCopy;
 
-    return workspace?.restoresWhen(this.spec.continuesASession)
-      ? { newestOf: workspace.key }
+    return workingCopy?.restoresWhen(this.spec.continuesASession)
+      ? { newestOf: workingCopy.key }
       : null;
   }
 
@@ -515,7 +515,7 @@ export class Run extends EventRecorder {
 
     return (
       available
-        .filter((each) => each.workspaceKey.equals(source.newestOf))
+        .filter((each) => each.workingCopyKey.equals(source.newestOf))
         .sort(
           (a, b) =>
             (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
@@ -532,7 +532,7 @@ export class Run extends EventRecorder {
 
     return 'archive' in source
       ? archive.id.equals(source.archive)
-      : archive.workspaceKey.equals(source.newestOf);
+      : archive.workingCopyKey.equals(source.newestOf);
   }
 
   claim(claimer: RunClaimer, now: Date): Run {

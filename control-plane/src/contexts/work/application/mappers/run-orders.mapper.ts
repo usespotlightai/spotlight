@@ -6,7 +6,7 @@ import type {
   RunRefusalContract,
   RunRequesterContract,
   RunRestoreContract,
-  RunWorkspaceContract,
+  RunWorkingCopyContract,
 } from '@runs/application/contracts/run-order.contract';
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -150,35 +150,35 @@ const policyOf = (value: JsonValue | undefined): RunPolicyContract => {
   };
 };
 
-const workspaceJson = (
-  workspace: RunWorkspaceContract | null,
+const workingCopyJson = (
+  workingCopy: RunWorkingCopyContract | null,
 ): JsonObject | null =>
-  workspace && {
-    key: workspace.key,
-    rejoinable: workspace.rejoinable,
-    restores: workspace.restores,
+  workingCopy && {
+    key: workingCopy.key,
+    rejoinable: workingCopy.rejoinable,
+    restores: workingCopy.restores,
   };
 
 const restoresOf = (
   value: JsonValue | undefined,
-): RunWorkspaceContract['restores'] =>
+): RunWorkingCopyContract['restores'] =>
   value === 'always' || value === 'when-continuing'
     ? value
-    : unreadable('workspace restores');
+    : unreadable('working copy restores');
 
-const workspaceOf = (
+const workingCopyOf = (
   value: JsonValue | undefined,
-): RunWorkspaceContract | null => {
+): RunWorkingCopyContract | null => {
   if (value === null) {
     return null;
   }
 
-  const workspace = objectAt(value, 'workspace');
+  const workingCopy = objectAt(value, 'working copy');
 
   return {
-    key: textAt(workspace.key, 'workspace key'),
-    rejoinable: flagAt(workspace.rejoinable, 'workspace rejoinable'),
-    restores: restoresOf(workspace.restores),
+    key: textAt(workingCopy.key, 'working copy key'),
+    rejoinable: flagAt(workingCopy.rejoinable, 'working copy rejoinable'),
+    restores: restoresOf(workingCopy.restores),
   };
 };
 
@@ -285,7 +285,7 @@ export const RunOrdersMapper = {
         spec: jsonOf(order.spec, 'spec'),
         requester: requesterJson(order.requester),
         policy: policyJson(order.policy),
-        workspace: workspaceJson(order.workspace),
+        workingCopy: workingCopyJson(order.workingCopy),
         restore: restoreJson(order.restore),
         extensions: jsonOf(order.extensions, 'extensions'),
         apiGrant: apiGrantJson(order.apiGrant),
@@ -311,7 +311,7 @@ export const RunOrdersMapper = {
       spec: specOf(stored.spec),
       requester: requesterOf(stored.requester),
       policy: policyOf(stored.policy),
-      workspace: workspaceOf(stored.workspace),
+      workingCopy: workingCopyOf(stored.workingCopy),
       restore: restoreOf(stored.restore),
       extensions: objectAt(stored.extensions, 'extensions'),
       apiGrant: apiGrantOf(stored.apiGrant),

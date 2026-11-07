@@ -18,16 +18,18 @@ import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CommitSha } from '@replays/domain/value-objects/commit-sha.vo';
 import { ConfigPath } from '@replays/domain/value-objects/config-path.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
-import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import {
+  closeFailureOf,
+  reasonOf,
+} from '@replays/infrastructure/persistence/drizzle/mappers/config-pull-request-reason.mapper';
 import { configPullRequest } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -39,34 +41,6 @@ import { and, asc, eq, inArray, lt, lte, type SQL, sql } from 'drizzle-orm';
 const OPEN_AT_STATION = 'config_pull_request_open_station_idx';
 
 type PullRequestRow = typeof configPullRequest.$inferSelect;
-
-const reasonOf = (row: PullRequestRow): ConfigPullRequestReason | null => {
-  if (row.errorCode === null) {
-    return null;
-  }
-  if (row.errorMessage === null) {
-    throw new InconsistentStateError(
-      'config pull request',
-      'failed without a message',
-    );
-  }
-
-  return ConfigPullRequestReason.of({
-    code: row.errorCode,
-    message: row.errorMessage,
-    attribute: row.errorAttribute,
-    expression: row.errorExpression,
-    wanted: row.errorWanted,
-  });
-};
-
-const closeFailureOf = (row: PullRequestRow): ConfigPullRequestReason | null =>
-  row.closeFailureCode === null
-    ? null
-    : ConfigPullRequestReason.of({
-        code: row.closeFailureCode,
-        message: row.closeFailureMessage ?? '',
-      });
 
 const fingerprintOf = (raw: string | null): StationFingerprint | null =>
   raw === null ? null : StationFingerprint.of(raw);

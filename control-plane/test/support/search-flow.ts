@@ -25,9 +25,9 @@ import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -78,7 +78,7 @@ const attachmentStore = {
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -289,7 +289,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-    workspaceReleasedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -336,10 +336,10 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
       endedAt: at,
     }),
   );
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    workspaceKey: `work/task-${taskId}`,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -823,7 +823,7 @@ export const openSearchFlow = (): void => {
     github.commentFailing = null;
     app = await openApp((module) =>
       module
-        .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+        .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
         .useValue(archiveStore)
         .overrideProvider(ATTACHMENT_STORE)
         .useValue(attachmentStore)

@@ -27,7 +27,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -394,8 +394,8 @@ describe('ClaimHostWorkHandler', () => {
       expect.objectContaining({
         sandbox: {
           avoiding: [
-            WorkspaceKey.parse('requester/subject-task_2'),
-            WorkspaceKey.parse('requester/conversation-chat_1'),
+            WorkingCopyKey.parse('requester/subject-task_2'),
+            WorkingCopyKey.parse('requester/conversation-chat_1'),
           ],
         },
       }),
@@ -441,7 +441,7 @@ describe('ClaimHostWorkHandler', () => {
       );
       expect(claimNext).toHaveBeenCalledWith(
         expect.objectContaining({
-          sandbox: { into: WorkspaceKey.parse('requester/subject-task_1') },
+          sandbox: { into: WorkingCopyKey.parse('requester/subject-task_1') },
         }),
         NOW,
       );
@@ -594,7 +594,7 @@ describe('ClaimHostWorkHandler', () => {
       expect(claimNext).toHaveBeenCalledTimes(1);
       expect(claimNext).toHaveBeenCalledWith(
         expect.objectContaining({
-          sandbox: { into: WorkspaceKey.parse('requester/subject-task_1') },
+          sandbox: { into: WorkingCopyKey.parse('requester/subject-task_1') },
         }),
         NOW,
       );

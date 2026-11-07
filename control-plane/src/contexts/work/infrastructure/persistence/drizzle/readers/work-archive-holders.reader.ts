@@ -3,7 +3,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
   ArchiveHolderSource,
-  HeldWorkspace,
+  HeldWorkingCopy,
 } from '@runs/application/ports/archive-holders.port';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
@@ -13,7 +13,7 @@ import { inArray } from 'drizzle-orm';
 const heldOf = (row: {
   readonly releasedAt: Date | null;
   readonly createdAt: Date;
-}): HeldWorkspace => ({
+}): HeldWorkingCopy => ({
   released: row.releasedAt !== null,
   changedAt: row.releasedAt ?? row.createdAt,
 });
@@ -26,7 +26,7 @@ export class DrizzleWorkArchiveHolders implements ArchiveHolderSource {
 
   async heldOf(
     names: readonly string[],
-  ): Promise<ReadonlyMap<string, HeldWorkspace>> {
+  ): Promise<ReadonlyMap<string, HeldWorkingCopy>> {
     const holders = names.map((name) => ({
       name,
       holder: WorkRequesters.heldBy(name),
@@ -43,7 +43,7 @@ export class DrizzleWorkArchiveHolders implements ArchiveHolderSource {
         : await this.db
             .select({
               id: task.id,
-              releasedAt: task.workspaceReleasedAt,
+              releasedAt: task.workingCopyReleasedAt,
               createdAt: task.createdAt,
             })
             .from(task)
@@ -54,20 +54,20 @@ export class DrizzleWorkArchiveHolders implements ArchiveHolderSource {
         : await this.db
             .select({
               id: chat.id,
-              releasedAt: chat.workspaceReleasedAt,
+              releasedAt: chat.workingCopyReleasedAt,
               createdAt: chat.createdAt,
             })
             .from(chat)
             .where(inArray(chat.id, chatIds));
     const taskHeld = new Map(
-      tasks.map((row): [string, HeldWorkspace] => [row.id, heldOf(row)]),
+      tasks.map((row): [string, HeldWorkingCopy] => [row.id, heldOf(row)]),
     );
     const chatHeld = new Map(
-      chats.map((row): [string, HeldWorkspace] => [row.id, heldOf(row)]),
+      chats.map((row): [string, HeldWorkingCopy] => [row.id, heldOf(row)]),
     );
 
     return new Map(
-      holders.flatMap(({ name, holder }): [string, HeldWorkspace][] => {
+      holders.flatMap(({ name, holder }): [string, HeldWorkingCopy][] => {
         const held = !holder
           ? undefined
           : 'task' in holder

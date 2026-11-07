@@ -13,8 +13,8 @@ import {
 import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { spendOf } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
+import { spendOf } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
@@ -228,7 +228,10 @@ export class ReplayEntry {
 
   get spent(): ModelSpent {
     return spendOf([
-      ModelSpent.of(this.state.measures?.cost ? [this.state.measures.cost] : [], 0),
+      ModelSpent.of(
+        this.state.measures?.cost ? [this.state.measures.cost] : [],
+        0,
+      ),
       ...this.modelSpends,
     ]);
   }

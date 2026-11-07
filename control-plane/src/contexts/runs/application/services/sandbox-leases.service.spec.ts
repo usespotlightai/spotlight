@@ -79,7 +79,7 @@ describe('SandboxLeases', () => {
   );
 
   it.each([
-    ['a workspace nothing rejoins', runWithKey('scratch')],
+    ['a working copy nothing rejoins', runWithKey('scratch')],
     ['a run it cannot find', null],
   ])(
     'retires the sandbox of an ended run with %s, as nothing rejoins it',

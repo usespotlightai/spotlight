@@ -6,7 +6,7 @@ import { DecisionEvidence } from '@change-review/domain/value-objects/decision-e
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
-import { WorkspacePath } from '@change-review/domain/value-objects/workspace-path.vo';
+import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -399,7 +399,7 @@ describe('reading the decisions that shipped', () => {
     const found = await reader().merged({
       workspaceId: WORKSPACE,
       repository: Repository.of('acme/api'),
-      within: [WorkspacePath.of('api/src/uploads')],
+      within: [WorkingCopyPath.of('api/src/uploads')],
       since: null,
       until: null,
       max: 50,

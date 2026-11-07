@@ -3,11 +3,11 @@ import {
   StartedCheckout,
   type StartedCheckoutParts,
 } from '@runs/domain/value-objects/started-checkout.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export interface ReportedStart {
-  readonly archive: WorkspaceArchiveId | null;
+  readonly archive: WorkingCopyArchiveId | null;
   readonly checkouts: readonly StartedCheckout[];
 }
 
@@ -25,7 +25,7 @@ const byPath = (a: StartedCheckout, b: StartedCheckout): number =>
 
 export class StartingPoint {
   private constructor(
-    readonly archive: WorkspaceArchiveId | null,
+    readonly archive: WorkingCopyArchiveId | null,
     readonly checkouts: readonly StartedCheckout[],
     readonly attempt: number,
     readonly at: Date,
@@ -64,7 +64,7 @@ export class StartingPoint {
   static rehydrate(parts: StartingPointParts): StartingPoint {
     try {
       return StartingPoint.of({
-        archive: parts.archive ? WorkspaceArchiveId.of(parts.archive) : null,
+        archive: parts.archive ? WorkingCopyArchiveId.of(parts.archive) : null,
         checkouts: parts.checkouts.map(StartedCheckout.of),
         attempt: parts.attempt,
         at: parts.at,

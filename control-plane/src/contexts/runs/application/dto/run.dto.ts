@@ -8,7 +8,7 @@ interface ClaimedRunDto {
   readonly attempt: number;
   readonly spec: RunSpecShape;
   readonly extensions: JsonObject;
-  readonly workspaceKey: string | null;
+  readonly workingCopyKey: string | null;
 }
 
 export type ClaimedWorkDto =

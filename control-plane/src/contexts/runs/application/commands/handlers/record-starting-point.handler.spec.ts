@@ -6,22 +6,22 @@ import {
 import {
   aLeasedRun,
   InMemoryArchives,
-} from '@runs/application/services/workspace-archives.fake-spec';
+} from '@runs/application/services/working-copy-archives.fake-spec';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
-import { WorkspaceArchive } from '@runs/domain/aggregates/workspace-archive.aggregate';
+import { WorkingCopyArchive } from '@runs/domain/aggregates/working-copy-archive.aggregate';
 import {
   aCompletedArchive,
   anArchive,
   GRANTED_AT,
   SHA256,
   storedAs,
-} from '@runs/domain/aggregates/workspace-archive.fake-spec';
+} from '@runs/domain/aggregates/working-copy-archive.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -145,10 +145,10 @@ describe('RecordStartingPointHandler', () => {
   it('rejects an archive the run could not have restored', async () => {
     const { archives, record } = await setUp();
     await archives.add(
-      WorkspaceArchive.grant({
-        id: WorkspaceArchiveId.of('archive_of_another_task'),
+      WorkingCopyArchive.grant({
+        id: WorkingCopyArchiveId.of('archive_of_another_task'),
         workspaceId: WorkspaceId.of('ws_1'),
-        workspaceKey: WorkspaceKey.of('requester', 'subject-task_2'),
+        workingCopyKey: WorkingCopyKey.of('requester', 'subject-task_2'),
         held: true,
         grantee: ArchiveGrantee.run(RunId.of('run_2')),
         size: ArchiveSize.of(1_024),
@@ -194,7 +194,7 @@ describe('RecordStartingPointHandler', () => {
 
   it('rejects a run that reports no starting point', async () => {
     const { record } = await setUp(
-      aLeasedRun({ restoresWorkspace: false, checkouts: ['api'] }),
+      aLeasedRun({ restoresWorkingCopy: false, checkouts: ['api'] }),
     );
 
     await expect(record.execute(reported(null))).rejects.toMatchObject({

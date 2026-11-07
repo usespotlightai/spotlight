@@ -3,7 +3,7 @@ import type {
   RunOrderContract,
   RunPolicyContract,
   RunRequesterContract,
-  RunWorkspaceContract,
+  RunWorkingCopyContract,
 } from '@runs/application/contracts/run-order.contract';
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -32,7 +32,7 @@ export const runOrderOf = (parts: {
   readonly spec: RunSpecShape;
   readonly requester: RunRequesterContract;
   readonly policy: RunPolicyContract;
-  readonly workspace: RunWorkspaceContract;
+  readonly workingCopy: RunWorkingCopyContract;
   readonly apiGrant: RunApiGrantContract | null;
   readonly tags: Readonly<Record<string, string>>;
   readonly refusals: readonly RefusalReason[];
@@ -48,7 +48,7 @@ export const runOrderOf = (parts: {
   spec: parts.spec,
   requester: parts.requester,
   policy: parts.policy,
-  workspace: parts.workspace,
+  workingCopy: parts.workingCopy,
   restore: null,
   extensions: {},
   apiGrant: parts.apiGrant,

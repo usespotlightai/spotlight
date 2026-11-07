@@ -62,7 +62,7 @@ export const trialBlockOf = (facts: TrialFacts | null): TrialBlock | null => {
     return {
       reason: 'archive-gone',
       description:
-        'The workspace archive that it started from is no longer stored.',
+        'The working copy archive that it started from is no longer stored.',
     };
   }
 

@@ -2,14 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunFactsReaderPort } from '@runs/application/ports/run-facts-reader.port';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
-import type { WorkspaceArchive } from '@runs/domain/aggregates/workspace-archive.aggregate';
+import type { WorkingCopyArchive } from '@runs/domain/aggregates/working-copy-archive.aggregate';
 import type { RequesterOwner } from '@runs/domain/value-objects/run-requester.vo';
 import type { RunTurnState } from '@runs/domain/value-objects/run-turn.vo';
-import type { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { toRun } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
-import { toArchive } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
+import { toArchive } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
-import { workspaceArchive } from '@runs/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
+import { workingCopyArchive } from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { and, asc, eq, gt, inArray, lt, or } from 'drizzle-orm';
 
@@ -30,8 +30,8 @@ export class DrizzleRunFactsReader implements RunFactsReaderPort {
   }
 
   async archives(
-    ids: readonly WorkspaceArchiveId[],
-  ): Promise<readonly WorkspaceArchive[]> {
+    ids: readonly WorkingCopyArchiveId[],
+  ): Promise<readonly WorkingCopyArchive[]> {
     const wanted = [...new Set(ids.map((each) => each.value))];
 
     if (wanted.length === 0) {
@@ -40,8 +40,8 @@ export class DrizzleRunFactsReader implements RunFactsReaderPort {
 
     const rows = await this.context.db
       .select()
-      .from(workspaceArchive)
-      .where(inArray(workspaceArchive.id, wanted));
+      .from(workingCopyArchive)
+      .where(inArray(workingCopyArchive.id, wanted));
 
     return rows.map(toArchive);
   }

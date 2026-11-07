@@ -8,11 +8,11 @@ import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-start
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import { UnknownRunnerError } from '@runs/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
-import type { WorkspaceArchiveRepository } from '@runs/domain/repositories/workspace-archive.repository';
+import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import type { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -34,7 +34,7 @@ export class RecordStartingPointHandler
 {
   constructor(
     private readonly runs: RunRepository,
-    private readonly archives: WorkspaceArchiveRepository,
+    private readonly archives: WorkingCopyArchiveRepository,
     private readonly claimants: RunnerClaimantsPort,
     private readonly clock: ClockPort,
     private readonly locks: ArchiveReferenceLocksPort,
@@ -65,7 +65,7 @@ export class RecordStartingPointHandler
         const restored =
           command.archiveId === null
             ? null
-            : await this.restored(WorkspaceArchiveId.of(command.archiveId));
+            : await this.restored(WorkingCopyArchiveId.of(command.archiveId));
 
         await this.runs.save(
           run.startsFrom(
@@ -81,7 +81,7 @@ export class RecordStartingPointHandler
     }
   }
 
-  private async restored(id: WorkspaceArchiveId): Promise<RestoredArchive> {
+  private async restored(id: WorkingCopyArchiveId): Promise<RestoredArchive> {
     const archive = await this.archives.find(id);
 
     if (!archive) {

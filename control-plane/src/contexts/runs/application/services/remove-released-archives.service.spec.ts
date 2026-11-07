@@ -1,4 +1,4 @@
-import type { HeldWorkspace } from '@runs/application/ports/archive-holders.port';
+import type { HeldWorkingCopy } from '@runs/application/ports/archive-holders.port';
 import type {
   ArchiveDue,
   ArchiveReferencesPort,
@@ -8,37 +8,37 @@ import { RemoveReleasedArchives } from '@runs/application/services/remove-releas
 import {
   InMemoryArchiveStore,
   InMemoryArchives,
-} from '@runs/application/services/workspace-archives.fake-spec';
-import { WorkspaceArchive } from '@runs/domain/aggregates/workspace-archive.aggregate';
+} from '@runs/application/services/working-copy-archives.fake-spec';
+import { WorkingCopyArchive } from '@runs/domain/aggregates/working-copy-archive.aggregate';
 import {
   aCompletedArchive,
   anArchive,
   GRANTED_AT,
   later,
-} from '@runs/domain/aggregates/workspace-archive.fake-spec';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+} from '@runs/domain/aggregates/working-copy-archive.fake-spec';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const DAY = 24 * 60 * 60_000;
 
 const dueAs = (id: string, name = 'task-task_1'): ArchiveDue => ({
-  id: WorkspaceArchiveId.of(id),
-  workspaceKey: WorkspaceKey.of('work', name),
+  id: WorkingCopyArchiveId.of(id),
+  workingCopyKey: WorkingCopyKey.of('work', name),
   grantedAt: GRANTED_AT,
   supersededAt: null,
   lastStartedFromAt: null,
   pinned: false,
 });
 
-const holdingWork = (held: Readonly<Record<string, HeldWorkspace>>) => {
+const holdingWork = (held: Readonly<Record<string, HeldWorkingCopy>>) => {
   const holders = new ArchiveHolders();
 
   holders.register({
     owner: 'work',
     heldOf: async (names) =>
       new Map(
-        names.flatMap((name): [string, HeldWorkspace][] =>
+        names.flatMap((name): [string, HeldWorkingCopy][] =>
           held[name] ? [[name, held[name]]] : [],
         ),
       ),
@@ -84,11 +84,13 @@ const setUp = async (
   return { archives, store, logger, service };
 };
 
-const completedMeanwhile = (incomplete: WorkspaceArchive): WorkspaceArchive =>
-  WorkspaceArchive.rehydrate({
+const completedMeanwhile = (
+  incomplete: WorkingCopyArchive,
+): WorkingCopyArchive =>
+  WorkingCopyArchive.rehydrate({
     id: incomplete.id,
     workspaceId: incomplete.workspaceId,
-    workspaceKey: incomplete.workspaceKey,
+    workingCopyKey: incomplete.workingCopyKey,
     grantedTo: incomplete.grantedTo,
     size: incomplete.size,
     digest: incomplete.digest,
@@ -104,7 +106,7 @@ describe('RemoveReleasedArchives', () => {
       .fn<ArchiveReferencesPort['due']>()
       .mockResolvedValueOnce({
         due: page,
-        next: { grantedAt: GRANTED_AT, id: WorkspaceArchiveId.of('owned') },
+        next: { grantedAt: GRANTED_AT, id: WorkingCopyArchiveId.of('owned') },
       })
       .mockResolvedValue({ due: [], next: null });
     const { service } = await setUp(
@@ -121,19 +123,19 @@ describe('RemoveReleasedArchives', () => {
 
     expect(due).toHaveBeenNthCalledWith(
       1,
-      WorkspaceArchive.removalCutoffs(later(DAY)),
+      WorkingCopyArchive.removalCutoffs(later(DAY)),
       null,
       expect.any(Number),
     );
     expect(due).toHaveBeenNthCalledWith(
       2,
-      WorkspaceArchive.removalCutoffs(later(DAY)),
-      { grantedAt: GRANTED_AT, id: WorkspaceArchiveId.of('owned') },
+      WorkingCopyArchive.removalCutoffs(later(DAY)),
+      { grantedAt: GRANTED_AT, id: WorkingCopyArchiveId.of('owned') },
       expect.any(Number),
     );
     expect(due).toHaveBeenNthCalledWith(
       3,
-      WorkspaceArchive.removalCutoffs(later(DAY)),
+      WorkingCopyArchive.removalCutoffs(later(DAY)),
       null,
       expect.any(Number),
     );
@@ -156,11 +158,14 @@ describe('RemoveReleasedArchives', () => {
     expect([...archives.stored.keys()]).toEqual(['owned']);
   });
 
-  it('treats a workspace of an owner that holds nothing as held by nobody', async () => {
+  it('treats a working copy of an owner that holds nothing as held by nobody', async () => {
     const { store, service } = await setUp(
       async () => ({
         due: [
-          { ...dueAs('gone'), workspaceKey: WorkspaceKey.of('replays', 'x') },
+          {
+            ...dueAs('gone'),
+            workingCopyKey: WorkingCopyKey.of('replays', 'x'),
+          },
         ],
         next: null,
       }),
@@ -210,7 +215,7 @@ describe('RemoveReleasedArchives', () => {
     expect(logger.error).toHaveBeenCalledOnce();
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ archive: 'gone', workspaceId: 'ws_1' }),
-      'A removed workspace archive was left behind in storage',
+      'A removed working copy archive was left behind in storage',
     );
   });
 });

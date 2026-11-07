@@ -80,7 +80,7 @@ export class ConnectEditorHandler
       () => new UnknownTaskError(taskId),
     );
 
-    return { workspaceId, key: WorkRequesters.taskWorkspaceKey(id) };
+    return { workspaceId, key: WorkRequesters.taskWorkingCopyKey(id) };
   }
 
   private async ofChat(viewer: UserId, chatId: string): Promise<Found | null> {
@@ -89,7 +89,7 @@ export class ConnectEditorHandler
     return chat && (await this.access.opensChat(chat, viewer))
       ? {
           workspaceId: chat.workspaceId,
-          key: WorkRequesters.chatWorkspaceKey(ChatId.of(chatId)),
+          key: WorkRequesters.chatWorkingCopyKey(ChatId.of(chatId)),
         }
       : null;
   }

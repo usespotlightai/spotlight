@@ -21,7 +21,7 @@ import { RunReservationDropped } from '@runs/domain/events/run-reservation-dropp
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
@@ -117,7 +117,7 @@ const provisioning = (
         readonly skip: number;
         readonly max: number;
         readonly withSecrets: boolean;
-        readonly avoiding: readonly WorkspaceKey[];
+        readonly avoiding: readonly WorkingCopyKey[];
       },
     ) => ({
       waiting: [...stored.values()]
@@ -345,7 +345,7 @@ describe('ProvisionWork', () => {
       WorkspaceId.of('ws_1'),
       NOON,
       expect.objectContaining({
-        avoiding: [WorkspaceKey.parse('requester/subject-task_1')],
+        avoiding: [WorkingCopyKey.parse('requester/subject-task_1')],
       }),
     );
   });

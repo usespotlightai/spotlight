@@ -15,8 +15,7 @@ const VALID: readonly string[] = VALID_BASELINE_STATES;
 const newestFirst = (
   one: { readonly startedAt: Date },
   other: { readonly startedAt: Date },
-): number =>
-  other.startedAt.getTime() - one.startedAt.getTime();
+): number => other.startedAt.getTime() - one.startedAt.getTime();
 
 const covers = (
   baseline: Replay,

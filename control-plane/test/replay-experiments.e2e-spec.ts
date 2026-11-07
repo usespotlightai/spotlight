@@ -28,16 +28,16 @@ import {
   type ArchiveReferencesPort,
 } from '@runs/application/ports/archive-references.port';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import {
   type ArchiveFacts,
-  WorkspaceArchive,
-} from '@runs/domain/aggregates/workspace-archive.aggregate';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
-import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
+  WorkingCopyArchive,
+} from '@runs/domain/aggregates/working-copy-archive.aggregate';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
@@ -94,7 +94,7 @@ const attachmentStore = {
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -167,7 +167,7 @@ const anOriginal = async (
     createdById: input.openedFrom ? null : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-    workspaceReleasedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -219,10 +219,10 @@ const anOriginal = async (
       endedAt: at,
     }),
   );
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    workspaceKey: `work/task-${taskId}`,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -367,7 +367,7 @@ const setOf = async (stationId: string = BUILD) =>
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore),
@@ -559,12 +559,12 @@ describe('a replay set', () => {
     const setId = await createSet(original);
     const references = app.get<ArchiveReferencesPort>(ARCHIVE_REFERENCES);
     const holders = app.get(ArchiveHolders);
-    const archives = app.get(DrizzleWorkspaceArchiveRepository);
-    const archiveId = WorkspaceArchiveId.of(original.archiveId);
+    const archives = app.get(DrizzleWorkingCopyArchiveRepository);
+    const archiveId = WorkingCopyArchiveId.of(original.archiveId);
     const at = new Date(Date.now() + 60 * DAY);
     const factsOf = async (): Promise<ArchiveFacts> => {
       const page = await references.due(
-        WorkspaceArchive.removalCutoffs(at),
+        WorkingCopyArchive.removalCutoffs(at),
         null,
         5_000,
       );
@@ -574,10 +574,10 @@ describe('a replay set', () => {
         throw new Error(`Archive ${archiveId.value} is not due.`);
       }
 
-      const held = await holders.stateOf([due.workspaceKey]);
+      const held = await holders.stateOf([due.workingCopyKey]);
 
       return {
-        holder: held.get(due.workspaceKey.value) ?? null,
+        holder: held.get(due.workingCopyKey.value) ?? null,
         supersededAt: due.supersededAt,
         lastStartedFromAt: due.lastStartedFromAt,
         pinned: due.pinned,
@@ -736,16 +736,16 @@ describe('a replay', () => {
       (await dispatchRow((await replayRunsOf([baselineId as string]))[0] ?? ''))
         ?.stationFingerprint,
     ).toBe(live?.fingerprint.value);
-    expect(totalsOf(baseline).endings.completed).toBe(2);
+    expect(totalsOf(baseline.outcome()).endings.completed).toBe(2);
     expect(replayed.baseline).toBe(false);
-    expect(totalsOf(replayed).endings).toMatchObject({
+    expect(totalsOf(replayed.outcome()).endings).toMatchObject({
       completed: 1,
       failed: 1,
     });
-    expect(totalsOf(replayed).spent.amount).toBeCloseTo(0.2);
+    expect(totalsOf(replayed.outcome()).spent.amount).toBeCloseTo(0.2);
     expect(replayed.pairwiseReferenceId?.value).toBe(baselineId);
 
-    const comparison = taskComparisons(replayed, baseline);
+    const comparison = taskComparisons(replayed.outcome(), baseline.outcome());
 
     expect(
       comparison.map((each) => [
@@ -849,8 +849,8 @@ describe('a replay', () => {
     const capped = await replayOf(app, id);
 
     expect(capped.current).toBe('ceiling-reached');
-    expect(totalsOf(capped).spent.amount).toBeCloseTo(0.8);
-    expect(totalsOf(capped).endings).toMatchObject({
+    expect(totalsOf(capped.outcome()).spent.amount).toBeCloseTo(0.8);
+    expect(totalsOf(capped.outcome()).endings).toMatchObject({
       completed: 2,
       stopped: 1,
     });
@@ -906,7 +906,7 @@ describe('a replay', () => {
     );
 
     const repeated = await replayOf(app, started.id);
-    const totals = totalsOf(repeated);
+    const totals = totalsOf(repeated.outcome());
 
     expect(repeated.repeats).toBe(2);
     expect(repeated.entries.map((each) => each.repeat)).toEqual([1, 1, 2, 2]);

@@ -35,9 +35,9 @@ import {
 } from '@replays/domain/services/replay-results';
 import type { JournalEntry } from '@runs/application/ports/run-journal.port';
 import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@runs/application/ports/workspace-archive-store.port';
+  WORKING_COPY_ARCHIVE_STORE,
+  type WorkingCopyArchiveStorePort,
+} from '@runs/application/ports/working-copy-archive-store.port';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -93,7 +93,7 @@ const attachmentStore = {
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
 
-const archiveStore: WorkspaceArchiveStorePort = {
+const archiveStore: WorkingCopyArchiveStorePort = {
   grantUpload: async (archive) => ({
     url: `https://archives.test/${archive.id.value}`,
     headers: {},
@@ -304,7 +304,7 @@ const anOriginal = async (title: string): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
-    workspaceReleasedAt: at,
+    workingCopyReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
@@ -351,10 +351,10 @@ const anOriginal = async (title: string): Promise<Original> => {
       endedAt: at,
     }),
   );
-  await db.insert(schema.workspaceArchive).values({
+  await db.insert(schema.workingCopyArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    workspaceKey: `work/task-${taskId}`,
+    workingCopyKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -468,7 +468,7 @@ const processed = async () => {
 beforeAll(async () => {
   app = await openApp((module) =>
     module
-      .overrideProvider(WORKSPACE_ARCHIVE_STORE)
+      .overrideProvider(WORKING_COPY_ARCHIVE_STORE)
       .useValue(archiveStore)
       .overrideProvider(ATTACHMENT_STORE)
       .useValue(attachmentStore)
@@ -717,7 +717,8 @@ describe('a replay at a station whose judge goes by claims', () => {
     }, 120_000);
 
     const replay = await replayOf(app, id);
-    const comparison = taskComparisons(replay, await replayOf(app, baselineId));
+    const baseline = await replayOf(app, baselineId);
+    const comparison = taskComparisons(replay.outcome(), baseline.outcome());
     const titled = new Map(
       originals.map((each, at) => [
         each.runId,
@@ -725,9 +726,13 @@ describe('a replay at a station whose judge goes by claims', () => {
       ]),
     );
 
-    expect(totalsOf(replay).successRate).toBe(1);
+    expect(totalsOf(replay.outcome()).successRate).toBe(1);
     expect(replay.pairwiseReferenceId?.value).toBe(baselineId);
-    expect(pairTallyOf(replay)).toEqual({ wins: 1, losses: 1, ties: 1 });
+    expect(pairTallyOf(replay.outcome())).toEqual({
+      wins: 1,
+      losses: 1,
+      ties: 1,
+    });
     expect(
       Object.fromEntries(
         comparison.map((each) => [titled.get(each.original), each.pair]),
@@ -739,8 +744,12 @@ describe('a replay at a station whose judge goes by claims', () => {
     });
 
     for (const row of comparison) {
-      const [mine] = row.candidate;
-      const [theirs] = row.baseline;
+      const mine = replay.entries.find(
+        (each) => each.original.value === row.original,
+      );
+      const theirs = baseline.entries.find(
+        (each) => each.original.value === row.original,
+      );
 
       expect(mine?.verdict).toMatchObject({
         scale: 'claims',

@@ -78,7 +78,7 @@ describe('Runs (Replays ACL)', () => {
       listed: false,
       exclusive: false,
     });
-    expect(order?.workspace?.key).toBe(`replays/replay-${RUN.value}`);
+    expect(order?.workingCopy?.key).toBe(`replays/replay-${RUN.value}`);
     expect(order?.extensions.replay).toEqual({
       archive: 'archive_1',
       checkouts: [{ path: 'api', commit: 'abc', repository: 'acme/api' }],
@@ -108,7 +108,7 @@ describe('Runs (Replays ACL)', () => {
       token: '3',
       team: 'team_1',
     });
-    expect(enqueued[0]?.workspace?.key).toBe('replays/search-run_search');
+    expect(enqueued[0]?.workingCopy?.key).toBe('replays/search-run_search');
     expect(enqueued[0]?.placement.labelGroups).toEqual([['gpu']]);
     expect(await runsWith([], false).enqueueSearch(order as never)).toEqual({
       outcome: 'harness-unavailable',

@@ -24,9 +24,9 @@ import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import {
-  RunWorkspace,
-  WorkspaceKey,
-} from '@runs/domain/value-objects/workspace-key.vo';
+  RunWorkingCopy,
+  WorkingCopyKey,
+} from '@runs/domain/value-objects/working-copy-key.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -61,8 +61,8 @@ const replayRun = (id = 'run_1') =>
       listed: false,
       exclusive: false,
     }),
-    workspace: RunWorkspace.of({
-      key: WorkspaceKey.of('replays', `replay-${id}`),
+    workingCopy: RunWorkingCopy.of({
+      key: WorkingCopyKey.of('replays', `replay-${id}`),
       rejoinable: false,
       restores: 'when-continuing',
     }),

@@ -1,10 +1,10 @@
-import type { ChecksState } from '@replays/domain/value-objects/change-checks.vo';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { ChecksState } from '@replays/domain/value-objects/change-checks.vo';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { HealthSampleGroup } from '@replays/domain/value-objects/health-sample-group.vo';
-import { Money } from '@replays/domain/value-objects/money.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';

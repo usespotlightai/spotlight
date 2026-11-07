@@ -174,7 +174,7 @@ export class DispatchTask implements TaskDispatching {
         priority: order.priority,
         requester: WorkRequesters.task(task.id, task.revision, line.teamId),
         policy: WorkRequesters.taskPolicy,
-        workspace: WorkRequesters.taskWorkspace(task.id),
+        workingCopy: WorkRequesters.taskWorkingCopy(task.id),
         apiGrant: null,
         tags: { taskId: task.id.value },
         placement: order.placement,

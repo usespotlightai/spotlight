@@ -1098,11 +1098,11 @@ export type RecordRunImageRequestDto = {
 
 export type StartedCheckoutRequestDto = {
   /**
-   * The checkout, by its path in the workspace, as the run received it
+   * The checkout, by its path in the working copy, as the run received it
    */
   path: string;
   /**
-   * The commit HEAD was at once the workspace was restored and the checkout prepared, as its full SHA
+   * The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA
    */
   commit: string;
 };
@@ -1113,7 +1113,7 @@ export type RecordStartingPointRequestDto = {
    */
   attempt: number;
   /**
-   * The workspace archive the run restored, or null where it started afresh
+   * The working copy archive the run restored, or null where it started afresh
    */
   archiveId: string | null;
   checkouts: Array<StartedCheckoutRequestDto>;
@@ -1156,7 +1156,7 @@ export type CompleteRunRequestDto = {
   exitCode: number;
   failed: boolean;
   /**
-   * With failed: it failed before the agent was handed the run, while the runner made its workspace ready
+   * With failed: it failed before the agent was handed the run, while the runner made its working copy ready
    */
   setupFailed?: boolean;
   /**
@@ -1232,7 +1232,7 @@ export type StoredArchiveResponseDto = {
   sha256: string;
 };
 
-export type GrantWorkspaceArchiveRequestDto = {
+export type GrantWorkingCopyArchiveRequestDto = {
   /**
    * The archive’s size in bytes, as it will be uploaded
    */
@@ -1316,7 +1316,7 @@ export type ClaimHostWorkRequestDto = {
    */
   image: string;
   /**
-   * A live sandbox of this host that has no run in it. The claim then takes only a queued run of the workspace key that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot.
+   * A live sandbox of this host that has no run in it. The claim then takes only a queued run of the working copy key that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot.
    */
   sandbox?: string;
 };
@@ -1339,11 +1339,11 @@ export type HostClaimResponseDto = {
    */
   sandboxId: string | null;
   /**
-   * The credential of a new sandbox, for its own calls only: restore and archive its workspace. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check.
+   * The credential of a new sandbox, for its own calls only: restore and archive its working copy. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check.
    */
   sandboxToken: string | null;
   /**
-   * Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its workspace archives. Empty for a run: its egress reads them with the run’s secrets.
+   * Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its working copy archives. Empty for a run: its egress reads them with the run’s secrets.
    */
   allowedHosts: Array<string>;
   /**
@@ -2076,7 +2076,7 @@ export type WorkspaceRunnersResourceListResponseDto = {
 export type RunAttachmentResponseDto = {
   id: string;
   /**
-   * Where in the workspace to put it
+   * Where in the working copy to put it
    */
   path: string;
 };
@@ -3937,7 +3937,7 @@ export type DecisionResponseDto = {
    */
   alternatives: Array<string>;
   /**
-   * The changed files it covers, from the workspace root
+   * The changed files it covers, from the working copy root
    */
   paths: Array<string>;
   /**
@@ -4026,7 +4026,7 @@ export type SkippedCheckRequestDto = {
   /**
    * Why the runner could not check the stack at all
    */
-  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'workspace-failed' | 'out-of-time' | 'no-image';
+  code: 'no-base' | 'no-checkout' | 'checkout-failed' | 'setup-failed' | 'working-copy-failed' | 'out-of-time' | 'no-image';
   /**
    * What it printed while trying, where that helps
    */
@@ -11268,16 +11268,16 @@ export type StreamRunResponses = {
   200: unknown;
 };
 
-export type ReadWorkspaceArchiveData = {
+export type ReadWorkingCopyArchiveData = {
   body?: never;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/workspace-archive';
+  url: '/runs/{runId}/working-copy-archive';
 };
 
-export type ReadWorkspaceArchiveErrors = {
+export type ReadWorkingCopyArchiveErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
@@ -11288,7 +11288,7 @@ export type ReadWorkspaceArchiveErrors = {
   404: unknown;
 };
 
-export type ReadWorkspaceArchiveResponses = {
+export type ReadWorkingCopyArchiveResponses = {
   200: StoredArchiveResponseDto;
   /**
    * Nothing to restore: the run starts its work afresh
@@ -11296,18 +11296,18 @@ export type ReadWorkspaceArchiveResponses = {
   204: void;
 };
 
-export type ReadWorkspaceArchiveResponse = ReadWorkspaceArchiveResponses[keyof ReadWorkspaceArchiveResponses];
+export type ReadWorkingCopyArchiveResponse = ReadWorkingCopyArchiveResponses[keyof ReadWorkingCopyArchiveResponses];
 
-export type GrantWorkspaceArchiveData = {
-  body: GrantWorkspaceArchiveRequestDto;
+export type GrantWorkingCopyArchiveData = {
+  body: GrantWorkingCopyArchiveRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/workspace-archive';
+  url: '/runs/{runId}/working-copy-archive';
 };
 
-export type GrantWorkspaceArchiveErrors = {
+export type GrantWorkingCopyArchiveErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
@@ -11322,23 +11322,23 @@ export type GrantWorkspaceArchiveErrors = {
   422: unknown;
 };
 
-export type GrantWorkspaceArchiveResponses = {
+export type GrantWorkingCopyArchiveResponses = {
   201: ArchiveGrantResponseDto;
 };
 
-export type GrantWorkspaceArchiveResponse = GrantWorkspaceArchiveResponses[keyof GrantWorkspaceArchiveResponses];
+export type GrantWorkingCopyArchiveResponse = GrantWorkingCopyArchiveResponses[keyof GrantWorkingCopyArchiveResponses];
 
-export type CompleteWorkspaceArchiveData = {
+export type CompleteWorkingCopyArchiveData = {
   body?: never;
   path: {
     runId: string;
     archiveId: string;
   };
   query?: never;
-  url: '/runs/{runId}/workspace-archive/{archiveId}/complete';
+  url: '/runs/{runId}/working-copy-archive/{archiveId}/complete';
 };
 
-export type CompleteWorkspaceArchiveErrors = {
+export type CompleteWorkingCopyArchiveErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
@@ -11353,11 +11353,11 @@ export type CompleteWorkspaceArchiveErrors = {
   409: unknown;
 };
 
-export type CompleteWorkspaceArchiveResponses = {
+export type CompleteWorkingCopyArchiveResponses = {
   204: void;
 };
 
-export type CompleteWorkspaceArchiveResponse = CompleteWorkspaceArchiveResponses[keyof CompleteWorkspaceArchiveResponses];
+export type CompleteWorkingCopyArchiveResponse = CompleteWorkingCopyArchiveResponses[keyof CompleteWorkingCopyArchiveResponses];
 
 export type ReadSandboxArchiveData = {
   body?: never;
@@ -11365,7 +11365,7 @@ export type ReadSandboxArchiveData = {
     sandboxId: string;
   };
   query?: never;
-  url: '/sandboxes/{sandboxId}/workspace-archive';
+  url: '/sandboxes/{sandboxId}/working-copy-archive';
 };
 
 export type ReadSandboxArchiveErrors = {
@@ -11378,7 +11378,7 @@ export type ReadSandboxArchiveErrors = {
 export type ReadSandboxArchiveResponses = {
   200: StoredArchiveResponseDto;
   /**
-   * Nothing to restore: the sandbox starts with an empty workspace
+   * Nothing to restore: the sandbox starts with an empty working copy
    */
   204: void;
 };
@@ -11386,12 +11386,12 @@ export type ReadSandboxArchiveResponses = {
 export type ReadSandboxArchiveResponse = ReadSandboxArchiveResponses[keyof ReadSandboxArchiveResponses];
 
 export type GrantSandboxArchiveData = {
-  body: GrantWorkspaceArchiveRequestDto;
+  body: GrantWorkingCopyArchiveRequestDto;
   path: {
     sandboxId: string;
   };
   query?: never;
-  url: '/sandboxes/{sandboxId}/workspace-archive';
+  url: '/sandboxes/{sandboxId}/working-copy-archive';
 };
 
 export type GrantSandboxArchiveErrors = {
@@ -11400,7 +11400,7 @@ export type GrantSandboxArchiveErrors = {
    */
   404: unknown;
   /**
-   * Too large, not a SHA-256, a sandbox with no workspace key, or nowhere to store it
+   * Too large, not a SHA-256, a sandbox with no working copy key, or nowhere to store it
    */
   422: unknown;
 };
@@ -11418,7 +11418,7 @@ export type CompleteSandboxArchiveData = {
     archiveId: string;
   };
   query?: never;
-  url: '/sandboxes/{sandboxId}/workspace-archive/{archiveId}/complete';
+  url: '/sandboxes/{sandboxId}/working-copy-archive/{archiveId}/complete';
 };
 
 export type CompleteSandboxArchiveErrors = {

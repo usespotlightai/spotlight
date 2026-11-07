@@ -839,7 +839,7 @@ describe('DispatchTask', () => {
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
-      return run.workspace?.key;
+      return run.workingCopy?.key;
     };
 
     const taskAt = (station: Station) =>

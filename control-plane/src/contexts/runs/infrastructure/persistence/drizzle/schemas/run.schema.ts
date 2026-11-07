@@ -12,7 +12,7 @@ import {
 } from '@runs/domain/value-objects/run-state';
 import { RUN_TURN_STATES } from '@runs/domain/value-objects/run-turn.vo';
 import type { StartedCheckoutParts } from '@runs/domain/value-objects/started-checkout.vo';
-import { WORKSPACE_RESTORES } from '@runs/domain/value-objects/workspace-key.vo';
+import { WORKING_COPY_RESTORES } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
 import { sql } from 'drizzle-orm';
 import {
@@ -35,9 +35,9 @@ export const runTurn = pgEnum('run_turn', RUN_TURN_STATES);
 
 export const runAsks = pgEnum('run_asks', RUN_ASKS);
 
-export const workspaceRestores = pgEnum(
-  'workspace_restores',
-  WORKSPACE_RESTORES,
+export const workingCopyRestores = pgEnum(
+  'working_copy_restores',
+  WORKING_COPY_RESTORES,
 );
 
 export interface RunTurnReportParts {
@@ -74,9 +74,9 @@ export const run = pgTable(
     listed: boolean('listed').notNull(),
     exclusive: boolean('exclusive').notNull(),
     injectsSecrets: boolean('injects_secrets').notNull().default(false),
-    workspaceKey: text('workspace_key'),
-    workspaceRejoinable: boolean('workspace_rejoinable'),
-    workspaceRestores: workspaceRestores('workspace_restores'),
+    workingCopyKey: text('working_copy_key'),
+    workingCopyRejoinable: boolean('working_copy_rejoinable'),
+    workingCopyRestores: workingCopyRestores('working_copy_restores'),
     restoreArchiveId: text('restore_archive_id'),
     extensions: jsonb('extensions')
       .$type<Readonly<Record<string, JsonValue>>>()
@@ -156,7 +156,10 @@ export const run = pgTable(
       table.requesterKind,
       table.requesterId,
     ),
-    index('run_workspace_key_idx').on(table.workspaceId, table.workspaceKey),
+    index('run_working_copy_key_idx').on(
+      table.workspaceId,
+      table.workingCopyKey,
+    ),
     index('run_team_idx').on(table.teamId, table.createdAt),
     index('run_created_idx').on(table.createdAt, table.id),
     index('run_turn_idx').on(table.turn, table.suspendedAt),
@@ -170,8 +173,8 @@ export const run = pgTable(
     ),
     unique('run_workspace_id_id_key').on(table.workspaceId, table.id),
     check(
-      'run_workspace_check',
-      sql`(${table.workspaceKey} is null) = (${table.workspaceRejoinable} is null) and (${table.workspaceKey} is null) = (${table.workspaceRestores} is null)`,
+      'run_working_copy_check',
+      sql`(${table.workingCopyKey} is null) = (${table.workingCopyRejoinable} is null) and (${table.workingCopyKey} is null) = (${table.workingCopyRestores} is null)`,
     ),
     index('run_reserved_idx').on(table.reservedFor),
     index('run_started_from_idx').on(

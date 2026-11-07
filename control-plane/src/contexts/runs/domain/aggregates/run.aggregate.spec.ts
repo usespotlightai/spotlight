@@ -18,8 +18,8 @@ import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import type { RunSpecParts } from '@runs/domain/value-objects/run-spec.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -419,7 +419,7 @@ describe('Run', () => {
     });
   });
 
-  describe('knowing which workspace to restore', () => {
+  describe('knowing which working copy to restore', () => {
     const working = (
       ordered: ReturnType<typeof orderedFor.holdingTurn>,
       resume: { sessionId?: string },
@@ -443,7 +443,7 @@ describe('Run', () => {
       return source && 'newestOf' in source ? source.newestOf.value : null;
     };
 
-    it('restores a workspace that always restores whether or not a conversation carries on', () => {
+    it('restores a working copy that always restores whether or not a conversation carries on', () => {
       expect(newestOf(working(orderedFor.holdingTurn('task_1'), {}))).toBe(
         'requester/subject-task_1',
       );
@@ -454,7 +454,7 @@ describe('Run', () => {
       ).toBe('requester/subject-task_1');
     });
 
-    it('restores a workspace that restores when continuing only to carry its conversation on', () => {
+    it('restores a working copy that restores when continuing only to carry its conversation on', () => {
       expect(
         working(orderedFor.conversing('chat_1'), {}).restoresFrom,
       ).toBeNull();
@@ -465,7 +465,7 @@ describe('Run', () => {
       ).toBe('requester/conversation-chat_1');
     });
 
-    it('restores nothing for work without a workspace', () => {
+    it('restores nothing for work without a working copy', () => {
       expect(working(orderedFor.spec(), {}).restoresFrom).toBeNull();
     });
 
@@ -475,12 +475,12 @@ describe('Run', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
         ...orderedFor.isolated(),
-        restore: WorkspaceArchiveId.of('archive_1'),
+        restore: WorkingCopyArchiveId.of('archive_1'),
         spec: aSpec(),
       });
 
       expect(run.restoresFrom).toEqual({
-        archive: WorkspaceArchiveId.of('archive_1'),
+        archive: WorkingCopyArchiveId.of('archive_1'),
       });
     });
   });
@@ -492,8 +492,8 @@ describe('Run', () => {
       completedAt: Date | null,
       workspace = 'ws_1',
     ) => ({
-      id: WorkspaceArchiveId.of(id),
-      workspaceKey: WorkspaceKey.parse(key),
+      id: WorkingCopyArchiveId.of(id),
+      workingCopyKey: WorkingCopyKey.parse(key),
       completedAt,
       isAvailableIn: (workspaceId: WorkspaceId) =>
         completedAt !== null && workspaceId.value === workspace,
@@ -508,7 +508,7 @@ describe('Run', () => {
         spec: aSpec(),
       });
 
-    it('takes the newest completed archive of its workspace in its own workspace', () => {
+    it('takes the newest completed archive of its working copy in its own workspace', () => {
       const chosen = ofTask().archiveToRestore([
         candidate(
           'older',
@@ -542,7 +542,7 @@ describe('Run', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
         ...orderedFor.isolated(),
-        restore: WorkspaceArchiveId.of('archive_1'),
+        restore: WorkingCopyArchiveId.of('archive_1'),
         spec: aSpec(),
       });
 
@@ -1403,11 +1403,11 @@ describe('Run', () => {
         }),
       });
 
-    it('refuses a workspace of another requester', () => {
+    it('refuses a working copy of another requester', () => {
       expect(() =>
         ordered({
           ...orderedFor.spec(),
-          workspace: orderedFor.holdingTurn('task_1').workspace,
+          workingCopy: orderedFor.holdingTurn('task_1').workingCopy,
         }),
       ).toThrow(InvalidRunOrderError);
     });

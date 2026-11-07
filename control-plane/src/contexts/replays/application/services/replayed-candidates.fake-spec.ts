@@ -116,7 +116,11 @@ const heldOutOf = (
   }
 
   return built.heldOutFrom(
-    scoresOf(built, replays, 0.05),
+    scoresOf(
+      built,
+      replays.map((each) => each.outcome()),
+      0.05,
+    ),
     () => ReplayId.of('replay_held_out_terse'),
     later(4),
   );

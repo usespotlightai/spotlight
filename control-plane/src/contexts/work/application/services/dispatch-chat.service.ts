@@ -128,7 +128,7 @@ export class DispatchChat implements ChatDispatching {
       priority: RunPriority.chat,
       requester: WorkRequesters.chat(chat.id, chat.teamId),
       policy: WorkRequesters.chatPolicy,
-      workspace: WorkRequesters.chatWorkspace(chat.id),
+      workingCopy: WorkRequesters.chatWorkingCopy(chat.id),
       apiGrant: chat.setup
         ? {
             actingFor: chat.startedBy.value,

@@ -25,7 +25,7 @@ export * from '@runs/infrastructure/persistence/drizzle/schemas/network-call.sch
 export * from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 export * from '@runs/infrastructure/persistence/drizzle/schemas/run-connection.schema';
 export * from '@runs/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
-export * from '@runs/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
+export * from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
 export * from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';

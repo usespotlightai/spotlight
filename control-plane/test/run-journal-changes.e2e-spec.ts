@@ -157,7 +157,7 @@ describe('reading what a task’s runs changed', () => {
     await journal.append(
       RunAttempt.of(first, 1),
       entries(
-        { hook: 'workspace ready' },
+        { hook: 'working copy ready' },
         { call: 'call_1' },
         { chunk: 'Retrying uploads.' },
         { edit: 'call_1', path: '/runs/r1/api/src/uploads.ts' },

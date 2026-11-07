@@ -9,6 +9,6 @@ export const claimedRun = (run: Run): ClaimedWorkDto => ({
     attempt: run.attempt.number,
     spec: run.spec.value,
     extensions: run.extensions.value,
-    workspaceKey: run.workspaceKey?.value ?? null,
+    workingCopyKey: run.workingCopyKey?.value ?? null,
   },
 });

@@ -2,7 +2,7 @@ import type {
   DecisionDto,
   TaskDecisionsDto,
 } from '@change-review/application/dto/decision.dto';
-import { WorkspacePath } from '@change-review/domain/value-objects/workspace-path.vo';
+import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 export const DECISIONS_MARKER = '<!-- spotlight:decisions -->';
@@ -16,7 +16,7 @@ const LABELS: Record<DecisionDto['kind'], string> = {
 };
 
 const inRepository = (path: string, repository: Repository): string =>
-  WorkspacePath.of(path).withinRepository(repository);
+  WorkingCopyPath.of(path).withinRepository(repository);
 
 const describeDecision = (
   decision: DecisionDto,

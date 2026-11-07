@@ -5,7 +5,7 @@ import type { Claimant } from '@runs/domain/value-objects/claimant';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -172,7 +172,7 @@ describe('ClaimOrder', () => {
   it('routes into the sandbox of its key, and away from the sandboxes held', () => {
     const ordering = orderedFor.spec('keyed', 'sandboxed');
     const keyed = waiting('keyed', { ordering });
-    const key = WorkspaceKey.of('workspace', 'sandboxed');
+    const key = WorkingCopyKey.of('workspace', 'sandboxed');
 
     expect(inOrder([keyed], { ...BY, sandbox: { avoiding: [key] } })).toEqual(
       [],

@@ -1,27 +1,31 @@
 import type { ReplayedCandidatesDto } from '@replays/application/dto/replayed-candidates.dto';
-import type { ReplaysReaderPort } from '@replays/application/ports/replays-reader.port';
+import type { ReplayedCandidatesReaderPort } from '@replays/application/ports/replayed-candidates-reader.port';
 import type { TrialableRunsPort } from '@replays/application/ports/trialable-runs.port';
 import type { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
 import { replayedCandidatesView } from '@replays/application/queries/views/replayed-candidate-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
-import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
-import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
-import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import {
+  HEALTH_SAMPLES_PER_GROUP,
+  healthSamplesOf,
+  missingReferencesOf,
+  setHealthOf,
+} from '@replays/domain/services/set-health';
+import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
-import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export const MAX_REPLAYED = 500;
 
-const distinct = (values: readonly string[]): readonly string[] => [
-  ...new Set(values),
+const distinct = <T extends { readonly value: string }>(
+  values: readonly T[],
+): readonly T[] => [
+  ...new Map(values.map((each) => [each.value, each])).values(),
 ];
 
 export class ReadReplayedCandidatesHandler
@@ -30,10 +34,7 @@ export class ReadReplayedCandidatesHandler
 {
   constructor(
     private readonly access: ReplaysAccess,
-    private readonly reader: ReplaysReaderPort,
-    private readonly searches: SearchRepository,
-    private readonly sets: ReplaySetRepository,
-    private readonly candidates: CandidateRepository,
+    private readonly reader: ReplayedCandidatesReaderPort,
     private readonly trialableRuns: TrialableRunsPort,
     private readonly clock: ClockPort,
     private readonly healths: SetHealths,
@@ -53,17 +54,17 @@ export class ReadReplayedCandidatesHandler
       const recent = found
         .slice(0, MAX_REPLAYED)
         .filter((each) => access.sees(each.station));
-      const setIds = distinct(recent.map((each) => each.setId.value)).map(
-        (each) => ReplaySetId.of(each),
+      const setIds: readonly ReplaySetId[] = distinct(
+        recent.map((each) => each.setId),
       );
       const [sets, linked, startedIn] = await Promise.all([
-        this.sets.findMany(setIds),
-        this.searches.findMany(
+        this.reader.sets(setIds),
+        this.reader.searches(
           distinct(
-            recent.flatMap((each) =>
-              each.searchId ? [each.searchId.value] : [],
+            recent.flatMap((each): SearchId[] =>
+              each.searchId ? [each.searchId] : [],
             ),
-          ).map((each) => SearchId.of(each)),
+          ),
         ),
         this.reader.searchesOfSetsStartedSince(setIds, period.from),
       ]);
@@ -75,49 +76,60 @@ export class ReadReplayedCandidatesHandler
         ).values(),
       ];
       const seen = sets.filter((each) => access.sees(each.station));
-      const [searchReplays, baselines, pullRequests] = await Promise.all([
-        this.reader.ofSearches(searches.map((each) => each.id)),
-        this.reader.baselinesOfSets(seen.map((each) => each.id)),
-        this.reader.configPullRequestsOfSearches(
-          searches.map((each) => each.id),
-        ),
-      ]);
+      const seenIds = seen.map((each) => each.id);
+      const [searchReplays, baselines, pullRequests, read, live] =
+        await Promise.all([
+          this.reader.outcomesOfSearches(searches.map((each) => each.id)),
+          this.reader.baselinesOfSets(seenIds),
+          this.reader.pullRequestsOfSearches(searches.map((each) => each.id)),
+          this.reader
+            .healthSamplesOfSets(seenIds, HEALTH_SAMPLES_PER_GROUP)
+            .then(healthSamplesOf),
+          this.healths.standardsAt(seen.map((each) => each.station)),
+        ]);
+      const sampled = [
+        ...read,
+        ...(await this.reader.outcomes(missingReferencesOf(read))),
+      ];
       const [candidates, summaries] = await Promise.all([
-        this.candidates.findMany(
-          distinct([
-            ...recent.map((each) => each.candidateId.value),
-            ...baselines.map((each) => each.candidateId.value),
+        this.reader.candidates(
+          distinct<CandidateId>([
+            ...recent.map((each) => each.candidateId),
+            ...baselines.map((each) => each.candidateId),
             ...searches.flatMap((each) =>
-              each.proposals.map((proposal) => proposal.candidateId.value),
+              each.proposals.map((proposal) => proposal.candidateId),
             ),
-          ]).map((each) => CandidateId.of(each)),
+            ...sampled.map((each) => each.candidateId),
+          ]),
         ),
         this.trialableRuns.runSummaries(
           access.workspaceId,
           seen.flatMap((each) => each.runs),
         ),
       ]);
-
-      const live = await this.healths.standardsAt(
-        seen.map((each) => each.station),
-      );
-      const healths = await this.healths.ofSets(seen, live);
       const standards = new Map(
-        seen.map((set) => [
-          set.id.value,
-          {
-            health: healths.get(set.id.value) ?? UNREAD_HEALTH,
-            minGain:
-              live.get(set.station.stationId.value)?.minGain ??
-              DEFAULT_MIN_GAIN,
-          },
-        ]),
+        seen.map((set) => {
+          const standard = live.get(set.station.stationId.value);
+          const minGain = standard?.minGain ?? DEFAULT_MIN_GAIN;
+
+          return [
+            set.id.value,
+            {
+              health: setHealthOf(
+                sampled.filter((each) => each.setId.equals(set.id)),
+                candidates,
+                standard?.fingerprint ?? null,
+                minGain,
+              ),
+              minGain,
+            },
+          ];
+        }),
       );
 
       return replayedCandidatesView({
         period,
         truncated: found.length > MAX_REPLAYED,
-        recent,
         searches,
         searchReplays,
         sets: seen,

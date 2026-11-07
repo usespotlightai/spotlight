@@ -85,7 +85,7 @@ import {
   PEOPLE,
   type PeoplePort,
 } from '@replays/application/ports/people.port';
-import { REPLAYS_READER } from '@replays/application/ports/replays-reader.port';
+import { REPLAYED_CANDIDATES_READER } from '@replays/application/ports/replayed-candidates-reader.port';
 import { RUNS, type RunsPort } from '@replays/application/ports/runs.port';
 import {
   SEARCH_NOTICES,
@@ -201,7 +201,8 @@ import { ReplaysTraceScopes } from '@replays/infrastructure/acl/trace-scopes.ada
 import { TrialableRuns } from '@replays/infrastructure/acl/trialable-runs.adapter';
 import { REPLAYS_PAYLOAD_TYPES } from '@replays/infrastructure/events/replays-payload-types';
 import { Sha256Hash } from '@replays/infrastructure/hashing/sha256-hash';
-import { DrizzleReplaysReader } from '@replays/infrastructure/persistence/drizzle/readers/replays.reader';
+import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
+import { DrizzleReplayedCandidatesReader } from '@replays/infrastructure/persistence/drizzle/readers/replayed-candidates.reader';
 import { DrizzleStationConfigPullRequests } from '@replays/infrastructure/persistence/drizzle/readers/station-config-pull-requests.reader';
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
 import { DrizzleChangeJudgingRepository } from '@replays/infrastructure/persistence/drizzle/repositories/change-judging.repository';
@@ -387,6 +388,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   { provide: HASH, useClass: Sha256Hash },
   DrizzleReplaySetRepository,
   DrizzleCandidateRepository,
+  DrizzleReplayOutcomes,
   DrizzleReplayRepository,
   DrizzleSearchRepository,
   DrizzleReplayCheckRepository,
@@ -462,8 +464,11 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   DrizzleChangeJudgingRepository,
   DrizzleSideBySideJudgingRepository,
-  DrizzleReplaysReader,
-  { provide: REPLAYS_READER, useExisting: DrizzleReplaysReader },
+  DrizzleReplayedCandidatesReader,
+  {
+    provide: REPLAYED_CANDIDATES_READER,
+    useExisting: DrizzleReplayedCandidatesReader,
+  },
   DrizzleStationConfigPullRequests,
   {
     provide: STATION_CONFIG_PULL_REQUESTS,
@@ -874,10 +879,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ReadReplayedCandidatesHandler,
     [
       ReplaysAccess,
-      REPLAYS_READER,
-      DrizzleSearchRepository,
-      DrizzleReplaySetRepository,
-      DrizzleCandidateRepository,
+      REPLAYED_CANDIDATES_READER,
       REPLAYS_TRIALABLE_RUNS,
       CLOCK,
       SetHealths,

@@ -66,7 +66,7 @@ describe('the decisions comment on a pull request', () => {
     );
   });
 
-  it('names files as the repository stores them, and others as the workspace does', () => {
+  it('names files as the repository stores them, and others as the working copy does', () => {
     expect(body).toContain('`src/uploads.ts`, `web/src/Upload.tsx`');
   });
 

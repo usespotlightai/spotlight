@@ -8,8 +8,8 @@ import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -53,9 +53,13 @@ const on = (attempt = 1) => RunAttempt.of(RunId.of('run_1'), attempt);
 const archiveOf = (
   id: string,
   workspace = 'ws_1',
-  key = WorkspaceKey.of('requester', 'subject-task_1'),
+  key = WorkingCopyKey.of('requester', 'subject-task_1'),
 ) =>
-  RestoredArchive.of(WorkspaceArchiveId.of(id), WorkspaceId.of(workspace), key);
+  RestoredArchive.of(
+    WorkingCopyArchiveId.of(id),
+    WorkspaceId.of(workspace),
+    key,
+  );
 
 const restored = (
   archive: RestoredArchive | null = archiveOf('archive_1'),
@@ -93,7 +97,7 @@ describe('where a run started', () => {
       archiveOf(
         'archive_1',
         'ws_1',
-        WorkspaceKey.of('requester', 'subject-task_2'),
+        WorkingCopyKey.of('requester', 'subject-task_2'),
       ),
     ]) {
       expect(() =>

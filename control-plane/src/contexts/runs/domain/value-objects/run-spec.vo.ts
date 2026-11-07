@@ -336,19 +336,21 @@ export class RunSpec {
         throw new InvalidRunSpecError('must say where a checkout comes from');
       }
       if (checkout.path !== undefined && outside(checkout.path)) {
-        throw new InvalidRunSpecError('must put a checkout in the workspace');
+        throw new InvalidRunSpecError(
+          'must put a checkout in the working copy',
+        );
       }
     }
 
     for (const skill of parts.skills ?? []) {
       if (!skill.path || outside(skill.path)) {
-        throw new InvalidRunSpecError('must put a skill in the workspace');
+        throw new InvalidRunSpecError('must put a skill in the working copy');
       }
     }
 
     for (const home of parts.skillHomes ?? []) {
       if (!home || outside(home)) {
-        throw new InvalidRunSpecError('must put skills in the workspace');
+        throw new InvalidRunSpecError('must put skills in the working copy');
       }
     }
 
@@ -379,7 +381,7 @@ export class RunSpec {
     for (const attachment of parts.attachments ?? []) {
       if (!attachment.path || outside(attachment.path)) {
         throw new InvalidRunSpecError(
-          'must put an attachment in the workspace',
+          'must put an attachment in the working copy',
         );
       }
     }

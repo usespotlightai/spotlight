@@ -916,7 +916,11 @@ describe('a search running its course', () => {
 
     expect(theSearch().current).toBe('finished');
 
-    const scores = scoresOf(theSearch(), [...memory.replays.values()], 0.05);
+    const scores = scoresOf(
+      theSearch(),
+      [...memory.replays.values()].map((each) => each.outcome()),
+      0.05,
+    );
     const strongest = scores.candidates.find(
       (each) => each.candidateId.value === strong.candidateId,
     );

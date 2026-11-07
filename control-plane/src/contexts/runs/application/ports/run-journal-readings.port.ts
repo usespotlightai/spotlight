@@ -27,7 +27,7 @@ export interface RunJournalReadingsPort {
     since: Date | null,
   ): string | null;
 
-  workspacePathsIn(changes: RunChanges): readonly string[];
+  workingCopyPathsIn(changes: RunChanges): readonly string[];
 
   hunksIn(
     steps: readonly JournalStep[],

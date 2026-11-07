@@ -66,6 +66,7 @@ import { PlannedReference } from '@replays/domain/value-objects/planned-referenc
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
@@ -111,6 +112,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ModelSpent,
   ReplayEntry,
   ReplayId,
+  ReplayOutcome,
   ReplaySetEntry,
   ReplaySetId,
   ReplayStartDetail,

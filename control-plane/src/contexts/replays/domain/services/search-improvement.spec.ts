@@ -97,7 +97,14 @@ describe('improvedOnBestBefore', () => {
       replayOf(search, 'replay_terse', 'candidate_terse', () => true),
     ];
 
-    expect(improvedOnBestBefore(search, TERSE, replays, 0.05)).toBe(true);
+    expect(
+      improvedOnBestBefore(
+        search,
+        TERSE,
+        replays.map((each) => each.outcome()),
+        0.05,
+      ),
+    ).toBe(true);
   });
 
   it('does not count one that only matches the best before it, though it beats the seed', () => {
@@ -108,7 +115,14 @@ describe('improvedOnBestBefore', () => {
       replayOf(search, 'replay_terse', 'candidate_terse', () => true),
     ];
 
-    expect(improvedOnBestBefore(search, TERSE, replays, 0.05)).toBe(false);
+    expect(
+      improvedOnBestBefore(
+        search,
+        TERSE,
+        replays.map((each) => each.outcome()),
+        0.05,
+      ),
+    ).toBe(false);
   });
 
   it('in a search for cost, counts one cheaper than the best before it at a success that is not worse', () => {
@@ -125,15 +139,30 @@ describe('improvedOnBestBefore', () => {
       ),
     ];
 
-    expect(improvedOnBestBefore(search, TERSE, replays(1, true), 0.05)).toBe(
-      true,
-    );
-    expect(improvedOnBestBefore(search, TERSE, replays(2, true), 0.05)).toBe(
-      false,
-    );
-    expect(improvedOnBestBefore(search, TERSE, replays(1, false), 0.05)).toBe(
-      false,
-    );
+    expect(
+      improvedOnBestBefore(
+        search,
+        TERSE,
+        replays(1, true).map((each) => each.outcome()),
+        0.05,
+      ),
+    ).toBe(true);
+    expect(
+      improvedOnBestBefore(
+        search,
+        TERSE,
+        replays(2, true).map((each) => each.outcome()),
+        0.05,
+      ),
+    ).toBe(false);
+    expect(
+      improvedOnBestBefore(
+        search,
+        TERSE,
+        replays(1, false).map((each) => each.outcome()),
+        0.05,
+      ),
+    ).toBe(false);
   });
 
   it('counts no improvement from a candidate whose replay did not finish, or that the search never proposed', () => {
@@ -144,7 +173,10 @@ describe('improvedOnBestBefore', () => {
       improvedOnBestBefore(
         search,
         TERSE,
-        [seed, replayFor(SET, 'replay_terse', 'candidate_terse', null)],
+        [
+          seed.outcome(),
+          replayFor(SET, 'replay_terse', 'candidate_terse', null).outcome(),
+        ],
         0.05,
       ),
     ).toBe(false);
@@ -152,7 +184,7 @@ describe('improvedOnBestBefore', () => {
       improvedOnBestBefore(
         search,
         ReplayId.of('replay_stranger'),
-        [seed],
+        [seed.outcome()],
         0.05,
       ),
     ).toBe(false);

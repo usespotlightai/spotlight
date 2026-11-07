@@ -26,11 +26,11 @@ import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import type { RunCheckout } from '@runs/domain/value-objects/run-spec.vo';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
-import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import {
-  RunWorkspace,
-  WorkspaceKey,
-} from '@runs/domain/value-objects/workspace-key.vo';
+  RunWorkingCopy,
+  WorkingCopyKey,
+} from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -93,15 +93,15 @@ export class Runs implements RunsPort {
           team: order.requester.team ? TeamId.of(order.requester.team) : null,
         }),
         policy: RunPolicy.of(order.policy),
-        workspace: order.workspace
-          ? RunWorkspace.of({
-              key: WorkspaceKey.parse(order.workspace.key),
-              rejoinable: order.workspace.rejoinable,
-              restores: order.workspace.restores,
+        workingCopy: order.workingCopy
+          ? RunWorkingCopy.of({
+              key: WorkingCopyKey.parse(order.workingCopy.key),
+              rejoinable: order.workingCopy.rejoinable,
+              restores: order.workingCopy.restores,
             })
           : null,
         restore: order.restore
-          ? WorkspaceArchiveId.of(order.restore.archive)
+          ? WorkingCopyArchiveId.of(order.restore.archive)
           : null,
         extensions: RunExtensions.of(order.extensions),
         tags: RunTags.of(order.tags),

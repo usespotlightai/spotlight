@@ -254,7 +254,7 @@
     },
     "/runs/{runId}/starting-point": {
       "post": {
-        "description": "The runner reports this once the workspace is restored and its checkouts prepared, before the agent starts, and only for a run whose spec asks for its starting point. A later attempt of the same run keeps where the first one started.",
+        "description": "The runner reports this once the working copy is restored and its checkouts prepared, before the agent starts, and only for a run whose spec asks for its starting point. A later attempt of the same run keeps where the first one started.",
         "operationId": "recordStartingPoint",
         "parameters": [
           {
@@ -341,7 +341,7 @@
     },
     "/runs/{runId}/completion": {
       "post": {
-        "description": "The run leaves its lease. When the run hands over and its requester holds the turn, the run is suspended until the requester finishes, keeps or resumes it. A resume requeues it, and the sandbox that keeps its workspace takes it first.",
+        "description": "The run leaves its lease. When the run hands over and its requester holds the turn, the run is suspended until the requester finishes, keeps or resumes it. A resume requeues it, and the sandbox that keeps its working copy takes it first.",
         "operationId": "completeRun",
         "parameters": [
           {
@@ -377,9 +377,9 @@
         ]
       }
     },
-    "/runs/{runId}/workspace-archive": {
+    "/runs/{runId}/working-copy-archive": {
       "get": {
-        "operationId": "readWorkspaceArchive",
+        "operationId": "readWorkingCopyArchive",
         "parameters": [
           {
             "name": "runId",
@@ -411,13 +411,13 @@
             "description": "Not this runner’s run"
           }
         },
-        "summary": "The archive to restore before the run starts: the workspace the conversation it carries on was left in",
+        "summary": "The archive to restore before the run starts: the working copy the conversation it carries on was left in",
         "tags": [
           "runners"
         ]
       },
       "post": {
-        "operationId": "grantWorkspaceArchive",
+        "operationId": "grantWorkingCopyArchive",
         "parameters": [
           {
             "name": "runId",
@@ -433,7 +433,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GrantWorkspaceArchiveRequestDto"
+                "$ref": "#/components/schemas/GrantWorkingCopyArchiveRequestDto"
               }
             }
           }
@@ -459,15 +459,15 @@
             "description": "Too large, not a SHA-256, work that does not carry on, or nowhere to store it"
           }
         },
-        "summary": "Archive the workspace as the run leaves it: a place to upload its archive, for this size and SHA-256 only",
+        "summary": "Archive the working copy as the run leaves it: a place to upload its archive, for this size and SHA-256 only",
         "tags": [
           "runners"
         ]
       }
     },
-    "/runs/{runId}/workspace-archive/{archiveId}/complete": {
+    "/runs/{runId}/working-copy-archive/{archiveId}/complete": {
       "post": {
-        "operationId": "completeWorkspaceArchive",
+        "operationId": "completeWorkingCopyArchive",
         "parameters": [
           {
             "name": "runId",
@@ -506,7 +506,7 @@
         ]
       }
     },
-    "/sandboxes/{sandboxId}/workspace-archive": {
+    "/sandboxes/{sandboxId}/working-copy-archive": {
       "get": {
         "description": "The bearer is the sandbox token from the sandbox’s first assignment.",
         "operationId": "readSandboxArchive",
@@ -532,7 +532,7 @@
             }
           },
           "204": {
-            "description": "Nothing to restore: the sandbox starts with an empty workspace"
+            "description": "Nothing to restore: the sandbox starts with an empty working copy"
           },
           "404": {
             "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
@@ -543,7 +543,7 @@
             "bearer": []
           }
         ],
-        "summary": "The archive a sandbox restores when it starts: the newest archive of its workspace key",
+        "summary": "The archive a sandbox restores when it starts: the newest archive of its working copy key",
         "tags": [
           "runners"
         ]
@@ -566,7 +566,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GrantWorkspaceArchiveRequestDto"
+                "$ref": "#/components/schemas/GrantWorkingCopyArchiveRequestDto"
               }
             }
           }
@@ -586,7 +586,7 @@
             "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
           },
           "422": {
-            "description": "Too large, not a SHA-256, a sandbox with no workspace key, or nowhere to store it"
+            "description": "Too large, not a SHA-256, a sandbox with no working copy key, or nowhere to store it"
           }
         },
         "security": [
@@ -594,13 +594,13 @@
             "bearer": []
           }
         ],
-        "summary": "Archive the workspace as the sandbox keeps it: a place to upload its archive, for this size and SHA-256 only",
+        "summary": "Archive the working copy as the sandbox keeps it: a place to upload its archive, for this size and SHA-256 only",
         "tags": [
           "runners"
         ]
       }
     },
-    "/sandboxes/{sandboxId}/workspace-archive/{archiveId}/complete": {
+    "/sandboxes/{sandboxId}/working-copy-archive/{archiveId}/complete": {
       "post": {
         "operationId": "completeSandboxArchive",
         "parameters": [
@@ -637,7 +637,7 @@
             "bearer": []
           }
         ],
-        "summary": "Say the archive is uploaded, so the next sandbox or run of this workspace key restores it",
+        "summary": "Say the archive is uploaded, so the next sandbox or run of this working copy key restores it",
         "tags": [
           "runners"
         ]
@@ -725,7 +725,7 @@
     },
     "/hosts/claim": {
       "post": {
-        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a workspace key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its workspace key and waits for runs.",
+        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs.",
         "operationId": "claimHostWork",
         "parameters": [
           {
@@ -2614,12 +2614,12 @@
           "path": {
             "type": "string",
             "example": "service",
-            "description": "The checkout, by its path in the workspace, as the run received it"
+            "description": "The checkout, by its path in the working copy, as the run received it"
           },
           "commit": {
             "type": "string",
             "example": "4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a",
-            "description": "The commit HEAD was at once the workspace was restored and the checkout prepared, as its full SHA"
+            "description": "The commit HEAD was at once the working copy was restored and the checkout prepared, as its full SHA"
           }
         },
         "required": [
@@ -2639,7 +2639,7 @@
             "type": "string",
             "nullable": true,
             "example": "0b8e2f4c-6a1d-4e3b-9c7f-5d2a8e1b4c6f",
-            "description": "The workspace archive the run restored, or null where it started afresh"
+            "description": "The working copy archive the run restored, or null where it started afresh"
           },
           "checkouts": {
             "maxItems": 100,
@@ -2742,7 +2742,7 @@
           "setupFailed": {
             "type": "boolean",
             "example": false,
-            "description": "With failed: it failed before the agent was handed the run, while the runner made its workspace ready"
+            "description": "With failed: it failed before the agent was handed the run, while the runner made its working copy ready"
           },
           "timedOut": {
             "type": "boolean",
@@ -2798,7 +2798,7 @@
           "sha256"
         ]
       },
-      "GrantWorkspaceArchiveRequestDto": {
+      "GrantWorkingCopyArchiveRequestDto": {
         "type": "object",
         "properties": {
           "size": {
@@ -2966,7 +2966,7 @@
           "sandbox": {
             "type": "string",
             "example": "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95",
-            "description": "A live sandbox of this host that has no run in it. The claim then takes only a queued run of the workspace key that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot."
+            "description": "A live sandbox of this host that has no run in it. The claim then takes only a queued run of the working copy key that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot."
           }
         },
         "required": [
@@ -3002,13 +3002,13 @@
           "sandboxToken": {
             "type": "string",
             "nullable": true,
-            "description": "The credential of a new sandbox, for its own calls only: restore and archive its workspace. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check."
+            "description": "The credential of a new sandbox, for its own calls only: restore and archive its working copy. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check."
           },
           "allowedHosts": {
             "example": [
               "spotlight-archives.s3.eu-west-1.amazonaws.com"
             ],
-            "description": "Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its workspace archives. Empty for a run: its egress reads them with the run’s secrets.",
+            "description": "Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its working copy archives. Empty for a run: its egress reads them with the run’s secrets.",
             "type": "array",
             "items": {
               "type": "string"
@@ -3660,7 +3660,7 @@
           "path": {
             "type": "string",
             "example": ".spotlight/attachments/5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47/queue-stuck.png",
-            "description": "Where in the workspace to put it"
+            "description": "Where in the working copy to put it"
           }
         },
         "required": [
@@ -4787,7 +4787,7 @@
               "no-checkout",
               "checkout-failed",
               "setup-failed",
-              "workspace-failed",
+              "working-copy-failed",
               "out-of-time",
               "no-image"
             ],

@@ -111,7 +111,7 @@ import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WorkspaceRelease } from '@work/domain/value-objects/workspace-release.vo';
+import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
 export const WORK_PAYLOAD_TYPES = [
   RunResult,
@@ -211,7 +211,7 @@ export const WORK_PAYLOAD_TYPES = [
   DispatchSuperseded,
   DispatchEnding,
   DispatchOrder,
-  WorkspaceRelease,
+  WorkingCopyRelease,
   AwaitedTurn,
   HistoryAccess,
   ReviewRequest,

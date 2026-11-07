@@ -40,6 +40,7 @@ import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
+import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplayCheckRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-check.repository';
@@ -71,7 +72,11 @@ beforeAll(async () => {
   searches = new DrizzleSearchRepository(context, dispatcher);
   sets = new DrizzleReplaySetRepository(context, dispatcher);
   candidates = new DrizzleCandidateRepository(context, dispatcher);
-  replays = new DrizzleReplayRepository(context, dispatcher);
+  replays = new DrizzleReplayRepository(
+    context,
+    dispatcher,
+    new DrizzleReplayOutcomes(context),
+  );
   checks = new DrizzleReplayCheckRepository(context, dispatcher);
 });
 
@@ -199,7 +204,7 @@ describe('DrizzleSearchRepository', () => {
             replayFor(aSet(10), 'replay_seed', 'candidate_live', null, true),
             () => 'completed',
             3,
-          ),
+          ).outcome(),
           replayedAs(
             replayFor(
               aSet(10),
@@ -208,7 +213,7 @@ describe('DrizzleSearchRepository', () => {
               search.split.searchedRuns,
             ),
             () => 'completed',
-          ),
+          ).outcome(),
         ],
         0.05,
       ),

@@ -1,4 +1,4 @@
-import { InvalidWorkspaceArchiveError } from '@runs/domain/exceptions/invalid-workspace-archive.error';
+import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
@@ -9,7 +9,7 @@ export class ArchiveDigest {
     const value = sha256.trim().toLowerCase();
 
     if (!SHA256_HEX.test(value)) {
-      throw new InvalidWorkspaceArchiveError(
+      throw new InvalidWorkingCopyArchiveError(
         'digest must be a SHA-256 of 64 hexadecimal digits',
       );
     }

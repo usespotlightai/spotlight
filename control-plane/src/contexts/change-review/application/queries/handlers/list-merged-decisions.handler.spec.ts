@@ -83,7 +83,7 @@ const listing = (over: { mayView?: boolean } = {}) => {
 };
 
 describe('listing the decisions that shipped', () => {
-  it('queries paths as the workspace stores them, from the repository’s checkout', async () => {
+  it('queries paths as the working copy stores them, from the repository’s checkout', async () => {
     const { list, sought } = listing();
 
     await list('acme/api', ['src/uploads.ts', '/src/retry/'], '2026-09-01');

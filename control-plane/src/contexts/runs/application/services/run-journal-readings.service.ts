@@ -16,9 +16,9 @@ import { lastWordsIn } from '@runs/application/read-models/last-words';
 import { tracedRunsOf, traceOf } from '@runs/application/read-models/run-trace';
 import { hunksOf } from '@runs/domain/services/change-hunks';
 import {
-  workspacePath,
-  workspacePathsIn,
-} from '@runs/domain/services/workspace-path';
+  workingCopyPath,
+  workingCopyPathsIn,
+} from '@runs/domain/services/working-copy-path';
 
 export class RunJournalReadings implements RunJournalReadingsPort {
   traceOf(
@@ -40,8 +40,8 @@ export class RunJournalReadings implements RunJournalReadingsPort {
     return lastWordsIn(attempts, since);
   }
 
-  workspacePathsIn(changes: RunChanges): readonly string[] {
-    return workspacePathsIn(changes);
+  workingCopyPathsIn(changes: RunChanges): readonly string[] {
+    return workingCopyPathsIn(changes);
   }
 
   hunksIn(
@@ -69,7 +69,7 @@ export class RunJournalReadings implements RunJournalReadingsPort {
 
     return order.flatMap((path) =>
       hunksOf(
-        workspacePath(path, checkouts) ?? path,
+        workingCopyPath(path, checkouts) ?? path,
         first.get(path) ?? '',
         last.get(path) ?? '',
       ),

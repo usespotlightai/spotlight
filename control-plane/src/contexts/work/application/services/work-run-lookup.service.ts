@@ -167,7 +167,7 @@ export class WorkRunLookup implements WorkRunLookupPort {
       steps: journal.steps.flatMap(reasoned),
       changed: [
         ...new Set(
-          changes.flatMap((each) => this.readings.workspacePathsIn(each)),
+          changes.flatMap((each) => this.readings.workingCopyPathsIn(each)),
         ),
       ],
     };
@@ -189,7 +189,7 @@ export class WorkRunLookup implements WorkRunLookupPort {
 
     return distinctFiles(
       filesChangedIn(
-        this.readings.workspacePathsIn(changesIn(journal, run.checkouts)),
+        this.readings.workingCopyPathsIn(changesIn(journal, run.checkouts)),
         repositories,
       ),
     );

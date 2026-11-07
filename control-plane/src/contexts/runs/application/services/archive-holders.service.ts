@@ -2,9 +2,9 @@ import type {
   ArchiveHolderSource,
   ArchiveHoldersPort,
 } from '@runs/application/ports/archive-holders.port';
-import type { HolderState } from '@runs/domain/aggregates/workspace-archive.aggregate';
+import type { HolderState } from '@runs/domain/aggregates/working-copy-archive.aggregate';
 import type { RequesterOwner } from '@runs/domain/value-objects/run-requester.vo';
-import type { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 
 export class ArchiveHolders implements ArchiveHoldersPort {
   private readonly sources = new Map<string, ArchiveHolderSource>();
@@ -18,9 +18,9 @@ export class ArchiveHolders implements ArchiveHoldersPort {
   }
 
   async stateOf(
-    keys: readonly WorkspaceKey[],
+    keys: readonly WorkingCopyKey[],
   ): Promise<ReadonlyMap<string, HolderState | null>> {
-    const byOwner = new Map<string, WorkspaceKey[]>();
+    const byOwner = new Map<string, WorkingCopyKey[]>();
 
     for (const key of keys) {
       byOwner.set(key.owner.value, [

@@ -98,7 +98,7 @@ import type { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WorkspaceRelease } from '@work/domain/value-objects/workspace-release.vo';
+import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
 export interface OpenReviewComment {
   readonly at: NotePosition;
@@ -760,10 +760,10 @@ export class Task extends EventRecorder {
     return this.finished;
   }
 
-  get workspaceRelease(): WorkspaceRelease {
+  get workingCopyRelease(): WorkingCopyRelease {
     return this.finishedAt
-      ? WorkspaceRelease.since(this.finishedAt)
-      : WorkspaceRelease.held();
+      ? WorkingCopyRelease.since(this.finishedAt)
+      : WorkingCopyRelease.held();
   }
 
   get isSetup(): boolean {

@@ -2,7 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { EnqueueRunCommand } from '@runs/application/commands/runner.commands';
 import type {
   RunPolicyContract,
-  RunWorkspaceContract,
+  RunWorkingCopyContract,
 } from '@runs/application/contracts/run-order.contract';
 import type { EnqueuedRunDto } from '@runs/application/dto/run.dto';
 import { RunSpecMapper } from '@runs/application/mappers/run-spec.mapper';
@@ -11,7 +11,7 @@ import type { RunsPort } from '@runs/application/ports/runs.port';
 import { RunOrderRefusedError } from '@runs/domain/exceptions/run-order-refused.error';
 import { UnknownHarnessError } from '@runs/domain/exceptions/unknown-harness.error';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -29,8 +29,8 @@ const SPEC_POLICY: RunPolicyContract = {
   exclusive: false,
 };
 
-const workspaceOf = (requested: string): RunWorkspaceContract => ({
-  key: WorkspaceKey.requestedBy(OWNER, requested).value,
+const workingCopyOf = (requested: string): RunWorkingCopyContract => ({
+  key: WorkingCopyKey.requestedBy(OWNER, requested).value,
   rejoinable: false,
   restores: 'when-continuing',
 });
@@ -82,7 +82,7 @@ export class EnqueueRunHandler
           team: null,
         },
         policy: SPEC_POLICY,
-        workspace: ordered.key ? workspaceOf(ordered.key) : null,
+        workingCopy: ordered.key ? workingCopyOf(ordered.key) : null,
         restore: null,
         extensions: {},
         apiGrant: null,

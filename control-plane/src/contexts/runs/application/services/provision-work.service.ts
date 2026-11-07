@@ -24,7 +24,7 @@ import {
 } from '@runs/domain/services/pool-choice';
 import { poolCouldTake } from '@runs/domain/services/pool-fit';
 import { ProvisionPlan } from '@runs/domain/services/provision-plan';
-import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -189,7 +189,7 @@ export class ProvisionWork {
             skip,
             max: PAGE,
             withSecrets: withEgress,
-            avoiding: held.map((each) => WorkspaceKey.parse(each)),
+            avoiding: held.map((each) => WorkingCopyKey.parse(each)),
           },
         );
 
