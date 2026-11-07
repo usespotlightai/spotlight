@@ -16,6 +16,7 @@ import {
   ReplayRunDispatch,
   type ReplayRunOrder,
 } from '@replays/application/services/replay-run-dispatch.service';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { DrizzleReplayRunDecisionRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-decision.repository';
@@ -292,11 +293,23 @@ const ownerOf = () => ({
   replayId: ReplayId.of(randomUUID()),
 });
 
+const standingReplays = {
+  find: async () => ({}),
+} as unknown as Pick<ReplayRepository, 'find'>;
+
+const dispatchOver = (runs: ReplaysRunsPort) =>
+  new ReplayRunDispatch(
+    app.get(DrizzleReplayRunDecisionRepository),
+    standingReplays,
+    app.get<StationTrialsPort>(STATION_TRIALS),
+    runs,
+  );
+
 const replayed = async (original: Original): Promise<string> => {
   const run = RunId.of(randomUUID());
-  const queued = await app
-    .get(ReplayRunDispatch)
-    .dispatch(await replayOrderOf(original, run));
+  const queued = await dispatchOver(
+    app.get<ReplaysRunsPort>(REPLAYS_RUNS),
+  ).dispatch(await replayOrderOf(original, run));
 
   if (!queued.queued) {
     throw new Error(`the replay was not queued: ${queued.unreplayableReason}`);
@@ -728,11 +741,7 @@ describe('a replay cancelled while it is ordered', () => {
         },
       },
     );
-    const racing = new ReplayRunDispatch(
-      app.get(DrizzleReplayRunDecisionRepository),
-      app.get<StationTrialsPort>(STATION_TRIALS),
-      cancellingFirst,
-    );
+    const racing = dispatchOver(cancellingFirst);
 
     expect(await racing.dispatch(await replayOrderOf(original, run))).toEqual({
       queued: false,
