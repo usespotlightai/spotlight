@@ -257,7 +257,7 @@
       }
     },
     {
-      "includes": ["src/architecture/**"],
+      "includes": ["test/architecture/**"],
       "linter": {
         "rules": {
           "style": {

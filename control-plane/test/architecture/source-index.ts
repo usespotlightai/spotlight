@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import ts from 'typescript';
 
-export const SOURCE_ROOT = resolve(__dirname, '..');
+export const SOURCE_ROOT = resolve(__dirname, '..', '..', 'src');
 
 const COMPILER_PATHS = (
   ts.readConfigFile(join(SOURCE_ROOT, '..', 'tsconfig.json'), ts.sys.readFile)
