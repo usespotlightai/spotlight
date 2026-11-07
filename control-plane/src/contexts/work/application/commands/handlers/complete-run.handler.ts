@@ -5,18 +5,11 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { CompleteRunCommand } from '@work/application/commands/runner.commands';
-import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
-import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
-import { lastWordsIn } from '@work/application/services/last-words';
+import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
-import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { turnEnded } from '@work/domain/services/turn-end';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -25,22 +18,13 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 
 const ATTEMPTS = 3;
 
-const isVersionConflict = (error: unknown): boolean =>
-  error instanceof RunVersionConflictError ||
-  error instanceof TaskVersionConflictError;
-
 export class CompleteRunHandler
   implements CommandHandlerPort<CompleteRunCommand, void>
 {
   constructor(
     private readonly runs: RunRepository,
-    private readonly tasks: TaskRepository,
-    private readonly lines: LineMapsPort,
     private readonly transaction: TransactionPort,
-    private readonly taskViews: TaskViewsPort,
-    private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
-    private readonly journals: RunJournalReaderPort,
     private readonly files: FilesLoader,
   ) {}
 
@@ -50,7 +34,9 @@ export class CompleteRunHandler
       const runnerId = RunnerId.of(command.runnerId);
 
       if (command.timedOut) {
-        return await this.retrying(() => this.timedOut(runId, runnerId));
+        return await this.changed(runId, (run) =>
+          run.timedOut(runnerId, this.clock.now()),
+        );
       }
 
       const outcome = command.stopped
@@ -62,161 +48,76 @@ export class CompleteRunHandler
             message: command.message,
           });
       const attachments = outcome.handsOver
-        ? await this.attachedTo(runId, command.handover?.attachments ?? [])
+        ? await this.handedOverBy(
+            await this.found(runId),
+            command.handover?.attachments ?? [],
+          )
         : [];
-      const handed = command.handover
-        ? Handover.of({
-            ...command.handover,
-            attachments,
-          })
-        : null;
-      const handover =
-        handed && outcome.handsOver
-          ? await this.handingOver(runId, runnerId, handed)
-          : handed;
-
       const report = HandoverReport.of({
-        handover,
+        handover: command.handover
+          ? Handover.of({ ...command.handover, attachments })
+          : null,
         session: command.sessionId
           ? HarnessSession.of(command.sessionId)
           : null,
-        lastWords: handover ? null : await this.lastWordsOf(runId),
       });
 
-      return await this.retrying(() =>
-        this.ended(runId, runnerId, outcome, report),
+      return await this.changed(runId, (run) =>
+        run.reportTurn(runnerId, outcome, report, this.clock.now()),
       );
     } catch (error) {
       rethrowAsApplicationError(error);
     }
   }
 
-  private async attachedTo(
-    runId: RunId,
+  private async handedOverBy(
+    run: Run,
     ids: readonly string[],
   ): Promise<Attachment[]> {
-    if (ids.length === 0) {
-      return [];
-    }
-
-    const run = await this.runs.findById(runId);
-
-    if (!run) {
-      throw new UnknownRunError(`Run ${runId.value} not found.`);
-    }
-
-    if (!run.firesHooks) {
+    if (ids.length === 0 || !run.policy.actsBeyondItself) {
       return [];
     }
 
     const attachments = await this.files.uploadedBy(
-      runId,
+      run.id,
       run.workspaceId,
       ids,
     );
-    await this.files.takenIn(run.workspaceId, attachments);
+
+    if (!run.policy.holdsTurn) {
+      await this.files.takenIn(run.workspaceId, attachments);
+    }
 
     return attachments;
   }
 
-  private async lastWordsOf(runId: RunId): Promise<string | null> {
+  private async found(runId: RunId): Promise<Run> {
     const run = await this.runs.findById(runId);
-    const task = run?.taskId ? await this.tasks.find(run.taskId) : null;
-    const answered = [...(task?.notes ?? [])]
-      .reverse()
-      .find((note) => note.voice.isPerson);
 
-    return lastWordsIn(
-      await this.journals.attemptsOfRun(runId),
-      answered?.at ?? null,
-    );
+    if (!run) {
+      throw new UnknownRunError(`Run ${runId.value} not found.`);
+    }
+
+    return run;
   }
 
-  private async retrying(work: () => Promise<void>): Promise<void> {
+  private async changed(
+    runId: RunId,
+    change: (run: Run) => Run,
+  ): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.transaction.inTransaction(work);
+        return await this.transaction.inTransaction(async () => {
+          await this.runs.save(change(await this.found(runId)));
+        });
       } catch (error) {
-        if (!isVersionConflict(error) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof RunVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }
     }
-  }
-
-  private async timedOut(runId: RunId, by: RunnerId): Promise<void> {
-    const run = await this.runs.findById(runId);
-
-    if (!run) {
-      throw new UnknownRunError(`Run ${runId.value} not found.`);
-    }
-
-    await this.runs.save(run.timedOut(by, this.clock.now()));
-  }
-
-  private async ended(
-    runId: RunId,
-    by: RunnerId,
-    outcome: RunOutcome,
-    report: HandoverReport,
-  ): Promise<void> {
-    const run = await this.runs.findById(runId);
-
-    if (!run) {
-      throw new UnknownRunError(`Run ${runId.value} not found.`);
-    }
-
-    const task = run.taskId ? await this.tasks.find(run.taskId) : null;
-    const line = task ? await this.lines.findByStation(task.stationId) : null;
-    const ended = turnEnded({
-      run,
-      by,
-      task,
-      line,
-      outcome,
-      report,
-      now: this.clock.now(),
-    });
-
-    if (ended.task) {
-      await this.tasks.save(ended.task);
-    }
-
-    if (ended.run !== run) {
-      await this.runs.save(ended.run);
-    }
-  }
-
-  private async handingOver(
-    runId: RunId,
-    runnerId: RunnerId,
-    handover: Handover,
-  ): Promise<Handover> {
-    const run = await this.runs.findById(runId);
-
-    if (
-      !run?.firesHooks ||
-      !run.taskId ||
-      run.hasEnded ||
-      !run.wasClaimedBy(runnerId)
-    ) {
-      return handover;
-    }
-
-    const taskView = await this.taskViews.of(run.taskId.value, run.id.value);
-
-    if (!taskView) {
-      return handover;
-    }
-
-    const decision = await this.hooks.before(taskView, {
-      on: 'handover.submitting',
-      to: handover.next === '' ? null : handover.next,
-      note: handover.note,
-    });
-
-    return decision.kind === 'denied'
-      ? handover.sentToReview(decision.reason)
-      : handover;
   }
 }

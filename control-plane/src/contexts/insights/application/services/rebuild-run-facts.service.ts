@@ -1,4 +1,6 @@
 import type { RunFactsMaintenance } from '@insights/application/services/project-run-facts.service';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RebuiltRunFacts {
   readonly owner: string;
@@ -11,7 +13,11 @@ export class RebuildRunFacts {
   async ofTeam(workspaceId: string, teamId: string): Promise<RebuiltRunFacts> {
     return {
       owner: `team ${teamId}`,
-      rebuilt: await this.facts.rebuild({ kind: 'team', workspaceId, teamId }),
+      rebuilt: await this.facts.rebuild({
+        kind: 'team',
+        workspaceId: WorkspaceId.of(workspaceId),
+        teamId: TeamId.of(teamId),
+      }),
     };
   }
 
@@ -22,7 +28,10 @@ export class RebuildRunFacts {
     for (const workspaceId of workspaceIds ?? (await this.facts.workspaces())) {
       rebuilt({
         owner: `workspace ${workspaceId}`,
-        rebuilt: await this.facts.rebuild({ kind: 'workspace', workspaceId }),
+        rebuilt: await this.facts.rebuild({
+          kind: 'workspace',
+          workspaceId: WorkspaceId.of(workspaceId),
+        }),
       });
     }
   }

@@ -11,6 +11,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { endedAtFor } from './support/run-ended';
+import { aTurn } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -115,6 +116,7 @@ const taskOnLine = async (...names: string[]) => {
       },
       createdAt: new Date(createdAt),
       stopRequestedAt,
+      ...(state === 'suspended' ? aTurn() : {}),
     });
     return id;
   };

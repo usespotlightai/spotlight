@@ -17,23 +17,7 @@ export const KNOWN_RUNS_SEAM_CROSSINGS: KnownViolations = {
     { count: 1, finding: 'S12, section 6 readers (phases 2 and 4)' },
   "reads both sides' schemas: infrastructure/persistence/drizzle/readers/station-run.reader":
     { count: 1, finding: 'S12, section 6 readers (phases 2 and 4)' },
-  'run side imports work side: application/commands/handlers/complete-run.handler -> application/ports/lifecycle-hooks.port':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'run side imports work side: application/commands/handlers/complete-run.handler -> application/ports/line-maps.port':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'run side imports work side: application/commands/handlers/complete-run.handler -> application/ports/run-journal-reader.port':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'run side imports work side: application/commands/handlers/complete-run.handler -> application/ports/task-views.port':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
   'run side imports work side: application/commands/handlers/complete-run.handler -> application/services/files-loader.service':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'run side imports work side: application/commands/handlers/complete-run.handler -> application/services/last-words':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'run side imports work side: application/commands/handlers/complete-run.handler -> domain/exceptions/task-version-conflict.error':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'run side imports work side: application/commands/handlers/complete-run.handler -> domain/repositories/task.repository':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'run side imports work side: application/commands/handlers/complete-run.handler -> domain/services/turn-end':
     { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
   'run side imports work side: application/commands/handlers/complete-run.handler -> domain/value-objects/attachment.vo':
     { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
@@ -55,16 +39,16 @@ export const KNOWN_RUNS_SEAM_CROSSINGS: KnownViolations = {
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: application/ports/run-tools-reader.port -> domain/value-objects/tool-use.vo':
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
+  'run side imports work side: application/ports/run-turns.port -> domain/value-objects/handover.vo':
+    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
+  'run side imports work side: application/ports/run-turns.port -> domain/value-objects/harness-session.vo':
+    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: application/queries/handlers/host-requirements.handler -> application/ports/control-plane-release.port':
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: application/queries/handlers/run-stop-requested.handler -> application/ports/leased-run-reader.port':
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: application/services/egress-secret-fetches.service -> domain/repositories/chat.repository':
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
-  'run side imports work side: application/services/run-start-hooks.service -> application/ports/lifecycle-hooks.port':
-    { count: 1, finding: 'WORK-B-08, RUN_START_GATES (phase 4)' },
-  'run side imports work side: application/services/run-start-hooks.service -> application/ports/task-views.port':
-    { count: 1, finding: 'WORK-B-08, RUN_START_GATES (phase 4)' },
   'run side imports work side: domain/aggregates/run.aggregate -> domain/value-objects/chat-id.vo':
     { count: 1, finding: 'X-07, stored requester model (phase 6)' },
   'run side imports work side: domain/aggregates/run.aggregate -> domain/value-objects/handover.vo':
@@ -79,10 +63,6 @@ export const KNOWN_RUNS_SEAM_CROSSINGS: KnownViolations = {
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: domain/events/run-exhausted.event -> domain/value-objects/chat-id.vo':
     { count: 1, finding: 'X-07, stored requester model (phase 6)' },
-  'run side imports work side: domain/events/run-paused.event -> domain/value-objects/handover.vo':
-    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
-  'run side imports work side: domain/events/run-paused.event -> domain/value-objects/harness-session.vo':
-    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: domain/events/run-usage-recorded.event -> domain/value-objects/tool-use.vo':
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: domain/services/permission-plan -> domain/value-objects/ready-profile':
@@ -137,8 +117,14 @@ export const KNOWN_RUNS_SEAM_CROSSINGS: KnownViolations = {
     { count: 1, finding: 'WORK-C-01, RUN_REQUESTER_LABELS (phase 4)' },
   'run side imports work side: infrastructure/persistence/drizzle/readers/runner-activity.reader -> infrastructure/persistence/drizzle/schemas/work-station.schema':
     { count: 1, finding: 'WORK-C-01, RUN_REQUESTER_LABELS (phase 4)' },
+  'run side imports work side: infrastructure/persistence/drizzle/repositories/run.repository -> domain/value-objects/attachment.vo':
+    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: infrastructure/persistence/drizzle/repositories/run.repository -> domain/value-objects/chat-id.vo':
     { count: 1, finding: 'X-07, stored requester model (phase 6)' },
+  'run side imports work side: infrastructure/persistence/drizzle/repositories/run.repository -> domain/value-objects/handover.vo':
+    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
+  'run side imports work side: infrastructure/persistence/drizzle/repositories/run.repository -> domain/value-objects/harness-session.vo':
+    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'run side imports work side: infrastructure/persistence/drizzle/repositories/run.repository -> domain/value-objects/task-revision.vo':
     { count: 1, finding: 'X-07, stored requester model (phase 6)' },
   'run side imports work side: infrastructure/persistence/drizzle/repositories/workspace-archive.repository -> domain/value-objects/chat-id.vo':
@@ -350,10 +336,6 @@ export const KNOWN_RUNS_SEAM_CROSSINGS: KnownViolations = {
     { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
   'work side imports run side internals: application/services/pause-marks.service -> domain/value-objects/run-attempt.vo':
     { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'work side imports run side internals: application/services/paused-runs.service -> domain/exceptions/run-version-conflict.error':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'work side imports run side internals: application/services/paused-runs.service -> domain/repositories/run.repository':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
   'work side imports run side internals: application/services/replay-answers.service -> domain/aggregates/run.aggregate':
     {
       count: 1,
@@ -512,12 +494,10 @@ export const KNOWN_RUNS_SEAM_CROSSINGS: KnownViolations = {
     },
   'work side imports run side internals: domain/services/task-checkouts -> domain/value-objects/run-spec.vo':
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
-  'work side imports run side internals: domain/services/turn-end -> domain/aggregates/run.aggregate':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'work side imports run side internals: domain/services/turn-end -> domain/value-objects/handover-report.vo':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
-  'work side imports run side internals: domain/services/turn-end -> domain/value-objects/run-outcome.vo':
-    { count: 1, finding: 'WORK-A-04, requester-held turn (phase 3)' },
+  'work side imports run side internals: domain/services/turn-decision -> domain/value-objects/run-outcome.vo':
+    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
+  'work side imports run side internals: domain/services/turn-decision -> domain/value-objects/run-spec.vo':
+    { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'work side imports run side internals: domain/value-objects/harness-session.vo -> domain/exceptions/invalid-harness-session.error':
     { count: 1, finding: 'X-07, move to the runs context (phase 7)' },
   'work side imports run side internals: domain/value-objects/ready-profile -> domain/services/injected-by-egress':

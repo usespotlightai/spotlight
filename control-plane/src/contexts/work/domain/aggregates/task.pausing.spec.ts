@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -17,6 +18,8 @@ import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
+import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
   lineMapOf,
   stationOf,
@@ -188,7 +191,7 @@ describe('a task put to a person by its current run', () => {
     expect(received.awaitingReview).toBe(false);
     expect(received.notes[1]?.kind).toBe('answered');
     expect(received.pullEvents()).toContainEqual(
-      new TaskAnswered(received.id, received.workspaceId, RUN),
+      new TaskAnswered(received.id, received.workspaceId, RUN, null),
     );
   });
 
@@ -234,7 +237,7 @@ describe('a task put to a person by its current run', () => {
     const task = answer(paused());
 
     expect(task.pullEvents()).toContainEqual(
-      new TaskAnswered(task.id, task.workspaceId, RUN),
+      new TaskAnswered(task.id, task.workspaceId, RUN, null),
     );
     expect(task.takesUp(RUN)).toBe(true);
     expect(paused().takesUp(RUN)).toBe(false);
@@ -275,5 +278,89 @@ describe('a task put to a person by its current run', () => {
     expect(moved.pullEvents()).toContainEqual(
       new TaskRunDetached(moved.id, moved.workspaceId, RUN),
     );
+  });
+});
+
+describe('a task awaiting the turn its run handed over', () => {
+  const TURN = AwaitedTurn.of(RUN, 1);
+  const awaiting = () =>
+    assigned().awaitTurn({
+      turn: TURN,
+      note: newNote('Which queue should I drain?', Voice.station(RUN)),
+      session: HarnessSession.of('session_1'),
+      runner: null,
+    });
+
+  it('puts itself to a person, records the session and remembers the turn it awaits', () => {
+    const task = awaiting();
+
+    expect(task.awaitingReview).toBe(true);
+    expect(task.sessionId?.value).toBe('session_1');
+    expect(task.awaitedTurn?.equals(TURN)).toBe(true);
+    expect(task.hasCurrentRun(RUN)).toBe(true);
+  });
+
+  it('awaits a turn once, so a redelivered turn asks nobody twice', () => {
+    const task = awaiting();
+
+    expect(
+      task.awaitTurn({
+        turn: TURN,
+        note: newNote('Which queue?', Voice.station(RUN)),
+        session: null,
+        runner: null,
+      }),
+    ).toBe(task);
+  });
+
+  it('only records the turn when it already awaits a person', () => {
+    const task = paused().awaitTurn({
+      turn: TURN,
+      note: newNote('A second question.', Voice.station(RUN)),
+      session: null,
+      runner: null,
+    });
+
+    expect(task.notes).toHaveLength(1);
+    expect(task.awaitedTurn?.equals(TURN)).toBe(true);
+  });
+
+  it('says which turn an answer was to, and awaits it no more (R7)', () => {
+    const answered = answer(awaiting());
+    const said = answered
+      .pullEvents()
+      .find((each) => each instanceof TaskAnswered) as TaskAnswered;
+
+    expect(said.awaitedTurn?.equals(TURN)).toBe(true);
+    expect(answered.awaitedTurn).toBeNull();
+    expect(answered.answeredTurnAt).toEqual(NOW);
+  });
+
+  it('says an answer to an approval was to no turn (R7b)', () => {
+    const said = answer(paused())
+      .pullEvents()
+      .find((each) => each instanceof TaskAnswered) as TaskAnswered;
+
+    expect(said.awaitedTurn).toBeNull();
+  });
+
+  it('awaits no turn of a run it no longer holds', () => {
+    const left = awaiting().leaveRun(RUN, NOW);
+
+    expect(left.awaitedTurn).toBeNull();
+    expect(() => Task.rehydrate({ ...left, awaitedTurn: TURN })).toThrow(
+      InconsistentStateError,
+    );
+  });
+
+  it('awaits only a turn of the run it holds', () => {
+    expect(() =>
+      assigned().awaitTurn({
+        turn: AwaitedTurn.of(RunId.of('run_9'), 1),
+        note: newNote('Which?', Voice.station(RunId.of('run_9'))),
+        session: null,
+        runner: null,
+      }),
+    ).toThrow(InvalidTaskTransitionError);
   });
 });

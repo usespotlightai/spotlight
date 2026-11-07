@@ -11,7 +11,8 @@ import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
-import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
+import { ClaimGate } from '@work/application/services/claim-gate.service';
+import { TaskRunStartGate } from '@work/application/services/task-run-start-gate.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -49,6 +50,7 @@ const starting = (
     clashes?: number;
     viewed?: boolean;
     unreachable?: boolean;
+    ungated?: boolean;
     now?: Date;
   } = {},
 ) => {
@@ -56,7 +58,7 @@ const starting = (
   let clashes = over.clashes ?? 0;
   const hookCalls: BeforeHookEvent[] = [];
   const untils: (Date | undefined)[] = [];
-  const warned: string[] = [];
+  const logged: string[] = [];
   const of = vi.fn(async (taskId: string, runId: string | null) =>
     over.viewed === false
       ? null
@@ -78,35 +80,45 @@ const starting = (
     of,
     runs,
     current: () => current,
-    hooks: new RunStartHooks(
+    hooks: gate(),
+    logged,
+    untils,
+  };
+
+  function gate(): ClaimGate {
+    const claims = new ClaimGate(
       runs as unknown as RunRepository,
-      { of } as unknown as TaskViewsPort,
-      {
-        listens: async () => true,
-        before: async (_task, event, until) => {
-          if (over.unreachable) {
-            throw new Error('connect ECONNREFUSED');
-          }
-          hookCalls.push(event);
-          untils.push(until);
-          return over.decision ?? { kind: 'allowed' };
-        },
-        after: async () => {},
-      },
       { now: () => over.now ?? NOW, sleep: async () => {} },
       {
         debug: () => {},
         info: () => {},
-        warn: (_fields: unknown, message: string) => void warned.push(message),
-        error: () => {},
+        warn: () => {},
+        error: (_fields: unknown, message: string) => void logged.push(message),
       },
-    ),
-    warned,
-    untils,
-  };
+    );
+
+    if (!over.ungated) {
+      claims.register(
+        new TaskRunStartGate({ of } as unknown as TaskViewsPort, {
+          listens: async () => true,
+          before: async (_task, event, until) => {
+            if (over.unreachable) {
+              throw new Error('connect ECONNREFUSED');
+            }
+            hookCalls.push(event);
+            untils.push(until);
+            return over.decision ?? { kind: 'allowed' };
+          },
+          after: async () => {},
+        }),
+      );
+    }
+
+    return claims;
+  }
 };
 
-describe('RunStartHooks', () => {
+describe('ClaimGate', () => {
   it('lets a run start that no hook denies, after calling them about its task', async () => {
     const { hooks, hookCalls, of } = starting();
 
@@ -177,7 +189,7 @@ describe('RunStartHooks', () => {
   });
 
   it('requeues a run, attempt unspent, when its hooks could not be called', async () => {
-    const { hooks, current, warned } = starting({ unreachable: true });
+    const { hooks, current, logged } = starting({ unreachable: true });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe(
       'requeued',
@@ -185,6 +197,17 @@ describe('RunStartHooks', () => {
     expect(current().state).toBe('queued');
     expect(current().attempt).toBe(1);
     expect(current().claimedBy).toBeNull();
-    expect(warned).toHaveLength(1);
+    expect(logged).toHaveLength(1);
+  });
+
+  it('requeues a gated run, and says so, when no start gate answers for its owner', async () => {
+    const { hooks, current, logged, hookCalls } = starting({ ungated: true });
+
+    expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe(
+      'requeued',
+    );
+    expect(current().state).toBe('queued');
+    expect(hookCalls).toEqual([]);
+    expect(logged).toHaveLength(1);
   });
 });

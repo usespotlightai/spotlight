@@ -14,15 +14,20 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { lastWordsIn } from '@work/application/services/last-words';
+import { RunRouting } from '@work/application/services/run-routing.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { HandoverFor } from '@work/domain/services/handover-for';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
@@ -177,6 +182,7 @@ const tasks = (found: Task | null = task()) =>
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
@@ -193,24 +199,69 @@ const dispatch: TaskDispatching = {
   runIdFor: async () => RunId.of('run_2'),
 };
 
-const handOver = (ended = run(false), stored: TaskRepository = tasks()) => {
-  const handler = new HandOver(
-    stored,
+const handOver = async (
+  ended = run(false),
+  stored: TaskRepository = tasks(),
+  journals: readonly RunJournal[] = [],
+) => {
+  const routing = new RunRouting(
     stored as TaskRepository & TaskPlacementsPort,
-    lines(),
     dispatch,
     clock,
   );
+  const handler = new HandOver(stored, lines(), routing, {
+    attemptsOfRun: async () => journals,
+  } as unknown as RunJournalReaderPort);
   const [raised] = ended.pullEvents();
 
   if (!raised) {
     throw new Error('the run announced nothing');
   }
 
+  if (raised instanceof RunCompleted && raised.outcome.handsOver) {
+    return routedAsItsTurn(raised, stored, routing, journals);
+  }
+
   return raised instanceof RunCompleted
     ? handler.onRunCompleted(raised)
     : handler.onRunExhausted(raised as RunExhausted);
 };
+
+const routedAsItsTurn = async (
+  ended: RunCompleted,
+  stored: TaskRepository,
+  routing: RunRouting,
+  journals: readonly RunJournal[],
+) => {
+  const task = ended.taskId ? await stored.find(ended.taskId) : null;
+
+  if (!task?.hasCurrentRun(ended.runId)) {
+    return;
+  }
+
+  const map = line();
+  const handover = HandoverFor.after({
+    outcome: ended.outcome,
+    handover: ended.handover,
+    line: map,
+    currentStation: task.stationId,
+    lastWords: ended.handover
+      ? null
+      : lastWordsIn(journals, task.lastPersonNoteAt),
+  });
+  const recorded = ended.session
+    ? task.recordSession(ended.runId, ended.session, ended.claimedBy)
+    : task;
+
+  await stored.save(await routing.routed(handover, recorded, map, ended.runId));
+};
+
+const journalOf = (said: string): RunJournal =>
+  ({
+    runId: 'run_1',
+    attempt: 1,
+    steps: [{ kind: 'message', text: said }],
+  }) as unknown as RunJournal;
 
 beforeEach(() => {
   saved = undefined;
@@ -228,12 +279,9 @@ describe('HandOver', () => {
   });
 
   it('puts the last words of a run without a handover to the person', async () => {
-    await handOver(
-      run(
-        false,
-        HandoverReport.of({ lastWords: 'Here is a draft you can use.' }),
-      ),
-    );
+    await handOver(run(false), tasks(), [
+      journalOf('Here is a draft you can use.'),
+    ]);
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes.map((each) => each.body.value)).toEqual([

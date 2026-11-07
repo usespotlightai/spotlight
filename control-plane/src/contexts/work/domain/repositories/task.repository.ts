@@ -31,6 +31,8 @@ export interface TaskRepository {
 
   settingUp(): Promise<readonly Task[]>;
 
+  withTurnAnsweredBetween(after: Date, before: Date): Promise<readonly Task[]>;
+
   awaitingConnection(
     teamId: TeamId,
     personId: UserId,

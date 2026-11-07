@@ -47,7 +47,7 @@ const atStation = (runs: StationRuns): SQL | undefined =>
 
 const boundsOf = (earliest: readonly ConfigIntervalBound[]): SQL => {
   const stationIds = sql.join(
-    earliest.map(({ stationId }) => sql`${stationId}`),
+    earliest.map(({ stationId }) => sql`${stationId.value}`),
     sql`, `,
   );
   const froms = sql.join(

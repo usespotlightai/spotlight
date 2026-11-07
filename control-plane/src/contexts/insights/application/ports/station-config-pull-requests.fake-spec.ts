@@ -32,8 +32,8 @@ export const stationConfigPullRequestsInMemory =
           if (
             each.workspaceId.equals(station.workspaceId) &&
             each.teamId.equals(station.teamId) &&
-            each.stationId === station.stationId &&
-            fingerprints.includes(each.fingerprint) &&
+            each.stationId.equals(station.stationId) &&
+            fingerprints.some((one) => one === each.fingerprint) &&
             (!known || each.openedAt > known.openedAt)
           ) {
             newest.set(each.fingerprint, each);

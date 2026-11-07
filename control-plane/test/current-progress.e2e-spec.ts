@@ -14,6 +14,7 @@ import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/read
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf, endedAtFor } from './support/run-ended';
+import { aTurn } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -33,7 +34,12 @@ type RunState = (typeof schema.run.$inferInsert)['state'];
 
 const inboxWith = async (
   state: RunState | null,
-  { stopRequestedAt = null as Date | null, answered = true, asked = true } = {},
+  {
+    stopRequestedAt = null as Date | null,
+    answered = true,
+    asked = true,
+    turn = 'kept' as 'pending' | 'kept',
+  } = {},
 ) => {
   const workspaceId = randomUUID();
   const lineId = randomUUID();
@@ -78,6 +84,7 @@ const inboxWith = async (
       endedAt: endedAtFor(state),
       stopRequestedAt,
       spec: {},
+      ...(state === 'suspended' ? aTurn(turn) : {}),
     });
   }
   const askedBy = await aRunOf(db, {
@@ -197,6 +204,26 @@ describe('the progress of a task whose run was suspended for a person', () => {
 
     expect(inbox?.progress).toBeNull();
     expect(board?.progress).toBeNull();
+  });
+
+  it('is in progress, not queued, while its task still decides what the run handed over (R12)', async () => {
+    const { board, running } = await inboxWith('suspended', {
+      asked: false,
+      turn: 'pending',
+    });
+
+    expect(board?.progress).toBe('in-progress');
+    expect(running?.progress).toBe('in-progress');
+  });
+
+  it('is stopping when a stop came in while its task still decides the turn', async () => {
+    const { board } = await inboxWith('suspended', {
+      asked: false,
+      turn: 'pending',
+      stopRequestedAt: new Date(),
+    });
+
+    expect(board?.progress).toBe('stopping');
   });
 
   it('is queued again once the person answered a suspended run', async () => {

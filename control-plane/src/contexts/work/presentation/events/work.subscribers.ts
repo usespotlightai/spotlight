@@ -44,6 +44,7 @@ import type { OrderChatRun } from '@work/application/events/handlers/order-chat-
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import {
   type NewTeam,
   WELCOME_TEAM,
@@ -55,12 +56,12 @@ import {
 } from '@work/application/mappers/bindable-task-event.mapper';
 import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
-import type { PausedRuns } from '@work/application/services/paused-runs.service';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import type { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { RunnerLeases } from '@work/application/services/runner-leases.service';
 import type { SandboxLeases } from '@work/application/services/sandbox-leases.service';
+import type { TakeTurn } from '@work/application/services/take-turn.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
 import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
@@ -125,7 +126,8 @@ const reactingToOutcomes = (
 
 export const workSubscribers = (reactions: {
   handOver: RunOutcomes;
-  pausedRuns: PausedRuns;
+  answeredRuns: TakeUpAnsweredRun;
+  turns: TakeTurn;
   pauseMarks: PauseMarks;
   chatOutcomes: RunOutcomes;
   channel: NotifyChannel;
@@ -216,7 +218,14 @@ export const workSubscribers = (reactions: {
   subscribing<TaskAnswered>(
     'work.take-up-the-run-a-person-answered',
     ['task.answered'],
-    (event) => reactions.pausedRuns.onTaskAnswered(event),
+    (event) => reactions.answeredRuns.on(event),
+    { callsOut: true },
+  ),
+  subscribing<RunSuspended>(
+    'work.take-turn',
+    ['run.suspended'],
+    (event) => reactions.turns.take(event.runId, event.attempt),
+    { callsOut: true },
   ),
   subscribing<RunReservationDropped>(
     'work.release-reserved-runner',

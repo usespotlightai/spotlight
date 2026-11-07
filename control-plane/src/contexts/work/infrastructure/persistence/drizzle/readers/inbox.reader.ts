@@ -25,6 +25,7 @@ import type {
   InboxRunSummary,
   InboxScope,
 } from '@work/application/ports/inbox-reader.port';
+import type { RunFacts } from '@work/application/ports/run-facts.port';
 import { inboxSectionOf } from '@work/application/read-models/inbox-section';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
@@ -145,6 +146,7 @@ const tasksWhere = (
       working: task.currentRunId,
       workingState: run.state,
       workingStopRequestedAt: run.stopRequestedAt,
+      workingTurn: run.turn,
       workingSince: run.queuedAt,
     })
     .from(task)
@@ -248,11 +250,13 @@ interface TaskContext {
 const workingOf = (row: {
   readonly workingState: RunState | null;
   readonly workingStopRequestedAt: Date | null;
+  readonly workingTurn: RunFacts['turn'];
 }) =>
   row.workingState
     ? {
         state: row.workingState,
         stopRequested: row.workingStopRequestedAt !== null,
+        turn: row.workingTurn,
       }
     : null;
 

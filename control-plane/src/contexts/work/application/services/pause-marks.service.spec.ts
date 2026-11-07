@@ -1,10 +1,8 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { RunJournalPort } from '@work/application/ports/run-journal.port';
 import { PauseMarks } from '@work/application/services/pause-marks.service';
 import { RunPaused } from '@work/domain/events/run-paused.event';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-10-30T09:00:00.000Z');
@@ -13,11 +11,6 @@ const paused = (resumesAtOnce: boolean) =>
   new RunPaused(
     RunId.of('run_1'),
     WorkspaceId.of('ws_1'),
-    null,
-    RunnerId.of('runner_1'),
-    RunOutcome.of({ exitCode: 0, failed: false }),
-    null,
-    null,
     1,
     NOW,
     resumesAtOnce,

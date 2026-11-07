@@ -11,6 +11,7 @@ import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
+import { MemoryReference } from '@insights/domain/value-objects/run-memories.vo';
 import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
@@ -293,7 +294,7 @@ describe('run facts', () => {
     await records.add(
       RunRecord.empty(runId, WORKSPACE, TaskId.of('task_b')).recordMemories(
         'briefed',
-        ['mem_1'],
+        [MemoryReference.of('mem_1')],
       ),
     );
 
@@ -309,7 +310,9 @@ describe('run facts', () => {
     });
 
     const finished = (await records.of(runId)) as RunRecord;
-    await records.save(finished.recordMemories('recalled', ['mem_2']));
+    await records.save(
+      finished.recordMemories('recalled', [MemoryReference.of('mem_2')]),
+    );
 
     expect(await factOf('run_briefed')).toMatchObject({
       memories: { briefed: ['mem_1'], recalled: ['mem_2'] },
@@ -554,7 +557,7 @@ describe('run facts', () => {
 
     const rebuilt = await facts.rebuild({
       kind: 'workspace',
-      workspaceId: WORKSPACE.value,
+      workspaceId: WORKSPACE,
     });
 
     expect(rebuilt).toBe(1_205);
@@ -756,8 +759,8 @@ describe('run facts', () => {
             stationId: null,
             outcome,
             harness: null,
-            model: null,
-            repository: null,
+            model: { kind: 'any' },
+            repository: { kind: 'any' },
             fingerprint: null,
             taskId: null,
             taskIds: null,
@@ -770,10 +773,10 @@ describe('run facts', () => {
             serverFailed: null,
             failedAfter: null,
             dismissedTool: null,
-            dismissedServer: null,
+            dismissedServer: { kind: 'any' },
             pullRequestState: null,
             humanAction: null,
-            asked: null,
+            asked: false,
           },
           window,
         ),

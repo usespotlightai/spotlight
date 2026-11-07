@@ -22,6 +22,7 @@ import {
   fingerprintGroupsNewestFirst,
 } from '@insights/domain/services/fingerprint-groups';
 import { runTally, tallyRatesOf } from '@insights/domain/services/run-tally';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import { listingSizeOf } from '@insights/domain/value-objects/listing.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -57,7 +58,7 @@ export class ReadStationInsightsHandler
       const carried = oldest
         ? await this.facts.lastConfigRunsBefore(access.teamId, [
             {
-              stationId: query.stationId,
+              stationId: StationId.of(query.stationId),
               from: oldest.end.beganAt,
               fromRun: oldest.runId,
             },
@@ -77,12 +78,14 @@ export class ReadStationInsightsHandler
         {
           workspaceId: access.workspaceId,
           teamId: access.teamId,
-          stationId: query.stationId,
+          stationId: StationId.of(query.stationId),
         },
         [
           ...new Set(
             newestFirst.flatMap((group) =>
-              group.fingerprint ? [group.fingerprint] : [],
+              group.fingerprint
+                ? [ConfigFingerprint.of(group.fingerprint)]
+                : [],
             ),
           ),
         ],

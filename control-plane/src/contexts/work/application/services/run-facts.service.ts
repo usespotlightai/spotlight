@@ -9,10 +9,16 @@ import type {
   LeasedRun,
   RunLeasesPort,
 } from '@work/application/ports/run-leases.port';
+import type {
+  RunTurnsPort,
+  TurnFacts,
+  TurnsCursor,
+} from '@work/application/ports/run-turns.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
+import type { RunTurnState } from '@work/domain/value-objects/run-turn.vo';
 
 const subjectOf = (run: Run): RunSubjectFacts | null =>
   run.subject?.match<RunSubjectFacts>({
@@ -49,6 +55,8 @@ const factsOf = (run: Run): RunFactsDto => {
     ended: run.hasEnded,
     attempt: run.attempt,
     stopRequested: run.stopRequested,
+    turn: run.turn?.state ?? null,
+    suspendedAt: run.turn?.suspendedAt ?? null,
     claimedBy: run.claimedBy,
     harness: run.harness,
     requester: {
@@ -76,7 +84,26 @@ const leasedOf = (run: Run, runner: RunnerId): LeasedRun => {
   };
 };
 
-export class RunFacts implements RunFactsPort, RunLeasesPort {
+const turnFactsOf = (run: Run): TurnFacts | null => {
+  const turn = run.turnAt(run.attempt);
+
+  return turn && run.outcome
+    ? {
+        runId: run.id,
+        workspaceId: run.workspaceId,
+        attempt: run.attempt,
+        turn: turn.state,
+        outcome: run.outcome,
+        handover: turn.report.handover,
+        session: turn.report.session,
+        reportedBy: turn.reportedBy,
+        suspendedAt: turn.suspendedAt,
+        stopRequested: run.stopRequested,
+      }
+    : null;
+};
+
+export class RunFacts implements RunFactsPort, RunLeasesPort, RunTurnsPort {
   constructor(private readonly runs: RunRepository) {}
 
   async of(runIds: readonly RunId[]): Promise<readonly RunFactsDto[]> {
@@ -109,6 +136,32 @@ export class RunFacts implements RunFactsPort, RunLeasesPort {
     const run = await this.found(runId);
 
     run.assertStillOn(RunAttempt.of(runId, attempt), runner);
+  }
+
+  async turnOf(runId: RunId, attempt: number): Promise<TurnFacts | null> {
+    const run = await this.runs.findById(runId);
+
+    return run?.turnAt(attempt) ? turnFactsOf(run) : null;
+  }
+
+  async ofTasksOlderThan(
+    turn: RunTurnState,
+    before: Date,
+    after: TurnsCursor | null,
+    max: number,
+  ): Promise<readonly TurnFacts[]> {
+    const runs = await this.runs.turnsOfTasksSuspendedBefore(
+      turn,
+      before,
+      after && { suspendedAt: after.suspendedAt, id: after.runId },
+      max,
+    );
+
+    return runs.flatMap((run) => {
+      const facts = turnFactsOf(run);
+
+      return facts ? [facts] : [];
+    });
   }
 
   private async found(runId: RunId): Promise<Run> {

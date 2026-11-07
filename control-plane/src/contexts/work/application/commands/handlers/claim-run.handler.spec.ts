@@ -17,14 +17,14 @@ import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.h
 import { ClaimRunCommand } from '@work/application/commands/runner.commands';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { ClaimedCheck } from '@work/application/ports/check-work.port';
+import type {
+  ClaimGate,
+  RunStart,
+} from '@work/application/services/claim-gate.service';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { LongPoll } from '@work/application/services/long-poll';
 import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
-import type {
-  RunStart,
-  RunStartHooks,
-} from '@work/application/services/run-start-hooks.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
@@ -151,7 +151,7 @@ const claiming = (
       error: () => {},
     }),
     { failed } as unknown as ProvisionFailures,
-    { mayStart } as unknown as RunStartHooks,
+    { mayStart } as unknown as ClaimGate,
     new LongPoll(clock),
     {
       liveKeysIn: vi.fn(async () => over.liveKeys ?? []),

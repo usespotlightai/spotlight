@@ -18,8 +18,6 @@ import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
-import { RunResumed } from '@work/domain/events/run-resumed.event';
-import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
 import { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
@@ -47,6 +45,7 @@ import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
@@ -123,6 +122,7 @@ import {
 } from '@work/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { RunTurn } from '@work/domain/value-objects/run-turn.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { Signing } from '@work/domain/value-objects/signing.vo';
@@ -277,6 +277,8 @@ export const WORK_PAYLOAD_TYPES = [
   DispatchEnding,
   DispatchOrder,
   RunPolicy,
+  RunTurn,
+  AwaitedTurn,
   RequesterOwner,
   RunRequester,
   RunCompleted,
@@ -288,9 +290,7 @@ export const WORK_PAYLOAD_TYPES = [
   RunLeaseExpired,
   RunSuspended,
   RunPaused,
-  RunResumed,
   RunReservationDropped,
-  RunStopRequested,
   TaskActedOn,
   TaskAnswered,
   TaskAsked,

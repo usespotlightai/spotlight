@@ -32,7 +32,7 @@ export class DrizzleStationConfigPullRequests
         and(
           eq(configPullRequest.workspaceId, station.workspaceId.value),
           eq(configPullRequest.teamId, station.teamId.value),
-          eq(configPullRequest.stationId, station.stationId),
+          eq(configPullRequest.stationId, station.stationId.value),
           isNotNull(configPullRequest.url),
           inArray(configPullRequest.proposing, [...fingerprints]),
         ),

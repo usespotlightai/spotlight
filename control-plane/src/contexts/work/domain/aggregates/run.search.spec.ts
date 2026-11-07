@@ -84,9 +84,9 @@ describe('a search run', () => {
   });
 
   it('never waits for a person', () => {
-    expect(() =>
-      claimed().suspend(RUNNER, finished, reportOf('review'), NOW),
-    ).toThrow(InvalidRunTransitionError);
+    expect(
+      claimed().reportTurn(RUNNER, finished, reportOf('review'), NOW).state,
+    ).toBe('completed');
   });
 
   it('ends recording that it asked a person, when its runner says so, and only then', () => {

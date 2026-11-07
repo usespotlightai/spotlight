@@ -23,13 +23,13 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
 import type { ClaimedCheck } from '@work/application/ports/check-work.port';
+import type {
+  ClaimGate,
+  RunStart,
+} from '@work/application/services/claim-gate.service';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { LongPoll } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
-import type {
-  RunStart,
-  RunStartHooks,
-} from '@work/application/services/run-start-hooks.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
@@ -183,7 +183,7 @@ const pulling = (
     { expireLeases: vi.fn(async () => []) } as unknown as RunLeases,
     checks,
     clock,
-    { mayStart: mayStart } as unknown as RunStartHooks,
+    { mayStart: mayStart } as unknown as ClaimGate,
     new ClaimsTaken(runs, checks, runners as unknown as RunnersPort, clock, {
       debug: () => {},
       info: () => {},

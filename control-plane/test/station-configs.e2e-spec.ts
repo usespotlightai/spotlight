@@ -24,7 +24,7 @@ import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/driz
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { aDispatch } from './support/runs';
+import { aDispatch, aTurn } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -144,6 +144,7 @@ const ran = async (
     createdAt: at,
     updatedAt: at,
     endedAt: ended ? at : null,
+    ...(state === 'suspended' ? aTurn() : {}),
   });
   await db.insert(schema.dispatch).values(
     aDispatch({

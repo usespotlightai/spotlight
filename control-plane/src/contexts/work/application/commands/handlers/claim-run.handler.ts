@@ -7,12 +7,12 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { ClaimRunCommand } from '@work/application/commands/runner.commands';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
+import type { ClaimGate } from '@work/application/services/claim-gate.service';
 import { claimedRun } from '@work/application/services/claimed-work';
 import type { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import type { LongPoll } from '@work/application/services/long-poll';
 import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
-import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { UnknownRunnerError } from '@work/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { Claimant } from '@work/domain/value-objects/claimant';
@@ -29,7 +29,7 @@ export class ClaimRunHandler
     private readonly checks: CheckWorkPort,
     private readonly taken: ClaimsTaken,
     private readonly failures: ProvisionFailures,
-    private readonly starting: RunStartHooks,
+    private readonly starting: ClaimGate,
     private readonly polls: LongPoll,
     private readonly sandboxes: SandboxesPort,
   ) {}

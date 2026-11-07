@@ -13,10 +13,12 @@ import { ScoreVersionConflictError } from '@insights/domain/exceptions/score-ver
 import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal';
 import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
@@ -45,13 +47,13 @@ import { projectedInsights } from './support/insights-facts';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const TEAM = TeamId.of('team_1');
-const VERSION = 'c'.repeat(64);
-const CONFIG = 'a'.repeat(64);
+const VERSION = RubricVersion.of('c'.repeat(64));
+const CONFIG = ConfigFingerprint.of('a'.repeat(64));
 const NOW = new Date('2026-09-30T10:00:00.000Z');
 const LATER = new Date('2026-09-30T12:00:00.000Z');
 const YES_NO = ScoreScale.yesNo();
 const CLAIMS_STATION = 'station_claims';
-const CLAIMS_VERSION = 'e'.repeat(64);
+const CLAIMS_VERSION = RubricVersion.of('e'.repeat(64));
 const CLAIMS = ['It retries the upload.', 'It adds a test for it.'] as const;
 
 const locationOf = (taskId: string) =>
@@ -559,7 +561,7 @@ describe('how often the judge agrees with people', () => {
     });
     const recording = new RecordJudgeScore(
       Object.assign(Object.create(scores), {
-        judgeOf: async (runId: RunId, rubricVersion: string) => {
+        judgeOf: async (runId: RunId, rubricVersion: RubricVersion) => {
           loading();
           await released;
           return scores.judgeOf(runId, rubricVersion);

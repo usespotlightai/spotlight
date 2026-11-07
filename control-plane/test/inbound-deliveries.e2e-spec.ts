@@ -76,7 +76,7 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
     const first = await claimed();
 
     expect(first.id).toBe(id);
-    expect(first.causeFiringId).toBe('firing_1');
+    expect(first.causeFiringId?.value).toBe('firing_1');
     expect(first.headers).toEqual({ 'x-github-delivery': id });
 
     await deliveries.save(first.worked(NOW));

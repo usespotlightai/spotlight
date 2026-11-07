@@ -31,8 +31,6 @@ import {
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Handover } from '@work/domain/value-objects/handover.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -162,16 +160,17 @@ const claimed = async (runId: RunId) => {
 };
 
 const endedPassingTo = async (runId: RunId, next: string) => {
-  await runs.save(
-    (await runOf(runId)).complete(
-      RUNNER,
-      RunOutcome.of({ exitCode: 0, failed: false }),
-      HandoverReport.of({
-        handover: Handover.of({ next, note: 'Uploads retry now.' }),
-        session: null,
-      }),
-    ),
+  await app.get(CommandBus).execute(
+    new CompleteRunCommand(runId.value, RUNNER.value, 0, false, undefined, {
+      next,
+      note: 'Uploads retry now.',
+    }),
   );
+  await eventually(async () => {
+    const run = await runOf(runId);
+
+    return run.hasEnded || run.turn?.state === 'kept';
+  });
 };
 
 const pausedAsking = async (runId: RunId) => {
@@ -189,6 +188,7 @@ const pausedAsking = async (runId: RunId) => {
       ),
     );
   expect((await runOf(runId)).state).toBe('suspended');
+  await eventually(async () => (await runOf(runId)).turn?.state === 'kept');
 };
 
 const answered = (task: Task, from: number, body: string, approve?: boolean) =>

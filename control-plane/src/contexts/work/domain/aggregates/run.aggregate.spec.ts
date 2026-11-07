@@ -16,7 +16,6 @@ import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
-import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -781,15 +780,6 @@ describe('Run', () => {
 
       expect(stopping.stopRequested).toBe(true);
       expect(stopping.stopRequestedAt).toEqual(at('2026-08-23T12:00:30.000Z'));
-    });
-
-    it('announces the request so it is a fact of the model', () => {
-      const [raised] = claimed()
-        .requestStop(at('2026-08-23T12:00:30.000Z'))
-        .pullEvents();
-
-      expect(raised).toBeInstanceOf(RunStopRequested);
-      expect((raised as RunStopRequested).runId).toEqual(RunId.of('run_1'));
     });
 
     it('is not stop-requested until someone requests it', () => {

@@ -12,8 +12,8 @@ const factsOf = (workspaces: readonly string[]) => {
     rebuild: async (owner) => {
       rebuilt.push(
         owner.kind === 'team'
-          ? `${owner.workspaceId} ${owner.teamId}`
-          : owner.workspaceId,
+          ? `${owner.workspaceId.value} ${owner.teamId.value}`
+          : owner.workspaceId.value,
       );
       return 2;
     },

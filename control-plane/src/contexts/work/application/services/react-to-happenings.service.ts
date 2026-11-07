@@ -9,6 +9,7 @@ import type {
   Happened,
   InboundAttachment,
 } from '@work/application/contracts/happenings.contract';
+import { HappeningHeldError } from '@work/application/errors/happening-held.error';
 import {
   HappenedMapper,
   type ReceivedHappening,
@@ -17,6 +18,7 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
+import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import {
@@ -34,6 +36,7 @@ import {
   type Outcome,
   ReactionFor,
 } from '@work/domain/services/reaction-for';
+import { TurnWait } from '@work/domain/services/turn-wait';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
@@ -79,6 +82,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly processed: ProcessedEventsPort,
     private readonly logger: LoggerPort,
     private readonly channels: ChannelChats,
+    private readonly runs: RunFactsPort,
   ) {}
 
   async react(
@@ -87,6 +91,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
     happenings: readonly Happened[],
     receivedAs: string | null,
   ): Promise<void> {
+    let held = false;
+
     for (const arrived of happenings) {
       const key = receivedAs ? `${receivedAs}\n${identityOf(arrived)}` : null;
       const happened = this.received(workspaceId, arrived);
@@ -95,6 +101,11 @@ export class ReactToHappenings implements HappeningReactionsPort {
         !happened ||
         (key && (await this.processed.wasProcessed(workspaceId, key)))
       ) {
+        continue;
+      }
+
+      if (key && (await this.heldByATurn(workspaceId, happened))) {
+        held = true;
         continue;
       }
 
@@ -115,6 +126,31 @@ export class ReactToHappenings implements HappeningReactionsPort {
         await this.channels.answer(answer);
       }
     }
+
+    if (held) {
+      throw new HappeningHeldError();
+    }
+  }
+
+  private async heldByATurn(
+    workspaceId: WorkspaceId,
+    happened: ReceivedHappening,
+  ): Promise<boolean> {
+    const task = await correlatedTask(
+      this.tasks,
+      workspaceId,
+      happened.correlationKeys,
+    );
+    const [run] = task?.currentRunId
+      ? await this.runs.of([task.currentRunId])
+      : [];
+
+    return run?.suspendedAt
+      ? TurnWait.holdsHappening(
+          run.turn,
+          this.clock.now().getTime() - run.suspendedAt.getTime(),
+        )
+      : false;
   }
 
   private received(

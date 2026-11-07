@@ -10,6 +10,8 @@ import type {
 } from '@lines/application/contracts/line-view.contract';
 import type { LinesPort } from '@lines/application/ports/lines.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MEASURE: Readonly<Record<AlertMeasureView, AlertMeasure>> = {
   sent_back_rate: 'sent_back_rate',
@@ -26,17 +28,17 @@ export class Lines implements LineSettingsPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async alertsAt(stationId: string): Promise<readonly AlertRule[] | null> {
-    const line = await this.lines.findByStation(stationId);
-    const station = line?.stations.find((each) => each.id === stationId);
+  async alertsAt(stationId: StationId): Promise<readonly AlertRule[] | null> {
+    const line = await this.lines.findByStation(stationId.value);
+    const station = line?.stations.find((each) => each.id === stationId.value);
 
     return station
-      ? station.alerts.flatMap((each) => this.ruleOf(stationId, each))
+      ? station.alerts.flatMap((each) => this.ruleOf(stationId.value, each))
       : null;
   }
 
-  async teamRepositories(teamId: string): Promise<readonly string[]> {
-    const names = (await this.lines.ofTeam(teamId)).flatMap((line) =>
+  async teamRepositories(teamId: TeamId): Promise<readonly string[]> {
+    const names = (await this.lines.ofTeam(teamId.value)).flatMap((line) =>
       line.repositories.map((each) => each.repository),
     );
 

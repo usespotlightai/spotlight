@@ -87,3 +87,28 @@ describe('takenUpOnAnswer', () => {
     ).toBe(false);
   });
 });
+
+describe('the progress of a run whose turn is still being decided (R12)', () => {
+  const pending = {
+    state: 'suspended' as const,
+    stopRequested: false,
+    turn: 'pending' as const,
+  };
+
+  it('stays in progress for a task that took it up, rather than flickering back to queued', () => {
+    expect(progressOfCurrentRun(pending, true)).toBe('in-progress');
+  });
+
+  it('is stopping when a stop came in during the turn', () => {
+    expect(
+      progressOfCurrentRun({ ...pending, stopRequested: true }, true),
+    ).toBe('stopping');
+  });
+
+  it('counts a kept turn as queued for a task taking it up again, and as nothing otherwise', () => {
+    const kept = { ...pending, turn: 'kept' as const };
+
+    expect(progressOfCurrentRun(kept, true)).toBe('queued');
+    expect(progressOfCurrentRun(kept, false)).toBeNull();
+  });
+});

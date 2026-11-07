@@ -92,3 +92,16 @@ export const aTrial = (
   asOf: input.asOf ?? null,
   trialRepositories: [...(input.repositories ?? [])],
 });
+
+export const aTurn = (
+  turn: 'pending' | 'kept' = 'kept',
+  suspendedAt: Date = new Date(),
+) => ({
+  turn,
+  suspendedAt,
+  turnReport: {
+    handover: { next: 'review', note: 'Which queue?', attachments: [] },
+    session: null,
+    reportedBy: 'runner_1',
+  },
+});

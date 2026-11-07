@@ -17,6 +17,7 @@ import {
   type TaskOpeningFact,
 } from '@insights/domain/value-objects/run-fact.vo';
 import {
+  type MemoryReference,
   type MemoryVia,
   RunMemories,
 } from '@insights/domain/value-objects/run-memories.vo';
@@ -261,7 +262,10 @@ export class RunRecord extends EventRecorder {
     return dismissed;
   }
 
-  recordMemories(via: MemoryVia, memories: readonly string[]): RunRecord {
+  recordMemories(
+    via: MemoryVia,
+    memories: readonly MemoryReference[],
+  ): RunRecord {
     const used = this.memories.with(via, memories);
 
     if (used === this.memories) {

@@ -35,11 +35,15 @@ import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exist
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type {
   Claimant,
   SandboxRouting,
 } from '@work/domain/value-objects/claimant';
+import { Handover } from '@work/domain/value-objects/handover.vo';
+import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
+import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
@@ -51,6 +55,10 @@ import {
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import {
+  RunTurn,
+  type RunTurnState,
+} from '@work/domain/value-objects/run-turn.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
@@ -59,10 +67,14 @@ import { placementMatches } from '@work/infrastructure/persistence/drizzle/place
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   and,
+  asc,
   desc,
   eq,
+  gt,
   inArray,
+  isNotNull,
   isNull,
+  lt,
   lte,
   or,
   type SQL,
@@ -298,10 +310,14 @@ export class DrizzleRunRepository implements RunRepository {
         stopped: saved.outcome?.stopped ?? false,
         ranIn: saved.ranIn?.value ?? null,
         startedAt: saved.startedAt,
-        endedAt: endedAtFor(saved.state, sql`coalesce(${run.endedAt}, now())`),
+        endedAt: endedAtFor(
+          saved.state,
+          saved.endedAt ?? sql`coalesce(${run.endedAt}, now())`,
+        ),
         spec: RunSpecContract.toWire(saved.spec),
         suspendedAttempts: [...saved.suspendedAttempts],
         askedAPerson: saved.askedAPerson,
+        ...turnOf(saved),
         ...(saved.state === 'queued'
           ? {
               queuedAt: sql`case when ${run.state} = 'queued' then ${run.queuedAt} else now() end`,
@@ -325,6 +341,35 @@ export class DrizzleRunRepository implements RunRepository {
         lte(run.leaseExpiresAt, now),
       ),
     );
+
+    return rows.map(toRun);
+  }
+
+  async turnsOfTasksSuspendedBefore(
+    turn: RunTurnState,
+    before: Date,
+    after: { readonly suspendedAt: Date; readonly id: RunId } | null,
+    max: number,
+  ): Promise<readonly Run[]> {
+    const rows = await this.selected()
+      .where(
+        and(
+          eq(run.turn, turn),
+          isNotNull(run.taskId),
+          lt(run.suspendedAt, before),
+          after
+            ? or(
+                gt(run.suspendedAt, after.suspendedAt),
+                and(
+                  eq(run.suspendedAt, after.suspendedAt),
+                  gt(run.id, after.id.value),
+                ),
+              )
+            : undefined,
+        ),
+      )
+      .orderBy(asc(run.suspendedAt), asc(run.id))
+      .limit(max);
 
     return rows.map(toRun);
   }
@@ -444,7 +489,69 @@ const reservationFrom = (row: Row): RunnerReservation | null =>
       )
     : null;
 
-const endedAtFor = (state: RunState, ended: SQL) =>
+const turnOf = (saved: Run) => {
+  const turn = saved.turn;
+
+  if (!turn) {
+    return { turn: null, turnReport: null, suspendedAt: null };
+  }
+
+  const { handover, session } = turn.report;
+
+  return {
+    turn: turn.state,
+    suspendedAt: turn.suspendedAt,
+    turnReport: {
+      handover: handover && {
+        next: handover.next,
+        note: handover.note,
+        attachments: handover.attachments.map((each) => ({
+          id: each.id.value,
+          name: each.name,
+          contentType: each.contentType,
+          size: each.size,
+        })),
+      },
+      session: session?.value ?? null,
+      reportedBy: turn.reportedBy.value,
+    },
+  };
+};
+
+const turnFrom = (row: Row): RunTurn | null => {
+  if (row.turn === null) {
+    return null;
+  }
+
+  if (row.turnReport === null || row.suspendedAt === null) {
+    throw new InconsistentStateError(
+      'run',
+      `holds a turn without its report (${row.id})`,
+    );
+  }
+
+  const { handover, session, reportedBy } = row.turnReport;
+
+  return RunTurn.rehydrate({
+    state: row.turn,
+    report: HandoverReport.of({
+      handover: handover
+        ? Handover.of({
+            next: handover.next,
+            note: handover.note,
+            attachments: handover.attachments.map((each) =>
+              Attachment.rehydrate(each),
+            ),
+          })
+        : null,
+      session: session ? HarnessSession.of(session) : null,
+    }),
+    reportedBy: RunnerId.of(reportedBy),
+    suspendedAt: row.suspendedAt,
+  });
+};
+
+const endedAtFor = (state: RunState, ended: SQL | Date) =>
   (TERMINAL_RUN_STATES as readonly RunState[]).includes(state) ? ended : null;
 
 const toRun = ({ run: row }: Selected): Run =>
@@ -501,4 +608,6 @@ const toRun = ({ run: row }: Selected): Run =>
     version: row.version,
     team: row.teamId ? TeamId.of(row.teamId) : null,
     orderFingerprint: row.orderFingerprint,
+    turn: turnFrom(row),
+    endedAt: row.endedAt,
   });

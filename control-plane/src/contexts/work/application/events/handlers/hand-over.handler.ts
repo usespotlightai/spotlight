@@ -1,20 +1,15 @@
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import { lastWordsIn } from '@work/application/services/last-words';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import type { NewNote, Task } from '@work/domain/aggregates/task.aggregate';
+import type { RunRouting } from '@work/application/services/run-routing.service';
+import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
-import { Placement } from '@work/domain/services/placement';
-import { routeAfterRun } from '@work/domain/services/route-after-run';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
-import { Voice } from '@work/domain/value-objects/voice.vo';
 
 interface WaitingTask {
   readonly task: Task;
@@ -24,13 +19,16 @@ interface WaitingTask {
 export class HandOver implements RunOutcomes {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly placements: TaskPlacementsPort,
     private readonly lines: LineMapsPort,
-    private readonly dispatch: TaskDispatching,
-    private readonly clock: ClockPort,
+    private readonly routing: RunRouting,
+    private readonly journals: RunJournalReaderPort,
   ) {}
 
   async onRunCompleted(event: RunCompleted): Promise<void> {
+    if (event.outcome.handsOver) {
+      return;
+    }
+
     const found = await this.waiting(event);
     if (!found) {
       return;
@@ -43,14 +41,22 @@ export class HandOver implements RunOutcomes {
       handover: event.handover,
       line,
       currentStation: task.stationId,
-      lastWords: event.lastWords,
+      lastWords:
+        event.reported && !event.handover
+          ? lastWordsIn(
+              await this.journals.attemptsOfRun(event.runId),
+              task.lastPersonNoteAt,
+            )
+          : null,
     });
 
     const recorded = event.session
       ? task.recordSession(event.runId, event.session, event.claimedBy)
       : task;
 
-    await this.saved(await this.applied(handover, recorded, line, event.runId));
+    await this.saved(
+      await this.routing.routed(handover, recorded, line, event.runId),
+    );
   }
 
   async onRunExhausted(event: RunExhausted): Promise<void> {
@@ -60,7 +66,7 @@ export class HandOver implements RunOutcomes {
     }
 
     await this.saved(
-      await this.applied(
+      await this.routing.routed(
         HandoverFor.exhausted(
           event.expiredLeases,
           event.failure ?? 'runner-lost',
@@ -99,74 +105,5 @@ export class HandOver implements RunOutcomes {
     }
 
     return { task, line: await this.lines.findByStation(task.stationId) };
-  }
-
-  private newNoteOf(
-    handover: ResolvedHandover,
-    task: Task,
-    line: LineMap | null,
-    run: RunId,
-  ): NewNote {
-    return {
-      station: line?.stationAt(task.stationId) ?? null,
-      body: handover.body,
-      at: this.clock.now(),
-      voice: Voice.station(run),
-      attachments: handover.attachments,
-    };
-  }
-
-  private async applied(
-    handover: ResolvedHandover,
-    task: Task,
-    line: LineMap | null,
-    run: RunId,
-  ): Promise<Task> {
-    const newNote = this.newNoteOf(handover, task, line, run);
-    const routing = routeAfterRun(handover, line, task);
-
-    if (routing.kind === 'finish') {
-      return task.finishHere(run, routing.line, newNote);
-    }
-
-    if (routing.kind === 'detach') {
-      return (
-        routing.failure
-          ? task.failed(routing.failure, newNote, run, line)
-          : task
-      ).leaveRun(run, newNote.at);
-    }
-
-    if (routing.kind === 'ask') {
-      return routing.failure
-        ? task.failed(routing.failure, newNote, run, line)
-        : task.askedAbout(newNote, run);
-    }
-
-    const ranks = (await this.placements.placementsAt(routing.to.id)).map(
-      (each) => each.rank,
-    );
-    const moved =
-      routing.kind === 'advance'
-        ? task.passedOn(
-            run,
-            routing.line,
-            routing.to.id,
-            Placement.entering('passed-on', ranks),
-            newNote,
-          )
-        : task.moveAsDeferred(
-            run,
-            routing.line,
-            routing.to.id,
-            Placement.entering('deferred', ranks),
-            { newNote, handover },
-          );
-
-    const runId = moved.wantsRun(routing.line)
-      ? await this.dispatch.runIdFor({ task: moved, line: routing.line })
-      : null;
-
-    return runId ? moved.assignRun(runId, routing.line) : moved;
   }
 }

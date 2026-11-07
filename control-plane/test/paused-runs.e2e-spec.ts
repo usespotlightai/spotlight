@@ -7,9 +7,14 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import {
+  TASK_VIEWS,
+  type TaskViewsPort,
+} from '@work/application/ports/task-views.port';
+import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
+import { TakeTurn } from '@work/application/services/take-turn.service';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -18,6 +23,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -28,6 +34,7 @@ interface PendingMessage {
 }
 
 interface InboxItem {
+  readonly kind: string;
   readonly id: string;
   readonly taskId: string;
   readonly progress: string | null;
@@ -154,6 +161,15 @@ const aTaskWithLeasedRun = async (
       resume: { key: `${taskId}:${at}` },
     },
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      taskId,
+      stationId: at,
+    }),
+  );
 
   return { taskId, runId };
 };
@@ -192,7 +208,7 @@ const inboxItemOf = (taskId: string): Promise<InboxItem> =>
           .set(TEST_USER_HEADER, team.owner.value)
           .expect(200)
       ).body.items as InboxItem[]
-    ).find((each) => each.taskId === taskId),
+    ).find((each) => each.kind === 'task' && each.taskId === taskId),
   );
 
 const runIn = (runId: string, state: string) =>
@@ -327,19 +343,22 @@ describe('a run that asks a person', () => {
     expect(suspended?.state).toBe('suspended');
     expect(suspended?.claimedBy).toBeNull();
     expect(suspended?.suspendedAttempts).toEqual([1]);
+    await runner(token)
+      .get(`/api/runs/${runId}/messages`)
+      .expect((response) =>
+        expect(response.status).toBeGreaterThanOrEqual(400),
+      );
+    await runner(token)
+      .post(`/api/runs/${runId}/lease`)
+      .expect((response) =>
+        expect(response.status).toBeGreaterThanOrEqual(400),
+      );
 
     const item = await inboxItemOf(taskId);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
     expect((await taskRow(taskId))?.sessionId).toBe('session_1');
     expect(item.progress).toBeNull();
     expect(item.runId).toBe(runId);
-
-    await runner(token).get(`/api/runs/${runId}/messages`).expect(404);
-    await runner(token)
-      .post(`/api/runs/${runId}/lease`)
-      .expect((response) =>
-        expect(response.status).toBeGreaterThanOrEqual(400),
-      );
   });
 
   it('requeues the same run as a new attempt once answered, to resume its session from its workspace', async () => {
@@ -412,7 +431,7 @@ describe('a run that asks a person', () => {
         handover: { next: 'ship', note: 'Drained.' },
       })
       .expect(204);
-    expect((await runRow(runId))?.state).toBe('completed');
+    await runIn(runId, 'completed');
 
     const runs = (
       await http()
@@ -477,6 +496,7 @@ describe('a run that asks a person', () => {
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
       .expect(204);
+    await eventually(async () => (await runRow(runId))?.turn === 'kept');
     const runs = app.get(DrizzleRunRepository);
     const read = await runs.findById(RunId.of(runId));
 
@@ -486,9 +506,98 @@ describe('a run that asks a person', () => {
 
     await runs.save(read.requestStop(new Date()));
 
-    await expect(runs.save(read.resumed([]))).rejects.toBeInstanceOf(
-      RunVersionConflictError,
-    );
+    await expect(
+      runs.save(read.resumed(null, 'answered', [], new Date())),
+    ).rejects.toBeInstanceOf(RunVersionConflictError);
+    expect((await runRow(runId))?.state).toBe('completed');
+  });
+});
+
+describe('the turn a run hands over, raced by people (R3, R4, R5)', () => {
+  const taskNotes = async (taskId: string) =>
+    db.select().from(schema.taskNote).where(eq(schema.taskNote.taskId, taskId));
+
+  it('ends the run, whichever comes first, when a person moves the task while its turn is decided (R3)', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+    await http()
+      .post(
+        `/api/teams/${team.teamId.value}/lines/${DELIVERY}/tasks/${taskId}/move`,
+      )
+      .set(TEST_USER_HEADER, team.owner.value)
+      .send({ stationId: BACKLOG, revision: 0 })
+      .expect((response) => expect(response.status).toBeLessThan(300));
+
+    const ended = await eventually(async () => {
+      const row = await runRow(runId);
+      return row?.endedAt ? row : null;
+    });
+    expect(ended.state).toBe('completed');
+    expect(ended.turn).toBeNull();
+    const task = await taskRow(taskId);
+    expect(task?.stationId).toBe(BACKLOG);
+    expect(task?.currentRunId).not.toBe(runId);
+  });
+
+  it('never leaves a run waiting with a stop request when a person stops it while its turn is decided (R4)', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+    await http()
+      .post(`/api/teams/${team.teamId.value}/runs/${runId}/stop`)
+      .set(TEST_USER_HEADER, team.owner.value)
+      .expect((response) => expect(response.status).toBeLessThan(300));
+
+    const ended = await eventually(async () => {
+      const row = await runRow(runId);
+      return row?.endedAt ? row : null;
+    });
+    expect(ended.turn).toBeNull();
+    expect(
+      (await taskNotes(taskId)).some(
+        (note) => note.body === 'Which queue should I drain?',
+      ),
+    ).toBe(true);
+  });
+
+  it('asks the person once however often the turn is decided again (R5)', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, askingForReview)
+      .expect(204);
+    await eventually(async () => (await runRow(runId))?.turn === 'kept');
+    await app.get(TakeTurn).take(RunId.of(runId), 1);
+    await app.get(TakeTurn).take(RunId.of(runId), 1);
+
+    expect(await taskNotes(taskId)).toHaveLength(1);
+    expect((await runRow(runId))?.turn).toBe('kept');
+  });
+
+  it('shows hooks of the run that ended the station it ran at, after the turn moved the task on', async () => {
+    const { taskId, runId } = await aTaskWithLeasedRun();
+    const token = await claimed(runId);
+
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, {
+        exitCode: 0,
+        failed: false,
+        handover: { next: 'ship', note: 'Built.' },
+      })
+      .expect(204);
+    await eventually(async () => (await taskRow(taskId))?.stationId === SHIP);
+
+    const view = await app.get<TaskViewsPort>(TASK_VIEWS).of(taskId, runId);
+
+    expect(view?.stationKey).toBe('build');
     expect((await runRow(runId))?.state).toBe('completed');
   });
 });

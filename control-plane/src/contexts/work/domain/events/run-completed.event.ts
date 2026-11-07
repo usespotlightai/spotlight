@@ -21,13 +21,10 @@ export class RunCompleted implements DomainEvent {
     readonly handover: Handover | null,
     readonly session: HarnessSession | null,
     readonly attempt: number,
-    readonly asked: boolean = false,
-    readonly lastWords: string | null = null,
+    readonly asked: boolean,
+    readonly started: boolean,
+    readonly reported: boolean,
   ) {}
-
-  get started(): boolean {
-    return true;
-  }
 
   get taskId(): TaskId | null {
     return this.subject?.taskId ?? null;

@@ -44,7 +44,7 @@ const queued = () =>
 const claimed = () => queued().claim(RUNNER, NOW);
 
 const suspended = () =>
-  claimed().suspend(
+  claimed().reportTurn(
     RUNNER,
     RunOutcome.of({ exitCode: 0, failed: false }),
     HandoverReport.none(),

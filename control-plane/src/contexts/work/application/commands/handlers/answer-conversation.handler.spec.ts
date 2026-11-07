@@ -151,6 +151,7 @@ const tasks = (found: Task) =>
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
@@ -440,6 +441,7 @@ describe('AnswerConversation', () => {
           TaskId.of('task_1'),
           WorkspaceId.of('ws_1'),
           RunId.of('run_1'),
+          null,
         ),
       );
     });

@@ -24,7 +24,14 @@ describe('workSubscribers', () => {
     );
 
     await ending?.handle(
-      new RunCancelled(RunId.of('run_1'), WorkspaceId.of('ws_1'), null, 2),
+      new RunCancelled(
+        RunId.of('run_1'),
+        WorkspaceId.of('ws_1'),
+        null,
+        2,
+        false,
+        false,
+      ),
     );
 
     expect(ending?.kinds).toEqual([
@@ -87,7 +94,7 @@ describe('workSubscribers', () => {
     const workspace = WorkspaceId.of('ws_1');
 
     await named('work.revoke-tokens-of-ended-run')?.handle(
-      new RunCancelled(run, workspace, null, 2),
+      new RunCancelled(run, workspace, null, 2, false, false),
     );
     await named('work.revoke-tokens-of-ended-attempt')?.handle(
       new RunSuspended(
@@ -187,7 +194,9 @@ describe('workSubscribers', () => {
     await left?.handle(
       new RunLeaseExpired(run, workspace, RunnerId.of('runner_1'), at, 1),
     );
-    await ended?.handle(new RunCancelled(run, workspace, null, 2));
+    await ended?.handle(
+      new RunCancelled(run, workspace, null, 2, false, false),
+    );
 
     expect(ended?.kinds).toEqual([
       'run.completed',
@@ -200,9 +209,9 @@ describe('workSubscribers', () => {
   });
 
   it('takes up the run a person answered, whichever way the answer came', async () => {
-    const pausedRuns = { onTaskAnswered: vi.fn(async () => {}) };
+    const answeredRuns = { on: vi.fn(async () => {}) };
     const taking = workSubscribers({
-      pausedRuns,
+      answeredRuns,
     } as unknown as Parameters<typeof workSubscribers>[0]).find(
       (each) => each.name === 'work.take-up-the-run-a-person-answered',
     );
@@ -210,11 +219,36 @@ describe('workSubscribers', () => {
       TaskId.of('task_1'),
       WorkspaceId.of('ws_1'),
       RunId.of('run_1'),
+      null,
     );
 
     await taking?.handle(answered);
 
     expect(taking?.kinds).toEqual(['task.answered']);
-    expect(pausedRuns.onTaskAnswered).toHaveBeenCalledWith(answered);
+    expect(taking?.callsOut).toBe(true);
+    expect(answeredRuns.on).toHaveBeenCalledWith(answered);
+  });
+
+  it('decides the turn of a run that suspended, outside the transaction that suspended it', async () => {
+    const turns = { take: vi.fn(async () => {}) };
+    const taking = workSubscribers({
+      turns,
+    } as unknown as Parameters<typeof workSubscribers>[0]).find(
+      (each) => each.name === 'work.take-turn',
+    );
+
+    await taking?.handle(
+      new RunSuspended(
+        RunId.of('run_1'),
+        WorkspaceId.of('ws_1'),
+        RunnerId.of('runner_1'),
+        new Date('2026-11-07T10:00:00.000Z'),
+        2,
+      ),
+    );
+
+    expect(taking?.kinds).toEqual(['run.suspended']);
+    expect(taking?.callsOut).toBe(true);
+    expect(turns.take).toHaveBeenCalledWith(RunId.of('run_1'), 2);
   });
 });

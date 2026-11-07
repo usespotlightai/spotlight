@@ -16,7 +16,6 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -118,7 +117,9 @@ describe('integration connections stored per owner', () => {
       await new DrizzleConnectedIntegrations(new DrizzleContext(db)).ofTeam(
         teamId,
       ),
-    ).toEqual([{ integration: 'linear', linkedAccount: '@team' }]);
+    ).toEqual([
+      { integration: 'linear', linkedAccount: '@team', refreshFailedAt: null },
+    ]);
     expect(
       (
         await new DrizzleIntegrationConnectionRoster(

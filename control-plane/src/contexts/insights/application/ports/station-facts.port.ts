@@ -3,6 +3,7 @@ import type { ConfigIntervalBound } from '@insights/domain/services/config-inter
 import type { LocatedFailure } from '@insights/domain/services/failure-summaries';
 import type { AlertFiring } from '@insights/domain/value-objects/alert-firing.vo';
 import type { AlertId } from '@insights/domain/value-objects/alert-id.vo';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -27,14 +28,14 @@ export interface StationScores {
   readonly teamId: TeamId;
   readonly lineId: LineId;
   readonly stationId: StationId;
-  readonly rubricVersion?: string;
+  readonly rubricVersion?: RubricVersion;
   readonly last: number;
 }
 
 interface JudgedStation {
   readonly lineId: LineId;
   readonly stationId: StationId;
-  readonly rubricVersion: string;
+  readonly rubricVersion: RubricVersion;
 }
 
 export interface StationsScores {

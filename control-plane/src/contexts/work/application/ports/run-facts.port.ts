@@ -10,6 +10,8 @@ import type {
   RunRequesterContract,
 } from '@work/application/contracts/run-order.contract';
 
+import type { RunTurnState } from '@work/domain/value-objects/run-turn.vo';
+
 export const RUN_FACTS = Symbol('RUN_FACTS');
 
 export type RunSubjectFacts =
@@ -50,6 +52,8 @@ export interface RunFacts {
   readonly ended: boolean;
   readonly attempt: number;
   readonly stopRequested: boolean;
+  readonly turn: RunTurnState | null;
+  readonly suspendedAt: Date | null;
   readonly claimedBy: RunnerId | null;
   readonly harness: HarnessId;
   readonly requester: RunRequesterContract;

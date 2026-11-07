@@ -4,7 +4,10 @@ import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
 import { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { RunMemories } from '@insights/domain/value-objects/run-memories.vo';
+import {
+  MemoryReference,
+  RunMemories,
+} from '@insights/domain/value-objects/run-memories.vo';
 import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import type { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
@@ -504,21 +507,25 @@ describe('RunRecord', () => {
 
   it('keeps the memories a run used, received before or after it ended, and says so only once it ended', () => {
     const briefed = RunRecord.empty(RUN, WORKSPACE).recordMemories('briefed', [
-      'mem_1',
+      MemoryReference.of('mem_1'),
     ]);
     const ended = briefed
       .recordEnd(endOf())
-      .recordMemories('recalled', ['mem_2']);
+      .recordMemories('recalled', [MemoryReference.of('mem_2')]);
 
     expect(ended.memories.briefed).toEqual(['mem_1']);
     expect(ended.memories.recalled).toEqual(['mem_2']);
-    expect(ended.recordMemories('recalled', ['mem_2'])).toBe(ended);
-    expect(briefed.recordMemories('briefed', ['mem_3']).pullEvents()).toEqual(
-      [],
-    );
+    expect(
+      ended.recordMemories('recalled', [MemoryReference.of('mem_2')]),
+    ).toBe(ended);
+    expect(
+      briefed
+        .recordMemories('briefed', [MemoryReference.of('mem_3')])
+        .pullEvents(),
+    ).toEqual([]);
     expect(
       endedRecord('run_2')
-        .recordMemories('recalled', ['mem_2'])
+        .recordMemories('recalled', [MemoryReference.of('mem_2')])
         .pullEvents()
         .map((each) => each.kind),
     ).toEqual(['run-record.ended', 'run-record.memories-recorded']);

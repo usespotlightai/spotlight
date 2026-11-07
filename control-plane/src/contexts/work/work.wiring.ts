@@ -247,6 +247,7 @@ import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.h
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ACCESSIBLE_REPOSITORIES } from '@work/application/ports/accessible-repositories.port';
@@ -392,12 +393,20 @@ import {
   RUN_SPENDS,
   type RunSpendReaderPort,
 } from '@work/application/ports/run-spend-reader.port';
+import {
+  RUN_START_GATES,
+  type RunStartGatesPort,
+} from '@work/application/ports/run-start-gates.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import { RUN_STREAM } from '@work/application/ports/run-stream.port';
 import {
   RUN_TOOLS,
   type RunToolsReaderPort,
 } from '@work/application/ports/run-tools-reader.port';
+import {
+  RUN_TURNS,
+  type RunTurnsPort,
+} from '@work/application/ports/run-turns.port';
 import {
   RUN_USAGES,
   type RunUsageReaderPort,
@@ -605,6 +614,7 @@ import {
 import { ChatLoader } from '@work/application/services/chat-loader.service';
 import { ChecksToolUse } from '@work/application/services/checks.tool-use';
 import { CiSetups } from '@work/application/services/ci-setups.service';
+import { ClaimGate } from '@work/application/services/claim-gate.service';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { ConnectionsMade } from '@work/application/services/connections-made.service';
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
@@ -631,7 +641,6 @@ import { Notices } from '@work/application/services/notices.service';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { OutsideTaskNotices } from '@work/application/services/outside-task-notices.service';
 import { PauseMarks } from '@work/application/services/pause-marks.service';
-import { PausedRuns } from '@work/application/services/paused-runs.service';
 import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool-use';
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import { ProvisionWork } from '@work/application/services/provision-work.service';
@@ -653,7 +662,7 @@ import { RunEvidences } from '@work/application/services/run-evidences.service';
 import { RunFacts } from '@work/application/services/run-facts.service';
 import { RunLeases } from '@work/application/services/run-leases.service';
 import { RunLoader } from '@work/application/services/run-loader.service';
-import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
+import { RunRouting } from '@work/application/services/run-routing.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { RunnerLeases } from '@work/application/services/runner-leases.service';
 import { Runs } from '@work/application/services/runs.service';
@@ -665,11 +674,13 @@ import { SetupStatus } from '@work/application/services/setup-status.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import { StationRuns } from '@work/application/services/station-runs.service';
 import { StationSkills } from '@work/application/services/station-skills.service';
+import { TakeTurn } from '@work/application/services/take-turn.service';
 import {
   TASK_DISPATCH,
   type TaskDispatching,
 } from '@work/application/services/task-dispatch';
 import { TaskNotesFromHooks } from '@work/application/services/task-notes-from-hooks.service';
+import { TaskRunStartGate } from '@work/application/services/task-run-start-gate.service';
 import { TaskViews } from '@work/application/services/task-views.service';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import { TestStationChangeToolUse } from '@work/application/services/test-station-change.tool-use';
@@ -677,6 +688,7 @@ import { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { TouchedFiles } from '@work/application/services/touched-files';
 import { TracesLoader } from '@work/application/services/traces-loader.service';
+import { Turns } from '@work/application/services/turns.service';
 import { WorkAccess } from '@work/application/services/work-access.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
 import {
@@ -783,6 +795,7 @@ import { ProcessedEventsWorker } from '@work/presentation/workers/processed-even
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
 import { RunConnectionsWorker } from '@work/presentation/workers/run-connections.worker';
 import { RunLeasesWorker } from '@work/presentation/workers/run-leases.worker';
+import { TurnsWorker } from '@work/presentation/workers/turns.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
 
 const WORK_EVENTS = Symbol('WORK_EVENTS');
@@ -885,6 +898,58 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: RUN_FACTS, useExisting: RunFacts },
+
+  { provide: RUN_TURNS, useExisting: RunFacts },
+
+  {
+    provide: RunRouting,
+    inject: [TASK_PLACEMENTS, TASK_DISPATCH, CLOCK],
+    useFactory: (
+      placements: TaskPlacementsPort,
+      dispatch: TaskDispatching,
+      clock: ClockPort,
+    ) => new RunRouting(placements, dispatch, clock),
+  },
+
+  {
+    provide: TakeTurn,
+    inject: [
+      RUN_TURNS,
+      RUNS,
+      DISPATCH_REPOSITORY,
+      TASK_REPOSITORY,
+      LINE_MAPS,
+      RUN_JOURNAL_READER,
+      TASK_VIEWS,
+      LIFECYCLE_HOOKS,
+      FilesLoader,
+      RunRouting,
+    ],
+    useFactory: (
+      turns: RunTurnsPort,
+      runs: RunsPort,
+      dispatches: DispatchRepository,
+      tasks: TaskRepository,
+      lines: LineMapsPort,
+      journals: RunJournalReaderPort,
+      taskViews: TaskViewsPort,
+      hooks: LifecycleHooksPort,
+      files: FilesLoader,
+      routing: RunRouting,
+    ) =>
+      new TakeTurn(
+        turns,
+        runs,
+        dispatches,
+        tasks,
+        lines,
+        journals,
+        taskViews,
+        hooks,
+        files,
+        routing,
+      ),
+  },
 
   { provide: RUN_LEASES, useExisting: RunFacts },
 
@@ -1003,13 +1068,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: TASK_VIEWS,
-    inject: [TASK_REPOSITORY, LINE_MAPS, WORKSPACE_READER, TASK_LINKS],
+    inject: [
+      TASK_REPOSITORY,
+      LINE_MAPS,
+      WORKSPACE_READER,
+      TASK_LINKS,
+      DISPATCH_REPOSITORY,
+    ],
     useFactory: (
       tasks: TaskRepository,
       lines: LineMapsPort,
       workspaces: WorkspaceReaderPort,
       links: TaskLinksPort,
-    ) => new TaskViews(tasks, lines, workspaces, links),
+      dispatches: DispatchRepository,
+    ) => new TaskViews(tasks, lines, workspaces, links, dispatches),
   },
 
   {
@@ -1100,15 +1172,31 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: RunStartHooks,
-    inject: [DrizzleRunRepository, TASK_VIEWS, LIFECYCLE_HOOKS, CLOCK, LOGGER],
+    provide: ClaimGate,
+    inject: [DrizzleRunRepository, CLOCK, LOGGER],
     useFactory: (
       runs: DrizzleRunRepository,
-      taskViews: TaskViewsPort,
-      hooks: LifecycleHooksPort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new RunStartHooks(runs, taskViews, hooks, clock, logger),
+    ) => new ClaimGate(runs, clock, logger),
+  },
+
+  { provide: RUN_START_GATES, useExisting: ClaimGate },
+
+  {
+    provide: TaskRunStartGate,
+    inject: [RUN_START_GATES, TASK_VIEWS, LIFECYCLE_HOOKS],
+    useFactory: (
+      gates: RunStartGatesPort,
+      taskViews: TaskViewsPort,
+      hooks: LifecycleHooksPort,
+    ) => {
+      const gate = new TaskRunStartGate(taskViews, hooks);
+
+      gates.register(gate);
+
+      return gate;
+    },
   },
 
   {
@@ -1246,6 +1334,50 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       new RunLeasesWorker(leases, clock, logger),
   },
 
+  {
+    provide: Turns,
+    inject: [
+      RUN_TURNS,
+      RUN_FACTS,
+      RUNS,
+      DISPATCH_REPOSITORY,
+      TASK_REPOSITORY,
+      LINE_MAPS,
+      TakeTurn,
+      TELEMETRY,
+      LOGGER,
+    ],
+    useFactory: (
+      turns: RunTurnsPort,
+      facts: RunFactsPort,
+      runs: RunsPort,
+      dispatches: DispatchRepository,
+      tasks: TaskRepository,
+      lines: LineMapsPort,
+      taking: TakeTurn,
+      telemetry: TelemetryPort,
+      logger: LoggerPort,
+    ) =>
+      new Turns(
+        turns,
+        facts,
+        runs,
+        dispatches,
+        tasks,
+        lines,
+        taking,
+        telemetry,
+        logger,
+      ),
+  },
+
+  {
+    provide: TurnsWorker,
+    inject: [Turns, CLOCK, LOGGER],
+    useFactory: (turns: Turns, clock: ClockPort, logger: LoggerPort) =>
+      new TurnsWorker(turns, clock, logger),
+  },
+
   DrizzleRunJournal,
 
   {
@@ -1346,6 +1478,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       HARNESS_LAUNCH,
       CHAT_DISPATCH,
       CHANNEL_NOTICES,
+      RUN_FACTS,
     ],
     useFactory: (
       tasks: TaskRepository,
@@ -1364,6 +1497,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       launch: HarnessLaunchPort,
       chatDispatch: ChatDispatching,
       channelNotices: ChannelNoticesPort,
+      runFacts: RunFactsPort,
     ) =>
       new ReactToHappenings(
         tasks,
@@ -1390,6 +1524,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           ids,
           logger,
         ),
+        runFacts,
       ),
   },
 
@@ -1898,12 +2033,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TASK_REPOSITORY,
       OUTBOUND_TASK_NOTIFIER,
       LINE_MAPS,
-      DrizzleRunRepository,
       CHAT_REPOSITORY,
       TASK_DISPATCH,
       CHAT_DISPATCH,
       RUN_USAGE_WRITER,
-      TASK_PLACEMENTS,
       TRANSACTION,
       RUN_GRANTS,
       RunnerLeases,
@@ -1921,6 +2054,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TEAM_WELCOMES,
       RUNS,
       DISPATCH_REPOSITORY,
+      RunRouting,
+      RUN_JOURNAL_READER,
+      TakeTurn,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1933,12 +2069,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tasks: TaskRepository,
       notifier: OutboundTaskNotifierPort,
       lines: LineMapsPort,
-      runs: DrizzleRunRepository,
       chats: ChatRepository,
       taskDispatch: DispatchTask,
       chatDispatch: DispatchChat,
       usageWriter: RunUsageWriterPort,
-      placements: TaskPlacementsPort,
       transaction: TransactionPort,
       runGrants: RunGrantsPort,
       ending: RunnerLeases,
@@ -1956,16 +2090,25 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       welcomes: TeamWelcomesPort,
       runsFacade: RunsPort,
       dispatches: DispatchRepository,
+      routing: RunRouting,
+      journals: RunJournalReaderPort,
+      turns: TakeTurn,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
       subscribers.register([
         ...workSubscribers({
-          handOver: new HandOver(tasks, placements, lines, taskDispatch, clock),
-          pausedRuns: new PausedRuns(tasks, runs, lines),
+          handOver: new HandOver(tasks, lines, routing, journals),
+          answeredRuns: new TakeUpAnsweredRun(
+            tasks,
+            dispatches,
+            lines,
+            runsFacade,
+          ),
+          turns,
           pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
-          channel: new NotifyChannel(chats, lines, channelNotices),
+          channel: new NotifyChannel(chats, lines, channelNotices, journals),
           usages: new RecordRunUsage(usageWriter, usages, tools, spends),
           welcoming: new WelcomeTeam(lines, tasks, welcomes, ids, clock),
           acceptances,
@@ -2640,8 +2783,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(StopRunCommand, StopRunHandler, [
     RUNS,
-    RUN_FACTS,
+    DISPATCH_REPOSITORY,
     TASK_REPOSITORY,
+    TakeTurn,
   ]),
 
   ...bindCommandHandler(AckMessagesCommand, AckMessagesHandler, [
@@ -2675,7 +2819,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CHECK_WORK,
     ClaimsTaken,
     ProvisionFailures,
-    RunStartHooks,
+    ClaimGate,
     LongPoll,
     SANDBOXES,
   ]),
@@ -2688,7 +2832,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RunLeases,
     CHECK_WORK,
     CLOCK,
-    RunStartHooks,
+    ClaimGate,
     ClaimsTaken,
     LongPoll,
     SANDBOXES,
@@ -2841,13 +2985,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
     DrizzleRunRepository,
-    TASK_REPOSITORY,
-    LINE_MAPS,
     TRANSACTION,
-    TASK_VIEWS,
-    LIFECYCLE_HOOKS,
     CLOCK,
-    RUN_JOURNAL_READER,
     FilesLoader,
   ]),
 

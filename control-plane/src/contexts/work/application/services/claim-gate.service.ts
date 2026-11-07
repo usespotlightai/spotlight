@@ -2,10 +2,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type {
-  HookDecision,
-  LifecycleHooksPort,
-} from '@work/application/ports/lifecycle-hooks.port';
-import type { TaskViewsPort } from '@work/application/ports/task-views.port';
+  RunStartGate,
+  RunStartGatesPort,
+  StartDecision,
+} from '@work/application/ports/run-start-gates.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -14,22 +14,22 @@ const ATTEMPTS = 3;
 
 const PAST_THE_POLL_MS = 5_000;
 
-const MAX_HOOK_MS = 12_000;
-
-type HookOutcome =
-  | HookDecision
-  | { readonly kind: 'no-reply'; readonly because: string };
+const MAX_GATE_MS = 12_000;
 
 export type RunStart = 'starts' | 'denied' | 'requeued';
 
-export class RunStartHooks {
+export class ClaimGate implements RunStartGatesPort {
+  private readonly gates = new Map<string, RunStartGate>();
+
   constructor(
     private readonly runs: RunRepository,
-    private readonly taskViews: TaskViewsPort,
-    private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
+
+  register(gate: RunStartGate): void {
+    this.gates.set(gate.owner, gate);
+  }
 
   async mayStart(
     run: Run,
@@ -55,38 +55,58 @@ export class RunStartHooks {
     return 'requeued';
   }
 
-  private async decisionOn(run: Run, pollUntil: Date): Promise<HookOutcome> {
-    if (!run.firesHooks || !run.taskId) {
+  private async decisionOn(run: Run, pollUntil: Date): Promise<StartDecision> {
+    if (!run.policy.gated) {
       return { kind: 'allowed' };
     }
 
-    try {
-      const taskView = await this.taskViews.of(run.taskId.value, run.id.value);
+    const requester = run.requester;
+    const gate = this.gates.get(requester.owner.value);
 
-      return taskView
-        ? await this.hooks.before(
-            taskView,
-            { on: 'run.starting' },
-            this.hookUntil(pollUntil),
-          )
-        : { kind: 'allowed' };
+    if (!gate) {
+      this.logger.error(
+        { runId: run.id.value, owner: requester.owner.value },
+        'No start gate answers for the owner of a gated run, so it was requeued',
+      );
+
+      return {
+        kind: 'retry',
+        because: `no start gate for ${requester.owner.value}`,
+      };
+    }
+
+    try {
+      return await gate.mayStart(
+        {
+          runId: run.id,
+          workspaceId: run.workspaceId,
+          requester: {
+            owner: requester.owner.value,
+            kind: requester.kind,
+            id: requester.id,
+            token: requester.token,
+            team: requester.team?.value ?? null,
+          },
+        },
+        this.gateUntil(pollUntil),
+      );
     } catch (error) {
       const because = error instanceof Error ? error.message : String(error);
 
-      this.logger.warn(
-        { runId: run.id.value, taskId: run.taskId.value, error: because },
-        'The hooks could not be called before a run started, so it was requeued to be claimed again',
+      this.logger.error(
+        { runId: run.id.value, owner: requester.owner.value, error: because },
+        'The start gate failed before a run started, so it was requeued to be claimed again',
       );
 
-      return { kind: 'no-reply', because };
+      return { kind: 'retry', because };
     }
   }
 
-  private hookUntil(pollUntil: Date): Date {
+  private gateUntil(pollUntil: Date): Date {
     return new Date(
       Math.min(
         pollUntil.getTime() + PAST_THE_POLL_MS,
-        this.clock.now().getTime() + MAX_HOOK_MS,
+        this.clock.now().getTime() + MAX_GATE_MS,
       ),
     );
   }

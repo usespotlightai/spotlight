@@ -27,6 +27,7 @@ import {
   startOf,
 } from '@insights/domain/services/run-order';
 import type { AlertId } from '@insights/domain/value-objects/alert-id.vo';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
@@ -47,8 +48,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 
 export const WORKSPACE = WorkspaceId.of('ws_1');
 export const TEAM = TeamId.of('team_1');
-export const FIRST_CONFIG = 'a'.repeat(64);
-export const SECOND_CONFIG = 'b'.repeat(64);
+export const FIRST_CONFIG = ConfigFingerprint.of('a'.repeat(64));
+export const SECOND_CONFIG = ConfigFingerprint.of('b'.repeat(64));
 
 const locationOf = (taskId = 'task_1', stationId = 'station_1'): RunLocation =>
   RunLocation.of({

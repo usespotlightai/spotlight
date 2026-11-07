@@ -15,6 +15,7 @@ import type {
   ChannelNoticesPort,
 } from '@work/application/ports/channel-notices.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
@@ -87,13 +88,29 @@ const notifying = (chat: Chat) => {
       })),
     } as unknown as LineMapsPort,
     { notify } satisfies ChannelNoticesPort,
+    {
+      attemptsOfRun: async () =>
+        said === null
+          ? []
+          : [
+              {
+                runId: RUN.value,
+                attempt: 1,
+                steps: [{ kind: 'message', text: said }],
+              },
+            ],
+    } as unknown as RunJournalReaderPort,
   );
 
   return { handler, notify };
 };
 
-const completed = (chat: Chat, lastWords: string | null) =>
-  new RunCompleted(
+let said: string | null = null;
+
+const completed = (chat: Chat, lastWords: string | null) => {
+  said = lastWords;
+
+  return new RunCompleted(
     RUN,
     WORKSPACE,
     subject(chat),
@@ -103,8 +120,10 @@ const completed = (chat: Chat, lastWords: string | null) =>
     null,
     1,
     false,
-    lastWords,
+    true,
+    true,
   );
+};
 
 describe('NotifyChannel', () => {
   it('posts the last words of a run back to the thread of the chat', async () => {
@@ -183,7 +202,7 @@ describe('NotifyChannel', () => {
       new ChatStarted(chat.id, WORKSPACE, chat.teamId, chat.startedBy, NOW),
     );
     await handler.onRunExhausted(
-      new RunExhausted(RUN, WORKSPACE, subject(chat), 1, 0),
+      new RunExhausted(RUN, WORKSPACE, subject(chat), 1, 0, false, null, true),
     );
 
     expect(notify.mock.calls.map((call) => [call[1], call[0].body])).toEqual([

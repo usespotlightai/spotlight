@@ -54,6 +54,9 @@ const failed = new RunCompleted(
   null,
   null,
   1,
+  false,
+  true,
+  true,
 );
 
 describe('DispatchRunEndings', () => {
@@ -86,7 +89,16 @@ describe('DispatchRunEndings', () => {
 
   it('ends an exhausted or cancelled run as such', async () => {
     await endings().onRunExhausted(
-      new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3, false, 'runner-lost'),
+      new RunExhausted(
+        RUN,
+        WORKSPACE,
+        SUBJECT,
+        3,
+        3,
+        false,
+        'runner-lost',
+        true,
+      ),
     );
 
     expect(stored?.ending?.outcome).toBe('exhausted');
@@ -94,7 +106,7 @@ describe('DispatchRunEndings', () => {
 
     stored = null;
     await endings().onRunCancelled(
-      new RunCancelled(RUN, WORKSPACE, SUBJECT, 1),
+      new RunCancelled(RUN, WORKSPACE, SUBJECT, 1, false, false),
     );
 
     expect(saves).toHaveLength(1);

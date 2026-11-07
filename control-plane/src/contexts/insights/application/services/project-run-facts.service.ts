@@ -14,8 +14,6 @@ import type {
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RunFactsDrift {
   readonly checked: number;
@@ -60,22 +58,15 @@ export class ProjectRunFacts implements RunFactsMaintenance {
 
     return this.transaction.inTransaction(async () => {
       const records = await this.records.ofRuns(runIds);
-      const projectedTasks = await this.facts.tasksOfRuns(
-        runIds.map((each) => each.value),
-      );
+      const projectedTasks = await this.facts.tasksOfRuns(runIds);
 
-      await this.facts.lockTasks([
-        ...tasksOf(records).map((each) => each.value),
-        ...projectedTasks,
-      ]);
+      await this.facts.lockTasks([...tasksOf(records), ...projectedTasks]);
 
       const projected = await this.factsOf(records);
       const kept = new Set(projected.map((each) => each.runId.value));
 
       await this.facts.put(projected);
-      await this.facts.drop(
-        runIds.map((each) => each.value).filter((each) => !kept.has(each)),
-      );
+      await this.facts.drop(runIds.filter((each) => !kept.has(each.value)));
     });
   }
 
@@ -85,16 +76,16 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     }
 
     return this.transaction.inTransaction(async () => {
-      const tasks = taskIds.map((each) => each.value);
-
-      await this.facts.lockTasks(tasks);
+      await this.facts.lockTasks(taskIds);
 
       const projected = await this.factsOf(await this.records.ofTasks(taskIds));
       const kept = new Set(projected.map((each) => each.runId.value));
 
       await this.facts.put(projected);
       await this.facts.drop(
-        (await this.facts.runsOfTasks(tasks)).filter((each) => !kept.has(each)),
+        (await this.facts.runsOfTasks(taskIds)).filter(
+          (each) => !kept.has(each.value),
+        ),
       );
       await this.projectTaskPullRequests(taskIds);
     });
@@ -107,8 +98,8 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     for (;;) {
       const runIds = await this.records.runIdsOf(
         {
-          workspaceId: WorkspaceId.of(owner.workspaceId),
-          teamId: owner.kind === 'team' ? TeamId.of(owner.teamId) : null,
+          workspaceId: owner.workspaceId,
+          teamId: owner.kind === 'team' ? owner.teamId : null,
         },
         after,
         AT_ONCE,
@@ -134,7 +125,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
   }
 
   async repairEndedSince(since: Date): Promise<RunFactsDrift> {
-    const repaired = new Set<string>();
+    const repaired = new Map<string, RunId>();
     let after: RunId | null = null;
     let checked = 0;
 
@@ -150,7 +141,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
       const differing = await this.facts.differing(await this.factsOf(records));
 
       for (const runId of differing) {
-        repaired.add(runId);
+        repaired.set(runId.value, runId);
       }
 
       after = last.runId;
@@ -159,20 +150,20 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     for (const runId of await this.orphansOf(
       await this.facts.runsEndedSince(since),
     )) {
-      repaired.add(runId);
+      repaired.set(runId.value, runId);
     }
 
-    const all = [...repaired];
+    const all = [...repaired.values()];
 
     for (let at = 0; at < all.length; at += AT_ONCE) {
-      await this.ofRuns(all.slice(at, at + AT_ONCE).map(RunId.of));
+      await this.ofRuns(all.slice(at, at + AT_ONCE));
     }
 
-    return { checked, repaired: all };
+    return { checked, repaired: all.map((each) => each.value) };
   }
 
-  workspaces(): Promise<readonly string[]> {
-    return this.facts.workspaces();
+  async workspaces(): Promise<readonly string[]> {
+    return (await this.facts.workspaces()).map((each) => each.value);
   }
 
   private async projectTaskPullRequests(
@@ -195,32 +186,30 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     }
 
     await this.facts.dropTaskPullRequests(
-      taskIds.map((each) => each.value).filter((each) => !projected.has(each)),
+      taskIds.filter((each) => !projected.has(each.value)),
     );
   }
 
-  private async dropOrphans(runIds: readonly string[]): Promise<void> {
+  private async dropOrphans(runIds: readonly RunId[]): Promise<void> {
     const orphans = await this.orphansOf(runIds);
 
     if (orphans.length > 0) {
-      await this.ofRuns(orphans.map(RunId.of));
+      await this.ofRuns(orphans);
     }
   }
 
-  private async orphansOf(
-    runIds: readonly string[],
-  ): Promise<readonly string[]> {
-    const orphans: string[] = [];
+  private async orphansOf(runIds: readonly RunId[]): Promise<readonly RunId[]> {
+    const orphans: RunId[] = [];
 
     for (let at = 0; at < runIds.length; at += AT_ONCE) {
       const batch = runIds.slice(at, at + AT_ONCE);
       const ended = new Set(
-        (await this.records.ofRuns(batch.map(RunId.of)))
+        (await this.records.ofRuns(batch))
           .filter((each) => each.hasEnded)
           .map((each) => each.runId.value),
       );
 
-      orphans.push(...batch.filter((each) => !ended.has(each)));
+      orphans.push(...batch.filter((each) => !ended.has(each.value)));
     }
 
     return orphans;

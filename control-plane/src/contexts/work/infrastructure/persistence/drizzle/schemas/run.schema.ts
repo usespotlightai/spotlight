@@ -8,6 +8,7 @@ import {
   RUN_STATES,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
+import { RUN_TURN_STATES } from '@work/domain/value-objects/run-turn.vo';
 import type { StartedCheckoutParts } from '@work/domain/value-objects/started-checkout.vo';
 import { sql } from 'drizzle-orm';
 import {
@@ -26,6 +27,23 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const runState = pgEnum('run_state', RUN_STATES);
+
+export const runTurn = pgEnum('run_turn', RUN_TURN_STATES);
+
+export interface RunTurnReportParts {
+  readonly handover: {
+    readonly next: string;
+    readonly note: string;
+    readonly attachments: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly contentType: string;
+      readonly size: number;
+    }[];
+  } | null;
+  readonly session: string | null;
+  readonly reportedBy: string;
+}
 
 export const run = pgTable(
   'run',
@@ -78,6 +96,9 @@ export const run = pgTable(
     startedFromAttempt: integer('started_from_attempt'),
     startedFromAt: timestamptz('started_from_at'),
     askedAPerson: boolean('asked_a_person').notNull().default(false),
+    turn: runTurn('turn'),
+    turnReport: jsonb('turn_report').$type<RunTurnReportParts>(),
+    suspendedAt: timestamptz('suspended_at'),
     claimableFrom: timestamptz('claimable_from'),
     exitCode: integer('exit_code'),
     message: text('message'),
@@ -110,6 +131,11 @@ export const run = pgTable(
     index('run_team_idx').on(table.teamId, table.createdAt),
     index('run_created_idx').on(table.createdAt, table.id),
     index('run_station_idx').on(table.stationId, table.createdAt),
+    index('run_turn_idx').on(table.turn, table.suspendedAt),
+    check(
+      'run_turn_check',
+      sql`(${table.state} = 'suspended') = (${table.turn} is not null) and (${table.turn} is null) = (${table.turnReport} is null) and (${table.turn} is null) = (${table.suspendedAt} is null)`,
+    ),
     check(
       'run_ended_at_matches_state',
       sql`(${table.state} in (${literals(TERMINAL_RUN_STATES)})) = (${table.endedAt} is not null)`,

@@ -5,6 +5,7 @@ import {
   CHANGE_STACK_READER,
   type ChangeStackReaderPort,
 } from '@change-review/application/ports/change-stack-reader.port';
+import { stackCheckReasonText } from '@change-review/presentation/http/mappers/stack-check-reason.text';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -141,7 +142,9 @@ describe('runner pools (e2e)', () => {
       .get<ChangeStackReaderPort>(CHANGE_STACK_READER)
       .ofRun(RunId.of(runId), UserId.of('nobody'), new Date());
 
-    return stack?.check ?? null;
+    return stack?.check
+      ? { ...stack.check, reason: stackCheckReasonText(stack.check) }
+      : null;
   };
 
   const claimWith = (token: string, host = HOST, image = DEFAULT_IMAGE) =>

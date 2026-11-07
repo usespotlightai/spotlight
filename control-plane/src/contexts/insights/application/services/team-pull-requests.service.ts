@@ -98,9 +98,7 @@ export class TeamPullRequests {
 
     return {
       ...scope,
-      repositories: await this.lines.teamRepositories(
-        scope.access.teamId.value,
-      ),
+      repositories: await this.lines.teamRepositories(scope.access.teamId),
     };
   }
 }

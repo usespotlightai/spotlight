@@ -325,6 +325,8 @@ describe('reading what the team already knows', () => {
       STATION_CONTEXT,
     );
 
-    expect(rejected.map((each) => each.body)).toEqual(['Turned down lately']);
+    expect(rejected.map((each) => each.body.value)).toEqual([
+      'Turned down lately',
+    ]);
   });
 });

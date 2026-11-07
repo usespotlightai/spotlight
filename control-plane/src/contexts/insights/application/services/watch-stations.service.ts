@@ -105,7 +105,7 @@ export class WatchStations {
 
   private async watch(station: WatchedStation): Promise<void> {
     const { workspaceId, teamId } = station;
-    const rules = (await this.lines.alertsAt(station.stationId.value)) ?? [];
+    const rules = (await this.lines.alertsAt(station.stationId)) ?? [];
 
     await this.transaction.inTransaction(async () => {
       if (

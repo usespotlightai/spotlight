@@ -17,6 +17,7 @@ import {
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
+import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
@@ -44,6 +45,8 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
+
+const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
 
 const channels = {
   reached: async () => null,
@@ -172,6 +175,7 @@ const world = (input: {
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -206,6 +210,7 @@ const world = (input: {
     processedEventsInMemory(),
     logger,
     channels,
+    NO_RUNS,
   );
 
   let deliveries = 0;

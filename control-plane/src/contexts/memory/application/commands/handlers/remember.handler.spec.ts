@@ -85,7 +85,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
   const reading = new ReadProposedMemoryHandler(
     new RunnerMemoryLoader(work),
     {
-      forTask: async () => added.at(-1) ?? null,
+      forTask: async () => added[added.length - 1] ?? null,
     } as unknown as MemoryDraftRepository,
     new MemoryReviews(work, { find: async () => null } as never),
   );

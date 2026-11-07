@@ -1,4 +1,5 @@
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { MemoryReference } from '@insights/domain/value-objects/run-memories.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { costedRecord, endedRecord, factOf } from '@insights/runs.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -76,7 +77,9 @@ describe('RunFact', () => {
 
   it('keeps the memories its run used when looked at as of an earlier time', () => {
     const fact = factOf(
-      endedRecord('run_1').recordMemories('briefed', ['mem_1']),
+      endedRecord('run_1').recordMemories('briefed', [
+        MemoryReference.of('mem_1'),
+      ]),
     );
 
     expect(fact.asOf(LATER)?.memories).toBe(fact.memories);

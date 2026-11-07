@@ -275,6 +275,7 @@ export class DrizzleRunReader implements RunReaderPort {
         runId: run.id,
         state: run.state,
         stopRequestedAt: run.stopRequestedAt,
+        turn: run.turn,
         taskId: task.id,
         title: task.title,
         description: task.description,
@@ -317,6 +318,7 @@ export class DrizzleRunReader implements RunReaderPort {
             state: run.state,
             superseded: sql<boolean>`coalesce(${dispatch.superseded}, false)`,
             stopRequestedAt: run.stopRequestedAt,
+            turn: run.turn,
           })
           .from(run)
           .leftJoin(dispatch, eq(dispatch.id, run.id))
@@ -332,6 +334,7 @@ export class DrizzleRunReader implements RunReaderPort {
     const latestRun = {
       state: latest.state,
       stopRequested: latest.stopRequestedAt !== null,
+      turn: latest.turn,
     };
 
     return {

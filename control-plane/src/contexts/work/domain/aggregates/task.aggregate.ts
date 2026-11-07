@@ -57,6 +57,7 @@ import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
@@ -153,6 +154,8 @@ export class Task extends EventRecorder {
     readonly draftGeneration: DraftGeneration = DraftGeneration.first(),
     readonly revision: TaskRevision = TaskRevision.first(),
     readonly version: number = 0,
+    readonly awaitedTurn: AwaitedTurn | null = null,
+    readonly answeredTurnAt: Date | null = null,
   ) {
     super();
   }
@@ -243,6 +246,8 @@ export class Task extends EventRecorder {
     draftGeneration?: DraftGeneration;
     revision: TaskRevision;
     version?: number;
+    awaitedTurn?: AwaitedTurn | null;
+    answeredTurnAt?: Date | null;
   }): Task {
     if (input.finishedAt !== null && input.currentRunId !== null) {
       throw new InconsistentStateError(
@@ -262,7 +267,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    return new Task(
+    const task = new Task(
       input.id,
       input.workspaceId,
       input.stationId,
@@ -287,7 +292,21 @@ export class Task extends EventRecorder {
       input.draftGeneration ?? DraftGeneration.first(),
       input.revision,
       input.version ?? 0,
+      input.awaitedTurn ?? null,
+      input.answeredTurnAt ?? null,
     );
+
+    if (
+      task.awaitedTurn &&
+      !(task.hasCurrentRun(task.awaitedTurn.runId) && task.awaitingReview)
+    ) {
+      throw new InconsistentStateError(
+        'task',
+        'awaits the turn of a run it does not hold, or awaits no person',
+      );
+    }
+
+    return task;
   }
 
   assertRevision(revision: TaskRevision): Task {
@@ -1116,6 +1135,42 @@ export class Task extends EventRecorder {
     return this.asked(newNote, by, by);
   }
 
+  awaitTurn(turn: {
+    readonly turn: AwaitedTurn;
+    readonly note: NewNote;
+    readonly session: HarnessSession | null;
+    readonly runner: RunnerId | null;
+  }): Task {
+    const runId = turn.turn.runId;
+
+    if (this.awaitedTurn?.equals(turn.turn)) {
+      return this;
+    }
+
+    this.assertNoOtherRun(runId, 'await its turn');
+
+    if (!this.hasCurrentRun(runId)) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} does not hold run ${runId.value}. It cannot await its turn.`,
+      );
+    }
+
+    const recorded = turn.session
+      ? this.recordSession(runId, turn.session, turn.runner)
+      : this;
+    const asked = recorded.awaitingReview
+      ? recorded
+      : recorded.putToAPerson(runId, turn.note);
+
+    return asked.with({ awaitedTurn: turn.turn, answeredTurnAt: null });
+  }
+
+  get lastPersonNoteAt(): Date | null {
+    return (
+      [...this.notes].reverse().find((note) => note.voice.isPerson)?.at ?? null
+    );
+  }
+
   private asked(
     newNote: NewNote,
     by: RunId | null,
@@ -1439,13 +1494,22 @@ export class Task extends EventRecorder {
         'answered',
       ),
     );
-    const answered = noted.running
+    const acknowledged = noted.running
       ? noted
       : noted.acknowledgeNotesAt(newNote.at);
+    const answered =
+      this.awaitedTurn && !acknowledged.awaitedTurn
+        ? acknowledged.with({ answeredTurnAt: newNote.at })
+        : acknowledged;
 
     if (this.currentRunId) {
       answered.record(
-        new TaskAnswered(this.id, this.workspaceId, this.currentRunId),
+        new TaskAnswered(
+          this.id,
+          this.workspaceId,
+          this.currentRunId,
+          this.awaitedTurn,
+        ),
       );
     }
 
@@ -1579,6 +1643,8 @@ export class Task extends EventRecorder {
     assignee?: UserId | null;
     draftGeneration?: DraftGeneration;
     revision?: TaskRevision;
+    awaitedTurn?: AwaitedTurn | null;
+    answeredTurnAt?: Date | null;
   }): Task {
     const next = new Task(
       this.id,
@@ -1607,11 +1673,20 @@ export class Task extends EventRecorder {
       part.draftGeneration ?? this.draftGeneration,
       part.revision ?? this.revision,
       this.version,
+      part.awaitedTurn !== undefined ? part.awaitedTurn : this.awaitedTurn,
+      part.answeredTurnAt !== undefined
+        ? part.answeredTurnAt
+        : this.answeredTurnAt,
     );
 
     next.inheritEvents(this);
 
-    return next;
+    const awaited = next.awaitedTurn;
+
+    return awaited &&
+      !(next.hasCurrentRun(awaited.runId) && next.awaitingReview)
+      ? next.with({ awaitedTurn: null })
+      : next;
   }
 
   deleted(): Task {

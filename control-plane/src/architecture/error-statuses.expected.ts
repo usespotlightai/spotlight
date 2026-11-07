@@ -306,6 +306,7 @@ export const EXPECTED_ERROR_STATUSES: Readonly<Record<string, number>> = {
   'contexts/secrets/domain/exceptions/secret-target-conflict.error: SecretTargetConflictError': 409,
   'contexts/secrets/domain/exceptions/secret-version-conflict.error: SecretVersionConflictError': 409,
   'contexts/secrets/infrastructure/crypto/envelope: DecryptionFailedError': 500,
+  'contexts/work/application/errors/happening-held.error: HappeningHeldError': 409,
   'contexts/work/application/errors/invalid-page-cursor.error: InvalidPageCursorError': 422,
   'contexts/work/application/errors/lines-not-open-yet.error: LinesNotOpenYetError': 409,
   'contexts/work/application/errors/storage-not-configured.error: StorageNotConfiguredError': 422,

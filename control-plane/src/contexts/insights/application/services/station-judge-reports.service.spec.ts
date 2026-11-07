@@ -9,6 +9,7 @@ import {
 } from '@insights/domain/services/judge-report';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { taskPullRequestOf } from '@insights/insights.fake-spec';
 import {
@@ -190,7 +191,7 @@ const oneByOne = async (
           teamId: TeamId.of('team_1'),
           lineId: LineId.of(station.lineId),
           stationId: StationId.of(station.stationId),
-          rubricVersion: judge.rubricVersion,
+          rubricVersion: RubricVersion.of(judge.rubricVersion),
           last: 500,
         })
       : [];

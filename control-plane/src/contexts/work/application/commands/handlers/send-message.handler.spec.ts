@@ -234,7 +234,7 @@ describe('SendMessageHandler', () => {
     expect(dispatched).toEqual([]);
     expect(saved?.takesUp(RUN)).toBe(true);
     expect(saved?.pullEvents()).toContainEqual(
-      new TaskAnswered(TaskId.of('task_1'), WorkspaceId.of('ws_1'), RUN),
+      new TaskAnswered(TaskId.of('task_1'), WorkspaceId.of('ws_1'), RUN, null),
     );
   });
 

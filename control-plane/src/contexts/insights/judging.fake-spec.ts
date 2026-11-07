@@ -8,6 +8,7 @@ import { Citation } from '@insights/domain/value-objects/citation.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
@@ -23,8 +24,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export const RUBRIC_VERSION = 'c'.repeat(64);
-export const NEXT_RUBRIC_VERSION = 'd'.repeat(64);
+export const RUBRIC_VERSION = RubricVersion.of('c'.repeat(64));
+export const NEXT_RUBRIC_VERSION = RubricVersion.of('d'.repeat(64));
 
 export const rubricOf = (
   text: string | null = 'Did the run retry uploads?',
@@ -249,7 +250,10 @@ export class ScoresInMemory implements ScoreRepository {
     );
   }
 
-  async judgeOf(runId: RunId, rubricVersion: string): Promise<Score | null> {
+  async judgeOf(
+    runId: RunId,
+    rubricVersion: RubricVersion,
+  ): Promise<Score | null> {
     return (
       [...this.stored.values()].find(
         (each) =>

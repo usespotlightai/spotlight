@@ -17,9 +17,11 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
+import { HappeningHeldError } from '@work/application/errors/happening-held.error';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
+import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
@@ -45,6 +47,8 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
 
 const channels = {
   reached: async () => null,
@@ -157,6 +161,7 @@ const tasks = (found: Task | null) =>
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
@@ -216,6 +221,7 @@ const receive = (
     processedEventsInMemory(),
     logger,
     channels,
+    NO_RUNS,
   ).react(
     WorkspaceId.of('ws_1'),
     null,
@@ -252,6 +258,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     );
     const happenings = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
 
@@ -287,6 +294,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -311,6 +319,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -426,6 +435,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
@@ -465,6 +475,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -519,6 +530,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -546,6 +558,7 @@ describe('ReactToHappenings', () => {
         saved?.id as TaskId,
         saved?.workspaceId as WorkspaceId,
         RunId.of('run_1'),
+        null,
       ),
     );
     expect(dispatched).toHaveLength(0);
@@ -597,6 +610,7 @@ describe('ReactToHappenings', () => {
         processedEventsInMemory(),
         logger,
         channels,
+        NO_RUNS,
       ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     it('takes a reply that is only a file as the answer, and keeps the file', async () => {
@@ -661,6 +675,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -695,6 +710,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -964,6 +980,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'received-as');
 
     expect(stored.findByCorrelation).toHaveBeenCalledWith(
@@ -998,6 +1015,7 @@ describe('ReactToHappenings', () => {
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1040,6 +1058,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1077,6 +1096,7 @@ describe('ReactToHappenings', () => {
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1121,6 +1141,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -1155,6 +1176,7 @@ describe('ReactToHappenings', () => {
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1197,6 +1219,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(added?.assignee).toBeNull();
@@ -1234,6 +1257,7 @@ describe('ReactToHappenings', () => {
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
       awaitingConnection: vi.fn(async () => []),
     } satisfies TaskRepository & TaskPlacementsPort;
 
@@ -1276,6 +1300,7 @@ describe('ReactToHappenings', () => {
       processedEventsInMemory(),
       logger,
       channels,
+      NO_RUNS,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1332,6 +1357,7 @@ describe('ReactToHappenings with a word for a chat', () => {
       processedEventsInMemory(),
       logger,
       chatting as unknown as ChannelChats,
+      NO_RUNS,
     );
 
     return { reactions, chatting, refusal };
@@ -1441,5 +1467,89 @@ describe('ReactToHappenings with a word for a chat', () => {
       expect(saved).toBeUndefined();
       expect(chatting.answer).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('a happening for a task whose run’s turn is still being decided (R18)', () => {
+  const turnFor = (turn: 'pending' | 'kept', ageMs: number) =>
+    ({
+      of: async () => [
+        {
+          runId: RunId.of('run_1'),
+          turn,
+          suspendedAt: new Date(NOW.getTime() - ageMs),
+        },
+      ],
+    }) as unknown as RunFactsPort;
+
+  const reacting = (runs: RunFactsPort) => {
+    const stored = tasks(taskAt().assignRun(RunId.of('run_1'), line()));
+
+    return {
+      stored,
+      reactions: new ReactToHappenings(
+        stored,
+        stored,
+        lines(),
+        dispatch,
+        transaction,
+        clock,
+        ids,
+        members,
+        files,
+        processedEventsInMemory(),
+        logger,
+        channels,
+        runs,
+      ),
+    };
+  };
+
+  it('is held back with a conflict, so the delivery comes again once the turn is decided', async () => {
+    const { reactions, stored } = reacting(turnFor('pending', 60_000));
+
+    await expect(
+      reactions.react(
+        WorkspaceId.of('ws_1'),
+        null,
+        [news(CHANGES_REQUESTED, 'Handle the empty case.')],
+        'delivery_1',
+      ),
+    ).rejects.toBeInstanceOf(HappeningHeldError);
+    expect(stored.save).not.toHaveBeenCalled();
+  });
+
+  it('applies as to a working task once the turn has been pending longer than the wait', async () => {
+    const { reactions, stored } = reacting(turnFor('pending', 4 * 60_000));
+
+    await reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [news(CHANGES_REQUESTED, 'Handle the empty case.')],
+      'delivery_1',
+    );
+
+    expect(stored.save).toHaveBeenCalled();
+  });
+
+  it('is never held when its turn is kept, or for a poll with no cursor', async () => {
+    const kept = reacting(turnFor('kept', 60_000));
+    const cursorless = reacting(turnFor('pending', 60_000));
+
+    await kept.reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [news(COMMENTED, 'Still retries.')],
+      'delivery_1',
+    );
+    await cursorless.reactions.react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [news(COMMENTED, 'Still retries.')],
+      null,
+    );
+
+    expect(kept.stored.save).toHaveBeenCalled();
+    expect(cursorless.stored.save).toHaveBeenCalled();
   });
 });

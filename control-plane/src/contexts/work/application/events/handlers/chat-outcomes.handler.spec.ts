@@ -60,6 +60,9 @@ const completed = (
     null,
     HarnessSession.of('session_1'),
     1,
+    false,
+    true,
+    true,
   );
 
 const outcomesOf = (chat: Chat | null) => {
@@ -150,6 +153,9 @@ describe('ChatOutcomes', () => {
           null,
           null,
           1,
+          false,
+          true,
+          true,
         ),
       );
 
@@ -195,6 +201,9 @@ describe('ChatOutcomes', () => {
         IN_CHAT,
         3,
         3,
+        false,
+        null,
+        true,
       ),
     );
 

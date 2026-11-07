@@ -14,6 +14,7 @@ export const awaitingCheck = async (
     id: stackId,
     runId,
     workspaceId,
+    teamId: 'team_checked',
     state: 'ready',
     files: [
       {
@@ -85,6 +86,7 @@ export const awaitingCheck = async (
     stackId,
     runId,
     workspaceId,
+    teamId: 'team_checked',
     command: 'npm test',
     placement,
     status: 'waiting',

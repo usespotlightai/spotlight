@@ -2,7 +2,9 @@ import type { BindableChatEvent } from '@work/application/contracts/bindable-cha
 import type { ListedProposal } from '@work/application/contracts/listed-proposal.contract';
 import type { ChannelNoticesPort } from '@work/application/ports/channel-notices.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
+import { lastWordsIn } from '@work/application/services/last-words';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type {
   Chat,
@@ -23,6 +25,7 @@ export class NotifyChannel implements RunOutcomes {
     private readonly chats: ChatRepository,
     private readonly lines: LineMapsPort,
     private readonly notices: ChannelNoticesPort,
+    private readonly journals: RunJournalReaderPort,
   ) {}
 
   async onChatStarted(event: ChatStarted): Promise<void> {
@@ -49,10 +52,11 @@ export class NotifyChannel implements RunOutcomes {
     }
 
     const proposals = await this.listed(chat.openProposals);
-    const body = ChannelReplies.answered(
-      event.lastWords?.trim() || null,
-      proposals,
-    );
+    const lastWords =
+      event.reported && !event.handover
+        ? lastWordsIn(await this.journals.attemptsOfRun(event.runId), null)
+        : null;
+    const body = ChannelReplies.answered(lastWords?.trim() || null, proposals);
 
     if (body) {
       await this.post(chat, 'chat.replied', body, null, proposals);

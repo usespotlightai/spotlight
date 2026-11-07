@@ -4,6 +4,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Claimant } from '@work/domain/value-objects/claimant';
 import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import type { RunTurnState } from '@work/domain/value-objects/run-turn.vo';
 
 export interface RunRepository {
   add(run: Run): Promise<void>;
@@ -38,6 +39,13 @@ export interface RunRepository {
   ): Promise<readonly Run[]>;
 
   withExpiredReservations(now: Date): Promise<readonly Run[]>;
+
+  turnsOfTasksSuspendedBefore(
+    turn: RunTurnState,
+    before: Date,
+    after: { readonly suspendedAt: Date; readonly id: RunId } | null,
+    max: number,
+  ): Promise<readonly Run[]>;
 
   save(run: Run): Promise<void>;
 }

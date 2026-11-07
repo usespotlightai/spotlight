@@ -1,6 +1,7 @@
 import { inStartOrder } from '@insights/domain/services/run-order';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export interface ConfigRun {
   readonly runId: RunId;
@@ -25,7 +26,7 @@ const configRunOf = (record: RunFact): ConfigRun | null => {
 };
 
 export interface ConfigIntervalBound {
-  readonly stationId: string;
+  readonly stationId: StationId;
   readonly from: Date;
   readonly fromRun?: RunId;
 }
@@ -46,10 +47,10 @@ export const earliestBounds = (
   const earliest = new Map<string, ConfigIntervalBound>();
 
   for (const bound of bounds) {
-    const known = earliest.get(bound.stationId);
+    const known = earliest.get(bound.stationId.value);
 
     if (!known || earlier(bound, known)) {
-      earliest.set(bound.stationId, bound);
+      earliest.set(bound.stationId.value, bound);
     }
   }
 

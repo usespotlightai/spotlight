@@ -18,11 +18,11 @@ import type { HostClaimDto } from '@work/application/dto/host.dto';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
 import type { SandboxHostsPort } from '@work/application/ports/sandbox-hosts.port';
+import type { ClaimGate } from '@work/application/services/claim-gate.service';
 import { claimedRun } from '@work/application/services/claimed-work';
 import type { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import type { LongPoll } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
-import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
@@ -68,7 +68,7 @@ export class ClaimHostWorkHandler
     private readonly leases: RunLeases,
     private readonly checks: CheckWorkPort,
     private readonly clock: ClockPort,
-    private readonly starting: RunStartHooks,
+    private readonly starting: ClaimGate,
     private readonly taken: ClaimsTaken,
     private readonly polls: LongPoll,
     private readonly sandboxes: SandboxesPort,

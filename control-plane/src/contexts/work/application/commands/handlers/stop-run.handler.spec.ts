@@ -8,13 +8,16 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
-import { RunFacts } from '@work/application/services/run-facts.service';
 import { Runs } from '@work/application/services/runs.service';
+import type { TakeTurn } from '@work/application/services/take-turn.service';
+import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -49,22 +52,43 @@ const taskAssignedTo = (userId: string) =>
     assignedToThem: (them: UserId) => them.value === userId,
   }) as unknown as Task;
 
+const dispatched = Dispatch.ordered({
+  id: RunId.of('run_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: null,
+  subject: {
+    kind: 'task',
+    taskId: TaskId.of('task_1'),
+    revision: TaskRevision.of(0),
+    stationId: StationId.of('station_1'),
+  },
+  configuredAs: null,
+  order: DispatchOrder.of({}),
+  now: NOW,
+}).enqueuedAsRun();
+
 const stopping = (run: Run, task: Task | null) => {
-  const dispatch = vi.fn(async (_events: readonly unknown[]) => undefined);
+  let current = run;
   const save = vi.fn(async (saved: Run) => {
-    await dispatch(saved.pullEvents());
+    current = saved;
   });
   const runs = {
-    findById: vi.fn(async () => run),
+    findById: vi.fn(async () => current),
     save,
   } as unknown as RunRepository;
+  const take = vi.fn(async () => undefined);
   const handler = new StopRunHandler(
     new Runs(runs, { sha256: (text) => text }, { now: () => NOW } as ClockPort),
-    new RunFacts(runs),
+    {
+      find: async () => dispatched,
+      add: async () => undefined,
+      save: async () => undefined,
+    } satisfies DispatchRepository,
     { find: vi.fn(async () => task) } as unknown as TaskRepository,
+    { take } as unknown as TakeTurn,
   );
 
-  return { handler, save, dispatch };
+  return { handler, save, take, current: () => current };
 };
 
 describe('StopRunHandler', () => {
@@ -79,16 +103,41 @@ describe('StopRunHandler', () => {
     expect(saved.stopRequestedAt).toEqual(NOW);
   });
 
-  it('announces that the run has a stop request', async () => {
-    const { handler, dispatch } = stopping(
-      claimedRun(),
+  it('records the stop on a turn its task still decides, and has the turn decided at once (R4)', async () => {
+    const { handler, take, current } = stopping(
+      claimedRun().reportTurn(
+        RunnerId.of('runner_1'),
+        RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        NOW,
+      ),
       taskAssignedTo('user_1'),
     );
 
     await handler.execute(new StopRunCommand('run_1', 'user_1'));
 
-    const raised = dispatch.mock.calls[0][0];
-    expect(raised.some((each) => each instanceof RunStopRequested)).toBe(true);
+    expect(current().state).toBe('suspended');
+    expect(current().stopRequested).toBe(true);
+    expect(take).toHaveBeenCalledWith(RunId.of('run_1'), 1);
+  });
+
+  it('ends a kept turn stopped, with no turn left to decide', async () => {
+    const { handler, take, current } = stopping(
+      claimedRun()
+        .reportTurn(
+          RunnerId.of('runner_1'),
+          RunOutcome.of({ exitCode: 0, failed: false }),
+          HandoverReport.none(),
+          NOW,
+        )
+        .keep(1),
+      taskAssignedTo('user_1'),
+    );
+
+    await handler.execute(new StopRunCommand('run_1', 'user_1'));
+
+    expect(current().outcome?.stopped).toBe(true);
+    expect(take).not.toHaveBeenCalled();
   });
 
   it('rejects anyone the task is not assigned to', async () => {

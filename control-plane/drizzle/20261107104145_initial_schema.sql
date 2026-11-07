@@ -72,6 +72,7 @@ CREATE TYPE "public"."network_call_state" AS ENUM('waiting', 'claimed', 'answere
 CREATE TYPE "public"."notice_form" AS ENUM('ended', 'advice');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'cancelled', 'unreplayable');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'suspended', 'completed', 'failed', 'cancelled');--> statement-breakpoint
+CREATE TYPE "public"."run_turn" AS ENUM('pending', 'kept');--> statement-breakpoint
 CREATE TYPE "public"."task_note_form" AS ENUM('words', 'setup', 'resolved', 'approval', 'failure', 'connection');--> statement-breakpoint
 CREATE TYPE "public"."task_note_kind" AS ENUM('asked', 'passed', 'answered', 'message', 'reopened');--> statement-breakpoint
 CREATE TYPE "public"."voice" AS ENUM('station', 'person', 'world');--> statement-breakpoint
@@ -1968,6 +1969,9 @@ CREATE TABLE "run" (
 	"started_from_attempt" integer,
 	"started_from_at" timestamp (3) with time zone,
 	"asked_a_person" boolean DEFAULT false NOT NULL,
+	"turn" "run_turn",
+	"turn_report" jsonb,
+	"suspended_at" timestamp (3) with time zone,
 	"claimable_from" timestamp (3) with time zone,
 	"exit_code" integer,
 	"message" text,
@@ -1981,6 +1985,7 @@ CREATE TABLE "run" (
 	CONSTRAINT "run_workspace_id_id_key" UNIQUE("workspace_id","id"),
 	CONSTRAINT "run_provision_attempts_not_negative" CHECK ("run"."provision_attempts" >= 0),
 	CONSTRAINT "run_requeue_count_not_negative" CHECK ("run"."requeue_count" >= 0),
+	CONSTRAINT "run_turn_check" CHECK (("run"."state" = 'suspended') = ("run"."turn" is not null) and ("run"."turn" is null) = ("run"."turn_report" is null) and ("run"."turn" is null) = ("run"."suspended_at" is null)),
 	CONSTRAINT "run_ended_at_matches_state" CHECK (("run"."state" in ('completed', 'failed', 'cancelled')) = ("run"."ended_at" is not null))
 );
 --> statement-breakpoint
@@ -2062,6 +2067,8 @@ CREATE TABLE "task" (
 	"setup_open" boolean DEFAULT false NOT NULL,
 	"unread_ask" boolean DEFAULT false NOT NULL,
 	"draft_generation" integer DEFAULT 0 NOT NULL,
+	"awaited_turn_attempt" integer,
+	"answered_turn_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
@@ -2447,6 +2454,7 @@ CREATE INDEX "run_task_idx" ON "run" USING btree ("task_id");--> statement-break
 CREATE INDEX "run_team_idx" ON "run" USING btree ("team_id","created_at");--> statement-breakpoint
 CREATE INDEX "run_created_idx" ON "run" USING btree ("created_at","id");--> statement-breakpoint
 CREATE INDEX "run_station_idx" ON "run" USING btree ("station_id","created_at");--> statement-breakpoint
+CREATE INDEX "run_turn_idx" ON "run" USING btree ("turn","suspended_at");--> statement-breakpoint
 CREATE INDEX "run_chat_idx" ON "run" USING btree ("chat_id");--> statement-breakpoint
 CREATE INDEX "run_replay_of_idx" ON "run" USING btree ("replay_of_run_id");--> statement-breakpoint
 CREATE INDEX "run_search_idx" ON "run" USING btree ("search_id");--> statement-breakpoint

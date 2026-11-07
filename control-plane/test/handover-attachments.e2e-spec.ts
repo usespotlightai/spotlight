@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -163,6 +164,15 @@ const aTaskWithLeasedRun = async (
       resume: { key: `${taskId}:${at}` },
     },
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      taskId,
+      stationId: at,
+    }),
+  );
 
   return { taskId, runId };
 };
@@ -321,7 +331,12 @@ describe('files a run attaches to its handover', () => {
       })
       .expect(204);
 
-    expect(await filesOnNotes(taskId)).toEqual([
+    expect(
+      await eventually(async () => {
+        const files = await filesOnNotes(taskId);
+        return files.length > 0 ? files : null;
+      }),
+    ).toEqual([
       { notePosition: 0, name: 'light.png' },
       { notePosition: 0, name: 'dark.png' },
     ]);

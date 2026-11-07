@@ -26,6 +26,7 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
@@ -63,7 +64,18 @@ import {
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import { and, eq, inArray, not, or, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  lt,
+  not,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 type Row = typeof task.$inferSelect;
 type NoteRow = typeof taskNote.$inferSelect;
@@ -198,6 +210,11 @@ const toTask = (
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
     draftGeneration: DraftGeneration.of(row.draftGeneration),
+    awaitedTurn:
+      row.awaitedTurnAttempt !== null && row.currentRunId
+        ? AwaitedTurn.of(RunId.of(row.currentRunId), row.awaitedTurnAttempt)
+        : null,
+    answeredTurnAt: row.answeredTurnAt,
     revision: TaskRevision.of(row.revision),
     version: row.version,
     pullRequestLink: row.pullRequest
@@ -319,6 +336,8 @@ export class DrizzleTaskRepository implements TaskRepository {
           setupOpen: saved.setupOpen,
           unreadAsk: saved.hasUnreadAsk,
           draftGeneration: saved.draftGeneration.value,
+          awaitedTurnAttempt: saved.awaitedTurn?.attempt ?? null,
+          answeredTurnAt: saved.answeredTurnAt,
         })
         .where(
           and(eq(task.id, saved.id.value), eq(task.version, saved.version)),
@@ -511,6 +530,24 @@ export class DrizzleTaskRepository implements TaskRepository {
 
   async settingUp(): Promise<readonly Task[]> {
     return this.openSetups();
+  }
+
+  async withTurnAnsweredBetween(
+    after: Date,
+    before: Date,
+  ): Promise<readonly Task[]> {
+    const found = await this.context.db
+      .select()
+      .from(task)
+      .where(
+        and(
+          isNotNull(task.currentRunId),
+          gt(task.answeredTurnAt, after),
+          lt(task.answeredTurnAt, before),
+        ),
+      );
+
+    return this.whole(found);
   }
 
   async awaitingConnection(

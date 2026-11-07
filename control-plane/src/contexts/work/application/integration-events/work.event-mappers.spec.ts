@@ -419,6 +419,9 @@ describe('WORK_EVENT_MAPPERS', () => {
         null,
         null,
         1,
+        false,
+        true,
+        true,
       );
 
     expect(published(completed(SUBJECT))).toEqual([]);
@@ -426,10 +429,14 @@ describe('WORK_EVENT_MAPPERS', () => {
       [],
     );
     expect(published(completed(null))).toEqual([]);
-    expect(published(new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3))).toEqual(
-      [],
-    );
-    expect(published(new RunCancelled(RUN, WORKSPACE, null, 1))).toEqual([]);
+    expect(
+      published(
+        new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3, false, null, true),
+      ),
+    ).toEqual([]);
+    expect(
+      published(new RunCancelled(RUN, WORKSPACE, null, 1, false, false)),
+    ).toEqual([]);
   });
 
   it('publishes a replay’s end as a replay’s, never as a run’s', () => {
@@ -452,6 +459,8 @@ describe('WORK_EVENT_MAPPERS', () => {
           null,
           1,
           true,
+          true,
+          true,
         ),
       ),
     ).toEqual([
@@ -470,7 +479,16 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
     expect(
       published(
-        new RunExhausted(RUN, WORKSPACE, replay, 3, 3, false, 'runner-lost'),
+        new RunExhausted(
+          RUN,
+          WORKSPACE,
+          replay,
+          3,
+          3,
+          false,
+          'runner-lost',
+          true,
+        ),
       ),
     ).toEqual([
       {
@@ -487,7 +505,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       },
     ]);
     expect(
-      published(new RunCancelled(RUN, WORKSPACE, replay, 1)).map(
+      published(new RunCancelled(RUN, WORKSPACE, replay, 1, false, false)).map(
         (each) => each.kind,
       ),
     ).toEqual(['work.replay-ended.v1']);
@@ -513,6 +531,8 @@ describe('WORK_EVENT_MAPPERS', () => {
           null,
           1,
           true,
+          true,
+          true,
         ),
       ),
     ).toEqual([
@@ -534,7 +554,16 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
     expect(
       published(
-        new RunExhausted(RUN, WORKSPACE, search, 3, 3, false, 'runner-lost'),
+        new RunExhausted(
+          RUN,
+          WORKSPACE,
+          search,
+          3,
+          3,
+          false,
+          'runner-lost',
+          true,
+        ),
       ),
     ).toEqual([
       expect.objectContaining({
@@ -544,14 +573,18 @@ describe('WORK_EVENT_MAPPERS', () => {
         asked: false,
       }),
     ]);
-    expect(published(new RunCancelled(RUN, WORKSPACE, search, 1))).toEqual([
+    expect(
+      published(new RunCancelled(RUN, WORKSPACE, search, 1, false, false)),
+    ).toEqual([
       expect.objectContaining({
         kind: 'work.search-run-ended.v1',
         outcome: 'cancelled',
         started: false,
       }),
     ]);
-    expect(published(new RunCancelled(RUN, WORKSPACE, search, 2))).toEqual([
+    expect(
+      published(new RunCancelled(RUN, WORKSPACE, search, 2, false, true)),
+    ).toEqual([
       expect.objectContaining({ outcome: 'cancelled', started: true }),
     ]);
   });

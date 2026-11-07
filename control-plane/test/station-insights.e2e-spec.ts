@@ -58,6 +58,7 @@ import type { DomainEventSubscriber } from '@shared-kernel/application/ports/dom
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -583,7 +584,7 @@ describe('how a station’s runs turned out', () => {
         configPullRequestId: id,
         workspaceId: WorkspaceId.of(WORKSPACE),
         teamId: TeamId.of('team_1'),
-        stationId,
+        stationId: StationId.of(stationId),
         fingerprint,
         url: PullRequestUrl.of(`https://github.com/acme/platform/pull/${id}`),
         openedAt: at(hour),
@@ -888,9 +889,15 @@ describe('the config runs a station’s runs make', () => {
 
   it('reads the last run that ran a config before each station’s time, passing over runs that never started and other teams’ runs', async () => {
     const lastFrom = async (
-      bounds: readonly ConfigIntervalBound[],
+      named: readonly (Omit<ConfigIntervalBound, 'stationId'> & {
+        readonly stationId: string;
+      })[],
       teamId = 'team_1',
     ) => {
+      const bounds = named.map((each) => ({
+        ...each,
+        stationId: StationId.of(each.stationId),
+      }));
       const fromSql = (
         await context.inTransaction(() =>
           stationFacts.lastConfigRunsBefore(TeamId.of(teamId), bounds),

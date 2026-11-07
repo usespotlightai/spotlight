@@ -6,6 +6,8 @@ import type {
 } from '@lines/application/contracts/line-view.contract';
 import type { LinesPort } from '@lines/application/ports/lines.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const alert = (shape: Partial<StationAlertView>): StationAlertView => ({
@@ -58,7 +60,7 @@ describe('Lines', () => {
       lineWith([alert({ above: 0.5 }), alert({ above: 0.5, below: 0.1 })]),
     ]);
 
-    const rules = await adapter.alertsAt('station_1');
+    const rules = await adapter.alertsAt(StationId.of('station_1'));
 
     expect(rules?.map((each) => each.key)).toEqual(['failed_rate:above']);
     expect(warned).toEqual(['failed_rate']);
@@ -67,7 +69,7 @@ describe('Lines', () => {
   it('says a station is gone when no line has it', async () => {
     const { adapter } = linesWith([]);
 
-    expect(await adapter.alertsAt('station_1')).toBeNull();
+    expect(await adapter.alertsAt(StationId.of('station_1'))).toBeNull();
   });
 
   it('names each repository of the team’s lines once', async () => {
@@ -76,7 +78,7 @@ describe('Lines', () => {
       lineWith([], ['acme/api']),
     ]);
 
-    expect(await adapter.teamRepositories('team_1')).toEqual([
+    expect(await adapter.teamRepositories(TeamId.of('team_1'))).toEqual([
       'acme/api',
       'acme/web',
     ]);

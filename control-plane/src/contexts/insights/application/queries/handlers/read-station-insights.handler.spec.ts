@@ -591,7 +591,7 @@ describe('reading how a station’s runs turned out', () => {
         configPullRequestId: id,
         workspaceId: WORKSPACE,
         teamId: change.teamId ?? TEAM,
-        stationId: change.stationId ?? 'station_1',
+        stationId: StationId.of(change.stationId ?? 'station_1'),
         fingerprint,
         url: PullRequestUrl.of(`https://github.com/acme/platform/pull/${id}`),
         openedAt,

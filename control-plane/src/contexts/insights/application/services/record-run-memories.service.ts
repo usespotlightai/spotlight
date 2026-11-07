@@ -3,7 +3,10 @@ import type { FactRecorder } from '@insights/application/services/fact-recorder.
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
-import { isMemoryVia } from '@insights/domain/value-objects/run-memories.vo';
+import {
+  isMemoryVia,
+  MemoryReference,
+} from '@insights/domain/value-objects/run-memories.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -46,7 +49,8 @@ export class RecordRunMemories {
         erased: (existing) => existing.erased(),
         load: () => this.records.of(runId),
         fresh: () => RunRecord.empty(runId, workspaceId, taskId),
-        change: (record) => record.recordMemories(via, event.memories),
+        change: (record) =>
+          record.recordMemories(via, event.memories.map(MemoryReference.of)),
       }),
     );
   }

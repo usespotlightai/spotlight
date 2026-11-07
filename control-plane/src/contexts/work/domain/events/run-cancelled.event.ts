@@ -13,12 +13,9 @@ export class RunCancelled implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly subject: RunSubject | null,
     readonly attempt: number,
-    readonly asked: boolean = false,
+    readonly asked: boolean,
+    readonly started: boolean,
   ) {}
-
-  get started(): boolean {
-    return this.attempt > 1;
-  }
 
   get taskId(): TaskId | null {
     return this.subject?.taskId ?? null;

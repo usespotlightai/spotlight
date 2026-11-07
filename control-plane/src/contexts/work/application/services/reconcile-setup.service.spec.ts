@@ -89,6 +89,7 @@ const reconciling = (options: { task?: Task; state?: SetupState } = {}) => {
     save,
     settingUpIn: vi.fn(async () => [task]),
     settingUp: vi.fn(async () => [task]),
+    withTurnAnsweredBetween: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => task),
   } as unknown as TaskRepository;
 

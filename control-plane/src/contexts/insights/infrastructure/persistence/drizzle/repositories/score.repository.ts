@@ -2,6 +2,7 @@ import { Score } from '@insights/domain/aggregates/score.aggregate';
 import { ScoreVersionConflictError } from '@insights/domain/exceptions/score-version-conflict.error';
 import type { ScoreRepository } from '@insights/domain/repositories/score.repository';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
 import {
   scoreFieldsOfRow,
@@ -100,7 +101,10 @@ export class DrizzleScoreRepository implements ScoreRepository {
     });
   }
 
-  async judgeOf(runId: RunId, rubricVersion: string): Promise<Score | null> {
+  async judgeOf(
+    runId: RunId,
+    rubricVersion: RubricVersion,
+  ): Promise<Score | null> {
     const [row] = await this.context.db
       .select()
       .from(score)

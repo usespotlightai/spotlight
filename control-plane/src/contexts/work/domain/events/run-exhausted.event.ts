@@ -15,13 +15,10 @@ export class RunExhausted implements DomainEvent {
     readonly subject: RunSubject | null,
     readonly attempt: number,
     readonly expiredLeases: number,
-    readonly asked: boolean = false,
-    readonly failure: RunFailureCode | null = null,
+    readonly asked: boolean,
+    readonly failure: RunFailureCode | null,
+    readonly started: boolean,
   ) {}
-
-  get started(): boolean {
-    return true;
-  }
 
   get taskId(): TaskId | null {
     return this.subject?.taskId ?? null;

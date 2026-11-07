@@ -1,5 +1,5 @@
 {
-  "id": "24ea5c54-0901-4cd9-b837-5aad42bfed43",
+  "id": "cd9bb748-c7f2-4786-a7fe-fcd36c299a20",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -16196,6 +16196,25 @@
           "notNull": true,
           "default": false
         },
+        "turn": {
+          "name": "turn",
+          "type": "run_turn",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "turn_report": {
+          "name": "turn_report",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "suspended_at": {
+          "name": "suspended_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "claimable_from": {
           "name": "claimable_from",
           "type": "timestamp (3) with time zone",
@@ -16404,6 +16423,27 @@
           "method": "btree",
           "with": {}
         },
+        "run_turn_idx": {
+          "name": "run_turn_idx",
+          "columns": [
+            {
+              "expression": "turn",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "suspended_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "run_chat_idx": {
           "name": "run_chat_idx",
           "columns": [
@@ -16521,6 +16561,10 @@
         "run_requeue_count_not_negative": {
           "name": "run_requeue_count_not_negative",
           "value": "\"run\".\"requeue_count\" >= 0"
+        },
+        "run_turn_check": {
+          "name": "run_turn_check",
+          "value": "(\"run\".\"state\" = 'suspended') = (\"run\".\"turn\" is not null) and (\"run\".\"turn\" is null) = (\"run\".\"turn_report\" is null) and (\"run\".\"turn\" is null) = (\"run\".\"suspended_at\" is null)"
         },
         "run_ended_at_matches_state": {
           "name": "run_ended_at_matches_state",
@@ -17073,6 +17117,18 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "awaited_turn_attempt": {
+          "name": "awaited_turn_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "answered_turn_at": {
+          "name": "answered_turn_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "version": {
           "name": "version",
@@ -18761,6 +18817,14 @@
         "completed",
         "failed",
         "cancelled"
+      ]
+    },
+    "public.run_turn": {
+      "name": "run_turn",
+      "schema": "public",
+      "values": [
+        "pending",
+        "kept"
       ]
     },
     "public.task_note_form": {

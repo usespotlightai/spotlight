@@ -115,6 +115,8 @@ export const task = pgTable(
     setupOpen: boolean('setup_open').notNull().default(false),
     unreadAsk: boolean('unread_ask').notNull().default(false),
     draftGeneration: integer('draft_generation').notNull().default(0),
+    awaitedTurnAttempt: integer('awaited_turn_attempt'),
+    answeredTurnAt: timestamptz('answered_turn_at'),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
     updatedAt: timestamptz('updated_at')

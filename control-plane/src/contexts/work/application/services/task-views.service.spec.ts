@@ -20,6 +20,7 @@ import { TaskViews } from '@work/application/services/task-views.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import {
@@ -134,6 +135,7 @@ const viewing = (
         slugOf: async () => (over.slug === undefined ? 'acme' : over.slug),
       } as unknown as WorkspaceReaderPort,
       new WebTaskLinks('https://spotlight.acme.dev/'),
+      { find: async () => null } as unknown as DispatchRepository,
     ),
     hooks: new TaskNotesFromHooks(
       tasks as unknown as TaskRepository,

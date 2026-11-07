@@ -70,7 +70,7 @@ describe('RenewLeaseHandler', () => {
 
   it('says a run its runner no longer leases is not there, rather than a conflict', async () => {
     const { renew } = renewing([
-      working().suspend(
+      working().reportTurn(
         RUNNER,
         RunOutcome.of({ exitCode: 0, failed: false }),
         HandoverReport.none(),

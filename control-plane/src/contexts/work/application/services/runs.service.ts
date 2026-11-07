@@ -14,19 +14,25 @@ import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type {
   QueuedRunCancellation,
+  ResumedBecause,
   RunCancellation,
   RunEnqueueing,
   RunLease,
   RunsPort,
+  StopRequest,
 } from '@work/application/ports/runs.port';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exists.error';
 import { RunOrderConflictError } from '@work/domain/exceptions/run-order-conflict.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import type { RunCheckout } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+
+const SAVE_ATTEMPTS = 3;
 
 const ENQUEUED: RunEnqueueing = { outcome: 'enqueued' };
 
@@ -112,14 +118,70 @@ export class Runs implements RunsPort {
     return known !== null;
   }
 
-  async requestStop(runId: RunId): Promise<void> {
-    const run = await this.runs.findById(runId);
+  async requestStop(runId: RunId): Promise<StopRequest> {
+    const stopped = await this.changed(runId, (run) =>
+      run.requestStop(this.clock.now()),
+    );
 
-    if (!run) {
+    if (!stopped) {
       throw new UnknownRunError(`Run ${runId.value} not found.`);
     }
 
-    await this.runs.save(run.requestStop(this.clock.now()));
+    return {
+      pendingTurn: stopped.turnAt(stopped.attempt)?.pending
+        ? stopped.attempt
+        : null,
+    };
+  }
+
+  async keep(runId: RunId, attempt: number): Promise<void> {
+    await this.changed(runId, (run) => run.keep(attempt));
+  }
+
+  async resume(
+    runId: RunId,
+    attempt: number | null,
+    because: ResumedBecause,
+    checkouts: readonly RunCheckout[],
+  ): Promise<void> {
+    await this.changed(runId, (run) =>
+      run.resumed(attempt, because, checkouts, this.clock.now()),
+    );
+  }
+
+  async finish(runId: RunId, attempt: number): Promise<void> {
+    await this.changed(runId, (run) => run.finished(attempt));
+  }
+
+  private async changed(
+    runId: RunId,
+    change: (run: Run) => Run,
+  ): Promise<Run | null> {
+    for (let attempt = 1; ; attempt++) {
+      const run = await this.runs.findById(runId);
+
+      if (!run) {
+        return null;
+      }
+
+      const next = change(run);
+
+      if (next === run) {
+        return run;
+      }
+
+      try {
+        await this.runs.save(next);
+        return next;
+      } catch (error) {
+        if (
+          !(error instanceof RunVersionConflictError) ||
+          attempt >= SAVE_ATTEMPTS
+        ) {
+          throw error;
+        }
+      }
+    }
   }
 
   async cancel(runId: RunId): Promise<RunCancellation> {
@@ -129,11 +191,7 @@ export class Runs implements RunsPort {
       return { was: 'unknown', started: false };
     }
 
-    const cancelled = run.cancel(this.clock.now());
-
-    if (cancelled !== run) {
-      await this.runs.save(cancelled);
-    }
+    await this.changed(runId, (current) => current.cancel(this.clock.now()));
 
     return {
       was: run.hasEnded

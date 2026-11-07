@@ -20,13 +20,18 @@ export const progressOfCurrentRuns = async (
             id: run.id,
             state: run.state,
             stopRequestedAt: run.stopRequestedAt,
+            turn: run.turn,
           })
           .from(run)
           .where(inArray(run.id, ids));
   const found = new Map(
     rows.map((row) => [
       row.id,
-      { state: row.state, stopRequested: row.stopRequestedAt !== null },
+      {
+        state: row.state,
+        stopRequested: row.stopRequestedAt !== null,
+        turn: row.turn,
+      },
     ]),
   );
 

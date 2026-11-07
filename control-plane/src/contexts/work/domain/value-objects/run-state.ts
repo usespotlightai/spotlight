@@ -1,3 +1,5 @@
+import type { RunTurnState } from '@work/domain/value-objects/run-turn.vo';
+
 export const RUN_STATES = [
   'queued',
   'claimed',
@@ -28,8 +30,11 @@ export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
   stopRequested &&
   !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);
 
-export const resumable = (state: RunState, stopRequested: boolean): boolean =>
-  state === 'suspended' && !stopRequested;
+export const resumable = (
+  state: RunState,
+  stopRequested: boolean,
+  turn: RunTurnState | null = null,
+): boolean => state === 'suspended' && !stopRequested && turn !== 'pending';
 
 export const PROGRESSES = ['queued', 'in-progress', 'stopping'] as const;
 
@@ -38,6 +43,7 @@ export type Progress = (typeof PROGRESSES)[number];
 interface Working {
   readonly state: RunState;
   readonly stopRequested: boolean;
+  readonly turn?: RunTurnState | null;
 }
 
 export const progressOf = (run: Working): Progress | null => {
@@ -49,7 +55,10 @@ export const progressOf = (run: Working): Progress | null => {
     return 'queued';
   }
 
-  return run.state === 'claimed' ? 'in-progress' : null;
+  return run.state === 'claimed' ||
+    (run.state === 'suspended' && run.turn === 'pending')
+    ? 'in-progress'
+    : null;
 };
 
 export const takenUpOnAnswer = (
@@ -67,7 +76,10 @@ export const progressOfCurrentRun = (
   if (current === null) {
     return 'queued';
   }
-  if (takenUp && resumable(current.state, current.stopRequested)) {
+  if (
+    takenUp &&
+    resumable(current.state, current.stopRequested, current.turn ?? null)
+  ) {
     return 'queued';
   }
 

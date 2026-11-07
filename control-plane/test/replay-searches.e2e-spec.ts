@@ -5,8 +5,9 @@ import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggreg
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
-import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
+import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
 import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
+import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
 import {
   AT,
   aBudget,
@@ -246,7 +247,7 @@ describe('DrizzleSearchRepository', () => {
     );
     expect((await searches.activeOfSet(first.setId))?.id).toEqual(SEARCH_ID);
     await expect(searches.add(searchAt('search_2'))).rejects.toThrow(
-      SearchVersionConflictError,
+      SearchInProgressError,
     );
 
     await searches.save(first.turnOff(NOW));
@@ -384,7 +385,7 @@ describe('replays, candidates and sets a search stores', () => {
           at: NOW,
         }),
       ),
-    ).rejects.toThrow(ReplaySetVersionConflictError);
+    ).rejects.toThrow(StationHasReplaySetError);
     expect(
       (await sets.atLiveStationsRefreshedBefore(NOW)).map(
         (each) => each.id.value,
