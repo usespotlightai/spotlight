@@ -230,7 +230,7 @@ actions:
 
   it('follows a redirect itself, and injects nothing for another host', async () => {
     const fetch = vi.fn(async (url: string) =>
-      url.startsWith('https://slack.com')
+      new URL(url).host === 'slack.com'
         ? new Response(null, {
             status: 307,
             headers: { location: 'https://files.slack-edge.com/post' },

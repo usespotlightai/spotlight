@@ -87,7 +87,8 @@ const supplied = (fill: string, version: number): SigningSecretChange => ({
 const PROVIDED = {
   provided: [ToolName.of('grafana.search'), ToolName.of('slack.post-message')],
   signsTokens: false,
-  allowsHost: (host: string) => host.endsWith('example.com'),
+  allowsHost: (host: string) =>
+    host === 'example.com' || host.endsWith('.example.com'),
 };
 
 const created = () =>

@@ -36,12 +36,14 @@ export const takeToken = async (
     return;
   }
 
+  const used = await usedTokens.wasUsed(holder.kind, token);
+  // Read the holder after the ledger: a holder saved with its ledger row is then always visible.
   const current = await holderOf(token);
 
   assertTokenFree(
     holder,
     TokenUsage.of({
-      used: await usedTokens.wasUsed(holder.kind, token),
+      used,
       heldByAnother: current !== null && !current.equals(holder),
     }),
   );
