@@ -25,7 +25,7 @@ const NEST_VERBS = new Set([
   'Options',
 ]);
 
-const SCRIPT = /(<script\b[^>]*>)([\s\S]*?)<\/script\s*>/gi;
+const SCRIPT = /(<script\b[^>]*>)([\s\S]*?)<\/script\b[^>]*>/gi;
 
 const blanked = (text: string): string => text.replace(/[^\n]/g, ' ');
 
