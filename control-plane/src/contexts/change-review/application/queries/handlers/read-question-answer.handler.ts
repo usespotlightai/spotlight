@@ -2,6 +2,8 @@ import type { QuestionAnswerDto } from '@change-review/application/dto/change-st
 import type { ChangeStackReaderPort } from '@change-review/application/ports/change-stack-reader.port';
 import type { ReadQuestionAnswerQuery } from '@change-review/application/queries/read-question-answer.query';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
+import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -24,11 +26,13 @@ export class ReadQuestionAnswerHandler
         query.viewerId,
       );
 
-      return run
+      const questionId = QuestionId.parsed(query.questionId);
+
+      return run && questionId
         ? await this.stacks.answerOf(
             run.id,
-            query.stackId,
-            query.questionId,
+            ChangeStackId.of(query.stackId),
+            questionId,
             UserId.of(query.viewerId),
           )
         : null;

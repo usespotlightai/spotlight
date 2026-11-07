@@ -1,4 +1,6 @@
 import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
+import type { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 
 export const STATION_SOURCE_FIELDS = [
   'prompt',
@@ -23,8 +25,8 @@ export interface StationSourceFile {
 export interface StationSourceEditRequest {
   readonly file: StationSourceFile;
   readonly teamKey: string;
-  readonly lineKey: string;
-  readonly stationKey: string;
+  readonly lineKey: LineKey;
+  readonly stationKey: StationKey;
   readonly seed: LineDefinitionStation;
   readonly candidate: LineDefinitionStation;
   readonly fields: readonly StationSourceField[];

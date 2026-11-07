@@ -1,4 +1,3 @@
-import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -13,7 +12,7 @@ export interface ToolUsingRun {
   readonly task: TaskId | null;
 }
 
-export class RecordedToolUse extends EventRecorder {
+export class RecordedToolUse {
   private constructor(
     readonly runId: RunId,
     readonly attempt: number,
@@ -25,19 +24,18 @@ export class RecordedToolUse extends EventRecorder {
     readonly failed: boolean,
     readonly actingAs: ToolActingAs | null,
     readonly at: Date,
-  ) {
-    super();
-    this.record(
-      new ToolUsed(
-        runId,
-        taskId,
-        useId,
-        tool,
-        inputs,
-        output,
-        failed,
-        actingAs,
-      ),
+  ) {}
+
+  get used(): ToolUsed {
+    return new ToolUsed(
+      this.runId,
+      this.taskId,
+      this.useId,
+      this.tool,
+      this.inputs,
+      this.output,
+      this.failed,
+      this.actingAs,
     );
   }
 

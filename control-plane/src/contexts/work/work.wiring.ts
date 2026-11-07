@@ -219,7 +219,10 @@ import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-ans
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ACCESSIBLE_REPOSITORIES } from '@work/application/ports/accessible-repositories.port';
-import { ATTACHMENT_READER } from '@work/application/ports/attachment-reader.port';
+import {
+  ATTACHMENT_READER,
+  type AttachmentReaderPort,
+} from '@work/application/ports/attachment-reader.port';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -334,6 +337,10 @@ import {
   TASK_LINKS,
   type TaskLinksPort,
 } from '@work/application/ports/task-links.port';
+import {
+  TASK_LOOKUP_READER,
+  type TaskLookupReaderPort,
+} from '@work/application/ports/task-lookup-reader.port';
 import { TASK_NOTES_FROM_HOOKS } from '@work/application/ports/task-notes-from-hooks.port';
 import {
   TASK_NOTICES,
@@ -383,6 +390,10 @@ import {
   type TrialFactsPort,
 } from '@work/application/ports/trial-facts.port';
 import { TRIALABLE_RUNS } from '@work/application/ports/trialable-runs.port';
+import {
+  TURN_RETAKES,
+  type TurnRetakesPort,
+} from '@work/application/ports/turn-retakes.port';
 import { WORK_RUN_LOOKUP } from '@work/application/ports/work-run-lookup.port';
 import {
   WORK_STATIONS,
@@ -552,6 +563,7 @@ import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
 import { DrizzleTeamWelcomes } from '@work/infrastructure/persistence/drizzle/ledgers/team-welcomes.ledger';
 import { DrizzleToolUses } from '@work/infrastructure/persistence/drizzle/ledgers/tool-uses.ledger';
+import { DrizzleTurnRetakes } from '@work/infrastructure/persistence/drizzle/ledgers/turn-retakes.ledger';
 import { DrizzleWorkStations } from '@work/infrastructure/persistence/drizzle/projections/work-stations.projection';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
@@ -563,6 +575,7 @@ import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzl
 import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzle/readers/station-run.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
+import { DrizzleTaskLookupReader } from '@work/infrastructure/persistence/drizzle/readers/task-lookup.reader';
 import { DrizzleTaskPlacements } from '@work/infrastructure/persistence/drizzle/readers/task-placements.reader';
 import { DrizzleTaskWorkspaces } from '@work/infrastructure/persistence/drizzle/readers/task-workspaces.reader';
 import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
@@ -647,9 +660,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: WORK_TASK_LOOKUP,
-    inject: [TASK_REPOSITORY, LINE_MAPS],
-    useFactory: (tasks: TaskRepository, lines: LineMapsPort) =>
-      new WorkTaskLookup(tasks, lines),
+    inject: [TASK_LOOKUP_READER, TASK_REPOSITORY, LINE_MAPS],
+    useFactory: (
+      readings: TaskLookupReaderPort,
+      tasks: TaskRepository,
+      lines: LineMapsPort,
+    ) => new WorkTaskLookup(readings, tasks, lines),
   },
 
   {
@@ -924,6 +940,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     },
   },
   { provide: TEAM_WELCOMES, useClass: DrizzleTeamWelcomes },
+  { provide: TURN_RETAKES, useClass: DrizzleTurnRetakes },
   { provide: CHAT_READER, useClass: DrizzleChatReader },
 
   { provide: CHAT_MARKS, useClass: DrizzleChatMarks },
@@ -953,6 +970,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: RUN_JOURNAL_READER, useClass: DrizzleRunJournalReader },
 
   { provide: ATTACHMENT_READER, useClass: DrizzleAttachmentReader },
+  { provide: TASK_LOOKUP_READER, useClass: DrizzleTaskLookupReader },
 
   {
     provide: CONTROL_PLANE_RELEASE,
@@ -987,9 +1005,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: NOTE_FILES,
-    inject: [TASK_REPOSITORY, ATTACHMENT_STORE],
-    useFactory: (tasks: TaskRepository, files: AttachmentStorePort) =>
-      new NoteFiles(tasks, files),
+    inject: [ATTACHMENT_READER, ATTACHMENT_STORE],
+    useFactory: (
+      attachments: AttachmentReaderPort,
+      files: AttachmentStorePort,
+    ) => new NoteFiles(attachments, files),
   },
 
   {
@@ -1013,6 +1033,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: Turns,
     inject: [
       RUN_TURNS,
+      TURN_RETAKES,
       RUN_FACTS,
       RUNS,
       DISPATCH_REPOSITORY,
@@ -1024,6 +1045,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       turns: RunTurnsPort,
+      retakes: TurnRetakesPort,
       facts: RunFactsPort,
       runs: RunsPort,
       dispatches: DispatchRepository,
@@ -1035,6 +1057,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ) =>
       new Turns(
         turns,
+        retakes,
         facts,
         runs,
         dispatches,
@@ -2067,7 +2090,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       PULL_REQUEST_REVIEWING,
       PULL_REQUESTS,
       TRANSACTION,
-      TASK_REPOSITORY,
+      TASK_LOOKUP_READER,
       CHECK_RUNS,
       AttachmentCopies,
     ],
@@ -2079,7 +2102,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       reviewing: PullRequestReviewingPort,
       pullRequests: PullRequestPort,
       transaction: TransactionPort,
-      tasks: TaskRepository,
+      tasks: TaskLookupReaderPort,
       checkRuns: CheckRunsPort,
       copies: AttachmentCopies,
     ): readonly BuiltInToolUse[] => [

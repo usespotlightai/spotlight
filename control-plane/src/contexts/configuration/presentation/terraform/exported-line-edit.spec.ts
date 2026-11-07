@@ -7,6 +7,8 @@ import {
   formattedByTerraform,
   TERRAFORM_INSTALLED,
 } from '@platform/hcl/terraform-cli.fake-spec';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const ROOT = 'infra/spotlight';
@@ -51,8 +53,8 @@ const editedTo = (now: Partial<LineDefinitionStation>) =>
   new HclStationSourceEdits().edited({
     file: LINE,
     teamKey: 'core',
-    lineKey: 'delivery',
-    stationKey: 'implementation',
+    lineKey: LineKey.of('delivery'),
+    stationKey: StationKey.of('implementation'),
     seed: SEED,
     candidate: { ...SEED, ...now },
     fields: STATION_SOURCE_FIELDS,

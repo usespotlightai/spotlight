@@ -1,5 +1,5 @@
 import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
-import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
@@ -16,13 +16,13 @@ import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
-import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
+import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -196,7 +196,7 @@ export const WORK_PAYLOAD_TYPES = [
   BriefedTask,
   ChatDeleted,
   CoAuthors,
-  ChatDispatched,
+  ChatRunAssigned,
   ChatRunNotStarted,
   ChatStarted,
   ProposalAccepted,
@@ -222,7 +222,7 @@ export const WORK_PAYLOAD_TYPES = [
   TaskAsked,
   TaskDeleted,
   TaskFinished,
-  TaskDispatched,
+  TaskRunAssigned,
   TaskRunDetached,
   TaskMarked,
   TaskMoved,

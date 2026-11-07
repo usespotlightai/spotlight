@@ -1,5 +1,5 @@
 {
-  "id": "2cb56939-1823-43e3-a8c1-8c3a0ac66e12",
+  "id": "ab59dede-64ec-4066-ae55-5131a866c66b",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -14708,8 +14708,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "message": {
-          "name": "message",
+        "detail": {
+          "name": "detail",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -14717,6 +14717,12 @@
         "failure": {
           "name": "failure",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "failure_attempts": {
+          "name": "failure_attempts",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
@@ -18047,6 +18053,45 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.turn_retake": {
+      "name": "turn_retake",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suspended_at": {
+          "name": "suspended_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "turn_retake_run_id_suspended_at_pk": {
+          "name": "turn_retake_run_id_suspended_at_pk",
+          "columns": [
+            "run_id",
+            "suspended_at"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},

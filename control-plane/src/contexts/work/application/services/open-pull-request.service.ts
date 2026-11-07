@@ -46,15 +46,17 @@ export class OpenPullRequest {
   ): Promise<OpenedPullRequest> {
     const task = await this.found(target.taskId);
 
-    if (task.pullRequest) {
+    const step = task.pullRequestStep;
+
+    if (step.kind !== 'open') {
       await this.pullRequests.edit({
         workspaceId: task.workspaceId,
-        pullRequest: task.pullRequest,
+        pullRequest: step.pullRequest,
         title: input.title.value,
         body: input.body,
       });
 
-      return { url: task.pullRequest.value };
+      return { url: step.pullRequest.value };
     }
 
     const line = await this.lines.findByStation(target.stationId);

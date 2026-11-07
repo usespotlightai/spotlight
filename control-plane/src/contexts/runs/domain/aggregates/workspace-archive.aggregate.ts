@@ -11,6 +11,7 @@ import type { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const RETENTION_AFTER_RELEASE_MS = 7 * 24 * 60 * 60_000;
@@ -193,7 +194,7 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.grantedTo.isRun(run);
   }
 
-  grantedForSandbox(sandboxId: string): boolean {
+  grantedForSandbox(sandboxId: SandboxId): boolean {
     return this.state.grantedTo.isSandbox(sandboxId);
   }
 

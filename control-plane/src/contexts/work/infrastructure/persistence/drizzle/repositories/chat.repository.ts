@@ -189,8 +189,8 @@ const toChat = (
       ChatMark.of(Mark.of(each.kind, each.value), each.finds),
     ),
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
-    sessionId: row.sessionId ? HarnessSession.of(row.sessionId) : null,
-    runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
+    session: row.sessionId ? HarnessSession.of(row.sessionId) : null,
+    claimedBy: row.runnerId ? RunnerId.of(row.runnerId) : null,
     createdAt: row.createdAt,
     version: row.version,
   });
@@ -233,9 +233,9 @@ export class DrizzleChatRepository implements ChatRepository {
         : null,
       setup: setupRow(added.setup),
       currentRunId: added.currentRunId?.value ?? null,
-      sessionId: added.sessionId?.value ?? null,
+      sessionId: added.session?.value ?? null,
       workspaceReleasedAt: added.workspaceRelease.releasedAt,
-      runnerId: added.runnerId?.value ?? null,
+      runnerId: added.claimedBy?.value ?? null,
       createdAt: added.createdAt,
     });
 
@@ -283,9 +283,9 @@ export class DrizzleChatRepository implements ChatRepository {
         model: saved.model?.value ?? null,
         effort: saved.effort?.value ?? null,
         currentRunId: saved.currentRunId?.value ?? null,
-        sessionId: saved.sessionId?.value ?? null,
+        sessionId: saved.session?.value ?? null,
         workspaceReleasedAt: saved.workspaceRelease.releasedAt,
-        runnerId: saved.runnerId?.value ?? null,
+        runnerId: saved.claimedBy?.value ?? null,
       })
       .where(and(eq(chat.id, saved.id.value), eq(chat.version, saved.version)))
       .returning({ id: chat.id });

@@ -7,6 +7,7 @@ import {
 } from '@integrations/domain/repositories/inbound-delivery.repository';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -30,7 +31,7 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
       {
         integration: IntegrationKey.of('github'),
         to: null,
-        id,
+        id: InboundDeliveryId.of(id),
         headers: { 'x-github-delivery': id },
         body: { action: 'closed' },
         causeFiringId: HookFiringId.of('firing_1'),
@@ -89,7 +90,7 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
 
     const first = await claimed();
 
-    expect(first.id).toBe(id);
+    expect(first.id.value).toBe(id);
     expect(first.causeFiringId?.value).toBe('firing_1');
     expect(first.headers).toEqual({ 'x-github-delivery': id });
 
@@ -104,7 +105,7 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
     const later = at(11 * 60);
     const second = await claimed(later);
 
-    expect(second.id).toBe(first.id);
+    expect(second.id).toEqual(first.id);
 
     await expect(deliveries.save(first.worked(later))).rejects.toBeInstanceOf(
       InboundDeliveryVersionConflictError,
@@ -143,7 +144,9 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
       dueAt: at(2),
     });
     await expect(claimNext(at(1))).resolves.toBeNull();
-    await expect(claimed(at(2))).resolves.toMatchObject({ id, attempts: 1 });
+    const again = await claimed(at(2));
+    expect(again.id.value).toBe(id);
+    expect(again.attempts).toBe(1);
   });
 
   it('removes a finished delivery at its version, once it is past its retention', async () => {
@@ -158,7 +161,7 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
         InboundDelivery.retentionCutoff(later),
         500,
       )
-    ).filter((each) => each.id === id);
+    ).filter((each) => each.id.value === id);
 
     expect(finished?.isPastRetention(later)).toBe(true);
 

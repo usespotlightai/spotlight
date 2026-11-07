@@ -236,7 +236,7 @@ describe('MoveTaskHandler', () => {
       saved
         ?.pullEvents()
         .map((each) =>
-          each.kind === 'task.run-detached' || each.kind === 'task.dispatched'
+          each.kind === 'task.run-detached' || each.kind === 'task.run-assigned'
             ? [each.kind, (each as TaskRunDetached).runId.value]
             : [each.kind],
         ),
@@ -244,7 +244,7 @@ describe('MoveTaskHandler', () => {
       ['task.moved'],
       ['task.run-detached', 'run_0'],
       ['task.acted-on'],
-      ['task.dispatched', 'run_1'],
+      ['task.run-assigned', 'run_1'],
     ]);
   });
 

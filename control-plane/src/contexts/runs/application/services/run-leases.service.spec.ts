@@ -4,6 +4,7 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -53,7 +54,7 @@ describe('RunLeases', () => {
     const requeued = await leases.expireLeases(LATER);
 
     expect(requeued.map((each) => each.state)).toEqual(['queued']);
-    expect(saved.map((each) => each.attempt)).toEqual([2]);
+    expect(saved.map((each) => each.attempt.number)).toEqual([2]);
   });
 
   it('saves that the lease of the run on its runner expired, for the runner to be released', async () => {
@@ -67,7 +68,7 @@ describe('RunLeases', () => {
         WorkspaceId.of('ws_1'),
         RunnerId.of('runner_1'),
         LATER,
-        1,
+        RunAttempt.of(RunId.of('run_1'), 1),
       ),
     );
   });

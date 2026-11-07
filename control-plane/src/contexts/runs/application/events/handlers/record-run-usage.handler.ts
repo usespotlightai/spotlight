@@ -4,6 +4,7 @@ import type { RunUsageWriterPort } from '@runs/application/ports/run-usage-write
 import { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
 import type { RunEnded } from '@runs/domain/events/run-ended.event';
 import type { RunExhausted } from '@runs/domain/events/run-exhausted.event';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -37,7 +38,7 @@ export class RecordRunUsage {
           workspaceId: facts.workspaceId,
           requester: RunRequester.of({ ...facts.requester, team: facts.team }),
           listed: facts.policy.listed,
-          attempt: read.attempt,
+          attempt: RunAttempt.of(facts.runId, read.attempt),
         },
         readings: read.readings,
         skillHomes: this.launch.skillHomes(),

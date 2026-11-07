@@ -60,7 +60,7 @@ const RETENTION_MS = 7 * 24 * 60 * 60_000;
 const LEAST_TIMEOUT_MS = 1_000;
 
 const cancelledMessage = (id: string): string =>
-  `Network call ${id} was cancelled. The hook stopped waiting for it.`;
+  `Network call ${id} was cancelled. Its caller stopped waiting for it.`;
 
 export type NetworkCallView =
   | { readonly kind: 'answered'; readonly response: NetworkResponse }

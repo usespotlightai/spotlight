@@ -5,7 +5,7 @@ import {
   CHANGE_STACK_READER,
   type ChangeStackReaderPort,
 } from '@change-review/application/ports/change-stack-reader.port';
-import { stackCheckReasonText } from '@change-review/presentation/http/mappers/stack-check-reason.text';
+import { checkReasonText } from '@change-review/application/rendering/check-reason.text';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -145,7 +145,7 @@ describe('runner pools (e2e)', () => {
       .ofRun(RunId.of(runId), UserId.of('nobody'), new Date());
 
     return stack?.check
-      ? { ...stack.check, reason: stackCheckReasonText(stack.check) }
+      ? { ...stack.check, reason: checkReasonText(stack.check) }
       : null;
   };
 
@@ -1091,16 +1091,21 @@ describe('runner pools (e2e)', () => {
         return written.length === 5 ? written : null;
       });
 
-      expect(failed.message).toContain('unreachable');
+      expect(failed.detail).toContain('unreachable');
       expect(failed.provisionAttempts).toBe(5);
       expect(
         steps
-          .map((each) => [each.type, each.message, each.seq])
+          .map((each) => [
+            each.type,
+            JSON.parse(Buffer.from(each.data ?? '', 'base64').toString('utf8'))
+              .failure,
+            each.seq,
+          ])
           .sort((a, b) => Number(b[2]) - Number(a[2])),
       ).toEqual(
         [0, 1, 2, 3, 4].map((back) => [
           'provision.failed',
-          'Provisioning failed · unreachable',
+          'unreachable',
           JournalSeq.firstControlPlane - back,
         ]),
       );

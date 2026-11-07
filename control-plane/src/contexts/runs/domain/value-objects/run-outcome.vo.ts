@@ -1,4 +1,4 @@
-import { InvalidRunOutcomeError } from '@runs/domain/exceptions/invalid-run-outcome.error';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { RunFailure } from '@runs/domain/value-objects/run-failure.vo';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 
@@ -11,24 +11,19 @@ export type RunEnding =
 
 export class RunOutcome {
   private constructor(
-    readonly exitCode: number,
+    readonly exitCode: ExitCode,
     readonly failure: RunFailure | null,
-    readonly message: string | null,
+    readonly detail: string | null,
     readonly stopped: boolean = false,
+    readonly attempts: number | null = null,
   ) {}
 
   static of(input: {
-    exitCode: number;
+    exitCode: ExitCode;
     failed: boolean;
     setupFailed?: boolean;
     message?: string | null;
   }): RunOutcome {
-    if (!Number.isInteger(input.exitCode)) {
-      throw new InvalidRunOutcomeError(
-        `exit code must be a whole number, not ${input.exitCode}`,
-      );
-    }
-
     return new RunOutcome(
       input.exitCode,
       input.failed
@@ -39,16 +34,18 @@ export class RunOutcome {
   }
 
   static rehydrate(input: {
-    exitCode: number;
+    exitCode: ExitCode;
     failure: RunFailure | null;
-    message: string | null;
+    detail: string | null;
     stopped: boolean;
+    attempts: number | null;
   }): RunOutcome {
     return new RunOutcome(
       input.exitCode,
       input.failure,
-      input.message,
+      input.detail,
       input.stopped,
+      input.attempts,
     );
   }
 
@@ -67,41 +64,43 @@ export class RunOutcome {
   ): RunOutcome {
     return RunOutcome.failedWith(
       'unprovisioned',
-      `No runner was provisioned after ${attempts} attempts. Last failure: ${failure.description}`,
+      failure.description,
+      attempts,
     );
   }
 
   static unanswered(because: string, tries: number): RunOutcome {
-    return RunOutcome.failedWith(
-      'hooks-unanswered',
-      `Hooks did not answer after ${tries} tries. Last error: ${because}`,
-    );
+    return RunOutcome.failedWith('start-gate-unanswered', because, tries);
   }
 
   static lost(attempts: number): RunOutcome {
-    return RunOutcome.failedWith(
-      'runner-lost',
-      `No runner finished the run after ${attempts} attempts.`,
-    );
+    return RunOutcome.failedWith('runner-lost', null, attempts);
   }
 
   static timedOut(attempts: number): RunOutcome {
-    return RunOutcome.failedWith(
-      'timed-out',
-      `Sandbox stopped at the host's time limit. No runner finished the run after ${attempts} attempts.`,
-    );
+    return RunOutcome.failedWith('timed-out', null, attempts);
   }
 
   static cancelled(reason: string): RunOutcome {
     return RunOutcome.failedWith('cancelled', reason);
   }
 
-  static stopped(exitCode: number): RunOutcome {
-    return new RunOutcome(exitCode, null, 'A person stopped the run.', true);
+  static stopped(exitCode: ExitCode): RunOutcome {
+    return new RunOutcome(exitCode, null, null, true);
   }
 
-  private static failedWith(code: RunFailureCode, message: string): RunOutcome {
-    return new RunOutcome(-1, RunFailure.of(code), message);
+  private static failedWith(
+    code: RunFailureCode,
+    detail: string | null,
+    attempts: number | null = null,
+  ): RunOutcome {
+    return new RunOutcome(
+      ExitCode.notRun(),
+      RunFailure.of(code),
+      detail,
+      false,
+      attempts,
+    );
   }
 
   get handsOver(): boolean {
@@ -136,10 +135,11 @@ export class RunOutcome {
 
   equals(other: RunOutcome): boolean {
     return (
-      this.exitCode === other.exitCode &&
+      this.exitCode.equals(other.exitCode) &&
       (this.failure?.code ?? null) === (other.failure?.code ?? null) &&
-      this.message === other.message &&
-      this.stopped === other.stopped
+      this.detail === other.detail &&
+      this.stopped === other.stopped &&
+      this.attempts === other.attempts
     );
   }
 }

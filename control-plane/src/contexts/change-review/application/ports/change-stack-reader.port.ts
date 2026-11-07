@@ -4,6 +4,8 @@ import type {
   QuestionAnswerDto,
   StackCheckDto,
 } from '@change-review/application/dto/change-stack.dto';
+import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -28,8 +30,8 @@ export interface ChangeStackReaderPort {
 
   answerOf(
     runId: RunId,
-    stackId: string,
-    questionId: string,
+    stackId: ChangeStackId,
+    questionId: QuestionId,
     viewerId: UserId,
   ): Promise<QuestionAnswerDto | null>;
 }

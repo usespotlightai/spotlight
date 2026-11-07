@@ -122,7 +122,7 @@ export class EgressSecretFetches {
     return run?.workspaceId.value === workspaceId && run.isLeasedBy(runner)
       ? {
           run,
-          attempt: run.currentAttempt,
+          attempt: run.attempt,
           injectedSecrets: run
             .injectedSecretsFor(runner)
             .map((each) => each.value),

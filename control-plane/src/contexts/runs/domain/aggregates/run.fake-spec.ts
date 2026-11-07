@@ -20,7 +20,7 @@ export const ORDERED_AT = new Date('2026-01-01T00:00:00.000Z');
 
 const TEAM = TeamId.of('team_1');
 
-export const TASK_POLICY = RunPolicy.of({
+export const TURN_POLICY = RunPolicy.of({
   holdsTurn: true,
   gated: true,
   actsBeyondItself: true,
@@ -29,7 +29,7 @@ export const TASK_POLICY = RunPolicy.of({
   exclusive: true,
 });
 
-export const CHAT_POLICY = RunPolicy.of({
+export const CONVERSATION_POLICY = RunPolicy.of({
   holdsTurn: false,
   gated: false,
   actsBeyondItself: true,
@@ -57,37 +57,43 @@ export const SPEC_POLICY = RunPolicy.of({
 });
 
 export const orderedFor = {
-  task(taskId = 'task_1', revision = 0, team: TeamId = TEAM): Ordering {
+  holdingTurn(
+    id = 'subject_1',
+    revision = 0,
+    team: TeamId = TEAM,
+    owner = 'requester',
+    kind = 'subject',
+  ): Ordering {
     return {
       requester: RunRequester.of({
-        owner: 'work',
-        kind: 'task',
-        id: taskId,
+        owner,
+        kind,
+        id,
         token: String(revision),
         team,
       }),
-      policy: TASK_POLICY,
+      policy: TURN_POLICY,
       now: ORDERED_AT,
       workspace: RunWorkspace.of({
-        key: WorkspaceKey.of('work', `task-${taskId}`),
+        key: WorkspaceKey.of(owner, `${kind}-${id}`),
         rejoinable: true,
         restores: 'always',
       }),
     };
   },
 
-  chat(chatId = 'chat_1', team: TeamId = TEAM): Ordering {
+  conversing(
+    id = 'conversation_1',
+    team: TeamId = TEAM,
+    owner = 'requester',
+    kind = 'conversation',
+  ): Ordering {
     return {
-      requester: RunRequester.of({
-        owner: 'work',
-        kind: 'chat',
-        id: chatId,
-        team,
-      }),
-      policy: CHAT_POLICY,
+      requester: RunRequester.of({ owner, kind, id, team }),
+      policy: CONVERSATION_POLICY,
       now: ORDERED_AT,
       workspace: RunWorkspace.of({
-        key: WorkspaceKey.of('work', `chat-${chatId}`),
+        key: WorkspaceKey.of(owner, `${kind}-${id}`),
         rejoinable: true,
         restores: 'when-continuing',
       }),
@@ -114,13 +120,18 @@ export const orderedFor = {
     };
   },
 
-  isolated(kind = 'replay', id = 'run_1', team: TeamId = TEAM): Ordering {
+  isolated(
+    id = 'run_1',
+    team: TeamId = TEAM,
+    owner = 'isolated',
+    kind = 'trial',
+  ): Ordering {
     return {
-      requester: RunRequester.of({ owner: 'replays', kind, id, team }),
+      requester: RunRequester.of({ owner, kind, id, team }),
       policy: ISOLATED_POLICY,
       now: ORDERED_AT,
       workspace: RunWorkspace.of({
-        key: WorkspaceKey.of('replays', `${kind}-${id}`),
+        key: WorkspaceKey.of(owner, `${kind}-${id}`),
         rejoinable: false,
         restores: 'when-continuing',
       }),

@@ -17,7 +17,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -415,13 +415,13 @@ describe('Chat', () => {
 
     const [event] = assigned.pullEvents();
 
-    expect(event).toBeInstanceOf(ChatDispatched);
+    expect(event).toBeInstanceOf(ChatRunAssigned);
     expect(
-      (event as ChatDispatched).acknowledged.map((each) => each.value),
+      (event as ChatRunAssigned).acknowledged.map((each) => each.value),
     ).toEqual([1]);
     expect(
       assigned
-        .messagesAt((event as ChatDispatched).acknowledged)
+        .messagesAt((event as ChatRunAssigned).acknowledged)
         .map((each) => each.body.value),
     ).toEqual(['And then?']);
   });
@@ -593,7 +593,7 @@ describe('Chat', () => {
       });
 
       expect(ended.chat.running).toBe(false);
-      expect(ended.chat.sessionId?.equals(SESSION)).toBe(true);
+      expect(ended.chat.session?.equals(SESSION)).toBe(true);
       expect(ended.followsUp).toBe(true);
     });
 

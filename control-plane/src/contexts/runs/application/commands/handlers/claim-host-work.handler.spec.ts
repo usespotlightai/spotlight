@@ -46,7 +46,7 @@ const queued = (harness = 'claude-code') =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of(harness),
-    ...orderedFor.task('task_1', 0),
+    ...orderedFor.holdingTurn('task_1', 0),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'work out what the request wants',
@@ -365,7 +365,7 @@ describe('ClaimHostWorkHandler', () => {
     expect(sandboxes.holdForRun).toHaveBeenCalledWith(
       {
         workspaceId: 'ws_1',
-        key: 'work/task-task_1',
+        key: 'requester/subject-task_1',
         hostId: HOST,
         runId: 'run_1',
       },
@@ -385,7 +385,7 @@ describe('ClaimHostWorkHandler', () => {
   it('leaves the runs of keys that ready sandboxes keep to those sandboxes', async () => {
     const { handler, claimNext } = pulling({
       run: taken(),
-      liveKeys: ['work/task-task_2', 'work/chat-chat_1'],
+      liveKeys: ['requester/subject-task_2', 'requester/conversation-chat_1'],
     });
 
     await handler.execute(pull());
@@ -394,8 +394,8 @@ describe('ClaimHostWorkHandler', () => {
       expect.objectContaining({
         sandbox: {
           avoiding: [
-            WorkspaceKey.parse('work/task-task_2'),
-            WorkspaceKey.parse('work/chat-chat_1'),
+            WorkspaceKey.parse('requester/subject-task_2'),
+            WorkspaceKey.parse('requester/conversation-chat_1'),
           ],
         },
       }),
@@ -407,7 +407,7 @@ describe('ClaimHostWorkHandler', () => {
     const live: SandboxTakingRuns = {
       id: 'sandbox_7',
       workspaceId: 'ws_1',
-      key: 'work/task-task_1',
+      key: 'requester/subject-task_1',
     };
     const into = () =>
       new ClaimHostWorkCommand(
@@ -441,7 +441,7 @@ describe('ClaimHostWorkHandler', () => {
       );
       expect(claimNext).toHaveBeenCalledWith(
         expect.objectContaining({
-          sandbox: { into: WorkspaceKey.parse('work/task-task_1') },
+          sandbox: { into: WorkspaceKey.parse('requester/subject-task_1') },
         }),
         NOW,
       );
@@ -449,7 +449,7 @@ describe('ClaimHostWorkHandler', () => {
         'sandbox_7',
         {
           workspaceId: 'ws_1',
-          key: 'work/task-task_1',
+          key: 'requester/subject-task_1',
           hostId: HOST,
           runId: 'run_1',
         },
@@ -507,7 +507,7 @@ describe('ClaimHostWorkHandler', () => {
 
       expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
       expect(saved[saved.length - 1]?.state).toBe('queued');
-      expect(saved[saved.length - 1]?.attempt).toBe(taken().attempt);
+      expect(saved[saved.length - 1]?.attempt).toEqual(taken().attempt);
       expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
     });
   });
@@ -515,7 +515,7 @@ describe('ClaimHostWorkHandler', () => {
   describe('a sandbox requested with no run', () => {
     const requested: RequestedSandbox = {
       id: 'sandbox_r',
-      key: 'work/task-task_1',
+      key: 'requester/subject-task_1',
     };
 
     it('is started when no run waits, with its own token and the hosts it may reach, and the runner is let go', async () => {
@@ -594,7 +594,7 @@ describe('ClaimHostWorkHandler', () => {
       expect(claimNext).toHaveBeenCalledTimes(1);
       expect(claimNext).toHaveBeenCalledWith(
         expect.objectContaining({
-          sandbox: { into: WorkspaceKey.parse('work/task-task_1') },
+          sandbox: { into: WorkspaceKey.parse('requester/subject-task_1') },
         }),
         NOW,
       );
@@ -667,7 +667,7 @@ describe('ClaimHostWorkHandler', () => {
     expect(saved).toHaveLength(1);
     expect(saved[0]?.state).toBe('queued');
     expect(saved[0]?.claimedBy).toBeNull();
-    expect(saved[0]?.attempt).toBe(taken().attempt);
+    expect(saved[0]?.attempt).toEqual(taken().attempt);
     expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
   });
 

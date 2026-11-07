@@ -18,6 +18,7 @@ import { OpenConfigPullRequests } from '@replays/application/services/open-confi
 import { ReconcileConfigPullRequests } from '@replays/application/services/reconcile-config-pull-requests.service';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_REOPENED } from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   STATION_CONFIG_CANDIDATES,
@@ -88,7 +89,7 @@ const writtenAt = async (stationId = BUILD) => {
     .where(eq(schema.station.id, stationId));
   const record = await app
     .get<LineResourcesPort>(LINE_RESOURCES)
-    .withId(DELIVERY);
+    .withId(LineId.of(DELIVERY));
   const station = record?.definition.stations.find(
     (each) => each.key === row?.key,
   );

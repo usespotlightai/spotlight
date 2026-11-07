@@ -15,6 +15,13 @@ const RETAKES_AT_MS = [
 
 const GIVES_UP_AT_MS = DAY_MS;
 
+const RETAKES_KEPT_MS = 7 * DAY_MS;
+
+export interface TurnCheck {
+  readonly retakes: boolean;
+  readonly givesUp: boolean;
+}
+
 const crossed = (at: number, was: number, age: number): boolean =>
   was < at && at <= age;
 
@@ -33,12 +40,20 @@ export const TurnWait = {
     return new Date(now.getTime() - RETAKES_AT_MS[0]);
   },
 
-  retakesBetween(wasMs: number, ageMs: number): boolean {
-    return RETAKES_AT_MS.some((at) => crossed(at, wasMs, ageMs));
+  retakesKeptAfter(now: Date): Date {
+    return new Date(now.getTime() - RETAKES_KEPT_MS);
   },
 
-  givesUpBetween(wasMs: number, ageMs: number): boolean {
-    return crossed(GIVES_UP_AT_MS, wasMs, ageMs);
+  checkOf(suspendedAt: Date, checkedAt: Date | null, now: Date): TurnCheck {
+    const age = now.getTime() - suspendedAt.getTime();
+    const was = checkedAt ? checkedAt.getTime() - suspendedAt.getTime() : 0;
+
+    return age >= RETAKES_KEPT_MS
+      ? { retakes: false, givesUp: false }
+      : {
+          retakes: RETAKES_AT_MS.some((at) => crossed(at, was, age)),
+          givesUp: crossed(GIVES_UP_AT_MS, was, age),
+        };
   },
 
   answeredResumeUntil(now: Date): Date {

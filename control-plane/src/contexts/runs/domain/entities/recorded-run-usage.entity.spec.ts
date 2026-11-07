@@ -1,5 +1,6 @@
 import { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
 import { Money } from '@runs/domain/value-objects/money.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -22,7 +23,7 @@ const recorded = () =>
       workspaceId: WorkspaceId.of('ws_1'),
       requester: SEARCH,
       listed: false,
-      attempt: 2,
+      attempt: RunAttempt.of(RunId.of('run_1'), 2),
     },
     readings: [
       {
@@ -48,7 +49,7 @@ describe('RecordedRunUsage', () => {
       kind: 'run.usage-recorded',
       requester: SEARCH,
       listed: false,
-      attempt: 2,
+      attempt: RunAttempt.of(RunId.of('run_1'), 2),
       ms: 4_000,
       steps: 1,
       errors: 1,

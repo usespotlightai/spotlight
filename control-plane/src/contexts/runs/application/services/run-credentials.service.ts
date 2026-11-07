@@ -1,4 +1,5 @@
 import type { RunTokensPort } from '@identity/application/ports/run-tokens.port';
+import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -6,7 +7,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface EndedAttempt {
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
-  readonly attempt: number;
+  readonly attempt: RunAttempt;
 }
 
 export class RunCredentials {
@@ -28,12 +29,16 @@ export class RunCredentials {
   }
 
   revokeAttemptTokensOf(run: EndedAttempt): Promise<void> {
-    return this.tokens.revokeFor(run.workspaceId, run.runId, run.attempt);
+    return this.tokens.revokeFor(
+      run.workspaceId,
+      run.runId,
+      run.attempt.number,
+    );
   }
 }
 
 const leaseOf = (run: EndedAttempt) => ({
   workspaceId: run.workspaceId.value,
   runId: run.runId.value,
-  attempt: run.attempt,
+  attempt: run.attempt.number,
 });

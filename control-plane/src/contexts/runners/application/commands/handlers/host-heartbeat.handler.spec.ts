@@ -29,11 +29,11 @@ import {
   storedSandboxes,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 

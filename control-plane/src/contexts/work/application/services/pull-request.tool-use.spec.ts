@@ -10,7 +10,7 @@ import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-inpu
 import {
   builtInTool,
   PULL_REQUEST,
-} from '@work/domain/services/built-in-tools';
+} from '@work/domain/value-objects/built-in-tools';
 import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it } from 'vitest';

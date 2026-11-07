@@ -2,7 +2,10 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
+import {
+  INBOX_REQUEST_FORMS,
+  type InboxRequestForm,
+} from '@work/domain/value-objects/inbox-request-form';
 import type { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import type { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -15,6 +18,12 @@ export interface InboxRequestVisibility {
   readonly assignee: UserId | null;
   readonly seesTeam: boolean;
   readonly readsTeamInsights: boolean;
+}
+
+export interface InboxRequestAudience {
+  readonly assignee: UserId;
+  readonly unassigned: boolean;
+  readonly formsForTeamReaders: readonly InboxRequestForm[];
 }
 
 export class InboxRequest {
@@ -131,14 +140,26 @@ export class InboxRequest {
     }
   }
 
+  static audienceOf(viewer: UserId): InboxRequestAudience {
+    return {
+      assignee: viewer,
+      unassigned: true,
+      formsForTeamReaders: INBOX_REQUEST_FORMS.filter(
+        (form) => InboxRequest.requiredAccess(form) === 'readsTeamInsights',
+      ),
+    };
+  }
+
   static visibleTo(visibility: InboxRequestVisibility): boolean {
-    if (InboxRequest.requiredAccess(visibility.form) === 'readsTeamInsights') {
+    const audience = InboxRequest.audienceOf(visibility.viewer);
+
+    if (audience.formsForTeamReaders.includes(visibility.form)) {
       return visibility.readsTeamInsights;
     }
 
     return visibility.assignee
-      ? visibility.assignee.equals(visibility.viewer)
-      : visibility.seesTeam;
+      ? visibility.assignee.equals(audience.assignee)
+      : audience.unassigned && visibility.seesTeam;
   }
 
   static unread(seen: {

@@ -1,4 +1,3 @@
-import { WELCOME_LINE_KEY } from '@lines/application/contracts/built-in-lines.contract';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -36,7 +35,7 @@ export class WelcomeTeam {
     }
 
     const delivery = (await this.lines.ofTeam(team.teamId)).find(
-      (each) => each.key.value === WELCOME_LINE_KEY,
+      (each) => each.welcomesTeams,
     );
 
     if (!delivery) {

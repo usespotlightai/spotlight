@@ -11,8 +11,10 @@ import type {
 } from '@change-review/application/ports/change-stack-reader.port';
 import { answersQuestion } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import type { CheckedStep } from '@change-review/domain/value-objects/stack-check.vo';
+import { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import { isShownForTask } from '@change-review/domain/value-objects/stack-progress.vo';
 import { diffOf } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
 import { toStackCheck } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
@@ -120,7 +122,10 @@ const answeredFrom =
     const row = rows.find(
       (each) =>
         each.stackId === stackId &&
-        answersQuestion(each, { id: questionId, question: asked }),
+        answersQuestion(
+          { questionId: QuestionId.of(each.questionId), asked: each.asked },
+          { id: QuestionId.of(questionId), question: asked },
+        ),
     );
 
     return row
@@ -239,8 +244,8 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
 
   async answerOf(
     runId: RunId,
-    stackId: string,
-    questionId: string,
+    stackId: ChangeStackId,
+    questionId: QuestionId,
     viewerId: UserId,
   ): Promise<QuestionAnswerDto | null> {
     const [row] = await this.context.db
@@ -256,7 +261,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       .where(
         and(
           eq(changeStack.runId, runId.value),
-          eq(questionAnswer.stackId, stackId),
+          eq(questionAnswer.stackId, stackId.value),
           eq(questionAnswer.questionId, questionId),
           eq(questionAnswer.personId, viewerId.value),
         ),

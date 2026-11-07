@@ -5,6 +5,7 @@ import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -42,9 +43,9 @@ export class CompleteRunHandler
       }
 
       const outcome = command.stopped
-        ? RunOutcome.stopped(command.exitCode)
+        ? RunOutcome.stopped(ExitCode.of(command.exitCode))
         : RunOutcome.of({
-            exitCode: command.exitCode,
+            exitCode: ExitCode.of(command.exitCode),
             failed: command.failed,
             setupFailed: command.setupFailed,
             message: command.message,

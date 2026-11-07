@@ -101,8 +101,13 @@ describe('ProvisionFailures', () => {
 
     expect(append).toHaveBeenCalledWith(RunAttempt.of(RunId.of('run_1'), 1), {
       type: 'provision.failed',
-      message: 'Provisioning failed · http-error',
-      data: Buffer.from('the pool is draining', 'utf8').toString('base64'),
+      data: Buffer.from(
+        JSON.stringify({
+          failure: 'http-error',
+          detail: 'the pool is draining',
+        }),
+        'utf8',
+      ).toString('base64'),
       at: NOON,
     });
   });

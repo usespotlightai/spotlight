@@ -13,6 +13,7 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { TurnRetakesPort } from '@work/application/ports/turn-retakes.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import {
   STUCK_TURNS_METRIC,
@@ -61,12 +62,27 @@ const turning = (
   }));
   const count = vi.fn();
   const error = vi.fn();
+  const checked = new Map<string, Date>();
+  const key = (runId: RunId, suspendedAt: Date) =>
+    `${runId.value}@${suspendedAt.getTime()}`;
   const turns = new Turns(
     {
       turnOf: async () => null,
       olderThan: async (_owner, _state, before) =>
         (over.turns ?? []).filter((each) => each.suspendedAt < before),
     } satisfies RunTurnsPort,
+    {
+      checkedAt: async (runId, suspendedAt) =>
+        checked.get(key(runId, suspendedAt)) ?? null,
+      advance: async (runId, suspendedAt, from, to) => {
+        if ((checked.get(key(runId, suspendedAt)) ?? null) !== from) {
+          return false;
+        }
+        checked.set(key(runId, suspendedAt), to);
+        return true;
+      },
+      forgetSuspendedBefore: async () => undefined,
+    } satisfies TurnRetakesPort,
     { of: async () => over.facts ?? [] } as unknown as RunFactsPort,
     { resume, cancel } as unknown as RunsPort,
     {
@@ -99,8 +115,8 @@ describe('Turns', () => {
       turns: [turnAged(45 * MINUTE + 30_000)],
     });
 
-    await turns.retakePending(NOW, ago(MINUTE));
-    await turns.retakePending(new Date(NOW.getTime() + MINUTE), NOW);
+    await turns.retakePending(NOW);
+    await turns.retakePending(new Date(NOW.getTime() + MINUTE));
 
     expect(take).toHaveBeenCalledTimes(1);
     expect(take).toHaveBeenCalledWith(RUN, 1);
@@ -109,7 +125,7 @@ describe('Turns', () => {
   it('leaves alone a turn pending for less than the longest delivery', async () => {
     const { turns, take } = turning({ turns: [turnAged(30 * MINUTE)] });
 
-    await turns.retakePending(NOW, ago(MINUTE));
+    await turns.retakePending(NOW);
 
     expect(take).not.toHaveBeenCalled();
   });
@@ -120,12 +136,27 @@ describe('Turns', () => {
       turns: [turnAged(day + 30_000)],
     });
 
-    await turns.retakePending(NOW, ago(MINUTE));
-    await turns.retakePending(new Date(NOW.getTime() + 2 * 60 * MINUTE), NOW);
+    await turns.retakePending(NOW);
+    await turns.retakePending(new Date(NOW.getTime() + 2 * 60 * MINUTE));
 
     expect(take).toHaveBeenCalledTimes(1);
     expect(count).toHaveBeenCalledWith(STUCK_TURNS_METRIC);
     expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  it('decides from the stored last retake, so a restarted worker neither repeats nor skips a step', async () => {
+    const first = turning({ turns: [turnAged(45 * MINUTE + 30_000)] });
+
+    await first.turns.retakePending(NOW);
+    await first.turns.retakePending(NOW);
+
+    expect(first.take).toHaveBeenCalledTimes(1);
+
+    const restarted = turning({ turns: [turnAged(3 * 60 * MINUTE)] });
+
+    await restarted.turns.retakePending(NOW);
+
+    expect(restarted.take).toHaveBeenCalledTimes(1);
   });
 
   it('resumes a kept turn whose task was answered but whose resume never came', async () => {

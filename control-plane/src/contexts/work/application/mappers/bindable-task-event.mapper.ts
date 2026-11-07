@@ -1,16 +1,5 @@
 import type { BindableTaskEvent } from '@work/application/contracts/bindable-task-events.contract';
-import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
-import type { TaskAsked } from '@work/domain/events/task-asked.event';
-import type { TaskFailed } from '@work/domain/events/task-failed.event';
-import type { TaskFinished } from '@work/domain/events/task-finished.event';
-import type { TaskOpened } from '@work/domain/events/task-opened.event';
-
-export type NoticedTaskEvent =
-  | TaskOpened
-  | PullRequestOpened
-  | TaskAsked
-  | TaskFinished
-  | TaskFailed;
+import type { NoticedTaskEvent } from '@work/domain/services/outside-notices';
 
 const BOUND_AS: Readonly<Record<NoticedTaskEvent['kind'], BindableTaskEvent>> =
   {

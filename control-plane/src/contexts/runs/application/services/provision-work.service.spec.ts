@@ -50,7 +50,7 @@ const waiting = (
     id: RunId.of(id),
     workspaceId: WorkspaceId.of(workspace),
     harness: HarnessId.of('dev'),
-    ...orderedFor.task('task_1', 0),
+    ...orderedFor.holdingTurn('task_1', 0),
     tags: RunTags.of({ taskId: 'task_1' }),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
@@ -336,7 +336,7 @@ describe('ProvisionWork', () => {
       NOON,
       0,
       {},
-      ['work/task-task_1'],
+      ['requester/subject-task_1'],
     );
 
     await provisioner.due();
@@ -345,7 +345,7 @@ describe('ProvisionWork', () => {
       WorkspaceId.of('ws_1'),
       NOON,
       expect.objectContaining({
-        avoiding: [WorkspaceKey.parse('work/task-task_1')],
+        avoiding: [WorkspaceKey.parse('requester/subject-task_1')],
       }),
     );
   });

@@ -1,5 +1,5 @@
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
-import { BUILT_IN_TOOLS } from '@work/domain/services/built-in-tools';
+import { BUILT_IN_TOOLS } from '@work/domain/value-objects/built-in-tools';
 import { describe, expect, it } from 'vitest';
 
 const BUILT_IN_STATIONS = BUILT_IN_LINES.flatMap((line) => line.stations);

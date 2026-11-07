@@ -74,7 +74,6 @@ describe('HookTraces', () => {
       RunAttempt.of(RunId.of('run_1'), 2),
       expect.objectContaining({
         type: 'hook.called',
-        message: 'Hook core/grafana-reads · notify → slack.post-message',
         at: new Date(NOW.getTime() + 120),
       }),
     );

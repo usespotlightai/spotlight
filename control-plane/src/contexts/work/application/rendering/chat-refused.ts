@@ -1,4 +1,4 @@
-import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal.vo';
+import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal';
 
 export const ChatRefused = {
   text(refusal: ChatRefusal): string {

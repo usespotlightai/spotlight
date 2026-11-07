@@ -38,7 +38,6 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
-import { goneStationName } from '@work/domain/value-objects/gone-station-name';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
   lineMapOf,
@@ -72,8 +71,8 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     description: task.description,
     rank: task.rank,
     currentRunId: task.currentRunId,
-    sessionId: task.sessionId,
-    runnerId: task.runnerId,
+    session: task.session,
+    claimedBy: task.claimedBy,
     notes: [...task.notes, ...notes].map((each, place) =>
       TaskNote.of({ ...each, position: NotePosition.of(place) }),
     ),
@@ -168,7 +167,7 @@ describe('Task, the station a note is written at', () => {
 
   it('names a station its line no longer has as gone', () => {
     expect(lastOf(added().addMessage(newNote))?.station).toEqual(
-      goneStationName(),
+      StationName.unknown(),
     );
   });
 });
@@ -557,27 +556,26 @@ describe('Task, what it is doing', () => {
 
     it('ignores a session reported by a run that no longer works it', () => {
       expect(
-        workedBy().recordSession(RunId.of('run_gone'), session, runner)
-          .sessionId,
+        workedBy().recordSession(RunId.of('run_gone'), session, runner).session,
       ).toBeNull();
     });
 
     it('is not there until a run has worked it', () => {
-      expect(added().sessionId).toBeNull();
+      expect(added().session).toBeNull();
     });
 
     it('is remembered once one has, with the runner that leases it', () => {
       const recorded = workedBy().recordSession(WORKING, session, runner);
 
-      expect(recorded.sessionId).toEqual(session);
-      expect(recorded.runnerId).toEqual(runner);
+      expect(recorded.session).toEqual(session);
+      expect(recorded.claimedBy).toEqual(runner);
     });
 
     it('survives being put to a person', () => {
       const asked = sessionRecorded().askedAbout(newNote, null);
 
-      expect(asked.sessionId).toEqual(session);
-      expect(asked.runnerId).toEqual(runner);
+      expect(asked.session).toEqual(session);
+      expect(asked.claimedBy).toEqual(runner);
       expect(asked.awaitingReview).toBe(true);
     });
 
@@ -589,8 +587,8 @@ describe('Task, what it is doing', () => {
         newNote,
       );
 
-      expect(passed.sessionId).toBeNull();
-      expect(passed.runnerId).toBeNull();
+      expect(passed.session).toBeNull();
+      expect(passed.claimedBy).toBeNull();
     });
 
     it('is left behind when the task is moved by hand', () => {
@@ -601,8 +599,8 @@ describe('Task, what it is doing', () => {
         newNote,
       );
 
-      expect(moved.sessionId).toBeNull();
-      expect(moved.runnerId).toBeNull();
+      expect(moved.session).toBeNull();
+      expect(moved.claimedBy).toBeNull();
     });
 
     it('hands the conversation to the next run', () => {
@@ -621,16 +619,16 @@ describe('Task, what it is doing', () => {
         .answer(NotePosition.of(0), newNote);
 
       expect(answered.awaitingReview).toBe(false);
-      expect(answered.sessionId).toEqual(session);
-      expect(answered.runnerId).toEqual(runner);
+      expect(answered.session).toEqual(session);
+      expect(answered.claimedBy).toEqual(runner);
       expect(answered.stationId).toEqual(StationId.of('station_1'));
     });
 
     it('survives being reordered where it is', () => {
       const reordered = sessionRecorded().reorderTo(TaskRank.of('m'));
 
-      expect(reordered.sessionId).toEqual(session);
-      expect(reordered.runnerId).toEqual(runner);
+      expect(reordered.session).toEqual(session);
+      expect(reordered.claimedBy).toEqual(runner);
       expect(reordered.stationId).toEqual(StationId.of('station_1'));
     });
   });
@@ -1647,7 +1645,7 @@ describe('Task, what it is doing', () => {
           notes: [
             TaskNote.of({
               ...newNote,
-              station: goneStationName(),
+              station: StationName.unknown(),
               stationId: HERE,
               kind: 'message',
               position: NotePosition.of(1),

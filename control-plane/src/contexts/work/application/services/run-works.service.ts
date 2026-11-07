@@ -24,7 +24,7 @@ import type { DispatchRepository } from '@work/domain/repositories/dispatch.repo
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { trialRepositoryNamed } from '@work/domain/value-objects/dispatch-subject.vo';
+import { trialRepositoryNamed } from '@work/domain/value-objects/dispatch-subject';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 
 export interface LeasedRunWork {

@@ -14,7 +14,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
 import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
-import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
@@ -34,7 +34,7 @@ import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal.vo';
+import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import type { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
@@ -43,6 +43,7 @@ import type { HarnessSession } from '@work/domain/value-objects/harness-session.
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
+import type { PullRequestStep } from '@work/domain/value-objects/pull-request-step';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -61,6 +62,11 @@ export interface ChatAfterRun {
 }
 
 export class Chat extends EventRecorder {
+  static readonly RUN_API_GRANT = {
+    scopes: ['plan'] as const,
+    lifetimeMs: 60 * 60 * 1_000,
+  };
+
   private constructor(
     readonly id: ChatId,
     readonly workspaceId: WorkspaceId,
@@ -76,8 +82,8 @@ export class Chat extends EventRecorder {
     readonly messages: readonly ChatMessage[],
     readonly marks: readonly ChatMark[],
     readonly currentRunId: RunId | null,
-    readonly sessionId: HarnessSession | null,
-    readonly runnerId: RunnerId | null,
+    readonly session: HarnessSession | null,
+    readonly claimedBy: RunnerId | null,
     readonly createdAt: Date,
     readonly version: number,
   ) {
@@ -172,8 +178,8 @@ export class Chat extends EventRecorder {
     messages: readonly ChatMessage[];
     marks?: readonly ChatMark[];
     currentRunId: RunId | null;
-    sessionId: HarnessSession | null;
-    runnerId: RunnerId | null;
+    session: HarnessSession | null;
+    claimedBy: RunnerId | null;
     createdAt: Date;
     version: number;
   }): Chat {
@@ -217,8 +223,8 @@ export class Chat extends EventRecorder {
       input.messages,
       input.marks ?? [],
       input.currentRunId,
-      input.sessionId,
-      input.runnerId,
+      input.session,
+      input.claimedBy,
       input.createdAt,
       input.version,
     );
@@ -366,6 +372,12 @@ export class Chat extends EventRecorder {
     });
   }
 
+  get setupPullRequestStep(): PullRequestStep {
+    const pullRequest = this.setup?.pullRequest;
+
+    return pullRequest ? { kind: 'keep', pullRequest } : { kind: 'open' };
+  }
+
   mayOpenSetupFrom(runId: RunId): ConfigFolder {
     const setup = this.setup;
 
@@ -437,7 +449,7 @@ export class Chat extends EventRecorder {
     });
 
     assigned.record(
-      new ChatDispatched(
+      new ChatRunAssigned(
         this.id,
         runId,
         this.unacknowledged.map((message) => message.position),
@@ -502,10 +514,10 @@ export class Chat extends EventRecorder {
   }
 
   private recordSession(
-    sessionId: HarnessSession,
-    runnerId: RunnerId | null,
+    session: HarnessSession,
+    claimedBy: RunnerId | null,
   ): Chat {
-    return this.with({ sessionId, runnerId });
+    return this.with({ session, claimedBy });
   }
 
   acknowledgeUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
@@ -536,7 +548,7 @@ export class Chat extends EventRecorder {
 
   resume(): Resume {
     return Resume.of({
-      sessionId: this.sessionId,
+      sessionId: this.session,
     });
   }
 
@@ -646,7 +658,7 @@ export class Chat extends EventRecorder {
   }
 
   get workspaceRelease(): WorkspaceRelease {
-    return this.sessionId
+    return this.session
       ? WorkspaceRelease.held()
       : WorkspaceRelease.since(this.createdAt);
   }
@@ -676,8 +688,8 @@ export class Chat extends EventRecorder {
     effort?: Effort | null;
     messages?: readonly ChatMessage[];
     currentRunId?: RunId | null;
-    sessionId?: HarnessSession | null;
-    runnerId?: RunnerId | null;
+    session?: HarnessSession | null;
+    claimedBy?: RunnerId | null;
     setup?: ConfigFolder | null;
   }): Chat {
     const next = new Chat(
@@ -695,8 +707,8 @@ export class Chat extends EventRecorder {
       part.messages ?? this.messages,
       this.marks,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,
-      part.sessionId !== undefined ? part.sessionId : this.sessionId,
-      part.runnerId !== undefined ? part.runnerId : this.runnerId,
+      part.session !== undefined ? part.session : this.session,
+      part.claimedBy !== undefined ? part.claimedBy : this.claimedBy,
       this.createdAt,
       this.version,
     );

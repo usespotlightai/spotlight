@@ -18,7 +18,7 @@ import type { HarnessCatalogue } from '@work/domain/value-objects/harness-catalo
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
-import type { RefusalReason } from '@work/domain/value-objects/refusal-reason.vo';
+import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 import type { Resume } from '@work/domain/value-objects/resume.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 

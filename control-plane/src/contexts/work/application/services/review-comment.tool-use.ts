@@ -1,7 +1,7 @@
 import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import type { PullRequestReviewingPort } from '@work/application/ports/pull-request-reviewing.port';
-import { REVIEW_COMMENT } from '@work/domain/services/built-in-tools';
+import { REVIEW_COMMENT } from '@work/domain/value-objects/built-in-tools';
 import { DiffSide } from '@work/domain/value-objects/diff-side.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 

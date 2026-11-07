@@ -158,7 +158,7 @@ describe('ClaimOrder', () => {
   it('holds back a run while another run of its requester holds a lease', () => {
     const held = waiting('held', {
       priority: 9,
-      ordering: orderedFor.task('task_9'),
+      ordering: orderedFor.holdingTurn('task_9'),
     });
 
     expect(

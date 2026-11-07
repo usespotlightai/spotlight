@@ -5,12 +5,12 @@ import {
 import { distinct } from '@shared-kernel/domain/distinct';
 import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
-import { builtInTool } from '@work/domain/services/built-in-tools';
+import { builtInTool } from '@work/domain/value-objects/built-in-tools';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
-import type { RefusalReason } from '@work/domain/value-objects/refusal-reason.vo';
+import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 import type { Station } from '@work/domain/value-objects/station.vo';
 
 export interface EnabledForRun {

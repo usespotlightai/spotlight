@@ -295,7 +295,7 @@ describe('a task awaiting the turn its run handed over', () => {
     const task = awaiting();
 
     expect(task.awaitingReview).toBe(true);
-    expect(task.sessionId?.value).toBe('session_1');
+    expect(task.session?.value).toBe('session_1');
     expect(task.awaitedTurn?.equals(TURN)).toBe(true);
     expect(task.hasCurrentRun(RUN)).toBe(true);
   });

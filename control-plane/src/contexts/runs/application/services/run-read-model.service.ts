@@ -17,6 +17,7 @@ import type {
   TurnFacts,
   TurnsCursor,
 } from '@runs/application/ports/run-turns.port';
+import { runOutcomeText } from '@runs/application/rendering/run-outcome.text';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
@@ -41,7 +42,7 @@ const factsOf = (
     workspaceId: run.workspaceId,
     state: run.state,
     ended: run.hasEnded,
-    attempt: run.attempt,
+    attempt: run.attempt.number,
     stopRequested: run.stopRequested,
     turn: run.turn?.state ?? null,
     suspendedAt: run.turn?.suspendedAt ?? null,
@@ -61,7 +62,7 @@ const factsOf = (
     started: run.hasStarted,
     askedAPerson: run.askedAPerson,
     failed: run.outcome?.failed ?? false,
-    exitCode: run.outcome?.exitCode ?? null,
+    exitCode: run.outcome?.exitCode.value ?? null,
     image: run.ranIn?.value ?? null,
     startedFrom: startedFrom && {
       archiveId: startedFrom.archive?.value ?? null,
@@ -130,12 +131,12 @@ const turnFactsOf = (run: Run): TurnFacts | null => {
     ? {
         runId: run.id,
         workspaceId: run.workspaceId,
-        attempt: run.attempt,
+        attempt: run.attempt.number,
         turn: turn.state,
         outcome: {
-          exitCode: run.outcome.exitCode,
+          exitCode: run.outcome.exitCode.value,
           failure: run.outcome.failure?.code ?? null,
-          message: run.outcome.message,
+          message: runOutcomeText(run.outcome),
           stopped: run.outcome.stopped,
         },
         handover: turn.report.handover && {
@@ -246,8 +247,9 @@ export class RunReadModel
 
   async turnOf(runId: RunId, attempt: number): Promise<TurnFacts | null> {
     const run = await this.one(runId);
+    const numbered = run?.attemptNumbered(attempt);
 
-    return run?.turnAt(attempt) ? turnFactsOf(run) : null;
+    return run && numbered && run.turnAt(numbered) ? turnFactsOf(run) : null;
   }
 
   async olderThan(

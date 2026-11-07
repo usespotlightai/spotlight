@@ -1,5 +1,5 @@
-import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 
 export class PoolOccupancy {
   private constructor(

@@ -5,6 +5,7 @@ import type {
   HunkFacts,
   HunkLink,
 } from '@change-review/domain/services/diff-facts';
+import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 export class StackFacts implements DiffFacts {
   private constructor(
@@ -17,11 +18,11 @@ export class StackFacts implements DiffFacts {
     return new StackFacts(facts.hunks, facts.links, facts.imports);
   }
 
-  classOf(hunk: string): FileClass | null {
+  classOf(hunk: HunkId): FileClass | null {
     return this.hunks.find((each) => each.hunk === hunk)?.fileClass ?? null;
   }
 
-  isGenerated(hunk: string): boolean {
+  isGenerated(hunk: HunkId): boolean {
     return this.classOf(hunk) === 'generated';
   }
 }

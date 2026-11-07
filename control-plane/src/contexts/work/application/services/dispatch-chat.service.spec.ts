@@ -32,9 +32,9 @@ import { ChatToolExtensions } from '@work/application/services/chat-tool-extensi
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import type { OrderedRun } from '@work/application/services/ordered-run';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
+import { SETUP_PULL_REQUEST } from '@work/domain/value-objects/built-in-tools';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -201,7 +201,7 @@ const dispatched = (chat: Chat, runId: RunId) => {
   const assigned = chat.assignRun(runId, NOW);
   const [event] = assigned.pullEvents();
 
-  return { chat: assigned, handed: (event as ChatDispatched).acknowledged };
+  return { chat: assigned, handed: (event as ChatRunAssigned).acknowledged };
 };
 
 describe('DispatchChat', () => {

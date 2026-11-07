@@ -35,10 +35,6 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
-  TASK_DISPATCHED,
-  type TaskDispatchedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
-import {
   TASK_FAILED,
   type TaskFailedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-failed.integration-event';
@@ -54,6 +50,10 @@ import {
   TASK_PASSED,
   type TaskPassedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-passed.integration-event';
+import {
+  TASK_RUN_ASSIGNED,
+  type TaskRunAssignedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
@@ -64,11 +64,11 @@ import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-re
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
-import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import type { TaskFailed } from '@work/domain/events/task-failed.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskPassed } from '@work/domain/events/task-passed.event';
+import type { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 
 export const WORK_EVENT_MAPPERS = [
   mapping<DispatchBriefed>(
@@ -110,10 +110,10 @@ export const WORK_EVENT_MAPPERS = [
       workspaceId: event.workspaceId.value,
     }),
   ),
-  mapping<TaskDispatched>(
-    'task.dispatched',
-    (event): TaskDispatchedIntegrationEvent => ({
-      kind: TASK_DISPATCHED,
+  mapping<TaskRunAssigned>(
+    'task.run-assigned',
+    (event): TaskRunAssignedIntegrationEvent => ({
+      kind: TASK_RUN_ASSIGNED,
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
       runId: event.runId.value,

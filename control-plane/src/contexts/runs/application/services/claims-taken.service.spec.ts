@@ -23,7 +23,7 @@ const claimed = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
-    ...orderedFor.task('task_1', 0),
+    ...orderedFor.holdingTurn('task_1', 0),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'work out what the request wants',

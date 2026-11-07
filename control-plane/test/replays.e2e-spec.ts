@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
+import { LINES, type LinesPort } from '@lines/application/ports/lines.port';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -26,6 +26,7 @@ import {
   type WorkspaceArchiveStorePort,
 } from '@runs/application/ports/workspace-archive-store.port';
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -262,7 +263,7 @@ const replayOrderOf = async (
   run: RunId,
 ): Promise<ReplayRunOrder> => {
   const line = await app
-    .get(DrizzleLineRepository)
+    .get<LinesPort>(LINES)
     .findByStation(StationId.of(BUILD));
 
   if (!line) {
@@ -273,7 +274,7 @@ const replayOrderOf = async (
     run,
     owner: ownerOf(),
     original: RunId.of(original.runId),
-    lineId: line.id,
+    lineId: LineId.of(line.id),
     stationId: StationId.of(BUILD),
     block: StationBlock.of({
       ...(await writtenStation(app, DELIVERY, 'build')),
@@ -874,7 +875,7 @@ describe('a replay ending', () => {
     for (const kind of [
       'work.dispatch-ended.v1',
       'work.dispatch-briefed.v1',
-      'work.task-dispatched.v1',
+      'work.task-run-assigned.v1',
     ]) {
       expect(await published(kind, replayId)).toEqual([]);
     }

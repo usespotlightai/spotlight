@@ -11,6 +11,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import { Money } from '@runs/domain/value-objects/money.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import {
@@ -46,6 +47,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { endingFor } from './support/run-ended';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -137,7 +139,7 @@ beforeAll(async () => {
     spec: SPEC,
     createdAt: ago(300),
     startedAt: ago(298),
-    endedAt: ago(240),
+    ...endingFor('completed', ago(240)),
   });
   await db.insert(schema.dispatch).values(
     aDispatch({
@@ -256,7 +258,7 @@ beforeAll(async () => {
         workspaceId,
         taskRequester(TASK),
         true,
-        1,
+        RunAttempt.of(RUN, 1),
         58 * MINUTE,
         30,
         1,
@@ -954,7 +956,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       state: 'failed',
       spec: SPEC,
       createdAt: ago(120),
-      endedAt: ago(119),
+      ...endingFor('failed', ago(119)),
     });
     await db.insert(schema.dispatch).values(
       aDispatch({
@@ -1032,7 +1034,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       spec: SPEC,
       createdAt: ago(100),
       startedAt: ago(99),
-      endedAt: ago(90),
+      ...endingFor(seed.outcome, ago(90)),
     });
     await db.insert(schema.dispatch).values(
       aDispatch({
@@ -1089,7 +1091,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
           team.workspaceId,
           taskRequester(task),
           true,
-          1,
+          RunAttempt.of(runId, 1),
           MINUTE,
           4,
           0,

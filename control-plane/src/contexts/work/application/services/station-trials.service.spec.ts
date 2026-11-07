@@ -6,7 +6,6 @@ import type {
   RunFacts,
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
-import { HarnessCommand } from '@runs/application/ports/run-fixtures.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -38,7 +37,6 @@ import type { StationSkills } from '@work/application/services/station-skills.se
 import { StationTrials } from '@work/application/services/station-trials.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -72,11 +70,11 @@ const harnesses: HarnessCataloguePort = {
 
 const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
   id.equals(DEV.id)
-    ? HarnessCommand.of({
+    ? {
         executable: 'dev-agent',
         args: ['--acp'],
-        env: chosen.model ? { DEV_MODEL: chosen.model.value } : {},
-      }).started()
+        ...(chosen.model ? { env: { DEV_MODEL: chosen.model.value } } : {}),
+      }
     : null;
 
 const launch: HarnessLaunchPort = {
@@ -304,15 +302,8 @@ const trialsOf = () =>
       },
     },
     {
-      received: async (
-        _workspace: WorkspaceId,
-        ids: readonly AttachmentId[],
-      ) => {
-        if (ids.some((each) => gone.includes(each.value))) {
-          throw new InvalidAttachmentError('was never uploaded');
-        }
-        return [];
-      },
+      stored: async (_workspace: WorkspaceId, ids: readonly AttachmentId[]) =>
+        !ids.some((each) => gone.includes(each.value)),
     } as unknown as AttachmentStorePort,
     {
       for: (taskId, runId) => `trace:${taskId.value}:${runId.value}`,

@@ -27,6 +27,7 @@ import {
   storedAs,
 } from '@runs/domain/aggregates/workspace-archive.fake-spec';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const TOKEN = 'sandbox-token';
@@ -35,7 +36,7 @@ const setUp = (
   sandbox: AuthenticatedSandbox = {
     id: 'sandbox_1',
     workspaceId: 'ws_1',
-    key: 'work/task-task_1',
+    key: 'requester/subject-task_1',
   },
 ) => {
   const sandboxes = new SandboxArchives({
@@ -50,7 +51,7 @@ const setUp = (
   const grants = new ArchiveGrants(
     archives,
     store,
-    holding('work'),
+    holding('requester'),
     ids,
     clock,
   );
@@ -76,8 +77,8 @@ describe('archiving a sandbox’s workspace with its own token', () => {
     ).resolves.toMatchObject({ id: 'archive_1' });
 
     const granted = archives.stored.get('archive_1');
-    expect(granted?.grantedForSandbox('sandbox_1')).toBe(true);
-    expect(granted?.workspaceKey.value).toBe('work/task-task_1');
+    expect(granted?.grantedForSandbox(SandboxId.of('sandbox_1'))).toBe(true);
+    expect(granted?.workspaceKey.value).toBe('requester/subject-task_1');
   });
 
   it('grants nothing for a wrong token, or for another sandbox', async () => {

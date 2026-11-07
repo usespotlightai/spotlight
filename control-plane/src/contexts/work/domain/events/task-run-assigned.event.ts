@@ -3,8 +3,8 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class TaskDispatched implements DomainEvent {
-  readonly kind = 'task.dispatched';
+export class TaskRunAssigned implements DomainEvent {
+  readonly kind = 'task.run-assigned';
 
   constructor(
     readonly taskId: TaskId,

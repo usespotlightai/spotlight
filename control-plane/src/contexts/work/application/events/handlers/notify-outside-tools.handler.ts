@@ -1,11 +1,12 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import {
-  bindableTaskEventOf,
-  type NoticedTaskEvent,
-} from '@work/application/mappers/bindable-task-event.mapper';
+import { bindableTaskEventOf } from '@work/application/mappers/bindable-task-event.mapper';
 import type { OutboundTaskNotifier } from '@work/application/services/outside-task-notices.service';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import {
+  type NoticedTaskEvent,
+  notifiesOutsideTools,
+} from '@work/domain/services/outside-notices';
 
 export class NotifyOutsideTools {
   constructor(
@@ -16,7 +17,7 @@ export class NotifyOutsideTools {
   ) {}
 
   async on(event: NoticedTaskEvent): Promise<void> {
-    if (event.kind === 'task.opened' && !event.fromIntegration) {
+    if (!notifiesOutsideTools(event)) {
       return;
     }
 

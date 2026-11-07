@@ -13,7 +13,7 @@ import type { DispatchTask } from '@work/application/services/dispatch-task.serv
 import type { OrderedRun } from '@work/application/services/ordered-run';
 import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
+import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -137,7 +137,7 @@ const ordering = (
   return { handler, task, added: added_, order };
 };
 
-const handed = (task: Task) => new TaskDispatched(task.id, WORKSPACE, RUN);
+const handed = (task: Task) => new TaskRunAssigned(task.id, WORKSPACE, RUN);
 
 describe('OrderTaskRun', () => {
   it('records the order of the run a task was dispatched to, briefing and all', async () => {

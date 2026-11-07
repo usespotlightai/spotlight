@@ -39,7 +39,7 @@ export class ImportSkillHandler
 
       const record = await this.resources.at(
         team.id,
-        DefinedSkillKey.of(address.key).value,
+        DefinedSkillKey.of(address.key),
       );
 
       return record ? this.views.of(record) : null;

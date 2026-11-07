@@ -6,7 +6,7 @@ export const claimedRun = (run: Run): ClaimedWorkDto => ({
   run: {
     id: run.id.value,
     harness: run.harness.value,
-    attempt: run.attempt,
+    attempt: run.attempt.number,
     spec: run.spec.value,
     extensions: run.extensions.value,
     workspaceKey: run.workspaceKey?.value ?? null,

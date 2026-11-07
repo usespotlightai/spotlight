@@ -9,6 +9,7 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { TurnRetakesPort } from '@work/application/ports/turn-retakes.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
@@ -25,6 +26,7 @@ export const STUCK_TURNS_METRIC = 'spotlight.turns.stuck';
 export class Turns {
   constructor(
     private readonly turns: RunTurnsPort,
+    private readonly retakes: TurnRetakesPort,
     private readonly facts: RunFactsPort,
     private readonly runs: RunsPort,
     private readonly dispatches: DispatchRepository,
@@ -35,19 +37,34 @@ export class Turns {
     private readonly logger: LoggerPort,
   ) {}
 
-  async retakePending(now: Date, previously: Date): Promise<void> {
+  async retakePending(now: Date): Promise<void> {
     for await (const turn of this.olderThan(
       'pending',
       TurnWait.firstRetakeAfter(now),
     )) {
-      const age = now.getTime() - turn.suspendedAt.getTime();
-      const was = previously.getTime() - turn.suspendedAt.getTime();
+      const checkedAt = await this.retakes.checkedAt(
+        turn.runId,
+        turn.suspendedAt,
+      );
+      const check = TurnWait.checkOf(turn.suspendedAt, checkedAt, now);
 
-      if (TurnWait.retakesBetween(was, age)) {
+      if (
+        !(check.retakes || check.givesUp) ||
+        !(await this.retakes.advance(
+          turn.runId,
+          turn.suspendedAt,
+          checkedAt,
+          now,
+        ))
+      ) {
+        continue;
+      }
+
+      if (check.retakes) {
         await this.retaken(turn);
       }
 
-      if (TurnWait.givesUpBetween(was, age)) {
+      if (check.givesUp) {
         this.telemetry.count(STUCK_TURNS_METRIC);
         this.logger.error(
           { runId: turn.runId.value, suspendedAt: turn.suspendedAt },
@@ -106,6 +123,10 @@ export class Turns {
         );
       }
     }
+  }
+
+  async forgetOldRetakes(now: Date): Promise<void> {
+    await this.retakes.forgetSuspendedBefore(TurnWait.retakesKeptAfter(now));
   }
 
   private async retaken(turn: TurnFacts): Promise<void> {

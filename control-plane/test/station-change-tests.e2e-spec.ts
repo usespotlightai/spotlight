@@ -119,7 +119,15 @@ const tested = async (
     throw new Error('a chat has no test-station-change tool');
   }
 
-  return (await tool.call(ToolInputs.of(inputs))) as Answer;
+  const result = await tool.call(ToolInputs.of(inputs));
+
+  if (result.outcome !== 'answered') {
+    throw new Error(
+      `the test-station-change tool failed: ${result.failure.reason}`,
+    );
+  }
+
+  return result.output as Answer;
 };
 
 const change = async (name: string, prompt = 'Build it, in order.\n') => ({

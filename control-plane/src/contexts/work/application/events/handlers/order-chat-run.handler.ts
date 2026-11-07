@@ -2,7 +2,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import type { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
-import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import type { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 
@@ -14,7 +14,7 @@ export class OrderChatRun {
     private readonly clock: ClockPort,
   ) {}
 
-  async on(event: ChatDispatched): Promise<void> {
+  async on(event: ChatRunAssigned): Promise<void> {
     const chat = await this.chats.find(event.chatId);
 
     if (!chat?.hasCurrentRun(event.runId)) {

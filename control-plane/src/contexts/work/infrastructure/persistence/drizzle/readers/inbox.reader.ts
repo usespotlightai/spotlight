@@ -32,8 +32,14 @@ import type {
   InboxScope,
 } from '@work/application/ports/inbox-reader.port';
 import { inboxSectionOf } from '@work/application/read-models/inbox-section';
-import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
-import { Notice } from '@work/domain/aggregates/notice.aggregate';
+import {
+  InboxRequest,
+  type InboxRequestAudience,
+} from '@work/domain/aggregates/inbox-request.aggregate';
+import {
+  Notice,
+  type NoticeAudience,
+} from '@work/domain/aggregates/notice.aggregate';
 import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
@@ -44,7 +50,6 @@ import {
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
-import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
@@ -85,11 +90,22 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-const FORMS_FOR_TEAM_READERS = INBOX_REQUEST_FORMS.filter(
-  (form) => InboxRequest.requiredAccess(form) === 'readsTeamInsights',
-);
-
 const PAGES_TO_SKIP_OVER = 5;
+
+const requestAudience = (audience: InboxRequestAudience): SQL | undefined =>
+  or(
+    eq(task.assigneeId, audience.assignee.value),
+    audience.unassigned ? isNull(task.assigneeId) : undefined,
+    audience.formsForTeamReaders.length > 0
+      ? inArray(inboxRequest.form, [...audience.formsForTeamReaders])
+      : undefined,
+  );
+
+const noticeAudience = (audience: NoticeAudience): SQL | undefined =>
+  or(
+    eq(notice.addresseeId, audience.addressee.value),
+    audience.unaddressed ? isNull(notice.addresseeId) : undefined,
+  );
 
 interface Keyed {
   readonly entry: InboxEntrySummary;
@@ -234,11 +250,7 @@ const requestsWhere = (
     .where(
       and(
         eq(inboxRequest.workspaceId, workspaceId),
-        or(
-          eq(task.assigneeId, userId.value),
-          isNull(task.assigneeId),
-          inArray(inboxRequest.form, FORMS_FOR_TEAM_READERS),
-        ),
+        requestAudience(InboxRequest.audienceOf(userId)),
         narrowedTo,
       ),
     )
@@ -261,7 +273,7 @@ const noticesWhere = (
     .where(
       and(
         eq(notice.workspaceId, workspaceId),
-        or(eq(notice.addresseeId, userId.value), isNull(notice.addresseeId)),
+        noticeAudience(Notice.audienceOf(userId)),
         narrowedTo,
       ),
     )

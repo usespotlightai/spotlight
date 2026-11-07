@@ -1,10 +1,10 @@
-import { orderedFor } from '@runs/application/ports/run-fixtures.fake-spec';
 import { RUN_SUSPENDED } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { requestedBy } from '@work/application/ports/runs.fake-spec';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -67,7 +67,7 @@ describe('workSubscribers', () => {
       kind: RUN_SUSPENDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
-      requester: orderedFor.task('task_1', 0).requester.parts,
+      requester: requestedBy.task('task_1', 0),
       attempt: 2,
       at: '2026-11-07T10:00:00.000Z',
     } as never);

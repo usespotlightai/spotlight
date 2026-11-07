@@ -1,7 +1,7 @@
 import { RunFailure } from '@runs/domain/value-objects/run-failure.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
-const UNANSWERED = RunFailure.of('hooks-unanswered').retry;
+const UNANSWERED = RunFailure.of('start-gate-unanswered').retry;
 
 export class RequeueCount {
   private constructor(

@@ -1,6 +1,6 @@
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
-import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
+import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 
 export const sandboxesToDrainOn = (
   host: RunnerHost,

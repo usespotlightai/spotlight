@@ -15,7 +15,7 @@ import type {
   Chat,
   NumberedProposal,
 } from '@work/domain/aggregates/chat.aggregate';
-import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import type { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -40,7 +40,7 @@ export class NotifyChannel implements RunEndingReactions {
     }
   }
 
-  async onChatDispatched(event: ChatDispatched): Promise<void> {
+  async onChatRunAssigned(event: ChatRunAssigned): Promise<void> {
     const chat = await this.fromChannel(event.chatId);
 
     if (chat) {

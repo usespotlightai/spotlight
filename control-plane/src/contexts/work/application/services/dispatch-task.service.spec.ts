@@ -474,7 +474,7 @@ describe('DispatchTask', () => {
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
       expect(queued[0]?.state).toBe('failed');
-      expect(queued[0]?.outcome?.message).toBe(
+      expect(queued[0]?.outcome?.detail).toBe(
         'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace’s Team plan expired at 2026-09-01T00:00:00.000Z',
       );
       expect(queued[0]?.pullEvents().map((each) => each.kind)).toEqual([
@@ -498,7 +498,7 @@ describe('DispatchTask', () => {
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
-      expect(queued[0]?.outcome?.message).toBe(`${code}: denied here`);
+      expect(queued[0]?.outcome?.detail).toBe(`${code}: denied here`);
     });
 
     it('names every refusal, each by its own reason', async () => {
@@ -522,7 +522,7 @@ describe('DispatchTask', () => {
         }),
       );
 
-      expect(queued[0]?.outcome?.message).toBe(
+      expect(queued[0]?.outcome?.detail).toBe(
         'entitlement_expired: expired here; catalog_item_unknown: unknown here',
       );
     });
@@ -728,7 +728,7 @@ describe('DispatchTask', () => {
 
       expect(id).not.toBeNull();
       expect(queued[0]?.state).toBe('failed');
-      expect(queued[0]?.outcome?.message).toBe(
+      expect(queued[0]?.outcome?.detail).toBe(
         'harness_profile_unknown: Harness profile reckless is not in this team. Station: Triage',
       );
       expect(written(queued[0]).harnessSetup).toBeUndefined();

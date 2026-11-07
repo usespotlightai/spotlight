@@ -1,3 +1,4 @@
+import { runOutcomeText } from '@runs/application/rendering/run-outcome.text';
 import type { RunCancelled } from '@runs/domain/events/run-cancelled.event';
 import type { RunEnded } from '@runs/domain/events/run-ended.event';
 import type { RunExhausted } from '@runs/domain/events/run-exhausted.event';
@@ -54,7 +55,7 @@ const requestedRunEnded = (
   runId: event.runId.value,
   workspaceId: event.workspaceId.value,
   requester: event.requester.parts,
-  attempt: event.attempt,
+  attempt: event.attempt.number,
   ending: ending.ending,
   outcome: ending.outcome,
   failure: ending.failure,
@@ -78,8 +79,8 @@ export const RUNS_EVENT_MAPPERS = [
       ending: 'completed',
       outcome: event.outcome.failed ? 'failed' : 'completed',
       failure: event.outcome.failure?.code ?? null,
-      exitCode: event.outcome.exitCode,
-      message: event.outcome.message,
+      exitCode: event.outcome.exitCode.value,
+      message: runOutcomeText(event.outcome),
       stopped: event.outcome.stopped,
       handsOver: event.outcome.handsOver,
       reported: event.reported,
@@ -124,7 +125,7 @@ export const RUNS_EVENT_MAPPERS = [
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
       requester: event.requester.parts,
-      attempt: event.attempt,
+      attempt: event.attempt.number,
       at: event.at.toISOString(),
     }),
   ),

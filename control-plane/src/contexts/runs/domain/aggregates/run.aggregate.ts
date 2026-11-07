@@ -12,6 +12,7 @@ import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-start
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RequeueCount } from '@runs/domain/value-objects/requeue-count.vo';
 import type { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
@@ -149,13 +150,13 @@ export class Run extends EventRecorder {
     readonly claimedBy: RunnerId | null,
     readonly leaseExpiresAt: Date | null,
     readonly outcome: RunOutcome | null,
-    readonly attempt: number,
+    readonly attempt: RunAttempt,
     readonly stopRequestedAt: Date | null,
     readonly reservation: RunnerReservation | null,
     readonly provisioning: Provisioning,
     readonly ranIn: RunnerImage | null,
     readonly requeueCount: RequeueCount,
-    readonly suspendedAttempts: readonly number[] = [],
+    readonly suspendedAttempts: readonly RunAttempt[] = [],
     readonly startedAt: Date | null = null,
     readonly startedFrom: StartingPoint | null = null,
     readonly askedAPerson: boolean = false,
@@ -206,7 +207,7 @@ export class Run extends EventRecorder {
       null,
       null,
       null,
-      1,
+      RunAttempt.first(input.id),
       null,
       null,
       Provisioning.none(),
@@ -308,13 +309,15 @@ export class Run extends EventRecorder {
       input.claimedBy,
       input.leaseExpiresAt,
       input.outcome,
-      input.attempt,
+      RunAttempt.of(input.id, input.attempt),
       input.stopRequestedAt ?? null,
       input.reservation,
       input.provisioning,
       input.ranIn ?? null,
       input.requeueCount ?? RequeueCount.none(),
-      [...(input.suspendedAttempts ?? [])],
+      (input.suspendedAttempts ?? []).map((each) =>
+        RunAttempt.of(input.id, each),
+      ),
       input.startedAt ?? null,
       input.startedFrom ?? null,
       input.askedAPerson ?? false,
@@ -735,7 +738,7 @@ export class Run extends EventRecorder {
   }
 
   private get expiredLeases(): number {
-    return this.attempt - this.suspendedAttempts.length;
+    return this.attempt.number - this.suspendedAttempts.length;
   }
 
   private exhaust(outcome: RunOutcome, now: Date): Run {
@@ -771,7 +774,7 @@ export class Run extends EventRecorder {
       outcome: null,
       claimedBy: null,
       leaseExpiresAt: null,
-      attempt: this.attempt + 1,
+      attempt: this.attempt.next(),
       reservation: null,
       provisioning: Provisioning.none(),
       ranIn: null,
@@ -851,7 +854,7 @@ export class Run extends EventRecorder {
     };
 
     if (this.startedFrom) {
-      if (this.startedFrom.attempt < this.attempt) {
+      if (this.startedFrom.attempt < this.attempt.number) {
         return this;
       }
 
@@ -866,7 +869,7 @@ export class Run extends EventRecorder {
 
     const point = StartingPoint.of({
       ...reported,
-      attempt: this.attempt,
+      attempt: this.attempt.number,
       at: now,
     });
     const wanted = [...this.spec.checkoutFolders].sort();
@@ -979,13 +982,13 @@ export class Run extends EventRecorder {
     return suspended;
   }
 
-  turnAt(attempt: number): RunTurn | null {
-    return this.state === 'suspended' && this.attempt === attempt
+  turnAt(attempt: RunAttempt): RunTurn | null {
+    return this.state === 'suspended' && this.attempt.equals(attempt)
       ? this.turn
       : null;
   }
 
-  keep(attempt: number, now: Date): Run {
+  keep(attempt: RunAttempt, now: Date): Run {
     const turn = this.turnAt(attempt);
 
     if (!turn?.pending) {
@@ -993,7 +996,7 @@ export class Run extends EventRecorder {
     }
 
     if (this.stopRequested) {
-      return this.endedUnstarted(RunOutcome.stopped(-1), now);
+      return this.endedUnstarted(RunOutcome.stopped(ExitCode.notRun()), now);
     }
 
     const kept = this.with({ turn: turn.kept() });
@@ -1004,7 +1007,7 @@ export class Run extends EventRecorder {
   }
 
   resumed(
-    attempt: number | null,
+    attempt: RunAttempt | null,
     because: 'messages' | 'answered',
     joining: readonly RunCheckout[],
     now: Date,
@@ -1020,7 +1023,7 @@ export class Run extends EventRecorder {
     }
 
     if (this.stopRequested) {
-      return this.endedUnstarted(RunOutcome.stopped(-1), now);
+      return this.endedUnstarted(RunOutcome.stopped(ExitCode.notRun()), now);
     }
 
     const resumed = this.with({
@@ -1037,7 +1040,7 @@ export class Run extends EventRecorder {
     return resumed;
   }
 
-  finished(attempt: number): Run {
+  finished(attempt: RunAttempt): Run {
     const turn = this.turnAt(attempt);
 
     if (!turn || !this.outcome) {
@@ -1085,11 +1088,13 @@ export class Run extends EventRecorder {
   }
 
   get hasStarted(): boolean {
-    return this.startedAt !== null || this.attempt > 1;
+    return this.startedAt !== null || this.attempt.number > 1;
   }
 
   private endedAsStopped(by: RunnerId | null, now: Date): Run {
-    const outcome = RunOutcome.stopped(by ? 0 : -1);
+    const outcome = RunOutcome.stopped(
+      by ? ExitCode.clean() : ExitCode.notRun(),
+    );
     const ended = this.with({
       state: endingIn(outcome),
       leaseExpiresAt: null,
@@ -1148,7 +1153,7 @@ export class Run extends EventRecorder {
     this.requireClaimedBy(by, 'requeue');
 
     if (this.stopRequested) {
-      return this.endedUnstarted(RunOutcome.stopped(-1), now);
+      return this.endedUnstarted(RunOutcome.stopped(ExitCode.notRun()), now);
     }
 
     const requeueCount = this.requeueCount.requeuedAt(now);
@@ -1244,7 +1249,8 @@ export class Run extends EventRecorder {
 
   private endedAsItPaused(now: Date): Run {
     const outcome =
-      this.outcome ?? RunOutcome.of({ exitCode: 0, failed: false });
+      this.outcome ??
+      RunOutcome.of({ exitCode: ExitCode.clean(), failed: false });
     const ended = this.with({
       state: endingIn(outcome),
       leaseExpiresAt: null,
@@ -1313,7 +1319,7 @@ export class Run extends EventRecorder {
     }
 
     if (this.state === 'suspended') {
-      return this.endedUnstarted(RunOutcome.stopped(-1), now);
+      return this.endedUnstarted(RunOutcome.stopped(ExitCode.notRun()), now);
     }
 
     if (!isLeased(this.state)) {
@@ -1352,17 +1358,15 @@ export class Run extends EventRecorder {
   journalFor(by: RunnerId): RunAttempt {
     this.requireLeasedBy(by, 'journal');
 
-    return this.currentAttempt;
+    return this.attempt;
   }
 
   attemptNumbered(attempt: number): RunAttempt | null {
-    return Number.isInteger(attempt) && attempt >= 1 && attempt <= this.attempt
+    return Number.isInteger(attempt) &&
+      attempt >= 1 &&
+      attempt <= this.attempt.number
       ? RunAttempt.of(this.id, attempt)
       : null;
-  }
-
-  get currentAttempt(): RunAttempt {
-    return RunAttempt.of(this.id, this.attempt);
   }
 
   assertStillOn(attempt: RunAttempt, by: RunnerId): void {
@@ -1372,7 +1376,7 @@ export class Run extends EventRecorder {
   }
 
   isStillOn(attempt: RunAttempt, by: RunnerId): boolean {
-    return this.isLeasedBy(by) && attempt.equals(this.currentAttempt);
+    return this.isLeasedBy(by) && attempt.equals(this.attempt);
   }
 
   get injectsSecrets(): boolean {
@@ -1384,7 +1388,7 @@ export class Run extends EventRecorder {
   }
 
   attemptClaimedBy(runner: RunnerId): RunAttempt | null {
-    return this.wasClaimedBy(runner) ? this.currentAttempt : null;
+    return this.wasClaimedBy(runner) ? this.attempt : null;
   }
 
   injectedSecretsFor(runner: RunnerId): readonly SecretName[] {
@@ -1416,14 +1420,14 @@ export class Run extends EventRecorder {
     claimedBy?: RunnerId | null;
     leaseExpiresAt?: Date | null;
     outcome?: RunOutcome | null;
-    attempt?: number;
+    attempt?: RunAttempt;
     stopRequestedAt?: Date | null;
     reservation?: RunnerReservation | null;
     provisioning?: Provisioning;
     ranIn?: RunnerImage | null;
     requeueCount?: RequeueCount;
     spec?: RunSpec;
-    suspendedAttempts?: readonly number[];
+    suspendedAttempts?: readonly RunAttempt[];
     startedAt?: Date | null;
     startedFrom?: StartingPoint | null;
     askedAPerson?: boolean;

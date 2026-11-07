@@ -5,12 +5,16 @@ import type {
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
 import type { RunUsageWriterPort } from '@runs/application/ports/run-usage-writer.port';
-import { CHAT_POLICY, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import {
+  CONVERSATION_POLICY,
+  orderedFor,
+} from '@runs/domain/aggregates/run.fake-spec';
 import type { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
 import type { RunEnded } from '@runs/domain/events/run-ended.event';
 import type { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import type { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import { Money } from '@runs/domain/value-objects/money.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -26,8 +30,8 @@ const facts = (over: Partial<RunFacts> = {}): RunFacts =>
     state: 'completed',
     ended: true,
     attempt: 2,
-    requester: orderedFor.task('task_1', 3).requester.parts,
-    policy: orderedFor.task('task_1', 3).policy.parts,
+    requester: orderedFor.holdingTurn('task_1', 3).requester.parts,
+    policy: orderedFor.holdingTurn('task_1', 3).policy.parts,
     team: TeamId.of('team_1'),
     ...over,
   }) as unknown as RunFacts;
@@ -82,7 +86,7 @@ describe('RecordRunUsage', () => {
 
     expect(recorded).toHaveLength(1);
     expect(recorded[0]).toMatchObject({
-      attempt: 2,
+      attempt: RunAttempt.of(RUN, 2),
       listed: true,
       ms: 60_000,
       steps: 1,
@@ -90,7 +94,7 @@ describe('RecordRunUsage', () => {
       spentCosts: [Money.of(0.42, 'USD')],
       unpricedCalls: 0,
     });
-    expect(recorded[0]?.requester.subject).toBe('work/task/task_1');
+    expect(recorded[0]?.requester.subject).toBe('requester/subject/task_1');
     expect(recorded[0]?.requester.token).toBe('3');
   });
 
@@ -104,7 +108,7 @@ describe('RecordRunUsage', () => {
           token: '1',
           team: 'team_1',
         },
-        policy: { ...CHAT_POLICY.parts, listed: false },
+        policy: { ...CONVERSATION_POLICY.parts, listed: false },
       }),
     );
 

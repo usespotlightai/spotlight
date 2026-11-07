@@ -1,5 +1,5 @@
 import { InvalidHostReportError } from '@runners/domain/exceptions/invalid-host-report.error';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 
 const MAX_SANDBOXES = 1_000;
 

@@ -1,11 +1,4 @@
-import type { RunRequester } from '@runs/application/ports/run-fixtures.fake-spec';
-import {
-  orderedFor,
-  RunEnded,
-  RunExhausted,
-  RunOutcome,
-  runEndedOf,
-} from '@runs/application/ports/run-fixtures.fake-spec';
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -13,6 +6,13 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
+import {
+  requestedBy,
+  runEnded,
+  runExhausted,
+  runFailed,
+  runUnprovisioned,
+} from '@work/application/ports/runs.fake-spec';
 import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -22,7 +22,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-14T09:00:00.000Z');
 
-const IN_CHAT = orderedFor.chat('chat_1').requester;
+const IN_CHAT = requestedBy.chat('chat_1');
 
 const working = () =>
   Chat.start({
@@ -49,25 +49,13 @@ const handedAgain = () =>
     })
     .assignRun(RunId.of('run_2'), NOW);
 
-const completed = (
-  outcome = RunOutcome.of({ exitCode: 0, failed: false }),
-  runId = 'run_1',
-  requester: RunRequester = IN_CHAT,
-) =>
-  new RunEnded(
-    RunId.of(runId),
-    WorkspaceId.of('ws_1'),
-    requester,
-    outcome,
-    RunnerId.of('runner_1'),
-    null,
-    HarnessSession.of('session_1'),
-    1,
-    false,
-    true,
-    true,
-    NOW,
-  );
+const completed = (part: Partial<RunEndedIntegrationEvent> = {}) =>
+  runEnded({
+    requester: IN_CHAT,
+    claimedBy: 'runner_1',
+    session: 'session_1',
+    ...part,
+  });
 
 const outcomesOf = (chat: Chat | null) => {
   const save = vi.fn(async (_saved: Chat) => undefined);
@@ -86,12 +74,12 @@ describe('ChatOutcomes', () => {
   it('releases the run and keeps the session for the next one', async () => {
     const { outcomes, save, takenUp } = outcomesOf(working());
 
-    await outcomes.onRunEnded(runEndedOf(completed()));
+    await outcomes.onRunEnded(completed());
 
     const saved = save.mock.calls[0]?.[0];
     expect(saved?.running).toBe(false);
-    expect(saved?.sessionId?.value).toBe('session_1');
-    expect(saved?.runnerId?.value).toBe('runner_1');
+    expect(saved?.session?.value).toBe('session_1');
+    expect(saved?.claimedBy?.value).toBe('runner_1');
     expect(takenUp).not.toHaveBeenCalled();
   });
 
@@ -103,7 +91,7 @@ describe('ChatOutcomes', () => {
     });
     const { outcomes, save, takenUp } = outcomesOf(withMessage);
 
-    await outcomes.onRunEnded(runEndedOf(completed()));
+    await outcomes.onRunEnded(completed());
 
     expect(takenUp).toHaveBeenCalledTimes(1);
     expect(save.mock.calls[0]?.[0].currentRunId?.value).toBe('run_2');
@@ -117,7 +105,7 @@ describe('ChatOutcomes', () => {
     });
     const { outcomes, save, takenUp } = outcomesOf(withMessage);
 
-    await outcomes.onRunEnded(runEndedOf(completed(RunOutcome.stopped(0))));
+    await outcomes.onRunEnded(completed({ stopped: true, handsOver: false }));
 
     expect(takenUp).toHaveBeenCalledTimes(1);
     expect(save.mock.calls[0]?.[0].currentRunId?.value).toBe('run_2');
@@ -126,7 +114,7 @@ describe('ChatOutcomes', () => {
   it('waits for the person when the agent was stopped with nothing left to take', async () => {
     const { outcomes, takenUp } = outcomesOf(working());
 
-    await outcomes.onRunEnded(runEndedOf(completed(RunOutcome.stopped(0))));
+    await outcomes.onRunEnded(completed({ stopped: true, handsOver: false }));
 
     expect(takenUp).not.toHaveBeenCalled();
   });
@@ -134,41 +122,28 @@ describe('ChatOutcomes', () => {
   it.each([
     [
       'a run that never started',
-      RunOutcome.unprovisioned({ description: 'no capacity' }, 3),
-      null,
+      runUnprovisioned({ runId: 'run_2', requester: IN_CHAT }),
     ],
     [
       'a run whose runner failed before briefing it',
-      RunOutcome.of({ exitCode: -1, failed: true, message: 'checkout failed' }),
-      RunnerId.of('runner_1'),
+      runFailed({
+        runId: 'run_2',
+        requester: IN_CHAT,
+        exitCode: -1,
+        message: 'checkout failed',
+        claimedBy: 'runner_1',
+      }),
     ],
   ])(
     'unacknowledges what %s acknowledged, and waits for the person',
-    async (_, outcome, claimedBy) => {
+    async (_, ended) => {
       const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
-      await outcomes.onRunEnded(
-        runEndedOf(
-          new RunEnded(
-            RunId.of('run_2'),
-            WorkspaceId.of('ws_1'),
-            IN_CHAT,
-            outcome,
-            claimedBy,
-            null,
-            null,
-            1,
-            false,
-            true,
-            true,
-            NOW,
-          ),
-        ),
-      );
+      await outcomes.onRunEnded(ended);
 
       const saved = save.mock.calls[0]?.[0];
       expect(saved?.running).toBe(false);
-      expect(saved?.sessionId?.value).toBe('session_1');
+      expect(saved?.session?.value).toBe('session_1');
       expect(saved?.unacknowledged.map((each) => each.position.value)).toEqual([
         1,
       ]);
@@ -179,7 +154,7 @@ describe('ChatOutcomes', () => {
   it('ignores a run the chat has already moved past', async () => {
     const { outcomes, save } = outcomesOf(working());
 
-    await outcomes.onRunEnded(runEndedOf(completed(undefined, 'run_0')));
+    await outcomes.onRunEnded(completed({ runId: 'run_0' }));
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -188,9 +163,7 @@ describe('ChatOutcomes', () => {
     const { outcomes, save } = outcomesOf(working());
 
     await outcomes.onRunEnded(
-      runEndedOf(
-        completed(undefined, 'run_1', orderedFor.task('task_1', 0).requester),
-      ),
+      completed({ requester: requestedBy.task('task_1', 0) }),
     );
 
     expect(save).not.toHaveBeenCalled();
@@ -200,19 +173,7 @@ describe('ChatOutcomes', () => {
     const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
     await outcomes.onRunEnded(
-      runEndedOf(
-        new RunExhausted(
-          RunId.of('run_2'),
-          WorkspaceId.of('ws_1'),
-          IN_CHAT,
-          3,
-          3,
-          false,
-          null,
-          true,
-          NOW,
-        ),
-      ),
+      runExhausted({ runId: 'run_2', requester: IN_CHAT }),
     );
 
     const saved = save.mock.calls[0]?.[0];

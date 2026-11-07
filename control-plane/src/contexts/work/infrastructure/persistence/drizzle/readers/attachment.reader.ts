@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
+  AttachmentHolder,
   AttachmentReaderPort,
   AttachmentRecord,
 } from '@work/application/ports/attachment-reader.port';
@@ -34,22 +35,24 @@ export class DrizzleAttachmentReader implements AttachmentReaderPort {
       .limit(1);
 
     const attachment = found?.tasked ?? found?.chatted;
+    const holder: AttachmentHolder | null = found?.tasked
+      ? { kind: 'task', taskId: found.tasked.taskId }
+      : found?.chatStartedById && found.chatTeamId
+        ? {
+            kind: 'chat',
+            startedById: found.chatStartedById,
+            teamId: found.chatTeamId,
+          }
+        : null;
 
-    return found && attachment
+    return found && attachment && holder
       ? {
           id: attachment.id,
           name: attachment.name,
           contentType: attachment.contentType,
           size: attachment.size,
           workspaceId: found.workspaceId,
-          holder:
-            found.chatStartedById && found.chatTeamId
-              ? {
-                  kind: 'chat',
-                  startedById: found.chatStartedById,
-                  teamId: found.chatTeamId,
-                }
-              : { kind: 'task' },
+          holder,
         }
       : null;
   }

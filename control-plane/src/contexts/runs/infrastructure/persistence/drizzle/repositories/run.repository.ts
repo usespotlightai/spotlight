@@ -18,6 +18,7 @@ import type {
   Claimant,
   SandboxRouting,
 } from '@runs/domain/value-objects/claimant';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -125,8 +126,9 @@ export class DrizzleRunRepository implements RunRepository {
           state: added.state,
           spec: RunSpecPersistence.toRow(added.spec),
           injectsSecrets: added.injectsSecrets,
-          exitCode: added.outcome?.exitCode ?? null,
-          message: added.outcome?.message ?? null,
+          exitCode: added.outcome?.exitCode.value ?? null,
+          detail: added.outcome?.detail ?? null,
+          failureAttempts: added.outcome?.attempts ?? null,
           failure: added.outcome?.failure?.code ?? null,
           stopped: added.outcome?.stopped ?? false,
           placement: added.placement.labelGroups,
@@ -289,12 +291,13 @@ export class DrizzleRunRepository implements RunRepository {
       .set({
         version: saved.version + 1,
         state: saved.state,
-        attempt: saved.attempt,
+        attempt: saved.attempt.number,
         claimedBy: saved.claimedBy?.value ?? null,
         leaseExpiresAt: saved.leaseExpiresAt,
         stopRequestedAt: saved.stopRequestedAt,
-        exitCode: saved.outcome?.exitCode ?? null,
-        message: saved.outcome?.message ?? null,
+        exitCode: saved.outcome?.exitCode.value ?? null,
+        detail: saved.outcome?.detail ?? null,
+        failureAttempts: saved.outcome?.attempts ?? null,
         failure: saved.outcome?.failure?.code ?? null,
         stopped: saved.outcome?.stopped ?? false,
         ranIn: saved.ranIn?.value ?? null,
@@ -302,7 +305,7 @@ export class DrizzleRunRepository implements RunRepository {
         endedAt: saved.endedAt,
         spec: RunSpecPersistence.toRow(saved.spec),
         injectsSecrets: saved.injectsSecrets,
-        suspendedAttempts: [...saved.suspendedAttempts],
+        suspendedAttempts: saved.suspendedAttempts.map((each) => each.number),
         askedAPerson: saved.askedAPerson,
         ...turnOf(saved),
         queuedAt: saved.queuedAt,
@@ -622,9 +625,10 @@ export const toRun = ({ run: row }: Selected): Run =>
       row.exitCode === null
         ? null
         : RunOutcome.rehydrate({
-            exitCode: row.exitCode,
+            exitCode: ExitCode.of(row.exitCode),
             failure: row.failure ? RunFailure.of(row.failure) : null,
-            message: row.message,
+            detail: row.detail,
+            attempts: row.failureAttempts,
             stopped: row.stopped,
           }),
     attempt: row.attempt,

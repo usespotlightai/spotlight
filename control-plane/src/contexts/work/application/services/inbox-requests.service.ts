@@ -75,9 +75,7 @@ export class InboxRequests implements InboxRequestsPort {
       );
 
       if (existing) {
-        if (!existing.open) {
-          await this.inboxRequests.save(existing.reopen(this.clock.now()));
-        }
+        await this.changed(existing, existing.reopen(this.clock.now()));
         return;
       }
 
@@ -122,9 +120,7 @@ export class InboxRequests implements InboxRequestsPort {
       );
 
       if (existing) {
-        if (existing.open) {
-          await this.inboxRequests.save(existing.resolve(this.clock.now()));
-        }
+        await this.changed(existing, existing.resolve(this.clock.now()));
         return;
       }
 
@@ -145,5 +141,14 @@ export class InboxRequests implements InboxRequestsPort {
         );
       }
     });
+  }
+
+  private async changed(
+    existing: InboxRequest,
+    next: InboxRequest,
+  ): Promise<void> {
+    if (next !== existing) {
+      await this.inboxRequests.save(next);
+    }
   }
 }

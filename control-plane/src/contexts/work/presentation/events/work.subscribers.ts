@@ -52,10 +52,7 @@ import {
   type NewTeam,
   type WelcomeTeam,
 } from '@work/application/events/handlers/welcome-team.handler';
-import {
-  NOTICED_TASK_EVENT_KINDS,
-  type NoticedTaskEvent,
-} from '@work/application/mappers/bindable-task-event.mapper';
+import { NOTICED_TASK_EVENT_KINDS } from '@work/application/mappers/bindable-task-event.mapper';
 import type { Notices } from '@work/application/services/notices.service';
 import type { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { RunEndingReactions } from '@work/application/services/run-ending-reactions';
@@ -63,7 +60,7 @@ import type { TakeTurn } from '@work/application/services/take-turn.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
-import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import type { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
@@ -73,11 +70,12 @@ import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.e
 import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
-import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import type { TaskMarked } from '@work/domain/events/task-marked.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
+import type { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { ToolUsed } from '@work/domain/events/tool-used.event';
+import type { NoticedTaskEvent } from '@work/domain/services/outside-notices';
 
 const newTeam = (event: TeamCreatedIntegrationEvent): NewTeam => ({
   teamId: TeamId.of(event.teamId),
@@ -172,10 +170,10 @@ export const workSubscribers = (reactions: {
     (event) => reactions.channel.onChatStarted(event),
     { callsOut: true },
   ),
-  subscribing<ChatDispatched>(
-    'work.notify-channel.dispatched',
-    ['chat.dispatched'],
-    (event) => reactions.channel.onChatDispatched(event),
+  subscribing<ChatRunAssigned>(
+    'work.notify-channel.run-assigned',
+    ['chat.run-assigned'],
+    (event) => reactions.channel.onChatRunAssigned(event),
     { callsOut: true },
   ),
   subscribing<ChatRunNotStarted>(
@@ -230,9 +228,9 @@ export const workSubscribers = (reactions: {
     (event) => reactions.outsideTools.on(event),
     { callsOut: true },
   ),
-  subscribing<TaskDispatched>(
+  subscribing<TaskRunAssigned>(
     'work.order-task-run',
-    ['task.dispatched'],
+    ['task.run-assigned'],
     (event) => reactions.taskRuns.on(event),
     { callsOut: true },
   ),
@@ -294,9 +292,9 @@ export const workSubscribers = (reactions: {
     ['chat.deleted'],
     (event) => reactions.detachedRuns.onChatDeleted(event),
   ),
-  subscribing<ChatDispatched>(
+  subscribing<ChatRunAssigned>(
     'work.order-chat-run',
-    ['chat.dispatched'],
+    ['chat.run-assigned'],
     (event) => reactions.chatRuns.on(event),
   ),
   subscribing<RunnerAccessCreatedIntegrationEvent>(

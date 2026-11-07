@@ -24,6 +24,11 @@ interface NoticeState {
   readonly version: number;
 }
 
+export interface NoticeAudience {
+  readonly addressee: UserId;
+  readonly unaddressed: boolean;
+}
+
 export class Notice {
   private constructor(private readonly state: NoticeState) {}
 
@@ -45,6 +50,13 @@ export class Notice {
       resolvedAt: null,
       version: 0,
     });
+  }
+
+  static deliverable(
+    addressee: UserId | null,
+    addresseeSeesTeam: boolean,
+  ): boolean {
+    return addressee === null || addresseeSeesTeam;
   }
 
   static reopenable(resolvedAt: Date | null): boolean {
@@ -118,8 +130,16 @@ export class Notice {
     return this.state.version;
   }
 
+  static audienceOf(person: UserId): NoticeAudience {
+    return { addressee: person, unaddressed: true };
+  }
+
   static addressedTo(addressee: UserId | null, person: UserId): boolean {
-    return addressee?.equals(person) ?? true;
+    const audience = Notice.audienceOf(person);
+
+    return addressee
+      ? addressee.equals(audience.addressee)
+      : audience.unaddressed;
   }
 
   isFor(person: UserId): boolean {

@@ -10,7 +10,9 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -20,6 +22,8 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const FIRST = RunAttempt.of(RunId.of('run_1'), 1);
+
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
 const leased = () =>
@@ -27,7 +31,7 @@ const leased = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    ...orderedFor.task('task_1', 0),
+    ...orderedFor.holdingTurn('task_1', 0),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
@@ -36,7 +40,7 @@ const leased = () =>
     }),
   }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
-const attaching = (owner = 'work') => {
+const attaching = (owner = 'requester') => {
   const asked: [string, readonly string[]][] = [];
   const taken: [string, readonly string[]][] = [];
 
@@ -86,7 +90,7 @@ const chatRun = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    ...orderedFor.chat('chat_1'),
+    ...orderedFor.conversing('chat_1'),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
@@ -121,10 +125,10 @@ describe('CompleteRunHandler', () => {
     const [run] = saved;
     expect(run?.state).toBe('suspended');
     expect(run?.claimedBy).toBeNull();
-    expect(run?.turnAt(1)?.state).toBe('pending');
-    expect(run?.turnAt(1)?.report.session?.value).toBe('session_1');
+    expect(run?.turnAt(FIRST)?.state).toBe('pending');
+    expect(run?.turnAt(FIRST)?.report.session?.value).toBe('session_1');
     expect(
-      run?.turnAt(1)?.report.handover?.attachments.map((each) => each.id),
+      run?.turnAt(FIRST)?.report.handover?.attachments.map((each) => each.id),
     ).toEqual(['file_light']);
     expect(run?.spec.value.resume).toEqual({
       sessionId: 'session_1',
@@ -157,7 +161,9 @@ describe('CompleteRunHandler', () => {
 
     expect(files.asked).toEqual([]);
     expect(
-      saved[0]?.turnAt(1)?.report.handover?.attachments.map((each) => each.id),
+      saved[0]
+        ?.turnAt(FIRST)
+        ?.report.handover?.attachments.map((each) => each.id),
     ).toEqual([]);
   });
 
@@ -181,7 +187,7 @@ describe('CompleteRunHandler', () => {
     const suspended = () =>
       leased().reportTurn(
         RunnerId.of('runner_1'),
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.none(),
         NOW,
       );

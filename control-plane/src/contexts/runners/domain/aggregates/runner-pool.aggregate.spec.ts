@@ -16,9 +16,9 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const BY = changeActorIn();

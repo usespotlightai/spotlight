@@ -5,6 +5,7 @@ import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
@@ -25,12 +26,12 @@ const RUN = RunId.of('run_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const RUNNER = RunnerId.of('runner_1');
 const OTHER = RunnerId.of('runner_2');
-const CLEAN = RunOutcome.of({ exitCode: 0, failed: false });
+const CLEAN = RunOutcome.of({ exitCode: ExitCode.of(0), failed: false });
 const ASKED = HandoverReport.of({
   handover: Handover.of({ next: 'review', note: 'Which queue?' }),
   session: HarnessSession.of('session_1'),
 });
-const claimed = (ordering = orderedFor.task('task_1', 0)) =>
+const claimed = (ordering = orderedFor.holdingTurn('task_1', 0)) =>
   Run.enqueue({
     id: RUN,
     workspaceId: WORKSPACE,
@@ -46,7 +47,7 @@ const claimed = (ordering = orderedFor.task('task_1', 0)) =>
 
 const pending = () => claimed().reportTurn(RUNNER, CLEAN, ASKED, NOW);
 
-const kept = () => pending().keep(1, NOW);
+const kept = () => pending().keep(RunAttempt.of(RUN, 1), NOW);
 
 const events = (run: Run) => [...run.pullEvents()];
 
@@ -59,12 +60,16 @@ describe('the turn of a run that holds it', () => {
       expect(run.hasEnded).toBe(false);
       expect(run.claimedBy).toBeNull();
       expect(run.isLeasedBy(RUNNER)).toBe(false);
-      expect(run.suspendedAttempts).toEqual([1]);
-      expect(run.turnAt(1)?.state).toBe('pending');
-      expect(run.turnAt(1)?.report.equals(ASKED)).toBe(true);
-      expect(run.turnAt(1)?.reportedBy.equals(RUNNER)).toBe(true);
-      expect(run.turnAt(1)?.suspendedAt).toEqual(NOW);
-      expect(run.turnAt(2)).toBeNull();
+      expect(run.suspendedAttempts.map((each) => each.number)).toEqual([1]);
+      expect(run.turnAt(RunAttempt.of(RUN, 1))?.state).toBe('pending');
+      expect(run.turnAt(RunAttempt.of(RUN, 1))?.report.equals(ASKED)).toBe(
+        true,
+      );
+      expect(run.turnAt(RunAttempt.of(RUN, 1))?.reportedBy.equals(RUNNER)).toBe(
+        true,
+      );
+      expect(run.turnAt(RunAttempt.of(RUN, 1))?.suspendedAt).toEqual(NOW);
+      expect(run.turnAt(RunAttempt.of(RUN, 2))).toBeNull();
       expect(run.spec.resumesSession).toBe(true);
     });
 
@@ -73,10 +78,10 @@ describe('the turn of a run that holds it', () => {
         new RunSuspended(
           RUN,
           WORKSPACE,
-          orderedFor.task('task_1', 0).requester,
+          orderedFor.holdingTurn('task_1', 0).requester,
           RUNNER,
           NOW,
-          1,
+          RunAttempt.of(RUN, 1),
         ),
       ]);
     });
@@ -93,7 +98,7 @@ describe('the turn of a run that holds it', () => {
     it('completes, as reported, a turn that failed or was stopped', () => {
       const failed = claimed().reportTurn(
         RUNNER,
-        RunOutcome.of({ exitCode: 1, failed: true }),
+        RunOutcome.of({ exitCode: ExitCode.of(1), failed: true }),
         ASKED,
         NOW,
       );
@@ -103,12 +108,17 @@ describe('the turn of a run that holds it', () => {
       expect(ended).toBeInstanceOf(RunEnded);
       expect((ended as RunEnded).reported).toBe(true);
       expect(
-        claimed().reportTurn(RUNNER, RunOutcome.stopped(130), ASKED, NOW).state,
+        claimed().reportTurn(
+          RUNNER,
+          RunOutcome.stopped(ExitCode.of(130)),
+          ASKED,
+          NOW,
+        ).state,
       ).toBe('completed');
     });
 
     it('completes the turn of a run that does not hold it, such as a chat’s', () => {
-      const run = claimed(orderedFor.chat('chat_1')).reportTurn(
+      const run = claimed(orderedFor.conversing('chat_1')).reportTurn(
         RUNNER,
         CLEAN,
         ASKED,
@@ -142,23 +152,28 @@ describe('the turn of a run that holds it', () => {
     it('waits for the person, marking the pause at the time it handed over', () => {
       const pendingRun = pending();
       pendingRun.pullEvents();
-      const run = pendingRun.keep(1, NOW);
+      const run = pendingRun.keep(RunAttempt.of(RUN, 1), NOW);
 
-      expect(run.turnAt(1)?.state).toBe('kept');
+      expect(run.turnAt(RunAttempt.of(RUN, 1))?.state).toBe('kept');
       expect(events(run)).toEqual([
-        new RunPaused(RUN, WORKSPACE, 1, NOW, false),
+        new RunPaused(RUN, WORKSPACE, RunAttempt.of(RUN, 1), NOW, false),
       ]);
     });
 
     it('is kept once, and never for another attempt', () => {
       const run = kept();
 
-      expect(run.keep(1, NOW)).toBe(run);
-      expect(pending().keep(2, NOW).turnAt(1)?.state).toBe('pending');
+      expect(run.keep(RunAttempt.of(RUN, 1), NOW)).toBe(run);
+      expect(
+        pending().keep(RunAttempt.of(RUN, 2), NOW).turnAt(RunAttempt.of(RUN, 1))
+          ?.state,
+      ).toBe('pending');
     });
 
     it('ends stopped when a stop came in while its requester decided', () => {
-      const run = pending().requestStop(later(1_000)).keep(1, NOW);
+      const run = pending()
+        .requestStop(later(1_000))
+        .keep(RunAttempt.of(RUN, 1), NOW);
 
       expect(run.state).toBe('completed');
       expect(run.outcome?.stopped).toBe(true);
@@ -169,14 +184,25 @@ describe('the turn of a run that holds it', () => {
     it('goes back on the queue as its next attempt when messages came in during the turn', () => {
       const pendingRun = pending();
       pendingRun.pullEvents();
-      const run = pendingRun.resumed(1, 'messages', [], later(5_000));
+      const run = pendingRun.resumed(
+        RunAttempt.of(RUN, 1),
+        'messages',
+        [],
+        later(5_000),
+      );
 
       expect(run.state).toBe('queued');
-      expect(run.attempt).toBe(2);
+      expect(run.attempt.number).toBe(2);
       expect(run.turn).toBeNull();
       expect(run.spec.resumesSession).toBe(true);
       expect(events(run)).toEqual([
-        new RunPaused(RUN, WORKSPACE, 1, later(5_000), true),
+        new RunPaused(
+          RUN,
+          WORKSPACE,
+          RunAttempt.of(RUN, 1),
+          later(5_000),
+          true,
+        ),
       ]);
     });
 
@@ -185,18 +211,23 @@ describe('the turn of a run that holds it', () => {
       keptRun.pullEvents();
       const run = keptRun.resumed(null, 'answered', [], later(60_000));
 
-      expect(run.attempt).toBe(2);
+      expect(run.attempt.number).toBe(2);
       expect(events(run)).toEqual([]);
     });
 
     it('marks the pause it never marked when an answer comes before its requester kept it', () => {
       const pendingRun = pending();
       pendingRun.pullEvents();
-      const run = pendingRun.resumed(1, 'answered', [], later(60_000));
+      const run = pendingRun.resumed(
+        RunAttempt.of(RUN, 1),
+        'answered',
+        [],
+        later(60_000),
+      );
 
-      expect(run.attempt).toBe(2);
+      expect(run.attempt.number).toBe(2);
       expect(events(run)).toEqual([
-        new RunPaused(RUN, WORKSPACE, 1, NOW, false),
+        new RunPaused(RUN, WORKSPACE, RunAttempt.of(RUN, 1), NOW, false),
       ]);
     });
 
@@ -207,24 +238,32 @@ describe('the turn of a run that holds it', () => {
     });
 
     it('is resumed once, never for an older attempt', () => {
-      const run = kept().resumed(1, 'answered', [], later(1_000));
+      const run = kept().resumed(
+        RunAttempt.of(RUN, 1),
+        'answered',
+        [],
+        later(1_000),
+      );
 
-      expect(run.resumed(1, 'answered', [], later(2_000))).toBe(run);
-      expect(run.keep(1, NOW)).toBe(run);
-      expect(run.finished(1)).toBe(run);
+      expect(
+        run.resumed(RunAttempt.of(RUN, 1), 'answered', [], later(2_000)),
+      ).toBe(run);
+      expect(run.keep(RunAttempt.of(RUN, 1), NOW)).toBe(run);
+      expect(run.finished(RunAttempt.of(RUN, 1))).toBe(run);
     });
 
     it('checks out on its new attempt the repositories its line gained, beside the ones it has', () => {
       const joining = [{ remote: 'spotlight:repository', path: 'config' }];
 
       expect(
-        kept().resumed(1, 'answered', joining, NOW).spec.checkoutFolders,
+        kept().resumed(RunAttempt.of(RUN, 1), 'answered', joining, NOW).spec
+          .checkoutFolders,
       ).toEqual([...pending().spec.checkoutFolders, 'config']);
     });
 
     it('is claimed by a runner on its new attempt', () => {
       const run = kept()
-        .resumed(1, 'answered', [], NOW)
+        .resumed(RunAttempt.of(RUN, 1), 'answered', [], NOW)
         .claim(claimer(OTHER), later(120_000));
 
       expect(run.journalFor(OTHER)).toEqual(RunAttempt.of(RUN, 2));
@@ -233,14 +272,14 @@ describe('the turn of a run that holds it', () => {
     it('ends stopped instead when a stop came in during the turn', () => {
       const run = pending()
         .requestStop(later(1_000))
-        .resumed(1, 'messages', [], later(2_000));
+        .resumed(RunAttempt.of(RUN, 1), 'messages', [], later(2_000));
 
       expect(run.state).toBe('completed');
       expect(run.outcome?.stopped).toBe(true);
     });
 
     it('does not count waiting for a person against the attempts a lost runner is given', () => {
-      let run = kept().resumed(1, 'answered', [], NOW);
+      let run = kept().resumed(RunAttempt.of(RUN, 1), 'answered', [], NOW);
 
       for (let times = 0; times < 2; times++) {
         run = run
@@ -262,7 +301,7 @@ describe('the turn of a run that holds it', () => {
     it('completes as it reported, ended when it handed over, telling nothing more', () => {
       const pendingRun = pending();
       pendingRun.pullEvents();
-      const run = pendingRun.finished(1);
+      const run = pendingRun.finished(RunAttempt.of(RUN, 1));
       const [ended] = events(run);
 
       expect(run.state).toBe('completed');
@@ -273,12 +312,12 @@ describe('the turn of a run that holds it', () => {
         new RunEnded(
           RUN,
           WORKSPACE,
-          orderedFor.task('task_1', 0).requester,
+          orderedFor.holdingTurn('task_1', 0).requester,
           CLEAN,
           RUNNER,
           null,
           null,
-          1,
+          RunAttempt.of(RUN, 1),
           false,
           false,
           false,
@@ -288,7 +327,9 @@ describe('the turn of a run that holds it', () => {
     });
 
     it('completes as reported though a stop came in during the turn', () => {
-      const run = pending().requestStop(later(1_000)).finished(1);
+      const run = pending()
+        .requestStop(later(1_000))
+        .finished(RunAttempt.of(RUN, 1));
 
       expect(run.state).toBe('completed');
       expect(run.outcome?.stopped).toBe(false);
@@ -297,7 +338,7 @@ describe('the turn of a run that holds it', () => {
     it('finishes only the turn of its attempt', () => {
       const run = pending();
 
-      expect(run.finished(2)).toBe(run);
+      expect(run.finished(RunAttempt.of(RUN, 2))).toBe(run);
     });
   });
 
@@ -339,7 +380,7 @@ describe('the turn of a run that holds it', () => {
   });
 
   it('says how many runners it lost, not how many attempts it made, when it is exhausted', () => {
-    let run = kept().resumed(1, 'answered', [], NOW);
+    let run = kept().resumed(RunAttempt.of(RUN, 1), 'answered', [], NOW);
 
     for (let lost = 0; lost < 3; lost++) {
       run.pullEvents();
@@ -352,15 +393,22 @@ describe('the turn of a run that holds it', () => {
       .find((each) => each instanceof RunExhausted) as RunExhausted;
 
     expect(run.state).toBe('failed');
-    expect(exhausted.attempt).toBe(4);
+    expect(exhausted.attempt.number).toBe(4);
     expect(exhausted.expiredLeases).toBe(3);
     expect(exhausted.started).toBe(true);
   });
 
   it('reads back as stored: a turn only while suspended, and never leased', () => {
-    const stored = (run: Run) => ({ ...run, ...run.ordered });
+    const stored = (run: Run) => ({
+      ...run,
+      ...run.ordered,
+      attempt: run.attempt.number,
+      suspendedAttempts: run.suspendedAttempts.map((each) => each.number),
+    });
 
-    expect(Run.rehydrate(stored(pending())).turnAt(1)?.state).toBe('pending');
+    expect(
+      Run.rehydrate(stored(pending())).turnAt(RunAttempt.of(RUN, 1))?.state,
+    ).toBe('pending');
     expect(() => Run.rehydrate({ ...stored(pending()), turn: null })).toThrow(
       InconsistentStateError,
     );

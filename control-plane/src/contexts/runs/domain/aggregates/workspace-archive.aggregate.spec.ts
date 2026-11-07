@@ -77,7 +77,7 @@ describe('WorkspaceArchive', () => {
       WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of('archive_1'),
         workspaceId: WorkspaceId.of('ws_1'),
-        workspaceKey: WorkspaceKey.of('work', 'chat-chat_1'),
+        workspaceKey: WorkspaceKey.of('requester', 'conversation-chat_1'),
         held: true,
         grantee: ArchiveGrantee.run(RunId.of('run_1')),
         size: ArchiveSize.of(1_024),
@@ -304,7 +304,7 @@ describe('WorkspaceArchive', () => {
 
     expect(restored.id.value).toBe('archive_1');
     expect(restored.workspaceId.value).toBe('ws_1');
-    expect(restored.workspaceKey.value).toBe('work/task-task_1');
+    expect(restored.workspaceKey.value).toBe('requester/subject-task_1');
   });
 
   it('does not vouch for a restore before it was completed', () => {

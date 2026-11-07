@@ -1,7 +1,7 @@
 import type { JsonObject } from '@shared-kernel/domain/json-value';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { InvalidDispatchTransitionError } from '@work/domain/exceptions/invalid-dispatch-transition.error';
-import type { DispatchKind } from '@work/domain/value-objects/dispatch-subject.vo';
+import type { DispatchKind } from '@work/domain/value-objects/dispatch-subject';
 
 export type DispatchOrderKind = 'run' | 'trial';
 

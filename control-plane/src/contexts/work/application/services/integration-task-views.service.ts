@@ -22,6 +22,7 @@ export class IntegrationTaskViews {
     }
 
     const open = task.openConversation;
+    const asked = task.openConversationNote;
 
     return {
       ...(await this.seen(task, line, task.stationId)),
@@ -31,16 +32,14 @@ export class IntegrationTaskViews {
               taskId: task.id,
               from: open.from,
             }).value,
-            body: task.notes[open.from]?.body.value?.trim() ?? '',
-            awaitsApproval: task.notes[open.from]?.approval?.open ?? false,
-            attachments: (task.notes[open.from]?.attachments ?? []).map(
-              (file) => ({
-                id: file.id.value,
-                name: file.name,
-                contentType: file.contentType,
-                size: file.size,
-              }),
-            ),
+            body: asked?.body.value.trim() ?? '',
+            awaitsApproval: asked?.approval?.open ?? false,
+            attachments: (asked?.attachments ?? []).map((file) => ({
+              id: file.id.value,
+              name: file.name,
+              contentType: file.contentType,
+              size: file.size,
+            })),
           }
         : null,
     };
@@ -66,7 +65,7 @@ export class IntegrationTaskViews {
       station: station?.name.value ?? '',
       stationKey: station?.key.value ?? '',
       marks: Object.fromEntries(
-        [...fromChat, ...task.marks].map((mark) => [mark.kind, mark.value]),
+        task.marksWithProposal(fromChat).map((mark) => [mark.kind, mark.value]),
       ),
     };
   }

@@ -1,3 +1,4 @@
+import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
@@ -11,7 +12,7 @@ export class RunExhausted implements DomainEvent {
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
     readonly requester: RunRequester,
-    readonly attempt: number,
+    readonly attempt: RunAttempt,
     readonly expiredLeases: number,
     readonly asked: boolean,
     readonly failure: RunFailureCode | null,

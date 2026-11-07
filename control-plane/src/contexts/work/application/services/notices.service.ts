@@ -51,10 +51,11 @@ export class Notices implements NoticesPort {
       at: this.clock.now(),
     });
 
-    if (
-      input.addressee !== null &&
-      !(await this.access.seesTeam(input.teamId, input.addressee))
-    ) {
+    const addresseeSeesTeam = input.addressee
+      ? await this.access.seesTeam(input.teamId, input.addressee)
+      : false;
+
+    if (!Notice.deliverable(input.addressee, addresseeSeesTeam)) {
       return;
     }
 

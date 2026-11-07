@@ -21,7 +21,7 @@ import {
   REVIEW,
   REVIEW_COMMENT,
   SETUP_PULL_REQUEST,
-} from '@work/domain/services/built-in-tools';
+} from '@work/domain/value-objects/built-in-tools';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it } from 'vitest';

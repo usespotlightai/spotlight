@@ -9,6 +9,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { CompleteRunCommand } from '@runs/application/commands/runner.commands';
 import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { ClaimOrder } from '@runs/domain/services/claim-order';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -579,7 +580,7 @@ describe('a reply to an interrupted working run (e2e)', () => {
     await runs.save(
       (await runOf(runId)).complete(
         RUNNER,
-        RunOutcome.stopped(0),
+        RunOutcome.stopped(ExitCode.of(0)),
         HandoverReport.none(),
         new Date(),
       ),

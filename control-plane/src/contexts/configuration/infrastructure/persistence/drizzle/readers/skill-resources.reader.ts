@@ -2,6 +2,7 @@ import type {
   SkillRecord,
   SkillResourcesPort,
 } from '@configuration/application/ports/skill-resources.port';
+import type { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { skillDefinition } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
@@ -25,11 +26,11 @@ export class DrizzleSkillResources implements SkillResourcesPort {
     return this.stored(eq(skillDefinition.id, id.value));
   }
 
-  at(teamId: TeamId, key: string): Promise<SkillRecord | null> {
+  at(teamId: TeamId, key: DefinedSkillKey): Promise<SkillRecord | null> {
     return this.stored(
       and(
         eq(skillDefinition.teamId, teamId.value),
-        eq(skillDefinition.key, key),
+        eq(skillDefinition.key, key.value),
       ),
     );
   }

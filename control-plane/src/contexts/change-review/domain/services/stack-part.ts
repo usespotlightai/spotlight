@@ -43,7 +43,7 @@ export const stackPartsOf = (diff: Diff, facts: DiffFacts): StackParts => {
   );
 
   return (hunks) => {
-    const within = new Set<string>(hunks);
+    const within = new Set<HunkId>(hunks);
     const touched = new Map<DiffFile, number>();
 
     for (const hunk of within) {

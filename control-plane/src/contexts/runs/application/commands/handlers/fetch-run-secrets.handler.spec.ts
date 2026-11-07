@@ -17,6 +17,7 @@ import { EgressSecretFetches } from '@runs/application/services/egress-secret-fe
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
@@ -59,7 +60,9 @@ const leasedRun = (
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of(workspace),
     harness: HarnessId.of('dev'),
-    ...(over.spotlightApi ? orderedFor.chat('chat_1') : orderedFor.spec()),
+    ...(over.spotlightApi
+      ? orderedFor.conversing('chat_1')
+      : orderedFor.spec()),
     apiGrant: over.spotlightApi
       ? RunApiGrant.of({
           actingFor: 'user_1',
@@ -244,7 +247,7 @@ describe('FetchRunSecretsHandler', () => {
   it('ends the lease’s grants when the run ends or is cancelled while it fetches', async () => {
     const ended = leasedRun().complete(
       RunnerId.of(RUNNER),
-      RunOutcome.of({ exitCode: 0, failed: false }),
+      RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
       HandoverReport.none(),
       NOW,
     );

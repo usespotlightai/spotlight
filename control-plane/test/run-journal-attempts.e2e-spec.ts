@@ -46,7 +46,7 @@ const recordUsage = async (runId: RunId) => {
           team: null,
         }),
         listed: true,
-        attempt: read.attempt,
+        attempt: RunAttempt.of(runId, read.attempt),
       },
       readings: read.readings,
       skillHomes: ['.claude/skills'],

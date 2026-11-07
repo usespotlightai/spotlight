@@ -47,9 +47,9 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
-  TASK_DISPATCHED,
-  type TaskDispatchedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
+  TASK_RUN_ASSIGNED,
+  type TaskRunAssignedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
 import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
@@ -114,9 +114,9 @@ export const changeReviewSubscribers = (
     ['change-stack.redrafting-ended'],
     (event) => checks.onRedraftingEnded(event.stackId),
   ),
-  subscribing<TaskDispatchedIntegrationEvent>(
+  subscribing<TaskRunAssignedIntegrationEvent>(
     'change-review.signal-reviewing',
-    [TASK_DISPATCHED],
+    [TASK_RUN_ASSIGNED],
     (event) => signalling.began(TaskId.of(event.taskId), RunId.of(event.runId)),
     { callsOut: true },
   ),

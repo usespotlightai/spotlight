@@ -99,7 +99,7 @@ export class DrizzleRunUsages implements RunUsageWriterPort {
         .insert(runUsage)
         .values({
           runId: recorded.run.id.value,
-          attempt: recorded.run.attempt,
+          attempt: recorded.run.attempt.number,
           ms: usage.ms,
           steps: usage.steps,
           errors: usage.errors,

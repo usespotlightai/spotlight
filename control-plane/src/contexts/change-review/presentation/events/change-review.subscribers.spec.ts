@@ -18,7 +18,7 @@ import { changeReviewSubscribers } from '@change-review/presentation/events/chan
 import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
-import type { TaskDispatchedIntegrationEvent } from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
+import type { TaskRunAssignedIntegrationEvent } from '@shared-kernel/application/integration-events/task-run-assigned.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -148,8 +148,8 @@ describe('change review receiving a run begin and end', () => {
   it('signals a review begun when a task is dispatched to a run', async () => {
     const { receiving, began } = signalled();
 
-    const handed: TaskDispatchedIntegrationEvent = {
-      kind: 'work.task-dispatched.v1',
+    const handed: TaskRunAssignedIntegrationEvent = {
+      kind: 'work.task-run-assigned.v1',
       taskId: 'task_1',
       workspaceId: 'ws_1',
       runId: 'run_1',

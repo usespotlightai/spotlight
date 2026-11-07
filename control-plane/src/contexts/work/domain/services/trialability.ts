@@ -15,6 +15,13 @@ export interface TrialFacts {
   readonly taskExists: boolean;
 }
 
+export type TrialAnswer = 'not-asked' | 'present' | 'gone';
+
+export interface TrialInputs {
+  readonly filesStored: boolean;
+  readonly answer: TrialAnswer;
+}
+
 export interface TrialBlock {
   readonly reason: UntrialableReason;
   readonly description: string;
@@ -56,6 +63,24 @@ export const trialBlockOf = (facts: TrialFacts | null): TrialBlock | null => {
       reason: 'archive-gone',
       description:
         'The workspace archive that it started from is no longer stored.',
+    };
+  }
+
+  return null;
+};
+
+export const trialInputsBlockOf = (inputs: TrialInputs): TrialBlock | null => {
+  if (!inputs.filesStored) {
+    return {
+      reason: 'attachments-gone',
+      description: 'A file from its task briefing is no longer stored.',
+    };
+  }
+  if (inputs.answer === 'gone') {
+    return {
+      reason: 'answer-gone',
+      description:
+        'The change people accepted or what they said is no longer there.',
     };
   }
 

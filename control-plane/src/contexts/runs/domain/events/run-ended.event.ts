@@ -1,5 +1,6 @@
 import type { Handover } from '@runs/domain/value-objects/handover.vo';
 import type { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
+import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import type {
   RunEnding,
   RunOutcome,
@@ -21,7 +22,7 @@ export class RunEnded implements DomainEvent {
     readonly claimedBy: RunnerId | null,
     readonly handover: Handover | null,
     readonly session: HarnessSession | null,
-    readonly attempt: number,
+    readonly attempt: RunAttempt,
     readonly asked: boolean,
     readonly started: boolean,
     readonly reported: boolean,

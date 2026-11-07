@@ -1,8 +1,9 @@
 import { groupedBy } from '@change-review/domain/services/grouped-by';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 export interface Placement {
-  readonly hunk: string;
+  readonly hunk: HunkId;
   readonly cohort: number;
   readonly layer: number;
 }

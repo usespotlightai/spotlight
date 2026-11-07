@@ -45,7 +45,7 @@ export class ImportHarnessProfileHandler
 
       const record = await this.resources.at(
         team.id,
-        ProfileKey.of(address.key).value,
+        ProfileKey.of(address.key),
       );
 
       return record ? this.views.of(record) : null;

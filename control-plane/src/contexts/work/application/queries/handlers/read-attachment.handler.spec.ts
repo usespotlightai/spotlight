@@ -33,7 +33,7 @@ const read = (holder: AttachmentHolder, viewer: string) =>
 
 describe('ReadAttachmentHandler', () => {
   it('links a task’s attachment for any member of its workspace', async () => {
-    expect(await read({ kind: 'task' }, 'user_2')).toBe(
+    expect(await read({ kind: 'task', taskId: 'task_1' }, 'user_2')).toBe(
       'https://files.example/attachment_1',
     );
   });

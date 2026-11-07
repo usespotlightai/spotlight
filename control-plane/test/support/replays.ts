@@ -208,7 +208,7 @@ export const writtenStation = async (
   key: string,
 ): Promise<LineDefinitionStation> => {
   const station = (
-    await app.get<LineResourcesPort>(LINE_RESOURCES).withId(lineId)
+    await app.get<LineResourcesPort>(LINE_RESOURCES).withId(LineId.of(lineId))
   )?.definition.stations.find((each) => each.key === key);
 
   if (!station) {

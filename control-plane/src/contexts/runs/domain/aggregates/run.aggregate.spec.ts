@@ -8,10 +8,12 @@ import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import type { RunSpecParts } from '@runs/domain/value-objects/run-spec.vo';
@@ -108,7 +110,7 @@ describe('Run', () => {
         WorkspaceId.of('ws_1'),
         RunnerId.of('runner_1'),
         requeuedAt,
-        1,
+        RunAttempt.of(RunId.of('run_1'), 1),
       ),
     ]);
   });
@@ -118,7 +120,7 @@ describe('Run', () => {
 
     expect(run.state).toBe('queued');
     expect(run.claimedBy).toBeNull();
-    expect(run.attempt).toBe(1);
+    expect(run.attempt.number).toBe(1);
   });
 
   it('takes a claimant and a lease when claimed', () => {
@@ -209,7 +211,7 @@ describe('Run', () => {
     expect(again.state).toBe('queued');
     expect(again.claimedBy).toBeNull();
     expect(again.leaseExpiresAt).toBeNull();
-    expect(again.attempt).toBe(2);
+    expect(again.attempt.number).toBe(2);
   });
 
   it('ends as stopped instead of going back on the queue when its runner was lost after a stop request', () => {
@@ -221,8 +223,8 @@ describe('Run', () => {
     expect(ended.hasEnded).toBe(true);
     expect(ended.state).not.toBe('queued');
     expect(ended.outcome?.stopped).toBe(true);
-    expect(ended.outcome?.exitCode).toBe(-1);
-    expect(ended.attempt).toBe(1);
+    expect(ended.outcome?.exitCode.value).toBe(-1);
+    expect(ended.attempt.number).toBe(1);
     expect(ended.pullEvents().some((each) => each instanceof RunEnded)).toBe(
       true,
     );
@@ -258,7 +260,7 @@ describe('Run', () => {
     expect(() =>
       run.complete(
         runner('someone_else'),
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.none(),
         noon,
       ),
@@ -268,14 +270,14 @@ describe('Run', () => {
   it('records what a finished run produced, and drops the lease', () => {
     const ended = claimed().complete(
       runner(),
-      RunOutcome.of({ exitCode: 0, failed: false }),
+      RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
       HandoverReport.none(),
       noon,
     );
 
     expect(ended.state).toBe('completed');
     expect(ended.outcome).toEqual(
-      RunOutcome.of({ exitCode: 0, failed: false }),
+      RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
     );
     expect(ended.leaseExpiresAt).toBeNull();
   });
@@ -283,19 +285,23 @@ describe('Run', () => {
   it('calls a failing run failed even though it reported an exit code', () => {
     const ended = claimed().complete(
       runner(),
-      RunOutcome.of({ exitCode: 2, failed: true, message: 'no push' }),
+      RunOutcome.of({
+        exitCode: ExitCode.of(2),
+        failed: true,
+        message: 'no push',
+      }),
       HandoverReport.none(),
       noon,
     );
 
     expect(ended.state).toBe('failed');
-    expect(ended.outcome?.message).toBe('no push');
+    expect(ended.outcome?.detail).toBe('no push');
   });
 
   it('cannot be completed once it already is', () => {
     const ended = claimed().complete(
       runner(),
-      RunOutcome.of({ exitCode: 0, failed: false }),
+      RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
       HandoverReport.none(),
       noon,
     );
@@ -303,7 +309,7 @@ describe('Run', () => {
     expect(() =>
       ended.complete(
         runner(),
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.none(),
         noon,
       ),
@@ -333,7 +339,7 @@ describe('Run', () => {
 
   it('lets its runner act on the attempt it leases, and on no attempt it has left behind', () => {
     const leased = claimed();
-    const first = leased.currentAttempt;
+    const first = leased.attempt;
     const reclaimed = lostAndRequeued(leased).claim(
       claimer(runner()),
       at('2026-08-28T12:00:00.000Z'),
@@ -347,7 +353,7 @@ describe('Run', () => {
       RunAttemptOverError,
     );
     expect(() =>
-      reclaimed.assertStillOn(reclaimed.currentAttempt, runner()),
+      reclaimed.assertStillOn(reclaimed.attempt, runner()),
     ).not.toThrow();
     expect(() =>
       leased.assertStillOn(first, RunnerId.of('runner_other')),
@@ -415,7 +421,7 @@ describe('Run', () => {
 
   describe('knowing which workspace to restore', () => {
     const working = (
-      ordered: ReturnType<typeof orderedFor.task>,
+      ordered: ReturnType<typeof orderedFor.holdingTurn>,
       resume: { sessionId?: string },
     ) =>
       Run.enqueue({
@@ -438,23 +444,25 @@ describe('Run', () => {
     };
 
     it('restores a workspace that always restores whether or not a conversation carries on', () => {
-      expect(newestOf(working(orderedFor.task('task_1'), {}))).toBe(
-        'work/task-task_1',
+      expect(newestOf(working(orderedFor.holdingTurn('task_1'), {}))).toBe(
+        'requester/subject-task_1',
       );
       expect(
         newestOf(
-          working(orderedFor.task('task_1'), { sessionId: 'session_1' }),
+          working(orderedFor.holdingTurn('task_1'), { sessionId: 'session_1' }),
         ),
-      ).toBe('work/task-task_1');
+      ).toBe('requester/subject-task_1');
     });
 
     it('restores a workspace that restores when continuing only to carry its conversation on', () => {
-      expect(working(orderedFor.chat('chat_1'), {}).restoresFrom).toBeNull();
+      expect(
+        working(orderedFor.conversing('chat_1'), {}).restoresFrom,
+      ).toBeNull();
       expect(
         newestOf(
-          working(orderedFor.chat('chat_1'), { sessionId: 'session_1' }),
+          working(orderedFor.conversing('chat_1'), { sessionId: 'session_1' }),
         ),
-      ).toBe('work/chat-chat_1');
+      ).toBe('requester/conversation-chat_1');
     });
 
     it('restores nothing for work without a workspace', () => {
@@ -496,18 +504,30 @@ describe('Run', () => {
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
-        ...orderedFor.task('task_1'),
+        ...orderedFor.holdingTurn('task_1'),
         spec: aSpec(),
       });
 
     it('takes the newest completed archive of its workspace in its own workspace', () => {
       const chosen = ofTask().archiveToRestore([
-        candidate('older', 'work/task-task_1', at('2026-08-20T00:00:00Z')),
-        candidate('newer', 'work/task-task_1', at('2026-08-21T00:00:00Z')),
-        candidate('other', 'work/task-task_2', at('2026-08-22T00:00:00Z')),
+        candidate(
+          'older',
+          'requester/subject-task_1',
+          at('2026-08-20T00:00:00Z'),
+        ),
+        candidate(
+          'newer',
+          'requester/subject-task_1',
+          at('2026-08-21T00:00:00Z'),
+        ),
+        candidate(
+          'other',
+          'requester/subject-task_2',
+          at('2026-08-22T00:00:00Z'),
+        ),
         candidate(
           'elsewhere',
-          'work/task-task_1',
+          'requester/subject-task_1',
           at('2026-08-23T00:00:00Z'),
           'ws_2',
         ),
@@ -528,17 +548,17 @@ describe('Run', () => {
 
       expect(
         exact.archiveToRestore([
-          candidate('archive_1', 'work/task-task_9', noon),
+          candidate('archive_1', 'requester/subject-task_9', noon),
         ])?.id.value,
       ).toBe('archive_1');
       expect(
         exact.archiveToRestore([
-          candidate('archive_1', 'work/task-task_9', noon, 'ws_2'),
+          candidate('archive_1', 'requester/subject-task_9', noon, 'ws_2'),
         ]),
       ).toBeNull();
       expect(
         exact.archiveToRestore([
-          candidate('archive_1', 'work/task-task_9', null),
+          candidate('archive_1', 'requester/subject-task_9', null),
         ]),
       ).toBeNull();
     });
@@ -575,7 +595,7 @@ describe('Run', () => {
         leased
           .complete(
             runner(),
-            RunOutcome.of({ exitCode: 0, failed: false }),
+            RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
             HandoverReport.none(),
             noon,
           )
@@ -593,7 +613,7 @@ describe('Run', () => {
         leased
           .complete(
             runner(),
-            RunOutcome.of({ exitCode: 0, failed: false }),
+            RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
             HandoverReport.none(),
             noon,
           )
@@ -606,7 +626,7 @@ describe('Run', () => {
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
-        ...orderedFor.chat(),
+        ...orderedFor.conversing(),
         apiGrant: RunApiGrant.of({
           actingFor: 'user_1',
           scopes: ['plan'],
@@ -659,7 +679,7 @@ describe('Run', () => {
     it('was worked by the runner that claimed it, even once it has ended', () => {
       const ended = claimed().complete(
         runner(),
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.none(),
         noon,
       );
@@ -676,14 +696,14 @@ describe('Run', () => {
       const leased = claimed();
       const ended = leased.complete(
         runner(),
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.none(),
         noon,
       );
 
-      expect(
-        ended.attemptClaimedBy(runner())?.equals(leased.currentAttempt),
-      ).toBe(true);
+      expect(ended.attemptClaimedBy(runner())?.equals(leased.attempt)).toBe(
+        true,
+      );
       expect(ended.attemptClaimedBy(runner('runner_2'))).toBeNull();
       expect(lostAndRequeued(leased).attemptClaimedBy(runner())).toBeNull();
     });
@@ -704,11 +724,11 @@ describe('Run', () => {
         harness: HarnessId.of('dev'),
         ...orderedFor.spec(),
         spec: aSpec('sh'),
-        refusal: [{ description: EXPIRED.message ?? '' }],
+        refusal: [{ description: EXPIRED.detail ?? '' }],
       });
 
       expect(refused.state).toBe('failed');
-      expect(refused.outcome?.message).toBe(
+      expect(refused.outcome?.detail).toBe(
         'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace is on the Free plan',
       );
 
@@ -727,7 +747,7 @@ describe('Run', () => {
       expect(unclaimed.state).toBe('queued');
       expect(unclaimed.claimedBy).toBeNull();
       expect(unclaimed.leaseExpiresAt).toBeNull();
-      expect(unclaimed.attempt).toBe(before.attempt);
+      expect(unclaimed.attempt.equals(before.attempt)).toBe(true);
       expect(unclaimed.requeueCount).toEqual(before.requeueCount);
       expect(unclaimed.claimableAt(noon)).toBe(true);
       expect(unclaimed.pullEvents()).toEqual([]);
@@ -773,7 +793,7 @@ describe('Run', () => {
       expect(back.state).toBe('queued');
       expect(back.claimedBy).toBeNull();
       expect(back.leaseExpiresAt).toBeNull();
-      expect(back.attempt).toBe(1);
+      expect(back.attempt.number).toBe(1);
       expect(back.pullEvents()).toEqual([]);
     });
 
@@ -830,9 +850,9 @@ describe('Run', () => {
       const ended = run.requeue(runner(), noon, DOWN);
 
       expect(ended.state).toBe('failed');
-      expect(ended.outcome?.message).toBe(
-        `Hooks did not answer after 6 tries. Last error: ${DOWN}`,
-      );
+      expect(ended.outcome?.failure?.code).toBe('start-gate-unanswered');
+      expect(ended.outcome?.detail).toBe(DOWN);
+      expect(ended.outcome?.attempts).toBe(6);
       expect(ended.pullEvents()[0]).toBeInstanceOf(RunEnded);
     });
 
@@ -875,7 +895,7 @@ describe('Run', () => {
       const denied = claimed().deniedStart(runner(), REASON, noon);
 
       expect(denied.state).toBe('failed');
-      expect(denied.outcome?.message).toBe(REASON);
+      expect(denied.outcome?.detail).toBe(REASON);
       expect(denied.claimedBy).toBeNull();
       expect(denied.wasClaimedBy(runner())).toBe(false);
 
@@ -911,7 +931,7 @@ describe('Run', () => {
       expect(cancelled.outcome?.failure?.code).toBe('cancelled');
       expect(cancelled.outcome?.cancelled).toBe(true);
       expect(cancelled.hasEnded).toBe(true);
-      expect(cancelled.outcome?.message).toBe('The task moved on.');
+      expect(cancelled.outcome?.detail).toBe('The task moved on.');
       expect(cancelled.pullEvents().map((each) => each.kind)).toEqual([
         'run.cancelled',
       ]);
@@ -953,7 +973,7 @@ describe('Run', () => {
 
       const ended = claimed().complete(
         runner(),
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.none(),
         noon,
       );
@@ -973,7 +993,7 @@ describe('Run', () => {
       const [raised] = claimed()
         .complete(
           runner(),
-          RunOutcome.of({ exitCode: 0, failed: false }),
+          RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
           HandoverReport.of({
             handover: Handover.of({ next: 'Spec', note: 'ready' }),
             session: HarnessSession.of('session_1'),
@@ -994,13 +1014,13 @@ describe('Run', () => {
     it('keeps nothing of what it announced', () => {
       const ended = claimed().complete(
         runner(),
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.of({ session: HarnessSession.of('session_1') }),
         noon,
       );
 
       expect(ended.outcome).toEqual(
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
       );
     });
 
@@ -1042,7 +1062,7 @@ describe('Run', () => {
         .filter((each) => each instanceof RunExhausted);
 
       expect(raised).toHaveLength(1);
-      expect((raised[0] as RunExhausted).attempt).toBe(3);
+      expect((raised[0] as RunExhausted).attempt.number).toBe(3);
       expect((raised[0] as RunExhausted).failure).toBe('runner-lost');
     });
 
@@ -1051,7 +1071,7 @@ describe('Run', () => {
 
       leased.complete(
         runner(),
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.none(),
         noon,
       );
@@ -1214,9 +1234,8 @@ describe('Run', () => {
       expect(run.hasEnded).toBe(true);
       expect(run.outcome?.failed).toBe(true);
       expect(run.outcome).toEqual(RunOutcome.unprovisioned(failure, 5));
-      expect(run.outcome?.message).toBe(
-        'No runner was provisioned after 5 attempts. Last failure: http-error: the pool said no',
-      );
+      expect(run.outcome?.detail).toBe('http-error: the pool said no');
+      expect(run.outcome?.attempts).toBe(5);
 
       const completed = run
         .pullEvents()
@@ -1352,7 +1371,7 @@ describe('Run', () => {
     const failedRun = () =>
       claimed().complete(
         runner(),
-        RunOutcome.of({ exitCode: 1, failed: true }),
+        RunOutcome.of({ exitCode: ExitCode.of(1), failed: true }),
         HandoverReport.none(),
         noon,
       );
@@ -1365,7 +1384,7 @@ describe('Run', () => {
 
   describe('keeping to its order', () => {
     const ordered = (
-      ordering: ReturnType<typeof orderedFor.task>,
+      ordering: ReturnType<typeof orderedFor.holdingTurn>,
       spec: Partial<RunSpecParts> = {},
       extra: { apiGrant?: RunApiGrant | null } = {},
     ) =>
@@ -1388,7 +1407,7 @@ describe('Run', () => {
       expect(() =>
         ordered({
           ...orderedFor.spec(),
-          workspace: orderedFor.task('task_1').workspace,
+          workspace: orderedFor.holdingTurn('task_1').workspace,
         }),
       ).toThrow(InvalidRunOrderError);
     });
@@ -1434,20 +1453,26 @@ describe('Run', () => {
         lifetimeMs: 60_000,
       });
 
-      expect(() => ordered(orderedFor.chat(), { spotlightApi: true })).toThrow(
-        InvalidRunOrderError,
-      );
-      expect(() => ordered(orderedFor.chat(), {}, { apiGrant: grant })).toThrow(
-        InvalidRunOrderError,
-      );
+      expect(() =>
+        ordered(orderedFor.conversing(), { spotlightApi: true }),
+      ).toThrow(InvalidRunOrderError);
+      expect(() =>
+        ordered(orderedFor.conversing(), {}, { apiGrant: grant }),
+      ).toThrow(InvalidRunOrderError);
       expect(
-        ordered(orderedFor.chat(), { spotlightApi: true }, { apiGrant: grant })
-          .apiGrant,
+        ordered(
+          orderedFor.conversing(),
+          { spotlightApi: true },
+          { apiGrant: grant },
+        ).apiGrant,
       ).toBe(grant);
     });
 
     it('records that it asked a person only when its policy records asks', () => {
-      const leased = ordered(orderedFor.task()).claim(claimer(runner()), noon);
+      const leased = ordered(orderedFor.holdingTurn()).claim(
+        claimer(runner()),
+        noon,
+      );
 
       expect(() => leased.askedAPersonBy(runner())).toThrow(
         InvalidRunTransitionError,
@@ -1464,7 +1489,7 @@ describe('Run', () => {
         ordered(orderedFor.isolated()).mayActBeyondItself('push'),
       ).toThrow(RunActsOnlyOnItselfError);
       expect(() =>
-        ordered(orderedFor.task()).mayActBeyondItself('push'),
+        ordered(orderedFor.holdingTurn()).mayActBeyondItself('push'),
       ).not.toThrow();
     });
   });

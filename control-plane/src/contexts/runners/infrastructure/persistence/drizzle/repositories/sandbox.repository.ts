@@ -13,7 +13,6 @@ import type { SandboxRepository } from '@runners/domain/repositories/sandbox.rep
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import {
@@ -26,6 +25,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, isNotNull, isNull, lte, ne, sql } from 'drizzle-orm';

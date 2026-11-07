@@ -4,10 +4,12 @@ import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
 import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { Money } from '@runs/domain/value-objects/money.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
@@ -34,7 +36,7 @@ const published = (event: DomainEvent) =>
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const RUN = RunId.of('run_1');
-const SUBJECT = orderedFor.task('task_1', 0).requester;
+const SUBJECT = orderedFor.holdingTurn('task_1', 0).requester;
 
 describe('RUNS_EVENT_MAPPERS', () => {
   it('publishes the end of a task run, with its report, session and runner', () => {
@@ -44,7 +46,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           RUN,
           WORKSPACE,
           SUBJECT,
-          RunOutcome.of({ exitCode: 0, failed: false }),
+          RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
           RunnerId.of('runner_1'),
           Handover.of({
             next: 'review',
@@ -59,7 +61,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
             ],
           }),
           HarnessSession.of('session_1'),
-          1,
+          RunAttempt.of(RUN, 1),
           false,
           true,
           true,
@@ -72,8 +74,8 @@ describe('RUNS_EVENT_MAPPERS', () => {
         runId: 'run_1',
         workspaceId: 'ws_1',
         requester: {
-          owner: 'work',
-          kind: 'task',
+          owner: 'requester',
+          kind: 'subject',
           id: 'task_1',
           token: '0',
           team: 'team_1',
@@ -123,7 +125,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
             team: TeamId.of('team_1'),
           }),
           false,
-          1,
+          RunAttempt.of(RUN, 1),
           60_000,
           12,
           1,
@@ -193,7 +195,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
   });
 
   it('publishes the end of a run another requester ordered, with that requester', () => {
-    const replay = orderedFor.isolated('replay', 'run_1').requester;
+    const replay = orderedFor.isolated('run_1').requester;
 
     expect(
       published(
@@ -201,11 +203,11 @@ describe('RUNS_EVENT_MAPPERS', () => {
           RUN,
           WORKSPACE,
           replay,
-          RunOutcome.of({ exitCode: 0, failed: false }),
+          RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
           null,
           Handover.of({ next: 'review', note: 'Over to you.' }),
           null,
-          1,
+          RunAttempt.of(RUN, 1),
           true,
           true,
           true,
@@ -218,8 +220,8 @@ describe('RUNS_EVENT_MAPPERS', () => {
         runId: 'run_1',
         workspaceId: 'ws_1',
         requester: {
-          owner: 'replays',
-          kind: 'replay',
+          owner: 'isolated',
+          kind: 'trial',
           id: 'run_1',
           token: null,
           team: 'team_1',
@@ -248,7 +250,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           RUN,
           WORKSPACE,
           replay,
-          3,
+          RunAttempt.of(RUN, 3),
           3,
           false,
           'runner-lost',
@@ -274,8 +276,9 @@ describe('RUNS_EVENT_MAPPERS', () => {
         new RunCancelled(
           RUN,
           WORKSPACE,
-          orderedFor.isolated('search', 'search_1').requester,
-          2,
+          orderedFor.isolated('search_1', undefined, 'isolated', 'search')
+            .requester,
+          RunAttempt.of(RUN, 2),
           false,
           true,
           ENDED_AT,
@@ -295,7 +298,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           RUN,
           WORKSPACE,
           orderedFor.spec().requester,
-          1,
+          RunAttempt.of(RUN, 1),
           false,
           false,
           ENDED_AT,

@@ -16,6 +16,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
@@ -97,7 +98,13 @@ const aTaskRun = (taskId = TaskId.of(randomUUID())): Run =>
     id: RunId.of(randomUUID()),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    ...orderedFor.task(taskId.value, 1),
+    ...orderedFor.holdingTurn(
+      taskId.value,
+      1,
+      TeamId.of('team_1'),
+      'work',
+      'task',
+    ),
     spec: RunSpec.of({
       checkouts: [{ remote: 'spotlight:repository', path: 'api' }],
       command: { executable: 'sh', args: [] },
@@ -160,7 +167,7 @@ describe('a task run’s starting point', () => {
     ];
     await runs.save(
       ((await runs.findById(run.id)) as Run).startsFrom(
-        run.currentAttempt,
+        run.attempt,
         RUNNER,
         {
           restored: RestoredArchive.of(

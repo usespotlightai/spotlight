@@ -5,6 +5,7 @@ import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import { RunReservationDropped } from '@runs/domain/events/run-reservation-dropped.event';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { runsSubscribers } from '@runs/presentation/events/runs.subscribers';
 import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -29,7 +30,7 @@ describe('runsSubscribers', () => {
         RunId.of('run_1'),
         WorkspaceId.of('ws_1'),
         orderedFor.spec().requester,
-        2,
+        RunAttempt.of(RunId.of('run_1'), 2),
         false,
         false,
         new Date('2026-09-27T09:00:00.000Z'),
@@ -67,7 +68,7 @@ describe('runsSubscribers', () => {
         workspace,
         RunnerId.of('runner_1'),
         new Date('2026-09-27T09:00:00.000Z'),
-        1,
+        RunAttempt.of(run, 1),
       ),
     );
 
@@ -75,10 +76,10 @@ describe('runsSubscribers', () => {
       new RunSuspended(
         run,
         workspace,
-        orderedFor.task('task_1', 0).requester,
+        orderedFor.holdingTurn('task_1', 0).requester,
         RunnerId.of('runner_1'),
         new Date('2026-09-27T09:05:00.000Z'),
-        2,
+        RunAttempt.of(run, 2),
       ),
     );
 
@@ -107,7 +108,7 @@ describe('runsSubscribers', () => {
         run,
         workspace,
         orderedFor.spec().requester,
-        2,
+        RunAttempt.of(run, 2),
         false,
         false,
         new Date('2026-09-27T09:00:00.000Z'),
@@ -117,10 +118,10 @@ describe('runsSubscribers', () => {
       new RunSuspended(
         run,
         workspace,
-        orderedFor.task('task_1', 0).requester,
+        orderedFor.holdingTurn('task_1', 0).requester,
         RunnerId.of('runner_1'),
         new Date('2026-09-27T09:05:00.000Z'),
-        3,
+        RunAttempt.of(run, 3),
       ),
     );
 
@@ -157,16 +158,16 @@ describe('runsSubscribers', () => {
     const at = new Date('2026-09-27T09:00:00.000Z');
 
     await named('runs.release-runner-that-left-its-run')?.handle(
-      new RunLeaseExpired(run, workspace, runner, at, 1),
+      new RunLeaseExpired(run, workspace, runner, at, RunAttempt.of(run, 1)),
     );
     await named('runs.release-runner-that-left-its-run')?.handle(
       new RunSuspended(
         run,
         workspace,
-        orderedFor.task('task_1', 0).requester,
+        orderedFor.holdingTurn('task_1', 0).requester,
         RunnerId.of('runner_2'),
         at,
-        2,
+        RunAttempt.of(run, 2),
       ),
     );
     await named('runs.release-reserved-runner')?.handle(
@@ -195,14 +196,20 @@ describe('runsSubscribers', () => {
     const at = new Date('2026-10-30T09:00:00.000Z');
 
     await left?.handle(
-      new RunLeaseExpired(run, workspace, RunnerId.of('runner_1'), at, 1),
+      new RunLeaseExpired(
+        run,
+        workspace,
+        RunnerId.of('runner_1'),
+        at,
+        RunAttempt.of(run, 1),
+      ),
     );
     await ended?.handle(
       new RunCancelled(
         run,
         workspace,
         orderedFor.spec().requester,
-        2,
+        RunAttempt.of(run, 2),
         false,
         false,
         new Date('2026-09-27T09:00:00.000Z'),

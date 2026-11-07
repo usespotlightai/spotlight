@@ -20,7 +20,7 @@ const NOW = new Date('2026-09-26T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
 const REASON = 'The hook core/freeze denied the run: deploys are frozen.';
 
-const claimed = (ordering = orderedFor.task('task_1', 0)) =>
+const claimed = (ordering = orderedFor.holdingTurn('task_1', 0)) =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -39,7 +39,7 @@ type BeforeHookEvent = { readonly on: string };
 type HookDecision = StartDecision;
 
 class TaskGate implements RunStartGate {
-  readonly owner = 'work';
+  readonly owner = 'requester';
 
   constructor(
     private readonly of: (taskId: string, runId: string) => Promise<unknown>,
@@ -53,7 +53,7 @@ class TaskGate implements RunStartGate {
   ) {}
 
   async mayStart(run: StartingRun, until: Date): Promise<StartDecision> {
-    if (run.requester.kind !== 'task') {
+    if (run.requester.kind !== 'subject') {
       return { kind: 'allowed' };
     }
 
@@ -153,7 +153,7 @@ describe('ClaimGate', () => {
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('denied');
     expect(current().state).toBe('failed');
-    expect(current().outcome?.message).toBe(REASON);
+    expect(current().outcome?.detail).toBe(REASON);
   });
 
   it('reads the run again when it changed while being denied', async () => {
@@ -172,7 +172,7 @@ describe('ClaimGate', () => {
 
     expect(
       await hooks.mayStart(
-        claimed(orderedFor.chat('chat_1')),
+        claimed(orderedFor.conversing('chat_1')),
         RUNNER,
         POLL_UNTIL,
       ),
@@ -214,7 +214,7 @@ describe('ClaimGate', () => {
       'requeued',
     );
     expect(current().state).toBe('queued');
-    expect(current().attempt).toBe(1);
+    expect(current().attempt.number).toBe(1);
     expect(current().claimedBy).toBeNull();
     expect(logged).toHaveLength(1);
   });
@@ -222,7 +222,7 @@ describe('ClaimGate', () => {
   it('lets a defect in a start gate surface rather than requeue the run', async () => {
     const { hooks, current } = starting({ ungated: true });
     hooks.register({
-      owner: 'work',
+      owner: 'requester',
       mayStart: async () => {
         throw new TypeError('not a function');
       },

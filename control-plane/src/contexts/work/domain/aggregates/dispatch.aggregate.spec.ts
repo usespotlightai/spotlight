@@ -19,7 +19,7 @@ import {
   trialOrderOf,
 } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
-import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject.vo';
+import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';

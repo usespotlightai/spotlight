@@ -29,17 +29,13 @@ import {
 } from '@work/application/services/ordered-run';
 import { chatWords } from '@work/application/services/remembering-words';
 import { WorkRequesters } from '@work/application/services/work-requesters';
-import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { builtInToolsForChat } from '@work/domain/services/built-in-tools';
+import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import {
   chatPlacement,
   chatSetupOf,
 } from '@work/domain/services/chat-placement';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import {
-  CHAT_RUN_API_LIFETIME_MS,
-  CHAT_RUN_API_SCOPES,
-} from '@work/domain/value-objects/chat-run-api-grant';
+import { builtInToolsForChat } from '@work/domain/value-objects/built-in-tools';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 
@@ -136,8 +132,8 @@ export class DispatchChat implements ChatDispatching {
       apiGrant: chat.setup
         ? {
             actingFor: chat.startedBy.value,
-            scopes: [...CHAT_RUN_API_SCOPES],
-            lifetimeMs: CHAT_RUN_API_LIFETIME_MS,
+            scopes: [...Chat.RUN_API_GRANT.scopes],
+            lifetimeMs: Chat.RUN_API_GRANT.lifetimeMs,
           }
         : null,
       tags: {},

@@ -99,7 +99,7 @@ export class TaskNotesFromHooks implements TaskNotesFromHooksPort {
 
       const firedAt = firedAtIn(line, report.stationKey);
 
-      if (task.movedOnFrom(firedAt?.id ?? null) || !firedAt) {
+      if (task.supersedesHookFailureAt(firedAt?.id ?? null)) {
         return 'superseded';
       }
 
@@ -151,7 +151,7 @@ export class TaskNotesFromHooks implements TaskNotesFromHooksPort {
     const line = task ? await this.lines.findByStation(task.stationId) : null;
     const firedAt = line ? firedAtIn(line, stationKey) : null;
 
-    return !task || !firedAt || task.movedOnFrom(firedAt.id);
+    return !task || task.supersedesHookFailureAt(firedAt?.id ?? null);
   }
 
   private async retried<T>(work: () => Promise<T>): Promise<T> {

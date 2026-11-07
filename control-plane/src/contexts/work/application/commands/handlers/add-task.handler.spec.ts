@@ -149,6 +149,7 @@ const store = {
     ),
   ),
   save: vi.fn(),
+  stored: vi.fn(async () => true),
   taken: vi.fn(),
   copy: vi.fn(),
   link: vi.fn(),

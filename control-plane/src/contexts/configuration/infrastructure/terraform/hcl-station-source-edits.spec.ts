@@ -1,6 +1,8 @@
 import { STATION_SOURCE_FIELDS } from '@configuration/application/ports/station-source-edits.port';
 import { HclStationSourceEdits } from '@configuration/infrastructure/terraform/hcl-station-source-edits';
 import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const LINE = `resource "spotlight_line" "core_delivery" {
@@ -50,8 +52,8 @@ const edited = (
   new HclStationSourceEdits().edited({
     file: { path: 'main.tf', content: file },
     teamKey: 'core',
-    lineKey: 'delivery',
-    stationKey: 'build',
+    lineKey: LineKey.of('delivery'),
+    stationKey: StationKey.of('build'),
     seed,
     candidate: { ...SEED, ...candidate },
     fields: STATION_SOURCE_FIELDS,
@@ -87,8 +89,8 @@ describe('HclStationSourceEdits', () => {
     const answer = await new HclStationSourceEdits().edited({
       file: { path: 'main.tf', content: LINE },
       teamKey: 'core',
-      lineKey: 'delivery',
-      stationKey: 'build',
+      lineKey: LineKey.of('delivery'),
+      stationKey: StationKey.of('build'),
       seed: SEED,
       candidate: { ...SEED, model: 'opus' },
       fields: ['prompt'],

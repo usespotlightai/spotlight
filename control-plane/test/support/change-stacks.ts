@@ -15,6 +15,7 @@ export const awaitingCheck = async (
     runId,
     workspaceId,
     teamId: 'team_checked',
+    trial: false,
     state: 'ready',
     files: [
       {
@@ -81,16 +82,27 @@ export const awaitingCheck = async (
       unpriced: 0,
     },
     checkPlacement: placement,
+    redrafting: false,
+    pendingJob: false,
+    jobAttempts: 0,
+    version: 0,
   });
   await db.insert(schema.stackCheck).values({
     stackId,
     runId,
     workspaceId,
     teamId: 'team_checked',
+    recheck: false,
+    trial: false,
     command: 'npm test',
     placement,
     status: 'waiting',
+    entries: [],
+    redraftCount: 0,
+    attempts: 0,
+    provisionAttempts: 0,
     waitingSince: new Date(),
+    version: 0,
   });
 
   return stackId;

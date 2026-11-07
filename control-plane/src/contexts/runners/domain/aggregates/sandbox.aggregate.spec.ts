@@ -15,7 +15,6 @@ import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error'
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import {
   EDITOR_LEASE_MS,
@@ -23,6 +22,7 @@ import {
 } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 

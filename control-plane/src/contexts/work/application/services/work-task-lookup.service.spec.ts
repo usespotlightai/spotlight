@@ -1,21 +1,20 @@
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type {
+  TaskLookupReaderPort,
+  TaskNoteReading,
+} from '@work/application/ports/task-lookup-reader.port';
 import { WorkTaskLookup } from '@work/application/services/work-task-lookup.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -49,6 +48,7 @@ const task = () =>
 
 const lookingUp = (markedTasks: readonly Task[]) =>
   new WorkTaskLookup(
+    {} as TaskLookupReaderPort,
     {
       findByCorrelation: async (
         _at: WorkspaceId,
@@ -111,30 +111,24 @@ describe('WorkTaskLookup, finding the task a pull request belongs to', () => {
 });
 
 describe('WorkTaskLookup, reading the notes of people on a task', () => {
-  const AT = new Date('2026-09-21T10:00:00.000Z');
+  const _AT = new Date('2026-09-21T10:00:00.000Z');
 
-  const note = (position: number, voice: Voice, body: string) =>
-    TaskNote.of({
-      position: NotePosition.of(position),
-      station: StationName.of('Implementation'),
-      stationId: StationId.of('station_implementation'),
-      body: TaskNoteBody.of(body),
-      at: AT,
-      voice,
-      kind: 'answered',
-    });
+  const note = (
+    position: number,
+    voice: Voice,
+    body: string,
+  ): TaskNoteReading => ({ position, voice, body });
 
   it('reads the notes of people and the world, and who of the team wrote them, and nothing the stations did', async () => {
     const views = await new WorkTaskLookup(
       {
-        find: async () => ({
-          notes: [
-            note(0, Voice.station(RunId.of('run_1')), 'Which bucket?'),
-            note(1, Voice.person(UserId.of('user_1')), 'The archive one.'),
-            note(2, Voice.world(), 'Never retry on a 403.'),
-          ],
-        }),
-      } as unknown as TaskRepository,
+        notesOf: async () => [
+          note(0, Voice.station(RunId.of('run_1')), 'Which bucket?'),
+          note(1, Voice.person(UserId.of('user_1')), 'The archive one.'),
+          note(2, Voice.world(), 'Never retry on a 403.'),
+        ],
+      } as unknown as TaskLookupReaderPort,
+      {} as TaskRepository,
       {} as LineMapsPort,
     ).notesOf(TaskId.of('task_1'));
 

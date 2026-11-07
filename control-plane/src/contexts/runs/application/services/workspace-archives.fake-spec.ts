@@ -37,7 +37,7 @@ export const aLeasedRun = (
     harness: HarnessId.of('claude-code'),
     ...(over.restoresWorkspace === false
       ? orderedFor.spec()
-      : orderedFor.task('task_1', 1)),
+      : orderedFor.holdingTurn('task_1', 1)),
     spec: RunSpec.of({
       ...(over.checkouts
         ? {

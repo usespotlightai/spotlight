@@ -35,7 +35,7 @@ export class DrizzleToolUses implements ToolUsesPort {
           : null,
         at: use.at,
       });
-      await this.events.dispatch(use.pullEvents());
+      await this.events.dispatch([use.used]);
     });
   }
 

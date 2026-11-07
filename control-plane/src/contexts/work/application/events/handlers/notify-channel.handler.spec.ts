@@ -1,10 +1,3 @@
-import {
-  orderedFor,
-  RunEnded,
-  RunExhausted,
-  RunOutcome,
-  runEndedOf,
-} from '@runs/application/ports/run-fixtures.fake-spec';
 import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -24,9 +17,14 @@ import type {
 } from '@work/application/ports/channel-notices.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import {
+  requestedBy,
+  runEnded,
+  runExhausted,
+} from '@work/application/ports/runs.fake-spec';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -77,7 +75,7 @@ const proposing = () =>
       at: NOW,
     });
 
-const subject = (chat: Chat) => orderedFor.chat(chat.id.value).requester;
+const subject = (chat: Chat) => requestedBy.chat(chat.id.value);
 
 const notifying = (chat: Chat) => {
   const notify = vi.fn(
@@ -115,20 +113,12 @@ let said: string | null = null;
 const completed = (chat: Chat, lastWords: string | null) => {
   said = lastWords;
 
-  return new RunEnded(
-    RUN,
-    WORKSPACE,
-    subject(chat),
-    RunOutcome.of({ exitCode: 0, failed: false, setupFailed: false }),
-    null,
-    null,
-    null,
-    1,
-    false,
-    true,
-    true,
-    NOW,
-  );
+  return runEnded({
+    runId: RUN.value,
+    workspaceId: WORKSPACE.value,
+    requester: subject(chat),
+    endedAt: NOW.toISOString(),
+  });
 };
 
 describe('NotifyChannel', () => {
@@ -136,7 +126,7 @@ describe('NotifyChannel', () => {
     const chat = started();
     const { handler, notify } = notifying(chat);
 
-    await handler.onRunEnded(runEndedOf(completed(chat, 'They time out.')));
+    await handler.onRunEnded(completed(chat, 'They time out.'));
 
     expect(notify).toHaveBeenCalledWith(
       {
@@ -159,7 +149,7 @@ describe('NotifyChannel', () => {
     const chat = proposing();
     const { handler, notify } = notifying(chat);
 
-    await handler.onRunEnded(runEndedOf(completed(chat, 'Here is a plan.')));
+    await handler.onRunEnded(completed(chat, 'Here is a plan.'));
 
     const listed = [
       {
@@ -180,7 +170,7 @@ describe('NotifyChannel', () => {
     const chat = started();
     const { handler, notify } = notifying(chat);
 
-    await handler.onChatDispatched(new ChatDispatched(chat.id, RUN, []));
+    await handler.onChatRunAssigned(new ChatRunAssigned(chat.id, RUN, []));
 
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ body: '', chatId: 'chat_1', proposals: [] }),
@@ -192,7 +182,7 @@ describe('NotifyChannel', () => {
     const chat = started([]);
     const { handler, notify } = notifying(chat);
 
-    await handler.onRunEnded(runEndedOf(completed(chat, 'They time out.')));
+    await handler.onRunEnded(completed(chat, 'They time out.'));
     await handler.onChatStarted(
       new ChatStarted(chat.id, WORKSPACE, chat.teamId, chat.startedBy, NOW),
     );
@@ -208,19 +198,14 @@ describe('NotifyChannel', () => {
       new ChatStarted(chat.id, WORKSPACE, chat.teamId, chat.startedBy, NOW),
     );
     await handler.onRunEnded(
-      runEndedOf(
-        new RunExhausted(
-          RUN,
-          WORKSPACE,
-          subject(chat),
-          1,
-          0,
-          false,
-          null,
-          true,
-          NOW,
-        ),
-      ),
+      runExhausted({
+        runId: RUN.value,
+        workspaceId: WORKSPACE.value,
+        requester: subject(chat),
+        attempt: 1,
+        expiredLeases: 0,
+        endedAt: NOW.toISOString(),
+      }),
     );
 
     expect(notify.mock.calls.map((call) => [call[1], call[0].body])).toEqual([

@@ -16,7 +16,7 @@ export interface HarnessProfileRecord {
 export interface HarnessProfileResourcesPort {
   withId(id: HarnessProfileId): Promise<HarnessProfileRecord | null>;
 
-  at(teamId: TeamId, key: string): Promise<HarnessProfileRecord | null>;
+  at(teamId: TeamId, key: ProfileKey): Promise<HarnessProfileRecord | null>;
 
   ofTeam(teamId: TeamId): Promise<readonly HarnessProfileRecord[]>;
 }

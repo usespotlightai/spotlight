@@ -7,6 +7,7 @@ import { storedProfileOf } from '@configuration/infrastructure/persistence/drizz
 import { harnessProfile } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
 
@@ -29,9 +30,12 @@ export class DrizzleHarnessProfileResources
     return this.stored(eq(harnessProfile.id, id.value));
   }
 
-  at(teamId: TeamId, key: string): Promise<HarnessProfileRecord | null> {
+  at(teamId: TeamId, key: ProfileKey): Promise<HarnessProfileRecord | null> {
     return this.stored(
-      and(eq(harnessProfile.teamId, teamId.value), eq(harnessProfile.key, key)),
+      and(
+        eq(harnessProfile.teamId, teamId.value),
+        eq(harnessProfile.key, key.value),
+      ),
     );
   }
 

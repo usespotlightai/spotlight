@@ -37,7 +37,6 @@ import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type {
@@ -49,6 +48,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 type Began<Through> =

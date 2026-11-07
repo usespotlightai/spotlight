@@ -15,6 +15,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, desc, eq, isNotNull } from 'drizzle-orm';
 
@@ -26,7 +27,7 @@ const granteeOf = (row: Row): ArchiveGrantee => {
   }
 
   if (row.grantedToSandboxId) {
-    return ArchiveGrantee.sandbox(row.grantedToSandboxId);
+    return ArchiveGrantee.sandbox(SandboxId.of(row.grantedToSandboxId));
   }
 
   throw new InconsistentStateError(
@@ -65,7 +66,7 @@ export class DrizzleWorkspaceArchiveRepository
         workspaceId: added.workspaceId.value,
         workspaceKey: added.workspaceKey.value,
         grantedToRunId: added.grantedTo.runId?.value ?? null,
-        grantedToSandboxId: added.grantedTo.sandboxId,
+        grantedToSandboxId: added.grantedTo.sandboxId?.value ?? null,
         size: added.size.bytes,
         sha256: added.digest.sha256,
         grantedAt: added.grantedAt,

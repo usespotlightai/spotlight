@@ -7,8 +7,8 @@ import type { ChatToolContext } from '@work/application/ports/integration-tools.
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { UnknownChatError } from '@work/domain/exceptions/unknown-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { SETUP_PULL_REQUEST } from '@work/domain/value-objects/built-in-tools';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -30,10 +30,10 @@ export class SetupPullRequestToolUse
     inputs: ToolInputs,
   ): Promise<unknown> {
     const chat = await this.found(chatId);
-    const recorded = chat.setup?.pullRequest;
+    const step = chat.setupPullRequestStep;
 
-    if (recorded) {
-      return { url: recorded.value };
+    if (step.kind !== 'open') {
+      return { url: step.pullRequest.value };
     }
 
     const branch = Branch.of(inputs.text('branch') ?? '');

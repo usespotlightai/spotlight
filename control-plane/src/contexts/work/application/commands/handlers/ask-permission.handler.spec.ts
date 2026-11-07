@@ -197,7 +197,7 @@ describe('AskPermissionHandler', () => {
     expect(asked?.approval?.because).toContain('careful');
     expect(asked?.body.value).toContain('git push origin main');
     expect(current().currentRunId).toEqual(RunId.of('run_1'));
-    expect(current().sessionId?.value).toBe('sess_1');
+    expect(current().session?.value).toBe('sess_1');
   });
 
   it('records the MCP tool a permission names, so a dismissal is counted against it', async () => {

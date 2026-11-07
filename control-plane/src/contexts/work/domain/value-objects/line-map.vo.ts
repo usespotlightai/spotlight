@@ -36,6 +36,7 @@ export interface LineMapInput {
   readonly repositories?: LineRepositories;
   readonly reviews?: ReviewIntake | null;
   readonly placement?: RunnerPlacement;
+  readonly welcomesTeams?: boolean;
 }
 
 const topologyProblemOf = (stations: readonly Station[]): string | null => {
@@ -70,6 +71,7 @@ export class LineMap {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewIntake | null,
     readonly placement: RunnerPlacement,
+    readonly welcomesTeams: boolean,
   ) {}
 
   static of(input: LineMapInput): LineMap {
@@ -94,6 +96,7 @@ export class LineMap {
       input.repositories ?? LineRepositories.none(),
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
+      input.welcomesTeams ?? false,
     );
   }
 

@@ -42,6 +42,7 @@ import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -60,6 +61,7 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   Actor,
   ChangeActor,
   CheckWorkId,
+  SandboxId,
   Client,
   ConfigurationChange,
   ConfigurationProblem,

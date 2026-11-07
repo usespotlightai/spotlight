@@ -27,7 +27,7 @@ export const anArchive = (
   WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of(overrides.id ?? 'archive_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    workspaceKey: WorkspaceKey.of('work', 'task-task_1'),
+    workspaceKey: WorkspaceKey.of('requester', 'subject-task_1'),
     held: true,
     grantee: ArchiveGrantee.run(RunId.of(overrides.run ?? 'run_1')),
     size: ArchiveSize.of(overrides.bytes ?? 1_024),
@@ -43,7 +43,7 @@ export const aCompletedChatArchive = (): WorkspaceArchive =>
   WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of('archive_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-    workspaceKey: WorkspaceKey.of('work', 'chat-chat_1'),
+    workspaceKey: WorkspaceKey.of('requester', 'conversation-chat_1'),
     held: true,
     grantee: ArchiveGrantee.run(RunId.of('run_1')),
     size: ArchiveSize.of(1_024),

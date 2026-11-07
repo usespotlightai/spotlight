@@ -14,12 +14,12 @@ export const endingFor = (state: RunState, at = new Date()) => ({
   ...(state === 'completed' || state === 'suspended'
     ? { exitCode: 0 }
     : state === 'failed'
-      ? { exitCode: 1, failure: 'exited' as const, message: 'It exited.' }
+      ? { exitCode: 1, failure: 'exited' as const, detail: 'It exited.' }
       : state === 'cancelled'
         ? {
             exitCode: -1,
             failure: 'cancelled' as const,
-            message: 'It was cancelled.',
+            detail: 'It was cancelled.',
           }
         : {}),
 });

@@ -57,7 +57,7 @@ const cohort = (hunks: string[]): ProposedCohort => ({
     summary: hunk,
     dependsOn: [],
     hunks: [{ hunk: HunkId.of(hunk) }],
-    notes: [{ path: DIFF.fileOf(hunk)?.path ?? hunk, note: 'Why' }],
+    notes: [{ path: DIFF.fileOf(HunkId.of(hunk))?.path ?? hunk, note: 'Why' }],
     questions: [],
   })),
 });

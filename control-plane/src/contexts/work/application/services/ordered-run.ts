@@ -12,7 +12,7 @@ import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import type { RefusalReason } from '@work/domain/value-objects/refusal-reason.vo';
+import type { RefusalReason } from '@work/domain/value-objects/refusal-reason';
 import type { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 

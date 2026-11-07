@@ -14,6 +14,7 @@ import {
 import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
 import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RunExtensions } from '@runs/domain/value-objects/run-extensions.vo';
@@ -157,7 +158,11 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
       .claim(claimer(RUNNER), NOW)
       .complete(
         RUNNER,
-        RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
+        RunOutcome.of({
+          exitCode: ExitCode.of(-1),
+          failed: true,
+          setupFailed: true,
+        }),
         HandoverReport.none(),
         NOW,
       );
@@ -173,7 +178,7 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
       .claim(claimer(RUNNER), NOW)
       .complete(
         RUNNER,
-        RunOutcome.of({ exitCode: 1, failed: true }),
+        RunOutcome.of({ exitCode: ExitCode.of(1), failed: true }),
         HandoverReport.none(),
         NOW,
       );
@@ -242,7 +247,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       await storedAfter((run) =>
         run.complete(
           RUNNER,
-          RunOutcome.of({ exitCode: 1, failed: true }),
+          RunOutcome.of({ exitCode: ExitCode.of(1), failed: true }),
           HandoverReport.none(),
           NOW,
         ),
@@ -255,7 +260,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       await storedAfter((run) =>
         run.askedAPersonBy(RUNNER).complete(
           RUNNER,
-          RunOutcome.of({ exitCode: 0, failed: false }),
+          RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
           HandoverReport.of({
             handover: Handover.of({ next: 'build' }),
             session: null,
@@ -271,7 +276,11 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       await storedAfter((run) =>
         run.complete(
           RUNNER,
-          RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
+          RunOutcome.of({
+            exitCode: ExitCode.of(-1),
+            failed: true,
+            setupFailed: true,
+          }),
           HandoverReport.none(),
           NOW,
         ),

@@ -15,10 +15,10 @@ const RUN = RunId.of('run_1');
 
 const orderingOf = (key: string) => {
   if (key.startsWith('task-')) {
-    return orderedFor.task('task_1', 0);
+    return orderedFor.holdingTurn('task_1', 0);
   }
   if (key.startsWith('chat-')) {
-    return orderedFor.chat('chat_1');
+    return orderedFor.conversing('chat_1');
   }
 
   return orderedFor.spec('run_1', key);

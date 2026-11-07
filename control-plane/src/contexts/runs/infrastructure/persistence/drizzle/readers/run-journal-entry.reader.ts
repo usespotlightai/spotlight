@@ -4,6 +4,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { EgressEnforcement } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
 import type { RunJournalEntryView } from '@runs/application/ports/run-stream.port';
+import { journalEntryText } from '@runs/application/rendering/journal-entry.text';
 import { EGRESS_CHECKED } from '@runs/domain/value-objects/journal-entry-type';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import { enforcementOf } from '@runs/infrastructure/journal/egress-enforcement';
@@ -36,7 +37,7 @@ const viewOf = (row: {
   seq: row.seq,
   type: row.type,
   at: row.at.toISOString(),
-  message: row.message ?? undefined,
+  message: journalEntryText(row),
   data: row.data ?? undefined,
 });
 

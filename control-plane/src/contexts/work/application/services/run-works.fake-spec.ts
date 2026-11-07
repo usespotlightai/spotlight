@@ -22,7 +22,7 @@ import type { DispatchRepository } from '@work/domain/repositories/dispatch.repo
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
-import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject.vo';
+import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 

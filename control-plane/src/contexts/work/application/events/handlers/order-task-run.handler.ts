@@ -3,7 +3,7 @@ import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
-import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
+import type { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
@@ -16,7 +16,7 @@ export class OrderTaskRun {
     private readonly clock: ClockPort,
   ) {}
 
-  async on(event: TaskDispatched): Promise<void> {
+  async on(event: TaskRunAssigned): Promise<void> {
     const task = await this.tasks.find(event.taskId);
 
     if (!task?.hasCurrentRun(event.runId)) {

@@ -6,11 +6,11 @@ import type { CredentialSource } from '@runners/domain/value-objects/credential-
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import type { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const ONLINE_WITHIN_MS = 90_000;

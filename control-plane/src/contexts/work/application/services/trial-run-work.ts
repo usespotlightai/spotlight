@@ -18,7 +18,7 @@ import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import {
   type TrialRepository,
   trialRepositoryNamed,
-} from '@work/domain/value-objects/dispatch-subject.vo';
+} from '@work/domain/value-objects/dispatch-subject';
 
 const NO_TOOLS =
   'This run uses no tools: it acts on nothing beyond its own result.';

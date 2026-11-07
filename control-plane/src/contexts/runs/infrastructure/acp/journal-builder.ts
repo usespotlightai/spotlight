@@ -5,6 +5,10 @@ import type {
   StepChange,
   StepLocation,
 } from '@runs/application/contracts/run-journal.contract';
+import {
+  entryFactsOf,
+  journalEntryText,
+} from '@runs/application/rendering/journal-entry.text';
 import type { CalledStep } from '@runs/domain/services/tool-attribution';
 import { AgentTurns } from '@runs/domain/value-objects/agent-turns.vo';
 import {
@@ -414,7 +418,7 @@ export class JournalBuilder {
 
     this.#hooks.push({
       kind: 'hook',
-      text: `Hook ${called.hook ?? 'a hook'} · ${called.step ?? 'a step'} → ${called.target ?? 'somewhere'}`,
+      text: journalEntryText(event) ?? '',
       status: called.failed ? 'failed' : 'ok',
       tool: called.target ?? null,
       detail: null,
@@ -430,11 +434,15 @@ export class JournalBuilder {
   private failedToProvision(event: Journalled): void {
     this.flushText();
 
-    const step = bare('hook', event.message ?? 'Provisioning failed', event.at);
+    const { detail } = entryFactsOf(event);
+    const step = bare(
+      'hook',
+      journalEntryText(event) ?? 'Provisioning failed',
+      event.at,
+    );
     step.status = 'failed';
-    step.detail = event.data
-      ? decoded(event.data).slice(0, DETAIL_LIMIT)
-      : null;
+    step.detail =
+      typeof detail === 'string' ? detail.slice(0, DETAIL_LIMIT) : null;
 
     this.#steps.push(step);
   }

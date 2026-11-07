@@ -15,6 +15,7 @@ import { QuestionAnswerId } from '@change-review/domain/value-objects/question-a
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
+import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
@@ -265,11 +266,11 @@ describe('deleting the change review of a task', () => {
     }
     await deliveries.enqueue(
       {
-        id: 'delivery_deleted',
+        id: ReviewDeliveryId.of('delivery_deleted'),
         workspaceId: WORKSPACE,
         taskId: TASK,
         kind: 'review',
-        subjectId: review.id.value,
+        subject: review.id,
       },
       NOW,
     );
@@ -371,11 +372,11 @@ describe('deleting the team that owned a trial’s change', () => {
 describe('delivering a review to GitHub', () => {
   const TASK = TaskId.of('task_delivered');
   const delivery = (id: string) => ({
-    id,
+    id: ReviewDeliveryId.of(id),
     workspaceId: WORKSPACE,
     taskId: TASK,
     kind: 'reply' as const,
-    subjectId: `comment_of_${id}`,
+    subject: ReviewCommentId.of(`comment_of_${id}`),
   });
 
   it('keeps the outcome of the worker that holds the lease, not of one whose lease ran out', async () => {

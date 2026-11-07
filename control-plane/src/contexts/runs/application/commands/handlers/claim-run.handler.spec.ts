@@ -46,7 +46,7 @@ const waiting = (harness = 'claude-code') =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of(harness),
-    ...orderedFor.task('task_1', 0),
+    ...orderedFor.holdingTurn('task_1', 0),
     spec,
   });
 
@@ -180,7 +180,7 @@ describe('ClaimRunHandler', () => {
       handover: { options: ['Spec'], noteLimit: 4_000 },
       resume: {},
     });
-    expect(runOf(claimed)?.workspaceKey).toBe('work/task-task_1');
+    expect(runOf(claimed)?.workspaceKey).toBe('requester/subject-task_1');
   });
 
   it('only looks for work in the runner’s own workspace', async () => {
@@ -219,12 +219,12 @@ describe('ClaimRunHandler', () => {
     const claimNext = vi.fn(async () => queued());
 
     await claiming(claimNext, undefined, {
-      liveKeys: ['work/task-task_1'],
+      liveKeys: ['requester/subject-task_1'],
     }).execute(new ClaimRunCommand('runner_1'));
 
     expect(claimNext).toHaveBeenCalledWith(
       expect.objectContaining({
-        sandbox: { avoiding: [WorkspaceKey.parse('work/task-task_1')] },
+        sandbox: { avoiding: [WorkspaceKey.parse('requester/subject-task_1')] },
       }),
       NOW,
     );

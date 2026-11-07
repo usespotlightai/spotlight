@@ -12,6 +12,8 @@ import type {
 import { SEARCHABLE_FIELDS } from '@replays/domain/services/searchable-changes';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ConfigPullRequestError } from '@replays/domain/value-objects/config-pull-request-state';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 
 type Searchable = (typeof SEARCHABLE_FIELDS)[number];
 
@@ -49,8 +51,8 @@ export class ConfigurationStationSourceEditor
     const edited = await this.edits.edited({
       file: edit.file,
       teamKey: edit.teamKey,
-      lineKey: edit.lineKey,
-      stationKey: edit.stationKey,
+      lineKey: LineKey.of(edit.lineKey),
+      stationKey: StationKey.of(edit.stationKey),
       seed: edit.seed.value as LineDefinitionStation,
       candidate: edit.candidate.value as LineDefinitionStation,
       fields: SEARCHABLE_FIELDS.map((each) => SOURCE_FIELDS[each]),

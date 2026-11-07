@@ -18,7 +18,7 @@ const HANDOVER: ReadSkillFolder = {
 };
 
 const builtIn: BuiltInSkillsPort = {
-  named: (key) => (key === 'spotlight-handover' ? HANDOVER : null),
+  named: (key) => (key.value === 'spotlight-handover' ? HANDOVER : null),
 };
 
 describe('BuiltInSkills', () => {

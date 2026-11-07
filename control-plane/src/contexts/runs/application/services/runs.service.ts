@@ -19,6 +19,7 @@ import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-con
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunExtensions } from '@runs/domain/value-objects/run-extensions.vo';
 import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
@@ -146,13 +147,15 @@ export class Runs implements RunsPort {
 
     return {
       pendingTurn: stopped.turnAt(stopped.attempt)?.pending
-        ? stopped.attempt
+        ? stopped.attempt.number
         : null,
     };
   }
 
   async keep(runId: RunId, attempt: number): Promise<void> {
-    await this.changed(runId, (run) => run.keep(attempt, this.clock.now()));
+    await this.changed(runId, (run) =>
+      run.keep(RunAttempt.reported(runId, attempt), this.clock.now()),
+    );
   }
 
   async resume(
@@ -162,12 +165,19 @@ export class Runs implements RunsPort {
     checkouts: readonly RunCheckout[],
   ): Promise<void> {
     await this.changed(runId, (run) =>
-      run.resumed(attempt, because, checkouts, this.clock.now()),
+      run.resumed(
+        attempt === null ? null : RunAttempt.reported(runId, attempt),
+        because,
+        checkouts,
+        this.clock.now(),
+      ),
     );
   }
 
   async finish(runId: RunId, attempt: number): Promise<void> {
-    await this.changed(runId, (run) => run.finished(attempt));
+    await this.changed(runId, (run) =>
+      run.finished(RunAttempt.reported(runId, attempt)),
+    );
   }
 
   private async changed(

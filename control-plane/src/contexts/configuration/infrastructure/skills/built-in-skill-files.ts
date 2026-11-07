@@ -7,6 +7,7 @@ import type {
 } from '@configuration/application/ports/skill-folders.port';
 import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
+import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 
 const BUILT_IN_SKILLS_DIRECTORY = join(__dirname, 'built-in');
 
@@ -47,7 +48,7 @@ export class BuiltInSkillFiles implements BuiltInSkillsPort {
     this.byKey = new Map(folders.map((each) => [each.skill.key.value, each]));
   }
 
-  named(key: string): ReadSkillFolder | null {
-    return this.byKey.get(key) ?? null;
+  named(key: SkillKey): ReadSkillFolder | null {
+    return this.byKey.get(key.value) ?? null;
   }
 }

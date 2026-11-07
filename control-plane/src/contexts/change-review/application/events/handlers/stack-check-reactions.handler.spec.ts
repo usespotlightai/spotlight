@@ -60,7 +60,7 @@ const cohort = (hunks: string[][]): ProposedCohort => ({
     dependsOn: [],
     hunks: each.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: each.map((hunk) => ({
-      path: DIFF.fileOf(hunk)?.path ?? hunk,
+      path: DIFF.fileOf(HunkId.of(hunk))?.path ?? hunk,
       note: 'Why',
     })),
     questions: [],

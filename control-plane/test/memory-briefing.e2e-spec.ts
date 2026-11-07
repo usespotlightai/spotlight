@@ -203,7 +203,13 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('codex'),
-        ...orderedFor.task(team.list.id.value, 0, team.teamId),
+        ...orderedFor.holdingTurn(
+          team.list.id.value,
+          0,
+          team.teamId,
+          'work',
+          'task',
+        ),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'codex-acp', args: [] },
@@ -337,7 +343,13 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('claude-code'),
-        ...orderedFor.task(team.list.id.value, 0, team.teamId),
+        ...orderedFor.holdingTurn(
+          team.list.id.value,
+          0,
+          team.teamId,
+          'work',
+          'task',
+        ),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'claude-agent-acp', args: [] },

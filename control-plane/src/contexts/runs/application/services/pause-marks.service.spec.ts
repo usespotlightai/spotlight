@@ -1,6 +1,7 @@
 import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import { PauseMarks } from '@runs/application/services/pause-marks.service';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
+import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,7 +12,7 @@ const paused = (resumesAtOnce: boolean) =>
   new RunPaused(
     RunId.of('run_1'),
     WorkspaceId.of('ws_1'),
-    1,
+    RunAttempt.of(RunId.of('run_1'), 1),
     NOW,
     resumesAtOnce,
   );
@@ -25,18 +26,19 @@ const marked = async (resumesAtOnce: boolean) => {
   return appendControlPlaneEntry.mock.calls[0]?.[1];
 };
 
+const facts = (data: string | undefined) =>
+  JSON.parse(Buffer.from(data ?? '', 'base64').toString('utf8'));
+
 describe('PauseMarks', () => {
   it('marks a run that waits for a person', async () => {
-    expect(await marked(false)).toEqual({
-      type: 'run.paused',
-      at: NOW,
-      message: 'Waiting for a person',
-    });
+    const entry = await marked(false);
+
+    expect(entry).toMatchObject({ type: 'run.paused', at: NOW });
+    expect(entry?.message).toBeUndefined();
+    expect(facts(entry?.data)).toEqual({ resumesAtOnce: false });
   });
 
   it('marks a run that starts again at once to read messages that came in during its turn', async () => {
-    expect((await marked(true))?.message).toBe(
-      'Messages came in during the turn. The run starts again to read them.',
-    );
+    expect(facts((await marked(true))?.data)).toEqual({ resumesAtOnce: true });
   });
 });

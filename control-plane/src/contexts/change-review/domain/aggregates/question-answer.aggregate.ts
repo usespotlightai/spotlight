@@ -36,8 +36,8 @@ const MAX_REPLY = 4_000;
 const MAX_FEEDBACK = 2_000;
 
 export const answersQuestion = (
-  answer: { readonly questionId: string; readonly asked: string },
-  question: { readonly id: string; readonly question: string },
+  answer: { readonly questionId: QuestionId; readonly asked: string },
+  question: { readonly id: QuestionId; readonly question: string },
 ): boolean =>
   question.id === answer.questionId && question.question === answer.asked;
 

@@ -178,10 +178,10 @@ describe('NetworkCall', () => {
     expect(cancelled.stateAt(later(60_000))).toBe('cancelled');
     expect(cancelled.request.headers).toEqual({});
     expect(() => cancelled.recordResponse(HOST, OK, later(6_000))).toThrow(
-      'Network call call_1 was cancelled. The hook stopped waiting for it.',
+      'Network call call_1 was cancelled. Its caller stopped waiting for it.',
     );
     expect(() => queued().cancel(later(1)).claimedBy(HOST, later(2))).toThrow(
-      'Network call call_1 was cancelled. The hook stopped waiting for it.',
+      'Network call call_1 was cancelled. Its caller stopped waiting for it.',
     );
   });
 

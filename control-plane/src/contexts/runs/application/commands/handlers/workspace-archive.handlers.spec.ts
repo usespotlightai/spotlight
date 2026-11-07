@@ -38,7 +38,7 @@ const setUp = (...runs: Run[]) => {
   const grants = new ArchiveGrants(
     archives,
     store,
-    holding('work'),
+    holding('requester'),
     ids,
     clock,
   );

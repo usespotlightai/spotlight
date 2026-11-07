@@ -37,7 +37,6 @@ import {
 } from '@work/application/services/happenings-reaction';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
 import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
@@ -243,8 +242,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     for (const each of arriving) {
       try {
-        if (each.size !== null && Attachment.tooLarge(each.size)) {
-          throw new InvalidAttachmentError('must be no larger than 25 MB');
+        if (each.size !== null) {
+          Attachment.assertSize(each.size);
         }
 
         const id = this.ids.generate();
@@ -366,7 +365,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
   ): Promise<ChannelAnswer | null> {
     const line = await this.lines.findByStation(task.stationId);
 
-    if (!line || !task.finished) {
+    if (!line || !task.reopensOnMention) {
       await this.receivedBy(task, { ...happened, anchor: null }, attachments);
 
       return null;
@@ -586,7 +585,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     );
 
     const opened =
-      named && members?.includes(named) ? added.assign(named, members) : added;
+      named && members ? added.assignedIfMember(named, members) : added;
 
     const runId = opened.wantsRun(line)
       ? await this.dispatch.runIdFor({ task: opened, line })

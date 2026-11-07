@@ -1,3 +1,4 @@
+import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -11,6 +12,6 @@ export class RunLeaseExpired implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly runner: RunnerId,
     readonly at: Date,
-    readonly attempt: number,
+    readonly attempt: RunAttempt,
   ) {}
 }

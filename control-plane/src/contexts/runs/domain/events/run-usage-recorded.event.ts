@@ -1,4 +1,5 @@
 import type { Money } from '@runs/domain/value-objects/money.vo';
+import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import type { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import type { ToolUse } from '@runs/domain/value-objects/tool-use.vo';
@@ -14,7 +15,7 @@ export class RunUsageRecorded implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly requester: RunRequester,
     readonly listed: boolean,
-    readonly attempt: number,
+    readonly attempt: RunAttempt,
     readonly ms: number | null,
     readonly steps: number,
     readonly errors: number,

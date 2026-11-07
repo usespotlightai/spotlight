@@ -15,11 +15,11 @@ import {
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { EDITOR_LEASE_MS } from '@runners/domain/value-objects/sandbox-lease.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 

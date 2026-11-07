@@ -139,8 +139,8 @@ const fieldsOf = (request: StationSourceEditRequest): readonly HclField[] => [
         ? {
             freshFile: stationFileOf(
               request.teamKey,
-              request.lineKey,
-              request.stationKey,
+              request.lineKey.value,
+              request.stationKey.value,
               name,
             ),
           }
@@ -220,8 +220,8 @@ export class HclStationSourceEdits implements StationSourceEditsPort {
         label: terraformNameOf(request.teamKey),
         labelOf: (key) => terraformNameOf(request.teamKey, key),
       },
-      resource: { type: terraformTypeOf('line'), key: request.lineKey },
-      block: { type: 'station', key: request.stationKey },
+      resource: { type: terraformTypeOf('line'), key: request.lineKey.value },
+      block: { type: 'station', key: request.stationKey.value },
       fields,
       blocks: [judge],
       module: request.configFiles

@@ -23,9 +23,9 @@ import type {
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import { builtInTool } from '@work/domain/services/built-in-tools';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { builtInTool } from '@work/domain/value-objects/built-in-tools';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import {
   lineMapOf,
@@ -56,8 +56,8 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     description: task.description,
     rank: task.rank,
     currentRunId: task.currentRunId,
-    sessionId: task.sessionId,
-    runnerId: task.runnerId,
+    session: task.session,
+    claimedBy: task.claimedBy,
     notes: [...task.notes, ...notes].map((each, at) =>
       TaskNote.of({ ...each, position: NotePosition.of(at) }),
     ),

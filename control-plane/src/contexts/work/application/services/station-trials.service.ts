@@ -27,7 +27,6 @@ import type { StationOrdering } from '@work/application/services/station-orderin
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { DispatchVersionConflictError } from '@work/domain/exceptions/dispatch-version-conflict.error';
-import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { UntrialableRunError } from '@work/domain/exceptions/untrialable-run.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -37,7 +36,10 @@ import {
   type TrialOriginal,
   trialPlanFor,
 } from '@work/domain/services/trial-plan';
-import { trialBlockOf } from '@work/domain/services/trialability';
+import {
+  trialBlockOf,
+  trialInputsBlockOf,
+} from '@work/domain/services/trialability';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -189,7 +191,26 @@ export class StationTrials implements StationTrialsPort {
       candidate,
     });
 
-    await this.attachmentsStillStored(original);
+    const followedUp = await this.followUp(original, request.followUp);
+    const inputsBlock = trialInputsBlockOf({
+      filesStored: await this.files.stored(
+        original.facts.workspaceId,
+        original.briefed.allAttachments.map((each) => each.id),
+      ),
+      answer: !request.followUp
+        ? 'not-asked'
+        : followedUp === null
+          ? 'gone'
+          : 'present',
+    });
+
+    if (inputsBlock) {
+      throw new UntrialableRunError(
+        original.facts.runId.value,
+        inputsBlock.reason,
+        inputsBlock.description,
+      );
+    }
 
     const laidOut = await this.ordering.orderedForTrial(candidate, plan.at);
 
@@ -223,7 +244,6 @@ export class StationTrials implements StationTrialsPort {
       memoryFolder: memories.folder,
       tools: [],
     });
-    const followedUp = await this.followUp(original, request.followUp);
     const briefing = followedUp ? `${briefed}\n\n${followedUp}` : briefed;
     const configuredAs = this.ordering.configuredAs(laidOut, candidate);
     const ordering = {
@@ -360,41 +380,12 @@ export class StationTrials implements StationTrialsPort {
       return null;
     }
 
-    const answered =
-      followUp === 'accepted'
-        ? Answered.accepted(
-            (await this.evidence.of(original.facts.runId.value))?.hunks ?? [],
-          )
-        : Answered.sentBack(
-            feedbackAfter(original.task.notes, original.facts.runId),
-          );
-
-    if (!answered) {
-      throw new UntrialableRunError(
-        original.facts.runId.value,
-        'answer-gone',
-        'The change people accepted or what they said is no longer there.',
-      );
-    }
-
-    return answered;
-  }
-
-  private async attachmentsStillStored(original: Original): Promise<void> {
-    await this.files
-      .received(
-        original.facts.workspaceId,
-        original.briefed.allAttachments.map((each) => each.id),
-      )
-      .catch((error: unknown) => {
-        if (error instanceof InvalidAttachmentError) {
-          throw new UntrialableRunError(
-            original.facts.runId.value,
-            'attachments-gone',
-            'A file from its task briefing is no longer stored.',
-          );
-        }
-        throw error;
-      });
+    return followUp === 'accepted'
+      ? Answered.accepted(
+          (await this.evidence.of(original.facts.runId.value))?.hunks ?? [],
+        )
+      : Answered.sentBack(
+          feedbackAfter(original.task.notes, original.facts.runId),
+        );
   }
 }

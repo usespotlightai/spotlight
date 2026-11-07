@@ -58,7 +58,7 @@ const FAILURES: Readonly<Record<RunFailureCode, string>> = {
   unprepared: 'the workspace setup failed before the agent started',
   refused: 'the config is not allowed in a replay',
   unprovisioned: 'no runner was available',
-  'hooks-unanswered': 'hooks did not answer',
+  'start-gate-unanswered': 'start gates did not answer',
   'runner-lost': 'Spotlight lost the runner',
   'timed-out': 'the run went over the time limit of the host',
   cancelled: 'the run was cancelled before a runner claimed it',

@@ -13,15 +13,12 @@ const DAY_MS = 24 * 60 * 60_000;
 export class TurnsWorker implements OnModuleDestroy {
   #ticking: Promise<void> | null = null;
   #stopped = false;
-  #previously: Date;
 
   constructor(
     private readonly turns: Turns,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
-  ) {
-    this.#previously = new Date(clock.now().getTime() - TURNS_EVERY_MS);
-  }
+  ) {}
 
   async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
@@ -33,15 +30,19 @@ export class TurnsWorker implements OnModuleDestroy {
     await this.ticked(async () => {
       const now = this.clock.now();
 
-      await this.turns.retakePending(now, this.#previously);
+      await this.turns.retakePending(now);
       await this.turns.resumeAnswered(now);
-      this.#previously = now;
     });
   }
 
   @Interval(DAY_MS)
   async daily(): Promise<void> {
-    await this.ticked(() => this.turns.cancelAbandoned(this.clock.now()));
+    await this.ticked(async () => {
+      const now = this.clock.now();
+
+      await this.turns.cancelAbandoned(now);
+      await this.turns.forgetOldRetakes(now);
+    });
   }
 
   private async ticked(work: () => Promise<void>): Promise<void> {

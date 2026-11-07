@@ -259,5 +259,4 @@ export class DrizzleLineRepository implements LineRepository {
         .orderBy(line.id),
     );
   }
-
 }

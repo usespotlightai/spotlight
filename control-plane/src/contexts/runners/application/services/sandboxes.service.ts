@@ -24,7 +24,6 @@ import { sandboxesToDrainOn } from '@runners/domain/services/sandbox-drains';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import type { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -32,6 +31,7 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 

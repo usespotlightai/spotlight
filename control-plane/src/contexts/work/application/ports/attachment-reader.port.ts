@@ -8,7 +8,7 @@ export interface AttachmentSummary {
 }
 
 export type AttachmentHolder =
-  | { readonly kind: 'task' }
+  | { readonly kind: 'task'; readonly taskId: string }
   | {
       readonly kind: 'chat';
       readonly startedById: string;

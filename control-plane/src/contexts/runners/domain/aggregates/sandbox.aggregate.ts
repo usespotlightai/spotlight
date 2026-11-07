@@ -4,12 +4,12 @@ import type { CredentialSource } from '@runners/domain/value-objects/credential-
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import type { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
-import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import type { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 

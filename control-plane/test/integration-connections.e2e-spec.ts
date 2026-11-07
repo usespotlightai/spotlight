@@ -7,6 +7,8 @@ import { AccessToken } from '@integrations/domain/value-objects/access-token.vo'
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { DrizzleConnectedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/connected-integrations.reader';
 import { DrizzleIntegrationConnectionRoster } from '@integrations/infrastructure/persistence/drizzle/readers/integration-connection-roster.reader';
 import { DrizzleIntegrationConnections } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-connections.repository';
@@ -239,10 +241,14 @@ describe('OAuth client registrations', () => {
       workspaceId: WorkspaceId.of('ws_1'),
       teamId,
       integration: LINEAR,
-      registrationEndpoint: 'https://linear.app/oauth/register',
-      redirectUri: 'https://app.example/api/integrations/oauth/callback',
+      registrationEndpoint: OAuth2Endpoint.of(
+        'https://linear.app/oauth/register',
+      ),
+      redirectUri: OAuth2Endpoint.of(
+        'https://app.example/api/integrations/oauth/callback',
+      ),
       server: null,
-      clientId,
+      clientId: OAuth2ClientId.of(clientId),
       clientSecret: AccessToken.of(`${clientId}-secret`),
       secretExpiresAt: null,
       registeredAt: new Date('2026-09-01T00:00:00.000Z'),
@@ -257,7 +263,7 @@ describe('OAuth client registrations', () => {
     ).rejects.toBeInstanceOf(OAuth2ClientRegistrationVersionConflictError);
 
     const stored = await registrations.of(teamId, LINEAR);
-    expect(stored?.clientId).toBe('client-1');
+    expect(stored?.clientId.value).toBe('client-1');
     expect(stored?.clientSecret?.value).toBe('client-1-secret');
 
     await registrations.save(
@@ -265,7 +271,9 @@ describe('OAuth client registrations', () => {
         registered(teamId, 'client-3'),
       ),
     );
-    expect((await registrations.of(teamId, LINEAR))?.clientId).toBe('client-3');
+    expect((await registrations.of(teamId, LINEAR))?.clientId.value).toBe(
+      'client-3',
+    );
   });
 });
 

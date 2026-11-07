@@ -16,12 +16,20 @@ export class RunAttempt {
     return new RunAttempt(runId, number);
   }
 
+  static first(runId: RunId): RunAttempt {
+    return new RunAttempt(runId, 1);
+  }
+
   static reported(runId: RunId, number: number): RunAttempt {
     if (!Number.isInteger(number) || number < 1) {
       throw new InvalidRunAttemptError(number);
     }
 
     return new RunAttempt(runId, number);
+  }
+
+  next(): RunAttempt {
+    return new RunAttempt(this.runId, this.number + 1);
   }
 
   equals(other: RunAttempt): boolean {

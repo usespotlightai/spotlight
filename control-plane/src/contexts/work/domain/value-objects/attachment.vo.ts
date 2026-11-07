@@ -41,9 +41,7 @@ export class Attachment {
     if (!Number.isInteger(input.size) || input.size < 0) {
       throw new InvalidAttachmentError('size must be a whole number of bytes');
     }
-    if (Attachment.tooLarge(input.size)) {
-      throw new InvalidAttachmentError('must be no larger than 25 MB');
-    }
+    Attachment.assertSize(input.size);
 
     const type = input.contentType?.trim().toLowerCase() ?? '';
 
@@ -87,6 +85,12 @@ export class Attachment {
 
   static tooLarge(size: number): boolean {
     return size > MAX_ATTACHMENT_BYTES;
+  }
+
+  static assertSize(size: number): void {
+    if (Attachment.tooLarge(size)) {
+      throw new InvalidAttachmentError('must be no larger than 25 MB');
+    }
   }
 
   copiedAs(id: AttachmentId): Attachment {

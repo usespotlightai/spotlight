@@ -10,7 +10,7 @@ export const RUN_FAILURES = {
   unprepared: Retry.never(),
   refused: Retry.never(),
   unprovisioned: Retry.never(),
-  'hooks-unanswered': Retry.backoff({
+  'start-gate-unanswered': Retry.backoff({
     maxAttempts: 6,
     initialDelayMs: 5_000,
     maxDelayMs: 120_000,

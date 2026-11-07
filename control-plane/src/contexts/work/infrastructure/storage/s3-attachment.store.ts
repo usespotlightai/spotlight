@@ -108,7 +108,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     return Promise.all(
       distinct.map(async (id) => {
         const head =
-          (await this.stored(workspaceId, id)) ??
+          (await this.storedHead(workspaceId, id)) ??
           (await this.pending(workspaceId, id));
 
         if (!head) {
@@ -209,6 +209,27 @@ export class S3AttachmentStore implements AttachmentStorePort {
     };
   }
 
+  async stored(
+    workspaceId: WorkspaceId,
+    ids: readonly AttachmentId[],
+  ): Promise<boolean> {
+    if (ids.length === 0) {
+      return true;
+    }
+
+    this.assertBucket();
+
+    const found = await Promise.all(
+      ids.map(
+        async (id) =>
+          (await this.storedHead(workspaceId, id)) ??
+          (await this.pending(workspaceId, id)),
+      ),
+    );
+
+    return found.every((head) => head !== null);
+  }
+
   async taken(
     workspaceId: WorkspaceId,
     files: readonly Attachment[],
@@ -226,7 +247,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     workspaceId: WorkspaceId,
     id: AttachmentId,
   ): Promise<void> {
-    if (await this.stored(workspaceId, id)) {
+    if (await this.storedHead(workspaceId, id)) {
       return;
     }
 
@@ -243,7 +264,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       .catch(missing);
 
     if (!copied) {
-      if (!(await this.stored(workspaceId, id))) {
+      if (!(await this.storedHead(workspaceId, id))) {
         throw new InvalidAttachmentError('was never uploaded');
       }
 
@@ -255,7 +276,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       .catch(missing);
   }
 
-  private stored(
+  private storedHead(
     workspaceId: WorkspaceId,
     id: AttachmentId,
   ): Promise<HeadObjectCommandOutput | null> {

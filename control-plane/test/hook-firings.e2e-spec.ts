@@ -18,6 +18,8 @@ import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo'
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -44,7 +46,7 @@ const HOOK = Hook.of({
   match: HookMatch.anything(HookEvent.of('task.opened')),
   steps: [
     {
-      name: 'tell',
+      name: HookStepName.of('tell'),
       kind: 'request',
       url: new URL('https://audit.example.com'),
       headers: [],
@@ -83,7 +85,7 @@ describe('hook firings, stored in the database (e2e)', () => {
       run: null,
       stationKey: StationKey.of('triage'),
       on: 'task.opened',
-      occurrence,
+      occurrence: HookOccurrenceKey.of(occurrence),
       firedAt,
       event: HookEventFacts.of({ on: 'task.opened' }),
       matched: true,
@@ -243,8 +245,8 @@ describe('hook firings, stored in the database (e2e)', () => {
     const second = await claimed();
     const third = await claimed();
 
-    expect(oldest.occurrence).toBe('occurrence_6a');
-    expect(second.occurrence).toBe('occurrence_7');
+    expect(oldest.occurrence.value).toBe('occurrence_6a');
+    expect(second.occurrence.value).toBe('occurrence_7');
     await expect(history.recentRepeats(third.repeatsOf)).resolves.toBe(2);
     await expect(history.recentRepeats(first.repeatsOf)).resolves.toBe(0);
   });
@@ -286,7 +288,7 @@ describe('hook firings, stored in the database (e2e)', () => {
     const working = await claimed();
 
     const waiting = {
-      name: 'tell',
+      name: HookStepName.of('tell'),
       status: 'waiting' as const,
       call: 'call_1',
       until: at(120),

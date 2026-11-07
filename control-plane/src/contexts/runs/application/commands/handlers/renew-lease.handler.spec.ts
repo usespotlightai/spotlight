@@ -5,6 +5,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
@@ -74,7 +75,7 @@ describe('RenewLeaseHandler', () => {
     const { renew } = renewing([
       working().reportTurn(
         RUNNER,
-        RunOutcome.of({ exitCode: 0, failed: false }),
+        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
         HandoverReport.none(),
         NOW,
       ),

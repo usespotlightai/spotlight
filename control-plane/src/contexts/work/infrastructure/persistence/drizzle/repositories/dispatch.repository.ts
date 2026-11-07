@@ -23,7 +23,7 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { DispatchEnding } from '@work/domain/value-objects/dispatch-ending.vo';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
-import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject.vo';
+import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';

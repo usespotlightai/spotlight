@@ -18,7 +18,7 @@ import {
   type DispatchSubject,
   stationOfDispatch,
   taskOfDispatch,
-} from '@work/domain/value-objects/dispatch-subject.vo';
+} from '@work/domain/value-objects/dispatch-subject';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 interface DispatchState {

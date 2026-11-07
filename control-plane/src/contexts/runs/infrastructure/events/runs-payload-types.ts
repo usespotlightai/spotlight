@@ -12,6 +12,7 @@ import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { CallSecretsClaim } from '@runs/domain/value-objects/call-secrets-claim.vo';
 import { CallingHost } from '@runs/domain/value-objects/calling-host.vo';
+import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile as RunHandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
 import { Handover as RunHandover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -77,6 +78,7 @@ export const RUNS_PAYLOAD_TYPES = [
   WorkspaceKey,
   RunConnection,
   RunOutcome,
+  ExitCode,
   RunFailure,
   RunSpec,
   WorkspaceArchiveId,

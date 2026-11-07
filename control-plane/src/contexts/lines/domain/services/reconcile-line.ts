@@ -31,7 +31,7 @@ export const reconcileLine = (input: {
   return input.existing.update(
     assemble(
       input.plan,
-      (key) => existingByKey.get(key)?.id ?? null,
+      (key) => existingByKey.get(key.value)?.id ?? null,
       input.newId,
     ),
     input.taskCounts,
@@ -53,13 +53,13 @@ export const createLine = (input: {
 
 const assemble = (
   plan: LinePlan,
-  existing: (key: string) => StationId | null,
+  existing: (key: StationKey) => StationId | null,
   newId: () => string,
 ): LineLayout => {
   const idOf = new Map<string, StationId>(
     plan.stations.map((each) => [
       each.key.value,
-      existing(each.key.value) ?? StationId.of(newId()),
+      existing(each.key) ?? StationId.of(newId()),
     ]),
   );
 

@@ -8,7 +8,7 @@ import type { ChatToolExtensions } from '@work/application/services/chat-tool-ex
 import {
   BUILT_IN_TOOLS,
   builtInTool,
-} from '@work/domain/services/built-in-tools';
+} from '@work/domain/value-objects/built-in-tools';
 
 export class BuiltInTools {
   constructor(

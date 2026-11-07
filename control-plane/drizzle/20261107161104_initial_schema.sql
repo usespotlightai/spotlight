@@ -1804,8 +1804,9 @@ CREATE TABLE "run" (
 	"suspended_at" timestamp (3) with time zone,
 	"claimable_from" timestamp (3) with time zone,
 	"exit_code" integer,
-	"message" text,
+	"detail" text,
 	"failure" text,
+	"failure_attempts" integer,
 	"stopped" boolean DEFAULT false NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
@@ -2184,6 +2185,13 @@ CREATE TABLE "tool_use" (
 	"failed" boolean NOT NULL,
 	"acting_as" jsonb,
 	"at" timestamp (3) with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "turn_retake" (
+	"run_id" text NOT NULL,
+	"suspended_at" timestamp (3) with time zone NOT NULL,
+	"checked_at" timestamp (3) with time zone NOT NULL,
+	CONSTRAINT "turn_retake_run_id_suspended_at_pk" PRIMARY KEY("run_id","suspended_at")
 );
 --> statement-breakpoint
 CREATE TABLE "work_line" (

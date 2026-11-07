@@ -1,29 +1,12 @@
-import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
-import { runFilesFrom } from '@runs/application/ports/run-files.fake-spec';
-import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
-import {
-  CompleteRunCommand,
-  CompleteRunHandler,
-  claimer,
-  HandoverReport,
-  orderedFor,
-  Run,
-  RunOutcome,
-  RunSpec,
-  Runs,
-  RunVersionConflictError,
-  runReadModelOver,
-} from '@runs/application/ports/run-fixtures.fake-spec';
 import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { TurnFacts } from '@runs/application/ports/run-turns.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -37,12 +20,12 @@ import type {
 } from '@work/application/ports/lifecycle-hooks.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import { heldTurn, turnFacts } from '@work/application/ports/runs.fake-spec';
 import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
-import { RunFiles } from '@work/application/services/run-files.service';
 import { RunRouting } from '@work/application/services/run-routing.service';
 import { TakeTurn } from '@work/application/services/take-turn.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
@@ -66,20 +49,6 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
-
-const leased = () =>
-  Run.enqueue({
-    id: RunId.of('run_1'),
-    workspaceId: WorkspaceId.of('ws_1'),
-    harness: HarnessId.of('dev'),
-    ...orderedFor.task('task_1', 0),
-    spec: RunSpec.of({
-      command: { executable: 'sh', args: [] },
-      briefing: 'do the thing',
-      handover: { options: [], noteLimit: 4_000 },
-      resume: {},
-    }),
-  }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
 const TASK_VIEW = { taskId: 'task_1', runId: 'run_1' } as TaskViewDto;
 
@@ -201,28 +170,12 @@ interface Turning {
   readonly task?: Task | (() => Task | null) | null;
   readonly journals?: readonly RunJournal[];
   readonly files?: FilesLoader;
-  readonly run?: () => Run;
-  readonly clashes?: number;
 }
 
 const turning = (over: Turning = {}) => {
-  let current = over.run ? over.run() : leased();
-  let clashes = over.clashes ?? 0;
-  const runs: Run[] = [];
+  const held = heldTurn(null);
   const tasks: Task[] = [];
   const hookCalls: BeforeHookEvent[] = [];
-  const store = {
-    findById: async () => current,
-    save: async (run: Run) => {
-      if (clashes > 0) {
-        clashes -= 1;
-        throw new RunVersionConflictError(run.id.value);
-      }
-      run.pullEvents();
-      current = run;
-      runs.push(run);
-    },
-  } as unknown as RunRepository;
   const clock = { now: () => NOW, sleep: async () => {} };
   const files =
     over.files ??
@@ -238,16 +191,14 @@ const turning = (over: Turning = {}) => {
       tasks.push(each);
     },
   } as unknown as TaskRepository;
-  const facade = new Runs(store, new Sha256ContentHash(), clock);
-  const facts = runReadModelOver(store);
   const dispatches: DispatchRepository = {
     find: async () => dispatched(),
     add: async () => undefined,
     save: async () => undefined,
   };
   const taking = new TakeTurn(
-    facts,
-    facade,
+    held.turns,
+    held.runs,
     dispatches,
     taskStore,
     { findByStation: async () => line() } as unknown as LineMapsPort,
@@ -271,54 +222,40 @@ const turning = (over: Turning = {}) => {
     ),
     runJournalReadings(),
   );
-  const completing = new CompleteRunHandler(
-    store,
-    {
-      inTransaction: (work: () => Promise<unknown>) => work(),
-    } as TransactionPort,
-    clock,
-    runFilesFrom(new RunFiles(files)),
-  );
 
   return {
-    runs,
     tasks,
     hookCalls,
     taking,
-    current: () => current,
-    async execute(command: CompleteRunCommand): Promise<void> {
-      await completing.execute(command);
-
-      if (current.turnAt(current.attempt)) {
-        await taking.take(RUN, current.attempt);
-      }
+    runs: held.runs,
+    current: held.current,
+    async take(facts: TurnFacts): Promise<void> {
+      held.hold(facts);
+      await taking.take(RUN, facts.attempt);
     },
   };
 };
 
 describe('TakeTurn', () => {
-  const reviewing = new CompleteRunCommand(
-    'run_1',
-    'runner_1',
-    0,
-    false,
-    undefined,
-    { next: 'review', note: 'Which queue should I drain?' },
-    'session_1',
-  );
+  const handingOver = (
+    next: string,
+    note = 'Ready for review.',
+    files: NonNullable<TurnFacts['handover']>['files'] = [],
+  ) => turnFacts({ handover: { next, note, files }, session: 'session_1' });
+
+  const reviewing = handingOver('review', 'Which queue should I drain?');
 
   describe('a turn that asks a person', () => {
     it('keeps the turn, and puts the task to the person with the run’s note, session and turn', async () => {
       const turn = turning({ task: claimedByTheRun() });
 
-      await turn.execute(reviewing);
+      await turn.take(reviewing);
 
       const task = turn.tasks[0];
-      expect(turn.current().state).toBe('suspended');
-      expect(turn.current().turnAt(1)?.state).toBe('kept');
+      expect(turn.runs.keep).toHaveBeenCalledWith(RUN, 1);
       expect(task?.awaitingReview).toBe(true);
       expect(task?.hasCurrentRun(RUN)).toBe(true);
-      expect(task?.sessionId?.value).toBe('session_1');
+      expect(task?.session?.value).toBe('session_1');
       expect(task?.awaitedTurn?.attempt).toBe(1);
       expect(task?.notes[0]?.body.value).toBe('Which queue should I drain?');
     });
@@ -327,25 +264,19 @@ describe('TakeTurn', () => {
       const files = attaching();
       const turn = turning({ task: claimedByTheRun(), files });
 
-      await turn.execute(
-        new CompleteRunCommand(
-          'run_1',
-          'runner_1',
-          0,
-          false,
-          undefined,
-          {
-            next: 'review',
-            note: 'Here is the selector.',
-            attachments: ['file_light', 'file_dark'],
-          },
-          'session_1',
+      await turn.take(
+        handingOver(
+          'review',
+          'Here is the selector.',
+          ['light', 'dark'].map((name) => ({
+            id: `file_${name}`,
+            name: `${name}.png`,
+            contentType: 'image/png',
+            size: 3,
+          })),
         ),
       );
 
-      expect(files.asked).toEqual([
-        ['run_1@ws_1', ['file_light', 'file_dark']],
-      ]);
       expect(files.taken).toEqual([['ws_1', ['file_light', 'file_dark']]]);
       expect(
         turn.tasks[0]?.notes[0]?.attachments.map((each) => each.name),
@@ -361,17 +292,7 @@ describe('TakeTurn', () => {
         ],
       });
 
-      await turn.execute(
-        new CompleteRunCommand(
-          'run_1',
-          'runner_1',
-          0,
-          false,
-          undefined,
-          undefined,
-          'session_1',
-        ),
-      );
+      await turn.take(turnFacts({ session: 'session_1' }));
 
       expect(turn.tasks[0]?.notes[0]?.body.value).toBe(
         'Here is a draft you can use.',
@@ -394,22 +315,29 @@ describe('TakeTurn', () => {
         });
       const turn = turning({ task: answeredAlready });
 
-      await turn.execute(reviewing);
+      await turn.take(reviewing);
 
-      expect(turn.current().state).toBe('queued');
-      expect(turn.current().attempt).toBe(2);
-      expect(turn.current().spec.value.resume?.sessionId).toBe('session_1');
+      expect(turn.runs.resume).toHaveBeenCalledWith(
+        RUN,
+        1,
+        'messages',
+        expect.any(Array),
+      );
       expect(turn.tasks).toEqual([]);
     });
 
     it('decides a redelivered turn once: the task is asked once and the turn stays kept (R5, R6)', async () => {
       const turn = turning({ task: claimedByTheRun() });
 
-      await turn.execute(reviewing);
+      await turn.take(reviewing);
       await turn.taking.take(RUN, 1);
 
       expect(turn.tasks).toHaveLength(1);
-      expect(turn.current().turnAt(1)?.state).toBe('kept');
+      expect(turn.runs.keep.mock.calls).toEqual([
+        [RUN, 1],
+        [RUN, 1],
+      ]);
+      expect(turn.current()?.turn).toBe('kept');
     });
 
     it('keeps the turn on redelivery after the task was saved but before the run was kept (R6)', async () => {
@@ -426,16 +354,16 @@ describe('TakeTurn', () => {
       });
       const turn = turning({ task: asked });
 
-      await turn.execute(reviewing);
+      await turn.take(reviewing);
 
       expect(turn.tasks).toEqual([]);
-      expect(turn.current().turnAt(1)?.state).toBe('kept');
+      expect(turn.runs.keep).toHaveBeenCalledWith(RUN, 1);
     });
 
     it('decides nothing for a turn of an earlier attempt (R8)', async () => {
       const turn = turning({ task: claimedByTheRun() });
 
-      await turn.execute(reviewing);
+      await turn.take(reviewing);
       await turn.taking.take(RUN, 7);
 
       expect(turn.tasks).toHaveLength(1);
@@ -445,37 +373,19 @@ describe('TakeTurn', () => {
   it('routes the task and finishes the run when the turn passes the task to a station', async () => {
     const turn = turning({ task: claimedByTheRun() });
 
-    await turn.execute(
-      new CompleteRunCommand('run_1', 'runner_1', 0, false, undefined, {
-        next: 'deploy',
-        note: 'Built.',
-      }),
-    );
+    await turn.take(handingOver('deploy', 'Built.'));
 
-    expect(turn.current().state).toBe('completed');
-    expect(turn.current().endedAt).toEqual(NOW);
+    expect(turn.runs.finish).toHaveBeenCalledWith(RUN, 1);
     expect(turn.tasks[0]?.stationId.value).toBe('station_2');
     expect(turn.tasks[0]?.currentRunId?.value).toBe('run_2');
   });
 
   it('routes a hand-over that a stop came in during, rather than asking (R4)', async () => {
-    const stopping = turning({
-      task: claimedByTheRun(),
-      run: () =>
-        leased()
-          .reportTurn(
-            RunnerId.of('runner_1'),
-            RunOutcome.of({ exitCode: 0, failed: false }),
-            HandoverReport.none(),
-            NOW,
-          )
-          .requestStop(NOW),
-    });
+    const stopping = turning({ task: claimedByTheRun() });
 
-    await stopping.taking.take(RUN, 1);
+    await stopping.take(turnFacts({ stopRequested: true }));
 
-    expect(stopping.current().state).toBe('completed');
-    expect(stopping.current().outcome?.stopped).toBe(false);
+    expect(stopping.runs.finish).toHaveBeenCalledWith(RUN, 1);
     expect(stopping.tasks[0]?.awaitingReview).toBe(true);
     expect(stopping.tasks[0]?.currentRunId).toBeNull();
   });
@@ -483,24 +393,18 @@ describe('TakeTurn', () => {
   it('finishes the run, recording nothing on the task, when its task let go of it (R3, R9)', async () => {
     const turn = turning({ task: null });
 
-    await turn.execute(reviewing);
+    await turn.take(reviewing);
 
-    expect(turn.current().state).toBe('completed');
+    expect(turn.runs.finish).toHaveBeenCalledWith(RUN, 1);
     expect(turn.tasks).toEqual([]);
     expect(turn.hookCalls).toEqual([]);
   });
 
   describe('handing over', () => {
-    const handingOver = (next: string) =>
-      new CompleteRunCommand('run_1', 'runner_1', 0, false, undefined, {
-        next,
-        note: 'Ready for review.',
-      });
-
     it('calls the hooks before the task is handed over, saying where and what', async () => {
       const turn = turning({ task: claimedByTheRun() });
 
-      await turn.execute(handingOver('deploy'));
+      await turn.take(handingOver('deploy'));
 
       expect(turn.hookCalls).toEqual([
         { on: 'handover.submitting', to: 'deploy', note: 'Ready for review.' },
@@ -510,7 +414,7 @@ describe('TakeTurn', () => {
     it('says nowhere where the run named no station', async () => {
       const turn = turning({ task: claimedByTheRun() });
 
-      await turn.execute(handingOver(''));
+      await turn.take(handingOver(''));
 
       expect(turn.hookCalls[0]).toMatchObject({ to: null });
     });
@@ -524,40 +428,44 @@ describe('TakeTurn', () => {
         },
       });
 
-      await turn.execute(handingOver('deploy'));
+      await turn.take(handingOver('deploy'));
 
       expect(turn.tasks[0]?.awaitingReview).toBe(true);
       expect(turn.tasks[0]?.notes[0]?.body.value).toContain(
         'The hook core/qa denied the handover: tests are red.',
       );
-      expect(turn.current().turnAt(1)?.state).toBe('kept');
+      expect(turn.runs.keep).toHaveBeenCalledWith(RUN, 1);
     });
 
     it('calls no hooks when the run failed, was stopped or handed over nothing', async () => {
       const failed = turning({ task: claimedByTheRun() });
-      await failed.execute(
-        new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
-          next: 'deploy',
+      await failed.take(
+        turnFacts({
+          outcome: {
+            exitCode: 1,
+            failure: 'exited',
+            message: 'boom',
+            stopped: false,
+          },
         }),
       );
       const stopped = turning({ task: claimedByTheRun() });
-      await stopped.execute(
-        new CompleteRunCommand(
-          'run_1',
-          'runner_1',
-          130,
-          false,
-          undefined,
-          { next: 'deploy' },
-          null,
-          true,
-        ),
+      await stopped.take(
+        turnFacts({
+          outcome: {
+            exitCode: 130,
+            failure: null,
+            message: null,
+            stopped: true,
+          },
+        }),
       );
+      const silent = turning({ task: claimedByTheRun() });
+      await silent.take(turnFacts());
 
       expect(failed.hookCalls).toEqual([]);
       expect(stopped.hookCalls).toEqual([]);
-      expect(failed.current().state).toBe('failed');
-      expect(stopped.current().outcome?.stopped).toBe(true);
+      expect(silent.hookCalls).toEqual([]);
     });
   });
 
@@ -568,8 +476,6 @@ describe('TakeTurn', () => {
     });
     const turn = turning({ task: moved });
 
-    await expect(turn.execute(reviewing)).rejects.toThrow(
-      InconsistentStateError,
-    );
+    await expect(turn.take(reviewing)).rejects.toThrow(InconsistentStateError);
   });
 });

@@ -223,6 +223,7 @@ const mapped = (input: {
     key: LineKey.of(input.key),
     name: LineName.of(input.name),
     role: LineRole.of(input.role),
+    welcomesTeams: input.key === 'delivery',
     reviews: input.reviews ?? null,
     repositories: LineRepositories.of(input.repositories ?? [], null),
     stations: input.stations.map((each, position) =>

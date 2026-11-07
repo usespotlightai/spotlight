@@ -1,3 +1,4 @@
+import { WELCOME_LINE_KEY } from '@lines/application/contracts/built-in-lines.contract';
 import type {
   LineView,
   StationView,
@@ -66,6 +67,7 @@ export const lineMapOf = (view: LineView): LineMap =>
     key: LineKey.of(view.key),
     name: LineName.of(view.name),
     role: optional(view.role, LineRole.of),
+    welcomesTeams: view.key === WELCOME_LINE_KEY,
     stations: view.stations.map(stationOf),
     reactions: view.reactions.map((each) =>
       Reaction.of({

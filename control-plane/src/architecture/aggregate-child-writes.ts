@@ -90,6 +90,9 @@ export const TABLE_WRITERS: Readonly<Record<string, readonly string[]>> = {
   tool_use: [
     'contexts/work/infrastructure/persistence/drizzle/ledgers/tool-uses.ledger.ts',
   ],
+  turn_retake: [
+    'contexts/work/infrastructure/persistence/drizzle/ledgers/turn-retakes.ledger.ts',
+  ],
   used_token: [
     'contexts/runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger.ts',
   ],

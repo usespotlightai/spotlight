@@ -80,30 +80,26 @@ export class MoveTaskHandler
         after?.rank ?? null,
       );
 
-      const stayed = task.stationId.equals(stationId);
-      const moved = stayed
-        ? task.reorderTo(rank)
-        : task.moveTo(
-            line,
-            stationId,
-            rank,
-            {
-              line,
-              body: TaskNoteBody.movedTo(station.name),
-              at: this.clock.now(),
-              voice: Voice.station(),
-            },
-            { mover: UserId.of(command.viewerId) },
-          );
+      const placed = task.placeAt(
+        line,
+        stationId,
+        rank,
+        {
+          line,
+          body: TaskNoteBody.movedTo(station.name),
+          at: this.clock.now(),
+          voice: Voice.station(),
+        },
+        { mover: UserId.of(command.viewerId) },
+      );
+      const moved = placed.task;
 
       const runId =
-        !stayed && moved.wantsRun(line)
+        placed.moved && moved.wantsRun(line)
           ? await this.dispatch.runIdFor({ task: moved, line })
           : null;
 
-      const placed = runId ? moved.assignRun(runId, line) : moved;
-
-      await this.tasks.save(placed);
+      await this.tasks.save(runId ? moved.assignRun(runId, line) : moved);
     });
   }
 }

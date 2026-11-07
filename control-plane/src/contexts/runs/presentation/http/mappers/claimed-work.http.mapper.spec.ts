@@ -30,7 +30,7 @@ describe('the run a runner claims', () => {
       id: RunId.of('run_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       harness: HarnessId.of('dev'),
-      ...orderedFor.isolated('replay', 'run_1'),
+      ...orderedFor.isolated('run_1'),
       restore: WorkspaceArchiveId.of('archive_1'),
       extensions: RunExtensions.of({ replay }),
       spec: RunSpec.of({
@@ -57,7 +57,7 @@ describe('the run a runner claims', () => {
           command: { executable: 'sh', args: [] },
           briefing: 'Fix the queue.',
           handover: { options: ['done'], noteLimit: 0 },
-          resume: { key: 'replays/replay-run_1' },
+          resume: { key: 'isolated/trial-run_1' },
           replay,
         },
       },

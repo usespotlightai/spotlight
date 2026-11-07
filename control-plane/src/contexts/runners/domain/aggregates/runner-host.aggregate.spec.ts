@@ -5,9 +5,9 @@ import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 

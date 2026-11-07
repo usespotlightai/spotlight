@@ -12,7 +12,7 @@ describe('RunFailure', () => {
     ['refused', false, 1],
     ['unprovisioned', false, 1],
     ['cancelled', false, 1],
-    ['hooks-unanswered', true, 6],
+    ['start-gate-unanswered', true, 6],
     ['runner-lost', true, 3],
     ['timed-out', true, 3],
   ])(
@@ -30,7 +30,7 @@ describe('RunFailure', () => {
       [
         'cancelled',
         'exited',
-        'hooks-unanswered',
+        'start-gate-unanswered',
         'refused',
         'runner-lost',
         'timed-out',

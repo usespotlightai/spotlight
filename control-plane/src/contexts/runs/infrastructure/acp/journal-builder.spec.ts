@@ -463,10 +463,13 @@ describe('JournalBuilder', () => {
       builder.take({
         type: 'provision.failed',
         at: clock(2),
-        message: 'Provisioning failed · unreachable',
-        data: Buffer.from('connect ECONNREFUSED 10.0.0.4:443').toString(
-          'base64',
-        ),
+        message: null,
+        data: Buffer.from(
+          JSON.stringify({
+            failure: 'unreachable',
+            detail: 'connect ECONNREFUSED 10.0.0.4:443',
+          }),
+        ).toString('base64'),
       });
 
       const [failed] = builder.steps();
@@ -482,7 +485,7 @@ describe('JournalBuilder', () => {
         builder.take({
           type: 'provision.failed',
           at: clock(at),
-          message: 'Provisioning failed · http-error',
+          message: null,
           data: null,
         });
       }

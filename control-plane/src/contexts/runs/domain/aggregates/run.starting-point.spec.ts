@@ -31,7 +31,7 @@ const queued = (reports = true) =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    ...orderedFor.task('task_1', 1),
+    ...orderedFor.holdingTurn('task_1', 1),
     spec: RunSpec.of({
       checkouts: [
         { remote: 'spotlight:repository', path: 'web' },
@@ -53,7 +53,7 @@ const on = (attempt = 1) => RunAttempt.of(RunId.of('run_1'), attempt);
 const archiveOf = (
   id: string,
   workspace = 'ws_1',
-  key = WorkspaceKey.of('work', 'task-task_1'),
+  key = WorkspaceKey.of('requester', 'subject-task_1'),
 ) =>
   RestoredArchive.of(WorkspaceArchiveId.of(id), WorkspaceId.of(workspace), key);
 
@@ -90,7 +90,11 @@ describe('where a run started', () => {
   it('rejects an archive of another workspace or another piece of work', () => {
     for (const elsewhere of [
       archiveOf('archive_1', 'ws_2'),
-      archiveOf('archive_1', 'ws_1', WorkspaceKey.of('work', 'task-task_2')),
+      archiveOf(
+        'archive_1',
+        'ws_1',
+        WorkspaceKey.of('requester', 'subject-task_2'),
+      ),
     ]) {
       expect(() =>
         claimed().startsFrom(on(), RUNNER, restored(elsewhere), NOW),
@@ -134,7 +138,7 @@ describe('where a run started', () => {
         later(120_000),
       );
 
-    expect(retried.attempt).toBe(2);
+    expect(retried.attempt.number).toBe(2);
     expect(retried.startedFrom?.archive?.value).toBe('archive_1');
     expect(retried.startedFrom?.attempt).toBe(1);
   });
@@ -192,7 +196,7 @@ describe('where a run started', () => {
         id: run.id,
         workspaceId: run.workspaceId,
         harness: run.harness,
-        ...orderedFor.task('task_1', 1),
+        ...orderedFor.holdingTurn('task_1', 1),
         priority: run.priority,
         spec: run.spec,
         state: 'queued',

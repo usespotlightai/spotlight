@@ -71,6 +71,7 @@ const stored: Attachment[] = [];
 const files = {
   grant: vi.fn(),
   received: vi.fn(async () => []),
+  stored: vi.fn(async () => true),
   taken: vi.fn(),
   save: vi.fn(async (_at, file: Attachment) => {
     stored.push(file);

@@ -90,7 +90,9 @@ const layer = (
   dependsOn,
   hunks: hunks.map((each) => ({ hunk: HunkId.of(each) })),
   notes: [
-    ...new Set(hunks.flatMap((each) => DIFF.fileOf(each)?.path ?? [])),
+    ...new Set(
+      hunks.flatMap((each) => DIFF.fileOf(HunkId.of(each))?.path ?? []),
+    ),
   ].map((path) => ({ path, note: 'Why it changes' })),
   questions: [],
 });

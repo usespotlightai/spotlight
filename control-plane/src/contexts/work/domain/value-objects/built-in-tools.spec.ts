@@ -2,7 +2,7 @@ import {
   builtInToolsForChat,
   PROPOSE_TASK,
   SETUP_PULL_REQUEST,
-} from '@work/domain/services/built-in-tools';
+} from '@work/domain/value-objects/built-in-tools';
 import { describe, expect, it } from 'vitest';
 
 const offered = (chat: { settingUp?: boolean } = {}) =>

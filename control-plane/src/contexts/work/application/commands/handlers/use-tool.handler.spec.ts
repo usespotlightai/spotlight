@@ -66,6 +66,9 @@ import { LeaseLostError } from '@work/domain/exceptions/lease-lost.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { PersonRule } from '@work/domain/services/stricter-rule';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import {
   builtInTool,
   CHECKS,
@@ -74,10 +77,7 @@ import {
   REVIEW,
   REVIEW_COMMENT,
   SETUP_PULL_REQUEST,
-} from '@work/domain/services/built-in-tools';
-import type { PersonRule } from '@work/domain/services/stricter-rule';
-import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
-import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+} from '@work/domain/value-objects/built-in-tools';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
@@ -535,7 +535,7 @@ const using = (
         if (over.recordingFails) {
           throw new Error('the outbox is unreachable');
         }
-        recorded.push(...(use.pullEvents() as ToolUsed[]));
+        recorded.push(use.used);
       },
       purgeBefore: async () => 0,
     },

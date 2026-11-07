@@ -18,7 +18,7 @@ import type {
 } from '@work/application/ports/team-memories.port';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
@@ -127,7 +127,7 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
     .assignRun(RunId.of('run_2'), NOW);
   const event = handed
     .pullEvents()
-    .filter((each): each is ChatDispatched => each instanceof ChatDispatched)
+    .filter((each): each is ChatRunAssigned => each instanceof ChatRunAssigned)
     .pop();
 
   return ChatBriefing.followUp(handed, event?.acknowledged ?? []);

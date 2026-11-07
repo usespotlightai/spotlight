@@ -4,13 +4,15 @@ import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type {
+  AttachmentReaderPort,
+  AttachmentRecord,
+} from '@work/application/ports/attachment-reader.port';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { NoteFiles } from '@work/application/services/note-files.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import {
   lineMapOf,
@@ -82,13 +84,25 @@ const noteFiles = (task: Task | null) => {
     bytes: new Uint8Array([1, 2, 3]),
     contentType: 'image/png',
   }));
-  const find = vi.fn(async (_id: TaskId) => task);
+  const find = vi.fn(async (id: string): Promise<AttachmentRecord | null> => {
+    const file = task?.allAttachments.find((each) => each.id.value === id);
+
+    return task && file
+      ? {
+          id: file.id.value,
+          name: file.name,
+          contentType: file.contentType,
+          size: file.size,
+          workspaceId: task.workspaceId.value,
+          holder: { kind: 'task', taskId: task.id.value },
+        }
+      : null;
+  });
 
   return {
-    files: new NoteFiles(
-      { find } as unknown as TaskRepository,
-      { open } as unknown as AttachmentStorePort,
-    ),
+    files: new NoteFiles({ find } satisfies AttachmentReaderPort, {
+      open,
+    } as unknown as AttachmentStorePort),
     open,
     find,
   };
@@ -101,7 +115,7 @@ describe('NoteFiles', () => {
     expect(await files.open('task_1', 'file_1')).toEqual(
       new Uint8Array([1, 2, 3]),
     );
-    expect(find).toHaveBeenCalledWith(TaskId.of('task_1'));
+    expect(find).toHaveBeenCalledWith('file_1');
     expect(open).toHaveBeenCalledWith(WorkspaceId.of('ws_1'), SHOT);
   });
 
@@ -114,6 +128,13 @@ describe('NoteFiles', () => {
 
   it('opens nothing for a task it cannot find', async () => {
     const { files, open } = noteFiles(null);
+
+    expect(await files.open('task_9', 'file_1')).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('opens nothing that is a file of another task', async () => {
+    const { files, open } = noteFiles(asked());
 
     expect(await files.open('task_9', 'file_1')).toBeNull();
     expect(open).not.toHaveBeenCalled();

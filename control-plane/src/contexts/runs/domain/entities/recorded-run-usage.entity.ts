@@ -1,4 +1,5 @@
 import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
+import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import {
   type AttemptReading,
@@ -12,7 +13,7 @@ export interface UsingRun {
   readonly workspaceId: WorkspaceId;
   readonly requester: RunRequester;
   readonly listed: boolean;
-  readonly attempt: number;
+  readonly attempt: RunAttempt;
 }
 
 export class RecordedRunUsage {

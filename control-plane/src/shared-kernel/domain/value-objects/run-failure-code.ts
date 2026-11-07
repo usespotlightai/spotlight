@@ -3,7 +3,7 @@ export const RUN_FAILURE_CODES = [
   'unprepared',
   'refused',
   'unprovisioned',
-  'hooks-unanswered',
+  'start-gate-unanswered',
   'runner-lost',
   'timed-out',
   'cancelled',

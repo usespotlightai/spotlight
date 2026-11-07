@@ -1,8 +1,8 @@
 import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
-import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import type { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
