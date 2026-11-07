@@ -8,7 +8,6 @@ import { IncompatibleHarnessProfileError } from '@configuration/domain/exception
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
@@ -16,7 +15,10 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -47,7 +49,11 @@ const stored = (version = 3) =>
 
 const BY = changeActorIn();
 
-const COMPATIBLE = HarnessCompatibility.of([]);
+const harnessesFinding = (compatibility: HarnessCompatibility) => ({
+  compatibilityOf: () => compatibility,
+});
+
+const COMPATIBLE = harnessesFinding(HarnessCompatibility.of([]));
 
 const CAREFUL = {
   resource: 'harness-profile' as const,
@@ -56,7 +62,11 @@ const CAREFUL = {
 };
 
 const NAMED = StationUses.of([
-  { name: 'careful', line: 'delivery', station: 'implementation' },
+  {
+    used: ProfileKey.of('careful'),
+    line: LineKey.of('delivery'),
+    station: StationKey.of('implementation'),
+  },
 ]);
 
 describe('HarnessProfile', () => {
@@ -67,7 +77,7 @@ describe('HarnessProfile', () => {
       teamId: TEAM,
       by: BY,
       existingSecrets: [],
-      compatibility: COMPATIBLE,
+      harnesses: COMPATIBLE,
     });
 
     expect(created.isNew).toBe(true);
@@ -122,7 +132,11 @@ describe('HarnessProfile', () => {
   it('is deleted when no station names it, and cannot change after', () => {
     const deleted = stored().delete(
       StationUses.of([
-        { name: 'bold', line: 'delivery', station: 'implementation' },
+        {
+          used: ProfileKey.of('bold'),
+          line: LineKey.of('delivery'),
+          station: StationKey.of('implementation'),
+        },
       ]),
       BY,
     );
@@ -180,7 +194,7 @@ describe('HarnessProfile', () => {
         teamId: TEAM,
         by: BY,
         existingSecrets: [],
-        compatibility: COMPATIBLE,
+        harnesses: COMPATIBLE,
       }),
     ).toThrow(MissingSecretsError);
     expect(() => stored().update(referring, BY, [], COMPATIBLE)).toThrow(
@@ -194,9 +208,11 @@ describe('HarnessProfile', () => {
   });
 
   it('is neither created nor changed while no harness can apply it as written', () => {
-    const incompatible = HarnessCompatibility.of([
-      { at: FieldPath.of(['native', 'gone']), reason: 'names no harness' },
-    ]);
+    const incompatible = harnessesFinding(
+      HarnessCompatibility.of([
+        { at: FieldPath.of(['native', 'gone']), reason: 'names no harness' },
+      ]),
+    );
 
     expect(() =>
       HarnessProfile.create({
@@ -205,7 +221,7 @@ describe('HarnessProfile', () => {
         teamId: TEAM,
         by: BY,
         existingSecrets: [],
-        compatibility: incompatible,
+        harnesses: incompatible,
       }),
     ).toThrow(IncompatibleHarnessProfileError);
     expect(() => stored().update(parsed(), BY, [], incompatible)).toThrow(

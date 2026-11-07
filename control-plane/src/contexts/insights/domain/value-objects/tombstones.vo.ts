@@ -16,4 +16,8 @@ export class Tombstones {
   get acceptsFacts(): boolean {
     return !this.workspace && !this.team && !this.task;
   }
+
+  get taskOfDeletedTeamUnmarked(): boolean {
+    return this.team && !this.workspace && !this.task;
+  }
 }

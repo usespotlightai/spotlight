@@ -1,4 +1,5 @@
 import type { DeletionsPort } from '@insights/application/ports/deletions.port';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 
 export interface RecordedAggregates<A> {
@@ -26,15 +27,14 @@ export class FactRecorder {
     aggregates: RecordedAggregates<A>,
     fact: Fact<A>,
   ): Promise<void> {
-    const tombstones = await this.deletions.tombstonesOf(fact.owner);
+    const refused = await this.refuses(fact.owner);
     const existing = await fact.load();
 
     if (
-      !tombstones.acceptsFacts ||
+      refused ||
       (existing !== null &&
         fact.ownerOf &&
-        !(await this.deletions.tombstonesOf(fact.ownerOf(existing)))
-          .acceptsFacts)
+        (await this.refuses(fact.ownerOf(existing))))
     ) {
       if (existing !== null) {
         await aggregates.remove(fact.erased?.(existing) ?? existing);
@@ -67,6 +67,18 @@ export class FactRecorder {
   }
 
   async admits(owner: FactOwner): Promise<boolean> {
-    return (await this.deletions.tombstonesOf(owner)).acceptsFacts;
+    return !(await this.refuses(owner));
+  }
+
+  private async refuses(owner: FactOwner): Promise<boolean> {
+    const tombstones = await this.deletions.tombstonesOf(owner);
+
+    if (tombstones.taskOfDeletedTeamUnmarked && owner.taskId) {
+      await this.deletions.markDeleted(
+        DeletionScope.ofTask(owner.workspaceId, owner.taskId),
+      );
+    }
+
+    return !tombstones.acceptsFacts;
   }
 }

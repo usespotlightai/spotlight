@@ -1,8 +1,5 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
-import type {
-  JsonObject,
-  JsonValue,
-} from '@shared-kernel/domain/services/json-value';
+import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
 import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,

@@ -1,6 +1,6 @@
 import { InboundDelivery } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { InvalidInboundDeliveryTransitionError } from '@integrations/domain/exceptions/invalid-inbound-delivery-transition.error';
-import { MAX_DELIVERY_ATTEMPTS } from '@integrations/domain/services/delivery-retry';
+import { DELIVERING } from '@integrations/domain/services/delivery-retry';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -18,7 +18,7 @@ const received = () =>
       id: 'd_1',
       headers: { 'x-delivery': 'd_1' },
       body: { action: 'closed' },
-      causeFiringId: '  ',
+      causeFiringId: null,
     },
     NOW,
   );
@@ -104,7 +104,7 @@ describe('InboundDelivery', () => {
   });
 
   it('gives up once it has had its attempts', () => {
-    const failed = stored(received(), { attempts: MAX_DELIVERY_ATTEMPTS - 1 })
+    const failed = stored(received(), { attempts: DELIVERING.maxAttempts - 1 })
       .claimed(NOW)
       .failedWith(DeliveryFailure.transient('still nope'), NOW);
 

@@ -1,4 +1,8 @@
 import {
+  TEAM_SKILL_KEYS,
+  type TeamSkillKeysPort,
+} from '@configuration/application/ports/team-skill-keys.port';
+import {
   PERSON_READER,
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
@@ -14,6 +18,7 @@ import {
   type AlertInboxRequestsPort,
 } from '@insights/application/ports/alert-inbox-requests.port';
 import { CHANGE_JUDGMENTS } from '@insights/application/ports/change-judgments.port';
+import { DEFINED_SKILLS } from '@insights/application/ports/defined-skills.port';
 import {
   EVIDENCE,
   type EvidencePort,
@@ -44,6 +49,10 @@ import {
   type SideBySideJudgePort,
 } from '@insights/application/ports/side-by-side-judge.port';
 import { STATION_CONFIG_PULL_REQUESTS } from '@insights/application/ports/station-config-pull-requests.port';
+import {
+  STATION_FACTS,
+  type StationFactsPort,
+} from '@insights/application/ports/station-facts.port';
 import {
   STATION_JUDGES,
   type StationJudgesPort,
@@ -89,6 +98,7 @@ import { CheckRunFacts } from '@insights/application/services/check-run-facts.se
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
+import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { PairJudgments } from '@insights/application/services/pair-judgments.service';
 import { ProjectPullRequestFacts } from '@insights/application/services/project-pull-request-facts.service';
@@ -118,6 +128,7 @@ import { TeamScopes } from '@insights/application/services/team-scopes.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import { AlertInboxRequests } from '@insights/infrastructure/acl/alert-inbox-requests.adapter';
+import { DefinedSkills } from '@insights/infrastructure/acl/defined-skills.adapter';
 import {
   Evidence,
   StationJudges,
@@ -127,6 +138,7 @@ import { Lines } from '@insights/infrastructure/acl/lines.adapter';
 import { MemoryUse } from '@insights/infrastructure/acl/memory-use.adapter';
 import { People } from '@insights/infrastructure/acl/people.adapter';
 import { Work } from '@insights/infrastructure/acl/work.adapter';
+import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { INSIGHTS_PAYLOAD_TYPES } from '@insights/infrastructure/events/insights-payload-types';
 import { ChatCompletionsJudge } from '@insights/infrastructure/judging/chat-completions-judge';
 import { ChatCompletionsSideBySideJudge } from '@insights/infrastructure/judging/chat-completions-side-by-side-judge';
@@ -204,10 +216,6 @@ import {
   STATION_RUNS,
   type StationRunsPort,
 } from '@work/application/ports/station-runs.port';
-import {
-  TEAM_SKILLS,
-  type TeamSkillsPort,
-} from '@work/application/ports/team-skills.port';
 
 const INSIGHTS_EVENTS = Symbol('INSIGHTS_EVENTS');
 
@@ -221,9 +229,13 @@ export const INSIGHTS_CONTROLLERS: readonly Type[] = [
 export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   {
     provide: WORK,
-    inject: [STATION_RUNS, TEAM_SKILLS],
-    useFactory: (stations: StationRunsPort, skills: TeamSkillsPort) =>
-      new Work(stations, skills),
+    inject: [STATION_RUNS],
+    useFactory: (stations: StationRunsPort) => new Work(stations),
+  },
+  {
+    provide: DEFINED_SKILLS,
+    inject: [TEAM_SKILL_KEYS],
+    useFactory: (skills: TeamSkillKeysPort) => new DefinedSkills(skills),
   },
   {
     provide: LINE_SETTINGS,
@@ -278,6 +290,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   DrizzleRunFacts,
   DrizzlePullRequestFacts,
   DrizzleStationFacts,
+  { provide: STATION_FACTS, useExisting: DrizzleStationFacts },
   DrizzleRunRecordRepository,
   DrizzleJudgingRepository,
   DrizzleScoreRepository,
@@ -299,22 +312,26 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   { provide: INSIGHTS_READER, useExisting: DrizzleInsightsReader },
   {
     provide: StationJudgeReports,
-    inject: [STATION_JUDGES, DrizzleStationFacts],
-    useFactory: (judges: StationJudgesPort, facts: DrizzleStationFacts) =>
+    inject: [STATION_JUDGES, STATION_FACTS],
+    useFactory: (judges: StationJudgesPort, facts: StationFactsPort) =>
       new StationJudgeReports(judges, facts),
   },
   {
-    provide: RunScoresViews,
-    inject: [
-      DrizzleStationFacts,
-      StationJudgeReports,
-      DrizzleJudgingRepository,
-    ],
+    provide: GradingTermsOf,
+    inject: [STATION_JUDGES, DrizzleJudgingRepository],
     useFactory: (
-      facts: DrizzleStationFacts,
-      reports: StationJudgeReports,
+      judges: StationJudgesPort,
       judgings: DrizzleJudgingRepository,
-    ) => new RunScoresViews(facts, reports, judgings),
+    ) => new GradingTermsOf(judges, judgings),
+  },
+  {
+    provide: RunScoresViews,
+    inject: [STATION_FACTS, StationJudgeReports, GradingTermsOf],
+    useFactory: (
+      facts: StationFactsPort,
+      reports: StationJudgeReports,
+      terms: GradingTermsOf,
+    ) => new RunScoresViews(facts, reports, terms),
   },
   {
     provide: InsightsAccess,
@@ -323,8 +340,9 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RUN_OUTCOMES,
-    inject: [DrizzleStationFacts],
-    useFactory: (facts: DrizzleStationFacts) => new RunOutcomes(facts),
+    inject: [STATION_FACTS],
+    useFactory: (facts: StationFactsPort) =>
+      new WorkRunOutcomes(new RunOutcomes(facts)),
   },
   {
     provide: TeamScopes,
@@ -356,14 +374,14 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadStationAlertQuery, ReadStationAlertHandler, [
     InsightsAccess,
-    DrizzleStationFacts,
+    STATION_FACTS,
     CLOCK,
   ]),
   {
     provide: WatchStations,
     inject: [
       LINE_SETTINGS,
-      DrizzleStationFacts,
+      STATION_FACTS,
       DrizzleStationAlertStateRepository,
       FactRecorder,
       TRANSACTION,
@@ -372,7 +390,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       lines: LineSettingsPort,
-      facts: DrizzleStationFacts,
+      facts: StationFactsPort,
       alertStates: DrizzleStationAlertStateRepository,
       recorder: FactRecorder,
       transaction: TransactionPort,
@@ -422,7 +440,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadInsightsToolsQuery, ReadInsightsToolsHandler, [
     TeamScopes,
     INSIGHTS_READER,
-    WORK,
+    DEFINED_SKILLS,
   ]),
   {
     provide: TeamPullRequests,
@@ -455,7 +473,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadStationInsightsQuery, ReadStationInsightsHandler, [
     InsightsAccess,
-    DrizzleStationFacts,
+    STATION_FACTS,
     STATION_CONFIG_PULL_REQUESTS,
     WORK,
   ]),
@@ -469,7 +487,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindCommandHandler(GradeRunCommand, GradeRunHandler, [
     InsightsAccess,
-    RunScoresViews,
+    GradingTermsOf,
     DrizzleRunRecordRepository,
     DrizzleScoreRepository,
     FactRecorder,
@@ -557,8 +575,8 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RUN_ACCEPTANCE,
-    inject: [DrizzleStationFacts],
-    useFactory: (facts: DrizzleStationFacts) => new RunAcceptance(facts),
+    inject: [STATION_FACTS],
+    useFactory: (facts: StationFactsPort) => new RunAcceptance(facts),
   },
   {
     provide: PurgeExpiredTombstones,
@@ -629,18 +647,13 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RecordJudgeScore,
-    inject: [
-      DrizzleJudgingRepository,
-      DrizzleScoreRepository,
-      TRANSACTION,
-      ID_GENERATOR,
-    ],
+    inject: [DrizzleScoreRepository, FactRecorder, TRANSACTION, ID_GENERATOR],
     useFactory: (
-      judgings: DrizzleJudgingRepository,
       scores: DrizzleScoreRepository,
+      recorder: FactRecorder,
       transaction: TransactionPort,
       ids: IdGeneratorPort,
-    ) => new RecordJudgeScore(judgings, scores, transaction, ids),
+    ) => new RecordJudgeScore(scores, recorder, transaction, ids),
   },
   {
     provide: GradeInboxRequests,

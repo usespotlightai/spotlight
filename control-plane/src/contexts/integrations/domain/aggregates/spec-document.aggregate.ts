@@ -2,8 +2,8 @@ import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/inv
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
+import { repeatedIn } from '@shared-kernel/domain/distinct';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { repeatedIn } from '@shared-kernel/domain/services/distinct';
 
 interface State {
   readonly hash: ContentHash;

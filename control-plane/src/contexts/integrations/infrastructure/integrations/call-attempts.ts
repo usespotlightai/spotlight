@@ -1,8 +1,9 @@
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
 import type {
   CallAttempt,
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
-import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 const reasonOf = (error: unknown): string =>
@@ -11,6 +12,13 @@ const reasonOf = (error: unknown): string =>
 const failedWith = (error: unknown): CallAttempt => {
   if (error instanceof EgressBlockedError) {
     return { kind: 'failed', fact: { kind: 'blocked', reason: error.message } };
+  }
+
+  if (error instanceof OutboundLimitReachedError) {
+    return {
+      kind: 'failed',
+      fact: { kind: 'over-outbound-limit', perSecond: error.perSecond },
+    };
   }
 
   if (error instanceof UpstreamError) {

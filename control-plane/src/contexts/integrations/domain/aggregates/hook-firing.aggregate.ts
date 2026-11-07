@@ -4,20 +4,25 @@ import {
   loopStopFor,
   RECENT_MS,
 } from '@integrations/domain/services/loop-guard';
-import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
-import {
-  HookFailure,
-  type HookFailureCode,
-} from '@integrations/domain/value-objects/hook-failure.vo';
-import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
-import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
-import { EventRecorder } from '@shared-kernel/domain/event-recorder';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type {
   CausalChain,
   CauseLink,
-} from '@shared-kernel/domain/value-objects/causal-chain.vo';
+} from '@integrations/domain/value-objects/causal-chain.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
+import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import {
+  HookEvent,
+  type HookEventName,
+} from '@integrations/domain/value-objects/hook-event.vo';
+import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import type {
+  HookStepOutcome,
+  WaitingHookStep,
+} from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -26,25 +31,11 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export type HookStepOutcome =
-  | {
-      readonly name: string;
-      readonly status: 'done';
-      readonly output: unknown;
-    }
-  | {
-      readonly name: string;
-      readonly status: 'failed';
-      readonly code: HookFailureCode;
-      readonly reason: string;
-      readonly output: unknown;
-    }
-  | {
-      readonly name: string;
-      readonly status: 'waiting';
-      readonly call: string;
-      readonly until: Date;
-    };
+export interface NextHookStep {
+  readonly name: string;
+  readonly earlier: readonly HookStepOutcome[];
+  readonly resuming: WaitingHookStep | null;
+}
 
 export type HookFiringProgress =
   | { readonly kind: 'pending'; readonly dueAt: Date }
@@ -106,6 +97,20 @@ const frozenEvent = (
   event: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> => deepFrozen(structuredClone(event));
 
+const impossibleTrail = (steps: readonly HookStepOutcome[]): string | null => {
+  const names = new Set(steps.map((step) => step.name));
+
+  if (names.size !== steps.length) {
+    return 'takes a step twice';
+  }
+
+  const unfinished = steps.slice(0, -1).find((step) => step.status !== 'done');
+
+  return unfinished
+    ? `took a step after ${unfinished.name} ended ${unfinished.status}`
+    : null;
+};
+
 const isLoop = (failure: HookFailure | null): failure is HookFailure =>
   failure?.code === 'loop';
 
@@ -141,6 +146,15 @@ export class HookFiring extends EventRecorder {
       throw new InconsistentStateError(
         'hook firing',
         `was attempted ${state.attempts} times`,
+      );
+    }
+
+    const trail = impossibleTrail(state.steps);
+
+    if (trail) {
+      throw new InconsistentStateError(
+        'hook firing',
+        `${trail} (${state.id.value})`,
       );
     }
 
@@ -288,7 +302,10 @@ export class HookFiring extends EventRecorder {
     readonly repository: Repository;
     readonly pullRequest: PullRequestUrl;
   } | null {
-    if (this.state.matched || this.state.on !== 'pull-request.merged') {
+    if (
+      this.state.matched ||
+      !HookEvent.of(this.state.on).matchedAfterChanges
+    ) {
       return null;
     }
 
@@ -324,10 +341,64 @@ export class HookFiring extends EventRecorder {
     return this.with({ progress: { kind: 'working', claimedAt: now } });
   }
 
-  recordStep(steps: readonly HookStepOutcome[]): HookFiring {
+  nextStepOf(hook: Hook): NextHookStep | null {
+    const taken = new Map(this.state.steps.map((step) => [step.name, step]));
+    const earlier: HookStepOutcome[] = [];
+
+    for (const { name } of hook.steps) {
+      const before = taken.get(name);
+
+      if (before?.status === 'done') {
+        earlier.push(before);
+        continue;
+      }
+
+      return {
+        name,
+        earlier,
+        resuming: before?.status === 'waiting' ? before : null,
+      };
+    }
+
+    return null;
+  }
+
+  stepTaken(hook: Hook, outcome: HookStepOutcome, now: Date): HookFiring {
     this.guardWorking('take a step');
 
-    return this.with({ steps: steps.map((each) => ({ ...each })) });
+    const next = this.nextStepOf(hook);
+
+    if (next === null || next.name !== outcome.name) {
+      throw new InvalidHookFiringTransitionError(
+        `cannot take step ${outcome.name} now${next ? `. Step ${next.name} comes first` : '. Every step is done'}`,
+      );
+    }
+
+    if (
+      next.resuming !== null &&
+      outcome.status === 'waiting' &&
+      outcome.call !== next.resuming.call
+    ) {
+      throw new InvalidHookFiringTransitionError(
+        `cannot wait on a second call at step ${outcome.name}`,
+      );
+    }
+
+    const steps = [
+      ...next.earlier,
+      { ...outcome },
+      ...(outcome.status === 'done' ? this.doneAfter(hook, outcome.name) : []),
+    ];
+
+    return outcome.status === 'waiting'
+      ? this.with({
+          steps,
+          progress: {
+            kind: 'pending',
+            dueAt: new Date(now.getTime() + WAIT_AGAIN_MS),
+          },
+        })
+      : this.with({ steps });
   }
 
   recordMatch(event: Readonly<Record<string, unknown>>): HookFiring {
@@ -338,17 +409,6 @@ export class HookFiring extends EventRecorder {
     }
 
     return this.with({ event: frozenEvent(event), matched: true });
-  }
-
-  waitedOn(now: Date): HookFiring {
-    this.guardWorking('wait');
-
-    return this.with({
-      progress: {
-        kind: 'pending',
-        dueAt: new Date(now.getTime() + WAIT_AGAIN_MS),
-      },
-    });
   }
 
   hookBroken(hook: string, reason: string, now: Date): HookFiring {
@@ -476,6 +536,17 @@ export class HookFiring extends EventRecorder {
     purged.inheritEvents(this);
 
     return purged;
+  }
+
+  private doneAfter(hook: Hook, step: string): HookStepOutcome[] {
+    const names = hook.steps.map((each) => each.name);
+    const taken = new Map(this.state.steps.map((each) => [each.name, each]));
+
+    return names.slice(names.indexOf(step) + 1).flatMap((name) => {
+      const before = taken.get(name);
+
+      return before?.status === 'done' ? [before] : [];
+    });
   }
 
   private retryOf(

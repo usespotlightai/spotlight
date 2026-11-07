@@ -6,9 +6,12 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
-import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
+import {
+  InjectedCallCredentials,
+  SpotlightCredentials,
+  SpotlightSigningSecrets,
+} from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type {
@@ -170,5 +173,6 @@ export const callAuthFor = (
     } satisfies TeamDirectoryPort,
     { inWorkspaceOfTeam: async () => null } as unknown as WorkspaceAccessPort,
     injection,
+    new InjectedCallCredentials(injection),
     { afterUnauthorized: async () => null } as unknown as ConnectionRefresh,
   );

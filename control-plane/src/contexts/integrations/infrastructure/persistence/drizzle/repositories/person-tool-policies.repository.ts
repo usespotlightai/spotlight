@@ -47,23 +47,6 @@ export class DrizzlePersonToolPolicies implements PersonToolPolicyRepository {
     return found ? rehydrate(found) : null;
   }
 
-  async ofPerson(
-    teamId: TeamId,
-    personId: UserId,
-  ): Promise<readonly PersonToolPolicy[]> {
-    const rows = await this.context.db
-      .select()
-      .from(personToolPolicy)
-      .where(
-        and(
-          eq(personToolPolicy.teamId, teamId.value),
-          eq(personToolPolicy.personId, personId.value),
-        ),
-      );
-
-    return rows.map(rehydrate);
-  }
-
   async save(policy: PersonToolPolicy): Promise<void> {
     const rules = Object.fromEntries(
       policy.rules.map((each) => [each.tool.value, each.rule.name]),

@@ -1,6 +1,6 @@
 import type {
+  LinkedTaskView,
   TasksForHooksPort,
-  TaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import { TaskViewMapper } from '@integrations/infrastructure/acl/task-view.mapper';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -12,7 +12,10 @@ import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 export class TasksForHooks implements TasksForHooksPort {
   constructor(private readonly tasks: TaskViewsPort) {}
 
-  async of(taskId: TaskId, runId: RunId | null): Promise<TaskView | null> {
+  async of(
+    taskId: TaskId,
+    runId: RunId | null,
+  ): Promise<LinkedTaskView | null> {
     const task = await this.tasks.of(taskId.value, runId?.value ?? null);
 
     return task ? TaskViewMapper.toView(task) : null;
@@ -21,7 +24,7 @@ export class TasksForHooks implements TasksForHooksPort {
   async ofPullRequest(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
-  ): Promise<TaskView | null> {
+  ): Promise<LinkedTaskView | null> {
     const task = await this.tasks.ofPullRequest(
       workspaceId.value,
       pullRequest.value,

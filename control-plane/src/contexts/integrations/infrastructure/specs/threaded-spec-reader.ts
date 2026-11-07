@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { extname, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import type {
   SpecRead,
@@ -9,7 +10,6 @@ import type {
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import {
   type ReadOperations,
   SpecUnreadable,

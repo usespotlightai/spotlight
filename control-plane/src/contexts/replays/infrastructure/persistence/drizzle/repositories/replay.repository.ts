@@ -3,17 +3,19 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   codeOf,
   UNIQUE_VIOLATION,
+  violates,
 } from '@platform/persistence/drizzle/violations';
-import {
-  PAIRING_STATE,
-  Replay,
-} from '@replays/domain/aggregates/replay.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
+import { DispatchSlotTakenError } from '@replays/domain/exceptions/dispatch-slot-taken.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
-import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
+import {
+  EntryJudging,
+  unjudgedOf,
+} from '@replays/domain/value-objects/entry-judging.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
 import {
   EntryPairing,
@@ -29,7 +31,9 @@ import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { DISPATCHING_REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
+import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
+import { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { isUnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
@@ -55,7 +59,18 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, exists, inArray, or, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  inArray,
+  isNotNull,
+  lte,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 type ReplayRow = typeof replay.$inferSelect;
 
@@ -152,7 +167,7 @@ const judgingOf = (stored: StoredEntryJudging | null): EntryJudging | null => {
   }
 
   return stored.unjudged
-    ? EntryJudging.failed(stored.unjudged)
+    ? EntryJudging.failed(unjudgedOf(stored.unjudged))
     : EntryJudging.requested();
 };
 
@@ -258,8 +273,8 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
     baseline: row.baseline,
     judges: row.judges,
     checked: row.checked,
-    rubricVersion: row.rubricVersion,
-    scoringHash: row.scoringHash,
+    rubricVersion: RubricVersion.optional(row.rubricVersion),
+    scoringHash: ScoringHash.of(row.scoringHash),
     ceiling: Money.ceiling(row.ceilingAmount, row.ceilingCurrency),
     unpricedRate:
       row.unpricedRate === null
@@ -296,7 +311,7 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
 
 const entryRow = (replay: Replay, entry: ReplayEntry) => ({
   replayId: replay.id.value,
-  pool: replay.dispatchPool,
+  pool: replay.dispatchPool.value,
   slot: entry.slot,
   position: entry.position,
   originalRunId: entry.original.value,
@@ -386,6 +401,38 @@ export class DrizzleReplayRepository implements ReplayRepository {
     return this.withEntries(eq(replay.setId, setId.value));
   }
 
+  async healthSamplesOfSets(
+    setIds: readonly ReplaySetId[],
+    perGroup: number,
+  ): Promise<readonly Replay[]> {
+    if (setIds.length === 0) {
+      return [];
+    }
+
+    const ranked = this.context.db
+      .select({
+        id: replay.id,
+        place:
+          sql<number>`row_number() over (partition by ${replay.setId}, ${replay.healthSampleGroup} order by ${replay.sampledAt} desc, ${replay.id} desc)`.as(
+            'place',
+          ),
+      })
+      .from(replay)
+      .where(
+        and(
+          inArray(replay.setId, [...new Set(setIds.map((each) => each.value))]),
+          isNotNull(replay.healthSampleGroup),
+        ),
+      )
+      .as('ranked');
+    const rows = await this.context.db
+      .select({ id: ranked.id })
+      .from(ranked)
+      .where(lte(ranked.place, perGroup));
+
+    return this.findMany(rows.map((each) => ReplayId.of(each.id)));
+  }
+
   async pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]> {
     const rows = await this.context.db
       .select({ id: replay.id })
@@ -393,7 +440,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .where(
         and(
           eq(replay.pairwiseReferenceId, replayId.value),
-          eq(replay.state, PAIRING_STATE),
+          eq(replay.takesPairings, true),
         ),
       );
 
@@ -502,7 +549,9 @@ export class DrizzleReplayRepository implements ReplayRepository {
       liveCandidate: aggregate.liveCandidate,
       baseline: aggregate.baseline,
       servesAsBaseline: aggregate.servesAsBaseline,
-      healthSample: aggregate.isHealthSample,
+      takesPairings: aggregate.takesPairings,
+      healthSampleGroup: aggregate.healthSampleGroup,
+      sampledAt: aggregate.sampledAt,
       judges: aggregate.judges,
       checked: aggregate.checked,
       rubricVersion: aggregate.rubricVersion,
@@ -539,6 +588,9 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .insert(replayEntry)
       .values(aggregate.entries.map((each) => entryRow(aggregate, each)))
       .catch((error: unknown) => {
+        if (violates(error, UNIQUE_VIOLATION, 'replay_entry_slot_idx')) {
+          throw new DispatchSlotTakenError(aggregate.dispatchPool);
+        }
         if (codeOf(error) === UNIQUE_VIOLATION) {
           throw new ReplayVersionConflictError(aggregate.id.value);
         }

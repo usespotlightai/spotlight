@@ -8,6 +8,8 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
+import { RunFacts } from '@work/application/services/run-facts.service';
+import { Runs } from '@work/application/services/runs.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
@@ -52,13 +54,14 @@ const stopping = (run: Run, task: Task | null) => {
   const save = vi.fn(async (saved: Run) => {
     await dispatch(saved.pullEvents());
   });
+  const runs = {
+    findById: vi.fn(async () => run),
+    save,
+  } as unknown as RunRepository;
   const handler = new StopRunHandler(
-    {
-      findById: vi.fn(async () => run),
-      save,
-    } as unknown as RunRepository,
+    new Runs(runs, { sha256: (text) => text }, { now: () => NOW } as ClockPort),
+    new RunFacts(runs),
     { find: vi.fn(async () => task) } as unknown as TaskRepository,
-    { now: () => NOW } as ClockPort,
   );
 
   return { handler, save, dispatch };

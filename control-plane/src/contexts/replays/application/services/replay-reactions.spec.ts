@@ -95,7 +95,7 @@ const handedTheAnswer = (oracle: Candidate) => {
   const replay = Replay.start({
     id: ReplayId.of('replay_oracle'),
     set: aSet(3).snapshot,
-    candidate: oracle,
+    candidate: oracle.asReplayed,
     baseline: false,
     ceiling: Money.ceiling(10, 'USD'),
     at: NOW,
@@ -105,7 +105,7 @@ const handedTheAnswer = (oracle: Candidate) => {
         { run: RunId.of('original_0'), answer: 'accepted' },
         { run: RunId.of('original_1'), answer: 'sent-back' },
       ],
-      live: candidateOf('live'),
+      live: candidateOf('live').asReplayed,
       against: concludedAll(
         aReplay({
           id: 'replay_live',
@@ -512,7 +512,7 @@ describe('DeleteReplays', () => {
     await deleting().candidatesOfTeam(set.teamId);
 
     expect(memory.events.map((each) => each.kind)).toEqual([
-      'replays.replay-set-deleted',
+      'replay-set.deleted',
     ]);
     expect(memory.sets.size).toBe(0);
     expect(memory.candidates.size).toBe(0);
@@ -530,8 +530,8 @@ describe('DeleteReplays', () => {
     await deleting().replaysOfSet(set.id);
 
     expect(memory.events.map((each) => each.kind)).toEqual([
-      'replays.replay-stopped',
-      'replays.replay-ended',
+      'replay.stopped',
+      'replay.ended',
     ]);
     expect(memory.replays.size).toBe(0);
   });
@@ -650,7 +650,7 @@ describe('scoring a replayed task', () => {
     await completed(run);
     const wanted = memory.events.find(
       (each): each is ReplayJudgingRequested =>
-        each.kind === 'replays.replay-judging-requested',
+        each.kind === 'replay.judging-requested',
     );
     if (!wanted) {
       throw new Error('no judging was wanted');
@@ -676,7 +676,7 @@ describe('scoring a replayed task', () => {
     await completed(run);
     await requestingJudging().requested(
       memory.events.find(
-        (each) => each.kind === 'replays.replay-judging-requested',
+        (each) => each.kind === 'replay.judging-requested',
       ) as ReplayJudgingRequested,
     );
 
@@ -690,7 +690,7 @@ describe('scoring a replayed task', () => {
     await completed(run);
     await requestingJudging().requested(
       memory.events.find(
-        (each) => each.kind === 'replays.replay-judging-requested',
+        (each) => each.kind === 'replay.judging-requested',
       ) as ReplayJudgingRequested,
     );
     await new RecordReplayRunUsage(
@@ -866,7 +866,7 @@ describe('probing a set', () => {
     await judgedOnceEach(['calibration_run_0', 'calibration_run_1']);
 
     for (const event of wanted<ReplayRejudgingRequested>(
-      'replays.replay-rejudging-requested',
+      'replay.rejudging-requested',
     )) {
       await rejudging().requested(event);
     }
@@ -888,7 +888,7 @@ describe('probing a set', () => {
     judge.available = false;
 
     const [first] = wanted<ReplayRejudgingRequested>(
-      'replays.replay-rejudging-requested',
+      'replay.rejudging-requested',
     );
     await rejudging().requested(first as ReplayRejudgingRequested);
 
@@ -937,7 +937,7 @@ describe('probing a set', () => {
   it('requests Change Review to check each stack of each checked run again, one at a time, and reads what it found', async () => {
     await calibrated();
     for (const event of wanted<ReplayRecheckRequested>(
-      'replays.replay-recheck-requested',
+      'replay.recheck-requested',
     )) {
       await rechecking().requested(event);
     }
@@ -966,9 +966,7 @@ describe('probing a set', () => {
     await calibrated();
     changes.recheckableStacks = [];
 
-    const [first] = wanted<ReplayRecheckRequested>(
-      'replays.replay-recheck-requested',
-    );
+    const [first] = wanted<ReplayRecheckRequested>('replay.recheck-requested');
     await rechecking().requested(first as ReplayRecheckRequested);
 
     expect(entries()[0]?.recheck?.state).toBe('absent');

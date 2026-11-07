@@ -1,5 +1,5 @@
 import { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
-import type { ReviewOutboxPort } from '@change-review/application/ports/review-outbox.port';
+import type { ReviewDeliveriesPort } from '@change-review/application/ports/review-deliveries.port';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
 import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
@@ -28,6 +28,7 @@ const checkOf = (stack: string) =>
     stackId: ChangeStackId.of(stack),
     runId: RunId.of('run_1'),
     taskId: TASK,
+    teamId: null,
     replay: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
@@ -75,7 +76,7 @@ const deleting = (found: {
     sets,
     dropTask,
     reactions: new TaskDeletionReactions(
-      { dropTask } as unknown as ReviewOutboxPort,
+      { dropTask } as unknown as ReviewDeliveriesPort,
       reviews.repository as unknown as ReviewRepository,
       comments.repository as unknown as ReviewCommentRepository,
       checks.repository as unknown as StackCheckRepository,

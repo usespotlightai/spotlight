@@ -9,7 +9,7 @@ import type { StationAlertStateRepository } from '@insights/domain/repositories/
 import type { TaskChangeShapeRepository } from '@insights/domain/repositories/task-change-shape.repository';
 import type { TaskFailuresRepository } from '@insights/domain/repositories/task-failures.repository';
 import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
-import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
 const AT_ONCE = 200;
@@ -64,6 +64,8 @@ export class DeleteInsights {
       this.repositories.humanActions,
       () => null,
       (humanActions) => humanActions.erased(),
+      (humanActions) =>
+        DeletionScope.taskDeletedWith(scope, humanActions.taskId),
     );
   }
 
@@ -99,36 +101,46 @@ export class DeleteInsights {
     return this.eraseNoted(scope, this.repositories.chats);
   }
 
-  private erase<A>(
+  private async erase<A>(
     scope: DeletionScope,
     aggregates: ErasedAggregates<A>,
     erasing: (aggregate: A) => A | null = () => null,
     removed: (aggregate: A) => A = (aggregate) => aggregate,
+    deletedWith: (aggregate: A) => DeletionScope | null = () => null,
   ): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      await this.deletions.markDeleted(scope);
+    await this.transaction.inTransaction(() =>
+      this.deletions.markDeleted(scope),
+    );
 
-      for (;;) {
-        const found = await aggregates.ofScope(scope, AT_ONCE);
-        let changed = false;
+    for (;;) {
+      const found = await aggregates.ofScope(scope, AT_ONCE);
+      let changed = false;
 
-        for (const aggregate of found) {
-          const erased = erasing(aggregate);
+      for (const aggregate of found) {
+        const erased = erasing(aggregate);
 
-          if (erased === null) {
+        if (erased === null) {
+          const deleted = deletedWith(aggregate);
+
+          await this.transaction.inTransaction(async () => {
+            if (deleted) {
+              await this.deletions.markDeleted(deleted);
+            }
             await aggregates.remove(removed(aggregate));
-            changed = true;
-          } else if (erased !== aggregate && aggregates.save) {
-            await aggregates.save(erased);
-            changed = true;
-          }
-        }
-
-        if (found.length < AT_ONCE || !changed) {
-          return;
+          });
+          changed = true;
+        } else if (erased !== aggregate && aggregates.save) {
+          await this.transaction.inTransaction(async () => {
+            await aggregates.save?.(erased);
+          });
+          changed = true;
         }
       }
-    });
+
+      if (found.length < AT_ONCE || !changed) {
+        return;
+      }
+    }
   }
 
   private eraseNoted(

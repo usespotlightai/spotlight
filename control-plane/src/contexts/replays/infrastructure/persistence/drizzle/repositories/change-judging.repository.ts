@@ -133,11 +133,16 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
 
   async save(saved: ChangeJudging): Promise<void> {
     await this.context.inTransaction(async () => {
-      const written = await this.context.db
-        .update(changeJudging)
-        .set({ version: saved.version + 1, ...columnsOf(saved) })
-        .where(keyOf(saved))
-        .returning({ runId: changeJudging.runId });
+      const written = saved.isDeleted
+        ? await this.context.db
+            .delete(changeJudging)
+            .where(keyOf(saved))
+            .returning({ runId: changeJudging.runId })
+        : await this.context.db
+            .update(changeJudging)
+            .set({ version: saved.version + 1, ...columnsOf(saved) })
+            .where(keyOf(saved))
+            .returning({ runId: changeJudging.runId });
 
       if (written.length === 0) {
         throw new ChangeJudgingVersionConflictError(saved.runId.value);
@@ -145,17 +150,6 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
 
       await this.events.dispatch(saved.pullEvents());
     });
-  }
-
-  async remove(removed: ChangeJudging): Promise<void> {
-    const gone = await this.context.db
-      .delete(changeJudging)
-      .where(keyOf(removed))
-      .returning({ runId: changeJudging.runId });
-
-    if (gone.length === 0) {
-      throw new ChangeJudgingVersionConflictError(removed.runId.value);
-    }
   }
 
   async of(

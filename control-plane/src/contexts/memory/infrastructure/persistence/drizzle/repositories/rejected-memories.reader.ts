@@ -2,6 +2,8 @@ import type {
   RejectedMemoriesPort,
   RejectedMemory,
 } from '@memory/application/ports/rejected-memories.port';
+import { MemoryBody } from '@memory/domain/value-objects/memory-body';
+import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { memoryProposal } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
@@ -37,9 +39,9 @@ export class DrizzleRejectedMemories implements RejectedMemoriesPort {
       row.decidedAt
         ? [
             {
-              id: row.id,
+              id: MemoryId.of(row.id),
               kind: row.kind,
-              body: row.body,
+              body: MemoryBody.of(row.body),
               scope: MemoryScope.of({
                 teamId: TeamId.of(row.teamId),
                 lineId: row.lineId === null ? null : LineId.of(row.lineId),

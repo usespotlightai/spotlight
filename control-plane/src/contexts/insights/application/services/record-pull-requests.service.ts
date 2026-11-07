@@ -2,7 +2,10 @@ import type { FactRecorder } from '@insights/application/services/fact-recorder.
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
-import { type SeenPullRequestFields } from '@insights/domain/value-objects/seen-pull-request.vo';
+import {
+  type ObservedPullRequest,
+  SeenPullRequest,
+} from '@insights/domain/value-objects/seen-pull-request.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -17,7 +20,7 @@ interface PullRequestAt {
 export interface PullRequestSeen {
   readonly workspaceId: WorkspaceId;
   readonly pullRequest: PullRequestUrl;
-  readonly seen: SeenPullRequestFields;
+  readonly observed: ObservedPullRequest;
 }
 
 export interface PullRequestPurgedByGitHub {
@@ -48,7 +51,9 @@ export class RecordPullRequests {
   ) {}
 
   seen(seen: PullRequestSeen): Promise<void> {
-    return this.changing(seen, null, (record) => record.seenAs(seen.seen));
+    const observed = SeenPullRequest.observed(seen.observed);
+
+    return this.changing(seen, null, (record) => record.seenAs(observed));
   }
 
   purgedByGitHub(purged: PullRequestPurgedByGitHub): Promise<void> {

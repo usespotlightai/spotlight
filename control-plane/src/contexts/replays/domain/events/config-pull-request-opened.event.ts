@@ -7,7 +7,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ConfigPullRequestOpened implements DomainEvent {
-  readonly kind = 'replays.config-pull-request-opened';
+  readonly kind = 'config-pull-request.opened';
 
   constructor(
     readonly pullRequestId: ConfigPullRequestId,

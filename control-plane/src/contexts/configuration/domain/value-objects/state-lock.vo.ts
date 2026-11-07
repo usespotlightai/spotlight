@@ -1,24 +1,28 @@
 import type { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
-import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
+import type { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
 
-export type LockInfo = Readonly<Record<string, unknown>>;
+export type LockAsWritten = Readonly<Record<string, unknown>>;
 
 export class StateLock {
   private constructor(
     readonly id: StateLockId,
-    readonly info: LockInfo,
+    readonly operation: string | null,
+    readonly asWritten: LockAsWritten,
     readonly lockedBy: PrincipalRef,
     readonly lockedAt: Date,
   ) {}
 
   static of(input: {
-    info: unknown;
+    id: StateLockId;
+    operation: string | null;
+    asWritten: LockAsWritten;
     lockedBy: PrincipalRef;
     lockedAt: Date;
   }): StateLock {
     return new StateLock(
-      StateLockId.in(input.info),
-      input.info as LockInfo,
+      input.id,
+      input.operation,
+      { ...input.asWritten },
       input.lockedBy,
       input.lockedAt,
     );

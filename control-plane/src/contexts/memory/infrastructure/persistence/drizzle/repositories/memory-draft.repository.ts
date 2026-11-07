@@ -1,5 +1,6 @@
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
+import { MemoryDraftAlreadyOpenError } from '@memory/domain/exceptions/memory-draft-already-open.error';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -182,7 +183,7 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
         .returning({ id: memoryDraft.id });
 
       if (written.length === 0) {
-        throw new MemoryDraftVersionConflictError(added.id.value);
+        throw new MemoryDraftAlreadyOpenError(added.taskId.value);
       }
 
       await this.proposalsReplaced(added);

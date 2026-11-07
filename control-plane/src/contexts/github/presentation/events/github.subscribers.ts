@@ -27,6 +27,7 @@ export const githubSubscribers = (
     async (event) => {
       await sync.uninstalled(event.workspaceId);
     },
+    { callsOut: true },
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'github.disconnect-deleted-workspace',
@@ -39,5 +40,6 @@ export const githubSubscribers = (
     async (event) => {
       await sync.uninstalled(WorkspaceId.of(event.workspaceId));
     },
+    { callsOut: true },
   ),
 ];

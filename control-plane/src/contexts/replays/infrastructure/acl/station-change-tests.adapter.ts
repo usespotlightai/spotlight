@@ -1,7 +1,7 @@
 import type {
   StationChangeTestOutcome as ReplaysOutcome,
   StationChangeRefusal as ReplaysRefusal,
-} from '@replays/application/services/station-change-test';
+} from '@replays/application/contracts/station-change-tests.contract';
 import type { StationChangeTests } from '@replays/application/services/station-change-tests.service';
 import type {
   StationChangeRefusal,

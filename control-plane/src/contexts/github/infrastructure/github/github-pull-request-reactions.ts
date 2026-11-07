@@ -4,8 +4,8 @@ import type {
   ReactedTo,
 } from '@github/application/ports/pull-request-reactions.port';
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
-import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
 
 const API = 'https://api.github.com';
 

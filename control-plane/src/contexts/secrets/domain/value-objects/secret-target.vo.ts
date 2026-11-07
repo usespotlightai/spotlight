@@ -2,7 +2,7 @@ import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.er
 import {
   SECRET_LOCATIONS,
   type SecretLocation,
-} from '@shared-kernel/domain/value-objects/secret-locations';
+} from '@secrets/domain/value-objects/secret-location.vo';
 
 const HEADER = /^[!#$%&'*+.^_`|~0-9a-z-]{1,128}$/;
 

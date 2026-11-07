@@ -261,7 +261,7 @@ export class PullRequestRecord extends EventRecorder {
     return erased;
   }
 
-  withoutTask(taskId: TaskId): PullRequestRecord | null {
+  private withoutTask(taskId: TaskId): PullRequestRecord | null {
     const owned = this.owner?.taskId.equals(taskId) ?? false;
     const reviewed = this.reviewTasks.some((each) => each.equals(taskId));
 
@@ -278,7 +278,7 @@ export class PullRequestRecord extends EventRecorder {
     );
   }
 
-  withoutTeam(teamId: TeamId): PullRequestRecord | null {
+  private withoutTeam(teamId: TeamId): PullRequestRecord | null {
     if (!this.owner?.teamId.equals(teamId)) {
       return this;
     }

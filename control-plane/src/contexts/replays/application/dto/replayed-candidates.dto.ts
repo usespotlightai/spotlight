@@ -5,7 +5,7 @@ import type {
   SetHealthDto,
   StationChangeDto,
 } from '@replays/application/dto/replays.dto';
-import type { ChartStatus } from '@replays/domain/services/replayed-chart';
+import type { ChartStatus } from '@replays/application/queries/views/replayed-chart';
 import type { ShownOverLive } from '@replays/domain/services/shown-over-live';
 import type { ReplayedPeriodName } from '@replays/domain/value-objects/replayed-period.vo';
 

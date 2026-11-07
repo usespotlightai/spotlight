@@ -4,3 +4,8 @@ export type JudgingAttempt = (typeof JUDGING_ATTEMPTS)[number];
 
 export const isJudgingAttempt = (value: number): value is JudgingAttempt =>
   (JUDGING_ATTEMPTS as readonly number[]).includes(value);
+
+export type JudgingPurpose = 'original' | 'calibration';
+
+export const judgingPurposeOf = (attempt: JudgingAttempt): JudgingPurpose =>
+  attempt === 1 ? 'original' : 'calibration';

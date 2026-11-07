@@ -29,6 +29,7 @@ import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-r
 import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
+import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
@@ -393,7 +394,7 @@ const settingUp = ({
     definitions as unknown as DefinedIntegrationsPort,
     runtime,
     clock,
-    () => new Promise((resolve) => setTimeout(resolve, 1)),
+    { for: () => new Promise((resolve) => setTimeout(resolve, 1)) },
   );
   const tools = integrationToolCalls(
     definitions as unknown as DefinedIntegrationsPort,
@@ -405,6 +406,7 @@ const settingUp = ({
         inWorkspaceOfTeam: async () => ({}) as TeamWorkspaceMembership,
       } as unknown as WorkspaceAccessPort,
       injecting().injection,
+      new InjectedCallCredentials(injecting().injection),
       connectionRefresh,
     ),
     inferringInto(),

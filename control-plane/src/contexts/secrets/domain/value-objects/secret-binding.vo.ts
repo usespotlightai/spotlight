@@ -1,17 +1,56 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { BoundHost } from '@secrets/domain/value-objects/bound-host.vo';
+import type { SecretLocation } from '@secrets/domain/value-objects/secret-location.vo';
 import { SecretTarget } from '@secrets/domain/value-objects/secret-target.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
-import type { SecretLocation } from '@shared-kernel/domain/value-objects/secret-locations';
+import {
+  SECRET,
+  type Secret,
+} from '@shared-kernel/domain/value-objects/secret';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 const PREFIX = /^[\x20-\x7e]{0,64}$/;
 
-export interface InjectedSecret {
-  readonly location: SecretLocation;
-  readonly name: string;
-  readonly value: string;
-  readonly bare: string;
+const REDACTED = '[secret]';
+
+export class InjectedSecret implements Secret {
+  readonly #value: string;
+
+  readonly #bare: string;
+
+  constructor(
+    readonly location: SecretLocation,
+    readonly name: string,
+    value: string,
+    bare: string,
+  ) {
+    this.#value = value;
+    this.#bare = bare;
+  }
+
+  get [SECRET](): true {
+    return true;
+  }
+
+  revealedValue(): string {
+    return this.#value;
+  }
+
+  revealedBare(): string {
+    return this.#bare;
+  }
+
+  toString(): string {
+    return REDACTED;
+  }
+
+  toJSON(): string {
+    return REDACTED;
+  }
+
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return `InjectedSecret ${REDACTED}`;
+  }
 }
 
 export class SecretBinding {
@@ -54,12 +93,12 @@ export class SecretBinding {
   }
 
   private injected(bare: string): InjectedSecret {
-    return {
-      location: this.target.location,
-      name: this.target.name,
-      value: `${this.prefix}${bare}`,
+    return new InjectedSecret(
+      this.target.location,
+      this.target.name,
+      `${this.prefix}${bare}`,
       bare,
-    };
+    );
   }
 
   equals(other: SecretBinding): boolean {

@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type {
@@ -29,7 +30,6 @@ import {
 } from '@integrations/infrastructure/integrations/oauth2-state';
 import { returnPathOf } from '@integrations/infrastructure/integrations/return-to';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const NONCE_BYTES = 32;
@@ -229,9 +229,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     }
 
     const team = await this.teams.find(TeamId.of(teamId));
-    const slug = team
-      ? await this.workspaces.slugOf(team.workspaceId.value)
-      : null;
+    const slug = team ? await this.workspaces.slugOf(team.workspaceId) : null;
 
     const where = slug
       ? `${this.base}/w/${slug}/settings/team/${teamId}/integrations`

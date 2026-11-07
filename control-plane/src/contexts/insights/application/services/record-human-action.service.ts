@@ -57,12 +57,14 @@ export class RecordHumanAction {
       this.recorder.record(this.records, {
         owner,
         erased: (existing) => existing.erased(),
-        load: () =>
+        load: async () =>
           afterRunId
             ? this.records.of(afterRunId)
-            : this.records.lastEndedOfTaskAt(
-                taskId,
-                StationId.of(event.stationId),
+            : RunRecord.creditedWithActionAt(
+                await this.records.ofTaskAt(
+                  taskId,
+                  StationId.of(event.stationId),
+                ),
                 action.at,
               ),
         ownerOf: (existing) => owner.withTeam(existing.end?.location.teamId),

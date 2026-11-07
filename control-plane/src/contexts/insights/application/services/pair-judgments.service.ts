@@ -3,6 +3,7 @@ import type { EvidencePort } from '@insights/application/ports/evidence.port';
 import type {
   PairJudgment,
   PairJudgmentOrder,
+  PairJudgmentOrderKind,
   PairJudgmentsPort,
 } from '@insights/application/ports/pair-judgments.port';
 import type { SideBySideJudgePort } from '@insights/application/ports/side-by-side-judge.port';
@@ -11,8 +12,14 @@ import {
   type PairShown,
 } from '@insights/domain/services/grounded-pair';
 import { PairEvidence } from '@insights/domain/services/pair-evidence';
+import type { PairOrder } from '@insights/domain/value-objects/pair-order';
 import type { JudgingFailureCode } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
+
+const ORDER_OF: Readonly<Record<PairJudgmentOrderKind, PairOrder>> = {
+  'run-first': 'run-first',
+  'other-first': 'other-first',
+};
 
 const unjudged = (
   failure: JudgingFailureCode,
@@ -48,7 +55,7 @@ export class PairJudgments implements PairJudgmentsPort {
       PairEvidence.of({
         run: { run: order.runId, hunks: run.hunks },
         other: { run: order.otherRunId, hunks: other.hunks },
-        order: each,
+        order: ORDER_OF[each],
         title: run.title,
         description: run.description,
         reference: reference.hunks,

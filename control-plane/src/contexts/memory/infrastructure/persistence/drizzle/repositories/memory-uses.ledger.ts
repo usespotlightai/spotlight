@@ -1,5 +1,5 @@
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
-import type { RecordedMemoryUses } from '@memory/domain/entities/recorded-memory-uses.entity';
+import type { MemoryUses } from '@memory/domain/entities/memory-uses.entity';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryUse } from '@memory/domain/value-objects/memory-use';
 import { memoryUse } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
@@ -20,20 +20,27 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async record(uses: RecordedMemoryUses): Promise<void> {
+  async record(uses: MemoryUses): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.context.db
+      const inserted = await this.context.db
         .insert(memoryUse)
         .values(
           uses.memories.map((each) => ({
             memoryId: each.value,
-            runId: uses.runId.value,
+            runId: uses.run.id.value,
             via: uses.via,
             at: uses.at,
           })),
         )
-        .onConflictDoNothing();
-      await this.events.dispatch(uses.pullEvents());
+        .onConflictDoNothing()
+        .returning({ memoryId: memoryUse.memoryId });
+      const used = uses.usedFirst(
+        inserted.map((row) => MemoryId.of(row.memoryId)),
+      );
+
+      if (used) {
+        await this.events.dispatch([used]);
+      }
     });
   }
 

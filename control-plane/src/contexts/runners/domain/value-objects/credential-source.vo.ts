@@ -1,6 +1,6 @@
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 
 export type CredentialSourceKind = 'pool' | 'trust';
 
@@ -10,15 +10,15 @@ export class CredentialSource {
     readonly id: string,
   ) {}
 
-  static ofId(id: RunnerPoolId | RunnerTrustId): CredentialSource {
-    return id instanceof RunnerPoolId
+  static ofId(id: PoolId | RunnerTrustId): CredentialSource {
+    return id instanceof PoolId
       ? new CredentialSource('pool', id.value)
       : new CredentialSource('trust', id.value);
   }
 
   static of(kind: string, id: string): CredentialSource {
     if (kind === 'pool') {
-      return CredentialSource.ofId(RunnerPoolId.of(id));
+      return CredentialSource.ofId(PoolId.of(id));
     }
     if (kind === 'trust') {
       return CredentialSource.ofId(RunnerTrustId.of(id));
@@ -30,8 +30,8 @@ export class CredentialSource {
     );
   }
 
-  get poolId(): RunnerPoolId | null {
-    return this.kind === 'pool' ? RunnerPoolId.of(this.id) : null;
+  get poolId(): PoolId | null {
+    return this.kind === 'pool' ? PoolId.of(this.id) : null;
   }
 
   get trustId(): RunnerTrustId | null {

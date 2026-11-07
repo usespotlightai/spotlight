@@ -6,7 +6,7 @@ import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/co
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class IntegrationDeleted implements ConfigurationChanged {
-  readonly kind = 'integrations.integration-deleted';
+  readonly kind = 'integration.deleted';
 
   constructor(
     readonly id: IntegrationDefinitionId,

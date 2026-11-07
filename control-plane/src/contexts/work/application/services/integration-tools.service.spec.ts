@@ -12,12 +12,11 @@ import { IntegrationTools } from '@work/application/services/integration-tools.s
 import type { RunWorks } from '@work/application/services/run-works.service';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const RUN = RunId.of('run_1');
-const ATTEMPT = RunAttempt.of(RUN, 2);
+const ATTEMPT = { runId: RUN, attempt: 2 };
 
 const CONTEXT: TaskToolContext = {
   kind: 'task',
@@ -33,7 +32,7 @@ const resolving = (options: { movedOn?: boolean } = {}) => {
   const stillOn = vi.fn(async () => {
     steps.push('still on');
     if (options.movedOn) {
-      throw new RunAttemptOverError(RUN.value, ATTEMPT.number);
+      throw new RunAttemptOverError(RUN.value, ATTEMPT.attempt);
     }
   });
   const calls: IntegrationToolCallsPort = {

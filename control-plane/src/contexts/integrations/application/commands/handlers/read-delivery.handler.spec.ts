@@ -1,19 +1,21 @@
 import { ReadDeliveryHandler } from '@integrations/application/commands/handlers/read-delivery.handler';
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
 import type { ReceivedDelivery } from '@integrations/application/dto/received-delivery.dto';
+import { causationInMemory } from '@integrations/application/ports/causation.fake-spec';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
 import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
-import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery-reactions.adapter';
+import { ProviderDeliveryReader } from '@integrations/infrastructure/webhooks/provider-delivery-reader';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
-import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
 import {
   DomainError,
   type RefusalKind,
 } from '@shared-kernel/domain/exceptions/domain-error';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import { describe, expect, it, vi } from 'vitest';
@@ -54,6 +56,7 @@ const reading = (
   over: { workspaceId?: string | null } = {},
 ) => {
   const react = vi.fn(async () => {});
+  const read = vi.fn(async () => carried);
   const causation = causationInMemory();
   const chains: string[] = [];
   const firings = {
@@ -84,18 +87,19 @@ const reading = (
             over.workspaceId === null
               ? null
               : WorkspaceId.of(over.workspaceId ?? 'ws_1'),
-          read: async () => carried,
+          read,
         } satisfies WebhookProviderPort,
       ]),
       { find: async () => null, all: async () => [] },
     ),
-    { react },
+    new ProviderDeliveryReader(),
+    new WorkDeliveryReactions({ react }),
     firings,
     causation,
     logger,
   );
 
-  return { handler, react, firings, chains, logger };
+  return { handler, react, read, firings, chains, logger };
 };
 
 const FIRED = CausalChain.none().append({
@@ -111,7 +115,7 @@ describe('ReadDeliveryHandler', () => {
     await handler.execute(
       new ReadDeliveryCommand({
         ...stored,
-        causeFiringId: 'firing_1',
+        causeFiringId: HookFiringId.of('firing_1'),
       }),
     );
 
@@ -124,7 +128,7 @@ describe('ReadDeliveryHandler', () => {
     await handler.execute(
       new ReadDeliveryCommand({
         ...stored,
-        causeFiringId: 'firing_elsewhere',
+        causeFiringId: HookFiringId.of('firing_elsewhere'),
       }),
     );
     await handler.execute(new ReadDeliveryCommand(stored));
@@ -199,6 +203,16 @@ describe('ReadDeliveryHandler', () => {
     await expect(
       handler.execute(new ReadDeliveryCommand(stored)),
     ).resolves.toEqual(failure);
+  });
+
+  it('says whether to read again when the service could not be read', async () => {
+    const { handler, read, react } = reading([payloadOf()]);
+    read.mockRejectedValueOnce(new UpstreamError('reading', 'no answer'));
+
+    await expect(
+      handler.execute(new ReadDeliveryCommand(stored)),
+    ).resolves.toEqual(DeliveryFailure.transient('reading: no answer'));
+    expect(react).not.toHaveBeenCalled();
   });
 
   it('lets a failure it does not know through', async () => {

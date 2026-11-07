@@ -246,6 +246,20 @@ export class Memory extends EventRecorder {
     });
   }
 
+  afterPredecessor(predecessor: Memory | null): Memory {
+    if (
+      !this.state.supersedes ||
+      predecessor?.isActive ||
+      predecessor?.retirement?.supersededBy?.equals(this.state.id)
+    ) {
+      return this;
+    }
+
+    const alone = new Memory({ ...this.state, supersedes: null });
+    alone.inheritEvents(this);
+    return alone;
+  }
+
   retire(input: { by: UserId; reason: string; at: Date }): Memory {
     if (this.state.retirement) {
       throw new MemoryAlreadyRetiredError(this.state.id.value);

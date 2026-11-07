@@ -14,9 +14,9 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { EditorLease } from '@runners/application/ports/editor-leases.port';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import {
   ConnectEditorCommand,
   type EditorTarget,

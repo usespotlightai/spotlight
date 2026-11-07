@@ -6,9 +6,9 @@ import {
   type SessionReaderPort,
 } from '@identity/application/ports/session-reader.port';
 import type { INestApplication } from '@nestjs/common';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';

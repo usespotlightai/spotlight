@@ -5,7 +5,6 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { OnboardingDto } from '@work/application/dto/onboarding.dto';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
 import type { OnboardingQuery } from '@work/application/queries/onboarding.query';
@@ -28,7 +27,7 @@ export class OnboardingHandler
   async execute(query: OnboardingQuery): Promise<OnboardingDto | null> {
     try {
       const team = await this.workspaces.findTeamForMember(
-        query.teamId,
+        TeamId.of(query.teamId),
         UserId.of(query.viewerId),
       );
 
@@ -36,8 +35,7 @@ export class OnboardingHandler
         return null;
       }
 
-      const teamId = TeamId.of(query.teamId);
-      const workspaceId = WorkspaceId.of(team.workspaceId);
+      const { teamId, workspaceId } = team;
       const provisioning = provisioningOf({
         madeAtSignUp: team.origin === 'sign-up',
         welcomed: await this.welcomes.welcomed(teamId),

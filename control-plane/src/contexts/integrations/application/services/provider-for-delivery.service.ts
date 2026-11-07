@@ -2,8 +2,6 @@ import type { ConfiguredWebhookProvidersPort } from '@integrations/application/p
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import type { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
 import type { DeliveryAddressee } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface Addressed {
   readonly integration: string;
@@ -30,8 +28,8 @@ export class ProviderForDelivery {
 
     return this.configured.find(
       {
-        workspaceId: WorkspaceId.of(to.workspaceId),
-        teamId: TeamId.of(to.teamId),
+        workspaceId: to.workspaceId,
+        teamId: to.teamId,
         teamKey: to.teamKey,
       },
       addressed.integration,

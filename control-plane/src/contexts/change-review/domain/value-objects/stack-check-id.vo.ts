@@ -28,6 +28,10 @@ export class StackCheckId {
     return this.round === 'recheck';
   }
 
+  laterRoundThan(other: StackCheckId): boolean {
+    return CHECK_ROUNDS.indexOf(this.round) > CHECK_ROUNDS.indexOf(other.round);
+  }
+
   equals(other: StackCheckId): boolean {
     return this.stackId.equals(other.stackId) && this.round === other.round;
   }

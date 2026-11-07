@@ -64,6 +64,7 @@ const hook = ({
         name: 'audit',
         kind: 'request',
         url: new URL('https://audit.example.com'),
+        headers: [],
         fromNetwork: false,
       },
     ],
@@ -127,7 +128,7 @@ describe('HookDefinition', () => {
       'slack.post-message',
     ]);
     expect(hook.signing).toEqual({ version: 1 });
-    expect(hook.secretInput?.equals(secret('a'))).toBe(true);
+    expect(hook.uncommittedSigningSecret?.equals(secret('a'))).toBe(true);
     expect(hook.pullEvents()).toEqual([
       new HookCreated(
         ID,
@@ -220,7 +221,7 @@ describe('HookDefinition', () => {
     );
 
     expect(updated.signing).toEqual({ version: 1 });
-    expect(updated.secretInput).toBeNull();
+    expect(updated.uncommittedSigningSecret).toBeNull();
     expect(updated.pullEvents()).toEqual([
       new HookUpdated(
         ID,
@@ -240,7 +241,7 @@ describe('HookDefinition', () => {
     );
 
     expect(updated.signing).toEqual({ version: 2 });
-    expect(updated.secretInput?.equals(secret('b'))).toBe(true);
+    expect(updated.uncommittedSigningSecret?.equals(secret('b'))).toBe(true);
   });
 
   it('rejects a moved version without its new secret', () => {

@@ -28,6 +28,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, isNull, lte, or } from 'drizzle-orm';
 
@@ -59,6 +60,7 @@ const toChangeStack = (row: Row): ChangeStack =>
     id: ChangeStackId.of(row.id),
     runId: RunId.of(row.runId),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
+    teamId: row.teamId ? TeamId.of(row.teamId) : null,
     replay: row.replay,
     workspaceId: WorkspaceId.of(row.workspaceId),
     repository: row.repository ? RepositoryName.of(row.repository) : null,
@@ -108,6 +110,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       id: added.id.value,
       runId: added.runId.value,
       taskId: added.taskId?.value ?? null,
+      teamId: added.teamId?.value ?? null,
       replay: added.replay,
       workspaceId: added.workspaceId.value,
       repository: added.repository?.value ?? null,
@@ -209,6 +212,15 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       .select()
       .from(changeStack)
       .where(eq(changeStack.taskId, taskId.value));
+
+    return rows.map(toChangeStack);
+  }
+
+  async ofTeam(teamId: TeamId): Promise<readonly ChangeStack[]> {
+    const rows = await this.context.db
+      .select()
+      .from(changeStack)
+      .where(eq(changeStack.teamId, teamId.value));
 
     return rows.map(toChangeStack);
   }

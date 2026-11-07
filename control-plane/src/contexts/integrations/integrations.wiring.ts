@@ -21,6 +21,10 @@ import {
 } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_OUTBOUND_HOSTS } from '@identity/application/ports/workspace-outbound-hosts.port';
 import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@identity/application/ports/workspace-outbound-scope.port';
+import {
   WORKSPACE_READER,
   WorkspaceReaderPort,
 } from '@identity/application/ports/workspace-reader.port';
@@ -49,6 +53,11 @@ import { RefreshIntegrationSpecCommand } from '@integrations/application/command
 import { SetPersonToolRuleCommand } from '@integrations/application/commands/set-person-tool-rule.command';
 import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import {
+  CALL_CREDENTIALS,
+  type CallCredentialsPort,
+} from '@integrations/application/ports/call-credentials.port';
+import { CAUSATION } from '@integrations/application/ports/causation.port';
+import {
   CONFIGURED_OAUTH2_CLIENTS,
   type ConfiguredOAuth2ClientsPort,
 } from '@integrations/application/ports/configured-oauth2-clients.port';
@@ -61,6 +70,8 @@ import {
   DEFINED_INTEGRATIONS,
   type DefinedIntegrationsPort,
 } from '@integrations/application/ports/defined-integrations.port';
+import { DELIVERY_REACTIONS } from '@integrations/application/ports/delivery-reactions.port';
+import { DELIVERY_READER } from '@integrations/application/ports/delivery-reader.port';
 import {
   DELIVERY_WORK,
   DeliveryWorkPort,
@@ -109,6 +120,7 @@ import {
   OUTBOUND_LIMITS,
   type OutboundLimitsPort,
 } from '@integrations/application/ports/outbound-limits.port';
+import { PERSON_TOOL_RULES } from '@integrations/application/ports/person-tool-rules.port';
 import {
   SPEC_READER,
   type SpecReaderPort,
@@ -118,6 +130,11 @@ import {
   TOOL_DECLARATIONS,
   type ToolDeclarationsPort,
 } from '@integrations/application/ports/tool-declarations.port';
+import {
+  TOOL_OUTPUT_SHAPES,
+  type ToolOutputShapesPort,
+} from '@integrations/application/ports/tool-output-shapes.port';
+import { WAIT, type WaitPort } from '@integrations/application/ports/wait.port';
 import { WORKSPACE_HOSTS } from '@integrations/application/ports/workspace-hosts.port';
 import { CheckExpressionQuery } from '@integrations/application/queries/check-expression.query';
 import { CheckExpressionHandler } from '@integrations/application/queries/handlers/check-expression.handler';
@@ -142,6 +159,7 @@ import { EnabledTools } from '@integrations/application/services/enabled-tools.s
 import { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
 import { IntegrationSpecs } from '@integrations/application/services/integration-specs.service';
 import { IntegrationViews } from '@integrations/application/services/integration-views.service';
+import { IntegrationsUsingSecret } from '@integrations/application/services/integrations-using-secret.service';
 import { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import { NotifyChannel } from '@integrations/application/services/notify-channel.service';
 import { NotifyTask } from '@integrations/application/services/notify-task.service';
@@ -195,12 +213,15 @@ import {
   type SpecDocumentRepository,
 } from '@integrations/domain/repositories/spec-document.repository';
 import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices.adapter';
+import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery-reactions.adapter';
 import { IntegrationConfigs } from '@integrations/infrastructure/acl/integration-configs.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { NoticeFileReader } from '@integrations/infrastructure/acl/notice-file-reader.adapter';
 import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
+import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { TeamIntegrations } from '@integrations/infrastructure/acl/team-integrations.adapter';
+import { CarriedCausation } from '@integrations/infrastructure/causation/carried-causation';
 import { INTEGRATIONS_PAYLOAD_TYPES } from '@integrations/infrastructure/events/integrations-payload-types';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { ConfiguredWebhookProviders } from '@integrations/infrastructure/integrations/configured-webhook-providers';
@@ -225,18 +246,20 @@ import {
   RedisOutboundLimits,
 } from '@integrations/infrastructure/outbound/outbound-limits';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { DrizzleOAuth2SpentNonceLedger } from '@integrations/infrastructure/persistence/drizzle/ledgers/oauth2-spent-nonces.ledger';
 import { DrizzleConnectedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/connected-integrations.reader';
 import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
 import { DrizzleIntegrationConnectionRoster } from '@integrations/infrastructure/persistence/drizzle/readers/integration-connection-roster.reader';
 import { DrizzleIntegrationDependents } from '@integrations/infrastructure/persistence/drizzle/readers/integration-dependents.reader';
 import { DrizzleListedServers } from '@integrations/infrastructure/persistence/drizzle/readers/listed-servers.reader';
+import { DrizzlePersonToolRules } from '@integrations/infrastructure/persistence/drizzle/readers/person-tool-rules.reader';
 import { DrizzleSpecOperations } from '@integrations/infrastructure/persistence/drizzle/readers/spec-operations.reader';
+import { DrizzleToolOutputShapes } from '@integrations/infrastructure/persistence/drizzle/readers/tool-output-shapes.reader';
 import { DrizzleInboundDeliveries } from '@integrations/infrastructure/persistence/drizzle/repositories/inbound-deliveries.repository';
 import { DrizzleInferredOutputSchemas } from '@integrations/infrastructure/persistence/drizzle/repositories/inferred-output-schemas.repository';
 import { DrizzleIntegrationConnections } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-connections.repository';
 import { DrizzleIntegrationDefinitions } from '@integrations/infrastructure/persistence/drizzle/repositories/integration-definitions.repository';
 import { DrizzleOAuth2ClientRegistrations } from '@integrations/infrastructure/persistence/drizzle/repositories/oauth2-client-registrations.repository';
-import { DrizzleOAuth2Nonces } from '@integrations/infrastructure/persistence/drizzle/repositories/oauth2-nonces.repository';
 import { DrizzlePersonToolPolicies } from '@integrations/infrastructure/persistence/drizzle/repositories/person-tool-policies.repository';
 import { DrizzlePollCursors } from '@integrations/infrastructure/persistence/drizzle/repositories/poll-cursors.repository';
 import { DrizzleScheduleCursors } from '@integrations/infrastructure/persistence/drizzle/repositories/schedule-cursors.repository';
@@ -245,9 +268,10 @@ import { McpSpecReader } from '@integrations/infrastructure/specs/mcp/mcp-spec-r
 import { SpecFetch } from '@integrations/infrastructure/specs/spec-fetch';
 import { SpecReaders } from '@integrations/infrastructure/specs/spec-readers';
 import { ThreadedSpecReader } from '@integrations/infrastructure/specs/threaded-spec-reader';
+import { TimerWait } from '@integrations/infrastructure/timing/timer-wait';
 import { WebInboxLinks } from '@integrations/infrastructure/web-inbox-links';
 import { GitHubWebhookProvider } from '@integrations/infrastructure/webhooks/github.webhook-provider';
-import { markedProviders } from '@integrations/infrastructure/webhooks/registered-providers';
+import { ProviderDeliveryReader } from '@integrations/infrastructure/webhooks/provider-delivery-reader';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
 import { INTEGRATIONS_API_CONVENTIONS } from '@integrations/presentation/http/api-conventions';
 import { ExpressionCheckController } from '@integrations/presentation/http/controllers/expression-check.controller';
@@ -269,12 +293,12 @@ import {
   type EnabledAtStationsPort,
 } from '@lines/application/ports/enabled-at-stations.port';
 import type { Provider, Type } from '@nestjs/common';
-import { DiscoveryService } from '@nestjs/core';
 import { ENV } from '@platform/config/config.constants';
 import { publicUrlOf } from '@platform/config/env';
 import { type Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
+import { CauseCarrier } from '@platform/events/cause-carrier';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { PayloadTypes } from '@platform/events/payload-types';
 import {
@@ -298,7 +322,6 @@ import {
   SECRET_USES,
   type SecretUsesPort,
 } from '@secrets/application/ports/secret-uses.port';
-import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
 import { CLOCK, ClockPort } from '@shared-kernel/application/ports/clock.port';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -319,10 +342,6 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
-import {
-  WORKSPACE_OUTBOUND_SCOPE,
-  type WorkspaceOutboundScopePort,
-} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { CHANNEL_NOTICES } from '@work/application/ports/channel-notices.port';
 import {
   CONNECTION_ASKS,
@@ -366,6 +385,11 @@ export const INTEGRATIONS_CONTROLLERS: readonly Type[] = [
 ];
 
 export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
+  {
+    provide: CAUSATION,
+    inject: [CauseCarrier],
+    useFactory: (carrier: CauseCarrier) => new CarriedCausation(carrier),
+  },
   {
     provide: INTEGRATIONS_API_DOCUMENTATION,
     inject: [ApiConventions],
@@ -627,13 +651,17 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ProvidedTools,
-    inject: [DEFINED_INTEGRATIONS, TOOL_DECLARATIONS, INFERRED_OUTPUT_SCHEMAS],
+    inject: [DEFINED_INTEGRATIONS, TOOL_DECLARATIONS, TOOL_OUTPUT_SHAPES],
     useFactory: (
       defined: DefinedIntegrationsPort,
       declarations: ToolDeclarationsPort,
-      schemas: InferredOutputSchemaRepository,
-    ) => new ProvidedTools(defined, declarations, schemas),
+      shapes: ToolOutputShapesPort,
+    ) => new ProvidedTools(defined, declarations, shapes),
   },
+
+  { provide: TOOL_OUTPUT_SHAPES, useClass: DrizzleToolOutputShapes },
+
+  { provide: PERSON_TOOL_RULES, useClass: DrizzlePersonToolRules },
 
   {
     provide: TEAM_INTEGRATIONS,
@@ -814,10 +842,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: WebhookProviders,
-    inject: [DiscoveryService],
-    // Lazy: discovery finds providers only after the container is built.
-    useFactory: (discovery: DiscoveryService) =>
-      new WebhookProviders(() => markedProviders(discovery)),
+    inject: [GitHubWebhookProvider],
+    useFactory: (github: GitHubWebhookProvider) =>
+      WebhookProviders.of([github]),
   },
 
   {
@@ -895,14 +922,18 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
       CLOCK,
+      WAIT,
     ],
     useFactory: (
       connections: IntegrationConnectionRepository,
       defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
       clock: ClockPort,
-    ) => new ConnectionRefresh(connections, defined, runtime, clock),
+      wait: WaitPort,
+    ) => new ConnectionRefresh(connections, defined, runtime, clock, wait),
   },
+
+  { provide: WAIT, useClass: TimerWait },
 
   {
     provide: CallAuthResolver,
@@ -911,6 +942,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       TEAM_DIRECTORY,
       WORKSPACE_ACCESS,
       SECRET_INJECTION,
+      CALL_CREDENTIALS,
       ConnectionRefresh,
     ],
     useFactory: (
@@ -918,6 +950,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       teams: TeamDirectoryPort,
       access: WorkspaceAccessPort,
       injection: SecretInjectionPort,
+      credentials: CallCredentialsPort,
       connectionRefresh: ConnectionRefresh,
     ) =>
       new CallAuthResolver(
@@ -925,8 +958,16 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         teams,
         access,
         injection,
+        credentials,
         connectionRefresh,
       ),
+  },
+
+  {
+    provide: CALL_CREDENTIALS,
+    inject: [SECRET_INJECTION],
+    useFactory: (injection: SecretInjectionPort) =>
+      new InjectedCallCredentials(injection),
   },
 
   {
@@ -1046,7 +1087,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       ),
   },
 
-  { provide: OAUTH2_NONCES, useClass: DrizzleOAuth2Nonces },
+  { provide: OAUTH2_NONCES, useClass: DrizzleOAuth2SpentNonceLedger },
 
   {
     provide: OAuth2NonceCookie,
@@ -1072,11 +1113,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INTEGRATION_CONFIGS,
-    inject: [INTEGRATION_RESOURCES, TEAM_DIRECTORY],
+    inject: [INTEGRATION_RESOURCES, TEAM_DIRECTORY, IntegrationReader],
     useFactory: (
       resources: IntegrationResourcesPort,
       teams: TeamDirectoryPort,
-    ) => new IntegrationConfigs(resources, teams),
+      reader: IntegrationReader,
+    ) => new IntegrationConfigs(resources, teams, reader),
   },
 
   {
@@ -1216,7 +1258,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       INTEGRATION_CONNECTION_ROSTER,
       PERSON_READER,
       DEFINED_INTEGRATIONS,
-      PERSON_TOOL_POLICIES,
+      PERSON_TOOL_RULES,
     ],
   ),
 
@@ -1293,9 +1335,19 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     LOGGER,
   ]),
 
+  { provide: DELIVERY_READER, useClass: ProviderDeliveryReader },
+
+  {
+    provide: DELIVERY_REACTIONS,
+    inject: [HAPPENING_REACTIONS],
+    useFactory: (reactions: HappeningReactionsPort) =>
+      new WorkDeliveryReactions(reactions),
+  },
+
   ...bindCommandHandler(ReadDeliveryCommand, ReadDeliveryHandler, [
     ProviderForDelivery,
-    HAPPENING_REACTIONS,
+    DELIVERY_READER,
+    DELIVERY_REACTIONS,
     HOOK_FIRING_HISTORY,
     CAUSATION,
     LOGGER,
@@ -1344,20 +1396,20 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INTEGRATION_SECRET_USES,
-    inject: [
-      SECRET_USES,
-      TEAM_DIRECTORY,
-      DEFINED_INTEGRATIONS,
-      IntegrationReader,
-    ],
-    useFactory: (
-      uses: SecretUsesPort,
-      teams: TeamDirectoryPort,
-      defined: DefinedIntegrationsPort,
-      reader: IntegrationReader,
-    ) => {
-      uses.register(new IntegrationSecretUses(teams, defined, reader));
+    inject: [SECRET_USES, IntegrationsUsingSecret],
+    useFactory: (uses: SecretUsesPort, using: IntegrationsUsingSecret) => {
+      uses.register(new IntegrationSecretUses(using));
       return true;
     },
+  },
+
+  {
+    provide: IntegrationsUsingSecret,
+    inject: [TEAM_DIRECTORY, DEFINED_INTEGRATIONS, INTEGRATION_RUNTIME],
+    useFactory: (
+      teams: TeamDirectoryPort,
+      defined: DefinedIntegrationsPort,
+      runtime: IntegrationRuntimePort,
+    ) => new IntegrationsUsingSecret(teams, defined, runtime),
   },
 ];

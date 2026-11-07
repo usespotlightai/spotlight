@@ -1,3 +1,9 @@
+import type {
+  StationChangeRefusal,
+  StationChangeTestOutcome,
+  StationChangeTestRequest,
+  StationChangeTestScope,
+} from '@replays/application/contracts/station-change-tests.contract';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   LiveConfig,
@@ -8,19 +14,13 @@ import type {
 import { stationChangeRefusalReason } from '@replays/application/rendering/station-change-refusals';
 import type { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import type { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
 import type { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { resultPendingAt } from '@replays/application/services/result-pending';
 import type { StartSearch } from '@replays/application/services/start-search.service';
-import type {
-  StationChangeRefusal,
-  StationChangeTestOutcome,
-  StationChangeTestRequest,
-  StationChangeTestScope,
-} from '@replays/application/services/station-change-test';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { MonthlyCeilingReachedError } from '@replays/domain/exceptions/monthly-ceiling-reached.error';
 import { RequestLimitReachedError } from '@replays/domain/exceptions/request-limit-reached.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
@@ -101,6 +101,7 @@ export class StationChangeTests {
     private readonly readiness: CheckSearchReadiness,
     private readonly starting: StartSearch,
     private readonly snapshots: LiveCandidates,
+    private readonly steps: PendingSearchSteps,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -296,16 +297,25 @@ export class StationChangeTests {
       proposal,
       iteration,
     );
-    const at = this.clock.now();
-    const before = await this.requestCounted(stationId, at);
+    const step = {
+      kind: 'join' as const,
+      searchId: seen.id,
+      request: candidate.id,
+    };
+    const refusal = await this.requestCounted(
+      stationId,
+      seen.id,
+      candidate.id,
+      this.clock.now(),
+    );
 
-    if (before.refusal) {
-      return this.refused(before.refusal);
+    if (refusal) {
+      return this.refused(refusal);
     }
 
-    await this.snapshots.kept(candidate);
-
     try {
+      await this.snapshots.kept(candidate);
+
       const outcome = await this.transaction.inTransaction(async () => {
         const search = await this.searches.locked(seen.id);
 
@@ -326,14 +336,15 @@ export class StationChangeTests {
       });
 
       if (outcome.outcome === 'joined') {
+        await this.steps.confirmed(stationId, step);
         return outcome;
       }
 
-      await this.requestWithdrawn(stationId, before.schedule, candidate);
+      await this.steps.abandoned(stationId, step, [candidate.id]);
 
       return outcome;
     } catch (error) {
-      await this.requestWithdrawn(stationId, before.schedule, candidate);
+      await this.steps.abandoned(stationId, step, [candidate.id]);
 
       if (error instanceof SearchCandidateNameTakenError) {
         return invalid([nameProblem(NAME_TAKEN)]);
@@ -347,40 +358,24 @@ export class StationChangeTests {
 
   private requestCounted(
     stationId: StationId,
+    searchId: SearchId,
+    request: CandidateId,
     at: Date,
-  ): Promise<
-    | { readonly refusal: StationChangeRefusal }
-    | { readonly refusal: null; readonly schedule: StationSearchSchedule }
-  > {
+  ): Promise<StationChangeRefusal | null> {
     return this.transaction.inTransaction(async () => {
       const schedule = await this.schedules.locked(stationId);
 
       if (!schedule) {
-        return { refusal: 'no-replay-set' as const };
+        return 'no-replay-set' as const;
       }
       if (!schedule.takesRequestOn(at)) {
-        return { refusal: 'request-limit' as const };
+        return 'request-limit' as const;
       }
 
-      await this.schedules.save(schedule.requested(at));
+      await this.schedules.save(schedule.requested({ searchId, request, at }));
 
-      return { refusal: null, schedule };
+      return null;
     });
-  }
-
-  private async requestWithdrawn(
-    stationId: StationId,
-    before: StationSearchSchedule,
-    candidate: Candidate,
-  ): Promise<void> {
-    await this.transaction.inTransaction(async () => {
-      const schedule = await this.schedules.locked(stationId);
-
-      if (schedule) {
-        await this.schedules.save(schedule.requestWithdrawn(before));
-      }
-    });
-    await this.snapshots.release(candidate);
   }
 
   private async earlierAnswer(

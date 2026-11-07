@@ -8,6 +8,10 @@ import {
   type TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
+import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@identity/application/ports/workspace-outbound-scope.port';
 import { CreateHookCommand } from '@integrations/application/commands/create-hook.command';
 import { DeleteHookCommand } from '@integrations/application/commands/delete-hook.command';
 import { CreateHookHandler } from '@integrations/application/commands/handlers/create-hook.handler';
@@ -16,6 +20,10 @@ import { NoteByCallbackHandler } from '@integrations/application/commands/handle
 import { UpdateHookHandler } from '@integrations/application/commands/handlers/update-hook.handler';
 import { NoteByCallbackCommand } from '@integrations/application/commands/note-by-callback.command';
 import { UpdateHookCommand } from '@integrations/application/commands/update-hook.command';
+import {
+  CAUSATION,
+  type CausationPort,
+} from '@integrations/application/ports/causation.port';
 import {
   DEFINED_INTEGRATIONS,
   type DefinedIntegrationsPort,
@@ -124,6 +132,7 @@ import { DrizzleHookFirings } from '@integrations/infrastructure/persistence/dri
 import { HookCallbackController } from '@integrations/presentation/http/controllers/hook-callback.controller';
 import { HookIssuerController } from '@integrations/presentation/http/controllers/hook-issuer.controller';
 import { HookResourceController } from '@integrations/presentation/http/controllers/hook-resource.controller';
+import { HOOK_CALLBACKS } from '@integrations/presentation/http/hook-callback-route';
 import { HookFiringWorker } from '@integrations/presentation/workers/hook-firing.worker';
 import type { Provider, Type } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
@@ -137,10 +146,6 @@ import {
 } from '@platform/expressions/expression-engine.port';
 import { API_PREFIX } from '@platform/http/routes';
 import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
-import {
-  CAUSATION,
-  type CausationPort,
-} from '@shared-kernel/application/ports/causation.port';
 import {
   CLOCK,
   type ClockPort,
@@ -163,10 +168,6 @@ import {
   type TokenIssuer,
 } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
-import {
-  WORKSPACE_OUTBOUND_SCOPE,
-  type WorkspaceOutboundScopePort,
-} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import {
   HOOK_TRACES,
@@ -287,6 +288,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       NETWORK_CALLS,
       OUTBOUND_LIMITS,
       WORKSPACE_OUTBOUND_SCOPE,
+      CLOCK,
     ],
     useFactory: (
       env: Env,
@@ -296,10 +298,11 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       network: NetworkCallsPort,
       limits: OutboundLimitsPort,
       scope: WorkspaceOutboundScopePort,
+      clock: ClockPort,
     ) =>
       new HookRequests(
         {
-          publicUrl: publicUrlOf(env),
+          callbackUrl: `${publicUrlOf(env)}/${API_PREFIX}/${HOOK_CALLBACKS}`,
           policy,
         },
         secrets,
@@ -307,6 +310,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         network,
         limits,
         scope,
+        clock,
       ),
   },
 

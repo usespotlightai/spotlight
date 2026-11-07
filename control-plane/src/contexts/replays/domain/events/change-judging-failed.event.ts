@@ -6,7 +6,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ChangeJudgingFailed implements DomainEvent {
-  readonly kind = 'replays.change-judging-failed';
+  readonly kind = 'change-judging.failed';
 
   constructor(
     readonly runId: RunId,

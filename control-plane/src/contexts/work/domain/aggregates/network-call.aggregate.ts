@@ -1,6 +1,6 @@
+import { distinct } from '@shared-kernel/domain/distinct';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { distinct } from '@shared-kernel/domain/services/distinct';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

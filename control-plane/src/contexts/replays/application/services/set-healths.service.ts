@@ -1,4 +1,3 @@
-import type { ReplaysReaderPort } from '@replays/application/ports/replays-reader.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -6,6 +5,8 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import {
+  HEALTH_SAMPLES_PER_GROUP,
+  healthSamplesOf,
   type SetHealth,
   setHealthOf,
   UNREAD_HEALTH,
@@ -31,7 +32,6 @@ export class SetHealths {
   constructor(
     private readonly work: WorkPort,
     private readonly replays: ReplayRepository,
-    private readonly reader: ReplaysReaderPort,
     private readonly candidates: CandidateRepository,
   ) {}
 
@@ -77,8 +77,11 @@ export class SetHealths {
     sets: readonly ReplaySet[],
     standards: ReadonlyMap<string, LiveStandard>,
   ): Promise<ReadonlyMap<string, SetHealth>> {
-    const read = await this.reader.healthSamplesOfSets(
-      sets.map((each) => each.id),
+    const read = healthSamplesOf(
+      await this.replays.healthSamplesOfSets(
+        sets.map((each) => each.id),
+        HEALTH_SAMPLES_PER_GROUP,
+      ),
     );
     const replayed = [...read, ...(await this.comparisonsMissingFrom(read))];
     const candidates =

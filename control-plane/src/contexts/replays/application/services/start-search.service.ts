@@ -1,12 +1,11 @@
 import type { HashPort } from '@replays/application/ports/hash.port';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import type { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
-import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
-import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import { UnknownSearchScheduleError } from '@replays/domain/exceptions/unknown-search-schedule.error';
 import { UnsearchableRequestError } from '@replays/domain/exceptions/unsearchable-request.error';
@@ -29,7 +28,6 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export interface SearchBeginning {
   readonly id: SearchId;
@@ -51,6 +49,7 @@ interface RequestedCandidate {
 export class StartSearch {
   constructor(
     private readonly snapshots: LiveCandidates,
+    private readonly steps: PendingSearchSteps,
     private readonly sets: ReplaySetRepository,
     private readonly searches: SearchRepository,
     private readonly schedules: StationSearchScheduleRepository,
@@ -63,54 +62,52 @@ export class StartSearch {
 
   async begin(beginning: SearchBeginning): Promise<HeldOutSplit> {
     const { requested } = beginning;
-    const { stationId } = beginning.set.station;
-    const live = await this.snapshots.taken(beginning.set);
-    const kept: Candidate[] = [live];
-    let admitted = false;
-    let before: StationSearchSchedule | null = null;
+    const { lineId, stationId } = beginning.set.station;
+    const live = await this.snapshots.snapshotOf(beginning.set);
+    const candidates = requested ? [live, requested.candidate] : [live];
+    const step = {
+      kind: 'start' as const,
+      searchId: beginning.id,
+      request: null,
+    };
     const at = this.clock.now();
+    const problems = requested
+      ? unsearchableChanges(live.block, requested.candidate.block)
+      : [];
+
+    if (problems.length > 0) {
+      throw new UnsearchableRequestError(problems);
+    }
+
+    await this.admitted(beginning, at);
 
     try {
-      const problems = requested
-        ? unsearchableChanges(live.block, requested.candidate.block)
-        : [];
-
-      if (problems.length > 0) {
-        throw new UnsearchableRequestError(problems);
-      }
-      if (requested) {
-        await this.snapshots.kept(requested.candidate);
-        kept.push(requested.candidate);
-      }
-
-      await this.admitted(beginning, at);
-      admitted = true;
-
       if (await this.searches.activeAtStation(stationId)) {
         throw new SearchInProgressError(stationId);
       }
 
-      const taken = await this.scheduled(beginning, at);
+      const split = await this.scheduled(beginning, candidates, at);
 
-      before = taken.before;
-      await this.started(beginning, live, taken.split, at);
+      try {
+        for (const each of candidates) {
+          await this.snapshots.kept(each);
+        }
+        await this.started(beginning, live, split, at);
+      } catch (error) {
+        await this.steps.abandoned(
+          stationId,
+          step,
+          candidates.map((each) => each.id),
+        );
+        throw error;
+      }
 
-      return taken.split;
+      await this.steps.confirmed(stationId, step);
+
+      return split;
     } catch (error) {
-      if (before) {
-        await this.scheduleWithdrawn(stationId, before);
-      }
-      if (admitted) {
-        await this.admissionWithdrawn(beginning, at);
-      }
-      for (const each of kept) {
-        await this.snapshots.release(each);
-      }
-
-      throw error instanceof SearchVersionConflictError &&
-        (await this.searches.activeAtStation(stationId))
-        ? new SearchInProgressError(stationId)
-        : error;
+      await this.steps.admissionWithdrawn(lineId, beginning.id, at);
+      throw error;
     }
   }
 
@@ -129,7 +126,11 @@ export class StartSearch {
           at,
         });
       const admitted = budget.admit(
-        { searchId: beginning.id, ceiling: beginning.budget.ceiling },
+        {
+          searchId: beginning.id,
+          ceiling: beginning.budget.ceiling,
+          admittedAt: at,
+        },
         beginning.policy,
         await this.searches.ofLineStartedSince(lineId, month),
       );
@@ -140,8 +141,9 @@ export class StartSearch {
 
   private scheduled(
     beginning: SearchBeginning,
+    candidates: readonly Candidate[],
     at: Date,
-  ): Promise<{ split: HeldOutSplit; before: StationSearchSchedule }> {
+  ): Promise<HeldOutSplit> {
     const { set } = beginning;
 
     return this.transaction.inTransaction(async () => {
@@ -160,15 +162,17 @@ export class StartSearch {
 
       await this.schedules.save(
         schedule.started({
+          searchId: beginning.id,
+          request: beginning.requested?.candidate.id ?? null,
+          candidates: candidates.map((each) => each.id),
           searched: split.searched.map((each) => each.taskId),
           inSet: set.entries.map((each) => each.taskId),
           at,
           cooldownMilliseconds: beginning.policy.cooldownMilliseconds,
-          trigger: beginning.trigger,
         }),
       );
 
-      return { split, before: schedule };
+      return split;
     });
   }
 
@@ -199,42 +203,16 @@ export class StartSearch {
           objective: beginning.objective,
           split,
           calibrates,
-          seed: { candidate: live, replayId: ReplayId.of(this.ids.generate()) },
+          seed: {
+            candidate: live.asSeed,
+            replayId: ReplayId.of(this.ids.generate()),
+          },
           trigger: beginning.trigger,
           requests: requested ? [requested.request] : [],
           at,
           by: ChangeActor.spotlight(set.workspaceId),
         }),
       );
-    });
-  }
-
-  private scheduleWithdrawn(
-    stationId: StationId,
-    before: StationSearchSchedule,
-  ): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const schedule = await this.schedules.locked(stationId);
-
-      if (schedule) {
-        await this.schedules.save(schedule.startWithdrawn(before));
-      }
-    });
-  }
-
-  private admissionWithdrawn(
-    beginning: SearchBeginning,
-    at: Date,
-  ): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const budget = await this.budgets.locked(
-        beginning.set.station.lineId,
-        monthStartOf(at),
-      );
-
-      if (budget?.admits(beginning.id)) {
-        await this.budgets.save(budget.withdrawn(beginning.id));
-      }
     });
   }
 }

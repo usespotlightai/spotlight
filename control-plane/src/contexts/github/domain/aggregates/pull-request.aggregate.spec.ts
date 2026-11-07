@@ -110,7 +110,9 @@ const stored = (pullRequest: PullRequest) =>
     botComments: pullRequest.botComments,
     threads: pullRequest.threads,
     revertedBy: pullRequest.revertedBy,
-    version: pullRequest.version + 1,
+    version: pullRequest.isStored
+      ? pullRequest.version + 1
+      : pullRequest.version,
   });
 
 const received = (over: Partial<PullRequestSnapshot> = {}) => {
@@ -150,7 +152,7 @@ describe('PullRequest', () => {
       reviews: [],
       reviewComments: 0,
       isRevert: false,
-      version: 1,
+      version: 0,
     });
   });
 
@@ -161,11 +163,7 @@ describe('PullRequest', () => {
 
     const events = changed.pullEvents();
 
-    expect(events.map((each) => each.kind)).toEqual([
-      'pull-request.reviewed',
-      'pull-request.updated',
-      'pull-request.reviewed',
-    ]);
+    expect(events.map((each) => each.kind)).toEqual(['pull-request.updated']);
     expect(
       (
         events.find(
@@ -174,7 +172,7 @@ describe('PullRequest', () => {
       ).updated,
     ).toMatchObject({
       reviews: [review(1, 'commented', 9), review(2, 'approved', 10)],
-      version: 2,
+      version: 1,
     });
   });
 
@@ -766,13 +764,10 @@ describe('PullRequest', () => {
       ).toEqual(['pull-request.reopened']);
     });
 
-    it('says a review was left once, however often GitHub sends it', () => {
+    it('takes a review once, however often GitHub sends it', () => {
       const reviewed = opened().recordReview(review(1, 'approved', 1));
 
-      expect(kinds(reviewed)).toEqual([
-        'pull-request.updated',
-        'pull-request.reviewed',
-      ]);
+      expect(kinds(reviewed)).toEqual(['pull-request.updated']);
       const again = stored(reviewed);
       expect(again.recordReview(review(1, 'approved', 1))).toBe(again);
     });

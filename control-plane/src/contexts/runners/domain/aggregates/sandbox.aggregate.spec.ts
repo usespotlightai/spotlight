@@ -11,6 +11,7 @@ import {
   GRACE_MS,
   tokenHashOf,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
+import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
@@ -29,15 +30,22 @@ const STARTED_AT = new Date('2026-10-30T10:00:00.000Z');
 
 const later = (ms: number): Date => new Date(STARTED_AT.getTime() + ms);
 
+const NOW = later(1_000);
+
 const HOST = HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE');
 
 const OTHER_HOST = HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDF');
 
-const reporting = aHost({ id: HOST, sandboxes: ['sandbox_1'] });
+const reporting = aHost({ at: STARTED_AT, id: HOST, sandboxes: ['sandbox_1'] });
 
-const silent = aHost({ id: HOST });
+const silent = aHost({ at: STARTED_AT, id: HOST });
 
-const stopping = aHost({ id: HOST, sandboxes: ['sandbox_1'], stopping: true });
+const stopping = aHost({
+  at: STARTED_AT,
+  id: HOST,
+  sandboxes: ['sandbox_1'],
+  stopping: true,
+});
 
 const editor = (connection: string) => LeaseHolder.editor(connection);
 
@@ -74,12 +82,62 @@ describe('Sandbox', () => {
     expect(sandbox.current).toBe('open');
     expect(sandbox.holdsRun(RunId.of('run_1'))).toBe(true);
     expect(sandbox.idleSince).toBeNull();
-    expect(sandbox.statusOn(silent)).toBe('starting');
-    expect(sandbox.statusOn(null)).toBe('starting');
-    expect(sandbox.statusOn(reporting)).toBe('ready');
+    expect(sandbox.statusOn(silent, NOW)).toBe('starting');
+    expect(sandbox.statusOn(null, NOW)).toBe('starting');
+    expect(sandbox.statusOn(reporting, NOW)).toBe('ready');
     expect(
-      sandbox.isReadyOn(aHost({ id: OTHER_HOST, sandboxes: ['sandbox_1'] })),
+      sandbox.isReadyOn(
+        aHost({ at: STARTED_AT, id: OTHER_HOST, sandboxes: ['sandbox_1'] }),
+        NOW,
+      ),
     ).toBe(false);
+  });
+
+  it('is ready only while its host is online', () => {
+    const sandbox = started();
+
+    expect(sandbox.isReadyOn(reporting, later(89_999))).toBe(true);
+    expect(sandbox.isReadyOn(reporting, later(90_000))).toBe(false);
+    expect(sandbox.statusOn(reporting, later(90_000))).toBe('starting');
+    expect(
+      sandbox
+        .releaseRun(RunId.of('run_1'), NOW)
+        .takesRunOn(reporting, later(90_000)),
+    ).toBe(false);
+  });
+
+  it('is lost when its host is gone or silent past the online window, and kept while the host is online', () => {
+    const sandbox = started();
+
+    expect(sandbox.strandedOn(reporting, later(89_999))).toBe(sandbox);
+    expect(sandbox.strandedOn(reporting, later(90_000)).current).toBe('gone');
+    expect(sandbox.strandedOn(null, NOW).current).toBe('gone');
+    expect(
+      sandbox.strandedOn(aHost({ at: STARTED_AT, id: OTHER_HOST }), NOW)
+        .current,
+    ).toBe('gone');
+  });
+
+  it('drains for a run that starts a new sandbox of its key, and leaves a closed one alone', () => {
+    expect(started().replacedForRun().current).toBe('draining');
+
+    const drained = started().drain();
+
+    expect(drained.replacedForRun()).toBe(drained);
+  });
+
+  it('starts on no host of another workspace', () => {
+    expect(() =>
+      Sandbox.startForRun({
+        id: SandboxId.of('sandbox_1'),
+        workspaceId: WorkspaceId.of('ws_2'),
+        key: null,
+        host: reporting,
+        tokenHash: tokenHashOf('token'),
+        runId: RunId.of('run_1'),
+        at: STARTED_AT,
+      }),
+    ).toThrow(UnknownHostError);
   });
 
   it('keeps the pool or trust of the host it started on', () => {
@@ -117,7 +175,7 @@ describe('Sandbox', () => {
     const retired = sandbox.retireRun(RunId.of('run_1'), later(1_000));
 
     expect(retired.current).toBe('draining');
-    expect(retired.statusOn(reporting)).toBe('draining');
+    expect(retired.statusOn(reporting, NOW)).toBe('draining');
     expect(retired.keptBy(reporting)).toBe(false);
     expect(retired.leases).toEqual([]);
   });
@@ -126,7 +184,9 @@ describe('Sandbox', () => {
     const shared = started().holdRun(RunId.of('run_2'), later(500));
 
     expect(
-      shared.retireRun(RunId.of('run_1'), later(1_000)).statusOn(reporting),
+      shared
+        .retireRun(RunId.of('run_1'), later(1_000))
+        .statusOn(reporting, NOW),
     ).toBe('ready');
   });
 
@@ -134,26 +194,31 @@ describe('Sandbox', () => {
     const edited = started().holdEditor(editor('conn_1'), later(500));
 
     expect(
-      edited.retireRun(RunId.of('run_1'), later(1_000)).statusOn(reporting),
+      edited
+        .retireRun(RunId.of('run_1'), later(1_000))
+        .statusOn(reporting, NOW),
     ).toBe('ready');
   });
 
   it('takes the next run on its host once ready and idle, and holds it', () => {
     const idle = started().releaseRun(RunId.of('run_1'), later(1_000));
 
-    expect(idle.takesRunOn(reporting)).toBe(true);
+    expect(idle.takesRunOn(reporting, NOW)).toBe(true);
     expect(
-      idle.takesRunOn(aHost({ id: OTHER_HOST, sandboxes: ['sandbox_1'] })),
+      idle.takesRunOn(
+        aHost({ at: STARTED_AT, id: OTHER_HOST, sandboxes: ['sandbox_1'] }),
+        NOW,
+      ),
     ).toBe(false);
-    expect(idle.takesRunOn(silent)).toBe(false);
-    expect(started().takesRunOn(reporting)).toBe(false);
-    expect(idle.drain().takesRunOn(reporting)).toBe(false);
+    expect(idle.takesRunOn(silent, NOW)).toBe(false);
+    expect(started().takesRunOn(reporting, NOW)).toBe(false);
+    expect(idle.drain().takesRunOn(reporting, NOW)).toBe(false);
 
     const held = idle.holdRun(RunId.of('run_2'), later(2_000));
 
     expect(held.holdsRun(RunId.of('run_2'))).toBe(true);
     expect(held.idleSince).toBeNull();
-    expect(held.takesRunOn(reporting)).toBe(false);
+    expect(held.takesRunOn(reporting, NOW)).toBe(false);
     expect(held.holdRun(RunId.of('run_2'), later(3_000))).toBe(held);
   });
 
@@ -213,8 +278,8 @@ describe('Sandbox', () => {
     expect(idle.keptBy(reporting)).toBe(true);
     expect(held.keptBy(stopping)).toBe(true);
     expect(idle.keptBy(stopping)).toBe(false);
-    expect(idle.takesRunOn(stopping)).toBe(false);
-    expect(idle.keptBy(aHost({ id: OTHER_HOST }))).toBe(false);
+    expect(idle.takesRunOn(stopping, NOW)).toBe(false);
+    expect(idle.keptBy(aHost({ at: STARTED_AT, id: OTHER_HOST }))).toBe(false);
   });
 
   it('never drains while a run holds it', () => {
@@ -261,7 +326,10 @@ describe('Sandbox', () => {
       'open',
     );
     expect(
-      started().unreportedOn(aHost({ id: OTHER_HOST }), later(60_000)).current,
+      started().unreportedOn(
+        aHost({ at: STARTED_AT, id: OTHER_HOST }),
+        later(60_000),
+      ).current,
     ).toBe('open');
   });
 
@@ -292,7 +360,7 @@ describe('Sandbox', () => {
       const sandbox = requested();
 
       expect(sandbox.current).toBe('open');
-      expect(sandbox.statusOn(null)).toBe('starting');
+      expect(sandbox.statusOn(null, NOW)).toBe('starting');
       expect(sandbox.isRequested).toBe(true);
       expect(sandbox.hostId).toBeNull();
       expect(sandbox.source).toBeNull();
@@ -300,15 +368,18 @@ describe('Sandbox', () => {
       expect(sandbox.leases).toEqual([]);
       expect(sandbox.idleSince).toEqual(STARTED_AT);
       expect(
-        sandbox.takesRunOn(aHost({ id: HOST, sandboxes: ['sandbox_r'] })),
+        sandbox.takesRunOn(
+          aHost({ at: STARTED_AT, id: HOST, sandboxes: ['sandbox_r'] }),
+          NOW,
+        ),
       ).toBe(false);
     });
 
     it('starts on the host that claims it and becomes idle from then', () => {
       const pool = CredentialSource.ofId(aPullPool().id);
+      const host = aHost({ at: STARTED_AT, id: HOST });
       const placed = requested().placeOn(
-        HOST,
-        pool,
+        host,
         tokenHashOf('token'),
         later(5_000),
       );
@@ -319,11 +390,31 @@ describe('Sandbox', () => {
       expect(placed.startedAt).toEqual(later(5_000));
       expect(placed.idleSince).toEqual(later(5_000));
       expect(
-        placed.takesRunOn(aHost({ id: HOST, sandboxes: ['sandbox_r'] })),
+        placed.takesRunOn(
+          aHost({ at: STARTED_AT, id: HOST, sandboxes: ['sandbox_r'] }),
+          NOW,
+        ),
       ).toBe(true);
       expect(() =>
-        placed.placeOn(HOST, pool, tokenHashOf('token'), later(6_000)),
+        placed.placeOn(host, tokenHashOf('token'), later(6_000)),
       ).toThrow(InconsistentStateError);
+    });
+
+    it('starts on no host of another workspace', () => {
+      const elsewhere = Sandbox.request({
+        id: SandboxId.of('sandbox_r'),
+        workspaceId: WorkspaceId.of('ws_2'),
+        key: SandboxKey.of('task-task_1'),
+        at: STARTED_AT,
+      });
+
+      expect(() =>
+        elsewhere.placeOn(
+          aHost({ at: STARTED_AT, id: HOST }),
+          tokenHashOf('token'),
+          later(5_000),
+        ),
+      ).toThrow(UnknownHostError);
     });
 
     it('is lost, not drained, when no host claims it within the grace', () => {
@@ -391,7 +482,7 @@ describe('Sandbox', () => {
         SandboxLease.of(editor('conn_1'), later(31_000)),
       ]);
       expect(held.idleSince).toEqual(later(0));
-      expect(held.takesRunOn(reporting)).toBe(true);
+      expect(held.takesRunOn(reporting, NOW)).toBe(true);
     });
 
     it('gives an editor lease to editors only', () => {
@@ -445,7 +536,7 @@ describe('Sandbox', () => {
       const dropped = forgotten.drainedWhenDue(DRAIN_POLICY, expiry);
 
       expect(dropped.leases).toEqual([]);
-      expect(dropped.statusOn(reporting)).toBe('ready');
+      expect(dropped.statusOn(reporting, NOW)).toBe('ready');
       expect(dropped.idleSince).toEqual(expiry);
       expect(
         dropped.drainedWhenDue(
@@ -494,9 +585,9 @@ describe('Sandbox', () => {
     });
 
     it('takes no editor once it drains', () => {
-      expect(() =>
-        idle().drain().holdEditor(editor('conn_1'), later(1_000)),
-      ).toThrow(InconsistentStateError);
+      const drained = idle().drain();
+
+      expect(drained.holdEditor(editor('conn_1'), later(1_000))).toBe(drained);
     });
   });
 });

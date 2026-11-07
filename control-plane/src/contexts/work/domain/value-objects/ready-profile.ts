@@ -1,4 +1,4 @@
-import { distinct } from '@shared-kernel/domain/services/distinct';
+import { distinct } from '@shared-kernel/domain/distinct';
 import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { injectedByEgress } from '@work/domain/services/injected-by-egress';

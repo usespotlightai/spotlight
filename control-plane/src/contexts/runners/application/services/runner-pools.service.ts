@@ -13,7 +13,7 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 
 export class RunnerPools implements RunnerPoolsPort {
@@ -39,8 +39,8 @@ export class RunnerPools implements RunnerPoolsPort {
       return null;
     }
 
-    const id = RunnerPoolId.of(authenticated.source.id);
-    const pool = id.equals(RunnerPoolId.of(poolId))
+    const id = PoolId.of(authenticated.source.id);
+    const pool = id.equals(PoolId.of(poolId))
       ? await this.pools.find(id)
       : null;
 
@@ -62,17 +62,17 @@ export class RunnerPools implements RunnerPoolsPort {
   }
 
   async running(poolId: string, now: Date): Promise<number> {
-    return (await this.occupancyOf(RunnerPoolId.of(poolId), now)).runners;
+    return (await this.occupancyOf(PoolId.of(poolId), now)).runners;
   }
 
   async roomIn(poolId: string, now: Date): Promise<number | null> {
-    const id = RunnerPoolId.of(poolId);
+    const id = PoolId.of(poolId);
     const pool = await this.pools.find(id);
 
     return pool ? pool.roomFor(await this.occupancyOf(id, now)) : 0;
   }
 
-  private occupancyOf(id: RunnerPoolId, now: Date): Promise<PoolOccupancy> {
+  private occupancyOf(id: PoolId, now: Date): Promise<PoolOccupancy> {
     return occupancyOf(this.runners, this.placements, id, now);
   }
 

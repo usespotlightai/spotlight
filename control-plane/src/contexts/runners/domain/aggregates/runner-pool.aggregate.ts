@@ -20,12 +20,12 @@ import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.v
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -60,7 +60,7 @@ const sameEgress = (
 
 export class RunnerPool extends EventRecorder {
   private constructor(
-    readonly id: RunnerPoolId,
+    readonly id: PoolId,
     readonly workspaceId: WorkspaceId,
     readonly key: PoolKey,
     readonly labels: RunnerLabels,
@@ -74,7 +74,7 @@ export class RunnerPool extends EventRecorder {
 
   static create(
     input: PoolDefinition & {
-      id: RunnerPoolId;
+      id: PoolId;
       workspaceId: WorkspaceId;
       access: AccessInput;
       by: ChangeActor;
@@ -110,7 +110,7 @@ export class RunnerPool extends EventRecorder {
 
   static rehydrate(
     input: PoolDefinition & {
-      id: RunnerPoolId;
+      id: PoolId;
       workspaceId: WorkspaceId;
       access: PoolAccess;
       version: number;
@@ -192,6 +192,10 @@ export class RunnerPool extends EventRecorder {
 
   get egressTraffic(): EgressTraffic {
     return this.provision?.egressTraffic ?? EgressTraffic.all();
+  }
+
+  servesEgressNeed(needsEgress: boolean): boolean {
+    return !needsEgress || this.egress !== null;
   }
 
   usesEgress(egress: EgressReference): boolean {

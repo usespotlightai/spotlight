@@ -9,6 +9,8 @@ import {
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export class RecordRecallHandler
   implements CommandHandlerPort<RecordRecallCommand, void>
@@ -21,7 +23,10 @@ export class RecordRecallHandler
 
   async execute(command: RecordRecallCommand): Promise<void> {
     try {
-      const run = await this.loader.recalling(command.runId, command.runnerId);
+      const run = await this.loader.recalling(
+        RunId.of(command.runId),
+        RunnerId.of(command.runnerId),
+      );
 
       if (!recordsRecall(run)) {
         return;

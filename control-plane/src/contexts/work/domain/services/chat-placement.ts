@@ -1,4 +1,4 @@
-import { distinct } from '@shared-kernel/domain/services/distinct';
+import { distinct } from '@shared-kernel/domain/distinct';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';

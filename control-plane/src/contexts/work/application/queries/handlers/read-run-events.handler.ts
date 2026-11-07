@@ -4,6 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunEventReaderPort } from '@work/application/ports/run-event-reader.port';
 import type { RunEventView } from '@work/application/ports/run-stream.port';
+import type { RunViewersPort } from '@work/application/ports/run-viewers.port';
 import type { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
 
 const MAX_TO_REPLAY_BYTES = 256 * 1024;
@@ -12,15 +13,16 @@ const MAX_TO_REPLAY_ENTRIES = 400;
 export class ReadRunEventsHandler
   implements QueryHandlerPort<ReadRunEventsQuery, RunEventView[]>
 {
-  constructor(private readonly events: RunEventReaderPort) {}
+  constructor(
+    private readonly runs: RunViewersPort,
+    private readonly events: RunEventReaderPort,
+  ) {}
 
   async execute(query: ReadRunEventsQuery): Promise<RunEventView[]> {
     try {
       const runId = RunId.of(query.runId);
 
-      if (
-        !(await this.events.findForViewer(runId, UserId.of(query.viewerId)))
-      ) {
+      if (!(await this.runs.watchedBy(runId, UserId.of(query.viewerId)))) {
         return [];
       }
 

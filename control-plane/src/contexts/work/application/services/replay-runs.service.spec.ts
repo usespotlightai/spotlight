@@ -6,6 +6,7 @@ import type { DispatchReplay } from '@work/application/services/dispatch-replay.
 import type { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import { ReplayRuns } from '@work/application/services/replay-runs.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -30,7 +31,6 @@ const aRun = (input: {
     state: input.state ?? 'queued',
     hasEnded: false,
     replayOf: input.replayOf ? RunId.of(input.replayOf) : null,
-    configuredAs: { fingerprint: 'f'.repeat(64) },
     cancelQueued: () => ({ ...run, state: 'cancelled', hasEnded: true }),
     cancel: () => ({ ...run, stopRequested: true }),
   };
@@ -77,6 +77,9 @@ const replayRuns = () =>
     } as unknown as ReplayAnswers,
     { inTransaction: (work) => work() },
     { now: () => new Date(), sleep: async () => {} },
+    {
+      find: async () => ({ configuredAs: { fingerprint: 'f'.repeat(64) } }),
+    } as unknown as DispatchRepository,
   );
 
 const order = (workspaceId = 'ws_1') => ({

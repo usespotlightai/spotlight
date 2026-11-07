@@ -1,6 +1,6 @@
+import { distinct } from '@shared-kernel/domain/distinct';
 import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/invalid-runner-placement.error';
-import { distinct } from '@shared-kernel/domain/services/distinct';
-import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import {
   isSlug,
   MAX_SLUG_LENGTH,

@@ -8,6 +8,8 @@ import type { IntegrationConfigsPort } from '@configuration/application/ports/in
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { ResourceConfigurationQuery } from '@configuration/application/queries/resource-configuration.query';
 import type { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
+import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
+import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { OidcTrustConfigurationPort } from '@identity/application/ports/oidc-trust-configuration.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -60,7 +62,7 @@ export class ResourceConfigurationHandler
         (await this.access.permissionsIn(workspaceId, query.principal));
       const workspace =
         permissions &&
-        (await this.workspaces.profileOf(permissions.workspaceId.value));
+        (await this.workspaces.profileOf(permissions.workspaceId));
 
       if (!workspace) {
         return null;
@@ -89,13 +91,17 @@ export class ResourceConfigurationHandler
       case 'line':
         return this.teamWorkspaceOf(await this.lines.withId(id));
       case 'skill':
-        return this.teamWorkspaceOf(await this.skills.withId(id));
+        return this.teamWorkspaceOf(
+          await this.skills.withId(SkillDefinitionId.of(id)),
+        );
       case 'integration':
         return this.teamWorkspaceOf(await this.integrations.withId(id));
       case 'hook':
         return this.teamWorkspaceOf(await this.hooks.withId(id));
       case 'harness-profile':
-        return this.teamWorkspaceOf(await this.profiles.withId(id));
+        return this.teamWorkspaceOf(
+          await this.profiles.withId(HarnessProfileId.of(id)),
+        );
       case 'secret':
         return workspaceIdOf(await this.secrets.withId(id));
       case 'oidc-trust':

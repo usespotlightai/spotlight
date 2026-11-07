@@ -20,17 +20,21 @@ import {
   TEAM_MEMORIES,
   type TeamMemoriesPort,
 } from '@work/application/ports/team-memories.port';
+import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -211,14 +215,30 @@ describe('briefing runs with what the team remembers', () => {
           handover: { options: [], noteLimit: 0 },
           resume: { key: 'task_1' },
         }),
-        briefedWith: BriefedMemories.of({
+      }),
+    );
+    await app.get(DrizzleDispatchRepository).add(
+      Dispatch.ordered({
+        id: runId,
+        workspaceId: team.workspaceId,
+        teamId: team.teamId,
+        subject: {
+          kind: 'task',
+          taskId: team.list.id,
+          revision: TaskRevision.of(0),
+          stationId: team.stationId,
+        },
+        configuredAs: null,
+        briefedMemories: BriefedMemories.of({
           briefed: [
             { id: byPath.id, handle: byPath.handle },
             { id: teamWide.id, handle: teamWide.handle },
           ],
           omitted: [{ id: lineOnly.id, handle: lineOnly.handle }],
         }),
-      }),
+        order: DispatchOrder.of({}),
+        now: new Date(),
+      }).enqueuedAsRun(),
     );
 
     const read = await served(app)
@@ -333,10 +353,19 @@ describe('briefing runs with what the team remembers', () => {
           handover: { options: [], noteLimit: 0 },
           resume: { key: 'task_2' },
         }),
-        briefedWith: BriefedMemories.of({
+      }),
+    );
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: runId.value,
+        workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
+        taskId: team.list.id.value,
+        stationId: team.stationId.value,
+        briefedMemories: {
           briefed: [{ id: teamWide.id, handle: teamWide.handle }],
           omitted: [],
-        }),
+        },
       }),
     );
     const stranger = randomUUID();

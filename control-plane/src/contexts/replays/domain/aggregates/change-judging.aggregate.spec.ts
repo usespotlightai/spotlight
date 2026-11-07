@@ -121,4 +121,13 @@ describe('ChangeJudging', () => {
   it('can be judged again only once it was judged', () => {
     expect(() => requested().requeued(NOW)).toThrow(InvalidJudgingError);
   });
+
+  it('is deleted by itself, keeping its version for the versioned removal', () => {
+    const judging = requested();
+    const deleted = judging.delete();
+
+    expect(judging.isDeleted).toBe(false);
+    expect(deleted.isDeleted).toBe(true);
+    expect(deleted.version).toBe(judging.version);
+  });
 });

@@ -26,8 +26,8 @@ describe('audienceOf', () => {
       'resources',
     ],
     [
-      route('/teams/{teamId}/insights/cost', 'workspace-token', 'insights'),
-      'insights',
+      route('/teams/{teamId}/insights/cost', 'workspace-token', 'automation'),
+      'automation',
     ],
     [route('/runs/{runId}/events', 'runner', null, 'post'), 'hosts'],
     [route('/hosts/claim', 'anonymous', 'hosts', 'post'), 'hosts'],
@@ -51,10 +51,10 @@ describe('audienceOf', () => {
   it('fails for a route in an audience that does not take its credential', () => {
     expect(() =>
       audienceOf(
-        route('/teams/{teamId}/insights/cost', 'anonymous', 'insights'),
+        route('/teams/{teamId}/insights/cost', 'anonymous', 'automation'),
       ),
     ).toThrow(
-      'GET /teams/{teamId}/insights/cost (anonymous) is in the insights audience, which takes workspace-token routes only.',
+      'GET /teams/{teamId}/insights/cost (anonymous) is in the automation audience, which takes workspace-token routes only.',
     );
   });
 });

@@ -16,7 +16,7 @@ describe('versioned writes', () => {
   it('accepts an update on the version', () => {
     expect(
       writesIn(`import { task } from '${TASK_SCHEMA}';
-        db.update(task).set({}).where(and(eq(task.id, id), eq(task.version, v)));`),
+        db.update(task).set({ version: v + 1 }).where(and(eq(task.id, id), eq(task.version, v)));`),
     ).toEqual([]);
   });
 
@@ -25,7 +25,7 @@ describe('versioned writes', () => {
       writesIn(`import { task } from '${TASK_SCHEMA}';
         class Tasks {
           private matching(saved) { return and(eq(task.id, saved.id), eq(task.version, saved.version)); }
-          save(saved) { return db.update(task).set({}).where(this.matching(saved)); }
+          save(saved) { return db.update(task).set({ version: saved.version + 1 }).where(this.matching(saved)); }
         }`),
     ).toEqual([]);
   });
@@ -33,8 +33,15 @@ describe('versioned writes', () => {
   it('finds an update without the version', () => {
     expect(
       writesIn(`import { task } from '${TASK_SCHEMA}';
-        db.update(task).set({}).where(eq(task.id, id));`),
+        db.update(task).set({ version: v + 1 }).where(eq(task.id, id));`),
     ).toEqual(['update task without its version']);
+  });
+
+  it('finds an update that does not raise the version', () => {
+    expect(
+      writesIn(`import { task } from '${TASK_SCHEMA}';
+        db.update(task).set({ title }).where(and(eq(task.id, id), eq(task.version, v)));`),
+    ).toEqual(['update task without raising its version']);
   });
 
   it('does not take the version from a declaration out of scope', () => {
@@ -56,7 +63,7 @@ describe('versioned writes', () => {
   it('finds an upsert without the version', () => {
     expect(
       writesIn(`import { task } from '${TASK_SCHEMA}';
-        db.insert(task).values({}).onConflictDoUpdate({ target: task.id, set: {} });`),
+        db.insert(task).values({}).onConflictDoUpdate({ target: task.id, set: { version: sql\`\${task.version} + 1\` } });`),
     ).toEqual(['upsert task without its version']);
   });
 

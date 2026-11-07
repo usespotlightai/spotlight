@@ -191,6 +191,15 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
     return rows.map(toHost);
   }
 
+  async inWorkspace(workspaceId: WorkspaceId): Promise<readonly RunnerHost[]> {
+    const rows = await this.context.db
+      .select()
+      .from(runnerHost)
+      .where(eq(runnerHost.workspaceId, workspaceId.value));
+
+    return rows.map(toHost);
+  }
+
   async silentSince(cutoff: Date): Promise<readonly RunnerHost[]> {
     const rows = await this.context.db
       .select()

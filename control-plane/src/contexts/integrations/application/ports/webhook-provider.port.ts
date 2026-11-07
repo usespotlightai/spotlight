@@ -20,7 +20,6 @@ export interface HappeningDeclaration {
   readonly answers: boolean;
 }
 
-// Throw a retryable UpstreamError for a recognised delivery that cannot be placed yet; any other failure ends the delivery.
 export interface WebhookProviderPort {
   readonly key: string;
 

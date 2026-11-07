@@ -1,7 +1,6 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import type { Action } from '@integrations/domain/value-objects/action.vo';
-
-const CHAT_EVENT = 'chat.';
+import type { BindingSubject } from '@integrations/domain/value-objects/binding.vo';
 
 export class DefinedActions {
   private constructor(private readonly actions: ReadonlyMap<string, Action>) {}
@@ -41,8 +40,8 @@ export class DefinedActions {
     );
   }
 
-  forBinding(name: string, event: string, by: string): Action {
-    return event.startsWith(CHAT_EVENT)
+  forBinding(name: string, about: BindingSubject, by: string): Action {
+    return about === 'chat'
       ? this.withoutUploads(
           name,
           by,

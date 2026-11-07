@@ -7,6 +7,7 @@ import {
   peopleWho,
   refreshingFor,
   snapshotsFor,
+  stepsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { SetHealths } from '@replays/application/services/set-healths.service';
@@ -78,11 +79,16 @@ const policyOf = (over: Partial<Parameters<typeof SearchPolicy.of>[0]> = {}) =>
     ...over,
   });
 
+const joinOf = (request: string) => ({
+  searchId: SearchId.of('search_other'),
+  request: CandidateId.of(request),
+  at: now,
+});
+
 const tests = () => {
   const healths = new SetHealths(
     work,
     memory.replayRepository,
-    memory.replaysReader,
     memory.candidateRepository,
   );
 
@@ -105,6 +111,7 @@ const tests = () => {
     ),
     new StartSearch(
       snapshotsFor(memory, work),
+      stepsFor(memory, work, clock),
       memory.setRepository,
       memory.searchRepository,
       memory.scheduleRepository,
@@ -115,6 +122,7 @@ const tests = () => {
       TRANSACTION,
     ),
     snapshotsFor(memory, work),
+    stepsFor(memory, work, clock),
     IDS,
     clock,
     TRANSACTION,
@@ -314,9 +322,9 @@ describe('StationChangeTests', () => {
 
     await memory.scheduleRepository.save(
       (schedule as StationSearchSchedule)
-        .requested(now)
-        .requested(now)
-        .requested(now),
+        .requested(joinOf('a'))
+        .requested(joinOf('b'))
+        .requested(joinOf('c')),
     );
 
     expect(await asked()).toMatchObject({
@@ -334,7 +342,9 @@ describe('StationChangeTests', () => {
         inSet: [],
         at: now,
         cooldownMilliseconds: 3 * DAY,
-        trigger: 'schedule',
+        searchId: SearchId.of('search_earlier'),
+        request: null,
+        candidates: [],
       }),
     );
 

@@ -18,10 +18,6 @@ export interface ReplaysReaderPort {
 
   baselinesOfSets(setIds: readonly ReplaySetId[]): Promise<readonly Replay[]>;
 
-  healthSamplesOfSets(
-    setIds: readonly ReplaySetId[],
-  ): Promise<readonly Replay[]>;
-
   searchesOfSetsStartedSince(
     setIds: readonly ReplaySetId[],
     since: Date,

@@ -7,9 +7,9 @@ import type {
 } from '@work/application/contracts/run-journal.contract';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { RunEvidences } from '@work/application/services/run-evidences.service';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { judgeOf } from '@work/domain/value-objects/line-map.fake-spec';
@@ -74,25 +74,34 @@ const journal: RunJournal = {
 };
 
 const TASK_RUN = {
-  id: RunId.of('run_1'),
-  taskId: TaskId.of('task_1'),
-  replayOf: null,
-  spec: { checkoutFolders: ['api'] },
+  runId: RunId.of('run_1'),
+  subject: {
+    kind: 'task',
+    taskId: TaskId.of('task_1'),
+    stationId: null,
+    revision: 0,
+  },
+  checkouts: ['api'],
 };
 
 const REPLAY = {
-  id: RunId.of('replay_1'),
-  taskId: null,
-  replayOf: RunId.of('run_1'),
-  spec: { checkoutFolders: ['api'] },
+  runId: RunId.of('replay_1'),
+  subject: {
+    kind: 'replay',
+    replayOf: RunId.of('run_1'),
+    taskId: TaskId.of('task_1'),
+    stationId: null,
+    teamId: TeamId.of('team_1'),
+  },
+  checkouts: ['api'],
 };
 
 const evidences = (judge: JudgeSettings | null = null) =>
   new RunEvidences(
     {
-      findById: async (id: RunId) =>
-        [TASK_RUN, REPLAY].find((each) => each.id.equals(id)) ?? null,
-    } as unknown as RunRepository,
+      of: async ([id]: readonly RunId[]) =>
+        [TASK_RUN, REPLAY].filter((each) => id && each.runId.equals(id)),
+    } as unknown as RunFactsPort,
     {
       find: async () => ({
         id: TaskId.of('task_1'),
@@ -130,7 +139,7 @@ const evidences = (judge: JudgeSettings | null = null) =>
     } as unknown as RunJournalReaderPort,
     {
       of: async (runId: RunId) =>
-        runId.equals(TASK_RUN.id)
+        runId.equals(TASK_RUN.runId)
           ? {
               title: 'Retry uploads, as briefed',
               description: 'They failed then.',

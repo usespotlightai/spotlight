@@ -35,8 +35,8 @@ export class TeamIntegrationsHandler
         this.readings.ofTeam(team.teamId),
         this.connected.ofTeam(team.teamId),
       ]);
-      const linkedAccounts = new Map(
-        connections.map((each) => [each.integration, each.linkedAccount]),
+      const connectionOf = new Map(
+        connections.map((each) => [each.integration, each]),
       );
 
       return {
@@ -46,10 +46,11 @@ export class TeamIntegrationsHandler
           name: each.name,
           connectionStatus: connectionStatusOf(
             each.requiresConnection,
-            linkedAccounts.has(each.integration),
+            connectionOf.get(each.integration) ?? null,
           ),
           actsAs: each.actsAs,
-          linkedAccount: linkedAccounts.get(each.integration) ?? null,
+          linkedAccount:
+            connectionOf.get(each.integration)?.linkedAccount ?? null,
           spec: each.spec
             ? {
                 kind: each.spec.kind,

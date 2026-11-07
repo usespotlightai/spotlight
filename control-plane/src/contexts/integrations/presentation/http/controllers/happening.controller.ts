@@ -11,8 +11,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 @ApiTags('happenings')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -23,7 +23,7 @@ export class HappeningController {
   @Get()
   @ApiOperation({
     operationId: 'listHappenings',
-    summary: 'The words a station here can be set to wait for',
+    summary: 'The happenings a station here can wait for',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiOkResponse({ type: HappeningResponseDto, isArray: true })

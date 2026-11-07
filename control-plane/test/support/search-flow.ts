@@ -55,6 +55,7 @@ import {
 } from './auto-searches';
 import { eventually } from './eventually';
 import { keptSet } from './kept-sets';
+import { aDispatch } from './runs';
 import * as schema from './schema';
 import { searchReadOf } from './search-read';
 import { insertStations } from './stations';
@@ -315,21 +316,29 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
       resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(stationId),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(stationId),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      endedAt: at,
+    }),
+  );
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,

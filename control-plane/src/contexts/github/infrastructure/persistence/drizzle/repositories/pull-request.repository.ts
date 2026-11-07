@@ -281,7 +281,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
         .values({
           workspaceId: added.workspaceId.value,
           url: added.url.value,
-          version: added.version + 1,
+          version: added.version,
           ...columnsOf(added),
         })
         .onConflictDoNothing()

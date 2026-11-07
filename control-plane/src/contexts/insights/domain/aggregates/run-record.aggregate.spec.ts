@@ -32,7 +32,7 @@ describe('RunRecord', () => {
     const record = RunRecord.empty(RUN, WORKSPACE);
 
     expect(record.hasEnded).toBe(false);
-    expect(record.ending).toBeNull();
+    expect(record.factWith(null, null)).toBeNull();
   });
 
   it('tells once that it ended, at the station it ended at, through later changes', () => {
@@ -90,13 +90,14 @@ describe('RunRecord', () => {
     );
 
     expect(ended.recordEnd(endOf({ ending: 'completed' }))).toBe(ended);
-    expect(ended.ending).toBe('failed');
+    expect(ended.factWith(null, null)?.ending).toBe('failed');
   });
 
   it('ends as superseded when its task superseded it after it ended', () => {
-    expect(endedRecord('run_1').supersededByItsTask(RECEIVED_AT).ending).toBe(
-      'superseded',
-    );
+    expect(
+      endedRecord('run_1').supersededByItsTask(RECEIVED_AT).factWith(null, null)
+        ?.ending,
+    ).toBe('superseded');
   });
 
   it('ends as superseded when told so before its end was received', () => {
@@ -104,7 +105,7 @@ describe('RunRecord', () => {
       .supersededByItsTask(RECEIVED_AT)
       .recordEnd(endOf({ ending: 'completed' }));
 
-    expect(superseded.ending).toBe('superseded');
+    expect(superseded.factWith(null, null)?.ending).toBe('superseded');
   });
 
   it('is left as it is when superseded twice', () => {
@@ -172,7 +173,7 @@ describe('RunRecord', () => {
 
       expect(record.firstHumanAction?.kind).toBe('sent-back');
       expect(record.approvalAnsweredAt).toEqual(EARLIER);
-      expect(record.disposition).toBe('sent-back');
+      expect(record.factWith(null, null)?.disposition).toBe('sent-back');
     }
   });
 
@@ -265,7 +266,9 @@ describe('RunRecord', () => {
 
     expect(cancelled.ran).toBe(false);
     expect(cancelled.supersededByItsTask(RECEIVED_AT).ran).toBe(false);
-    expect(cancelled.supersededByItsTask(RECEIVED_AT).ending).toBe('cancelled');
+    expect(
+      cancelled.supersededByItsTask(RECEIVED_AT).factWith(null, null)?.ending,
+    ).toBe('cancelled');
     expect(endedRecord('run_2', { ending: 'failed' }).ran).toBe(true);
     expect(RunRecord.empty(RUN, WORKSPACE).ran).toBe(false);
   });
@@ -339,7 +342,7 @@ describe('RunRecord', () => {
     });
     const recorded = endedRecord('run_1').recordUsage(usageOf(), used);
 
-    expect(recorded.tools?.read('grafana')).toBe(true);
+    expect(recorded.tools?.skillsRead.includes('grafana')).toBe(true);
     expect(recorded.recordUsage(usageOf(), RunTools.NONE)).toBe(recorded);
   });
 
@@ -390,11 +393,13 @@ describe('RunRecord', () => {
       endOf({ ending: 'failed' }),
     );
 
-    expect(ended.recordAction(HumanAction.of('accepted', AT)).disposition).toBe(
-      'accepted',
-    );
     expect(
-      ended.recordAction(HumanAction.of('sent-back', AT)).disposition,
+      ended.recordAction(HumanAction.of('accepted', AT)).factWith(null, null)
+        ?.disposition,
+    ).toBe('accepted');
+    expect(
+      ended.recordAction(HumanAction.of('sent-back', AT)).factWith(null, null)
+        ?.disposition,
     ).toBe('sent-back');
   });
 
@@ -405,7 +410,7 @@ describe('RunRecord', () => {
       .recordAction(HumanAction.of('accepted', LATER));
 
     expect(accepted.firstHumanAction?.accepts).toBe(true);
-    expect(accepted.disposition).toBe('accepted');
+    expect(accepted.factWith(null, null)?.disposition).toBe('accepted');
   });
 
   it('turned out sent back when a person sent it back after approving a tool it asked for', () => {
@@ -415,7 +420,7 @@ describe('RunRecord', () => {
       .recordAction(HumanAction.of('sent-back', LATER));
 
     expect(sentBack.firstHumanAction?.sendsBack).toBe(true);
-    expect(sentBack.disposition).toBe('sent-back');
+    expect(sentBack.factWith(null, null)?.disposition).toBe('sent-back');
   });
 
   it('turned out accepted when a person closed its task after dismissing a tool it asked for', () => {
@@ -425,14 +430,15 @@ describe('RunRecord', () => {
       .recordAction(HumanAction.of('accepted', LATER));
 
     expect(accepted.firstHumanAction?.accepts).toBe(true);
-    expect(accepted.disposition).toBe('accepted');
+    expect(accepted.factWith(null, null)?.disposition).toBe('accepted');
   });
 
   it('turned out failed when it failed and nobody accepted or sent it back', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf({ ending: 'failed' }))
-        .recordAction(HumanAction.of('answered', AT)).disposition,
+        .recordAction(HumanAction.of('answered', AT))
+        .factWith(null, null)?.disposition,
     ).toBe('failed');
   });
 
@@ -440,7 +446,8 @@ describe('RunRecord', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
-        .recordAction(HumanAction.of('answered', AT)).disposition,
+        .recordAction(HumanAction.of('answered', AT))
+        .factWith(null, null)?.disposition,
     ).toBe('asked');
   });
 
@@ -450,7 +457,7 @@ describe('RunRecord', () => {
     for (const act of ['approved', 'dismissed'] as const) {
       const decided = ended.recordAction(HumanAction.of(act, AT));
 
-      expect(decided.disposition).toBe('asked');
+      expect(decided.factWith(null, null)?.disposition).toBe('asked');
       expect(decided.firstHumanAction).toBeNull();
     }
   });
@@ -459,7 +466,8 @@ describe('RunRecord', () => {
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf({ ending: 'failed' }))
-        .recordAction(HumanAction.of('approved', AT)).disposition,
+        .recordAction(HumanAction.of('approved', AT))
+        .factWith(null, null)?.disposition,
     ).toBe('failed');
   });
 
@@ -468,26 +476,29 @@ describe('RunRecord', () => {
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
         .recordAction(HumanAction.of('approved', AT))
-        .recordAction(HumanAction.of('parked', LATER)).disposition,
+        .recordAction(HumanAction.of('parked', LATER))
+        .factWith(null, null)?.disposition,
     ).toBe('asked');
   });
 
   it('turned out asking when it ended waiting on a person nobody has answered yet', () => {
     expect(
-      RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf({ asked: true }))
-        .disposition,
+      RunRecord.empty(RUN, WORKSPACE)
+        .recordEnd(endOf({ asked: true }))
+        .factWith(null, null)?.disposition,
     ).toBe('asked');
   });
 
   it('turned out some other way when nothing told how', () => {
-    expect(RunRecord.empty(RUN, WORKSPACE).disposition).toBe('other');
-    expect(RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf()).disposition).toBe(
-      'other',
-    );
+    expect(
+      RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf()).factWith(null, null)
+        ?.disposition,
+    ).toBe('other');
     expect(
       RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
-        .recordAction(HumanAction.of('parked', AT)).disposition,
+        .recordAction(HumanAction.of('parked', AT))
+        .factWith(null, null)?.disposition,
     ).toBe('other');
   });
 
@@ -551,5 +562,25 @@ describe('RunRecord', () => {
         .pullEvents()
         .map((each) => each.kind),
     ).toEqual(['run-record.ended', 'run-record.erased']);
+  });
+
+  it('credits an action without a run to the newest run of the task at the station that ran and ended by then', () => {
+    const records = [
+      endedRecord('run_old', { endedAt: EARLIER }),
+      endedRecord('run_newest', { endedAt: AT }),
+      endedRecord('run_cancelled', {
+        endedAt: AT,
+        ending: 'cancelled',
+      }),
+      endedRecord('run_after', { endedAt: LATER }),
+      RunRecord.empty(RunId.of('run_open'), WORKSPACE),
+    ];
+
+    expect(RunRecord.creditedWithActionAt(records, AT)?.runId.value).toBe(
+      'run_newest',
+    );
+    expect(
+      RunRecord.creditedWithActionAt(records, new Date(EARLIER.getTime() - 1)),
+    ).toBeNull();
   });
 });

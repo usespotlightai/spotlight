@@ -1,4 +1,5 @@
 import type { CommentedStack } from '@change-review/application/ports/comment-bodies.port';
+import { checkReasonOf } from '@change-review/infrastructure/rendering/check-reason';
 
 export const CHANGE_STACK_MARKER = '<!-- spotlight:change-stack -->';
 
@@ -16,7 +17,7 @@ export const ChangeStackComment = {
   of(stack: CommentedStack, link: string): string {
     const changes = stack.cohorts.filter((each) => each.kind === 'change');
     const incidental = stack.cohorts.filter((each) => each.kind !== 'change');
-    const reason = stack.check?.reason ?? null;
+    const reason = stack.check ? checkReasonOf(stack.check) : null;
 
     return [
       '### Change stack',

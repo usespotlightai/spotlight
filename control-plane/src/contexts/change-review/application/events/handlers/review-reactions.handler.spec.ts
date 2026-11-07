@@ -1,5 +1,5 @@
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
-import type { ReviewOutboxPort } from '@change-review/application/ports/review-outbox.port';
+import type { ReviewDeliveriesPort } from '@change-review/application/ports/review-deliveries.port';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { IncludedCommentPosted } from '@change-review/domain/events/included-comment-posted.event';
 import { IncludedCommentReturned } from '@change-review/domain/events/included-comment-returned.event';
@@ -46,7 +46,7 @@ const reacting = (stored: readonly ReviewComment[] = []) => {
       save: async (comment: ReviewComment) =>
         void comments.set(comment.id.value, comment),
     } as unknown as ReviewCommentRepository,
-    { enqueue } as unknown as ReviewOutboxPort,
+    { enqueue } as unknown as ReviewDeliveriesPort,
     { generate: () => 'sync_1' },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -117,7 +117,7 @@ describe('ReviewReactions', () => {
 
     expect(comments.get('comment_1')?.state).toBe('draft');
     expect(comments.get('comment_2')?.sending).toBe(false);
-    expect(comments.get('comment_3')?.state).toBe('submitted');
+    expect(comments.get('comment_3')?.state).toBe('sending');
   });
 
   it('has an edit to send to GitHub that was made while the review was on its way', async () => {

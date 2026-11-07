@@ -214,7 +214,7 @@ export class Review extends EventRecorder {
     const own = comments.flatMap((comment) =>
       comment?.sending && comment.belongsTo(this.id) ? [comment] : [],
     );
-    const sent = own.filter((comment) => comment.state === 'submitted');
+    const sent = own.filter((comment) => comment.state === 'sending');
 
     return {
       onLines: sent.filter((comment) => !comment.anchor.wholeFile),

@@ -1,9 +1,12 @@
+import { scopeRecorder } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type {
   CallAuth,
-  IntegrationTaskView,
   ResolvedTool,
 } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
+import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
@@ -18,7 +21,6 @@ import {
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { ToolAskedMidCallError } from '@integrations/infrastructure/mcp/tool-asked-mid-call.error';
-import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
@@ -32,9 +34,11 @@ import {
   scopedTo,
   unscoped,
 } from '@platform/outbound/outbound-scope.fake-spec';
-import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
@@ -65,17 +69,19 @@ const DELETE = SpecOperation.of({
   call: { kind: 'mcp', tool: 'delete_issue' },
 });
 
-const TASK: IntegrationTaskView = {
-  taskId: 'task_1',
-  workspaceId: 'ws_1',
-  teamId: 'team_1',
+const TASK: TaskView = {
+  taskId: TaskId.of('task_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
   title: 'Drain the queue',
   url: null,
   pullRequest: null,
   line: 'delivery',
   station: 'Implementation',
-  stationKey: 'implementation',
+  stationKey: StationKey.of('implementation'),
   marks: {},
+  repositories: [],
+  runId: null,
   waiting: null,
 };
 

@@ -1,8 +1,10 @@
+import type { PersonToolRulesPort } from '@integrations/application/ports/person-tool-rules.port';
 import { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { PersonToolPolicyVersionConflictError } from '@integrations/domain/exceptions/person-tool-policy-version-conflict.error';
 import type { PersonToolPolicyRepository } from '@integrations/domain/repositories/person-tool-policy.repository';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -12,7 +14,9 @@ const keyOf = (
   integration: IntegrationKey,
 ): string => [teamId.value, personId.value, integration.value].join(':');
 
-export class InMemoryPersonToolPolicies implements PersonToolPolicyRepository {
+export class InMemoryPersonToolPolicies
+  implements PersonToolPolicyRepository, PersonToolRulesPort
+{
   readonly stored = new Map<string, PersonToolPolicy>();
 
   async of(
@@ -26,9 +30,16 @@ export class InMemoryPersonToolPolicies implements PersonToolPolicyRepository {
   async ofPerson(
     teamId: TeamId,
     personId: UserId,
-  ): Promise<readonly PersonToolPolicy[]> {
-    return [...this.stored.values()].filter(
-      (each) => each.teamId.equals(teamId) && each.personId.equals(personId),
+  ): Promise<ReadonlyMap<string, PersonToolRule>> {
+    return new Map(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.teamId.equals(teamId) && each.personId.equals(personId),
+        )
+        .flatMap((each) =>
+          each.rules.map((rule) => [rule.tool.value, rule.rule] as const),
+        ),
     );
   }
 

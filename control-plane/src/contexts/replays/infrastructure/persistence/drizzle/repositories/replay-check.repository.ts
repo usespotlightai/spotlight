@@ -3,8 +3,10 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   codeOf,
   UNIQUE_VIOLATION,
+  violates,
 } from '@platform/persistence/drizzle/violations';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
+import { ReplayCheckAttemptTakenError } from '@replays/domain/exceptions/replay-check-attempt-taken.error';
 import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import {
@@ -12,11 +14,13 @@ import {
   type ScoringField,
 } from '@replays/domain/services/live-scoring';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { SetEntriesDigest } from '@replays/domain/value-objects/set-entries-digest.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { replayCheck } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
@@ -30,6 +34,8 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
+
+const ATTEMPT_OF_CHANGE = 'replay_check_attempt_idx';
 
 type CheckRow = typeof replayCheck.$inferSelect;
 
@@ -57,7 +63,7 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     },
     stationKey: row.stationKey,
     setId: ReplaySetId.of(row.setId),
-    setEntries: row.setEntries,
+    setEntries: SetEntriesDigest.of(row.setEntries),
     attempt: row.attempt,
     candidateId: CandidateId.of(row.candidateId),
     replayId: ReplayId.of(row.replayId),
@@ -102,16 +108,14 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
     return found ?? null;
   }
 
-  matching(
+  ofChange(
     stationId: StationId,
-    candidate: StationHashes,
-    live: StationHashes,
+    change: CheckedChange,
   ): Promise<readonly ReplayCheck[]> {
     return this.where(
       and(
         eq(replayCheck.stationId, stationId.value),
-        eq(replayCheck.candidateBehaviour, candidate.behaviour),
-        eq(replayCheck.liveScoring, live.scoring),
+        eq(replayCheck.change, change.value),
       ) as SQL,
     );
   }
@@ -161,6 +165,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           liveScoring: added.liveHashes.scoring,
           candidateBehaviour: added.candidateHashes.behaviour,
           candidateScoring: added.candidateHashes.scoring,
+          change: added.change.value,
           maxRegressions: added.threshold.maxRegressions,
           ceilingAmount: added.threshold.ceiling.amount,
           ceilingCurrency: added.threshold.ceiling.currency,
@@ -172,6 +177,9 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           version: added.version,
         })
         .catch((error: unknown) => {
+          if (violates(error, UNIQUE_VIOLATION, ATTEMPT_OF_CHANGE)) {
+            throw new ReplayCheckAttemptTakenError(added.attempt);
+          }
           if (codeOf(error) === UNIQUE_VIOLATION) {
             throw new ReplayCheckVersionConflictError(added.id.value);
           }

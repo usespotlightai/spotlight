@@ -1,6 +1,7 @@
 import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const FRESH_FOR_MS = 30_000;
 
@@ -45,7 +46,9 @@ export class CachedWorkspaceOutboundHosts
   }
 
   private async read(workspaceId: string): Promise<HostAllowList> {
-    const profile = await this.workspaces.profileOf(workspaceId);
+    const profile = await this.workspaces.profileOf(
+      WorkspaceId.of(workspaceId),
+    );
 
     if (!profile) {
       throw new Error(`workspace ${workspaceId} does not exist`);

@@ -9,7 +9,7 @@ const MAX_CLAIMS = 20;
 
 const MAX_CLAIM_LENGTH = 500;
 
-const ALL_CLAIMS = 1;
+export const ALL_CLAIMS = 1;
 
 class InvalidRubricError extends InvalidStationJudgeError {
   constructor(reason: string) {

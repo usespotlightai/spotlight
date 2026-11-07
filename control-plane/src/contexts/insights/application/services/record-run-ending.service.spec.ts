@@ -4,6 +4,7 @@ import { FactRecorder } from '@insights/application/services/fact-recorder.servi
 import { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import { RecordSupersededRun } from '@insights/application/services/record-superseded-run.service';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import {
   FIRST_CONFIG,
   inTransaction,
@@ -59,7 +60,6 @@ const recording = (runs: readonly EndedRun[]) => {
     endedRun: async (runId) =>
       runs.find((each) => each.runId === runId) ?? null,
     configsInOrder: async () => [],
-    teamSkillKeys: async () => [],
   };
 
   return {
@@ -84,8 +84,7 @@ const recording = (runs: readonly EndedRun[]) => {
     ),
     ended: (
       runId: string,
-      outcome = 'completed',
-      stopped = false,
+      ending: RunEnding | null = 'completed',
       asked = false,
     ) =>
       new RecordRunEnding(
@@ -98,9 +97,8 @@ const recording = (runs: readonly EndedRun[]) => {
         runId,
         taskId: 'task_1',
         stationId: 'station_1',
-        outcome,
-        stopped,
-        failure: outcome === 'failed' ? 'exited' : null,
+        ending,
+        failure: ending === 'failed' ? 'exited' : null,
         asked,
       }),
     stored: async (runId: string) => records.of(RunId.of(runId)),
@@ -114,7 +112,7 @@ describe('recording that a run ended', () => {
     await recorder.ended('run_1', 'failed');
 
     const record = await recorder.stored('run_1');
-    expect(record?.ending).toBe('failed');
+    expect(record?.end?.ending).toBe('failed');
     expect(record?.end?.failure).toBe('exited');
     expect(record?.end?.fingerprint).toBe(FIRST_CONFIG);
     expect(record?.end?.location.stationId.value).toBe('station_1');
@@ -159,20 +157,24 @@ describe('recording that a run ended', () => {
   it('records that it ended waiting on a person', async () => {
     const recorder = recording([endedRun('run_1'), endedRun('run_2')]);
 
-    await recorder.ended('run_1', 'completed', false, true);
+    await recorder.ended('run_1', 'completed', true);
     await recorder.ended('run_2');
 
     expect((await recorder.stored('run_1'))?.end?.asked).toBe(true);
-    expect((await recorder.stored('run_1'))?.disposition).toBe('asked');
+    expect(
+      (await recorder.stored('run_1'))?.factWith(null, null)?.disposition,
+    ).toBe('asked');
     expect((await recorder.stored('run_2'))?.end?.asked).toBe(false);
   });
 
   it('records a run a person stopped as stopped', async () => {
     const recorder = recording([endedRun('run_1')]);
 
-    await recorder.ended('run_1', 'completed', true);
+    await recorder.ended('run_1', 'stopped');
 
-    expect((await recorder.stored('run_1'))?.ending).toBe('stopped');
+    expect((await recorder.stored('run_1'))?.factWith(null, null)?.ending).toBe(
+      'stopped',
+    );
   });
 
   it('takes the visit Work counted for the run', async () => {
@@ -191,10 +193,10 @@ describe('recording that a run ended', () => {
     expect(await recorder.stored('run_1')).toBeNull();
   });
 
-  it('records nothing for an ending it does not know', async () => {
+  it('records nothing for a run without an ending', async () => {
     const recorder = recording([endedRun('run_1')]);
 
-    await recorder.ended('run_1', 'exploded');
+    await recorder.ended('run_1', null);
 
     expect(await recorder.stored('run_1')).toBeNull();
   });
@@ -215,7 +217,9 @@ describe('recording that a run ended', () => {
     await recorder.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
     await recorder.ended('run_1');
 
-    expect((await recorder.stored('run_1'))?.ending).toBe('superseded');
+    expect((await recorder.stored('run_1'))?.factWith(null, null)?.ending).toBe(
+      'superseded',
+    );
   });
 
   it('marks a recorded run superseded once, however often it is told', async () => {
@@ -226,7 +230,7 @@ describe('recording that a run ended', () => {
     await recorder.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
 
     const record = await recorder.stored('run_1');
-    expect(record?.ending).toBe('superseded');
+    expect(record?.factWith(null, null)?.ending).toBe('superseded');
     expect(record?.version).toBe(1);
   });
 

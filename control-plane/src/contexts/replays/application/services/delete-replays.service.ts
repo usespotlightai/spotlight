@@ -22,7 +22,7 @@ export class DeleteReplays {
   async candidatesOfTeam(teamId: TeamId): Promise<void> {
     for (const candidate of await this.candidates.ofTeam(teamId)) {
       await this.transaction.inTransaction(() =>
-        this.candidates.save(candidate.cascadeDelete()),
+        this.candidates.save(candidate.delete()),
       );
     }
   }

@@ -1,6 +1,7 @@
 import type {
   ChangeStackDto,
   OutlinedCohortDto,
+  QuestionAnswerDto,
   StackCheckDto,
 } from '@change-review/application/dto/change-stack.dto';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -24,4 +25,11 @@ export interface ChangeStackReaderPort {
   latestForTask(taskId: TaskId, now: Date): Promise<ChangeStackSummary | null>;
 
   ofRun(runId: RunId, viewerId: UserId, now: Date): Promise<ChangeStackDto[]>;
+
+  answerOf(
+    runId: RunId,
+    stackId: string,
+    questionId: string,
+    viewerId: UserId,
+  ): Promise<QuestionAnswerDto | null>;
 }

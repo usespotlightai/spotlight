@@ -3,9 +3,9 @@ import type { DeleteMemoryDraft } from '@memory/application/services/delete-memo
 import type { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import type { RequestMemories } from '@memory/application/services/request-memories.service';
-import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import {
   RUN_BRIEFED,
@@ -52,10 +52,10 @@ export const memorySubscribers = (
         event.memories,
       ),
   ),
-  subscribing<MemoriesProposed>(
+  subscribing<MemoryReviewRequested>(
     'memory.create-review',
-    ['memory-draft.proposed'],
-    (event) => reactions.onProposed(event),
+    ['memory-draft.review-requested'],
+    (event) => reactions.onReviewRequested(event),
   ),
   subscribing<MemoryReviewResolved>(
     'memory.resolve-review',
@@ -99,5 +99,6 @@ export const memorySubscribers = (
     'memory.delete-memories-of-deleted-team',
     [TEAM_DELETED],
     (event) => deletingMemories.deleteForTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
 ];

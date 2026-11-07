@@ -1,9 +1,14 @@
 import { Credential } from '@secrets/application/contracts/credential.contract';
+import type { InjectedSecret } from '@secrets/domain/value-objects/secret-binding.vo';
+import { SECRET_LOCATIONS as LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
 import {
   SECRET,
   type Secret,
 } from '@shared-kernel/domain/value-objects/secret';
-import type { SecretLocation } from '@shared-kernel/domain/value-objects/secret-locations';
+
+export type SecretLocation = 'header' | 'query';
+
+export const SECRET_LOCATIONS: readonly SecretLocation[] = LOCATIONS;
 
 export interface SecretInjectionTarget {
   readonly location: SecretLocation;
@@ -26,6 +31,17 @@ export class InjectedSecrets implements Secret {
 
   static none(): InjectedSecrets {
     return new InjectedSecrets([]);
+  }
+
+  static from(injected: readonly InjectedSecret[]): InjectedSecrets {
+    return new InjectedSecrets(
+      injected.map((each) => ({
+        location: each.location,
+        name: each.name,
+        value: Credential.of(each.revealedValue()),
+        bare: Credential.of(each.revealedBare()),
+      })),
+    );
   }
 
   static of(

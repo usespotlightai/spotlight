@@ -39,6 +39,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -171,6 +172,7 @@ const LARGE_INPUT = {
 const RUN = {
   id: RunId.of('run-1'),
   taskId: null,
+  teamOfRun: TeamId.of('team_1'),
   isReplay: false,
   isSearch: false,
   workspaceId: WorkspaceId.of('workspace-1'),
@@ -243,6 +245,7 @@ const generating = (
     nextDueJob: async () => null,
     ofRun: async () => [],
     ofTask: async () => [],
+    ofTeam: async () => [],
     remove: async () => undefined,
   };
 
@@ -833,6 +836,7 @@ describe('RedraftChangeStack', () => {
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
+      teamId: null,
       replay: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
@@ -935,6 +939,7 @@ describe('RedraftChangeStack', () => {
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
+      teamId: null,
       replay: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
@@ -1079,6 +1084,7 @@ describe('the problems a broken stack is settled with', () => {
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
+      teamId: null,
       replay: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),

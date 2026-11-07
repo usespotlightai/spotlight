@@ -22,6 +22,7 @@ export interface PullRequestActivityFacts {
   readonly branch: string | null;
   readonly labelled: boolean;
   readonly described: boolean;
+  readonly body: string | null;
   readonly comment: string | null;
 }
 
@@ -37,6 +38,8 @@ export type PullRequestHappening =
       readonly kind: 'review-request';
       readonly trigger: ReviewTrigger;
       readonly pullRequest: PullRequestUrl;
+      readonly carriesComment: boolean;
+      readonly description: string;
     };
 
 const MENTION = '@';
@@ -45,12 +48,23 @@ const unplaceable = (activity: ActivityKind): never => {
   throw new UnplaceableHappeningError(`GitHub ${activity} delivery`);
 };
 
+const describedFor = (pullRequest: PullRequestUrl, body: string | null) =>
+  [`Review ${pullRequest.value}`, body ?? ''].filter(Boolean).join('\n\n');
+
 const reviewRequest = (
   facts: PullRequestActivityFacts,
   trigger: ReviewTrigger,
 ): PullRequestHappening[] =>
   facts.pullRequest && facts.described
-    ? [{ kind: 'review-request', trigger, pullRequest: facts.pullRequest }]
+    ? [
+        {
+          kind: 'review-request',
+          trigger,
+          pullRequest: facts.pullRequest,
+          carriesComment: trigger === 'mentioned',
+          description: describedFor(facts.pullRequest, facts.body),
+        },
+      ]
     : [];
 
 const mentions = (facts: PullRequestActivityFacts): boolean =>

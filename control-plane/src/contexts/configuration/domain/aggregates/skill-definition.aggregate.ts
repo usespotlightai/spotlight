@@ -5,22 +5,23 @@ import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skil
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import type { SkillFolderReading } from '@configuration/domain/services/skill-folder-reading';
+import type { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import type { Skill } from '@configuration/domain/value-objects/skill.vo';
 import type { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
-import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import type { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 interface Props {
   readonly id: SkillDefinitionId;
   readonly teamId: TeamId;
-  readonly key: SkillKey;
+  readonly key: DefinedSkillKey;
   readonly files: SkillFiles;
   readonly version: number;
 }
@@ -30,7 +31,7 @@ interface State extends Props {
 }
 
 export interface SkillFolder {
-  readonly key: SkillKey;
+  readonly key: DefinedSkillKey;
   readonly files: SkillFiles;
 }
 
@@ -136,10 +137,10 @@ export class SkillDefinition extends EventRecorder {
     return updated;
   }
 
-  delete(uses: StationUses, by: ChangeActor): SkillDefinition {
+  delete(uses: StationUses<SkillKey>, by: ChangeActor): SkillDefinition {
     this.guardLive();
 
-    const using = uses.of(this.key);
+    const using = uses.of(this.key.skill);
 
     if (!using.isEmpty) {
       throw new SkillInUseError(this.key.value, using);
@@ -170,7 +171,7 @@ export class SkillDefinition extends EventRecorder {
     return this.state.teamId;
   }
 
-  get key(): SkillKey {
+  get key(): DefinedSkillKey {
     return this.state.key;
   }
 

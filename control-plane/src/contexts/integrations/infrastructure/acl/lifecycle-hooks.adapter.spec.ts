@@ -6,6 +6,7 @@ import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { TaskViewDto } from '@work/application/ports/task-views.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -63,7 +64,7 @@ describe('LifecycleHooks', () => {
     expect(toolUsed).toHaveBeenCalledWith(
       expect.objectContaining({ taskId: TaskId.of('task_1') }),
       {
-        tool: 'github.comment',
+        tool: Tool.of('github.comment'),
         event: {
           tool: 'github.comment',
           inputs: {},

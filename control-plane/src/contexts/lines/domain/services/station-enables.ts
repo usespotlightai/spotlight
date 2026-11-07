@@ -1,4 +1,4 @@
-import { repeatedIn } from '@shared-kernel/domain/services/distinct';
+import { repeatedIn } from '@shared-kernel/domain/distinct';
 import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 

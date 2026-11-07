@@ -83,7 +83,7 @@ describe('IntegrationSpecs', () => {
     });
 
     expect(
-      compiled.ok && compiled.integration.tools.map((each) => each.tool),
+      compiled.ok && compiled.integration.tools.map((each) => each.tool.value),
     ).toEqual(['petstore.find-pets']);
     expect(reading?.hash).toEqual(HASH);
     expect(reading?.readAt).toEqual(NOW);
@@ -113,7 +113,7 @@ describe('IntegrationSpecs', () => {
     expect(again.reading?.hash).toEqual(HASH);
     expect(
       again.compiled.ok &&
-        again.compiled.integration.tools.map((each) => each.tool),
+        again.compiled.integration.tools.map((each) => each.tool.value),
     ).toEqual(['petstore.find-pets']);
 
     await first.specs.compiled({
@@ -159,7 +159,7 @@ describe('IntegrationSpecs', () => {
 
     expect(
       refreshed.compiled.ok &&
-        refreshed.compiled.integration.tools.map((each) => each.tool),
+        refreshed.compiled.integration.tools.map((each) => each.tool.value),
     ).toEqual(['petstore.find-pets']);
     expect(refreshed.reading?.hash).toEqual(HASH);
     expect(refreshed.reading?.problem).toBe(

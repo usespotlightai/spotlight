@@ -6,6 +6,7 @@ import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-tru
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { dependentsInWorkspace } from '@identity/domain/services/workspace-contents';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import {
   forbiddenTo,
@@ -49,17 +50,16 @@ export class DeleteWorkspaceHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const remaining = Dependents.of(await this.dependents.of(id));
+      const elsewhere = Dependents.of(await this.dependents.of(id));
 
       await this.transaction.inTransaction(async () =>
         this.workspaces.save(
           existing.delete(
-            {
+            dependentsInWorkspace({
               teams: await this.teams.ofWorkspace(id),
               tokens: await this.tokens.ofWorkspace(id),
               trusts: await this.trusts.ofWorkspace(id),
-            },
-            remaining,
+            }).and(elsewhere),
             ChangeActor.of(command.actor, id),
           ),
         ),

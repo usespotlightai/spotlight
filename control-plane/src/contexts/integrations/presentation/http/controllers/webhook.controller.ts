@@ -1,6 +1,6 @@
 import {
   AcceptDeliveryCommand,
-  type TeamAddress,
+  type DeliveryAddress,
 } from '@integrations/application/commands/accept-delivery.command';
 import type { DeliveryReceipt } from '@integrations/application/dto/delivery-receipt.dto';
 import {
@@ -83,7 +83,7 @@ export class WebhookController {
 
   private async take(
     integration: string,
-    addressedTo: TeamAddress | null,
+    addressedTo: DeliveryAddress | null,
     headers: DeliveryHeaders,
     body: unknown,
     request: Delivering,

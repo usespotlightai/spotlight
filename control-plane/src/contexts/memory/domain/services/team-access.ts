@@ -1,7 +1,7 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { TeamNotFoundError } from '@memory/domain/exceptions/team-not-found.error';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -22,12 +22,12 @@ export class TeamAccess {
     readonly by: UserId,
   ) {}
 
-  static onTeam(teamId: string, viewer: TeamViewer | null): TeamAccess {
+  static onTeam(teamId: TeamId, viewer: TeamViewer | null): TeamAccess {
     if (!viewer) {
-      throw new TeamNotFoundError(teamId);
+      throw new TeamNotFoundError(teamId.value);
     }
 
-    return new TeamAccess(TeamId.of(teamId), viewer.workspaceId, viewer.by);
+    return new TeamAccess(teamId, viewer.workspaceId, viewer.by);
   }
 
   includes(memory: Memory): boolean {

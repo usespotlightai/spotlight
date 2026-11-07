@@ -14,12 +14,14 @@ import type {
   TracedWanted,
   UnfinishedRunRow,
 } from '@work/application/ports/station-run-reader.port';
+import { TERMINAL_RUN_STATES } from '@work/domain/value-objects/run-state';
 import {
-  type RunState,
-  TERMINAL_RUN_STATES,
-} from '@work/domain/value-objects/run-state';
+  type TaskRunState,
+  taskRunStateOf,
+} from '@work/domain/value-objects/task-run-state';
 import { journalsOfRuns } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
+import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
@@ -57,22 +59,25 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         lineId: workStation.lineId,
         stationId: workStation.stationId,
         taskId: run.taskId,
-        fingerprint: run.stationFingerprint,
-        earlier: sql<RunState[]>`array(
-          select earlier.state::text from ${run} as earlier
+        fingerprint: dispatch.stationFingerprint,
+        earlier: sql<TaskRunState[]>`array(
+          select case when earlier_dispatch.superseded then 'superseded' else earlier.state::text end
+          from ${run} as earlier
+          left join ${dispatch} as earlier_dispatch on earlier_dispatch.id = earlier.id
           where earlier.task_id = ${run.taskId}
             and earlier.station_id = ${run.stationId}
             and earlier.created_at < ${run.createdAt}
         )`,
         harness: run.harness,
-        config: run.stationConfig,
-        reviewing: sql<string | null>`${run.briefedTask}->>'reviewing'`,
+        config: dispatch.stationConfig,
+        reviewing: sql<string | null>`${dispatch.briefedTask}->>'reviewing'`,
         queuedAt: run.createdAt,
         startedAt: run.startedAt,
         endedAt: run.endedAt,
       })
       .from(run)
       .innerJoin(workStation, eq(workStation.stationId, run.stationId))
+      .leftJoin(dispatch, eq(dispatch.id, run.id))
       .where(
         and(
           eq(run.id, runId),
@@ -97,7 +102,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         taskId: task.id,
         openedBy: task.createdById,
         harness: run.harness,
-        config: run.stationConfig,
+        config: dispatch.stationConfig,
         state: run.state,
         stopRequestedAt: run.stopRequestedAt,
         queuedAt: run.createdAt,
@@ -106,6 +111,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
       .innerJoin(workStation, eq(workStation.stationId, run.stationId))
+      .leftJoin(dispatch, eq(dispatch.id, run.id))
       .where(
         and(
           eq(workStation.teamId, teamId.value),
@@ -133,12 +139,12 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     }
 
     const rows = await this.db
-      .selectDistinctOn([run.stationFingerprint], {
-        fingerprint: run.stationFingerprint,
-        parts: run.stationConfig,
+      .selectDistinctOn([dispatch.stationFingerprint], {
+        fingerprint: dispatch.stationFingerprint,
+        parts: dispatch.stationConfig,
       })
-      .from(run)
-      .where(inArray(run.stationFingerprint, [...fingerprints]));
+      .from(dispatch)
+      .where(inArray(dispatch.stationFingerprint, [...fingerprints]));
 
     return rows.flatMap((row) =>
       row.fingerprint && row.parts
@@ -179,8 +185,9 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         runId: run.id,
         taskId: run.taskId,
         title: task.title,
-        fingerprint: run.stationFingerprint,
+        fingerprint: dispatch.stationFingerprint,
         state: run.state,
+        superseded: sql<boolean>`coalesce(${dispatch.superseded}, false)`,
         attempt: run.attempt,
         harness: run.harness,
         startedAt: run.createdAt,
@@ -188,6 +195,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
+      .leftJoin(dispatch, eq(dispatch.id, run.id))
       .where(
         and(
           eq(run.stationId, stationId),
@@ -195,7 +203,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
           isNotNull(run.endedAt),
           wanted.fingerprint === null
             ? undefined
-            : eq(run.stationFingerprint, wanted.fingerprint),
+            : eq(dispatch.stationFingerprint, wanted.fingerprint),
           wanted.since === null ? undefined : gte(run.createdAt, wanted.since),
           wanted.until === null ? undefined : lt(run.endedAt, wanted.until),
           wanted.excluding.length === 0
@@ -206,9 +214,16 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       .orderBy(desc(run.createdAt))
       .limit(wanted.max);
 
-    return rows.flatMap((row) =>
+    return rows.flatMap(({ superseded, ...row }) =>
       row.taskId && row.endedAt
-        ? [{ ...row, taskId: row.taskId, endedAt: row.endedAt }]
+        ? [
+            {
+              ...row,
+              state: taskRunStateOf(row.state, superseded),
+              taskId: row.taskId,
+              endedAt: row.endedAt,
+            },
+          ]
         : [],
     );
   }
@@ -226,14 +241,16 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         runId: run.id,
         taskId: task.id,
         title: task.title,
-        fingerprint: run.stationFingerprint,
+        fingerprint: dispatch.stationFingerprint,
         state: run.state,
+        superseded: sql<boolean>`coalesce(${dispatch.superseded}, false)`,
         attempt: run.attempt,
         harness: run.harness,
         startedAt: run.createdAt,
         endedAt: run.endedAt,
       })
       .from(run)
+      .leftJoin(dispatch, eq(dispatch.id, run.id))
       .leftJoin(replayed, eq(replayed.id, run.replayOfRunId))
       .innerJoin(
         task,
@@ -249,8 +266,16 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       )
       .orderBy(desc(run.createdAt));
 
-    return rows.flatMap((row) =>
-      row.endedAt ? [{ ...row, endedAt: row.endedAt }] : [],
+    return rows.flatMap(({ superseded, ...row }) =>
+      row.endedAt
+        ? [
+            {
+              ...row,
+              state: taskRunStateOf(row.state, superseded),
+              endedAt: row.endedAt,
+            },
+          ]
+        : [],
     );
   }
 

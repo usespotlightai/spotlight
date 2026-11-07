@@ -4,6 +4,7 @@ import type { RunBeforeHooks } from '@integrations/application/services/run-befo
 import type { HookDecision as FiredDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { TaskViewMapper } from '@integrations/infrastructure/acl/task-view.mapper';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type {
   BeforeHookEvent,
   HookDecision,
@@ -53,7 +54,7 @@ export class LifecycleHooks implements LifecycleHooksPort {
   ): Promise<void> {
     await this.triggers.toolUsed(
       TaskViewMapper.toView(task),
-      { tool: instance.tool, event: eventOf(instance) },
+      { tool: Tool.of(instance.tool), event: eventOf(instance) },
       occurrence,
     );
   }

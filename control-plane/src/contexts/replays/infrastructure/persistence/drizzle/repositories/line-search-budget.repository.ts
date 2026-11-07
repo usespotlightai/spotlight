@@ -26,6 +26,7 @@ const toBudget = (row: BudgetRow): LineSearchBudget =>
     admissions: row.admissions.map((each) => ({
       searchId: SearchId.of(each.searchId),
       ceiling: Money.of(each.amount, each.currency),
+      admittedAt: new Date(each.admittedAt),
     })),
     version: row.version,
   });
@@ -35,6 +36,7 @@ const admissionsOf = (budget: LineSearchBudget) =>
     searchId: each.searchId.value,
     amount: each.ceiling.amount,
     currency: each.ceiling.currency,
+    admittedAt: each.admittedAt.toISOString(),
   }));
 
 @Injectable()

@@ -258,7 +258,7 @@ describe('Replay', () => {
         Replay.start({
           id: ReplayId.of('replay_1'),
           set: set.snapshot,
-          candidate: candidateOf('searched'),
+          candidate: candidateOf('searched').asReplayed,
           baseline: false,
           ceiling: Money.ceiling(1, 'USD'),
           at: NOW,
@@ -272,7 +272,7 @@ describe('Replay', () => {
         Replay.start({
           id: ReplayId.of('replay_1'),
           set: aSet(1).stationLeft(NOW).snapshot,
-          candidate: candidateOf('searched'),
+          candidate: candidateOf('searched').asReplayed,
           baseline: false,
           ceiling: Money.ceiling(1, 'USD'),
           at: NOW,
@@ -349,14 +349,14 @@ describe('Replay', () => {
       const replay = Replay.start({
         id: ReplayId.of('replay_1'),
         set: aSet(1).snapshot,
-        candidate: candidateOf('searched'),
+        candidate: candidateOf('searched').asReplayed,
         baseline: false,
         ceiling: Money.ceiling(3, 'USD'),
         at: NOW,
         by: BY,
         wanting: {
           id: ReplayId.of('replay_2'),
-          candidate: candidateOf('live'),
+          candidate: candidateOf('live').asReplayed,
           ceiling: Money.ceiling(9, 'USD'),
           repeats: 3,
         },
@@ -402,14 +402,14 @@ describe('Replay', () => {
           Replay.start({
             id: ReplayId.of('replay_1'),
             set: aSet(1).snapshot,
-            candidate: candidateOf('live'),
+            candidate: candidateOf('live').asReplayed,
             baseline,
             ceiling: Money.ceiling(3, 'USD'),
             at: NOW,
             by: BY,
             wanting: {
               id: ReplayId.of('replay_2'),
-              candidate: wanted,
+              candidate: wanted.asReplayed,
               ceiling: Money.ceiling(3, 'USD'),
               repeats: 1,
             },
@@ -447,7 +447,7 @@ describe('Replay', () => {
       Replay.start({
         id: ReplayId.of('replay_oracle'),
         set: aSet(3).snapshot,
-        candidate: oracle(),
+        candidate: oracle().asReplayed,
         baseline: false,
         ceiling: Money.ceiling(10, 'USD'),
         at: NOW,
@@ -455,7 +455,7 @@ describe('Replay', () => {
         oracle: {
           answers,
           against: against.asOracleReference,
-          live: candidateOf('live'),
+          live: candidateOf('live').asReplayed,
         },
         ...more,
       });
@@ -494,7 +494,7 @@ describe('Replay', () => {
           oracle: {
             answers,
             against: against.asOracleReference,
-            live: candidateOf('live', 'candidate_other'),
+            live: candidateOf('live', 'candidate_other').asReplayed,
           },
         },
         {
@@ -506,7 +506,7 @@ describe('Replay', () => {
                 candidate: candidateOf('searched'),
               }),
             ).asOracleReference,
-            live: candidateOf('live'),
+            live: candidateOf('live').asReplayed,
           },
         },
       ]) {
@@ -522,7 +522,7 @@ describe('Replay', () => {
         { searchId: SEARCH },
         { runSubset: [RunId.of('original_0')] },
         { oracle: undefined },
-        { candidate: candidateOf('live') },
+        { candidate: candidateOf('live').asReplayed },
       ]) {
         expect(() => handed(against, more)).toThrow(InvalidReplayError);
       }
@@ -535,14 +535,14 @@ describe('Replay', () => {
         Replay.start({
           id: ReplayId.of('replay_1'),
           set: aSet(1).snapshot,
-          candidate: candidateOf('searched'),
+          candidate: candidateOf('searched').asReplayed,
           baseline: false,
           ceiling: Money.ceiling(3, 'USD'),
           at: NOW,
           by: BY,
           wanting: {
             id: ReplayId.of('replay_2'),
-            candidate: candidateOf('live'),
+            candidate: candidateOf('live').asReplayed,
             ceiling: Money.ceiling(3, 'USD'),
             ...terms,
           },
@@ -930,7 +930,7 @@ describe('Replay', () => {
       );
 
       expect(reviewed.pullEvents().map((each) => each.kind)).not.toContain(
-        'replays.replay-judging-requested',
+        'replay.judging-requested',
       );
       expect(reviewed.entries[0]?.judging?.unjudged).toBe(
         'stopped-before-judging',
@@ -996,7 +996,7 @@ describe('Replay', () => {
         .measure(run(0), measuresOf(1), later(63_000));
 
       expect(replay.pullEvents().map((each) => each.kind)).not.toContain(
-        'replays.replay-judging-requested',
+        'replay.judging-requested',
       );
       expect(replay.current).toBe('finished');
       expect(replay.entries[0]?.succeeded).toBe(false);
@@ -1107,14 +1107,14 @@ describe('Replay', () => {
         Replay.start({
           id: ReplayId.of('replay_1'),
           set: aSet(3).snapshot,
-          candidate: candidateOf('searched'),
+          candidate: candidateOf('searched').asReplayed,
           baseline: false,
           ceiling: Money.ceiling(10, 'USD'),
           at: NOW,
           by: BY,
           wanting: {
             id: ReplayId.of('replay_baseline'),
-            candidate: candidateOf('live'),
+            candidate: candidateOf('live').asReplayed,
             ceiling: Money.ceiling(10, 'USD'),
             repeats: 1,
           },

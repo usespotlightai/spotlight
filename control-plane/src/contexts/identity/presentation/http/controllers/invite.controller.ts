@@ -1,8 +1,5 @@
 import { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
-import {
-  InviteToWorkspaceCommand,
-  inviteesOf,
-} from '@identity/application/commands/invite-to-workspace.command';
+import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
 import { ResendInviteCommand } from '@identity/application/commands/resend-invite.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
 import type {
@@ -44,11 +41,11 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 const listed = (raw: unknown): string[] =>
   Array.isArray(raw) ? raw.map(String) : [];
@@ -111,27 +108,21 @@ export class WorkspaceInviteController {
     @Body() body: InviteToWorkspaceRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<InviteOutcomesResponseDto> {
-    const outcomes: InviteOutcomeDto[] = [];
+    const outcomes = await this.commandBus.execute<
+      InviteToWorkspaceCommand,
+      readonly InviteOutcomeDto[] | null
+    >(
+      new InviteToWorkspaceCommand(
+        slug,
+        listed(body.emails),
+        String(body.role ?? ''),
+        listed(body.teamIds),
+        user.id,
+      ),
+    );
 
-    for (const email of inviteesOf(listed(body.emails))) {
-      const outcome = await this.commandBus.execute<
-        InviteToWorkspaceCommand,
-        InviteOutcomeDto | null
-      >(
-        new InviteToWorkspaceCommand(
-          slug,
-          email,
-          String(body.role ?? ''),
-          listed(body.teamIds),
-          user.id,
-        ),
-      );
-
-      if (!outcome) {
-        throw new NotFoundException();
-      }
-
-      outcomes.push(outcome);
+    if (!outcomes) {
+      throw new NotFoundException();
     }
 
     return { outcomes };

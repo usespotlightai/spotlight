@@ -56,7 +56,7 @@ describe('Candidate', () => {
   });
 
   it('is deleted quietly with its team', () => {
-    const live = candidateOf('live').cascadeDelete();
+    const live = candidateOf('live').delete();
 
     expect(live.isDeleted).toBe(true);
     expect(live.pullEvents()).toEqual([]);
@@ -173,7 +173,7 @@ describe('Candidate', () => {
 
     it('goes quietly when deleted with its team', () => {
       for (const candidate of [searched(), planned()]) {
-        const deleted = candidate.cascadeDelete();
+        const deleted = candidate.delete();
 
         expect(deleted.isDeleted).toBe(true);
         expect(deleted.pullEvents()).toEqual([]);

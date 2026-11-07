@@ -4,7 +4,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class SearchReplaysPlanned implements DomainEvent {
-  readonly kind = 'replays.search-replays-planned';
+  readonly kind = 'search.replays-planned';
 
   constructor(
     readonly searchId: SearchId,

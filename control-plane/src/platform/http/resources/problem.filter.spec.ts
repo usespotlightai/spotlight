@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
+import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
 import { API_VERSION } from '@platform/http/resources/resource-headers';
@@ -27,6 +28,14 @@ class Refused extends ApplicationError {
   }
 }
 
+const forbiddenActs = new ForbiddenActs();
+forbiddenActs.register({
+  ring: (kind) => [
+    `Not allowed to ring the ${kind}`,
+    `Only a bell ringer rings a ${kind}.`,
+  ],
+});
+
 const responseTo = (exception: unknown) => {
   const headers = new Map<string, string>();
   const reply = vi.fn();
@@ -46,9 +55,12 @@ const responseTo = (exception: unknown) => {
     }),
   } as unknown as ArgumentsHost;
 
-  new ProblemFilter(adapterHost, { error } as unknown as LoggerPort, {
-    report,
-  }).catch(exception, host);
+  new ProblemFilter(
+    adapterHost,
+    { error } as unknown as LoggerPort,
+    { report },
+    forbiddenActs,
+  ).catch(exception, host);
 
   const [, body, status] = reply.mock.calls[0] as [unknown, unknown, number];
 
@@ -117,6 +129,27 @@ describe('ProblemFilter', () => {
         status: 403,
       });
     }
+  });
+
+  it('says why a request was forbidden in the words its permission registered', () => {
+    expect(responseTo(ProblemException.forbidden('bell', 'ring')).body).toEqual(
+      {
+        type: 'urn:spotlight:problem:forbidden',
+        title: 'Not allowed to ring the bell',
+        status: 403,
+        detail: 'Only a bell ringer rings a bell.',
+        permission: 'ring',
+      },
+    );
+  });
+
+  it('names a permission nothing registered words for, in general words', () => {
+    expect(
+      responseTo(ProblemException.forbidden('bell', 'toll')).body,
+    ).toMatchObject({
+      title: 'Not allowed to toll',
+      permission: 'toll',
+    });
   });
 
   it('logs and reports a fault of its own, and says nothing of it to the caller', () => {

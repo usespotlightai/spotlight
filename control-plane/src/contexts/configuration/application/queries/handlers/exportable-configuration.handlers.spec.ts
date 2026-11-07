@@ -14,7 +14,7 @@ import { ResourceConfigurationQuery } from '@configuration/application/queries/r
 import { WorkspaceConfigurationQuery } from '@configuration/application/queries/workspace-configuration.query';
 import { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
+import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import type { OidcTrustConfigurationPort } from '@identity/application/ports/oidc-trust-configuration.port';
 import type {
@@ -30,6 +30,7 @@ import type {
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -119,7 +120,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
             workspaceId: WORKSPACE,
             slug: 'acme',
             configures: false,
-            allows: () => false,
+            scopes: new Set(),
             isAdmin: false,
           },
     ),
@@ -253,8 +254,8 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     }),
   });
   const profiles = {
-    withId: vi.fn(async (id: string) =>
-      id === 'profile_careful' ? profileOf(id, 'careful') : null,
+    withId: vi.fn(async (id: HarnessProfileId) =>
+      id.value === 'profile_careful' ? profileOf(id.value, 'careful') : null,
     ),
     at: vi.fn(async () => null),
     ofTeam: vi.fn(async (teamId: TeamId) =>

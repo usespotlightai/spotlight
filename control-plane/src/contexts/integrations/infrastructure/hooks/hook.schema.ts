@@ -1,6 +1,8 @@
 import {
   HOOK_ON_FAILURES,
   Hook,
+  isSetBySpotlight,
+  SET_BY_SPOTLIGHT_REASON,
 } from '@integrations/domain/value-objects/hook.vo';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import { SLUG_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
@@ -10,14 +12,9 @@ const KEY = new RegExp(`^${SLUG_SHAPE}$`);
 
 const TOOL = new RegExp(`^[a-z0-9]+\\.${SLUG_SHAPE}$`);
 
-const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
-
 const VAR = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 const HEADER = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/;
-
-const SIGNED_BY_SPOTLIGHT =
-  /^(webhook-|spotlight-|authorization$|content-type$|host$)/i;
 
 const key = (what: string) =>
   z.string().regex(KEY, `is lowercase words joined by dashes, as in ${what}`);
@@ -45,9 +42,8 @@ const json: z.ZodType<Json> = z.lazy(() =>
 const header = z
   .string()
   .regex(HEADER, 'is a header name, as in x-team')
-  .refine((name) => !SIGNED_BY_SPOTLIGHT.test(name), {
-    message:
-      'is a header Spotlight sets itself on every request, to sign it and say where it came from',
+  .refine((name) => !isSetBySpotlight(name), {
+    message: SET_BY_SPOTLIGHT_REASON,
   });
 
 const requestSchema = z
@@ -110,9 +106,7 @@ const matchSchema = z
     tools: z.array(tool).default([]),
     lines: z.array(key('delivery')).default([]),
     stations: z.array(key('implementation')).default([]),
-    repositories: z
-      .array(z.string().regex(REPOSITORY, 'is owner/name, as in acme/api'))
-      .default([]),
+    repositories: z.array(z.string()).default([]),
     paths: z
       .array(z.string().min(1, 'is a path pattern, as in db/migrations/**'))
       .default([]),

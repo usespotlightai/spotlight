@@ -18,17 +18,15 @@ import {
 
 export const MAX_FILTERED_REPOSITORIES = 50;
 
-type QueryValue = string | readonly string[] | null;
-
-export interface PullRequestFilterQuery {
-  readonly repository: readonly string[] | null;
-  readonly author: QueryValue;
-  readonly type: QueryValue;
-  readonly state: QueryValue;
-  readonly week: QueryValue;
-  readonly reverted: QueryValue;
-  readonly rounds: QueryValue;
-  readonly compared: QueryValue;
+export interface PullRequestFilterInput {
+  readonly repositories: readonly string[] | null;
+  readonly author: string | null;
+  readonly type: string | null;
+  readonly state: string | null;
+  readonly week: string | null;
+  readonly reverted: boolean;
+  readonly rounds: string | null;
+  readonly compared: boolean;
 }
 
 export interface PullRequestFilter {
@@ -44,25 +42,11 @@ export interface PullRequestFilter {
 
 const WEEK = /^\d{4}-\d{2}-\d{2}$/;
 
-const FLAGS = ['true', 'false'] as const;
-
-const single = (query: QueryValue, what: string): string | null => {
-  if (typeof query === 'string' || query === null) {
-    return query;
-  }
-
-  throw new InvalidPullRequestFilterError(
-    `takes one ${what}, not ${query.length}`,
-  );
-};
-
 const oneOf = <T extends string>(
   values: readonly T[],
-  value: QueryValue,
+  query: string | null,
   what: string,
 ): T | null => {
-  const query = single(value, what);
-
   if (query === null) {
     return null;
   }
@@ -78,12 +62,7 @@ const oneOf = <T extends string>(
   return found;
 };
 
-const flagOf = (query: QueryValue, what: string): boolean =>
-  oneOf(FLAGS, query, what) === 'true';
-
-const weekOf = (value: QueryValue): Window | null => {
-  const query = single(value, 'week');
-
+const weekOf = (query: string | null): Window | null => {
   if (query === null) {
     return null;
   }
@@ -112,14 +91,14 @@ const repositoriesOf = (
 };
 
 export const pullRequestFilterOf = (
-  query: PullRequestFilterQuery,
+  input: PullRequestFilterInput,
 ): PullRequestFilter => ({
-  repositories: repositoriesOf(query.repository),
-  author: oneOf(PULL_REQUEST_AUTHORS, query.author, 'author'),
-  type: oneOf(PULL_REQUEST_TYPES, query.type, 'type'),
-  state: oneOf(PULL_REQUEST_STATES, query.state, 'state'),
-  week: weekOf(query.week),
-  reverted: flagOf(query.reverted, 'reverted'),
-  rounds: oneOf(ROUND_BUCKETS, query.rounds, 'count of review rounds'),
-  compared: flagOf(query.compared, 'compared'),
+  repositories: repositoriesOf(input.repositories),
+  author: oneOf(PULL_REQUEST_AUTHORS, input.author, 'author'),
+  type: oneOf(PULL_REQUEST_TYPES, input.type, 'type'),
+  state: oneOf(PULL_REQUEST_STATES, input.state, 'state'),
+  week: weekOf(input.week),
+  reverted: input.reverted,
+  rounds: oneOf(ROUND_BUCKETS, input.rounds, 'count of review rounds'),
+  compared: input.compared,
 });

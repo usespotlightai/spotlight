@@ -104,7 +104,7 @@ export class DrizzleHookDefinitions implements HookDefinitionRepository {
   }
 
   private async encrypted(definition: HookDefinition) {
-    const secret = definition.secretInput;
+    const secret = definition.uncommittedSigningSecret;
 
     if (definition.signing === null) {
       return { signingSecret: null, signingSecretVersion: null };

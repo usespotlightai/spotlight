@@ -1,5 +1,5 @@
+import type { StationChangeRefusal } from '@replays/application/contracts/station-change-tests.contract';
 import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
-import type { StationChangeRefusal } from '@replays/application/services/station-change-test';
 import { REQUESTS_PER_DAY } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { FEWEST_SEARCH_TASKS } from '@replays/domain/value-objects/held-out-split.vo';
 

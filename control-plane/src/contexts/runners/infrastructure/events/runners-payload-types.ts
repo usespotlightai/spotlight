@@ -42,7 +42,6 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
@@ -84,7 +83,6 @@ export const RUNNERS_PAYLOAD_TYPES = [
   PushAccess,
   RotationVersion,
   RunnerPoolChangeDetail,
-  RunnerPoolId,
   RunnerLabels,
   RunnerTrustId,
   SandboxDrainPolicy,

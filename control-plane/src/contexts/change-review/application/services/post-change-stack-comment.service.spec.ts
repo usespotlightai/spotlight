@@ -20,6 +20,7 @@ const ready = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    teamOfRun: TeamId.of('team_1'),
     replay: false,
     isSearch: false,
     workspaceId: WorkspaceId.of('workspace-1'),
@@ -101,6 +102,7 @@ const posting = (
         };
       },
       ofRun: async () => [],
+      answerOf: async () => null,
     },
     {
       slugOf: async () => 'acme',

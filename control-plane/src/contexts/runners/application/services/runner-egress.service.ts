@@ -68,7 +68,7 @@ export class RunnerEgress implements RunnerEgressPort {
     const egress = await this.egresses.findByTokenHash(hash);
 
     return egress?.isServing &&
-      (await this.workspaces.isOpen(egress.workspaceId.value))
+      (await this.workspaces.isOpen(egress.workspaceId))
       ? { egressId: egress.id.value }
       : null;
   }

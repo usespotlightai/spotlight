@@ -69,7 +69,6 @@ const reading = async (member = true) => {
     unfinishedRuns: async () => [],
     traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
     endedRun: async () => null,
-    teamSkillKeys: async () => [],
     configsInOrder: async (fingerprints) => {
       requested.push([...fingerprints]);
       const known = fingerprints.filter((each) => each in CONFIGS);
@@ -96,7 +95,7 @@ const reading = async (member = true) => {
   };
   const access = new InsightsAccess({
     ...NOBODY_ELSE,
-    membershipOnTeam: async () =>
+    viewerOf: async () =>
       member ? { workspaceId: WORKSPACE, by: UserId.of('user_ada') } : null,
   });
 

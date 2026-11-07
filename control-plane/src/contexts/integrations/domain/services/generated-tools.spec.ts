@@ -74,7 +74,7 @@ describe('generatedTools', () => {
   it('offers each operation as a tool backed by it', () => {
     const { tools } = generating();
 
-    expect(tools.map((each) => each.tool)).toEqual([
+    expect(tools.map((each) => each.tool.value)).toEqual([
       'petstore.find-pets',
       'petstore.add-pet',
       'petstore.delete-pet',

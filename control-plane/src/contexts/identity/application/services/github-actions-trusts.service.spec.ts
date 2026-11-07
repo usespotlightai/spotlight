@@ -39,7 +39,7 @@ const permissions = (allowed: boolean): WorkspacePermissions => ({
   slug: 'acme',
   plans: true,
   configures: allowed,
-  allows: () => allowed,
+  scopes: new Set(allowed ? (['trusts'] as const) : []),
   isAdmin: allowed,
 });
 

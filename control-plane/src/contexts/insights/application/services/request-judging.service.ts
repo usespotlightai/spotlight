@@ -12,7 +12,7 @@ import {
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
-import { endingOf } from '@insights/domain/value-objects/run-ending';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -27,9 +27,7 @@ export interface RunEndedToJudge {
   readonly runId: string;
   readonly taskId: string | null;
   readonly stationId: string | null;
-  readonly outcome: string;
-  readonly stopped: boolean;
-  readonly failure: string | null;
+  readonly ending: RunEnding | null;
 }
 
 export class RequestJudging {
@@ -45,7 +43,7 @@ export class RequestJudging {
   ) {}
 
   async runEnded(event: RunEndedToJudge): Promise<void> {
-    const ending = endingOf(event);
+    const { ending } = event;
     const runId = RunId.of(event.runId);
 
     if (

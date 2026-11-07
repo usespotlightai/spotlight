@@ -29,7 +29,9 @@ const opened = () =>
 
 const lock = (id: string) =>
   StateLock.of({
-    info: { ID: id, Operation: 'OperationTypeApply', Who: 'ci@runner' },
+    id: StateLockId.of(id),
+    operation: 'OperationTypeApply',
+    asWritten: { ID: id, Operation: 'OperationTypeApply', Who: 'ci@runner' },
     lockedBy: PrincipalRef.rehydrate('token:tok_1'),
     lockedAt: AT,
   });
@@ -106,7 +108,9 @@ describe('TerraformState', () => {
   it('refuses the same lock ID from another principal', () => {
     const locked = opened().lockAs(lock('a'));
     const replayed = StateLock.of({
-      info: { ID: 'a' },
+      id: StateLockId.of('a'),
+      operation: null,
+      asWritten: { ID: 'a' },
       lockedBy: PrincipalRef.rehydrate('token:tok_2'),
       lockedAt: AT,
     });

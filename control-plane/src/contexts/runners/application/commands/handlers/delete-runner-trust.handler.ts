@@ -40,7 +40,7 @@ export class DeleteRunnerTrustHandler
         return null;
       }
 
-      if (!permissions.allows('runners')) {
+      if (!permissions.scopes.has('runners')) {
         return forbiddenTo('runners');
       }
 

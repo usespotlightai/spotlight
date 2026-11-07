@@ -7,13 +7,13 @@ import type {
   ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
+import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import type { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import type { RunCatalog } from '@work/application/services/run-catalog.service';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 
 type ToolResolver = (
   tool: Tool,
-  run: Run,
+  run: LeasedRun,
   context: ToolContext,
   runnerId: string,
 ) => Promise<ResolvedTool | null>;
@@ -30,12 +30,12 @@ export class ToolSources {
       'built-in': async (tool, _run, context) =>
         builtIns.resolve(tool, context),
       integration: (tool, run, context, runnerId) =>
-        integrations.resolve(tool, context, run.currentAttempt, runnerId),
+        integrations.resolve(tool, context, run, runnerId),
       catalog: (tool, run, context) => catalog.resolve(tool, run, context),
     };
   }
 
-  resolve(tool: Tool, run: Run, context: ToolContext, runnerId: string) {
+  resolve(tool: Tool, run: LeasedRun, context: ToolContext, runnerId: string) {
     return this.from[tool.origin](tool, run, context, runnerId);
   }
 }

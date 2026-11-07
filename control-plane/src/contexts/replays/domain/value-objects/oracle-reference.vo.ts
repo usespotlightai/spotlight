@@ -2,12 +2,13 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import type { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
 
 interface State {
   readonly id: ReplayId;
   readonly setId: ReplaySetId;
   readonly candidateId: CandidateId;
-  readonly scoringHash: string;
+  readonly scoringHash: ScoringHash;
   readonly repeats: number;
   readonly ceiling: Money;
   readonly wholeSetOutsideSearch: boolean;
@@ -33,7 +34,7 @@ export class OracleReference {
     return this.state.candidateId;
   }
 
-  get scoringHash(): string {
+  get scoringHash(): ScoringHash {
     return this.state.scoringHash;
   }
 

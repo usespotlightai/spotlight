@@ -49,10 +49,7 @@ export class DeleteHarnessProfileHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const named = await this.stationReferences.onTeam(
-        existing.teamId,
-        'profile',
-      );
+      const named = await this.stationReferences.profilesOn(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.profiles.save(

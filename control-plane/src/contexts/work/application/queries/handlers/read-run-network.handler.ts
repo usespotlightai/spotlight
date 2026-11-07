@@ -9,12 +9,14 @@ import {
 import type { RunNetworkDto } from '@work/application/dto/run-network.dto';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type { RunEventReaderPort } from '@work/application/ports/run-event-reader.port';
+import type { RunViewersPort } from '@work/application/ports/run-viewers.port';
 import type { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
 
 export class ReadRunNetworkHandler
   implements QueryHandlerPort<ReadRunNetworkQuery, RunNetworkDto | null>
 {
   constructor(
+    private readonly runs: RunViewersPort,
     private readonly events: RunEventReaderPort,
     private readonly connections: RunConnectionsPort,
   ) {}
@@ -22,10 +24,7 @@ export class ReadRunNetworkHandler
   async execute(query: ReadRunNetworkQuery): Promise<RunNetworkDto | null> {
     try {
       const runId = RunId.of(query.runId);
-      const found = await this.events.findForViewer(
-        runId,
-        UserId.of(query.viewerId),
-      );
+      const found = await this.runs.watchedBy(runId, UserId.of(query.viewerId));
 
       if (!found) {
         return null;
@@ -39,7 +38,7 @@ export class ReadRunNetworkHandler
       const recorded = await this.connections.of(runId.value);
 
       return {
-        runId: found.id,
+        runId: found.runId.value,
         attempt: found.attempt,
         egressEnforcement: parseEnforcement(checked?.data),
         connections: recorded

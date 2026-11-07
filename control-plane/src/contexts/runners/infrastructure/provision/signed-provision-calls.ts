@@ -1,3 +1,4 @@
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import {
   OutboundBlockedError,
   type OutboundGuard,
@@ -9,7 +10,6 @@ import type {
   ProvisionCall,
   ProvisionCallsPort,
 } from '@runners/application/ports/provision-calls.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -101,7 +101,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
           'webhook-id': call.messageId,
           'webhook-timestamp': String(timestamp),
           'webhook-signature': signatureOf(
-            call.secret.key,
+            Buffer.from(call.secret.encodedKey, 'base64'),
             call.messageId,
             timestamp,
             body,

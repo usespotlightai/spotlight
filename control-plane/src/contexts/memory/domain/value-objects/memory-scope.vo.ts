@@ -5,8 +5,8 @@ import type {
   RunContext,
   TouchedContext,
 } from '@memory/domain/value-objects/run-context';
-import { distinct } from '@shared-kernel/domain/services/distinct';
-import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
+import { distinct } from '@shared-kernel/domain/distinct';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';

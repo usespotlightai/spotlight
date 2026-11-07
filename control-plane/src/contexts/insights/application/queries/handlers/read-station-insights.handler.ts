@@ -27,6 +27,8 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadStationInsightsHandler
   implements QueryHandlerPort<ReadStationInsightsQuery, StationInsightsDto>
@@ -40,7 +42,10 @@ export class ReadStationInsightsHandler
 
   async execute(query: ReadStationInsightsQuery): Promise<StationInsightsDto> {
     try {
-      const access = await this.access.forTeam(query.teamId, query.viewerId);
+      const access = await this.access.forTeam(
+        TeamId.of(query.teamId),
+        UserId.of(query.viewerId),
+      );
       const records = await this.facts.latestStartedAt({
         workspaceId: access.workspaceId,
         teamId: access.teamId,

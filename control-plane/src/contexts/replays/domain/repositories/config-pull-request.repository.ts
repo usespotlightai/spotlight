@@ -8,8 +8,8 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface GitHubPullRequestKey {
-  readonly gitHubId: number | null;
+export interface HostPullRequestKey {
+  readonly hostId: number | null;
   readonly repository: string;
   readonly number: number;
 }
@@ -32,9 +32,9 @@ export interface ConfigPullRequestRepository {
 
   openAtStation(stationId: StationId): Promise<boolean>;
 
-  fromGitHub(
+  fromHost(
     workspaceId: WorkspaceId,
-    pullRequest: GitHubPullRequestKey,
+    pullRequest: HostPullRequestKey,
   ): Promise<ConfigPullRequest | null>;
 
   openedOnLine(lineId: LineId): Promise<readonly ConfigPullRequest[]>;

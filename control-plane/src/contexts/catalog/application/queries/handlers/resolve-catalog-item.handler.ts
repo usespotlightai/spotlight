@@ -7,7 +7,7 @@ import type { ResolveCatalogItemQuery } from '@catalog/application/queries/resol
 import { CatalogProblems } from '@catalog/application/rendering/catalog-problems';
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
-import type { CatalogItems } from '@catalog/domain/services/catalog-items';
+import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
 import { resolveEntitledItem } from '@catalog/domain/services/entitlement-resolution';
 import { newestMatching } from '@catalog/domain/services/newest-matching';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';

@@ -1,5 +1,10 @@
 import { Global, Module } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD, HttpAdapterHost } from '@nestjs/core';
+import {
+  APP_FILTER,
+  APP_GUARD,
+  DiscoveryModule,
+  HttpAdapterHost,
+} from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { Instance } from '@platform/cluster/instance';
 import { CollabServer } from '@platform/collab/collab-server';
@@ -7,7 +12,7 @@ import { ENV } from '@platform/config/config.constants';
 import { ConfigModule } from '@platform/config/config.module';
 import type { Env } from '@platform/config/env.schema';
 import { SentryErrorReports } from '@platform/errors/sentry-error-reports';
-import { AsyncLocalCausation } from '@platform/events/async-local-causation';
+import { CauseCarrier } from '@platform/events/cause-carrier';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -28,6 +33,7 @@ import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
 import { InternalErrorFilter } from '@platform/http/filters/internal-error.filter';
 import { RateLimitGuard } from '@platform/http/guards/rate-limit.guard';
+import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempotent-creates';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
@@ -47,7 +53,6 @@ import { SystemClock } from '@platform/time/system-clock';
 import { RandomTokenIssuer } from '@platform/tokens/random-token-issuer.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
 import { SentryGlobalFilter } from '@sentry/nestjs/setup';
-import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ERROR_REPORTS } from '@shared-kernel/application/ports/error-reports.port';
@@ -67,7 +72,13 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
 
 @Global()
 @Module({
-  imports: [ConfigModule, LoggingModule, DrizzleModule, CqrsModule],
+  imports: [
+    ConfigModule,
+    LoggingModule,
+    DrizzleModule,
+    CqrsModule,
+    DiscoveryModule,
+  ],
   controllers: [HealthController, ErrorReportingController],
   providers: [
     {
@@ -137,7 +148,7 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     DrizzleReading,
     { provide: TRANSACTION, useExisting: DrizzleContext },
     { provide: SAVEPOINT, useExisting: DrizzleContext },
-    { provide: CAUSATION, useClass: AsyncLocalCausation },
+    CauseCarrier,
     {
       provide: PayloadTypes,
       useFactory: () => {
@@ -151,6 +162,7 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     EventProjections,
     EventOutbox,
     ApiConventions,
+    ForbiddenActs,
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
@@ -188,13 +200,14 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     DrizzleReading,
     TRANSACTION,
     SAVEPOINT,
-    CAUSATION,
+    CauseCarrier,
     PayloadTypes,
     EventSubscribers,
     IntegrationEventMappers,
     EventProjections,
     EventOutbox,
     ApiConventions,
+    ForbiddenActs,
     DOMAIN_EVENT_DISPATCHER,
     EventDelivery,
     ID_GENERATOR,

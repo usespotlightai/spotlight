@@ -1,5 +1,6 @@
 import type { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
 import type { IssuedTokenDto } from '@identity/application/dto/issued-token.dto';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
@@ -13,7 +14,6 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export class ExchangeWorkloadTokenHandler

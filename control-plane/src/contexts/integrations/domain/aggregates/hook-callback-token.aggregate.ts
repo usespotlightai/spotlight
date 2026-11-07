@@ -1,7 +1,8 @@
+import { CauseLinks } from '@integrations/domain/services/cause-links';
+import type { CauseLink } from '@integrations/domain/value-objects/causal-chain.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { CauseLink } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -83,11 +84,7 @@ export class HookCallbackToken {
   }
 
   get causeLink(): CauseLink {
-    return {
-      kind: 'callback',
-      key: `callback:${this.issued.hook.value}:${this.issued.taskId.value}`,
-      description: `a note by callback from the hook ${this.issued.hook.value}`,
-    };
+    return CauseLinks.callback(this.issued.hook, this.issued.taskId);
   }
 
   isValidAt(now: Date): boolean {

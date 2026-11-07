@@ -1,12 +1,13 @@
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import type { ReadSkillFolder } from '@configuration/application/ports/skill-folders.port';
+import { ReadySkills } from '@configuration/application/services/ready-skills.service';
 import type { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { Skill } from '@configuration/domain/value-objects/skill.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
-import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -14,7 +15,7 @@ const TEAM = TeamId.of('team_1');
 
 const GRAFANA: ReadSkillFolder = {
   skill: Skill.define({
-    key: SkillKey.of('grafana-dashboards'),
+    key: DefinedSkillKey.of('grafana-dashboards'),
     description: 'Reading this team’s dashboards.',
     instructions: 'Find one with spotlight grafana search.',
     secrets: [
@@ -23,14 +24,14 @@ const GRAFANA: ReadSkillFolder = {
         description: 'Read-only token its tools use',
       },
     ],
-    tools: [ToolName.of('grafana.search')],
+    tools: [Tool.of('grafana.search')],
   }),
   files: [{ path: 'SKILL.md', text: '---\nname: grafana-dashboards\n---\n' }],
 };
 
 const MIGRATIONS: ReadSkillFolder = {
   skill: Skill.define({
-    key: SkillKey.of('our-migrations'),
+    key: DefinedSkillKey.of('our-migrations'),
     description: 'Writing a migration here.',
     instructions: 'Generate it; never write the SQL.',
     secrets: [],
@@ -44,7 +45,7 @@ const MIGRATIONS: ReadSkillFolder = {
 
 const FRONTEND: ReadSkillFolder = {
   skill: Skill.define({
-    key: SkillKey.of('frontend'),
+    key: DefinedSkillKey.of('frontend'),
     description: 'Working on the web app.',
     instructions: 'Keep components small.',
     secrets: [],
@@ -63,8 +64,10 @@ const withSkills = (
     ofTeam: vi.fn(async () => existing.map((each) => SecretName.of(each))),
   } satisfies SecretNamesPort;
   return new TeamSkills(
-    { of: vi.fn(async () => folders) } as unknown as TeamSkillReading,
-    secrets,
+    new ReadySkills(
+      { of: vi.fn(async () => folders) } as unknown as TeamSkillReading,
+      secrets,
+    ),
   );
 };
 

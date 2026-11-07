@@ -1,5 +1,5 @@
 import type { MemoryFileDto } from '@memory/application/dto/memory-file.dto';
-import type { TeamLine } from '@memory/application/ports/work.port';
+import type { TeamLine } from '@memory/application/ports/lines.port';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { filesOf } from '@memory/domain/services/memory-folder';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';

@@ -1,9 +1,9 @@
 import type { DeniedSecret } from '@secrets/application/contracts/run-secret-fetch.contract';
+import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretNotInjectableError } from '@secrets/domain/exceptions/secret-not-injectable.error';
 import { SecretTargetConflictError } from '@secrets/domain/exceptions/secret-target-conflict.error';
-import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 
 const DENIED_ERRORS = [
   NoSuchSecretError,

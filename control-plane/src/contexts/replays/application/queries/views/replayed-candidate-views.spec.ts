@@ -210,7 +210,7 @@ describe('replayedCandidatesView', () => {
       Replay.start({
         id: ReplayId.of('replay_euros'),
         set: world.set.snapshot,
-        candidate: candidateOf('live'),
+        candidate: candidateOf('live').asReplayed,
         baseline: true,
         ceiling: Money.ceiling(100, 'EUR'),
         at: later(5),

@@ -10,13 +10,13 @@ import type {
   HookDecision,
   LifecycleHooksPort,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import type { ToolSources } from '@work/application/services/tool-sources.service';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { ToolApprovalDismissedError } from '@work/domain/exceptions/tool-approval-dismissed.error';
@@ -53,7 +53,7 @@ export class UseToolHandler
         command.runnerId,
       );
 
-      if (!run.isEnabled(tool)) {
+      if (!run.manifest.includes(tool.value)) {
         throw new ToolNotEnabledError(tool.value);
       }
 
@@ -139,7 +139,7 @@ export class UseToolHandler
           throw new ToolHookDeniedError(tool.value, decision.reason);
         }
 
-        await this.works.stillOn(run.currentAttempt, command.runnerId);
+        await this.works.stillOn(run, command.runnerId);
       } catch (error) {
         await cleared.returned();
         throw error;
@@ -187,28 +187,28 @@ export class UseToolHandler
     }
   }
 
-  private taskViewOf(run: Run): Promise<TaskViewDto | null> {
-    return run.firesHooks && run.taskId
-      ? this.taskViews.of(run.taskId.value, run.id.value)
+  private taskViewOf(run: LeasedRun): Promise<TaskViewDto | null> {
+    return run.policy.actsBeyondItself && run.subject?.kind === 'task'
+      ? this.taskViews.of(run.subject.taskId.value, run.runId.value)
       : Promise.resolve(null);
   }
 
   private async used(
-    run: Run,
+    run: LeasedRun,
     tool: Tool,
     inputs: ToolInputs,
     output: ToolOutput,
     failed: boolean,
     actingAs: ToolActingAs | null,
   ): Promise<void> {
-    if (!run.taskId) {
+    if (run.subject?.kind !== 'task') {
       return;
     }
 
     await this.events.dispatch([
       new ToolUsed(
-        run.id,
-        run.taskId,
+        run.runId,
+        run.subject.taskId,
         tool,
         inputs,
         output,

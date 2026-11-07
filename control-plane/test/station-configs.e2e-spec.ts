@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -21,16 +20,17 @@ import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleStationRunReader } from '@work/infrastructure/persistence/drizzle/readers/station-run.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
-import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
+import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
-let runs: DrizzleRunRepository;
+let dispatches: DrizzleDispatchRepository;
 let stationRuns: DrizzleStationRunReader;
 let runReader: DrizzleRunReader;
 let chats: DrizzleChatRepository;
@@ -38,13 +38,9 @@ let chats: DrizzleChatRepository;
 beforeAll(async () => {
   database = await openDatabase('station_configs');
   db = database.db;
-  runs = new DrizzleRunRepository(
-    new DrizzleContext(db),
-    {
-      dispatch: async () => {},
-    },
-    telemetryInMemory(),
-  );
+  dispatches = new DrizzleDispatchRepository(new DrizzleContext(db), {
+    dispatch: async () => {},
+  });
   stationRuns = new DrizzleStationRunReader(db);
   runReader = new DrizzleRunReader(
     db,
@@ -126,6 +122,7 @@ const ran = async (
 ) => {
   const taskId = randomUUID();
   const runId = randomUUID();
+  const ended = state === 'completed' || state === 'failed';
 
   await db.insert(schema.task).values({
     id: taskId,
@@ -144,22 +141,33 @@ const ran = async (
     stationId,
     state,
     spec: SPEC,
-    stationFingerprint: fingerprint,
-    stationConfig: fingerprint ? parts : null,
-    briefedTask: {
-      stationId,
-      title: 'Task',
-      description: null,
-      reviewing,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-      decisions: [],
-    },
     createdAt: at,
     updatedAt: at,
-    endedAt: ['completed', 'failed', 'superseded'].includes(state) ? at : null,
+    endedAt: ended ? at : null,
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: 'ws_1',
+      taskId,
+      stationId,
+      fingerprint,
+      config: fingerprint ? parts : null,
+      briefedTask: {
+        stationId,
+        title: 'Task',
+        description: null,
+        reviewing,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+        decisions: [],
+      },
+      orderedAt: at,
+      endedAt: ended ? at : null,
+      outcome: state === 'failed' ? 'failed' : 'completed',
+    }),
+  );
 
   return { runId, taskId };
 };
@@ -169,7 +177,7 @@ describe('the station config a run ran with', () => {
     const { stationId } = await lineOf('team_1');
     const { runId } = await ran(stationId, { at: new Date() });
 
-    const found = await runs.findById(RunId.of(runId));
+    const found = await dispatches.find(RunId.of(runId));
 
     expect(found?.configuredAs?.fingerprint).toBe('a'.repeat(64));
     expect(found?.configuredAs?.parts).toEqual(PARTS);
@@ -210,9 +218,9 @@ describe('the station config a run ran with', () => {
     const superseded = randomUUID();
     const second = randomUUID();
 
-    for (const [id, state, at] of [
-      [superseded, 'superseded', '2026-09-02T00:00:00Z'],
-      [second, 'failed', '2026-09-03T00:00:00Z'],
+    for (const [id, at] of [
+      [superseded, '2026-09-02T00:00:00Z'],
+      [second, '2026-09-03T00:00:00Z'],
     ] as const) {
       await db.insert(schema.run).values({
         id,
@@ -221,12 +229,23 @@ describe('the station config a run ran with', () => {
         taskId: first.taskId,
         taskRevision: 0,
         stationId,
-        state,
+        state: 'failed',
         spec: SPEC,
         createdAt: new Date(at),
         endedAt: new Date(at),
       });
     }
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: superseded,
+        workspaceId: 'ws_1',
+        taskId: first.taskId,
+        stationId,
+        orderedAt: new Date('2026-09-02T00:00:00Z'),
+        endedAt: new Date('2026-09-02T00:00:00Z'),
+        superseded: true,
+      }),
+    );
 
     expect((await stationRuns.endedRun(first.runId))?.earlier).toEqual([]);
     expect((await stationRuns.endedRun(second))?.earlier).toEqual([

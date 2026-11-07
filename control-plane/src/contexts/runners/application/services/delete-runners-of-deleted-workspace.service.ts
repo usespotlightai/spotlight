@@ -57,7 +57,7 @@ export class DeleteRunnersOfDeletedWorkspace {
   }
 
   async egressesAfterPoolOf(workspaceId: WorkspaceId): Promise<void> {
-    if (!(await this.workspaces.isOpen(workspaceId.value))) {
+    if (!(await this.workspaces.isOpen(workspaceId))) {
       await this.egressesOf(workspaceId);
     }
   }

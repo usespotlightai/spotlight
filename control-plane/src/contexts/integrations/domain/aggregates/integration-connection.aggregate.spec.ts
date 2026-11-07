@@ -62,7 +62,7 @@ describe('IntegrationConnection', () => {
     });
 
     expect(connection.pullEvents().map((each) => each.kind)).toEqual([
-      'integrations.integration-connected',
+      'integration.connected',
     ]);
     expect(connection.accessToken.value).toBe('xoxb-1');
     expect(connection.linkedAccount).toBe('Acme');
@@ -263,7 +263,7 @@ describe('IntegrationConnection', () => {
     expect(reconnected.connectedAt).toEqual(at);
     expect(reconnected.version).toBe(3);
     expect(reconnected.pullEvents().map((each) => each.kind)).toEqual([
-      'integrations.integration-connected',
+      'integration.connected',
     ]);
     expect(
       rehydrated().claimRefresh(NOW).reconnectedWith(tokens(), at).refreshClaim,

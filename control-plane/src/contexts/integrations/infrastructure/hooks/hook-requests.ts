@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
+import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type {
   HookRequest,
   HookRequestsPort,
-  WaitingOutcome,
 } from '@integrations/application/ports/hook-requests.port';
 import type { StepResult } from '@integrations/application/ports/hook-runtime.port';
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
@@ -10,13 +12,11 @@ import type { HookTokensPort } from '@integrations/application/ports/hook-tokens
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
-import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { CAUSE_HEADER } from '@platform/http/cause-header';
-import { API_PREFIX, HOOK_CALLBACKS } from '@platform/http/routes';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
-import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type {
   NetworkCallsPort,
   NetworkRequest,
@@ -29,13 +29,15 @@ const NETWORK_TIMEOUT_MS = 2 * 60 * 1000;
 
 const MAX_STORED_BYTES = 16 * 1024;
 
+const NO_HOST_ANSWERED = 'no host of the workspace answered in time';
+
 interface Answered {
   readonly reply: HookReply;
   readonly error: string | null;
 }
 
 export interface HookRequestSettings {
-  readonly publicUrl: string;
+  readonly callbackUrl: string;
   readonly policy: OutboundPolicy;
 }
 
@@ -136,6 +138,7 @@ export class HookRequests implements HookRequestsPort {
     private readonly network: NetworkCallsPort,
     private readonly limits: OutboundLimitsPort,
     private readonly scope: WorkspaceOutboundScopePort,
+    private readonly clock: ClockPort,
     private readonly fetch: Fetch = settings.policy.fetch,
   ) {
     this.policy = settings.policy;
@@ -227,7 +230,7 @@ export class HookRequests implements HookRequestsPort {
       answered = UNANSWERED(described(error));
     }
 
-    return this.resultOf(request, headers, answered, started, new Date());
+    return this.resultOf(request, headers, answered, started, this.clock.now());
   }
 
   private async headers(
@@ -245,7 +248,7 @@ export class HookRequests implements HookRequestsPort {
       'webhook-id': id,
       'webhook-timestamp': String(timestamp),
       'spotlight-hook': hook.key.value,
-      'spotlight-callback-url': `${this.settings.publicUrl}/${API_PREFIX}/${HOOK_CALLBACKS}`,
+      'spotlight-callback-url': this.settings.callbackUrl,
       'spotlight-callback-token': callback,
       ...(instance.firing ? { [CAUSE_HEADER]: instance.firing.value } : {}),
     };
@@ -328,47 +331,43 @@ export class HookRequests implements HookRequestsPort {
 
     const state = await this.network.answered(call, timeout);
 
-    return state.kind === 'answered'
-      ? this.resultOf(
-          request,
-          headers,
-          fromResponse(state.response),
-          started,
-          new Date(),
-        )
-      : this.resultOf(
-          request,
-          headers,
-          UNANSWERED('no host of the workspace answered in time'),
-          started,
-          new Date(),
-        );
+    return this.resultOf(
+      request,
+      headers,
+      state.kind === 'answered'
+        ? fromResponse(state.response)
+        : UNANSWERED(NO_HOST_ANSWERED),
+      started,
+      this.clock.now(),
+    );
   }
 
   async resumed(
     request: HookRequest,
-    waiting: WaitingOutcome,
+    waiting: WaitingHookStep,
     now: Date,
-  ): Promise<StepResult> {
+  ): Promise<StepResult | null> {
     const state = await this.network.stateOf(waiting.call);
 
-    if (state.kind === 'waiting' && waiting.until > now) {
-      return { outcome: waiting, denyReason: null, trace: null };
+    if (state.kind === 'waiting') {
+      return null;
     }
 
-    const answered: Answered =
-      state.kind === 'answered'
-        ? fromResponse(state.response)
-        : UNANSWERED('no host of the workspace answered in time');
-    const ms = state.kind === 'answered' ? state.response.ms : 0;
+    if (state.kind !== 'answered') {
+      return this.unanswered(request, now);
+    }
 
     return this.resultOf(
       request,
       {},
-      answered,
-      new Date(now.getTime() - ms),
+      fromResponse(state.response),
+      new Date(now.getTime() - state.response.ms),
       now,
     );
+  }
+
+  unanswered(request: HookRequest, now: Date): StepResult {
+    return this.resultOf(request, {}, UNANSWERED(NO_HOST_ANSWERED), now, now);
   }
 
   private resultOf(

@@ -17,6 +17,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -71,6 +72,7 @@ const stackWith = (request: CheckRequest | null) =>
     id: STACK,
     runId: RunId.of('run-1'),
     taskId: TASK,
+    teamOfRun: TeamId.of('team_1'),
     replay: false,
     isSearch: false,
     workspaceId: WorkspaceId.of('workspace-1'),
@@ -120,6 +122,7 @@ const checkFor = (stack: ChangeStack) =>
     stackId: stack.id,
     runId: stack.runId,
     taskId: stack.taskId,
+    teamId: null,
     replay: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),

@@ -59,9 +59,16 @@ const HOOK: ListeningHook = {
         name: 'audit',
         kind: 'request',
         url: new URL('https://audit.example.com/'),
+        headers: [],
         fromNetwork: false,
       },
-      { name: 'plain', kind: 'request', url: null, fromNetwork: false },
+      {
+        name: 'plain',
+        kind: 'request',
+        url: null,
+        headers: [],
+        fromNetwork: false,
+      },
     ],
     signing: 'hmac',
     failure: 'continue',
@@ -111,7 +118,8 @@ const resolvedTool = (
   ({
     integration: Integration.of({
       key: IntegrationKey.of('slack'),
-      requiresConnection: actsAs.byRequester,
+      apiSpecs: ['mcp'],
+      connectsOver: actsAs.byRequester ? 'oauth2' : null,
       actsAs,
     }),
     provided: ProvidedTool.of({
@@ -145,7 +153,23 @@ const setUp = (
   }
   const requests = {
     sent: vi.fn(async (request: { step: string }) => answered(request.step)),
-    resumed: vi.fn(async (request: { step: string }) => answered(request.step)),
+    resumed: vi.fn(
+      async (request: { step: string }): Promise<StepResult | null> =>
+        answered(request.step),
+    ),
+    unanswered: vi.fn(
+      (request: { step: string }): StepResult => ({
+        outcome: {
+          name: request.step,
+          status: 'failed',
+          code: 'unreachable',
+          reason: 'no host of the workspace answered in time',
+          output: null,
+        },
+        denyReason: null,
+        trace: null,
+      }),
+    ),
     notSent: vi.fn(
       (request: { step: string }, failure: HookFailure): StepResult => ({
         outcome: {
@@ -504,6 +528,44 @@ describe('HookSteps', () => {
       );
 
       expect(requests.resumed).toHaveBeenCalled();
+    });
+
+    it('keeps waiting on a call no host has answered yet, until its time is up', async () => {
+      const waiting = {
+        name: 'audit',
+        status: 'waiting' as const,
+        call: 'call_1',
+        until: new Date(NOW.getTime() + 60_000),
+      };
+      const { steps, requests } = setUp(AUDIT);
+      requests.resumed.mockResolvedValue(null);
+
+      const result = await steps.take(request('audit', { resuming: waiting }));
+
+      expect(result.outcome).toEqual(waiting);
+      expect(requests.unanswered).not.toHaveBeenCalled();
+    });
+
+    it('gives up on a call no host answered by the time it waited until', async () => {
+      const waiting = {
+        name: 'audit',
+        status: 'waiting' as const,
+        call: 'call_1',
+        until: NOW,
+      };
+      const { steps, requests } = setUp(AUDIT);
+      requests.resumed.mockResolvedValue(null);
+
+      const result = await steps.take(request('audit', { resuming: waiting }));
+
+      expect(result.outcome).toMatchObject({
+        status: 'failed',
+        code: 'unreachable',
+      });
+      expect(requests.unanswered).toHaveBeenCalledWith(
+        expect.objectContaining({ step: 'audit' }),
+        NOW,
+      );
     });
   });
 

@@ -61,7 +61,7 @@ const nothingToReplay = (scoringPinnedToLive: readonly string[]): never => {
   });
 };
 
-@InAudience('insights')
+@InAudience('automation')
 @ConventionalApiController('teams/:teamId', 'replays')
 @ApiParam({ name: 'teamId', type: String })
 @ApiProblemResponse(

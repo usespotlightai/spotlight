@@ -1,12 +1,15 @@
 import type { HookCall } from '@integrations/application/ports/hook-calls.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
-import type { HookStepOutcome } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import type {
+  HookStepOutcome,
+  WaitingHookStep,
+} from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -30,10 +33,8 @@ export interface ListeningHook {
   readonly written: Hook | null;
 }
 
-export type StepOutcome = HookStepOutcome;
-
 export interface StepResult {
-  readonly outcome: StepOutcome;
+  readonly outcome: HookStepOutcome;
   readonly denyReason: string | null;
   readonly trace: HookCall | null;
 }
@@ -44,8 +45,8 @@ export interface StepRequest {
   readonly hook: ListeningHook;
   readonly step: string;
   readonly instance: HookEventInstance;
-  readonly earlier: readonly StepOutcome[];
-  readonly resuming: StepOutcome | null;
+  readonly earlier: readonly HookStepOutcome[];
+  readonly resuming: WaitingHookStep | null;
   readonly deadline: Date;
   readonly waitMode: WaitMode;
 }
@@ -90,6 +91,6 @@ export interface HookRuntimePort {
     hook: ListeningHook,
     step: string,
     instance: HookEventInstance,
-    earlier: readonly StepOutcome[],
+    earlier: readonly HookStepOutcome[],
   ): WrittenStep;
 }

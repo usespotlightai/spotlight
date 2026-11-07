@@ -2,10 +2,11 @@ import type { ConnectionOwner } from '@integrations/domain/value-objects/connect
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class IntegrationConnected implements DomainEvent {
-  readonly kind = 'integrations.integration-connected';
+  readonly kind = 'integration.connected';
 
   constructor(
     readonly workspaceId: WorkspaceId,
@@ -17,5 +18,9 @@ export class IntegrationConnected implements DomainEvent {
 
   get changesSpecFetch(): boolean {
     return !this.owner.isPerson;
+  }
+
+  get answersAsksOf(): UserId | null {
+    return this.owner.personId;
   }
 }

@@ -21,6 +21,7 @@ export const secretsSubscribers = (reactions: {
     [WORKSPACE_DELETED],
     (event) =>
       reactions.deleting.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
+    { callsOut: true },
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'secrets.delete-data-key-of-deleted-workspace',
@@ -32,5 +33,6 @@ export const secretsSubscribers = (reactions: {
     [WORKSPACE_DELETED],
     (event) =>
       reactions.runGrants.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
+    { callsOut: true },
   ),
 ];

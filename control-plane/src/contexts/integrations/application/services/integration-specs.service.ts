@@ -76,7 +76,7 @@ export class IntegrationSpecs {
   }): Promise<SpecForDefinition> {
     const stored = await this.storedFor(input.current, input.spec);
 
-    if (input.current && stored && !input.current.problem) {
+    if (stored && input.current?.spareReadingFor(input.spec)) {
       return {
         reading: input.current.withSkipped(stored.skipped),
         specOperations: { hash: stored.hash, operations: stored.operations },
@@ -90,9 +90,9 @@ export class IntegrationSpecs {
     current: SpecFetchResult | null,
     spec: ApiSpec,
   ): Promise<SpecDocument | null> {
-    return current?.isOf(spec) && current.hash
-      ? this.documents.withHash(current.hash)
-      : null;
+    const kept = current?.documentKeptFor(spec) ?? null;
+
+    return kept ? this.documents.withHash(kept) : null;
   }
 
   private async read(input: {
@@ -108,26 +108,24 @@ export class IntegrationSpecs {
     const readAt = this.clock.now();
 
     if (read.kind === 'unread') {
-      const stored = await this.storedFor(input.current, input.spec);
+      const stored = input.current
+        ? await this.storedFor(input.current, input.spec)
+        : null;
 
-      return input.current && stored
-        ? {
-            reading: input.current
-              .stillAfter(read.problem)
-              .withSkipped(stored.skipped),
-            specOperations: {
-              hash: stored.hash,
-              operations: stored.operations,
-            },
-          }
-        : {
-            reading: SpecFetchResult.failed({
-              spec: input.spec,
-              readAt,
-              problem: read.problem,
-            }),
-            specOperations: null,
-          };
+      return {
+        reading: SpecFetchResult.unread({
+          spec: input.spec,
+          readAt,
+          problem: read.problem,
+          kept:
+            input.current && stored
+              ? { earlier: input.current, skipped: stored.skipped }
+              : null,
+        }),
+        specOperations: stored
+          ? { hash: stored.hash, operations: stored.operations }
+          : null,
+      };
     }
 
     const document =

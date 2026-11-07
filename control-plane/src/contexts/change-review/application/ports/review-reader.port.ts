@@ -16,7 +16,7 @@ export interface ReviewCommentView {
   readonly authorName: string;
   readonly replyTo: string | null;
   readonly reviewId: string | null;
-  readonly state: 'draft' | 'submitted' | 'posted' | 'failed' | 'deleted';
+  readonly state: 'draft' | 'sending' | 'posted' | 'failed' | 'deleted';
   readonly url: string | null;
   readonly createdAt: Date;
   readonly editedAt: Date | null;

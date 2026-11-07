@@ -53,7 +53,7 @@ import {
   type SkillResourcesPort,
 } from '@configuration/application/ports/skill-resources.port';
 import { STATION_SOURCE_EDITS } from '@configuration/application/ports/station-source-edits.port';
-import { TEAMS } from '@configuration/application/ports/teams.port';
+import { TEAM_SKILL_KEYS } from '@configuration/application/ports/team-skill-keys.port';
 import {
   TERRAFORM_STATE_BODIES,
   type TerraformStateBodiesPort,
@@ -86,8 +86,10 @@ import { ExportableConfigurations } from '@configuration/application/services/ex
 import { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
 import { PruneStateBodies } from '@configuration/application/services/prune-state-bodies.service';
+import { ReadySkills } from '@configuration/application/services/ready-skills.service';
 import { SkillViews } from '@configuration/application/services/skill-views.service';
 import { StationReferences } from '@configuration/application/services/station-references.service';
+import { TeamSkillKeys } from '@configuration/application/services/team-skill-keys.service';
 import { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
 import { TerraformStates } from '@configuration/application/services/terraform-states.service';
 import {
@@ -104,7 +106,6 @@ import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills
 import { HarnessReviewOfWork } from '@configuration/infrastructure/acl/harness-review.adapter';
 import { StationProfiles } from '@configuration/infrastructure/acl/station-profiles.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
-import { Teams } from '@configuration/infrastructure/acl/teams.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
 import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/infrastructure/events/configuration-payload-types';
 import { DrizzleHarnessProfileDependents } from '@configuration/infrastructure/persistence/drizzle/readers/harness-profile-dependents.reader';
@@ -139,10 +140,7 @@ import {
   TEAM_DIRECTORY,
   type TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
-import {
-  WORKSPACE_ACCESS,
-  type WorkspaceAccessPort,
-} from '@identity/application/ports/workspace-access.port';
+import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import {
   ENABLED_AT_STATIONS,
@@ -205,14 +203,6 @@ export const CONFIGURATION_CONTROLLERS: readonly Type[] = [
   HarnessProfileResourceController,
   TerraformController,
   TerraformStateController,
-];
-
-const upstream: Provider[] = [
-  {
-    provide: TEAMS,
-    inject: [WORKSPACE_ACCESS],
-    useFactory: (access: WorkspaceAccessPort) => new Teams(access),
-  },
 ];
 
 const adapters: Provider[] = [
@@ -324,7 +314,7 @@ const adapters: Provider[] = [
 
 const handlers: Provider[] = [
   ...bindQueryHandler(TeamSkillsQuery, TeamSkillsHandler, [
-    TEAMS,
+    WORKSPACE_ACCESS,
     TeamSkillReading,
   ]),
   ...bindQueryHandler(ReadTerraformStateQuery, ReadTerraformStateHandler, [
@@ -518,7 +508,13 @@ const published: Provider[] = [
     provide: TEAM_SKILLS,
     inject: [TeamSkillReading, SECRET_NAMES],
     useFactory: (skills: TeamSkillReading, secrets: SecretNamesPort) =>
-      new TeamSkills(skills, secrets),
+      new TeamSkills(new ReadySkills(skills, secrets)),
+  },
+  {
+    provide: TEAM_SKILL_KEYS,
+    inject: [TeamSkillReading, SECRET_NAMES],
+    useFactory: (skills: TeamSkillReading, secrets: SecretNamesPort) =>
+      new TeamSkillKeys(new ReadySkills(skills, secrets)),
   },
   { provide: STATION_SOURCE_EDITS, useClass: HclStationSourceEdits },
 ];
@@ -556,7 +552,6 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
       return true;
     },
   },
-  ...upstream,
   ...adapters,
   ...handlers,
   ...published,

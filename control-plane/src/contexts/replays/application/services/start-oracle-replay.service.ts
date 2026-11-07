@@ -87,11 +87,15 @@ export class StartOracleReplay {
           Replay.start({
             id: ReplayId.of(this.ids.generate()),
             set: locked.snapshot,
-            candidate: oracle,
+            candidate: oracle.asReplayed,
             baseline: false,
             ceiling: baseline.ceiling,
             repeats: baseline.repeats,
-            oracle: { answers, against: against.asOracleReference, live },
+            oracle: {
+              answers,
+              against: against.asOracleReference,
+              live: live.asReplayed,
+            },
             ...(baseline.unpricedRate
               ? { unpricedRate: baseline.unpricedRate }
               : {}),
@@ -105,7 +109,7 @@ export class StartOracleReplay {
     } finally {
       if (!started) {
         await this.transaction.inTransaction(() =>
-          this.candidates.save(oracle.cascadeDelete()),
+          this.candidates.save(oracle.delete()),
         );
       }
     }

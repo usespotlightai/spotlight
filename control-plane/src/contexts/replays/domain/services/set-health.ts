@@ -23,6 +23,46 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const MIN_CHECKED_RUNS = 5;
 
+export const HEALTH_SAMPLES_PER_GROUP = 3;
+
+export interface HealthSampled {
+  readonly id: { readonly value: string };
+  readonly setId: { readonly value: string };
+  readonly healthSampleGroup: string | null;
+  readonly sampledAt: Date;
+  readonly startedAt: Date;
+}
+
+const newestSampleFirst = (one: HealthSampled, other: HealthSampled): number =>
+  other.sampledAt.getTime() - one.sampledAt.getTime() ||
+  (one.id.value < other.id.value ? 1 : -1);
+
+const startedSampleFirst = (one: HealthSampled, other: HealthSampled): number =>
+  one.startedAt.getTime() - other.startedAt.getTime() ||
+  (one.id.value < other.id.value ? -1 : 1);
+
+export const healthSamplesOf = <T extends HealthSampled>(
+  replays: readonly T[],
+): readonly T[] => {
+  const groups = new Map<string, T[]>();
+
+  for (const each of replays) {
+    const group = each.healthSampleGroup;
+
+    if (group !== null) {
+      const key = `${each.setId.value}|${group}`;
+
+      groups.set(key, [...(groups.get(key) ?? []), each]);
+    }
+  }
+
+  return [...groups.values()]
+    .flatMap((each) =>
+      [...each].sort(newestSampleFirst).slice(0, HEALTH_SAMPLES_PER_GROUP),
+    )
+    .sort(startedSampleFirst);
+};
+
 export const SATURATED_ABOVE = 0.95;
 
 export const JUDGE_UNSTABLE_BELOW = 0.8;

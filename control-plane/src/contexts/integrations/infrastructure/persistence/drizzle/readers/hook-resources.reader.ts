@@ -2,6 +2,7 @@ import type {
   HookRecord,
   HookResourcesPort,
 } from '@integrations/application/ports/hook-resources.port';
+import { writtenHookDocumentOf } from '@integrations/infrastructure/hooks/written-hook-document';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -15,7 +16,7 @@ const recordOf = (row: Row): HookRecord => ({
   teamId: TeamId.of(row.teamId),
   key: row.key,
   version: row.version,
-  definition: row.definition,
+  written: writtenHookDocumentOf(row.key, row.definition),
 });
 
 @Injectable()

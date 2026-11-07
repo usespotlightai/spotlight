@@ -25,8 +25,9 @@ import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, desc, eq, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull } from 'drizzle-orm';
 
 type Row = typeof stackCheck.$inferSelect;
 
@@ -35,6 +36,7 @@ export const toStackCheck = (row: Row): StackCheck =>
     id: StackCheckId.of(ChangeStackId.of(row.stackId), row.recheck),
     runId: RunId.of(row.runId),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
+    teamId: row.teamId ? TeamId.of(row.teamId) : null,
     replay: row.replay,
     workspaceId: WorkspaceId.of(row.workspaceId),
     request: CheckRequest.of(
@@ -120,6 +122,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         recheck: added.recheck,
         runId: added.runId.value,
         taskId: added.taskId?.value ?? null,
+        teamId: added.teamId?.value ?? null,
         replay: added.replay,
         workspaceId: added.workspaceId.value,
         command: added.request.command,
@@ -171,15 +174,13 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     return row ? toStackCheck(row) : null;
   }
 
-  async latestOf(stackId: ChangeStackId): Promise<StackCheck | null> {
-    const [row] = await this.context.db
+  async ofStack(stackId: ChangeStackId): Promise<readonly StackCheck[]> {
+    const rows = await this.context.db
       .select()
       .from(stackCheck)
-      .where(eq(stackCheck.stackId, stackId.value))
-      .orderBy(desc(stackCheck.recheck))
-      .limit(1);
+      .where(eq(stackCheck.stackId, stackId.value));
 
-    return row ? toStackCheck(row) : null;
+    return rows.map(toStackCheck);
   }
 
   async ofRun(runId: RunId): Promise<readonly StackCheck[]> {
@@ -196,6 +197,15 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
       .select()
       .from(stackCheck)
       .where(eq(stackCheck.taskId, taskId.value));
+
+    return rows.map(toStackCheck);
+  }
+
+  async ofTeam(teamId: TeamId): Promise<readonly StackCheck[]> {
+    const rows = await this.context.db
+      .select()
+      .from(stackCheck)
+      .where(eq(stackCheck.teamId, teamId.value));
 
     return rows.map(toStackCheck);
   }

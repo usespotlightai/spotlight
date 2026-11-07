@@ -145,7 +145,6 @@ describe('DispatchSearch', () => {
     expect(run?.priority.equals(SEARCH_PRIORITY)).toBe(true);
     expect(run?.placement.equals(DELIVERY.runsIn)).toBe(true);
     expect(run?.harness.equals(HarnessId.of('claude-code'))).toBe(true);
-    expect(run?.configuredAs).toBeNull();
   });
 
   it('places a search run where its station’s own runners are, when the station names them', async () => {
@@ -199,8 +198,6 @@ describe('DispatchSearch', () => {
       resume: { key: 'search-run_9' },
       search: {},
     });
-    expect(run?.briefedWith.briefed).toEqual([]);
-    expect(run?.briefedWith.omitted).toEqual([]);
   });
 
   it('runs the harness, model and effort the search was started with', async () => {

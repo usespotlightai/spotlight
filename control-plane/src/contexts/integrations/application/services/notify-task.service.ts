@@ -2,12 +2,15 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import type {
   IntegrationRuntimePort,
-  IntegrationTaskView,
   TaskPayload,
 } from '@integrations/application/ports/integration-runtime.port';
+import type {
+  TaskView,
+  UnlinkedTaskView,
+} from '@integrations/application/ports/tasks-for-hooks.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { BindableTaskEvent } from '@work/application/contracts/bindable-task-events.contract';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
 
 const waiting = (station: string, link: string | null): string => {
@@ -31,10 +34,10 @@ export class NotifyTask {
   ) {}
 
   async notify(
-    task: IntegrationTaskView,
-    event: string,
+    task: UnlinkedTaskView,
+    event: BindableTaskEvent,
   ): Promise<readonly TaskMark[]> {
-    const teamId = TeamId.of(task.teamId);
+    const teamId = task.teamId;
     const definitions = await this.defined.ofTeam(teamId);
     const posting = this.runtime
       .integrations(definitions)
@@ -44,9 +47,13 @@ export class NotifyTask {
       return [];
     }
 
-    const view: IntegrationTaskView = {
+    const view: TaskView = {
       ...task,
-      url: await this.links.task(task.workspaceId, task.teamId, task.taskId),
+      url: await this.links.task(
+        task.workspaceId.value,
+        task.teamId.value,
+        task.taskId.value,
+      ),
     };
     const payload: TaskPayload = { task: view, ask: await this.asking(view) };
     const addedMarks: TaskMark[] = [];
@@ -69,7 +76,7 @@ export class NotifyTask {
           if (posted.kind === 'failed') {
             this.log.warn(
               {
-                task: task.taskId,
+                task: task.taskId.value,
                 error: posted.error,
                 target: posted.target,
                 marks: task.marks,
@@ -80,7 +87,7 @@ export class NotifyTask {
         }
       } catch (error) {
         this.log.warn(
-          { err: error, task: task.taskId },
+          { err: error, task: task.taskId.value },
           'Posting a task notice to a service',
         );
       }
@@ -89,7 +96,7 @@ export class NotifyTask {
     return addedMarks;
   }
 
-  private async asking(task: IntegrationTaskView): Promise<TaskPayload['ask']> {
+  private async asking(task: TaskView): Promise<TaskPayload['ask']> {
     const { station, waiting: open } = task;
 
     if (!open) {
@@ -97,7 +104,7 @@ export class NotifyTask {
     }
 
     const link = await this.links.conversation(
-      task.workspaceId,
+      task.workspaceId.value,
       open.conversationId,
     );
 

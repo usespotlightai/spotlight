@@ -60,7 +60,7 @@ export class TaskViews implements TaskViewsPort {
     }
 
     const station = line.stationAt(task.stationId);
-    const slug = await this.workspaces.slugOf(task.workspaceId.value);
+    const slug = await this.workspaces.slugOf(task.workspaceId);
 
     return {
       taskId: task.id.value,

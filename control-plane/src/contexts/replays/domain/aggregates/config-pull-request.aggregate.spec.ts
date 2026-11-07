@@ -31,7 +31,7 @@ const LINK = PullRequestUrl.of('https://github.com/acme/platform/pull/7');
 const OPENED = {
   url: LINK,
   number: 7,
-  gitHubId: 707,
+  hostId: 707,
   repository: Repository.of('Acme/Platform'),
   basedOn: BASED_ON,
   proposing: PROPOSED,
@@ -136,13 +136,13 @@ describe('ConfigPullRequest', () => {
     const [event] = opened.pullEvents();
 
     expect(opened.url?.value).toBe('https://github.com/acme/platform/pull/7');
-    expect(opened.gitHubPullRequest).toEqual({
+    expect(opened.hostPullRequest).toEqual({
       repository: Repository.of('Acme/Platform'),
       number: 7,
     });
     expect(opened.repository?.value).toBe('Acme/Platform');
     expect(opened).toMatchObject({
-      gitHubId: 707,
+      hostId: 707,
       basedOn: BASED_ON,
       checkedAt: later(5),
     });
@@ -209,7 +209,7 @@ describe('ConfigPullRequest', () => {
       }
     });
 
-    it('retries a failed close later, and closes as stale once GitHub closed it', () => {
+    it('retries a failed close later, and closes as stale once the code host closed it', () => {
       const tried = closing().closeTried('GitHub is down', later(7));
 
       expect(tried.current).toBe('closing');
@@ -245,7 +245,7 @@ describe('ConfigPullRequest', () => {
       });
     });
 
-    it('closes as stale with the failure recorded when GitHub refuses the close for good', () => {
+    it('closes as stale with the failure recorded when the code host refuses the close for good', () => {
       const failed = closing().closeFailed(
         ConfigPullRequestReason.of({
           code: 'repository-unreachable',
@@ -261,8 +261,8 @@ describe('ConfigPullRequest', () => {
       expect(failed.closeFailure?.code).toBe('repository-unreachable');
     });
 
-    it('records a close on GitHub during closing as stale', () => {
-      const closed = closing().recordGitHubClose({
+    it('records a close on the code host during closing as stale', () => {
+      const closed = closing().recordHostClose({
         merged: false,
         at: later(9),
       });
@@ -274,8 +274,8 @@ describe('ConfigPullRequest', () => {
       expect(closed.pullEvents()).toEqual([closedEvent('stale', later(9))]);
     });
 
-    it('records a close on GitHub while it is open as by a person', () => {
-      const closed = opened().recordGitHubClose({
+    it('records a close on the code host while it is open as by a person', () => {
+      const closed = opened().recordHostClose({
         merged: false,
         at: later(9),
       });
@@ -287,12 +287,12 @@ describe('ConfigPullRequest', () => {
       expect(closed.pullEvents()).toEqual([closedEvent('by-person', later(9))]);
     });
 
-    it('records a merge on GitHub while open, while closing, and after it closed for any reason', () => {
+    it('records a merge on the code host while open, while closing, and after it closed for any reason', () => {
       const closedStale = closing().closeFailed(
         ConfigPullRequestReason.of({ code: 'github-error', message: '422' }),
         later(8),
       );
-      const closedByPerson = opened().recordGitHubClose({
+      const closedByPerson = opened().recordHostClose({
         merged: false,
         at: later(8),
       });
@@ -305,7 +305,7 @@ describe('ConfigPullRequest', () => {
       ]) {
         pullRequest.pullEvents();
 
-        const merged = pullRequest.recordGitHubClose({
+        const merged = pullRequest.recordHostClose({
           merged: true,
           at: later(9),
         });
@@ -328,9 +328,9 @@ describe('ConfigPullRequest', () => {
       }
     });
 
-    it('ignores a close on GitHub once it merged or closed, and is never stale after it merged', () => {
-      const merged = opened().recordGitHubClose({ merged: true, at: later(9) });
-      const closed = opened().recordGitHubClose({
+    it('ignores a close on the code host once it merged or closed, and is never stale after it merged', () => {
+      const merged = opened().recordHostClose({ merged: true, at: later(9) });
+      const closed = opened().recordHostClose({
         merged: false,
         at: later(9),
       });
@@ -338,17 +338,17 @@ describe('ConfigPullRequest', () => {
       merged.pullEvents();
       closed.pullEvents();
 
-      expect(merged.recordGitHubClose({ merged: false, at: later(10) })).toBe(
+      expect(merged.recordHostClose({ merged: false, at: later(10) })).toBe(
         merged,
       );
-      expect(closed.recordGitHubClose({ merged: false, at: later(10) })).toBe(
+      expect(closed.recordHostClose({ merged: false, at: later(10) })).toBe(
         closed,
       );
       expect(merged.closeIfStale(ELSEWHERE, later(10))).toBe(merged);
     });
 
     it('reopens once it closed, saying why it had closed, and ignores a reopen otherwise', () => {
-      const closed = opened().recordGitHubClose({
+      const closed = opened().recordHostClose({
         merged: false,
         at: later(9),
       });
@@ -376,7 +376,7 @@ describe('ConfigPullRequest', () => {
       expect(reopened.reopened(later(11))).toBe(reopened);
     });
 
-    it('records when it was last checked against GitHub', () => {
+    it('records when it was last checked against the code host', () => {
       expect(opened().checked(later(20)).checkedAt).toEqual(later(20));
     });
 

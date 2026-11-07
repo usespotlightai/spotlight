@@ -14,6 +14,9 @@ const MAX_BYTES = 64;
 
 const REDACTED = '[secret]';
 
+const decodedLength = (base64: string): number =>
+  Math.floor((base64.replace(/=+$/, '').length * 3) / 4);
+
 export class ProvisionSecret implements Secret {
   readonly #value: string;
 
@@ -23,9 +26,7 @@ export class ProvisionSecret implements Secret {
 
   static of(raw: string): ProvisionSecret {
     const encoded = raw.startsWith(PREFIX) ? raw.slice(PREFIX.length) : '';
-    const bytes = BASE64.test(encoded)
-      ? Buffer.from(encoded, 'base64').length
-      : 0;
+    const bytes = BASE64.test(encoded) ? decodedLength(encoded) : 0;
 
     if (bytes < MIN_BYTES || bytes > MAX_BYTES) {
       throw new InvalidRunnerPoolError(
@@ -41,8 +42,8 @@ export class ProvisionSecret implements Secret {
     return true;
   }
 
-  get key(): Buffer {
-    return Buffer.from(this.#value.slice(PREFIX.length), 'base64');
+  get encodedKey(): string {
+    return this.#value.slice(PREFIX.length);
   }
 
   revealed(): string {

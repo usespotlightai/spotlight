@@ -45,9 +45,9 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 
 @ApiTags('workspaces')

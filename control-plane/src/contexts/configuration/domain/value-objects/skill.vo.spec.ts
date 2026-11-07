@@ -1,6 +1,7 @@
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { Skill } from '@configuration/domain/value-objects/skill.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const LIMITS = { files: 2, characters: 100 };
@@ -9,9 +10,10 @@ const defined = (over: {
   named?: unknown;
   files?: number;
   characters?: number;
+  tools?: readonly Tool[];
 }) =>
   Skill.define({
-    key: SkillKey.of('frontend'),
+    key: DefinedSkillKey.of('frontend'),
     ...('named' in over ? { named: over.named } : {}),
     description: 'Building the web app.',
     instructions: 'Use the design system.',
@@ -21,7 +23,7 @@ const defined = (over: {
       limits: LIMITS,
     },
     secrets: [],
-    tools: [],
+    tools: over.tools ?? [],
   });
 
 describe('Skill', () => {
@@ -38,5 +40,15 @@ describe('Skill', () => {
     expect(() => defined({ characters: 101 })).toThrow(
       /more than 100 characters/,
     );
+  });
+
+  it('names built-in and integration tools, never a catalog tool', () => {
+    expect(
+      defined({ tools: [Tool.of('pull-request'), Tool.of('grafana.search')] })
+        .tools,
+    ).toHaveLength(2);
+    expect(() =>
+      defined({ tools: [Tool.of('catalog.web-search@1.1.0')] }),
+    ).toThrow(/must be named integration.tool/);
   });
 });

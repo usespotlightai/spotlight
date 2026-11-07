@@ -3,7 +3,6 @@ import { PLAIN_STATION_COLOR } from '@lines/application/contracts/line-view.cont
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   InboxApproval,
@@ -25,7 +24,7 @@ import {
   toApprovalSubject,
   toEditedCall,
 } from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
+import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import {
   type ApprovalRow,
   type ConnectionAskRow,
@@ -586,12 +585,14 @@ export const briefingsFor = async (
   }
 
   const rows = await db
-    .select({ id: run.id, spec: run.spec })
-    .from(run)
-    .where(inArray(run.id, named));
+    .select({ id: dispatch.id, briefing: dispatch.briefing })
+    .from(dispatch)
+    .where(inArray(dispatch.id, named));
 
   for (const row of rows) {
-    briefings.set(row.id, RunSpecContract.from(row.spec).briefing);
+    if (row.briefing !== null) {
+      briefings.set(row.id, row.briefing);
+    }
   }
 
   return briefings;

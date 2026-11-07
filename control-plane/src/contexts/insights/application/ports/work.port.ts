@@ -95,6 +95,4 @@ export interface WorkPort {
   configsInOrder(
     fingerprints: readonly string[],
   ): Promise<readonly ConfigInOrder[]>;
-
-  teamSkillKeys(teamId: string): Promise<readonly string[]>;
 }

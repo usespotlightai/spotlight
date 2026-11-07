@@ -2,11 +2,11 @@ import type {
   HookEventInstance,
   HookRequestSigning,
   ListeningHook,
-  StepOutcome,
   StepResult,
   WaitMode,
 } from '@integrations/application/ports/hook-runtime.port';
 import type { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 
 export const HOOK_REQUESTS = Symbol('HOOK_REQUESTS');
 
@@ -23,16 +23,16 @@ export interface HookRequest {
   readonly waitMode: WaitMode;
 }
 
-export type WaitingOutcome = Extract<StepOutcome, { status: 'waiting' }>;
-
 export interface HookRequestsPort {
   sent(request: HookRequest, callback: string, now: Date): Promise<StepResult>;
 
   resumed(
     request: HookRequest,
-    waiting: WaitingOutcome,
+    waiting: WaitingHookStep,
     now: Date,
-  ): Promise<StepResult>;
+  ): Promise<StepResult | null>;
+
+  unanswered(request: HookRequest, now: Date): StepResult;
 
   notSent(request: HookRequest, failure: HookFailure, now: Date): StepResult;
 }

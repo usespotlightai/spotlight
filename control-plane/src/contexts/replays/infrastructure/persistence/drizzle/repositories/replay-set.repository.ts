@@ -3,12 +3,14 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   codeOf,
   UNIQUE_VIOLATION,
+  violates,
 } from '@platform/persistence/drizzle/violations';
 import {
   ReplaySet,
   type ReplaySetRefresh,
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
+import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -38,6 +40,8 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
+
+const AT_STATION = 'replay_set_station_idx';
 
 type SetRow = typeof replaySet.$inferSelect;
 
@@ -162,6 +166,9 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
           }),
         )
         .catch((error: unknown) => {
+          if (violates(error, UNIQUE_VIOLATION, AT_STATION)) {
+            throw new StationHasReplaySetError(added.station.stationId);
+          }
           if (codeOf(error) === UNIQUE_VIOLATION) {
             throw new ReplaySetVersionConflictError(added.id.value);
           }

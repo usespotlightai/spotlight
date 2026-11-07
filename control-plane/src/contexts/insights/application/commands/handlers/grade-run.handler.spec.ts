@@ -5,6 +5,7 @@ import type { StationJudge } from '@insights/application/ports/station-judges.po
 import { ReadRunScoresHandler } from '@insights/application/queries/handlers/read-run-scores.handler';
 import { ReadRunScoresQuery } from '@insights/application/queries/read-run-scores.query';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
+import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
@@ -82,17 +83,18 @@ const grading = async (
   let next = 0;
   const access = new InsightsAccess({
     ...NOBODY_ELSE,
-    membershipOnTeam: async (_teamId, principal) =>
+    viewerOf: async (_teamId, principal) =>
       principal.userId.equals(UserId.of('user_stranger'))
         ? null
         : { workspaceId: WORKSPACE, by: principal.userId },
   });
-  const views = new RunScoresViews(facts, reports, judgings);
+  const terms = new GradingTermsOf(evidence, judgings);
+  const views = new RunScoresViews(facts, reports, terms);
   const deletions = deletionsInMemory();
   const reading = new ReadRunScoresHandler(access, views);
   const handler = new GradeRunHandler(
     access,
-    views,
+    terms,
     records,
     scores,
     new FactRecorder(deletions),

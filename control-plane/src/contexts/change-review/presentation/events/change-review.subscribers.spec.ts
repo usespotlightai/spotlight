@@ -1,6 +1,7 @@
 import type { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
+import type { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
@@ -23,6 +24,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -50,6 +52,7 @@ const receiving = () => {
     {} as unknown as ChangeStackReactions,
     {} as unknown as StickyCommentPosterPort,
     {} as unknown as TaskDeletionReactions,
+    {} as never,
     {} as unknown as ReviewReactions,
     { receive } as unknown as ReceiveReviewComment,
     {} as unknown as SignalReviewing,
@@ -119,6 +122,7 @@ describe('change review receiving a run begin and end', () => {
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
       {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       { began, ended } as unknown as SignalReviewing,
@@ -192,6 +196,7 @@ describe('change review receiving a run end', () => {
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
       {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -239,6 +244,7 @@ describe('change review receiving a pull request close', () => {
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
       {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -279,6 +285,7 @@ describe('change review receiving a stack’s check end', () => {
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
       {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -336,6 +343,7 @@ describe('change review receiving that a check was deleted while a runner leased
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
       {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -369,6 +377,7 @@ describe('change review receiving a check drop the runner reserved for it', () =
       {} as unknown as ChangeStackReactions,
       {} as unknown as StickyCommentPosterPort,
       {} as unknown as TaskDeletionReactions,
+      {} as never,
       {} as unknown as ReviewReactions,
       {} as unknown as ReceiveReviewComment,
       {} as unknown as SignalReviewing,
@@ -399,5 +408,58 @@ describe('change review receiving a check drop the runner reserved for it', () =
     );
 
     expect(reservationDropped).toHaveBeenCalledWith(RunnerId.of('pooled_1'));
+  });
+});
+
+describe('change review removing what a deleted task or team owned', () => {
+  const removeStacks = vi.fn(async () => {});
+  const subscribers = changeReviewSubscribers(
+    {} as unknown as ChangeStackReactions,
+    {} as unknown as StickyCommentPosterPort,
+    {} as unknown as TaskDeletionReactions,
+    { removeStacks } as unknown as TeamDeletionReactions,
+    {} as unknown as ReviewReactions,
+    {} as unknown as ReceiveReviewComment,
+    {} as unknown as SignalReviewing,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+
+  it('removes each aggregate type in its own reaction, each aggregate in its own transaction', () => {
+    const removing = subscribers.filter(
+      (each) =>
+        each.name.startsWith('change-review.remove-') &&
+        !each.name.includes('decision-sets'),
+    );
+
+    expect(removing.map((each) => [each.name, each.callsOut])).toEqual([
+      ['change-review.remove-reviews-of-deleted-task', true],
+      ['change-review.remove-review-comments-of-deleted-task', true],
+      ['change-review.remove-stack-checks-of-deleted-task', true],
+      ['change-review.remove-question-answers-of-deleted-task', true],
+      ['change-review.remove-change-stacks-of-deleted-task', true],
+      ['change-review.remove-stack-checks-of-deleted-team', true],
+      ['change-review.remove-question-answers-of-deleted-team', true],
+      ['change-review.remove-change-stacks-of-deleted-team', true],
+    ]);
+  });
+
+  it('removes the stacks a deleted team owned without a task', async () => {
+    const subscriber = subscribers.find(
+      (each) =>
+        each.name === 'change-review.remove-change-stacks-of-deleted-team',
+    );
+
+    await subscriber?.handle({
+      kind: 'identity.team-deleted.v1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      key: 'core',
+    } as never);
+
+    expect(removeStacks).toHaveBeenCalledWith(TeamId.of('team_1'));
   });
 });

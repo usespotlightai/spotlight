@@ -25,6 +25,7 @@ import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/r
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -108,13 +109,23 @@ const aTaskRun = (taskId = TaskId.of(randomUUID())): Run =>
       resume: { key: ResumeKey.forTask(taskId).value },
       startingPoint: true,
     }),
-    briefedTask: briefed,
   });
 
 describe('a task run’s starting point', () => {
   it('stores the task as it was briefed, read apart from the run', async () => {
-    const run = aTaskRun();
+    const taskId = TaskId.of(randomUUID());
+    const run = aTaskRun(taskId);
     await runs.add(run);
+    await database.db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: run.id.value,
+        workspaceId: 'ws_1',
+        taskId: taskId.value,
+        revision: 1,
+        stationId: STATION,
+        briefedTask: briefed.parts,
+      }),
+    );
 
     const found = await runs.findById(run.id);
     const read = await briefedTasks.of(run.id);

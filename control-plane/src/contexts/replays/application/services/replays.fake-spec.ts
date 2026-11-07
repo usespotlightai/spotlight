@@ -21,6 +21,7 @@ import type {
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { SetUsage } from '@replays/application/services/set-usage.service';
@@ -56,10 +57,12 @@ import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
-import { baselineOf } from '@replays/domain/services/baseline';
+import { servingBaselineOf } from '@replays/domain/services/baseline';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
+import { ChangeStackId } from '@replays/domain/value-objects/change-stack-id.vo';
+import type { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -114,10 +117,7 @@ export class InMemoryReplays {
     this.events.push(...events);
 
     for (const each of events) {
-      if (
-        this.startsPlannedReplays &&
-        each.kind === 'replays.search-replays-planned'
-      ) {
+      if (this.startsPlannedReplays && each.kind === 'search.replays-planned') {
         await new StartSearchReplays(
           this.searchRepository,
           this.replayRepository,
@@ -155,16 +155,11 @@ export class InMemoryReplays {
         ),
       baselinesOfSets: async (setIds) =>
         setIds.flatMap((id) => {
-          const found = baselineOf(
+          const found = servingBaselineOf(
             replays().filter((each) => each.setId.equals(id)),
           );
           return found ? [found] : [];
         }),
-      healthSamplesOfSets: async (setIds) =>
-        replays().filter(
-          (each) =>
-            each.isHealthSample && setIds.some((id) => each.setId.equals(id)),
-        ),
       searchesOfSetsStartedSince: async (setIds, since) =>
         [...this.searches.values()].filter(
           (each) =>
@@ -232,6 +227,15 @@ export class InMemoryReplays {
         .filter((each) => each.isDue(now))
         .slice(0, limit)
         .map((each) => each.stationId),
+    withStepsPendingSince: async (before, limit) =>
+      [...this.schedules.values()]
+        .filter((each) => {
+          const since = each.stepsPendingSince;
+
+          return since !== null && since <= before;
+        })
+        .slice(0, limit)
+        .map((each) => each.stationId),
     ofLine: async (lineId) =>
       [...this.schedules.values()].filter((each) =>
         each.station.lineId.equals(lineId),
@@ -270,6 +274,7 @@ export class InMemoryReplays {
             lastRejectedAt: schedule.lastRejectedAt,
             lastImprovedAt: schedule.lastImprovedAt,
             requests: schedule.requests,
+            pendingSteps: schedule.pendingSteps,
             checkAfter: schedule.checkAfter,
             version: schedule.version + 1,
           }),
@@ -356,6 +361,12 @@ export class InMemoryReplays {
       [...this.replays.values()].find((each) => each.ran(run)) ?? null,
     ofSet: async (setId) =>
       [...this.replays.values()].filter((each) => each.setId.equals(setId)),
+    healthSamplesOfSets: async (setIds) =>
+      [...this.replays.values()].filter(
+        (each) =>
+          each.healthSampleGroup !== null &&
+          setIds.some((id) => each.setId.equals(id)),
+      ),
     pairingWith: async (replayId) =>
       [...this.replays.values()]
         .filter(
@@ -662,12 +673,12 @@ export class FakeChangeReview implements ChangeReviewPort {
     return this.rechecks.get(run.value) ?? [];
   }
 
-  async recheckable(): Promise<readonly string[]> {
-    return this.recheckableStacks;
+  async recheckable(): Promise<readonly ChangeStackId[]> {
+    return this.recheckableStacks.map((each) => ChangeStackId.of(each));
   }
 
-  async recheck(run: RunId, stackId: string): Promise<void> {
-    this.recheckRequests.push(`${run.value}#${stackId}`);
+  async recheck(run: RunId, stackId: ChangeStackId): Promise<void> {
+    this.recheckRequests.push(`${run.value}#${stackId.value}`);
   }
 }
 
@@ -750,6 +761,21 @@ export const snapshotsFor = (
     QUIET,
   );
 
+export const stepsFor = (
+  memory: InMemoryReplays,
+  work: FakeWork,
+  clock: ClockPort = CLOCK,
+) =>
+  new PendingSearchSteps(
+    memory.scheduleRepository,
+    memory.searchRepository,
+    memory.budgetRepository,
+    snapshotsFor(memory, work),
+    clock,
+    TRANSACTION,
+    QUIET,
+  );
+
 export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   readonly stored = new Map<string, ConfigPullRequest>();
   readonly events: DomainEvent[] = [];
@@ -796,18 +822,18 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     );
   }
 
-  async fromGitHub(
+  async fromHost(
     workspaceId: { value: string },
-    key: { gitHubId: number | null; repository: string; number: number },
+    key: { hostId: number | null; repository: string; number: number },
   ) {
     return (
       [...this.stored.values()].find(
         (each) =>
           each.workspaceId.value === workspaceId.value &&
-          (key.gitHubId === null
+          (key.hostId === null
             ? each.repository?.value.toLowerCase() ===
                 key.repository.toLowerCase() && each.number === key.number
-            : each.gitHubId === key.gitHubId),
+            : each.hostId === key.hostId),
       ) ?? null
     );
   }
@@ -876,7 +902,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
         state: saved.current,
         url: saved.url,
         number: saved.number,
-        gitHubId: saved.gitHubId,
+        hostId: saved.hostId,
         basedOn: saved.basedOn,
         proposing: saved.proposing,
         checkedAt: saved.checkedAt,
@@ -901,16 +927,10 @@ export class InMemoryChecks implements ReplayCheckRepository {
 
   find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
 
-  matching = async (
-    stationId: StationId,
-    candidate: StationHashes,
-    live: StationHashes,
-  ) =>
+  ofChange = async (stationId: StationId, change: CheckedChange) =>
     [...this.stored.values()].filter(
       (each) =>
-        each.station.stationId.equals(stationId) &&
-        each.candidateHashes.behaviour === candidate.behaviour &&
-        each.liveHashes.scoring === live.scoring,
+        each.station.stationId.equals(stationId) && each.change.equals(change),
     );
 
   awaitingBaseline = async () =>

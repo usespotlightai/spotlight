@@ -1,7 +1,5 @@
-import type {
-  TokenScopeName,
-  WorkspaceAccessPort,
-} from '@identity/application/ports/workspace-access.port';
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import type {
   SecretReference,
   SecretSourcePort,
@@ -14,7 +12,6 @@ import {
 import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import { SecretAlreadyExistsError } from '@secrets/domain/exceptions/secret-already-exists.error';
 import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
-import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
@@ -55,8 +52,7 @@ export const accessFor = (managesSecrets: () => boolean): WorkspaceAccessPort =>
             workspaceId,
             slug: 'acme',
             configures: true,
-            allows: (scope: TokenScopeName) =>
-              scope === 'secrets' && managesSecrets(),
+            scopes: new Set(managesSecrets() ? (['secrets'] as const) : []),
             isAdmin: false,
           }
         : null,
@@ -192,11 +188,11 @@ export class InMemorySecrets implements SecretRepository {
 
     this.events.push(...secret.pullEvents());
 
-    if (secret.valueToStore) {
-      await this.values.store(secret, secret.valueToStore);
-    } else if (secret.deletesValue) {
-      await this.values.delete(secret);
-    }
+    await secret.valueChange({
+      store: (value) => this.values.store(secret, value),
+      delete: () => this.values.delete(secret),
+      keep: async () => {},
+    });
 
     if (secret.isDeleted) {
       this.#records.delete(secret.id.value);

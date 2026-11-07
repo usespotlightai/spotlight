@@ -1,4 +1,4 @@
-import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
+import type { LinkedTaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -20,7 +20,7 @@ export interface TaskViewFields {
   readonly runId?: string | null;
 }
 
-export const taskViewOf = (fields: TaskViewFields = {}): TaskView => {
+export const taskViewOf = (fields: TaskViewFields = {}): LinkedTaskView => {
   const runId = fields.runId === undefined ? 'run_1' : fields.runId;
 
   return {
@@ -36,5 +36,6 @@ export const taskViewOf = (fields: TaskViewFields = {}): TaskView => {
     repositories: fields.repositories ?? ['acme/api'],
     pullRequest: fields.pullRequest ?? null,
     runId: runId === null ? null : RunId.of(runId),
+    waiting: null,
   };
 };

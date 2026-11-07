@@ -1,5 +1,6 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class WebInboxLinks implements InboxLinksPort {
   private readonly base: string;
@@ -15,7 +16,7 @@ export class WebInboxLinks implements InboxLinksPort {
     workspaceId: string,
     conversationId: string,
   ): Promise<string | null> {
-    const slug = await this.workspaces.slugOf(workspaceId);
+    const slug = await this.workspaces.slugOf(WorkspaceId.of(workspaceId));
 
     return slug ? `${this.base}/w/${slug}/inbox/${conversationId}` : null;
   }
@@ -41,7 +42,7 @@ export class WebInboxLinks implements InboxLinksPort {
     teamId: string,
     path: string,
   ): Promise<string | null> {
-    const slug = await this.workspaces.slugOf(workspaceId);
+    const slug = await this.workspaces.slugOf(WorkspaceId.of(workspaceId));
 
     return slug ? `${this.base}/w/${slug}/team/${teamId}/${path}` : null;
   }

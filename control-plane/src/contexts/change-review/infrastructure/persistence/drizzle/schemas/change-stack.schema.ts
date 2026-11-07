@@ -49,6 +49,7 @@ export const changeStack = pgTable(
     id: text('id').primaryKey(),
     runId: text('run_id').notNull(),
     taskId: text('task_id'),
+    teamId: text('team_id'),
     replay: boolean('replay').notNull().default(false),
     workspaceId: text('workspace_id').notNull(),
     repository: text('repository'),
@@ -81,6 +82,7 @@ export const changeStack = pgTable(
     ),
     index('change_stack_run_idx').on(table.runId, table.startedAt),
     index('change_stack_task_idx').on(table.taskId, table.startedAt),
+    index('change_stack_team_idx').on(table.teamId),
     index('change_stack_pending_job_idx').on(table.pendingJob, table.jobDueAt),
   ],
 );

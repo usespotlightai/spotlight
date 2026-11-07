@@ -1,3 +1,5 @@
+import { ALL_CLAIMS } from '@lines/domain/value-objects/station-judge.vo';
+
 type LineDefinitionStationKind = 'backlog' | 'work' | 'completed';
 
 export type LineDefinitionJudge = {
@@ -34,6 +36,12 @@ export type LineDefinitionStationSearch = {
   readonly repeats?: number;
   readonly objective?: 'success' | 'cost';
 };
+
+export const LINE_DEFINITION_STATION_DEFAULTS = {
+  decisions: false,
+  memories: false,
+  judgePassThreshold: ALL_CLAIMS,
+} as const;
 
 export type LineDefinitionStation = {
   readonly key: string;

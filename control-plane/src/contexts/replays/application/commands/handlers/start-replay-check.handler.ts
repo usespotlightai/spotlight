@@ -28,6 +28,7 @@ import {
   scoredLive,
 } from '@replays/domain/services/live-scoring';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
@@ -35,7 +36,10 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
-import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
+import {
+  forbiddenTo,
+  type Invalid,
+} from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -52,22 +56,7 @@ import {
   lookupIdempotentCreate,
 } from '@shared-kernel/application/services/create-idempotently';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
-
-class CheckRejectedError extends Error {
-  constructor(readonly problems: readonly ConfigurationProblem[]) {
-    super('Planned station is invalid.');
-    this.name = 'CheckRejectedError';
-  }
-}
-
-class NothingToReplayError extends Error {
-  constructor(readonly scoringPinnedToLive: readonly ScoringField[]) {
-    super('Planned station runs the same as the live one.');
-    this.name = 'NothingToReplayError';
-  }
-}
 
 interface Gated {
   readonly station: StationView;
@@ -81,6 +70,13 @@ interface Prepared {
   readonly scored: ScoredLive;
   readonly validated: Extract<ValidatedCandidate, { ok: true }>;
 }
+
+type Unprepared =
+  | Invalid
+  | {
+      readonly outcome: 'unchanged';
+      readonly scoringPinnedToLive: readonly ScoringField[];
+    };
 
 interface Planned {
   readonly station: unknown;
@@ -161,26 +157,12 @@ export class StartReplayCheckHandler
         return earlier;
       }
 
-      try {
-        return await this.startedOrReused(
-          create,
-          await this.gated(station),
-          planned,
-          ChangeActor.of(command.actor, station.workspaceId),
-        );
-      } catch (error) {
-        if (error instanceof CheckRejectedError) {
-          return { outcome: 'invalid', problems: error.problems };
-        }
-        if (error instanceof NothingToReplayError) {
-          return {
-            outcome: 'unchanged',
-            scoringPinnedToLive: error.scoringPinnedToLive,
-          };
-        }
-
-        throw error;
-      }
+      return await this.startedOrReused(
+        create,
+        await this.gated(station),
+        planned,
+        ChangeActor.of(command.actor, station.workspaceId),
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -193,6 +175,11 @@ export class StartReplayCheckHandler
     by: ChangeActor,
   ): Promise<ReplayCheckStartedOutcome> {
     const prepared = await this.prepared(gated, planned);
+
+    if ('outcome' in prepared) {
+      return prepared;
+    }
+
     const reusable = await this.reusable(gated, prepared, planned);
     const candidate = reusable
       ? null
@@ -278,7 +265,10 @@ export class StartReplayCheckHandler
     return { station, address, live, threshold: live.threshold, set };
   }
 
-  private async prepared(gated: Gated, planned: Planned): Promise<Prepared> {
+  private async prepared(
+    gated: Gated,
+    planned: Planned,
+  ): Promise<Prepared | Unprepared> {
     const { station, live } = gated;
     const scored = scoredLive(planned.station, live.block);
     const validated = await this.work.validate(
@@ -292,10 +282,13 @@ export class StartReplayCheckHandler
       throw new UnknownStationError(station.key);
     }
     if (!validated.ok) {
-      throw new CheckRejectedError(validated.problems);
+      return { outcome: 'invalid', problems: validated.problems };
     }
     if (validated.hashes.runsAs(validated.liveHashes)) {
-      throw new NothingToReplayError(scored.scoringPinnedToLive);
+      return {
+        outcome: 'unchanged',
+        scoringPinnedToLive: scored.scoringPinnedToLive,
+      };
     }
 
     return { scored, validated };
@@ -308,18 +301,16 @@ export class StartReplayCheckHandler
   ): Promise<ReplayCheckId | null> {
     const { set, threshold } = gated;
     const setEntries = set.digestOfEntries((text) => this.hash.sha256(text));
-    const earlier = await this.checks.matching(
-      gated.station.stationId,
-      validated.hashes,
-      validated.liveHashes,
-    );
+    const change = CheckedChange.of(validated.hashes, validated.liveHashes);
+    const earlier = await this.checks.ofChange(gated.station.stationId, change);
 
     for (const each of [...earlier].reverse()) {
       const { evaluation } = await this.evaluations.of(each);
 
       if (
         each.reusableFor(
-          set,
+          change,
+          set.id,
           setEntries,
           threshold,
           planned.repeats,
@@ -367,18 +358,15 @@ export class StartReplayCheckHandler
 
     set.stillAtItsStation();
 
-    const earlier = await this.checks.matching(
-      gated.station.stationId,
-      validated.hashes,
-      validated.liveHashes,
-    );
+    const change = CheckedChange.of(validated.hashes, validated.liveHashes);
+    const earlier = await this.checks.ofChange(gated.station.stationId, change);
     const check = ReplayCheck.start({
       id: ReplayCheckId.of(this.ids.generate()),
       station: set.station,
       stationKey: gated.station.key,
       setId: set.id,
       setEntries: set.digestOfEntries((text) => this.hash.sha256(text)),
-      attempt: ReplayCheck.nextAttemptAfter(earlier),
+      attempt: ReplayCheck.nextAttemptAfter(earlier, change),
       candidateId: made.candidate.id,
       replayId: ReplayId.of(this.ids.generate()),
       reference: planned.reference,

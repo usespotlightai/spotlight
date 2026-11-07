@@ -5,7 +5,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ConfigPullRequestMerged implements DomainEvent {
-  readonly kind = 'replays.config-pull-request-merged';
+  readonly kind = 'config-pull-request.merged';
 
   constructor(
     readonly pullRequestId: ConfigPullRequestId,

@@ -5,7 +5,7 @@ import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import type { RecordedMemoryUses } from '@memory/domain/entities/recorded-memory-uses.entity';
+import type { MemoryUses } from '@memory/domain/entities/memory-uses.entity';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
@@ -66,7 +66,7 @@ const handler = (run: LeasedRun) => {
     } as unknown as MemoryRepository,
     new RecordMemoryUses(
       {
-        record: async (uses: RecordedMemoryUses) => {
+        record: async (uses: MemoryUses) => {
           recorded.push(uses.memories.map((each) => each.value));
         },
       } as unknown as MemoryUsesPort,

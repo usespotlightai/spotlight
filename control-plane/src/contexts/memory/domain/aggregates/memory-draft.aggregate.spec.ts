@@ -3,8 +3,8 @@ import {
   MemoryProposal,
   type ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
-import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
+import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
@@ -173,7 +173,7 @@ describe('MemoryDraft', () => {
       expect(drafted.proposals).toHaveLength(1);
       expect(drafted.proposals[0]?.proposed).toBe(true);
       expect(drafted.pullEvents().slice(-1)[0]).toEqual(
-        new MemoriesProposed(drafted.id, TASK, FIRST, 1, 3, 0),
+        new MemoryReviewRequested(drafted.id, TASK, FIRST),
       );
     });
 
@@ -203,7 +203,7 @@ describe('MemoryDraft', () => {
         'CI has no network.',
       ]);
       expect(second.pullEvents().slice(-1)[0]).toEqual(
-        new MemoriesProposed(second.id, TASK, SECOND, 1, 0, 2),
+        new MemoryReviewRequested(second.id, TASK, SECOND),
       );
     });
 
@@ -237,8 +237,8 @@ describe('MemoryDraft', () => {
 
       expect(quiet.proposals).toEqual(first.proposals);
       expect(quiet.draftedIn?.equals(SECOND)).toBe(true);
-      expect(quiet.pullEvents().slice(-1)[0]).toEqual(
-        new MemoriesProposed(quiet.id, TASK, SECOND, 0, 0, 0),
+      expect(quiet.pullEvents()).not.toContainEqual(
+        new MemoryReviewRequested(quiet.id, TASK, SECOND),
       );
     });
 
@@ -587,7 +587,7 @@ describe('MemoryDraft', () => {
       expect(later.pullEvents()).toEqual(
         expect.arrayContaining([
           new MemoryReviewResolved(later.id, TASK, FIRST),
-          new MemoriesProposed(later.id, TASK, SECOND, 1, 0, 3),
+          new MemoryReviewRequested(later.id, TASK, SECOND),
         ]),
       );
     });
@@ -657,7 +657,7 @@ describe('MemoryDraft', () => {
       ]);
       expect(draft.stepsRemembered(FIRST)).toEqual([3]);
       expect(draft.pullEvents()).toEqual([
-        new MemoriesProposed(draft.id, TASK, FIRST, 1, 0, 0),
+        new MemoryReviewRequested(draft.id, TASK, FIRST),
       ]);
     });
 

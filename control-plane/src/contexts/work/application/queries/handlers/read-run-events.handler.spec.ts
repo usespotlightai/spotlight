@@ -1,4 +1,8 @@
 import type { RunEventReaderPort } from '@work/application/ports/run-event-reader.port';
+import type {
+  RunViewersPort,
+  WatchedRun,
+} from '@work/application/ports/run-viewers.port';
 import { ReadRunEventsHandler } from '@work/application/queries/handlers/read-run-events.handler';
 import { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,15 +15,15 @@ const ENTRY = {
 };
 
 const reading = (watchable: boolean) => {
+  const runs = {
+    watchedBy: vi.fn(async () => (watchable ? ({} as WatchedRun) : null)),
+  } as unknown as RunViewersPort;
   const events = {
-    findForViewer: vi.fn(async () =>
-      watchable ? { id: 'run_1', attempt: 1 } : null,
-    ),
     eventsSince: vi.fn(async () => [ENTRY]),
     lastOfType: vi.fn(async () => null),
   } satisfies RunEventReaderPort;
 
-  return { events, handler: new ReadRunEventsHandler(events) };
+  return { events, handler: new ReadRunEventsHandler(runs, events) };
 };
 
 describe('ReadRunEventsHandler', () => {

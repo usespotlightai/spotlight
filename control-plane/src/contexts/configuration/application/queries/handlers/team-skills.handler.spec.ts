@@ -1,17 +1,17 @@
 import type { ReadSkillFolder } from '@configuration/application/ports/skill-folders.port';
-import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import { TeamSkillsHandler } from '@configuration/application/queries/handlers/team-skills.handler';
 import { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
 import type { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { Skill } from '@configuration/domain/value-objects/skill.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const GRAFANA: ReadSkillFolder = {
   skill: Skill.define({
-    key: SkillKey.of('grafana-dashboards'),
+    key: DefinedSkillKey.of('grafana-dashboards'),
     description: 'Reading this team’s dashboards.',
     instructions: 'Dashboards are at https://grafana.acme.dev.',
     secrets: [],
@@ -28,12 +28,12 @@ const GRAFANA: ReadSkillFolder = {
 const listing = (teamId = 'team_1') =>
   new TeamSkillsHandler(
     {
-      viewedBy: vi.fn(async (id: string) =>
-        id === 'team_1'
+      inWorkspaceOfTeam: vi.fn(async (id: TeamId) =>
+        id.value === 'team_1'
           ? { teamId: TeamId.of('team_1'), workspaceId: WorkspaceId.of('ws_1') }
           : null,
       ),
-    } satisfies TeamsPort,
+    } as unknown as WorkspaceAccessPort,
     { of: vi.fn(async () => [GRAFANA]) } as unknown as TeamSkillReading,
   ).execute(new TeamSkillsQuery(teamId, 'user_1'));
 

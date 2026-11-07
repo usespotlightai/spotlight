@@ -1,6 +1,7 @@
 import type { StationJudge } from '@insights/application/ports/station-judges.port';
 import { ReadRunScoresHandler } from '@insights/application/queries/handlers/read-run-scores.handler';
 import { ReadRunScoresQuery } from '@insights/application/queries/read-run-scores.query';
+import { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
@@ -113,7 +114,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
   return new ReadRunScoresHandler(
     new InsightsAccess({
       ...NOBODY_ELSE,
-      membershipOnTeam: async (_teamId, principal) => ({
+      viewerOf: async (_teamId, principal) => ({
         workspaceId: WORKSPACE,
         by: principal.userId,
       }),
@@ -124,7 +125,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
         evidence,
         new StationFactsInMemory(records, { scores }),
       ),
-      judgings,
+      new GradingTermsOf(evidence, judgings),
     ),
   );
 };

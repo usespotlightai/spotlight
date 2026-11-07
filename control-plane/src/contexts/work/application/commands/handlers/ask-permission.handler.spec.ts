@@ -15,7 +15,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import { RunWorks } from '@work/application/services/run-works.service';
+import { runWorksOver } from '@work/application/services/run-works.fake-spec';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -128,7 +128,7 @@ const asking = (start: Task, subject?: RunSubject) => {
   let run = runOf('run_1', subject);
 
   const handler = new AskPermissionHandler(
-    new RunWorks(
+    runWorksOver(
       { findById: async () => run } as unknown as RunRepository,
       {
         find: async () => current,

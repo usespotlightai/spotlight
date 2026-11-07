@@ -1,0 +1,100 @@
+import type {
+  CallCredentialsPort,
+  RunOfCall,
+} from '@integrations/application/ports/call-credentials.port';
+import type {
+  Credentials,
+  SigningSecrets,
+} from '@integrations/application/ports/integration-runtime.port';
+import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
+import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export class SpotlightCredentials implements Credentials {
+  constructor(
+    private readonly injection: SecretInjectionPort,
+    private readonly workspaceOf: () => Promise<string>,
+  ) {}
+
+  async injectedFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets> {
+    return this.injection.forSpotlight({
+      workspaceId: await this.workspaceOf(),
+      secrets,
+      url,
+    });
+  }
+
+  async standInsFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets> {
+    return this.injection.standInsFor({
+      workspaceId: await this.workspaceOf(),
+      secrets,
+      url,
+    });
+  }
+}
+
+export class RunCredentials implements Credentials {
+  constructor(
+    private readonly injection: SecretInjectionPort,
+    private readonly run: RunOfCall,
+  ) {}
+
+  injectedFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets> {
+    return this.injection.forRun({
+      workspaceId: this.run.workspaceId,
+      runId: this.run.runId,
+      attempt: this.run.attempt,
+      secrets,
+      url,
+    });
+  }
+
+  standInsFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets> {
+    return this.injection.standInsForRun({
+      workspaceId: this.run.workspaceId,
+      runId: this.run.runId,
+      attempt: this.run.attempt,
+      secrets,
+      url,
+    });
+  }
+}
+
+export class SpotlightSigningSecrets implements SigningSecrets {
+  constructor(
+    private readonly injection: SecretInjectionPort,
+    private readonly workspaceId: WorkspaceId,
+  ) {}
+
+  named(secret: string): Promise<VerifyingSecret> {
+    return this.injection.forVerifying({
+      workspaceId: this.workspaceId.value,
+      secret,
+    });
+  }
+}
+
+export class InjectedCallCredentials implements CallCredentialsPort {
+  constructor(private readonly injection: SecretInjectionPort) {}
+
+  forSpotlight(workspaceOf: () => Promise<string>): Credentials {
+    return new SpotlightCredentials(this.injection, workspaceOf);
+  }
+
+  forRun(run: RunOfCall): Credentials {
+    return new RunCredentials(this.injection, run);
+  }
+}

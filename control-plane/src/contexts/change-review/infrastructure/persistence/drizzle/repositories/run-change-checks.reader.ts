@@ -13,6 +13,7 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { asc, eq } from 'drizzle-orm';
 
 @Injectable()
@@ -22,16 +23,16 @@ export class DrizzleRunChangeChecksReader implements RunChangeChecksPort {
     @Inject(CLOCK) private readonly clock: ClockPort,
   ) {}
 
-  ofRun(runId: string): Promise<readonly CheckedChange[]> {
+  ofRun(runId: RunId): Promise<readonly CheckedChange[]> {
     return this.checkedChanges(runId, false);
   }
 
-  rechecksOfRun(runId: string): Promise<readonly CheckedChange[]> {
+  rechecksOfRun(runId: RunId): Promise<readonly CheckedChange[]> {
     return this.checkedChanges(runId, true);
   }
 
   private async checkedChanges(
-    runId: string,
+    runId: RunId,
     rechecks: boolean,
   ): Promise<readonly CheckedChange[]> {
     const stacks = await this.context.db
@@ -44,13 +45,13 @@ export class DrizzleRunChangeChecksReader implements RunChangeChecksPort {
         usage: changeStack.usage,
       })
       .from(changeStack)
-      .where(eq(changeStack.runId, runId))
+      .where(eq(changeStack.runId, runId.value))
       .orderBy(asc(changeStack.startedAt), asc(changeStack.id));
     const checks = (
       await this.context.db
         .select()
         .from(stackCheck)
-        .where(eq(stackCheck.runId, runId))
+        .where(eq(stackCheck.runId, runId.value))
     ).map(toStackCheck);
     const now = this.clock.now();
     const checkOf = (stackId: string, recheck: boolean): StackCheck | null =>

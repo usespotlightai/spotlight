@@ -1,3 +1,4 @@
+import { scopeRecorder } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import type {
   SpecRead,
@@ -7,7 +8,6 @@ import { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { SpecReaders } from '@integrations/infrastructure/specs/spec-readers';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import { scopedTo } from '@platform/outbound/outbound-scope.fake-spec';
-import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const UNREAD: SpecRead = { kind: 'unread', problem: 'unused' };

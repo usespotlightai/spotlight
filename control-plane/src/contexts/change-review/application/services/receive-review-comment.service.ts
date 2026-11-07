@@ -99,7 +99,7 @@ export class ReceiveReviewComment {
         anchor,
         body: comment.body,
         author: ReviewAuthor.onGitHub(comment.login),
-        replyTo: parent ? (parent.replyTo ?? parent.id) : null,
+        inReplyTo: parent,
         github: { id: comment.id, url: comment.url },
         at: comment.writtenAt ?? this.clock.now(),
       }),

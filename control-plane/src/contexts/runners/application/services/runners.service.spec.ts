@@ -539,14 +539,15 @@ describe('Runners', () => {
       claimBy: CLAIM_BY,
     };
 
-    it('fails as unusable, calling nobody, when a run that needs egress meets a pool that names none', async () => {
-      const { service, saved, called } = running(aPushPool());
+    it('fails as unusable, starting no runner and calling nobody, when a run that needs egress meets a pool that names none', async () => {
+      const { service, added, saved, called } = running(aPushPool());
 
       await expect(
         service.provision({ ...request, needsEgress: true }, STARTED_AT),
       ).resolves.toMatchObject({ outcome: 'failed', kind: 'unusable' });
       expect(called).toEqual([]);
-      expect(saved[0]?.isDiscarded).toBe(true);
+      expect(added).toEqual([]);
+      expect(saved).toEqual([]);
     });
 
     it('reserves a runner and calls provision with its one-run token', async () => {

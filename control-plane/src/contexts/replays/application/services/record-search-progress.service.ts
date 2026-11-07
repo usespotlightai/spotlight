@@ -12,6 +12,7 @@ import {
 } from '@replays/domain/services/search-reconciliation';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -20,7 +21,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface SearchRunEnded {
   readonly runId: string;
-  readonly outcome: string;
+  readonly outcome: RunResult;
   readonly asked: boolean;
   readonly started: boolean;
 }

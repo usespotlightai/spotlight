@@ -10,8 +10,8 @@ import type { ConnectionOfRun } from '@work/application/ports/run-connections.po
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import type { Money } from '@work/domain/value-objects/money.vo';
 import type { RunConnection } from '@work/domain/value-objects/run-connection.vo';
-import type { RunState } from '@work/domain/value-objects/run-state';
 import { faulted } from '@work/domain/value-objects/step-status';
+import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
 
 export type NodeKind = 'run' | 'phase' | 'step' | 'span' | 'connection';
 
@@ -21,7 +21,7 @@ export interface TracedRun {
   readonly id: RunId;
   readonly station: StationName | null;
   readonly harness: HarnessName;
-  readonly state: RunState;
+  readonly state: TaskRunState;
   readonly attempt: number;
   readonly startedAt: Date;
   readonly endedAt: Date;
@@ -33,7 +33,7 @@ export interface RunToTrace {
   readonly id: string;
   readonly station: { readonly name: string } | null;
   readonly harness: string;
-  readonly state: RunState;
+  readonly state: TaskRunState;
   readonly attempt: number;
   readonly startedAt: Date;
   readonly updatedAt: Date;

@@ -1,10 +1,12 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { ConnectionAsked as ConnectionAskedText } from '@work/application/rendering/connection-asked';
 import { PermissionAsked } from '@work/application/rendering/permission-asked';
@@ -14,7 +16,6 @@ import type {
   PermissionCleared,
   RunWork,
 } from '@work/application/services/run-work';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -37,7 +38,7 @@ const RETURN_ATTEMPTS = 3;
 
 export class TaskRunWork implements RunWork {
   constructor(
-    private readonly run: Run,
+    private readonly run: LeasedRun,
     private readonly task: Task,
     private readonly tasks: TaskRepository,
     private readonly lines: LineMapsPort,
@@ -61,12 +62,18 @@ export class TaskRunWork implements RunWork {
     );
   }
 
+  private get stationId(): StationId | null {
+    return this.run.subject?.kind === 'task'
+      ? this.run.subject.stationId
+      : null;
+  }
+
   async repositoryNamed(name: string): Promise<Repository | null> {
-    if (!this.run.stationId) {
+    if (!this.stationId) {
       return null;
     }
 
-    const line = await this.lines.findByStation(this.run.stationId);
+    const line = await this.lines.findByStation(this.stationId);
 
     return line ? repositoryForTaskNamed(name, this.task, line) : null;
   }
@@ -90,9 +97,9 @@ export class TaskRunWork implements RunWork {
         station: line?.stationAt(this.task.stationId) ?? null,
         body: TaskNoteBody.of(ApprovalAsked.body(declared, call, needed)),
         at: this.clock.now(),
-        voice: Voice.station(this.run.id),
+        voice: Voice.station(this.run.runId),
       },
-      this.run.id,
+      this.run.runId,
       intent,
     );
 
@@ -126,12 +133,12 @@ export class TaskRunWork implements RunWork {
     }
 
     const { task, asked } = this.task.askToConnect(
-      this.run.id,
+      this.run.runId,
       {
         station: line.stationAt(this.task.stationId) ?? null,
         body: TaskNoteBody.of(ConnectionAskedText.body(declared, missing)),
         at: this.clock.now(),
-        voice: Voice.station(this.run.id),
+        voice: Voice.station(this.run.runId),
       },
       ConnectionAsk.of({
         teamId: line.teamId,
@@ -166,10 +173,9 @@ export class TaskRunWork implements RunWork {
       subject.name,
       PermissionAsked.because(station?.profile?.value ?? null),
     );
-    const recorded =
-      session && this.run.claimedBy
-        ? this.task.recordSession(this.run.id, session, this.run.claimedBy)
-        : this.task;
+    const recorded = session
+      ? this.task.recordSession(this.run.runId, session, this.run.claimedBy)
+      : this.task;
     const { task, check } = recorded.clearFor(
       subject,
       needed,
@@ -177,9 +183,9 @@ export class TaskRunWork implements RunWork {
         station: station ?? null,
         body: TaskNoteBody.of(PermissionAsked.body(permission, needed)),
         at: this.clock.now(),
-        voice: Voice.station(this.run.id),
+        voice: Voice.station(this.run.runId),
       },
-      this.run.id,
+      this.run.runId,
       null,
     );
 
@@ -211,7 +217,7 @@ export class TaskRunWork implements RunWork {
   }
 
   async toolContext(): Promise<TaskToolContext> {
-    const stationId = this.run.stationId ?? this.task.stationId;
+    const stationId = this.stationId ?? this.task.stationId;
     const line = await this.lines.findByStation(stationId);
 
     if (!line) {
@@ -220,7 +226,7 @@ export class TaskRunWork implements RunWork {
 
     return {
       kind: 'task',
-      runId: this.run.id,
+      runId: this.run.runId,
       workspaceId: this.task.workspaceId,
       taskId: this.task.id,
       stationId,

@@ -7,6 +7,7 @@ import type {
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { BindableChatEvent } from '@work/application/contracts/bindable-chat-events.contract';
 
 export interface ChannelNotice {
   readonly workspaceId: string;
@@ -27,7 +28,7 @@ export class NotifyChannel {
     private readonly log: LoggerPort,
   ) {}
 
-  async notify(notice: ChannelNotice, event: string): Promise<void> {
+  async notify(notice: ChannelNotice, event: BindableChatEvent): Promise<void> {
     const teamId = TeamId.of(notice.teamId);
     const definitions = await this.defined.ofTeam(teamId);
     const posting = this.runtime

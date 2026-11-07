@@ -3,9 +3,9 @@ import type {
   HarnessProfileResourcesPort,
 } from '@configuration/application/ports/harness-profile-resources.port';
 import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 

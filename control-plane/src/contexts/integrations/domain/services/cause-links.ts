@@ -1,11 +1,13 @@
+import type { CauseLink } from '@integrations/domain/value-objects/causal-chain.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import type { CauseLink } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export const CauseLinks = {
   change(input: {
-    on: string;
+    on: HookEventName;
     taskId: TaskId;
     change: string;
     taskTitle: string;
@@ -28,15 +30,19 @@ export const CauseLinks = {
     };
   },
 
-  toolUsed(tool: string, occurrence: string): string {
-    return `${tool} ${occurrence}`;
+  callback(hook: HookKey, taskId: TaskId): CauseLink {
+    return {
+      kind: 'callback',
+      key: `callback:${hook.value}:${taskId.value}`,
+      description: `a note by callback from the hook ${hook.value}`,
+    };
   },
 
-  delivery(integration: string): CauseLink {
+  delivery(integration: IntegrationKey): CauseLink {
     return {
       kind: 'delivery',
-      key: `delivery:${integration}`,
-      description: `a delivery from ${integration}`,
+      key: `delivery:${integration.value}`,
+      description: `a delivery from ${integration.value}`,
     };
   },
 };

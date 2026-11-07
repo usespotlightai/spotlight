@@ -27,12 +27,14 @@ export class DrizzleMemoryListing implements MemoryListingPort {
           eq(memory.teamId, teamId.value),
           eq(memory.status, criteria.status),
           criteria.kind ? eq(memory.kind, criteria.kind) : undefined,
-          criteria.lineId ? eq(memory.lineId, criteria.lineId) : undefined,
+          criteria.lineId
+            ? eq(memory.lineId, criteria.lineId.value)
+            : undefined,
           criteria.stationId
-            ? eq(memory.stationId, criteria.stationId)
+            ? eq(memory.stationId, criteria.stationId.value)
             : undefined,
           criteria.repository
-            ? eq(memory.repository, criteria.repository)
+            ? eq(memory.repository, criteria.repository.value)
             : undefined,
           criteria.path
             ? sql`exists (select 1 from jsonb_array_elements_text(${memory.paths}) as entry(path) where starts_with(entry.path, ${criteria.path}))`

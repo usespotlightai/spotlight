@@ -1,4 +1,4 @@
-import type { JsonObject } from '@shared-kernel/domain/services/json-value';
+import type { JsonObject } from '@shared-kernel/domain/json-value';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';

@@ -11,6 +11,7 @@ import {
   freeSlotsAmong,
   REPLAY_RUNS_AT_ONCE,
 } from '@replays/domain/services/replay-dispatch';
+import { DispatchPool } from '@replays/domain/value-objects/dispatch-pool.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -121,5 +122,18 @@ describe('dispatchedInTurn', () => {
     const searched = aReplay({ count: 3, searchId: SEARCH });
 
     expect(dispatchedInTurn([searched], runIds(), NO_SEARCHES)).toEqual([]);
+  });
+});
+
+describe('Replay.dispatchPool', () => {
+  it('puts a search’s replays in the search’s pool and others in the team’s', () => {
+    const searched = aReplay({ id: 'replay_a', searchId: SEARCH });
+    const other = aReplay({ id: 'replay_b', searchId: SEARCH });
+    const team = aReplay({ id: 'replay_c' });
+
+    expect(searched.dispatchPool.equals(other.dispatchPool)).toBe(true);
+    expect(searched.dispatchPool.equals(team.dispatchPool)).toBe(false);
+    expect(searched.dispatchPool).toEqual(DispatchPool.ofSearch(SEARCH));
+    expect(team.dispatchPool).toEqual(DispatchPool.ofTeam(team.teamId));
   });
 });

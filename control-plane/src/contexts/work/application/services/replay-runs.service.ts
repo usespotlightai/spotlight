@@ -16,6 +16,7 @@ import type { DispatchReplay } from '@work/application/services/dispatch-replay.
 import type { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 
@@ -41,6 +42,7 @@ export class ReplayRuns implements ReplayDispatchPort {
     private readonly answers: ReplayAnswers,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
+    private readonly dispatches: DispatchRepository,
   ) {}
 
   enqueue(order: ReplayOrder): Promise<ReplayDispatched> {
@@ -121,7 +123,7 @@ export class ReplayRuns implements ReplayDispatchPort {
 
       return {
         outcome: 'queued' as const,
-        fingerprint: replayed.configuredAs?.fingerprint ?? null,
+        fingerprint: await this.fingerprintOf(id),
       };
     });
   }
@@ -192,12 +194,13 @@ export class ReplayRuns implements ReplayDispatchPort {
   }
 
   private async queued(id: RunId): Promise<ReplayDispatched> {
-    const run = await this.runs.findById(id);
+    return { outcome: 'queued', fingerprint: await this.fingerprintOf(id) };
+  }
 
-    return {
-      outcome: 'queued',
-      fingerprint: run?.configuredAs?.fingerprint ?? null,
-    };
+  private async fingerprintOf(id: RunId): Promise<string | null> {
+    const trial = await this.dispatches.find(id);
+
+    return trial?.configuredAs?.fingerprint ?? null;
   }
 
   private async each(

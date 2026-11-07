@@ -4,7 +4,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class SearchIterationRequested implements DomainEvent {
-  readonly kind = 'replays.search-iteration-requested';
+  readonly kind = 'search.iteration-requested';
 
   constructor(
     readonly searchId: SearchId,

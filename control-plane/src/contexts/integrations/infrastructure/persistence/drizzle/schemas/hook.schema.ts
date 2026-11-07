@@ -1,6 +1,6 @@
 import { HOOK_FIRING_STATES } from '@integrations/domain/aggregates/hook-firing.aggregate';
+import type { CauseLink } from '@integrations/domain/value-objects/causal-chain.vo';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
-import type { CauseLink } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -53,20 +53,17 @@ export const hookFiring = pgTable(
     on: text('on').notNull(),
     occurrence: text('occurrence').notNull(),
     event: jsonb('event').$type<Record<string, unknown>>().notNull(),
-    matched: boolean('matched').notNull().default(true),
+    matched: boolean('matched').notNull(),
     cause: jsonb('cause').$type<Record<string, unknown>>().notNull(),
     link: jsonb('link').$type<CauseLink>().notNull(),
-    steps: jsonb('steps')
-      .$type<Record<string, unknown>[]>()
-      .notNull()
-      .default([]),
-    state: hookFiringState('state').notNull().default('pending'),
-    attempts: integer('attempts').notNull().default(0),
-    dueAt: timestamptz('due_at').defaultNow().notNull(),
+    steps: jsonb('steps').$type<Record<string, unknown>[]>().notNull(),
+    state: hookFiringState('state').notNull(),
+    attempts: integer('attempts').notNull(),
+    dueAt: timestamptz('due_at').notNull(),
     claimedAt: timestamptz('claimed_at'),
     failure: text('failure'),
     failed: text('failed'),
-    firedAt: timestamptz('fired_at').defaultNow().notNull(),
+    firedAt: timestamptz('fired_at').notNull(),
     handledAt: timestamptz('handled_at'),
     version: integer('version').notNull().default(1),
   },

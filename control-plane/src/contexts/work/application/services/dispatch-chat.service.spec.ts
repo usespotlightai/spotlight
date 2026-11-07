@@ -20,6 +20,8 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { BriefingContext } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
+import type { OrderedRun } from '@work/application/services/ordered-run';
+import { Runs } from '@work/application/services/runs.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
@@ -35,6 +37,7 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
@@ -82,12 +85,28 @@ const chatIn = (
 const briefedAt: BriefingContext[] = [];
 let memoryFails = false;
 
+interface Ordering {
+  readonly run: Run;
+  readonly ordered: OrderedRun;
+}
+
 const dispatching = (
   over: { launches?: boolean } = {},
-): { dispatch: DispatchChat; added: () => Run } => {
+): {
+  dispatch: DispatchChat;
+  enqueue: (
+    chat: Chat,
+    runId: RunId,
+    handed: readonly MessagePosition[],
+  ) => Promise<Ordering | null>;
+} => {
   const add = vi.fn(async (_run: Run) => {});
+  const runs = { add, findById: async () => null } as unknown as RunRepository;
+  const facade = new Runs(runs, new Sha256ContentHash(), {
+    now: () => NOW,
+    sleep: async () => {},
+  });
   const dispatch = new DispatchChat(
-    { add } as unknown as RunRepository,
     { generate: () => 'id' } as IdGeneratorPort,
     {
       commandFor: () =>
@@ -103,7 +122,7 @@ const dispatching = (
         line('web', [Repository.of('acme/web')], ['gpu']),
       ],
     } as unknown as LineMapsPort,
-    { now: () => NOW } as ClockPort,
+    { now: () => NOW, sleep: async () => {} } as ClockPort,
     {
       forBriefing: async (place: BriefingContext) => {
         briefedAt.push(place);
@@ -138,16 +157,36 @@ const dispatching = (
     { release: null },
   );
 
-  return { dispatch, added: () => add.mock.calls[0]?.[0] as Run };
+  return {
+    dispatch,
+    enqueue: async (chat, runId, handed) => {
+      const ordered = await dispatch.ordered(chat, runId, handed);
+
+      if (!ordered) {
+        return null;
+      }
+
+      await facade.enqueue(ordered.order);
+
+      return { run: add.mock.calls[0]?.[0] as Run, ordered };
+    },
+  };
 };
 
-const enqueued = async (chat: Chat): Promise<Run> => {
-  const { dispatch, added } = dispatching();
+const orderedFor = async (chat: Chat): Promise<Ordering> => {
+  const ordering = await dispatching().enqueue(chat, RunId.of('run_1'), [
+    MessagePosition.of(0),
+  ]);
 
-  await dispatch.enqueue(chat, RunId.of('run_1'), [MessagePosition.of(0)]);
+  if (!ordering) {
+    throw new Error('the chat ordered no run');
+  }
 
-  return added();
+  return ordering;
 };
+
+const enqueued = async (chat: Chat): Promise<Run> =>
+  (await orderedFor(chat)).run;
 
 const dispatched = (chat: Chat, runId: RunId) => {
   const assigned = chat.assignRun(runId, NOW);
@@ -203,8 +242,8 @@ describe('DispatchChat', () => {
     const first = dispatched(resumed, RunId.of('run_2'));
     const stuck = dispatching({ launches: false });
     expect(
-      await stuck.dispatch.enqueue(first.chat, RunId.of('run_2'), first.handed),
-    ).toBe(false);
+      await stuck.dispatch.ordered(first.chat, RunId.of('run_2'), first.handed),
+    ).toBeNull();
 
     const again = dispatched(
       first.chat.runEndedWithoutSession(RunId.of('run_2')).addMessage({
@@ -214,18 +253,21 @@ describe('DispatchChat', () => {
       }),
       RunId.of('run_3'),
     );
-    const { dispatch, added } = dispatching();
-    await dispatch.enqueue(again.chat, RunId.of('run_3'), again.handed);
+    const ordering = await dispatching().enqueue(
+      again.chat,
+      RunId.of('run_3'),
+      again.handed,
+    );
 
-    expect(added().spec.briefing).toBe('Split it.\n\nThen the docs.');
+    expect(ordering?.run.spec.briefing).toBe('Split it.\n\nThen the docs.');
   });
 
   it('briefs a fresh chat with the team-wide memories, and records them on its run', async () => {
     briefedAt.length = 0;
-    const run = await enqueued(chatIn([API]));
+    const { run, ordered } = await orderedFor(chatIn([API]));
 
     expect(briefedAt[0]).toMatchObject({ lineId: null, stationId: null });
-    expect(run.briefedWith.value).toEqual({
+    expect(ordered.briefedMemories.value).toEqual({
       briefed: [{ id: 'memory_1', handle: 'M-3' }],
       omitted: [{ id: 'memory_2', handle: 'M-4' }],
     });
@@ -235,10 +277,10 @@ describe('DispatchChat', () => {
 
   it('still starts a chat, told nothing remembered, when memory cannot be read', async () => {
     memoryFails = true;
-    const run = await enqueued(chatIn([API]));
+    const { run, ordered } = await orderedFor(chatIn([API]));
     memoryFails = false;
 
-    expect(run.briefedWith.value).toEqual({ briefed: [], omitted: [] });
+    expect(ordered.briefedMemories.value).toEqual({ briefed: [], omitted: [] });
     expect(run.spec.value.briefing).not.toContain('What the team has learned');
   });
 });

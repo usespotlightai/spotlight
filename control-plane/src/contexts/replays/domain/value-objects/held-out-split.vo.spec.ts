@@ -145,6 +145,24 @@ describe('HeldOutSplit', () => {
     ).toThrow(SearchSetTooSmallError);
   });
 
+  it('answers a try with too few tasks or too few fresh ones instead of a split', () => {
+    expect(
+      HeldOutSplit.tryDraw({
+        searchId: SEARCH_ID,
+        entries: entries(['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd']),
+        hash: sha256,
+      }),
+    ).toBe('too-small');
+    expect(
+      HeldOutSplit.tryDraw({
+        searchId: SEARCH_ID,
+        entries: entries(tasksOf(10)),
+        hash: sha256,
+        excluding: tasksOf(8).map((each) => TaskId.of(each)),
+      }),
+    ).toBe('no-fresh');
+  });
+
   it('covers exactly the runs it split', () => {
     const set = entries(tasksOf(6));
     const split = drawn(set);

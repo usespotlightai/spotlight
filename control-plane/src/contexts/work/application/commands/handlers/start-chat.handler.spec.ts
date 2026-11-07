@@ -4,6 +4,8 @@ import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StartChatCommand } from '@work/application/commands/chat.commands';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
@@ -42,8 +44,8 @@ const starting = ({
   const handler = new StartChatHandler(
     {
       findTeamForMember: vi.fn(async () => ({
-        teamId: 'team_1',
-        workspaceId: 'ws_1',
+        teamId: TeamId.of('team_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
         slug: 'acme',
         teamKey: 'core',
       })),

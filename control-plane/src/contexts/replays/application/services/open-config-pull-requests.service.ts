@@ -33,6 +33,7 @@ import {
   heldOutPendingFor,
   scoresOf,
 } from '@replays/domain/services/search-scores';
+import { CommitSha } from '@replays/domain/value-objects/commit-sha.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -111,7 +112,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
 
     const committed = async (commit: string) => {
       const next = (pullRequest as ConfigPullRequest).commit(
-        commit,
+        CommitSha.of(commit),
         this.clock.now(),
       );
 
@@ -257,7 +258,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const {
       url,
       number,
-      gitHubId,
+      hostId,
       repository: canonical,
     } = await this.configs.opened(pullRequest.workspaceId, repository, {
       branch: pullRequest.branch,
@@ -269,7 +270,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       opened: {
         url: PullRequestUrl.of(url),
         number,
-        gitHubId,
+        hostId,
         repository: Repository.of(canonical),
         basedOn: seed.fingerprint,
         proposing: candidate.fingerprint,

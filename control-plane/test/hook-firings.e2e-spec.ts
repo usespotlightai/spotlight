@@ -9,13 +9,17 @@ import {
   HOOK_FIRINGS,
   type HookFiringRepository,
 } from '@integrations/domain/repositories/hook-firing.repository';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -32,6 +36,24 @@ import {
 } from 'vitest';
 import { openApp } from './support/app';
 import * as schema from './support/schema';
+
+const HOOK = Hook.of({
+  key: HookKey.of('audit'),
+  event: HookEvent.of('task.opened'),
+  match: HookMatch.anything(HookEvent.of('task.opened')),
+  steps: [
+    {
+      name: 'tell',
+      kind: 'request',
+      url: new URL('https://audit.example.com'),
+      headers: [],
+      fromNetwork: true,
+    },
+  ],
+  signing: 'hmac',
+  failure: 'continue',
+  timeoutSeconds: 10,
+});
 
 const OPENED = {
   kind: 'event' as const,
@@ -247,9 +269,19 @@ describe('hook firings, stored in the database (e2e)', () => {
     await firings.add(firing('occurrence_11'));
     const working = await claimed();
 
-    await firings.save(working.waitedOn(NOW));
+    const waiting = {
+      name: 'tell',
+      status: 'waiting' as const,
+      call: 'call_1',
+      until: at(120),
+    };
+
+    await firings.save(working.stepTaken(HOOK, waiting, NOW));
 
     await expect(firings.claimNext(at(1))).resolves.toBeNull();
-    await expect(claimed(at(2))).resolves.toMatchObject({ id: working.id });
+    await expect(claimed(at(2))).resolves.toMatchObject({
+      id: working.id,
+      steps: [waiting],
+    });
   });
 });

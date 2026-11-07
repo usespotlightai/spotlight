@@ -1,4 +1,6 @@
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { RecordToolOutputHandler } from '@integrations/application/commands/handlers/record-tool-output.handler';
+import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
@@ -47,12 +49,10 @@ import {
   scopedTo,
   unscoped,
 } from '@platform/outbound/outbound-scope.fake-spec';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type {
   IntegrationTool,
@@ -189,7 +189,7 @@ const using = (
   const resolving = (tool: string, marked = true) =>
     tools.resolve(tool, task(marked), ATTEMPT, null);
 
-  const comment = async (inputs: ToolInputValues, marked = true) => {
+  const comment = async (inputs: ToolCallInputs, marked = true) => {
     const resolved = (await resolving(
       'linear.comment',
       marked,
@@ -391,9 +391,10 @@ describe('IntegrationToolCalls', () => {
     await comment({ body: 'Fixed.' });
 
     const output = await vi.waitFor(async () => {
-      const [stored] = await schemas.ofTools(TeamId.of('team_1'), [
-        'linear.comment',
-      ]);
+      const stored = await schemas.of(
+        TeamId.of('team_1'),
+        ToolName.of('linear.comment'),
+      );
       expect(stored).toBeDefined();
       return stored;
     });
@@ -408,10 +409,11 @@ describe('IntegrationToolCalls', () => {
     });
     await expect(failingService.comment({ body: 'Fixed.' })).rejects.toThrow();
     expect(
-      await failingService.schemas.ofTools(TeamId.of('team_1'), [
-        'linear.comment',
-      ]),
-    ).toEqual([]);
+      await failingService.schemas.of(
+        TeamId.of('team_1'),
+        ToolName.of('linear.comment'),
+      ),
+    ).toBeNull();
   });
 
   it('answers the call even when what it answered cannot be inferred', async () => {

@@ -1,3 +1,5 @@
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
+
 export const STATION_SOURCE_FIELDS = [
   'prompt',
   'harness',
@@ -23,8 +25,8 @@ export interface StationSourceEditRequest {
   readonly teamKey: string;
   readonly lineKey: string;
   readonly stationKey: string;
-  readonly seed: Readonly<Record<string, unknown>>;
-  readonly candidate: Readonly<Record<string, unknown>>;
+  readonly seed: LineDefinitionStation;
+  readonly candidate: LineDefinitionStation;
   readonly fields: readonly StationSourceField[];
   readonly besideFile: readonly string[];
   readonly read: (path: string) => Promise<string | null>;

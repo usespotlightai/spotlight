@@ -7,6 +7,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
+import { Runs } from '@work/application/services/runs.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
@@ -59,8 +60,11 @@ const detached = new TaskRunDetached(
 const stopping = (run: Run | null) => {
   const save = vi.fn(async (_: Run) => {});
   const handler = new CancelDetachedRun(
-    { findById: async () => run, save } as unknown as RunRepository,
-    { now: () => NOW } as ClockPort,
+    new Runs(
+      { findById: async () => run, save } as unknown as RunRepository,
+      { sha256: (text) => text },
+      { now: () => NOW } as ClockPort,
+    ),
   );
 
   return { handler, save };

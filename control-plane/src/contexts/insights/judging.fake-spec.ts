@@ -164,10 +164,6 @@ export class JudgingsInMemory implements JudgingRepository {
     return this.stored.get(runId.value) ?? null;
   }
 
-  ofForScoring(runId: RunId): Promise<Judging | null> {
-    return this.of(runId);
-  }
-
   async nextDueJob(now: Date): Promise<Judging | null> {
     return (
       [...this.stored.values()]

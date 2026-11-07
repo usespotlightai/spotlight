@@ -2,7 +2,7 @@ import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
-import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
+import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -60,10 +60,7 @@ export class KeepReplaySets {
     try {
       await this.sets.add(created);
     } catch (error) {
-      if (
-        !(error instanceof ReplaySetVersionConflictError) ||
-        !(await this.sets.ofStation(stationId))
-      ) {
+      if (!(error instanceof StationHasReplaySetError)) {
         throw error;
       }
     }

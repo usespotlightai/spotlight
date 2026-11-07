@@ -134,6 +134,16 @@ const reportedReady = (host: RunnerHost, source: CredentialSource, at: Date) =>
   reportedThrough(host, source, at, [], WorkspaceId.of('ws_1'), READY);
 
 describe('RunnerHost', () => {
+  it('keeps what it has to say from before when it changes again', () => {
+    const ready = firstHeartbeat(READY, ['sandbox_1']);
+    const changed = reportingSandboxes(ready, later(1_000), []);
+
+    expect(kindsOf(changed)).toEqual([
+      'runner-host.became-ready',
+      'runner-host.stopped-reporting-sandbox',
+    ]);
+  });
+
   it('has its first and last heartbeat when it first reports, at its first version', () => {
     const host = firstHeartbeat();
 

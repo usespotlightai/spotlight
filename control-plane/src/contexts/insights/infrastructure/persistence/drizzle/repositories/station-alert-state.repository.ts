@@ -3,7 +3,6 @@ import { StationAlertStateVersionConflictError } from '@insights/domain/exceptio
 import type { StationAlertStateRepository } from '@insights/domain/repositories/station-alert-state.repository';
 import type { AlertFiring } from '@insights/domain/value-objects/alert-firing.vo';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
-import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
 import { firingOf } from '@insights/infrastructure/persistence/drizzle/mappers/alert-firing.mapper';
@@ -18,9 +17,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';

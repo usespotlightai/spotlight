@@ -119,19 +119,18 @@ describe('removing the review comments of a task', () => {
     const parentTask = TaskId.of('task_parent');
     const replyTask = TaskId.of('task_reply');
     const anchor = ReviewAnchor.onFile('src/c.ts');
-    await comments.add(
-      ReviewComment.receive({
-        id: ReviewCommentId.of('parent'),
-        workspaceId: WorkspaceId.of('ws_1'),
-        taskId: parentTask,
-        anchor,
-        body: 'Why this?',
-        author: ReviewAuthor.onGitHub('octocat'),
-        replyTo: null,
-        github: { id: 101, url: 'https://github.com/o/r/pull/1#r101' },
-        at: NOW,
-      }),
-    );
+    const parent = ReviewComment.receive({
+      id: ReviewCommentId.of('parent'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      taskId: parentTask,
+      anchor,
+      body: 'Why this?',
+      author: ReviewAuthor.onGitHub('octocat'),
+      inReplyTo: null,
+      github: { id: 101, url: 'https://github.com/o/r/pull/1#r101' },
+      at: NOW,
+    });
+    await comments.add(parent);
     await comments.add(
       ReviewComment.receive({
         id: ReviewCommentId.of('reply'),
@@ -140,7 +139,7 @@ describe('removing the review comments of a task', () => {
         anchor,
         body: 'Because of that.',
         author: ReviewAuthor.onGitHub('octocat'),
-        replyTo: ReviewCommentId.of('parent'),
+        inReplyTo: parent,
         github: { id: 102, url: 'https://github.com/o/r/pull/1#r102' },
         at: NOW,
       }),

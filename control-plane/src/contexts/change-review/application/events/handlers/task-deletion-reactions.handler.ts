@@ -1,4 +1,4 @@
-import type { ReviewOutboxPort } from '@change-review/application/ports/review-outbox.port';
+import type { ReviewDeliveriesPort } from '@change-review/application/ports/review-deliveries.port';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
@@ -10,7 +10,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export class TaskDeletionReactions {
   constructor(
-    private readonly outbox: ReviewOutboxPort,
+    private readonly deliveries: ReviewDeliveriesPort,
     private readonly reviews: ReviewRepository,
     private readonly comments: ReviewCommentRepository,
     private readonly checks: StackCheckRepository,
@@ -21,7 +21,7 @@ export class TaskDeletionReactions {
   ) {}
 
   async dropDeliveries(taskId: TaskId): Promise<void> {
-    await this.outbox.dropTask(taskId);
+    await this.deliveries.dropTask(taskId);
   }
 
   async removeReviews(taskId: TaskId): Promise<void> {

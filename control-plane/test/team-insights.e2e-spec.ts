@@ -45,6 +45,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -126,24 +127,34 @@ beforeAll(async () => {
     stationId: team.stationId.value,
     state: 'completed',
     spec: SPEC,
-    stationFingerprint: CONFIG,
-    stationConfig: {
-      prompt: 'Implement the task.',
-      harness: 'claude-code',
-      model: 'sonnet',
-      effort: 'high',
-      profile: null,
-      image: null,
-      repositories: [{ name: 'acme/api', setup: null }],
-      skills: [{ key: 'grafana', hash: 'd'.repeat(64) }],
-      tools: [],
-      decisions: false,
-      memories: false,
-    },
     createdAt: ago(300),
     startedAt: ago(298),
     endedAt: ago(240),
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId: RUN.value,
+      workspaceId: workspaceId.value,
+      taskId: TASK.value,
+      stationId: team.stationId.value,
+      fingerprint: CONFIG,
+      config: {
+        prompt: 'Implement the task.',
+        harness: 'claude-code',
+        model: 'sonnet',
+        effort: 'high',
+        profile: null,
+        image: null,
+        repositories: [{ name: 'acme/api', setup: null }],
+        skills: [{ key: 'grafana', hash: 'd'.repeat(64) }],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      orderedAt: ago(300),
+      endedAt: ago(240),
+    }),
+  );
 
   const ended: RunEndedIntegrationEvent = {
     kind: RUN_ENDED,
@@ -383,7 +394,7 @@ describe('what the insights context receives for a team (e2e)', () => {
   it('stores on its record the run’s usage, agent config, waits and the station it passed the task to', async () => {
     const record = await app.get(DrizzleRunRecordRepository).of(RUN);
 
-    expect(record?.ending).toBe('completed');
+    expect(record?.end?.ending).toBe('completed');
     expect(record?.usage?.spend).toEqual({ amount: 1.25, currency: 'USD' });
     expect(record?.usage?.tokens).toEqual({
       input: 2_000,
@@ -403,18 +414,18 @@ describe('what the insights context receives for a team (e2e)', () => {
     expect(record?.dismissals.map((each) => [each.server, each.tool])).toEqual([
       ['linear', 'create_issue'],
     ]);
-    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
-      LatencyHistogram.timing([200, 400, 900]),
-    );
+    expect(
+      record?.tools?.servers.find((each) => each.server === 'linear')?.latency,
+    ).toEqual(LatencyHistogram.timing([200, 400, 900]));
   });
 
   it('reads the tools a run used with each record it reads at once', async () => {
     const [record] = await app.get(DrizzleRunRecordRepository).ofRuns([RUN]);
 
-    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
-      LatencyHistogram.timing([200, 400, 900]),
-    );
-    expect(record?.tools?.read('grafana')).toBe(true);
+    expect(
+      record?.tools?.servers.find((each) => each.server === 'linear')?.latency,
+    ).toEqual(LatencyHistogram.timing([200, 400, 900]));
+    expect(record?.tools?.skillsRead.includes('grafana')).toBe(true);
     expect(record?.end?.queuedMs).toBe(2 * MINUTE);
   });
 
@@ -440,8 +451,10 @@ describe('what the insights context receives for a team (e2e)', () => {
 
     expect(humanActions?.opening?.by?.equals(team.owner)).toBe(true);
     expect(humanActions?.opening?.teamId.equals(team.teamId)).toBe(true);
-    expect(humanActions?.waits()).toHaveLength(1);
-    expect(humanActions?.waits()[0]?.answeredBy).toBe(team.owner.value);
+    expect(humanActions?.asks).toHaveLength(1);
+    expect(
+      humanActions?.actions.some((each) => each.by.equals(team.owner)),
+    ).toBe(true);
     expect(
       failures?.occurrences.map((each) => [
         each.source,
@@ -929,23 +942,34 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       stationId: team.stationId.value,
       state: 'failed',
       spec: SPEC,
-      stationFingerprint: CONFIG,
-      stationConfig: {
-        prompt: 'Implement the task.',
-        harness: 'claude-code',
-        model: 'sonnet',
-        effort: 'high',
-        profile: null,
-        image: null,
-        repositories: [],
-        skills: [{ key: 'grafana', hash: 'd'.repeat(64) }],
-        tools: [],
-        decisions: false,
-        memories: false,
-      },
       createdAt: ago(120),
       endedAt: ago(119),
     });
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: cancelled.value,
+        workspaceId: team.workspaceId.value,
+        taskId: task.value,
+        stationId: team.stationId.value,
+        fingerprint: CONFIG,
+        config: {
+          prompt: 'Implement the task.',
+          harness: 'claude-code',
+          model: 'sonnet',
+          effort: 'high',
+          profile: null,
+          image: null,
+          repositories: [],
+          skills: [{ key: 'grafana', hash: 'd'.repeat(64) }],
+          tools: [],
+          decisions: false,
+          memories: false,
+        },
+        orderedAt: ago(120),
+        endedAt: ago(119),
+        outcome: 'failed',
+      }),
+    );
     const ended: RunEndedIntegrationEvent = {
       kind: RUN_ENDED,
       runId: cancelled.value,
@@ -967,7 +991,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
 
     const record = await app.get(DrizzleRunRecordRepository).of(cancelled);
 
-    expect(record?.ending).toBe('cancelled');
+    expect(record?.end?.ending).toBe('cancelled');
     expect(record?.end?.agentConfig.skills).toEqual(['grafana']);
 
     const tools = await asOwner(insights('tools'));
@@ -996,24 +1020,35 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       stationId: team.stationId.value,
       state: seed.outcome,
       spec: SPEC,
-      stationFingerprint: CONFIG,
-      stationConfig: {
-        prompt: 'Implement the task.',
-        harness: 'claude-code',
-        model: 'sonnet',
-        effort: 'high',
-        profile: null,
-        image: null,
-        repositories: [],
-        skills: [],
-        tools: [],
-        decisions: false,
-        memories: false,
-      },
       createdAt: ago(100),
       startedAt: ago(99),
       endedAt: ago(90),
     });
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: runId.value,
+        workspaceId: team.workspaceId.value,
+        taskId: task.value,
+        stationId: team.stationId.value,
+        fingerprint: CONFIG,
+        config: {
+          prompt: 'Implement the task.',
+          harness: 'claude-code',
+          model: 'sonnet',
+          effort: 'high',
+          profile: null,
+          image: null,
+          repositories: [],
+          skills: [],
+          tools: [],
+          decisions: false,
+          memories: false,
+        },
+        orderedAt: ago(100),
+        endedAt: ago(90),
+        outcome: seed.outcome,
+      }),
+    );
 
     const ended: RunEndedIntegrationEvent = {
       kind: RUN_ENDED,

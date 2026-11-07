@@ -22,6 +22,7 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class ReplaysAccess {
   constructor(
@@ -35,7 +36,7 @@ export class ReplaysAccess {
   async forTeam(teamId: string, principal: Principal): Promise<TeamAccess> {
     return TeamAccess.onTeam(
       teamId,
-      await this.people.membershipOn(teamId, principal),
+      await this.people.membershipOn(TeamId.of(teamId), principal),
     );
   }
 

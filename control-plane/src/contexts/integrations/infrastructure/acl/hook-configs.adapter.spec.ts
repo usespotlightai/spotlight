@@ -2,6 +2,7 @@ import type { TeamDirectoryPort } from '@identity/application/ports/team-directo
 import type { HookResourcesPort } from '@integrations/application/ports/hook-resources.port';
 import { HookConfigs } from '@integrations/infrastructure/acl/hook-configs.adapter';
 import { compileHook } from '@integrations/infrastructure/hooks/hook.compile';
+import { writtenHookDocumentOf } from '@integrations/infrastructure/hooks/written-hook-document';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -27,7 +28,7 @@ const configsOf = (definition: Readonly<Record<string, unknown>>) =>
         teamId: TEAM,
         key: 'dba',
         version: 1,
-        definition,
+        written: writtenHookDocumentOf('dba', definition),
       }),
       at: async () => null,
       ofTeam: async () => [],

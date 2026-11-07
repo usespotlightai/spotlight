@@ -2,8 +2,8 @@ import type { PersonReaderPort } from '@identity/application/ports/person-reader
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { PeoplePort, Person } from '@memory/application/ports/people.port';
 import type { TeamViewer } from '@memory/domain/services/team-access';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class People implements PeoplePort {
   constructor(
@@ -11,11 +11,8 @@ export class People implements PeoplePort {
     private readonly people: PersonReaderPort,
   ) {}
 
-  async viewerOf(teamId: string, userId: string): Promise<TeamViewer | null> {
-    const seen = await this.access.inWorkspaceOfTeam(
-      TeamId.of(teamId),
-      UserId.of(userId),
-    );
+  async viewerOf(teamId: TeamId, userId: UserId): Promise<TeamViewer | null> {
+    const seen = await this.access.inWorkspaceOfTeam(teamId, userId);
     return seen ? { workspaceId: seen.workspaceId, by: seen.viewer } : null;
   }
 

@@ -11,7 +11,6 @@ import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
-import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -46,7 +45,6 @@ const SEARCH_SPEC: RunSpecParts = {
 const queued = (
   subject: RunSubject | null = SEARCH,
   spec: RunSpecParts = SEARCH_SPEC,
-  briefedWith: BriefedMemories = BriefedMemories.none(),
 ) =>
   Run.enqueue({
     id: RunId.of('run_1'),
@@ -55,7 +53,6 @@ const queued = (
     priority: RunPriority.of(-2),
     subject,
     spec: RunSpec.of(spec),
-    briefedWith,
   });
 
 const claimed = () => queued().claim(RUNNER, NOW);
@@ -84,19 +81,6 @@ describe('a search run', () => {
       InvalidRunTransitionError,
     );
     expect(() => queued(null, SEARCH_SPEC)).toThrow(InvalidRunTransitionError);
-  });
-
-  it('is briefed with nothing the team remembers', () => {
-    expect(() =>
-      queued(
-        SEARCH,
-        SEARCH_SPEC,
-        BriefedMemories.of({
-          briefed: [{ id: 'memory_1', handle: 'M-1' }],
-          omitted: [],
-        }),
-      ),
-    ).toThrow(InvalidRunTransitionError);
   });
 
   it('never waits for a person', () => {

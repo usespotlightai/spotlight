@@ -3,6 +3,7 @@ import type {
   IntegrationRuntimePort,
   RefreshResult,
 } from '@integrations/application/ports/integration-runtime.port';
+import type { WaitPort } from '@integrations/application/ports/wait.port';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { IntegrationConnectionVersionConflictError } from '@integrations/domain/exceptions/integration-connection-version-conflict.error';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
@@ -16,20 +17,13 @@ const WATCH_EVERY_MS = 250;
 
 const MAX_SAVE_ATTEMPTS = 3;
 
-export type Wait = (ms: number) => Promise<void>;
-
-const waiting: Wait = (ms) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
 export class ConnectionRefresh {
   constructor(
     private readonly connections: IntegrationConnectionRepository,
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly clock: ClockPort,
-    private readonly wait: Wait = waiting,
+    private readonly wait: WaitPort,
   ) {}
 
   async afterUnauthorized(
@@ -58,7 +52,7 @@ export class ConnectionRefresh {
       const now = this.clock.now();
 
       if (found.isClaimedAt(now)) {
-        await this.wait(WATCH_EVERY_MS);
+        await this.wait.for(WATCH_EVERY_MS);
         continue;
       }
 

@@ -2,10 +2,6 @@ import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-fai
 import { InvalidRunOutcomeError } from '@work/domain/exceptions/invalid-run-outcome.error';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 
-export interface RefusalReason {
-  readonly description: string;
-}
-
 export class RunOutcome {
   private constructor(
     readonly exitCode: number,
@@ -49,7 +45,9 @@ export class RunOutcome {
     );
   }
 
-  static refused(reasons: readonly RefusalReason[]): RunOutcome {
+  static refused(
+    reasons: readonly { readonly description: string }[],
+  ): RunOutcome {
     return RunOutcome.failedWith(
       'refused',
       reasons.map((each) => each.description).join('; '),
@@ -113,21 +111,6 @@ export class RunOutcome {
 
   get cancelled(): boolean {
     return this.failure?.cancelled ?? false;
-  }
-
-  get superseded(): boolean {
-    return this.failure?.superseded ?? false;
-  }
-
-  supersede(): RunOutcome {
-    return this.failed && !this.superseded && !this.cancelled
-      ? new RunOutcome(
-          this.exitCode,
-          RunFailure.of('superseded'),
-          this.message,
-          this.stopped,
-        )
-      : this;
   }
 
   equals(other: RunOutcome): boolean {

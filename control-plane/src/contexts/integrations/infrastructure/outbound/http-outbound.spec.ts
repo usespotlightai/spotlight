@@ -1,9 +1,9 @@
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { SpotlightCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import {
   compileIntegration,
   type RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import {
   HttpOutbound,
   MAX_ANSWER_BYTES,

@@ -5,10 +5,9 @@ import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harne
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
+import type { HarnessCompatibilityCheck } from '@configuration/domain/services/harness-compatibility-check';
 import { missingSecrets } from '@configuration/domain/services/missing-secrets';
-import type { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import type { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
-import type { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import type { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import type { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -16,6 +15,7 @@ import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -39,8 +39,10 @@ export interface ParsedProfile {
 const rejectUnusable = (
   parsed: ParsedProfile,
   existing: readonly SecretName[],
-  compatibility: HarnessCompatibility,
+  harnesses: HarnessCompatibilityCheck,
 ): void => {
+  const compatibility = harnesses.compatibilityOf(parsed);
+
   if (!compatibility.isCompatible) {
     throw new IncompatibleHarnessProfileError(
       parsed.key.value,
@@ -66,10 +68,10 @@ export class HarnessProfile extends EventRecorder {
       teamId: TeamId;
       by: ChangeActor;
       existingSecrets: readonly SecretName[];
-      compatibility: HarnessCompatibility;
+      harnesses: HarnessCompatibilityCheck;
     },
   ): HarnessProfile {
-    rejectUnusable(input, input.existingSecrets, input.compatibility);
+    rejectUnusable(input, input.existingSecrets, input.harnesses);
 
     const created = new HarnessProfile({
       id: input.id,
@@ -113,7 +115,7 @@ export class HarnessProfile extends EventRecorder {
     parsed: ParsedProfile,
     by: ChangeActor,
     existingSecrets: readonly SecretName[],
-    compatibility: HarnessCompatibility,
+    harnesses: HarnessCompatibilityCheck,
   ): HarnessProfile {
     this.guardLive();
 
@@ -127,7 +129,7 @@ export class HarnessProfile extends EventRecorder {
       );
     }
 
-    rejectUnusable(parsed, existingSecrets, compatibility);
+    rejectUnusable(parsed, existingSecrets, harnesses);
 
     const updated = this.with({ settings: parsed.settings });
 
@@ -143,7 +145,7 @@ export class HarnessProfile extends EventRecorder {
     return updated;
   }
 
-  delete(named: StationUses, by: ChangeActor): HarnessProfile {
+  delete(named: StationUses<ProfileKey>, by: ChangeActor): HarnessProfile {
     this.guardLive();
 
     const using = named.of(this.key);

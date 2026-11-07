@@ -4,7 +4,7 @@ import {
   type JsonObject,
   type JsonValue,
   sameJson,
-} from '@shared-kernel/domain/services/json-value';
+} from '@shared-kernel/domain/json-value';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';

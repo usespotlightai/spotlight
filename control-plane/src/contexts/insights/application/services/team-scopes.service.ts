@@ -4,6 +4,7 @@ import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.v
 import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface TeamScope {
   readonly access: TeamAccess;
@@ -31,7 +32,7 @@ export class TeamScopes {
     principal: Principal,
     period: string,
   ): Promise<TeamScope> {
-    const access = await this.access.accessFor(teamId, principal);
+    const access = await this.access.accessFor(TeamId.of(teamId), principal);
 
     return { access, period: InsightsPeriod.of(period, this.clock.now()) };
   }

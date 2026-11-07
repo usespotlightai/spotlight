@@ -8,9 +8,9 @@ import type { StationReferences } from '@configuration/application/services/stat
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
 import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
@@ -20,6 +20,9 @@ import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/ide
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -53,7 +56,7 @@ const storedAt = (version: number) =>
   SkillDefinition.rehydrate({
     id: SkillDefinitionId.of('skill_1'),
     teamId: TEAM,
-    key: SkillKey.of('grafana'),
+    key: DefinedSkillKey.of('grafana'),
     files: SkillFiles.of(GRAFANA.files),
     version,
   });
@@ -204,12 +207,12 @@ describe('UpdateSkillHandler', () => {
 });
 
 describe('DeleteSkillHandler', () => {
-  const deleting = (uses = StationUses.none()) => {
+  const deleting = (uses = StationUses.none<SkillKey>()) => {
     const repository = definitions({ stored: storedAt(3) });
     const handler = new DeleteSkillHandler(
       access(),
       repository,
-      { onTeam: vi.fn(async () => uses) } as unknown as StationReferences,
+      { skillsOn: vi.fn(async () => uses) } as unknown as StationReferences,
       transaction,
     );
 
@@ -234,7 +237,11 @@ describe('DeleteSkillHandler', () => {
   it('will not delete a skill that a station enables', async () => {
     const { remove, repository } = deleting(
       StationUses.of([
-        { name: 'grafana', line: 'delivery', station: 'implementation' },
+        {
+          used: SkillKey.of('grafana'),
+          line: LineKey.of('delivery'),
+          station: StationKey.of('implementation'),
+        },
       ]),
     );
 

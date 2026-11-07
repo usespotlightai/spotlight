@@ -1,3 +1,4 @@
+import type { SkipCode } from '@change-review/domain/value-objects/stack-check.vo';
 import type { StackFailure } from '@change-review/domain/value-objects/stack-progress.vo';
 
 export const CHANGE_STACK_STATE_NAMES = [
@@ -96,10 +97,16 @@ export interface CheckedStepDto {
   readonly durationMs: number;
 }
 
+export interface StackSkipDto {
+  readonly code: SkipCode;
+  readonly detail: string | null;
+}
+
 export interface StackCheckDto {
   readonly command: string;
   readonly status: (typeof STACK_CHECK_STATUS_NAMES)[number];
-  readonly reason: string | null;
+  readonly skip: StackSkipDto | null;
+  readonly wholeFailed: boolean;
   readonly whole: CheckedStepDto | null;
   readonly layers: readonly CheckedStepDto[];
 }

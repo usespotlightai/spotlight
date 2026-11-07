@@ -1,5 +1,6 @@
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   compileIntegration,
   IntegrationCompiler,
@@ -319,7 +320,7 @@ actions:
       expect(read.ok && read.readable.integration.schedule?.cron.value).toBe(
         '0 9 * * *',
       );
-      expect(read.ok && read.readable.integration.schedule?.action).toBe(
+      expect(read.ok && read.readable.integration.schedule?.action.name).toBe(
         'digest',
       );
     });
@@ -806,7 +807,7 @@ tools:
     const compiled = read(PROVIDING);
     const provided = compiled.ok
       ? compiled.readable.integration.tools.find(
-          (each) => each.tool === 'linear.comment',
+          (each) => each.tool.value === 'linear.comment',
         )
       : undefined;
 
@@ -835,8 +836,9 @@ tools:
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.providedTool('linear.comment')?.backing
-          .action,
+        compiled.readable.integration.providedTool(
+          ToolName.of('linear.comment'),
+        )?.backing.action,
     ).toBe('comment');
     expect(tool?.output).not.toBeNull();
     expect(tool?.inputs[0]?.default?.parts).toHaveLength(1);
@@ -864,7 +866,9 @@ tools:
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.providedTool('linear.comment')?.approval,
+        compiled.readable.integration.providedTool(
+          ToolName.of('linear.comment'),
+        )?.approval,
     ).toBeNull();
   });
 
@@ -879,8 +883,9 @@ tools:
     expect(compiled.ok && compiled.warnings).toEqual([]);
     expect(
       compiled.ok &&
-        compiled.readable.integration.providedTool('linear.comment')?.approval
-          ?.because,
+        compiled.readable.integration.providedTool(
+          ToolName.of('linear.comment'),
+        )?.approval?.because,
     ).toBe('It posts publicly, under the team’s name.');
   });
 
@@ -1121,7 +1126,7 @@ openapi:
     expect(
       compiled.ok &&
         compiled.readable.integration.tools.map((each) => [
-          each.tool,
+          each.tool.value,
           each.approval?.because ?? null,
         ]),
     ).toEqual([
@@ -1165,7 +1170,9 @@ tools:
     description: Remove the pet this task is about.
 `);
     const provided = compiled.ok
-      ? compiled.readable.integration.providedTool('petstore.delete-pet')
+      ? compiled.readable.integration.providedTool(
+          ToolName.of('petstore.delete-pet'),
+        )
       : null;
 
     expect(provided?.backing.action).toBe('remove');
@@ -1200,7 +1207,9 @@ tools:
 `,
     );
     const inputs = compiled.ok
-      ? compiled.readable.integration.providedTool('petstore.search')?.inputs
+      ? compiled.readable.integration.providedTool(
+          ToolName.of('petstore.search'),
+        )?.inputs
       : [];
 
     expect(inputs?.map((each) => [each.name, each.schema.written])).toEqual([
@@ -1355,8 +1364,9 @@ mcp:
     );
     const approval = (name: string) =>
       compiled.ok
-        ? compiled.readable.integration.providedTool(`tracker.${name}`)
-            ?.approval?.because
+        ? compiled.readable.integration.providedTool(
+            ToolName.of(`tracker.${name}`),
+          )?.approval?.because
         : undefined;
 
     expect(approval('search-issues')).toBeUndefined();

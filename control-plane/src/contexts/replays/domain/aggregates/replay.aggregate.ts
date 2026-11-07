@@ -22,8 +22,13 @@ import type {
 } from '@replays/domain/services/oracle-answer';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
+import { DispatchPool } from '@replays/domain/value-objects/dispatch-pool.vo';
+import type { Unjudged } from '@replays/domain/value-objects/entry-judging.vo';
 import type { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
-import type { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
+import type {
+  PairVerdict,
+  Unpaired,
+} from '@replays/domain/value-objects/entry-pairing.vo';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -42,7 +47,10 @@ import {
   type ReplayState,
   type ReplayStopReason,
 } from '@replays/domain/value-objects/replay-state';
+import type { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
+import type { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
+import type { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SetSnapshot } from '@replays/domain/value-objects/set-snapshot.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -52,21 +60,8 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-export interface ReplayedCandidate {
-  readonly id: CandidateId;
-  readonly isLive: boolean;
-  readonly isOracle: boolean;
-  readonly judges: boolean;
-  readonly checksChanges: boolean;
-  readonly rubricVersion: string | null;
-  readonly scoringHash: string;
-  readonly basedOn: StationFingerprint;
-  isFor(stationId: StationId): boolean;
-}
 
 interface State {
   readonly id: ReplayId;
@@ -77,8 +72,8 @@ interface State {
   readonly baseline: boolean;
   readonly judges: boolean;
   readonly checked: boolean;
-  readonly rubricVersion: string | null;
-  readonly scoringHash: string;
+  readonly rubricVersion: RubricVersion | null;
+  readonly scoringHash: ScoringHash;
   readonly ceiling: Money;
   readonly unpricedRate: Money | null;
   readonly runSubset: readonly RunId[] | null;
@@ -96,22 +91,22 @@ interface State {
   readonly version: number;
 }
 
-const STOPPED_BEFORE_JUDGING = 'stopped-before-judging';
+const STOPPED_BEFORE_JUDGING: Unjudged = 'stopped-before-judging';
 
 const ENDED_EARLY = [
   'stopped',
   'ceiling-reached',
 ] as const satisfies readonly ReplayState[];
 
-export const PAIRING_STATE = 'finished' satisfies ReplayState;
+const PAIRING_STATE = 'finished' satisfies ReplayState;
 
 export const PAIR_ATTEMPTS = 2;
 
 const JUDGED_BOTH_WAYS = 2;
 
-const OTHER_RUBRIC = 'other-rubric';
+const OTHER_RUBRIC: Unpaired = 'other-rubric';
 
-const CEILING_REACHED = 'ceiling-reached';
+const CEILING_REACHED: Unpaired = 'ceiling-reached';
 
 const repeatsOf = (
   entries: readonly ReplaySetEntry[],
@@ -439,6 +434,24 @@ export class Replay extends EventRecorder {
     );
   }
 
+  get healthSampleGroup(): string | null {
+    if (!this.isHealthSample) {
+      return null;
+    }
+
+    const { liveCandidate, calibration, repeats } = this.state;
+
+    return [
+      liveCandidate ? 'live' : 'other',
+      calibration ? 'calibration' : 'plain',
+      repeats,
+    ].join(':');
+  }
+
+  get sampledAt(): Date {
+    return this.state.endedAt ?? this.state.startedAt;
+  }
+
   get asPairingReference(): PairingReference {
     return PairingReference.of({
       id: this.state.id,
@@ -469,11 +482,11 @@ export class Replay extends EventRecorder {
     return this.state.checked;
   }
 
-  get rubricVersion(): string | null {
+  get rubricVersion(): RubricVersion | null {
     return this.state.rubricVersion;
   }
 
-  get scoringHash(): string {
+  get scoringHash(): ScoringHash {
     return this.state.scoringHash;
   }
 
@@ -604,7 +617,7 @@ export class Replay extends EventRecorder {
   recordPairingFailure(
     run: RunId,
     other: RunId,
-    why: string,
+    why: Unpaired,
     spent: ModelSpent | null,
   ): Replay {
     return this.afterPairing(
@@ -841,6 +854,10 @@ export class Replay extends EventRecorder {
     return DISPATCHING_REPLAY_STATES.includes(this.state.state);
   }
 
+  get isStoppable(): boolean {
+    return this.isDispatching && this.state.stoppedAt === null;
+  }
+
   get isInProgress(): boolean {
     return this.isDispatching || this.occupying.length > 0;
   }
@@ -855,10 +872,10 @@ export class Replay extends EventRecorder {
     return this.state.entries.some((each) => each.ranAs(run));
   }
 
-  get dispatchPool(): string {
+  get dispatchPool(): DispatchPool {
     return this.state.searchId
-      ? `search:${this.state.searchId.value}`
-      : `team:${this.state.station.teamId.value}`;
+      ? DispatchPool.ofSearch(this.state.searchId)
+      : DispatchPool.ofTeam(this.state.station.teamId);
   }
 
   reserving(slots: readonly number[], runIds: () => RunId): Replay {
@@ -934,7 +951,7 @@ export class Replay extends EventRecorder {
 
   recordJudgingFailure(
     run: RunId,
-    why: string,
+    why: Unjudged,
     spent: ModelSpent | null,
     at: Date,
   ): Replay {
@@ -951,7 +968,7 @@ export class Replay extends EventRecorder {
 
   recordRejudgingFailure(
     run: RunId,
-    why: string,
+    why: Unjudged,
     spent: ModelSpent | null,
   ): Replay {
     return this.secondRound(run, (entry) => entry.rejudgingFailed(why, spent));

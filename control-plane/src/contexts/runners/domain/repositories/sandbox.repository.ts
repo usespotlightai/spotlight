@@ -24,6 +24,8 @@ export interface SandboxRepository {
 
   liveOn(hostId: HostId): Promise<readonly Sandbox[]>;
 
+  liveIn(workspaceId: WorkspaceId): Promise<readonly Sandbox[]>;
+
   holdingRun(runId: RunId): Promise<readonly Sandbox[]>;
 
   idleSince(cutoff: Date): Promise<readonly Sandbox[]>;

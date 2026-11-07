@@ -77,14 +77,15 @@ import {
 } from '@shared-kernel/application/integration-events/task-passed.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
+import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
+import type { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
+import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
-import type { RunBriefed } from '@work/domain/events/run-briefed.event';
 import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import type { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import type { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
 import type { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
@@ -111,8 +112,7 @@ const PLAIN_ENDING: Ending = {
   handover: null,
 };
 
-type Ended =
-  | RunEndedIntegrationEvent
+type RunTrialEnded =
   | ReplayEndedIntegrationEvent
   | SearchRunEndedIntegrationEvent;
 
@@ -121,26 +121,10 @@ const ended = (
   at: Date,
   outcome: RunEnding,
   ending: Ending = PLAIN_ENDING,
-): Ended => {
-  const runEnded = (): RunEndedIntegrationEvent => ({
-    kind: RUN_ENDED,
-    runId: event.runId.value,
-    workspaceId: event.workspaceId.value,
-    taskId: event.taskId?.value ?? null,
-    stationId: event.subject?.stationId?.value ?? null,
-    outcome,
-    failure: ending.failure,
-    stopped: ending.stopped,
-    asked: ending.asked,
-  });
-
-  if (!event.subject) {
-    return runEnded();
-  }
-
-  return event.subject.match<Ended>({
-    task: runEnded,
-    chat: runEnded,
+): RunTrialEnded | null =>
+  event.subject?.match<RunTrialEnded | null>({
+    task: () => null,
+    chat: () => null,
     replay: (original) => ({
       kind: REPLAY_ENDED,
       runId: event.runId.value,
@@ -168,12 +152,11 @@ const ended = (
       started: event.started,
       endedAt: at.toISOString(),
     }),
-  });
-};
+  }) ?? null;
 
 export const WORK_EVENT_MAPPERS = [
-  mapping<RunBriefed>(
-    'run.briefed',
+  mapping<DispatchBriefed>(
+    'dispatch.briefed',
     (event): RunBriefedIntegrationEvent => ({
       kind: RUN_BRIEFED,
       runId: event.runId.value,
@@ -264,13 +247,27 @@ export const WORK_EVENT_MAPPERS = [
       asked: event.asked === true,
     }),
   ),
-  mapping<RunSuperseded>(
-    'run.superseded',
+  mapping<DispatchEnded>(
+    'dispatch.ended',
+    (event): RunEndedIntegrationEvent => ({
+      kind: RUN_ENDED,
+      runId: event.runId.value,
+      workspaceId: event.workspaceId.value,
+      taskId: event.taskId?.value ?? null,
+      stationId: event.stationId?.value ?? null,
+      outcome: event.ending.outcome,
+      failure: event.ending.failure,
+      stopped: event.ending.stopped,
+      asked: false,
+    }),
+  ),
+  mapping<DispatchSuperseded>(
+    'dispatch.superseded',
     (event): RunSupersededIntegrationEvent => ({
       kind: RUN_SUPERSEDED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
-      taskId: event.taskId?.value ?? null,
+      taskId: event.taskId.value,
     }),
   ),
   mapping<TaskActedOn>(

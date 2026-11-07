@@ -3,6 +3,7 @@ import type {
   RunTool,
 } from '@integrations/application/services/resolve-tool-for-run.service';
 import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
+import { ToolDeclarationMapper } from '@integrations/infrastructure/acl/tool-declaration.mapper';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type {
@@ -12,7 +13,7 @@ import type {
 } from '@work/application/ports/integration-tool-calls.port';
 
 const toolOf = (found: RunTool): IntegrationTool => ({
-  declared: found.declared,
+  declared: ToolDeclarationMapper.toDeclaration(found.declared),
   actingAs: found.actingAs
     ? {
         actsAs: found.actingAs.actsAs,
@@ -50,7 +51,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
   ): Promise<IntegrationTool | null> {
     const found = await this.tools.resolve(
       tool,
-      IntegrationTaskViewMapper.toView(task, null),
+      IntegrationTaskViewMapper.toView(task),
       run,
       requester ? UserId.of(requester) : null,
     );

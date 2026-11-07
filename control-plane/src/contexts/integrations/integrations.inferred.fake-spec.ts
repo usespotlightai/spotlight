@@ -1,16 +1,18 @@
+import type { ToolOutputShapesPort } from '@integrations/application/ports/tool-output-shapes.port';
 import { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
 import { InferredOutputSchema } from '@integrations/domain/aggregates/inferred-output-schema.aggregate';
 import { InferredOutputSchemaVersionConflictError } from '@integrations/domain/exceptions/inferred-output-schema-version-conflict.error';
 import type { InferredOutputSchemaRepository } from '@integrations/domain/repositories/inferred-output-schema.repository';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import type { JsonObject } from '@shared-kernel/domain/json-value';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const keyOf = (teamId: TeamId, tool: ToolName): string =>
   `${teamId.value}:${tool.value}`;
 
 export class InMemoryInferredOutputSchemas
-  implements InferredOutputSchemaRepository
+  implements InferredOutputSchemaRepository, ToolOutputShapesPort
 {
   readonly stored = new Map<string, InferredOutputSchema>();
 
@@ -24,9 +26,14 @@ export class InMemoryInferredOutputSchemas
   async ofTools(
     teamId: TeamId,
     tools: readonly string[],
-  ): Promise<readonly InferredOutputSchema[]> {
-    return [...this.stored.values()].filter(
-      (each) => each.teamId.equals(teamId) && tools.includes(each.tool.value),
+  ): Promise<ReadonlyMap<string, JsonObject>> {
+    return new Map(
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.teamId.equals(teamId) && tools.includes(each.tool.value),
+        )
+        .map((each) => [each.tool.value, each.shape.schema]),
     );
   }
 

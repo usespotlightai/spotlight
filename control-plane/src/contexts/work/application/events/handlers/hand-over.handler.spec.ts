@@ -22,7 +22,6 @@ import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -163,15 +162,6 @@ const timedOut = () => {
 };
 
 let saved: Task | undefined;
-let savedRun: Run | undefined;
-let storedRun: Run | null = null;
-
-const runs = {
-  findById: vi.fn(async () => storedRun),
-  save: vi.fn(async (each: Run) => {
-    savedRun = each;
-  }),
-} as unknown as RunRepository;
 
 const tasks = (found: Task | null = task()) =>
   ({
@@ -206,13 +196,11 @@ const dispatch: TaskDispatching = {
 const handOver = (ended = run(false), stored: TaskRepository = tasks()) => {
   const handler = new HandOver(
     stored,
-    runs,
     stored as TaskRepository & TaskPlacementsPort,
     lines(),
     dispatch,
     clock,
   );
-  storedRun = ended;
   const [raised] = ended.pullEvents();
 
   if (!raised) {
@@ -226,8 +214,6 @@ const handOver = (ended = run(false), stored: TaskRepository = tasks()) => {
 
 beforeEach(() => {
   saved = undefined;
-  savedRun = undefined;
-  storedRun = null;
 });
 
 describe('HandOver', () => {
@@ -268,12 +254,10 @@ describe('HandOver', () => {
     });
   });
 
-  it('supersedes a failed run whose task moved on, and asks nobody about it', async () => {
+  it('asks nobody about a failed run whose task moved on', async () => {
     await handOver(run(true), tasks(task('run_9')));
 
     expect(saved).toBeUndefined();
-    expect(savedRun?.state).toBe('superseded');
-    expect(savedRun?.outcome?.failure?.code).toBe('superseded');
   });
 
   it('does not hand over a task whose current run took a revision it has since moved on from', async () => {
@@ -291,7 +275,6 @@ describe('HandOver', () => {
     await expect(handOver(stale)).rejects.toThrow(InconsistentStateError);
 
     expect(saved).toBeUndefined();
-    expect(savedRun).toBeUndefined();
   });
 
   it('keeps a failure on a finished task from the inbox', async () => {
@@ -305,13 +288,6 @@ describe('HandOver', () => {
     await handOver(run(true), tasks(finished));
 
     expect(saved).toBeUndefined();
-    expect(savedRun?.state).toBe('superseded');
-  });
-
-  it('leaves a run that succeeded as it was, even where its task moved on', async () => {
-    await handOver(run(false), tasks(task('run_9')));
-
-    expect(savedRun).toBeUndefined();
   });
 
   it('brings a stopped run back to the person rather than advancing it', async () => {

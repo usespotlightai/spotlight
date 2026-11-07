@@ -90,7 +90,7 @@ describe('SignedProvisionCalls', () => {
 
     expect(url).toBe('https://provision.example.com/runs');
     expect(sent.headers['webhook-signature']).toBe(
-      `v1,${createHmac('sha256', SECRET.key).update(signed).digest('base64')}`,
+      `v1,${createHmac('sha256', Buffer.from(SECRET.encodedKey, 'base64')).update(signed).digest('base64')}`,
     );
     expect(JSON.parse(sent.body)).toEqual({
       type: 'work.provision',

@@ -6,6 +6,7 @@ import {
   type InboundDeliveryRepository,
 } from '@integrations/domain/repositories/inbound-delivery.repository';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -32,7 +33,7 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
         id,
         headers: { 'x-github-delivery': id },
         body: { action: 'closed' },
-        causeFiringId: 'firing_1',
+        causeFiringId: HookFiringId.of('firing_1'),
       },
       NOW,
     );

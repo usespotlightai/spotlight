@@ -1,12 +1,12 @@
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('CredentialSource', () => {
   it('names the pool a runner came in through', () => {
-    const pooled = CredentialSource.ofId(RunnerPoolId.of('pool_1'));
+    const pooled = CredentialSource.ofId(PoolId.of('pool_1'));
 
     expect([pooled.kind, pooled.id]).toEqual(['pool', 'pool_1']);
     expect(pooled.poolId?.value).toBe('pool_1');
@@ -24,7 +24,7 @@ describe('CredentialSource', () => {
   it('is read back as the way it was stored', () => {
     expect(
       CredentialSource.of('pool', 'pool_1').equals(
-        CredentialSource.ofId(RunnerPoolId.of('pool_1')),
+        CredentialSource.ofId(PoolId.of('pool_1')),
       ),
     ).toBe(true);
     expect(

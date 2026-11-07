@@ -11,9 +11,9 @@ import type {
   TypeShare,
 } from '@insights/domain/services/pull-request-insights';
 import {
-  inReviewMs,
   type PullRequestAuthor,
   reverted,
+  reviewedToCloseMs,
   type TeamPullRequest,
   toMergeMs,
 } from '@insights/domain/services/team-pull-requests';
@@ -37,7 +37,10 @@ export interface SpotlightShareDto extends ShareDto {
   readonly repositories: readonly RepositorySpotlightShareDto[];
 }
 
-export type GroupMeasuresDto = Omit<GroupMeasures, 'toMerge' | 'inReview'> & {
+export type GroupMeasuresDto = Omit<
+  GroupMeasures,
+  'toMerge' | 'reviewedToClose'
+> & {
   readonly toMerge: SpreadDto;
   readonly inReview: SpreadDto;
 };
@@ -101,10 +104,13 @@ export interface InsightsPullRequestListDto {
   readonly pullRequests: readonly InsightsPullRequestDto[];
 }
 
-const measuresDtoOf = (measures: GroupMeasures): GroupMeasuresDto => ({
+const measuresDtoOf = ({
+  reviewedToClose,
+  ...measures
+}: GroupMeasures): GroupMeasuresDto => ({
   ...measures,
   toMerge: spreadDtoOf(measures.toMerge),
-  inReview: spreadDtoOf(measures.inReview),
+  inReview: spreadDtoOf(reviewedToClose),
 });
 
 export const pullRequestInsightsDtoOf = (
@@ -139,7 +145,7 @@ export const insightsPullRequestOf = (
   closedAt: each.seen.closedAt?.toISOString() ?? null,
   firstReviewAt: each.seen.firstReviewAt?.toISOString() ?? null,
   toMergeMs: toMergeMs(each),
-  inReviewMs: inReviewMs(each),
+  inReviewMs: reviewedToCloseMs(each),
   reviews: each.seen.reviews,
   reviewRounds: each.seen.reviewRounds,
   reviewComments: each.seen.reviewComments,

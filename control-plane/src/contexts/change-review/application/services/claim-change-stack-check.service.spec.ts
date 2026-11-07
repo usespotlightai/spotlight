@@ -22,6 +22,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,6 +35,7 @@ const completed = () =>
     id: ChangeStackId.of('stack_1'),
     runId: RunId.of('run_1'),
     taskId: null,
+    teamOfRun: TeamId.of('team_1'),
     replay: false,
     isSearch: false,
     workspaceId: WorkspaceId.of('ws_1'),
@@ -88,6 +90,7 @@ const waitingCheck = (placement = RunnerPlacement.anywhere()) => {
     stackId: stack.id,
     runId: stack.runId,
     taskId: null,
+    teamId: null,
     replay: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null, placement),
@@ -145,6 +148,7 @@ describe('ClaimChangeStackCheck', () => {
       stackId: ChangeStackId.of('stack_2'),
       runId: first.runId,
       taskId: null,
+      teamId: null,
       replay: false,
       workspaceId: first.workspaceId,
       request: first.request,
@@ -252,26 +256,24 @@ describe('ClaimChangeStackCheck', () => {
       };
     };
 
-    it('deletes the check so it no longer heads the queue', async () => {
+    it('passes over it and leaves its removal to the deletion reactions', async () => {
       const { service, removed, saved } = orphaned(waitingCheck());
 
       await expect(
         service.claimNext(WorkspaceId.of('ws_1'), RUNNER, LAPTOP, NOW),
       ).resolves.toBeNull();
-      expect(removed.map((each) => each.stackId.value)).toEqual(['stack_1']);
+      expect(removed).toEqual([]);
       expect(saved).toEqual([]);
     });
 
-    it('releases the runner reserved for it as it deletes it', async () => {
-      const { service, removed } = orphaned(reservedFor(RUNNER));
+    it('does not claim a reserved one either', async () => {
+      const { service, removed, saved } = orphaned(reservedFor(RUNNER));
 
       await expect(
         service.claimReserved(RUNNER, LAPTOP, NOW),
       ).resolves.toBeNull();
-      expect(removed[0]?.reservation).toBeNull();
-      expect(removed[0]?.pullEvents().map((each) => each.kind)).toEqual([
-        'stack-check.reservation-dropped',
-      ]);
+      expect(removed).toEqual([]);
+      expect(saved).toEqual([]);
     });
   });
 

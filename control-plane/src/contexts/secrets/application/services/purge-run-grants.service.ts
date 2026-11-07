@@ -9,8 +9,6 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 const MAX_AT_ONCE = 50;
 
 export class PurgeRunGrants {
-  readonly name = 'Purging the secret grants of long-ended runs';
-
   constructor(
     private readonly grants: RunGrantsRepository,
     private readonly changes: RunGrantsChanges,

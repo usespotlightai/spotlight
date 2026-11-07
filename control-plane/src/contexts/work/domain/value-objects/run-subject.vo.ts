@@ -1,15 +1,41 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
-import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { SearchId } from '@work/domain/value-objects/search-id.vo';
-import type { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
-import type { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { SearchId } from '@work/domain/value-objects/search-id.vo';
+import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 
 export type RunSubjectKind = keyof RunSubjectCases<unknown>;
+
+export type RunSubjectValues =
+  | {
+      readonly kind: 'task';
+      readonly taskId: string;
+      readonly stationId: string | null;
+      readonly revision: number;
+    }
+  | { readonly kind: 'chat'; readonly chatId: string }
+  | {
+      readonly kind: 'replay';
+      readonly replayOf: string;
+      readonly taskId: string;
+      readonly stationId: string;
+      readonly teamId: string;
+    }
+  | {
+      readonly kind: 'search';
+      readonly searchId: string;
+      readonly iteration: number;
+      readonly stationId: string | null;
+      readonly teamId: string;
+    };
+
+const stationOf = (id: string | null): StationId | null =>
+  id ? StationId.of(id) : null;
 
 export const RUN_SUBJECT_KINDS = [
   'task',
@@ -99,6 +125,59 @@ export class RunSubject {
       searchId,
       iteration,
     );
+  }
+
+  static fromValues(values: RunSubjectValues): RunSubject {
+    switch (values.kind) {
+      case 'task':
+        return RunSubject.task(
+          TaskId.of(values.taskId),
+          stationOf(values.stationId),
+          TaskRevision.of(values.revision),
+        );
+      case 'chat':
+        return RunSubject.chat(ChatId.of(values.chatId));
+      case 'replay':
+        return RunSubject.replay(
+          RunId.of(values.replayOf),
+          TaskId.of(values.taskId),
+          StationId.of(values.stationId),
+          TeamId.of(values.teamId),
+        );
+      case 'search':
+        return RunSubject.search(
+          SearchId.of(values.searchId),
+          SearchIteration.of(values.iteration),
+          stationOf(values.stationId),
+          TeamId.of(values.teamId),
+        );
+    }
+  }
+
+  get values(): RunSubjectValues {
+    return this.match<RunSubjectValues>({
+      task: (taskId, stationId, revision) => ({
+        kind: 'task',
+        taskId: taskId.value,
+        stationId: stationId?.value ?? null,
+        revision: revision.value,
+      }),
+      chat: (chatId) => ({ kind: 'chat', chatId: chatId.value }),
+      replay: (original, taskId, stationId, teamId) => ({
+        kind: 'replay',
+        replayOf: original.value,
+        taskId: taskId.value,
+        stationId: (stationId as StationId).value,
+        teamId: teamId.value,
+      }),
+      search: (searchId, iteration, stationId, teamId) => ({
+        kind: 'search',
+        searchId: searchId.value,
+        iteration: iteration.value,
+        stationId: stationId?.value ?? null,
+        teamId: teamId.value,
+      }),
+    });
   }
 
   static rehydrate(input: {

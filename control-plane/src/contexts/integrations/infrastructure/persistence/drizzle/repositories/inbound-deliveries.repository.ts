@@ -5,11 +5,14 @@ import {
 } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { InboundDeliveryVersionConflictError } from '@integrations/domain/exceptions/inbound-delivery-version-conflict.error';
 import type { InboundDeliveryRepository } from '@integrations/domain/repositories/inbound-delivery.repository';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { inboundDelivery } from '@integrations/infrastructure/persistence/drizzle/schemas/delivery.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, isNull, lt, lte, or } from 'drizzle-orm';
 
 type Row = typeof inboundDelivery.$inferSelect;
@@ -46,15 +49,16 @@ const toDelivery = (row: Row): InboundDelivery =>
     to:
       row.workspaceId !== null && row.teamId !== null && row.teamKey !== null
         ? {
-            workspaceId: row.workspaceId,
-            teamId: row.teamId,
+            workspaceId: WorkspaceId.of(row.workspaceId),
+            teamId: TeamId.of(row.teamId),
             teamKey: row.teamKey,
           }
         : null,
     id: row.id,
     headers: row.headers as DeliveryHeaders,
     body: row.body,
-    causeFiringId: row.causeFiringId,
+    causeFiringId:
+      row.causeFiringId === null ? null : HookFiringId.of(row.causeFiringId),
     receivedAt: row.receivedAt,
     progress: progressOf(row),
     attempts: row.attempts,
@@ -98,13 +102,13 @@ export class DrizzleInboundDeliveries implements InboundDeliveryRepository {
       .insert(inboundDelivery)
       .values({
         integration: delivery.integration.value,
-        workspaceId: delivery.to?.workspaceId ?? null,
-        teamId: delivery.to?.teamId ?? null,
+        workspaceId: delivery.to?.workspaceId.value ?? null,
+        teamId: delivery.to?.teamId.value ?? null,
         teamKey: delivery.to?.teamKey ?? null,
         id: delivery.id,
         headers: delivery.headers,
         body: delivery.body ?? {},
-        causeFiringId: delivery.causeFiringId,
+        causeFiringId: delivery.causeFiringId?.value ?? null,
         receivedAt: delivery.receivedAt,
         dueAt: delivery.receivedAt,
         ...columnsOf(delivery),
@@ -158,7 +162,7 @@ export class DrizzleInboundDeliveries implements InboundDeliveryRepository {
           eq(inboundDelivery.integration, delivery.integration.value),
           eq(inboundDelivery.id, delivery.id),
           delivery.to
-            ? eq(inboundDelivery.teamId, delivery.to.teamId)
+            ? eq(inboundDelivery.teamId, delivery.to.teamId.value)
             : isNull(inboundDelivery.teamId),
           eq(inboundDelivery.version, delivery.version),
         ),

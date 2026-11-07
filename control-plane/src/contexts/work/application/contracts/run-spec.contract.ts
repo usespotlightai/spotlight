@@ -3,7 +3,7 @@ import {
   isJsonObject,
   isJsonValue,
   type JsonObject,
-} from '@shared-kernel/domain/services/json-value';
+} from '@shared-kernel/domain/json-value';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import type { Resume } from '@work/domain/value-objects/resume.vo';
 import {
@@ -420,6 +420,10 @@ export const RunSpecContract = {
       key: resume.key.value,
       ...(resume.sessionId ? { sessionId: resume.sessionId.value } : {}),
     };
+  },
+
+  received(raw: unknown): RunSpec {
+    return read(raw);
   },
 
   toWire(spec: RunSpec): RunSpecShape {

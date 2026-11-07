@@ -1,7 +1,7 @@
 import type {
   SearchVisibility as ReplaysSearchVisibility,
   SearchVisibilities,
-} from '@replays/application/services/search-visibilities.service';
+} from '@replays/application/queries/search-visibilities';
 import type {
   SearchVisibility,
   SearchVisibilityPort,

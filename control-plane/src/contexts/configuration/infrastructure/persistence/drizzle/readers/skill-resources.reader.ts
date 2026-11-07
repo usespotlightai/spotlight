@@ -2,6 +2,7 @@ import type {
   SkillRecord,
   SkillResourcesPort,
 } from '@configuration/application/ports/skill-resources.port';
+import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { skillDefinition } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -20,8 +21,8 @@ const SKILL_COLUMNS = {
 export class DrizzleSkillResources implements SkillResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  withId(id: string): Promise<SkillRecord | null> {
-    return this.stored(eq(skillDefinition.id, id));
+  withId(id: SkillDefinitionId): Promise<SkillRecord | null> {
+    return this.stored(eq(skillDefinition.id, id.value));
   }
 
   at(teamId: TeamId, key: string): Promise<SkillRecord | null> {

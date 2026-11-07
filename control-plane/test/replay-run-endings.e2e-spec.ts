@@ -21,14 +21,12 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp } from './support/app';
 
@@ -60,23 +58,6 @@ const replayRun = (id = 'run_1') =>
         movesOnAfter: ['build', 'done'],
       },
     }),
-    briefedWith: BriefedMemories.of({ briefed: [], omitted: [] }),
-    configuredAs: StationConfig.rehydrate(
-      {
-        prompt: null,
-        harness: 'dev',
-        model: null,
-        effort: null,
-        profile: null,
-        image: null,
-        repositories: [],
-        skills: [],
-        tools: [],
-        decisions: false,
-        memories: false,
-      },
-      'f'.repeat(64),
-    ),
   });
 
 const receivedBy = async (
@@ -87,8 +68,8 @@ const receivedBy = async (
     ending: { ended: async (ended: ReplayRunEnded) => received.push(ended) },
   } as unknown as ReplaysReactions);
   const published = events.flatMap((event) =>
-    WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map((each) =>
-      each.map(event, new Date()),
+    WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
+      (each) => each.map(event, new Date()) ?? [],
     ),
   );
 
@@ -200,8 +181,8 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     const published = ended
       .pullEvents()
       .flatMap((event) =>
-        WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map(
-          (each) => each.map(event, new Date()),
+        WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
+          (each) => each.map(event, new Date()) ?? [],
         ),
       );
 

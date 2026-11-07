@@ -1,5 +1,6 @@
 import { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
 import { RefreshClaimedError } from '@integrations/domain/exceptions/refresh-claimed.error';
+import { isUsableConnection } from '@integrations/domain/services/integration-connection-status';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
@@ -146,7 +147,7 @@ export class IntegrationConnection extends EventRecorder {
   }
 
   get usable(): boolean {
-    return this.state.refreshFailedAt === null;
+    return isUsableConnection(this.state);
   }
 
   get refreshable(): boolean {

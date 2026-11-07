@@ -3,6 +3,7 @@ import type { DecisionReactions } from '@change-review/application/events/handle
 import type { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import type { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
+import type { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
@@ -50,6 +51,10 @@ import {
   type TaskDispatchedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
 import {
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
+import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
@@ -57,12 +62,14 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const changeReviewSubscribers = (
   reactions: ChangeStackReactions,
   poster: StickyCommentPosterPort,
   deleting: TaskDeletionReactions,
+  teamDeleting: TeamDeletionReactions,
   reviews: ReviewReactions,
   receiving: ReceiveReviewComment,
   signalling: SignalReviewing,
@@ -187,31 +194,54 @@ export const changeReviewSubscribers = (
     'change-review.remove-reviews-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.removeReviews(TaskId.of(event.taskId)),
+    { callsOut: true },
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'change-review.remove-review-comments-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.removeComments(TaskId.of(event.taskId)),
+    { callsOut: true },
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'change-review.remove-stack-checks-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.removeChecks(TaskId.of(event.taskId)),
+    { callsOut: true },
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'change-review.remove-question-answers-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.removeAnswers(TaskId.of(event.taskId)),
+    { callsOut: true },
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'change-review.remove-change-stacks-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.removeStacks(TaskId.of(event.taskId)),
+    { callsOut: true },
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'change-review.remove-decision-sets-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.removeDecisions(TaskId.of(event.taskId)),
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'change-review.remove-stack-checks-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => teamDeleting.removeChecks(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'change-review.remove-question-answers-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => teamDeleting.removeAnswers(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'change-review.remove-change-stacks-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => teamDeleting.removeStacks(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<ReviewSubmitted>(
     'change-review.post-review',

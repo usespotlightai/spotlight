@@ -16,6 +16,10 @@ import {
 } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import {
+  type OrderedRun,
+  runOrderOf,
+} from '@work/application/services/ordered-run';
 import { taskWords } from '@work/application/services/remembering-words';
 import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
@@ -23,9 +27,7 @@ import type { StationSkills } from '@work/application/services/station-skills.se
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import type { TouchedFiles } from '@work/application/services/touched-files';
-import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { describedTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
@@ -39,7 +41,6 @@ export class DispatchTask implements TaskDispatching {
   private readonly ordering: StationOrdering;
 
   constructor(
-    private readonly runs: RunRepository,
     private readonly ids: IdGeneratorPort,
     private readonly harnesses: HarnessCatalog,
     private readonly launch: HarnessLaunchPort,
@@ -99,7 +100,7 @@ export class DispatchTask implements TaskDispatching {
     return RunIdOf.of(this.ids.generate());
   }
 
-  async enqueue({
+  async ordered({
     task,
     line,
     runId,
@@ -107,12 +108,12 @@ export class DispatchTask implements TaskDispatching {
     task: Task;
     line: LineMap;
     runId: RunId;
-  }): Promise<boolean> {
+  }): Promise<OrderedRun | null> {
     const found = await this.ordering.ordered(line, taskOrderedAt(task, line));
 
     if (!found) {
       this.notDispatched(task, line, 'station-has-no-order', runId);
-      return false;
+      return null;
     }
 
     const provided = await this.integrations.provided(
@@ -163,35 +164,35 @@ export class DispatchTask implements TaskDispatching {
     );
     const catalog = order.enabled.pinned.map((each) => each.value);
 
-    const queued = Run.enqueue({
-      id,
-      workspaceId: task.workspaceId,
-      harness: order.harness.id,
-      priority: order.priority,
-      subject: RunSubject.task(task.id, order.stationId, task.revision),
-      placement: order.placement,
-      briefedWith: BriefedMemories.of({
+    return {
+      order: runOrderOf({
+        id,
+        workspaceId: task.workspaceId,
+        harness: order.harness.id,
+        priority: order.priority,
+        subject: RunSubject.task(task.id, order.stationId, task.revision),
+        team: line.teamId,
+        placement: order.placement,
+        spec: RunSpec.of({
+          ...this.ordering.laid(ordered, {
+            briefing,
+            naming: this.tracing.for(task.id, id),
+            attachments: briefed.allAttachments,
+          }),
+          manifest: described.map(toolManifestOf),
+          ...(catalog.length > 0 ? { catalog } : {}),
+          startingPoint: true,
+          ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
+        }),
+        refusals: order.refusals,
+      }),
+      briefedTask: briefed,
+      briefedMemories: BriefedMemories.of({
         briefed: memories.briefed,
         omitted: memories.omitted,
       }),
-      briefedTask: briefed,
       configuredAs: this.ordering.configuredAs(ordered, line),
-      spec: RunSpec.of({
-        ...this.ordering.laid(ordered, {
-          briefing,
-          naming: this.tracing.for(task.id, id),
-          attachments: briefed.allAttachments,
-        }),
-        manifest: described.map(toolManifestOf),
-        ...(catalog.length > 0 ? { catalog } : {}),
-        startingPoint: true,
-        ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
-      }),
-    });
-
-    await this.runs.add(order.refusal ? queued.refused(order.refusal) : queued);
-
-    return true;
+    };
   }
 
   private notDispatched(

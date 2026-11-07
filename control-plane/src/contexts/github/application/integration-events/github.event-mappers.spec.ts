@@ -2,7 +2,6 @@ import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/git
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
-import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
@@ -108,31 +107,6 @@ describe('GITHUB_EVENT_MAPPERS', () => {
         repository: 'acme/api',
         gitHubId: 707,
         reopenedAt: '2026-09-22T09:30:00.000Z',
-      },
-    ]);
-  });
-
-  it('publishes a submitted review, who wrote it and when', () => {
-    expect(
-      published(
-        new PullRequestReviewed(
-          WorkspaceId.of('ws_1'),
-          PULL_7,
-          'approved',
-          'ada',
-          false,
-          new Date('2026-09-21T09:30:00Z'),
-        ),
-      ),
-    ).toEqual([
-      {
-        kind: 'github.pull-request-reviewed.v1',
-        workspaceId: 'ws_1',
-        pullRequest: 'https://github.com/acme/api/pull/7',
-        state: 'approved',
-        login: 'ada',
-        byBot: false,
-        submittedAt: '2026-09-21T09:30:00.000Z',
       },
     ]);
   });

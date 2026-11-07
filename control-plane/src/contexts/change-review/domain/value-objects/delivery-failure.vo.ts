@@ -3,7 +3,6 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 export const DELIVERY_FAILURE_CODES = [
   'task-deleted',
   'not-connected',
-  'subject-deleted',
   'parent-deleted',
   'parent-not-on-github',
   'parent-never-on-github',
@@ -13,6 +12,19 @@ export const DELIVERY_FAILURE_CODES = [
 ] as const;
 
 export type DeliveryFailureCode = (typeof DELIVERY_FAILURE_CODES)[number];
+
+export type DeliveryRecovery = 'permanent' | 'transient' | 'waits-for-thread';
+
+const RECOVERY: Readonly<Record<DeliveryFailureCode, DeliveryRecovery>> = {
+  'task-deleted': 'permanent',
+  'not-connected': 'permanent',
+  'parent-deleted': 'permanent',
+  'parent-not-on-github': 'waits-for-thread',
+  'parent-never-on-github': 'permanent',
+  'never-on-github': 'permanent',
+  'not-recorded': 'permanent',
+  'github-error': 'transient',
+};
 
 const MAX_DETAIL = 1_000;
 
@@ -41,6 +53,10 @@ export class DeliveryFailure {
     }
 
     return DeliveryFailure.of(code as DeliveryFailureCode, detail);
+  }
+
+  get recovery(): DeliveryRecovery {
+    return RECOVERY[this.code];
   }
 
   equals(other: DeliveryFailure): boolean {

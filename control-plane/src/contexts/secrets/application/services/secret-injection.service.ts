@@ -118,7 +118,7 @@ export class SecretInjection implements SecretInjectionPort {
       injected.push(await injecting(secret));
     }
 
-    return InjectedSecrets.of(injected);
+    return InjectedSecrets.from(injected);
   }
 
   private async named(

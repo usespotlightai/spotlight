@@ -53,7 +53,7 @@ export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
     const principal = PersonPrincipal.of(UserId.of(wanted.by));
     const permissions = await this.access.permissionsIn(workspaceId, principal);
 
-    if (!permissions?.allows('trusts')) {
+    if (!permissions?.scopes.has('trusts')) {
       throw new TrustsNeedAnAdminError();
     }
 

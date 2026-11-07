@@ -20,7 +20,7 @@ export class ListChatsHandler
     try {
       const viewer = UserId.of(query.viewerId);
       const member = await this.workspaces.findTeamForMember(
-        query.teamId,
+        TeamId.of(query.teamId),
         viewer,
       );
 
@@ -28,11 +28,7 @@ export class ListChatsHandler
         return null;
       }
 
-      return await this.chats.startedBy(
-        TeamId.of(member.teamId),
-        viewer,
-        query.page,
-      );
+      return await this.chats.startedBy(member.teamId, viewer, query.page);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

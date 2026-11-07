@@ -22,7 +22,7 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, gt, isNotNull, isNull, ne, or } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
 
 const sourceOf = (row: {
   poolId: string | null;
@@ -61,22 +61,24 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
   }
 
   async hasEgressCapableRunner(workspaceId: WorkspaceId): Promise<boolean> {
-    const [egressPool] = await this.db
-      .select({ id: runnerPool.id })
+    const egressPools = await this.db
+      .select({ egress: runnerPool.provisionEgress })
       .from(runnerPool)
       .where(
         and(
           eq(runnerPool.workspaceId, workspaceId.value),
           isNotNull(runnerPool.provisionUrl),
           isNotNull(runnerPool.provisionEgress),
-          this.platform
-            ? undefined
-            : ne(runnerPool.provisionEgress, EgressReference.PLATFORM),
         ),
-      )
-      .limit(1);
+      );
 
-    if (egressPool) {
+    if (
+      egressPools.some(
+        (row) =>
+          row.egress !== null &&
+          EgressReference.of(row.egress).usableWith(this.platform),
+      )
+    ) {
       return true;
     }
 

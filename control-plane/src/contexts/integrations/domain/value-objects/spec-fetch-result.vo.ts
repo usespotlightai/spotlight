@@ -49,6 +49,22 @@ export class SpecFetchResult {
     );
   }
 
+  static unread(input: {
+    spec: ApiSpec;
+    readAt: Date;
+    problem: string;
+    kept: {
+      readonly earlier: SpecFetchResult;
+      readonly skipped: readonly string[];
+    } | null;
+  }): SpecFetchResult {
+    return input.kept
+      ? input.kept.earlier
+          .stillAfter(input.problem)
+          .withSkipped(input.kept.skipped)
+      : SpecFetchResult.failed(input);
+  }
+
   static rehydrate(input: {
     fingerprint: string;
     hash: ContentHash | null;
@@ -96,6 +112,14 @@ export class SpecFetchResult {
 
   isOf(spec: ApiSpec): boolean {
     return this.fingerprint === spec.fingerprint;
+  }
+
+  documentKeptFor(spec: ApiSpec): ContentHash | null {
+    return this.isOf(spec) ? this.hash : null;
+  }
+
+  spareReadingFor(spec: ApiSpec): boolean {
+    return this.documentKeptFor(spec) !== null && this.problem === null;
   }
 
   withSkipped(skipped: readonly string[]): SpecFetchResult {

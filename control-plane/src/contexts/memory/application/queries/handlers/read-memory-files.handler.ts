@@ -1,6 +1,6 @@
 import type { MemoryFileDto } from '@memory/application/dto/memory-file.dto';
+import type { LinesPort } from '@memory/application/ports/lines.port';
 import type { PeoplePort } from '@memory/application/ports/people.port';
-import type { WorkPort } from '@memory/application/ports/work.port';
 import type { ReadMemoryFilesQuery } from '@memory/application/queries/read-memory-files.query';
 import { memoryFilesOf } from '@memory/application/rendering/memory-files';
 import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
@@ -9,6 +9,8 @@ import type { MemoryRepository } from '@memory/domain/repositories/memory.reposi
 import { usesMemories } from '@memory/domain/services/search-memory-access';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export class ReadMemoryFilesHandler
   implements QueryHandlerPort<ReadMemoryFilesQuery, MemoryFileDto[]>
@@ -17,13 +19,16 @@ export class ReadMemoryFilesHandler
     private readonly loader: RunnerMemoryLoader,
     private readonly applicable: ApplicableMemories,
     private readonly memories: MemoryRepository,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly people: PeoplePort,
   ) {}
 
   async execute(query: ReadMemoryFilesQuery): Promise<MemoryFileDto[]> {
     try {
-      const run = await this.loader.leased(query.runId, query.runnerId);
+      const run = await this.loader.leased(
+        RunId.of(query.runId),
+        RunnerId.of(query.runnerId),
+      );
 
       if (!usesMemories(run)) {
         return [];
@@ -31,7 +36,7 @@ export class ReadMemoryFilesHandler
 
       const applying = await this.applicable.at(run, run.replaysFrom);
       const [lines, replaced] = await Promise.all([
-        this.work.linesOf(run.teamId),
+        this.lines.ofTeam(run.teamId),
         this.memories.findAll(
           applying.flatMap((each) =>
             each.supersedes ? [each.supersedes] : [],

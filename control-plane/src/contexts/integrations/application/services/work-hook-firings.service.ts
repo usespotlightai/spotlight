@@ -1,10 +1,10 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type { CausationPort } from '@integrations/application/ports/causation.port';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type {
   HookEventInstance,
   HookRuntimePort,
   ListeningHook,
-  StepOutcome,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
   TasksForHooksPort,
@@ -17,7 +17,6 @@ import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
-import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
@@ -254,51 +253,40 @@ export class WorkHookFirings {
     written: Hook,
     instance: HookEventInstance,
   ): Promise<HookFailure | null> {
-    const done = new Map(leased.firing.steps.map((step) => [step.name, step]));
-    const earlier: StepOutcome[] = [];
-
-    for (const { name: step } of written.steps) {
-      const before = done.get(step);
-
-      if (before?.status === 'done') {
-        earlier.push(before);
-        continue;
-      }
-
+    for (
+      let next = leased.firing.nextStepOf(written);
+      next !== null;
+      next = leased.firing.nextStepOf(written)
+    ) {
       const stepResult = await this.steps.take({
         hook,
-        step,
+        step: next.name,
         instance,
-        earlier,
-        resuming: before?.status === 'waiting' ? before : null,
+        earlier: next.earlier,
+        resuming: next.resuming,
         deadline: written.deadlineFrom(this.clock.now(), null),
         waitMode: 'suspend',
       });
+      const { outcome } = stepResult;
 
-      if (stepResult.outcome.status === 'waiting') {
-        const waiting = await this.saved(
-          leased.firing.recordStep([...earlier, stepResult.outcome]),
+      if (outcome.status === 'waiting') {
+        await this.firings.save(
+          leased.firing.stepTaken(written, outcome, this.clock.now()),
         );
-
-        await this.firings.save(waiting.waitedOn(this.clock.now()));
         return null;
       }
 
       await this.steps.traced(instance, stepResult);
+      leased.firing = await this.saved(
+        leased.firing.stepTaken(written, outcome, this.clock.now()),
+      );
 
-      if (stepResult.outcome.status === 'failed') {
-        leased.firing = await this.saved(
-          leased.firing.recordStep([...earlier, stepResult.outcome]),
+      if (outcome.status === 'failed') {
+        return HookFailure.of(outcome.code, outcome.reason).atStep(
+          hook.key.value,
+          next.name,
         );
-
-        return HookFailure.of(
-          stepResult.outcome.code,
-          stepResult.outcome.reason,
-        ).atStep(hook.key.value, step);
       }
-
-      earlier.push(stepResult.outcome);
-      leased.firing = await this.saved(leased.firing.recordStep(earlier));
     }
 
     await this.firings.save(leased.firing.worked(this.clock.now()));

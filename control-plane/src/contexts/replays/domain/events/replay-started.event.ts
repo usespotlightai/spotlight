@@ -4,7 +4,7 @@ import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/co
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class ReplayStarted implements ConfigurationChanged {
-  readonly kind = 'replays.replay-started';
+  readonly kind = 'replay.started';
 
   constructor(
     readonly replayId: ReplayId,

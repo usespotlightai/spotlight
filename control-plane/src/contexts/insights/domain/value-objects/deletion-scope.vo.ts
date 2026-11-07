@@ -30,4 +30,11 @@ export const DeletionScope = {
     kind: 'workspace',
     workspaceId,
   }),
+  taskDeletedWith: (
+    scope: DeletionScope,
+    taskId: TaskId,
+  ): DeletionScope | null =>
+    scope.kind === 'team'
+      ? { kind: 'task', workspaceId: scope.workspaceId, taskId }
+      : null,
 };

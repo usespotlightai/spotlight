@@ -28,7 +28,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray, isNotNull, isNull, lte, ne, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lte, ne, sql } from 'drizzle-orm';
 
 type Row = typeof sandbox.$inferSelect;
 
@@ -213,6 +213,20 @@ export class DrizzleSandboxRepository implements SandboxRepository {
       .select()
       .from(sandbox)
       .where(and(eq(sandbox.hostId, hostId.value), ne(sandbox.state, 'gone')));
+
+    return rows.map(toSandbox);
+  }
+
+  async liveIn(workspaceId: WorkspaceId): Promise<readonly Sandbox[]> {
+    const rows = await this.context.db
+      .select()
+      .from(sandbox)
+      .where(
+        and(
+          eq(sandbox.workspaceId, workspaceId.value),
+          ne(sandbox.state, 'gone'),
+        ),
+      );
 
     return rows.map(toSandbox);
   }

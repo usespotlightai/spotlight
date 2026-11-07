@@ -2,12 +2,10 @@ import { SideBySideJudging } from '@replays/domain/aggregates/side-by-side-judgi
 import type { SideBySideJudged } from '@replays/domain/events/side-by-side-judged.event';
 import type { SideBySideJudgingFailed } from '@replays/domain/events/side-by-side-judging-failed.event';
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
+import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import type {
-  JudgedPair,
-  PairWinner,
-} from '@replays/domain/value-objects/pair-judgment';
+import type { JudgedPair } from '@replays/domain/value-objects/pair-judgment';
 import type { PairOrder } from '@replays/domain/value-objects/pair-order';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -35,14 +33,14 @@ const queued = (maxAttempts = 2) =>
 
 const judged = (
   orders: readonly PairOrder[],
-  winners: readonly PairWinner[],
+  outcomes: readonly PairOutcome[],
 ): JudgedPair => ({
   judged: true,
   passes: orders.map((order, at) => ({
-    order,
-    winner: winners[at] ?? 'tie',
+    ownShownFirst: order === 'run-first',
+    outcome: outcomes[at] ?? 'tie',
     reasons: [
-      { text: 'It drains fast.', runHunks: ['api/q.ts#1'], otherHunks: [] },
+      { text: 'It drains fast.', ownHunks: ['api/q.ts#1'], theirHunks: [] },
     ],
   })),
   model: 'some/model',
@@ -75,10 +73,10 @@ describe('SideBySideJudging', () => {
     ]);
   });
 
-  it('names the winner by its run when both passes agree, keeping both passes', () => {
+  it('reads a win for its run when both passes agree, keeping both passes', () => {
     const judging = queued().leaseJob(NOW);
     const done = judging.recordJudgment(
-      judged(judging.orders, ['run', 'run']),
+      judged(judging.orders, ['win', 'win']),
       NOW,
     );
     const [event] = done.pullEvents() as SideBySideJudged[];
@@ -97,7 +95,7 @@ describe('SideBySideJudging', () => {
   it('calls the pair a tie where the two passes disagree', () => {
     const judging = queued().leaseJob(NOW);
     const [event] = judging
-      .recordJudgment(judged(judging.orders, ['run', 'other']), NOW)
+      .recordJudgment(judged(judging.orders, ['win', 'loss']), NOW)
       .pullEvents() as SideBySideJudged[];
 
     expect(event?.verdict.outcome).toBe('tie');
@@ -108,7 +106,7 @@ describe('SideBySideJudging', () => {
 
     expect(() =>
       judging.recordJudgment(
-        judged([...judging.orders].reverse(), ['run', 'run']),
+        judged([...judging.orders].reverse(), ['win', 'win']),
         NOW,
       ),
     ).toThrow(InvalidJudgingError);
@@ -128,5 +126,14 @@ describe('SideBySideJudging', () => {
       .pullEvents() as SideBySideJudgingFailed[];
 
     expect(event?.failure.code).toBe('ungrounded');
+  });
+
+  it('is deleted by itself, keeping its version for the versioned removal', () => {
+    const judging = queued();
+    const deleted = judging.delete();
+
+    expect(judging.isDeleted).toBe(false);
+    expect(deleted.isDeleted).toBe(true);
+    expect(deleted.version).toBe(judging.version);
   });
 });

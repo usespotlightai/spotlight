@@ -1,3 +1,4 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export const RUN_CHANGE_CHECKS = Symbol('RUN_CHANGE_CHECKS');
 
 export type CheckedChangeStatus =
@@ -25,7 +26,7 @@ export interface CheckedChange {
 }
 
 export interface RunChangeChecksPort {
-  ofRun(runId: string): Promise<readonly CheckedChange[]>;
+  ofRun(runId: RunId): Promise<readonly CheckedChange[]>;
 
-  rechecksOfRun(runId: string): Promise<readonly CheckedChange[]>;
+  rechecksOfRun(runId: RunId): Promise<readonly CheckedChange[]>;
 }

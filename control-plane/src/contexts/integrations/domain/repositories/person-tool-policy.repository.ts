@@ -12,11 +12,6 @@ export interface PersonToolPolicyRepository {
     integration: IntegrationKey,
   ): Promise<PersonToolPolicy | null>;
 
-  ofPerson(
-    teamId: TeamId,
-    personId: UserId,
-  ): Promise<readonly PersonToolPolicy[]>;
-
   ofTeam(teamId: TeamId): Promise<readonly PersonToolPolicy[]>;
 
   save(policy: PersonToolPolicy): Promise<void>;

@@ -1,11 +1,12 @@
 import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import type { Scoring } from '@replays/domain/services/entry-result';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 interface State {
   readonly id: ReplayId;
-  readonly rubricVersion: string | null;
+  readonly rubricVersion: RubricVersion | null;
   readonly scoring: Scoring;
   readonly entries: readonly ReplayEntry[];
 }
@@ -21,7 +22,7 @@ export class PairingReference {
     return this.state.id;
   }
 
-  get rubricVersion(): string | null {
+  get rubricVersion(): RubricVersion | null {
     return this.state.rubricVersion;
   }
 

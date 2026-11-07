@@ -67,7 +67,7 @@ describe('ReviewComment', () => {
   it('shows to everyone once submitted, and joins GitHub once posted', () => {
     const submitted = drafted().submittedIn(ReviewId.of('review_1'));
 
-    expect(submitted.state).toBe('submitted');
+    expect(submitted.state).toBe('sending');
     expect(submitted.reviewId?.value).toBe('review_1');
     expect(commentVisibleTo(submitted, BOB)).toBe(true);
 
@@ -92,7 +92,7 @@ describe('ReviewComment', () => {
       now: NOW,
     });
 
-    expect(reply.state).toBe('submitted');
+    expect(reply.state).toBe('sending');
     expect(reply.replyTo?.value).toBe('comment_1');
     expect(reply.anchor.equals(ANCHOR)).toBe(true);
 
@@ -279,7 +279,7 @@ describe('ReviewComment', () => {
       anchor: ANCHOR,
       body: 'From GitHub',
       author: ReviewAuthor.onGitHub('octocat'),
-      replyTo: null,
+      inReplyTo: null,
       github: { id: 7, url: 'https://github.com/c/7' },
       at: NOW,
     });
@@ -360,9 +360,7 @@ describe('ReviewComment', () => {
     expect(returned.reviewId).toBeNull();
     expect(returned.sending).toBe(false);
     expect(returned.body).toBe('Clearer');
-    expect(returned.submittedIn(ReviewId.of('review_2')).state).toBe(
-      'submitted',
-    );
+    expect(returned.submittedIn(ReviewId.of('review_2')).state).toBe('sending');
 
     const deleted = drafted()
       .submittedIn(ReviewId.of('review_1'))

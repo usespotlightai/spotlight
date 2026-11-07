@@ -7,10 +7,8 @@ import type {
   WorkPort,
 } from '@insights/application/ports/work.port';
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
 import type { StationRunsPort } from '@work/application/ports/station-runs.port';
-import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 
 const configViewOf = (config: StationConfigShape): StationConfigView => ({
   prompt: config.prompt,
@@ -39,10 +37,7 @@ const configViewOf = (config: StationConfigShape): StationConfigView => ({
 });
 
 export class Work implements WorkPort {
-  constructor(
-    private readonly stations: StationRunsPort,
-    private readonly skills: TeamSkillsPort,
-  ) {}
+  constructor(private readonly stations: StationRunsPort) {}
 
   async endedRun(runId: string): Promise<EndedRun | null> {
     const run = await this.stations.ended(runId);
@@ -126,9 +121,5 @@ export class Work implements WorkPort {
         now: change.now,
       })),
     }));
-  }
-
-  teamSkillKeys(teamId: string): Promise<readonly string[]> {
-    return this.skills.definedFor(TeamId.of(teamId));
   }
 }

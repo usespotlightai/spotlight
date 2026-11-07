@@ -3,7 +3,7 @@ import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
 } from '@integrations/application/ports/integration-runtime.port';
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
+import { SpotlightCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -12,6 +12,10 @@ import {
   SECRET_INJECTION,
   type SecretInjectionPort,
 } from '@secrets/application/ports/secret-injection.port';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray, sql } from 'drizzle-orm';
 import {
   afterAll,
@@ -100,16 +104,18 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
   const sent = async (text: string) => {
     const runtime = app.get<IntegrationRuntimePort>(INTEGRATION_RUNTIME);
     const tool = await runtime.tool([defined(AUDIT)], 'audit.record', {
-      taskId: 'task_1',
-      workspaceId,
-      teamId: 'team_1',
+      taskId: TaskId.of('task_1'),
+      workspaceId: WorkspaceId.of(workspaceId),
+      teamId: TeamId.of('team_1'),
       title: 'Drain the queue',
       url: null,
       pullRequest: null,
       line: 'delivery',
       station: 'Implementation',
-      stationKey: 'implementation',
+      stationKey: StationKey.of('implementation'),
       marks: {},
+      repositories: [],
+      runId: null,
       waiting: null,
     });
 

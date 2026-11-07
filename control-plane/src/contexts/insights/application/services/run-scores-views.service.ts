@@ -6,12 +6,10 @@ import type {
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
 import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
+import type { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { UnknownRunError } from '@insights/domain/exceptions/unknown-run.error';
-import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
 import {
-  type GradingTerms,
-  gradingTermsOf,
   latestJudgeOf,
   visibleJudgeOf,
 } from '@insights/domain/services/grading-terms';
@@ -90,7 +88,7 @@ export class RunScoresViews {
   constructor(
     private readonly facts: StationFactsPort,
     private readonly reports: StationJudgeReports,
-    private readonly judgings: JudgingRepository,
+    private readonly terms: GradingTermsOf,
   ) {}
 
   async onTeam(access: TeamAccess, runId: string): Promise<RunOnTeam> {
@@ -103,21 +101,6 @@ export class RunScoresViews {
     return { runId: fact.runId, workspaceId: fact.workspaceId, end: fact.end };
   }
 
-  async gradingTerms(
-    run: RunOnTeam,
-    scores: readonly Scored[],
-  ): Promise<GradingTerms> {
-    return gradingTermsOf(
-      scores,
-      await this.reports.currentJudge({
-        teamId: run.end.location.teamId,
-        lineId: run.end.location.lineId,
-        stationId: run.end.location.stationId,
-      }),
-      (await this.judgings.of(run.runId))?.rubric ?? null,
-    );
-  }
-
   async of(access: TeamAccess, run: RunOnTeam): Promise<RunScoresDto> {
     const scores = await this.facts.scoresOfRuns([run.runId]);
     const { rubricVersion, calibration } = await this.reports.calibrationAt({
@@ -127,7 +110,7 @@ export class RunScoresViews {
       stationId: run.end.location.stationId,
     });
     const judge = visibleJudgeOf(scores, calibration, rubricVersion);
-    const terms = await this.gradingTerms(run, scores);
+    const terms = await this.terms.of(run, scores);
 
     return {
       runId: run.runId.value,

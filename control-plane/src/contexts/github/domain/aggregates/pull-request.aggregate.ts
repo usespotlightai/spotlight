@@ -1,11 +1,7 @@
-import {
-  PullRequestClosed,
-  type PullRequestMerge,
-} from '@github/domain/events/pull-request-closed.event';
+import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
-import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import {
   PullRequestUpdated,
   type UpdatedPullRequest,
@@ -23,6 +19,7 @@ import {
 } from '@github/domain/services/revert-convention';
 import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
 import { DraftPeriod } from '@github/domain/value-objects/draft-period.vo';
+import type { PullRequestMerge } from '@github/domain/value-objects/pull-request-merge.vo';
 import type { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
 import type { PullRequestState } from '@github/domain/value-objects/pull-request-state.vo';
 import type { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
@@ -143,6 +140,7 @@ export class PullRequest extends EventRecorder {
     readonly number: number,
     private readonly props: Props,
     readonly version: number,
+    readonly isStored: boolean,
   ) {
     super();
   }
@@ -196,6 +194,7 @@ export class PullRequest extends EventRecorder {
         revertedBy: null,
       },
       0,
+      false,
     );
     created.recordUpdated();
 
@@ -215,7 +214,7 @@ export class PullRequest extends EventRecorder {
       version: number;
     } & Props,
   ): PullRequest {
-    if (!Number.isInteger(input.version) || input.version < 1) {
+    if (!Number.isInteger(input.version) || input.version < 0) {
       throw new InconsistentStateError(
         'pull request',
         `has an impossible version (${input.version})`,
@@ -257,6 +256,7 @@ export class PullRequest extends EventRecorder {
         revertedBy: input.revertedBy,
       },
       input.version,
+      true,
     );
   }
 
@@ -435,22 +435,10 @@ export class PullRequest extends EventRecorder {
       return this;
     }
 
-    const reviewed = this.withEvent({
+    return this.withEvent({
       ...this.props,
       reviews: [...this.props.reviews, review],
     });
-    reviewed.record(
-      new PullRequestReviewed(
-        this.workspaceId,
-        this.url,
-        review.state,
-        review.login,
-        review.byBot,
-        review.at,
-      ),
-    );
-
-    return reviewed;
   }
 
   closedBy(closing: PullRequestClosing): PullRequest {
@@ -699,6 +687,7 @@ export class PullRequest extends EventRecorder {
       this.number,
       next,
       this.version,
+      this.isStored,
     );
     succeeded.inheritEvents(this, including);
 
@@ -750,7 +739,7 @@ export class PullRequest extends EventRecorder {
       threads: this.props.threads,
       isRevert: this.props.reverts !== null,
       revertedBy: this.props.revertedBy,
-      version: this.version + 1,
+      version: this.isStored ? this.version + 1 : this.version,
     };
   }
 }

@@ -1,5 +1,6 @@
 import { NoteByCallbackHandler } from '@integrations/application/commands/handlers/note-by-callback.handler';
 import { NoteByCallbackCommand } from '@integrations/application/commands/note-by-callback.command';
+import { causationInMemory } from '@integrations/application/ports/causation.fake-spec';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import { taskViewOf } from '@integrations/application/ports/tasks-for-hooks.fake-spec';
 import type { TasksForHooksPort } from '@integrations/application/ports/tasks-for-hooks.port';
@@ -8,10 +9,9 @@ import { CallbackTaskHandler } from '@integrations/application/queries/handlers/
 import { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookCallbackToken } from '@integrations/domain/aggregates/hook-callback-token.aggregate';
 import type { HookCallbackTokenRepository } from '@integrations/domain/repositories/hook-callback-token.repository';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

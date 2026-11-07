@@ -1,4 +1,4 @@
-import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -89,7 +89,9 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
     change: (check: StackCheck) => StackCheck,
   ): Promise<StackCheck | null> {
     for (let attempt = 1; ; attempt++) {
-      const found = await this.checks.latestOf(ChangeStackId.of(stackId));
+      const found = StackCheck.latestOf(
+        await this.checks.ofStack(ChangeStackId.of(stackId)),
+      );
       const changed = found ? change(found) : null;
 
       if (!changed || changed === found) {

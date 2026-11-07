@@ -8,8 +8,8 @@ import {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { applyInjected } from '@integrations/infrastructure/outbound/secret-injection';
 import type { CelVariables } from '@platform/expressions/cel-variables';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
 
 export class NetworkOutbound {

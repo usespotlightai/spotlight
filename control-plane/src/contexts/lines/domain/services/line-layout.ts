@@ -5,7 +5,7 @@ import type {
   LineSearchPolicy,
   StationSearchOverride,
 } from '@lines/domain/value-objects/search-policy.vo';
-import { repeatedIn } from '@shared-kernel/domain/services/distinct';
+import { repeatedIn } from '@shared-kernel/domain/distinct';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';

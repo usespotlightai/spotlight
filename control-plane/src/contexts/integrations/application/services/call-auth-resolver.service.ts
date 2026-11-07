@@ -1,13 +1,12 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { CallCredentialsPort } from '@integrations/application/ports/call-credentials.port';
 import type {
   ActiveConnection,
   CallAuth,
   Credentials,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
-import { RunCredentials } from '@integrations/application/services/run-credentials';
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import type { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { ConnectionChoice } from '@integrations/domain/services/connection-choice';
@@ -41,6 +40,7 @@ export class CallAuthResolver {
     private readonly teams: TeamDirectoryPort,
     private readonly access: WorkspaceAccessPort,
     private readonly injection: SecretInjectionPort,
+    private readonly credentials: CallCredentialsPort,
     private readonly connectionRefresh: ConnectionRefresh,
   ) {}
 
@@ -62,7 +62,7 @@ export class CallAuthResolver {
     return {
       workspace,
       connection: connection ? this.active(connection) : null,
-      credentials: new SpotlightCredentials(this.injection, workspace),
+      credentials: this.credentials.forSpotlight(workspace),
     };
   }
 
@@ -116,7 +116,7 @@ export class CallAuthResolver {
       });
     }
 
-    const credentials: Credentials = new RunCredentials(this.injection, run);
+    const credentials: Credentials = this.credentials.forRun(run);
 
     return {
       workspace: async () => run.workspaceId,

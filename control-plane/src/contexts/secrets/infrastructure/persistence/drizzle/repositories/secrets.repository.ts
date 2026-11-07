@@ -150,11 +150,11 @@ export class DrizzleSecrets implements SecretRepository {
   }
 
   private async applyValueChange(record: Secret): Promise<void> {
-    if (record.valueToStore) {
-      await this.values.store(record, record.valueToStore);
-    } else if (record.deletesValue) {
-      await this.values.delete(record);
-    }
+    await record.valueChange({
+      store: (value) => this.values.store(record, value),
+      delete: () => this.values.delete(record),
+      keep: async () => {},
+    });
   }
 
   private async first(where: SQL | undefined): Promise<Secret | null> {

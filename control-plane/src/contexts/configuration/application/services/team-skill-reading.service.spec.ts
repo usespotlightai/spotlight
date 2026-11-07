@@ -1,7 +1,7 @@
 import type { TeamSkillFoldersPort } from '@configuration/application/ports/skill-folders.port';
 import { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { SkillCompiler } from '@configuration/infrastructure/skills/skill.compile';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -13,7 +13,7 @@ const stored = (files: Readonly<Record<string, string>>) =>
   new TeamSkillReading(
     {
       of: async () => [
-        { key: SkillKey.of('grafana'), files: SkillFiles.of(files) },
+        { key: DefinedSkillKey.of('grafana'), files: SkillFiles.of(files) },
       ],
     } satisfies TeamSkillFoldersPort,
     new SkillCompiler(),

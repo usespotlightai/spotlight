@@ -4,6 +4,10 @@ import {
   type WorkspaceDependentsPort,
 } from '@identity/application/ports/workspace-dependents.port';
 import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@identity/application/ports/workspace-outbound-scope.port';
+import {
   WORKSPACE_READER,
   type WorkspaceReaderPort,
 } from '@identity/application/ports/workspace-reader.port';
@@ -209,10 +213,6 @@ import {
   WORKLOAD_TOKENS,
   type WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
-import {
-  WORKSPACE_OUTBOUND_SCOPE,
-  type WorkspaceOutboundScopePort,
-} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 const RUNNERS_EVENTS = Symbol('RUNNERS_EVENTS');
@@ -366,6 +366,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       ENV,
       ID_GENERATOR,
       TOKEN_ISSUER,
+      CLOCK,
       LOGGER,
     ],
     useFactory: (
@@ -375,6 +376,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       env: Env,
       ids: IdGeneratorPort,
       tokens: TokenIssuer,
+      clock: ClockPort,
       logger: LoggerPort,
     ) =>
       new Sandboxes(
@@ -387,6 +389,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
         }),
         ids,
         tokens,
+        clock,
         logger,
       ),
   },

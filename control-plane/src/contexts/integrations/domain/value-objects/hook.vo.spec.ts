@@ -13,6 +13,8 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const COMMENT = ToolName.of('linear.comment');
@@ -37,12 +39,14 @@ const hook = (failure: HookOnFailure = 'continue') =>
         name: 'check',
         kind: 'request',
         url: new URL('https://dba.acme.dev/review'),
+        headers: [],
         fromNetwork: false,
       },
       {
         name: 'audit',
         kind: 'request',
         url: null,
+        headers: [],
         fromNetwork: true,
       },
     ],
@@ -81,7 +85,11 @@ describe('Hook', () => {
   });
 
   it('matches what its match names', () => {
-    const task = { line: 'delivery', stationKey: 'build', repositories: [] };
+    const task = {
+      line: LineKey.of('delivery'),
+      stationKey: StationKey.of('build'),
+      repositories: [],
+    };
 
     expect(hook().matches(task, { tool: 'linear.comment' })).toBe(true);
     expect(hook().matches(task, { tool: 'linear.search' })).toBe(false);
@@ -101,8 +109,34 @@ describe('Hook', () => {
     );
   });
 
-  it('continues on failure and waits ten seconds unless written otherwise', () => {
-    expect(Hook.DEFAULTS).toEqual({ failure: 'continue', timeoutSeconds: 10 });
+  it('continues on failure, waits ten seconds and sends from Spotlight unless written otherwise', () => {
+    expect(Hook.DEFAULTS).toEqual({
+      failure: 'continue',
+      timeoutSeconds: 10,
+      from: 'spotlight',
+    });
+  });
+
+  it('refuses a request header Spotlight sets itself', () => {
+    expect(() =>
+      Hook.of({
+        key: HookKey.of('dba'),
+        event: HookEvent.of('run.ended'),
+        match: HookMatch.anything(HookEvent.of('run.ended')),
+        steps: [
+          {
+            name: 'tell',
+            kind: 'request',
+            url: new URL('https://dba.example.com'),
+            headers: ['x-team', 'Webhook-Signature'],
+            fromNetwork: false,
+          },
+        ],
+        signing: 'hmac',
+        failure: 'continue',
+        timeoutSeconds: 10,
+      }),
+    ).toThrow(InvalidHookError);
   });
 
   it('denies a plain http request unless it is sent from the team’s network', () => {
@@ -116,6 +150,7 @@ describe('Hook', () => {
             name: 'check',
             kind: 'request',
             url: new URL('http://dba.acme.dev'),
+            headers: [],
             fromNetwork: false,
           },
         ],

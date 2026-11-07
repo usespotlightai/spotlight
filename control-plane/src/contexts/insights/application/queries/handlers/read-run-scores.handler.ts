@@ -4,6 +4,8 @@ import type { InsightsAccess } from '@insights/application/services/insights-acc
 import type { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadRunScoresHandler
   implements QueryHandlerPort<ReadRunScoresQuery, RunScoresDto>
@@ -15,7 +17,10 @@ export class ReadRunScoresHandler
 
   async execute(query: ReadRunScoresQuery): Promise<RunScoresDto> {
     try {
-      const access = await this.access.forTeam(query.teamId, query.viewerId);
+      const access = await this.access.forTeam(
+        TeamId.of(query.teamId),
+        UserId.of(query.viewerId),
+      );
 
       return await this.views.of(
         access,

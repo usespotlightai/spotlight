@@ -35,7 +35,10 @@ export class PurgeRunGrantsWorker implements OnModuleDestroy {
     try {
       await this.purging.longEnded();
     } catch (error) {
-      this.logger.error({ err: error }, this.purging.name);
+      this.logger.error(
+        { err: error },
+        'Purging the secret grants of long-ended runs',
+      );
     }
   }
 }

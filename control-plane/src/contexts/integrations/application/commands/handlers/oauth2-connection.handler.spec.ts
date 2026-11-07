@@ -1,4 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import {
@@ -22,7 +23,6 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -70,7 +70,8 @@ describe('BeginOAuth2ConnectionHandler', () => {
     const clientFor = vi.fn(async () => CLIENT);
     const integration = Integration.of({
       key: IntegrationKey.of('slack'),
-      requiresConnection: true,
+      apiSpecs: ['mcp'],
+      connectsOver: 'oauth2',
       actsAs: over.actsAs ?? ActsAs.team(),
     });
 
@@ -104,14 +105,14 @@ describe('BeginOAuth2ConnectionHandler', () => {
   };
 
   const command = (
-    owner: 'team' | 'person' = 'team',
+    actsAs: 'team' | 'requester' | null = null,
     returnTo: string | null = null,
   ) =>
     new BeginOAuth2ConnectionCommand(
       'team_1',
       'slack',
       'user_1',
-      owner,
+      actsAs,
       returnTo,
     );
 
@@ -167,7 +168,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
     });
 
     expect(
-      await handler.execute(command('person', '/w/acme/inbox/task_1')),
+      await handler.execute(command('requester', '/w/acme/inbox/task_1')),
     ).toBe(STARTED);
     expect(begin).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -181,7 +182,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
   it('rejects a person’s own connection where the integration acts as the team', async () => {
     const { handler, begin } = beginning();
 
-    expect(await handler.execute(command('person'))).toBeNull();
+    expect(await handler.execute(command('requester'))).toBeNull();
     expect(begin).not.toHaveBeenCalled();
   });
 
@@ -191,7 +192,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
       actsAs: ActsAs.requester(),
     });
 
-    expect(await handler.execute(command('person'))).toBeNull();
+    expect(await handler.execute(command('requester'))).toBeNull();
     expect(begin).not.toHaveBeenCalled();
   });
 });
@@ -217,7 +218,8 @@ describe('FinishOAuth2ConnectionHandler', () => {
   ) => {
     const integration = Integration.of({
       key: IntegrationKey.of('slack'),
-      requiresConnection: true,
+      apiSpecs: ['mcp'],
+      connectsOver: 'oauth2',
       actsAs: over.actsAs ?? ActsAs.requester(),
     });
     const dispatch = vi.fn(
@@ -278,7 +280,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     expect(connection?.workspaceId.value).toBe('ws_1');
     expect(connection?.accessToken.value).toBe('xoxb-1');
     expect(dispatch.mock.calls[0]?.[0]?.map((each) => each.kind)).toContain(
-      'integrations.integration-connected',
+      'integration.connected',
     );
     expect(to).toBe(
       'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
@@ -312,7 +314,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     expect(connection?.usable).toBe(true);
     expect(connection?.connectedAt).toEqual(CONNECTED_AT);
     expect(dispatch.mock.calls[0]?.[0]?.map((each) => each.kind)).toEqual([
-      'integrations.integration-connected',
+      'integration.connected',
     ]);
   });
 

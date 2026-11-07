@@ -7,7 +7,7 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { inferredOutputSchema } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type Row = typeof inferredOutputSchema.$inferSelect;
 
@@ -42,27 +42,6 @@ export class DrizzleInferredOutputSchemas
       .limit(1);
 
     return found ? rehydrate(found) : null;
-  }
-
-  async ofTools(
-    teamId: TeamId,
-    tools: readonly string[],
-  ): Promise<readonly InferredOutputSchema[]> {
-    if (tools.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(inferredOutputSchema)
-      .where(
-        and(
-          eq(inferredOutputSchema.teamId, teamId.value),
-          inArray(inferredOutputSchema.tool, [...tools]),
-        ),
-      );
-
-    return rows.map(rehydrate);
   }
 
   async save(schema: InferredOutputSchema): Promise<void> {

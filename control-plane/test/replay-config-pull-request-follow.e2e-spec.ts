@@ -156,7 +156,7 @@ const anOpenedPullRequest = async (input: {
     open: true,
     url: `https://github.com/${CONFIG}/pull/${input.number}`,
     number: input.number,
-    gitHubId: GITHUB_ID_BASE + input.number,
+    hostId: GITHUB_ID_BASE + input.number,
     basedOn: input.basedOn,
     proposing: input.proposing,
     checkedAt: input.checkedAt ?? at,
@@ -276,7 +276,7 @@ describe('following a config pull request after it opened', () => {
     expect(opened).toMatchObject({
       repository: CONFIG,
       number: 1,
-      gitHubId: GITHUB_ID_BASE + 1,
+      hostId: GITHUB_ID_BASE + 1,
       basedOn: (await liveAt()).fingerprint,
     });
 
@@ -577,7 +577,7 @@ describe('the config pull requests Insights shows on a station', () => {
       open: false,
       url: `https://github.com/${CONFIG}/pull/${input.number}`,
       number: input.number,
-      gitHubId: GITHUB_ID_BASE + input.number,
+      hostId: GITHUB_ID_BASE + input.number,
       basedOn: 'e'.repeat(64),
       proposing: input.proposing,
       checkedAt: input.createdAt,

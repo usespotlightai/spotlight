@@ -1,10 +1,10 @@
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type { HookFiringRepeats } from '@integrations/domain/aggregates/hook-firing.aggregate';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { hookFiring } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, count, eq, gte, lt, or, sql } from 'drizzle-orm';
 

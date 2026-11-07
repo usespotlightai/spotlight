@@ -1,18 +1,17 @@
 import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
-import type {
-  StationJudge,
-  StationJudgesPort,
-} from '@insights/application/ports/station-judges.port';
+import type { StationJudgesPort } from '@insights/application/ports/station-judges.port';
+import {
+  type CurrentStationJudge,
+  currentJudgeOf,
+} from '@insights/application/services/current-station-judge';
 import type { JudgeCalibration } from '@insights/domain/services/judge-calibration';
 import {
   calibrationIn,
   type JudgeReport,
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
-import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
-import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -57,11 +56,6 @@ export interface StationLocation {
   readonly stationId: StationId;
 }
 
-export type CurrentStationJudge = StationJudge & {
-  readonly scale: ScoreScale | null;
-  readonly rubricBody: string | null;
-};
-
 export interface CurrentCalibration {
   readonly rubricVersion: string | null;
   readonly calibration: JudgeCalibration;
@@ -77,32 +71,6 @@ interface Labels {
   readonly facts: readonly RunFact[];
   readonly grades: readonly ScoreFact[];
 }
-
-const currentOf = (
-  station: { teamId: TeamId; lineId: LineId },
-  judge: StationJudge | null,
-): CurrentStationJudge | null => {
-  if (
-    !judge ||
-    judge.teamId !== station.teamId.value ||
-    judge.lineId !== station.lineId.value
-  ) {
-    return null;
-  }
-
-  const rubric = Rubric.readable({
-    text: judge.rubric,
-    claims: judge.claims,
-    passThreshold: judge.passThreshold,
-    version: judge.rubricVersion,
-  });
-
-  return {
-    ...judge,
-    scale: rubric?.scale ?? null,
-    rubricBody: rubric?.body ?? null,
-  };
-};
 
 const calibrationFrom = (
   judged: readonly ScoreFact[],
@@ -141,12 +109,12 @@ export class StationJudgeReports {
     };
   }
 
-  async currentJudge(station: {
+  private async currentJudge(station: {
     teamId: TeamId;
     lineId: LineId;
     stationId: StationId;
   }): Promise<CurrentStationJudge | null> {
-    return currentOf(
+    return currentJudgeOf(
       station,
       await this.judges.judgeAt(station.stationId.value),
     );
@@ -160,7 +128,7 @@ export class StationJudgeReports {
     const judges = await this.judges.judgesOnTeam(team.teamId);
     const current = stations.map((station) => ({
       station,
-      judge: currentOf(
+      judge: currentJudgeOf(
         { teamId, lineId: LineId.of(station.lineId) },
         judges.get(station.stationId) ?? null,
       ),

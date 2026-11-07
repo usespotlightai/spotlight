@@ -333,13 +333,17 @@ describe('WatchStations', () => {
     await station.ran(1, 'sent-back');
     const stale = await station.alertStates.of(StationId.of('station_1'));
 
+    const taskDeleted = DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1'));
+
     for (const alertState of await station.alertStates.ofScope(
-      DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1')),
+      taskDeleted,
       10,
     )) {
-      await station.alertStates.save(
-        alertState.withoutTask(TaskId.of('task_1')),
-      );
+      const erased = alertState.erasing(taskDeleted);
+
+      if (erased) {
+        await station.alertStates.save(erased);
+      }
     }
 
     await expect(

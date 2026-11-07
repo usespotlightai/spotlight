@@ -29,7 +29,7 @@ export interface ConfigPullRequestOpening {
 export interface OpenedConfigPullRequest {
   readonly url: string;
   readonly number: number;
-  readonly gitHubId: number;
+  readonly hostId: number;
   readonly repository: string;
 }
 

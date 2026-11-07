@@ -267,7 +267,6 @@ describe('a workspace, created through the resource API (e2e)', () => {
     await expect(
       workspaces.save(
         existing?.delete(
-          { teams: [], tokens: [], trusts: [] },
           Dependents.none(),
           changeActorIn(made.body.id),
         ) as Workspace,

@@ -1,3 +1,8 @@
+import {
+  DeleteInsights,
+  type InsightsRepositories,
+} from '@insights/application/services/delete-insights.service';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Judging } from '@insights/domain/aggregates/judging.aggregate';
@@ -18,6 +23,7 @@ import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
@@ -541,35 +547,25 @@ describe('how often the judge agrees with people', () => {
     expect(await judgings.of(RunId.of('run_judged'))).toBeNull();
   });
 
-  it('deletes a judge’s score recorded while its task’s judgings were being deleted', async () => {
-    await judgings.add(
-      Judging.requested({
-        runId: RunId.of('run_racing'),
-        workspaceId: WORKSPACE,
-        location: locationOf('task_racing'),
-        fingerprint: CONFIG,
-        rubric: Rubric.of({ text: 'Did it retry?', version: VERSION }),
-        now: NOW,
-      }),
-    );
-    let locked = () => {};
+  it('keeps no judge’s score that was being recorded while its task was deleted', async () => {
+    const deletions = new DrizzleDeletions(context);
+    let loading = () => {};
     let release = () => {};
-    const lockedNow = new Promise<void>((resolve) => {
-      locked = resolve;
+    const loadingNow = new Promise<void>((resolve) => {
+      loading = resolve;
     });
     const released = new Promise<void>((resolve) => {
       release = resolve;
     });
     const recording = new RecordJudgeScore(
-      Object.assign(Object.create(judgings), {
-        ofForScoring: async (runId: RunId) => {
-          const found = await judgings.ofForScoring(runId);
-          locked();
+      Object.assign(Object.create(scores), {
+        judgeOf: async (runId: RunId, rubricVersion: string) => {
+          loading();
           await released;
-          return found;
+          return scores.judgeOf(runId, rubricVersion);
         },
       }),
-      scores,
+      new FactRecorder(deletions),
       context,
       { generate: () => 'judge_run_racing' },
     ).judged(
@@ -588,17 +584,17 @@ describe('how often the judge agrees with people', () => {
         LATER,
       ),
     );
-    await lockedNow;
+    await loadingNow;
 
-    const deleting = context.inTransaction(async () => {
-      await erased(judgings, TaskId.of('task_racing'));
-      await erased(scores, TaskId.of('task_racing'));
-    });
+    const deleting = new DeleteInsights(
+      { scores } as unknown as InsightsRepositories,
+      deletions,
+      context,
+    ).scores(DeletionScope.ofTask(WORKSPACE, TaskId.of('task_racing')));
     await new Promise((resolve) => setTimeout(resolve, 200));
     release();
     await Promise.all([recording, deleting]);
 
-    expect(await judgings.of(RunId.of('run_racing'))).toBeNull();
     expect(await scores.ofRuns([RunId.of('run_racing')])).toEqual([]);
   });
 });

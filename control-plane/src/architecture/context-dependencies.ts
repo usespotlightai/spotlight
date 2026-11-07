@@ -21,8 +21,8 @@ export const UPSTREAM_CONTEXTS: Readonly<Record<string, readonly string[]>> = {
   work: ['catalog', 'github', 'runners', 'lines'],
   configuration: ['work'],
   'change-review': ['work'],
-  memory: ['work'],
-  insights: ['change-review', 'memory'],
+  memory: ['work', 'lines'],
+  insights: ['change-review', 'memory', 'configuration'],
   replays: ['change-review', 'insights', 'configuration'],
   integrations: ['configuration'],
 };

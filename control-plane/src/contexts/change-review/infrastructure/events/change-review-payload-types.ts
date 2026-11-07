@@ -28,6 +28,7 @@ import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
+import { DeliveryAttempts } from '@change-review/domain/value-objects/delivery-attempts.vo';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
@@ -82,6 +83,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   WorkspacePath,
   DecisionSetId,
   DecisionStatus,
+  DeliveryAttempts,
   DeliveryFailure,
   DecisionsRecorded,
   DecisionDisputeId,

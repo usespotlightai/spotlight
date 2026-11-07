@@ -10,6 +10,8 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadStationJudgeHandler
   implements QueryHandlerPort<ReadStationJudgeQuery, StationJudgeDto>
@@ -21,7 +23,10 @@ export class ReadStationJudgeHandler
 
   async execute(query: ReadStationJudgeQuery): Promise<StationJudgeDto> {
     try {
-      const access = await this.access.forTeam(query.teamId, query.viewerId);
+      const access = await this.access.forTeam(
+        TeamId.of(query.teamId),
+        UserId.of(query.viewerId),
+      );
       const { judge, report, calibration } = await this.reports.at({
         workspaceId: access.workspaceId,
         teamId: access.teamId,

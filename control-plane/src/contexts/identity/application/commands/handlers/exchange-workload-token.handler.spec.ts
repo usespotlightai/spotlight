@@ -1,5 +1,6 @@
 import { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
 import { ExchangeWorkloadTokenHandler } from '@identity/application/commands/handlers/exchange-workload-token.handler';
+import { scopeRecorder } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
@@ -12,7 +13,6 @@ import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
-import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';

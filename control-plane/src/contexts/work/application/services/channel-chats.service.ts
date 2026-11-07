@@ -235,7 +235,7 @@ export class ChannelChats {
       return refused(ChannelReplies.unknownPerson);
     }
 
-    if (!(await this.workspaces.findTeamForMember(teamId.value, speaker))) {
+    if (!(await this.workspaces.findTeamForMember(teamId, speaker))) {
       return refused(ChannelReplies.notInTeam);
     }
 

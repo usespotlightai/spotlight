@@ -13,10 +13,10 @@ import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -526,7 +526,7 @@ describe('runner pools (e2e)', () => {
         context.inTransaction(() =>
           usedTokens.record(
             TokenHash.of(sha256Of(token)),
-            TokenHolder.pool(RunnerPoolId.of(randomUUID())),
+            TokenHolder.pool(PoolId.of(randomUUID())),
           ),
         ),
       ).resolves.toBe(false);

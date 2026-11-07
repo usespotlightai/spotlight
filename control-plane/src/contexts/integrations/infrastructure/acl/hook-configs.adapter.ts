@@ -1,6 +1,5 @@
 import type {
   HookConfig,
-  HookConfigSigning,
   HookConfigStep,
   HookConfigsPort,
 } from '@configuration/application/ports/hook-configs.port';
@@ -8,56 +7,22 @@ import type { TeamDirectoryPort } from '@identity/application/ports/team-directo
 import type {
   HookRecord,
   HookResourcesPort,
+  WrittenHookStep,
 } from '@integrations/application/ports/hook-resources.port';
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import {
-  type WrittenHook,
-  writtenHookOf,
-} from '@integrations/infrastructure/hooks/hook.compile';
-import type { HookStepFile } from '@integrations/infrastructure/hooks/hook.schema';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-const stepOf = (step: HookStepFile): HookConfigStep => {
-  if (step.call !== undefined) {
-    return { name: step.name, call: step.call, with: { ...step.with } };
-  }
-
-  const request = step.request as NonNullable<HookStepFile['request']>;
-
-  return {
-    name: step.name,
-    request: {
-      url: request.url,
-      headers: { ...request.headers },
-      body: request.body,
-      from: request.from ?? null,
-    },
-  };
-};
-
-const signingOf = (
-  signing: WrittenHook['signing'],
-): HookConfigSigning | null => {
-  if (!signing) {
-    return null;
-  }
-
-  return 'oidc' in signing
-    ? { oidc: { audience: signing.oidc.audience } }
-    : { secretVersion: signing.secretVersion };
-};
+const stepOf = (step: WrittenHookStep): HookConfigStep =>
+  'call' in step
+    ? { name: step.name, call: step.call, with: { ...step.with } }
+    : {
+        name: step.name,
+        request: { ...step.request, headers: { ...step.request.headers } },
+      };
 
 const configOf = (teamKey: string, record: HookRecord): HookConfig => {
-  const written = writtenHookOf(record.definition);
-
-  if (!written) {
-    throw new InconsistentStateError(
-      'hook',
-      `${record.key} is stored in a form no hook is written in`,
-    );
-  }
+  const { written } = record;
 
   return {
     id: record.id,
@@ -72,10 +37,10 @@ const configOf = (teamKey: string, record: HookRecord): HookConfig => {
       repositories: [...written.match.repositories],
       paths: [...written.match.paths],
     },
-    when: written.when ?? null,
+    when: written.when,
     vars: { ...written.vars },
     steps: written.steps.map(stepOf),
-    signing: signingOf(written.signing),
+    signing: written.signing,
     failure: written.failure,
     timeoutSeconds: written.timeoutSeconds,
   };

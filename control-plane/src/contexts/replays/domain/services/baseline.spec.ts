@@ -19,9 +19,9 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import {
   baselineFor,
-  baselineOf,
   comparedAgainst,
   needsBaseline,
+  servingBaselineOf,
 } from '@replays/domain/services/baseline';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -43,21 +43,21 @@ const aBaseline = (id: string, at: number, count = 3, repeats = 1) =>
     repeats,
   });
 
-describe('baselineOf', () => {
+describe('servingBaselineOf', () => {
   it('is the newest baseline replay that was not stopped or cut short', () => {
     const old = aBaseline('replay_old', 0);
     const fresh = aBaseline('replay_fresh', 1);
     const stopped = aBaseline('replay_stopped', 2).stop(later(3), BY);
     const proposed = aReplay({ id: 'replay_proposed', at: later(4) });
 
-    expect(baselineOf([old, fresh, stopped, proposed])?.id.value).toBe(
+    expect(servingBaselineOf([old, fresh, stopped, proposed])?.id.value).toBe(
       'replay_fresh',
     );
   });
 
   it('is no replay of the live config that was not started as a baseline', () => {
     expect(
-      baselineOf([aReplay({ candidate: live, baseline: false })]),
+      servingBaselineOf([aReplay({ candidate: live, baseline: false })]),
     ).toBeNull();
   });
 
@@ -70,7 +70,7 @@ describe('baselineOf', () => {
     );
 
     expect(over.current).toBe('ceiling-reached');
-    expect(baselineOf([over])).toBeNull();
+    expect(servingBaselineOf([over])).toBeNull();
   });
 });
 
@@ -180,7 +180,7 @@ describe('comparedAgainst', () => {
       candidate: Candidate.oracleOf(live, {
         id: CandidateId.of('candidate_answer'),
         at: NOW,
-      }),
+      }).asReplayed,
       baseline: false,
       ceiling: Money.ceiling(10, 'USD'),
       at: later(1),
@@ -188,7 +188,7 @@ describe('comparedAgainst', () => {
       oracle: {
         answers: set.runs.map((run) => ({ run, answer: 'accepted' as const })),
         against: against.asOracleReference,
-        live,
+        live: live.asReplayed,
       },
     });
 
@@ -202,7 +202,9 @@ describe('comparedAgainst', () => {
     const answer = withTheAnswer(started);
     const newer = aBaseline('replay_newer', 2);
 
-    expect(baselineOf([started, answer, newer])?.id.value).toBe('replay_newer');
+    expect(servingBaselineOf([started, answer, newer])?.id.value).toBe(
+      'replay_newer',
+    );
     expect(comparedAgainst(answer, [started, answer, newer])?.id.value).toBe(
       'replay_live',
     );

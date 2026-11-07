@@ -1,21 +1,21 @@
 import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
+import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/provided-tool.vo';
+import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  CATALOG_INTEGRATION,
   DOTTED_NAME,
   INTEGRATION_KEY_SHAPE,
-  SECRET_NAME_SHAPE,
   SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
-import { BINDABLE_CHAT_EVENTS } from '@work/application/contracts/bindable-chat-events.contract';
-import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { z } from 'zod';
 
 const NAME = new RegExp(`^${INTEGRATION_KEY_SHAPE}$`);
 const HAPPENING = new RegExp(`^${DOTTED_NAME}$`);
 const MARK_KIND = HAPPENING;
 const KEY = new RegExp(`^${SLUG_SHAPE}$`);
-export const SECRET_REF = new RegExp(`^secret\\.${SECRET_NAME_SHAPE}$`);
 const WITHIN = /^\d+s$/;
 
 const EXPRESSION = /^\s*\$\{\{(.+)\}\}\s*$/s;
@@ -30,9 +30,14 @@ const templated = z.string();
 const key = (what: string) =>
   z.string().regex(KEY, `is lowercase words joined by dashes, as in ${what}`);
 
+const NAMES_A_SECRET = 'names a workspace secret, as in secret.SLACK_BOT_TOKEN';
+
 const secretRef = z
   .string()
-  .regex(SECRET_REF, 'names a workspace secret, as in secret.SLACK_BOT_TOKEN');
+  .refine(
+    (written) => SecretName.referencedBy(written) !== null,
+    NAMES_A_SECRET,
+  );
 
 type HintFile = string | { [field: string]: HintFile };
 
@@ -369,7 +374,14 @@ const connectionSchema = z.object({
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),
 });
 
-export const ON_EVENTS = [...BINDABLE_TASK_EVENTS, ...BINDABLE_CHAT_EVENTS];
+export const apiSpecsOf = (file: {
+  readonly openapi?: unknown;
+  readonly graphql?: unknown;
+  readonly mcp?: unknown;
+}): readonly ApiSpecKind[] =>
+  (['openapi', 'graphql', 'mcp'] as const).filter(
+    (kind) => file[kind] !== undefined,
+  );
 
 export const integrationSchema = z
   .object({
@@ -377,8 +389,8 @@ export const integrationSchema = z
       .string()
       .regex(NAME, 'is the name of the integration, as in slack')
       .refine(
-        (named) => named !== CATALOG_INTEGRATION,
-        'is catalog, which is the name of Spotlight’s catalog. Please give the integration another name',
+        (named) => !IntegrationKey.isReserved(named),
+        IntegrationKey.RESERVED,
       ),
     name: z.string().min(1).optional(),
     types: z
@@ -414,19 +426,19 @@ export const integrationSchema = z
   })
   .refine(
     (file) =>
-      file.webhook ||
-      file.poll ||
-      file.schedule ||
-      Object.keys(file.actions).length > 0 ||
-      Object.keys(file.on).length > 0 ||
-      file.openapi ||
-      file.graphql ||
-      file.mcp,
-    'must do something: a webhook, a poll, a schedule, an action to run, or an API spec or MCP server to provide tools from',
+      Integration.doesSomething({
+        webhook: file.webhook !== undefined,
+        poll: file.poll !== undefined,
+        schedule: file.schedule !== undefined,
+        actions: Object.keys(file.actions).length,
+        bindings: Object.keys(file.on).length,
+        apiSpecs: apiSpecsOf(file),
+      }),
+    Integration.DOES_NOTHING,
   )
   .refine(
-    (file) => [file.openapi, file.graphql, file.mcp].filter(Boolean).length < 2,
-    'offers tools from one API spec: an openapi, a graphql or an mcp, not two',
+    (file) => Integration.readsOneApiSpec(apiSpecsOf(file)),
+    Integration.TWO_API_SPECS,
   );
 
 export type IntegrationFile = z.infer<typeof integrationSchema>;
@@ -449,5 +461,12 @@ export const written = (raw: string): string => {
 
 export const isExpression = (raw: string): boolean => EXPRESSION.test(raw);
 
-export const secretOf = (reference: string): string =>
-  reference.slice('secret.'.length);
+export const secretOf = (reference: string): string => {
+  const named = SecretName.referencedBy(reference);
+
+  if (!named) {
+    throw new InvalidIdentifierError('secret', NAMES_A_SECRET);
+  }
+
+  return named.value;
+};

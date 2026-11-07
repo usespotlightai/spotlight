@@ -28,6 +28,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -77,24 +78,34 @@ const ranAndEnded = async (minutesAgo: number) => {
     stationId: watched,
     state: 'completed',
     spec: SPEC,
-    stationFingerprint: 'a'.repeat(64),
-    stationConfig: {
-      prompt: 'Implement the task.',
-      harness: 'claude-code',
-      model: 'sonnet',
-      effort: null,
-      profile: null,
-      image: null,
-      repositories: [],
-      skills: [],
-      tools: [],
-      decisions: false,
-      memories: false,
-    },
     createdAt: ago(minutesAgo + 5),
     startedAt: ago(minutesAgo + 4),
     endedAt: ago(minutesAgo),
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId: team.list.id.value,
+      stationId: watched,
+      fingerprint: 'a'.repeat(64),
+      config: {
+        prompt: 'Implement the task.',
+        harness: 'claude-code',
+        model: 'sonnet',
+        effort: null,
+        profile: null,
+        image: null,
+        repositories: [],
+        skills: [],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      orderedAt: ago(minutesAgo + 5),
+      endedAt: ago(minutesAgo),
+    }),
+  );
 
   const ended: RunEndedIntegrationEvent = {
     kind: RUN_ENDED,

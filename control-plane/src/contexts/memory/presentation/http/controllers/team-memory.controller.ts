@@ -40,8 +40,8 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 const text = (value: unknown): string =>
   typeof value === 'string' ? value : '';
@@ -131,11 +131,11 @@ export class TeamMemoryController {
     @Body() body: WriteMemoryRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TeamMemoryDetailResponseDto> {
-    return new TeamMemoryDetailResponseDto(
-      await this.commandBus.execute<WriteMemoryCommand, TeamMemoryDetailDto>(
-        new WriteMemoryCommand(teamId, user.id, writingOf(body)),
-      ),
+    const memoryId = await this.commandBus.execute<WriteMemoryCommand, string>(
+      new WriteMemoryCommand(teamId, user.id, writingOf(body)),
     );
+
+    return this.detailOf(teamId, memoryId, user.id);
   }
 
   @Get(':memoryId')
@@ -152,11 +152,7 @@ export class TeamMemoryController {
     @Param('memoryId') memoryId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TeamMemoryDetailResponseDto> {
-    return new TeamMemoryDetailResponseDto(
-      await this.queryBus.execute<ReadTeamMemoryQuery, TeamMemoryDetailDto>(
-        new ReadTeamMemoryQuery(teamId, memoryId, user.id),
-      ),
-    );
+    return this.detailOf(teamId, memoryId, user.id);
   }
 
   @Post(':memoryId/edit')
@@ -180,11 +176,12 @@ export class TeamMemoryController {
     @Body() body: WriteMemoryRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TeamMemoryDetailResponseDto> {
-    return new TeamMemoryDetailResponseDto(
-      await this.commandBus.execute<EditMemoryCommand, TeamMemoryDetailDto>(
-        new EditMemoryCommand(teamId, memoryId, user.id, writingOf(body)),
-      ),
-    );
+    const successorId = await this.commandBus.execute<
+      EditMemoryCommand,
+      string
+    >(new EditMemoryCommand(teamId, memoryId, user.id, writingOf(body)));
+
+    return this.detailOf(teamId, successorId, user.id);
   }
 
   @Post(':memoryId/retire')
@@ -207,9 +204,21 @@ export class TeamMemoryController {
     @Body() body: RetireMemoryRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TeamMemoryDetailResponseDto> {
+    await this.commandBus.execute<RetireMemoryCommand, void>(
+      new RetireMemoryCommand(teamId, memoryId, user.id, text(body?.reason)),
+    );
+
+    return this.detailOf(teamId, memoryId, user.id);
+  }
+
+  private async detailOf(
+    teamId: string,
+    memoryId: string,
+    viewerId: string,
+  ): Promise<TeamMemoryDetailResponseDto> {
     return new TeamMemoryDetailResponseDto(
-      await this.commandBus.execute<RetireMemoryCommand, TeamMemoryDetailDto>(
-        new RetireMemoryCommand(teamId, memoryId, user.id, text(body?.reason)),
+      await this.queryBus.execute<ReadTeamMemoryQuery, TeamMemoryDetailDto>(
+        new ReadTeamMemoryQuery(teamId, memoryId, viewerId),
       ),
     );
   }

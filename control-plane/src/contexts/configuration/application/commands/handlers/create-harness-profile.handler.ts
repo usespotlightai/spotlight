@@ -91,7 +91,7 @@ export class CreateHarnessProfileHandler
               teamId: team.id,
               by: ChangeActor.of(command.actor, team.workspaceId),
               existingSecrets: await this.secrets.ofTeam(team.id),
-              compatibility: this.compiler.compatibilityOf(compiled),
+              harnesses: this.compiler,
             });
 
             await this.profiles.save(created);
@@ -100,16 +100,6 @@ export class CreateHarnessProfileHandler
           }),
         );
       } catch (error) {
-        if (error instanceof IncompatibleHarnessProfileError) {
-          return {
-            outcome: 'invalid',
-            problems: HarnessProfileProblems.incompatible(
-              error.key,
-              error.incompatibilities,
-            ),
-          };
-        }
-
         if (error instanceof IncompatibleHarnessProfileError) {
           return {
             outcome: 'invalid',

@@ -41,7 +41,7 @@ export class DeleteOidcTrustHandler
         return null;
       }
 
-      if (!permissions.allows('trusts')) {
+      if (!permissions.scopes.has('trusts')) {
         return forbiddenTo('trusts');
       }
 

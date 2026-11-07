@@ -8,7 +8,7 @@ import {
   type ApiConvention,
   ApiConventions,
 } from '@platform/http/api-conventions';
-import { FORBIDDEN_ACTS } from '@platform/http/resources/problem.exception';
+import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import {
   API_VERSION,
   API_VERSION_HEADER,
@@ -20,7 +20,8 @@ import {
 } from '@platform/http/resources/resource-headers';
 import { RESOURCE_API, RESOURCES } from '@platform/http/routes';
 
-const RESOURCE_CONVENTIONS = `
+const resourceConventions = (forbiddenActs: readonly string[]): string =>
+  `
 HTTP API for the Spotlight Control Plane.
 
 ## Resource conventions
@@ -33,21 +34,27 @@ Operations marked \`${RESOURCE_EXTENSION}\` manage configuration resources, the 
 - **Idempotent creates.** A create must carry an \`${IDEMPOTENCY_KEY_HEADER}\`. Retrying with the same key and body within 24 hours returns the resource that the first attempt created, marked \`${IDEMPOTENT_REPLAY_HEADER}: true\`, and creates nothing more; the same key with a different body fails with 422.
 - **Problems name fields.** Errors are \`${PROBLEM_CONTENT_TYPE}\` (RFC 9457). \`type\` is stable and safe to branch on. An invalid request lists \`errors\`, each with the \`path\` of the attribute it is about, as in \`stations[2].check\`; a key that is not a plain name is quoted, as Terraform addresses it: \`on["task.opened"][0].to.thread\`.
 - **API versions.** The path names the major version, as in \`/${RESOURCE_API}\`; a change that is not additive gets a new path. Within it, a client may send \`${API_VERSION_HEADER}\`; every response names the version that it uses, currently \`${API_VERSION}\`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.
-- **Forbidden changes.** A change by someone who may read the resource but not change it, person or token, fails with 403 \`forbidden\`, whose \`permission\` names what the caller lacks, one of ${FORBIDDEN_ACTS.map((act) => `\`${act}\``).join(', ')}. Anything they may not see at all returns 404.
+- **Forbidden changes.** A change by someone who may read the resource but not change it, person or token, fails with 403 \`forbidden\`, whose \`permission\` names what the caller lacks, one of ${forbiddenActs.map((act) => `\`${act}\``).join(', ')}. Anything they may not see at all returns 404.
 - **Who changed what.** A client names itself in \`${CLIENT_HEADER}\` (\`terraform-provider/<version>\` or \`web\`), and every configuration change is recorded with who made it, person or token, and through which client.
 - **Import by address.** Each resource has an \`address\` that names it within its workspace, such as \`core/linear\`, and an import operation that returns the resource at that address, as \`terraform import\` needs. A workspace's address is its slug; a team's is its key; anything a team owns is the team's key and its own, as in \`core/delivery\`.
 `.trim();
 
-const descriptionWith = (conventions: readonly ApiConvention[]): string =>
+const descriptionWith = (
+  conventions: readonly ApiConvention[],
+  forbiddenActs: readonly string[],
+): string =>
   [
-    RESOURCE_CONVENTIONS,
+    resourceConventions(forbiddenActs),
     ...conventions.map(({ title, text }) => `- **${title}.** ${text}`),
   ].join('\n');
 
-const openApiConfig = (conventions: readonly ApiConvention[]) =>
+const openApiConfig = (
+  conventions: readonly ApiConvention[],
+  forbiddenActs: readonly string[],
+) =>
   new DocumentBuilder()
     .setTitle('Spotlight Control Plane')
-    .setDescription(descriptionWith(conventions))
+    .setDescription(descriptionWith(conventions, forbiddenActs))
     .setVersion(API_VERSION)
     .addServer('/api')
     .addBearerAuth({
@@ -58,5 +65,32 @@ const openApiConfig = (conventions: readonly ApiConvention[]) =>
     })
     .build();
 
-export const buildOpenApiDocument = (app: INestApplication): OpenAPIObject =>
-  SwaggerModule.createDocument(app, openApiConfig(app.get(ApiConventions).all));
+const withForbiddenActs = (
+  document: OpenAPIObject,
+  forbiddenActs: readonly string[],
+): OpenAPIObject => {
+  const properties = (
+    document.components?.schemas?.ProblemResponseDto as
+      | { properties?: Record<string, Record<string, unknown>> }
+      | undefined
+  )?.properties;
+
+  if (properties?.permission) {
+    const { type, ...rest } = properties.permission;
+    properties.permission = { type, enum: forbiddenActs, ...rest };
+  }
+
+  return document;
+};
+
+export const buildOpenApiDocument = (app: INestApplication): OpenAPIObject => {
+  const forbiddenActs = app.get(ForbiddenActs).acts;
+
+  return withForbiddenActs(
+    SwaggerModule.createDocument(
+      app,
+      openApiConfig(app.get(ApiConventions).all, forbiddenActs),
+    ),
+    forbiddenActs,
+  );
+};

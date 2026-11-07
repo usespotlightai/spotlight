@@ -60,6 +60,6 @@ export const identitySubscribers = (
     { callsOut: true },
   ),
   subscribing<TeamCreated>(MARK_WORKSPACE_SET_UP, ['team.created'], (event) =>
-    setup.firstTeamCreated(event),
+    setup.teamCreated(event),
   ),
 ];

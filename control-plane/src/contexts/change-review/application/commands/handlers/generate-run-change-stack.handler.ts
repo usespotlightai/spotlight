@@ -38,6 +38,7 @@ export class GenerateRunChangeStackHandler
         {
           id: run.id,
           taskId: run.taskId,
+          teamOfRun: run.taskId ? null : await this.work.teamOfRun(runId),
           isReplay: run.isReplay,
           isSearch: run.isSearch,
           workspaceId: run.workspaceId,

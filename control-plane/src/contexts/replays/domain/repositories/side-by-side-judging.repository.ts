@@ -7,8 +7,6 @@ export interface SideBySideJudgingRepository {
 
   save(judging: SideBySideJudging): Promise<void>;
 
-  remove(judging: SideBySideJudging): Promise<void>;
-
   of(runId: RunId, otherRunId: RunId): Promise<SideBySideJudging | null>;
 
   ofTeam(teamId: TeamId): Promise<readonly SideBySideJudging[]>;

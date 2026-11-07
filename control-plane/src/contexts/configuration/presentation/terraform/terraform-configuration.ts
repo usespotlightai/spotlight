@@ -15,7 +15,6 @@ import {
   terraformAttributeOf,
   terraformTypeOf,
 } from '@configuration/application/rendering/terraform-layout';
-import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import type {
   LineDefinitionAlert,
   LineDefinitionJudge,
@@ -46,6 +45,7 @@ import { PLATFORM_EGRESS } from '@runners/application/ports/runner-configuration
 import type { FieldSegment } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { isToolName } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
 export interface TerraformFile {
   readonly path: string;
@@ -274,7 +274,7 @@ const References = (moduleIndex: ModuleIndex) => ({
   },
 
   tool(teamKey: string, tool: string): HclValue {
-    const named = isToolName(tool) ? ToolName.of(tool) : null;
+    const named = isToolName(tool) ? Tool.of(tool) : null;
     const integration = named?.integration;
 
     return named &&
@@ -292,7 +292,7 @@ const References = (moduleIndex: ModuleIndex) => ({
   },
 
   toolIndex(teamKey: string, tool: string): HclValue {
-    const named = isToolName(tool) ? ToolName.of(tool) : null;
+    const named = isToolName(tool) ? Tool.of(tool) : null;
     const integration = named?.integration;
 
     return named &&

@@ -1,3 +1,7 @@
+import {
+  SESSION_READER,
+  type SessionReaderPort,
+} from '@identity/application/ports/session-reader.port';
 import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import type { OAuth2Start } from '@integrations/application/ports/oauth2-linking.port';
@@ -34,12 +38,11 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import type { RequestHeaders } from '@platform/http/request-headers';
-import { SESSION_READER, type SessionReaderPort } from '@identity/application/ports/session-reader.port';
 
 export interface Redirectable extends CookieJar {
   redirect(url: string): void;
@@ -82,9 +85,9 @@ export class OAuth2ConnectionController {
     @Res({ passthrough: true }) response: CookieJar,
     @Body() body: ConnectIntegrationRequestDto = {},
   ): Promise<OAuth2StartResponseDto> {
-    const actsAs = body?.actsAs ?? 'team';
+    const actsAs = body?.actsAs ?? null;
 
-    if (!ACTS_AS.includes(actsAs)) {
+    if (actsAs !== null && !ACTS_AS.includes(actsAs)) {
       throw new BadRequestException(
         `A connection must act as ${ACTS_AS.join(' or ')}. Received: ${String(actsAs)}`,
       );
@@ -98,7 +101,7 @@ export class OAuth2ConnectionController {
         teamId,
         integration,
         user.id,
-        actsAs === 'requester' ? 'person' : 'team',
+        actsAs,
         typeof body?.returnTo === 'string' ? body.returnTo : null,
       ),
     );

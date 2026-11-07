@@ -54,6 +54,7 @@ import {
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface CitedHunk {
@@ -127,12 +128,19 @@ const assertComplete = (
 
 const assertOneOwner = (stack: {
   taskId: TaskId | null;
+  teamId: TeamId | null;
   replay: boolean;
 }): void => {
   if (stack.replay && stack.taskId) {
     throw new InconsistentStateError(
       'change stack',
       'is a replay’s, yet belongs to a task',
+    );
+  }
+  if ((stack.taskId === null) === (stack.teamId === null)) {
+    throw new InconsistentStateError(
+      'change stack',
+      'must belong to either a task or, without a task, to a team',
     );
   }
 };
@@ -145,6 +153,7 @@ export class ChangeStack
     readonly id: ChangeStackId,
     readonly runId: RunId,
     readonly taskId: TaskId | null,
+    readonly teamId: TeamId | null,
     readonly replay: boolean,
     readonly workspaceId: WorkspaceId,
     readonly repository: RepositoryName | null,
@@ -166,6 +175,7 @@ export class ChangeStack
     id: ChangeStackId;
     runId: RunId;
     taskId: TaskId | null;
+    teamOfRun: TeamId | null;
     replay: boolean;
     isSearch: boolean;
     workspaceId: WorkspaceId;
@@ -180,12 +190,18 @@ export class ChangeStack
       throw new NoStackForSearchesError();
     }
 
-    assertOneOwner(input);
+    const owner = {
+      taskId: input.taskId,
+      teamId: input.taskId ? null : input.teamOfRun,
+      replay: input.replay,
+    };
+    assertOneOwner(owner);
 
     return new ChangeStack(
       input.id,
       input.runId,
-      input.taskId,
+      owner.taskId,
+      owner.teamId,
       input.replay,
       input.workspaceId,
       input.repository?.trim() ? RepositoryName.of(input.repository) : null,
@@ -206,6 +222,7 @@ export class ChangeStack
     id: ChangeStackId;
     runId: RunId;
     taskId: TaskId | null;
+    teamId: TeamId | null;
     replay: boolean;
     workspaceId: WorkspaceId;
     repository: RepositoryName | null;
@@ -227,6 +244,7 @@ export class ChangeStack
       input.id,
       input.runId,
       input.taskId,
+      input.teamId,
       input.replay,
       input.workspaceId,
       input.repository,
@@ -518,6 +536,7 @@ export class ChangeStack
       this.id,
       this.runId,
       this.taskId,
+      this.teamId,
       this.replay,
       this.workspaceId,
       this.repository,

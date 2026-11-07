@@ -16,6 +16,7 @@ import {
   LEASED_RUN_STATES,
   takenUpOnAnswer,
 } from '@work/domain/value-objects/run-state';
+import { taskRunStateOf } from '@work/domain/value-objects/task-run-state';
 import {
   ranAt,
   stationSummaryOf,
@@ -27,6 +28,7 @@ import {
   stationsPerLine,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
+import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
@@ -100,6 +102,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       .select({
         id: run.id,
         state: run.state,
+        superseded: sql<boolean>`coalesce(${dispatch.superseded}, false)`,
         stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
         attempt: run.attempt,
         exitCode: run.exitCode,
@@ -116,6 +119,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
+      .leftJoin(dispatch, eq(dispatch.id, run.id))
       .leftJoin(ranAt, eq(ranAt.stationId, run.stationId))
       .where(eq(run.taskId, taskId.value))
       .orderBy(desc(run.createdAt));
@@ -129,8 +133,9 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       awaitedReviewsFor(this.db, [taskId.value]),
     ]);
 
-    return rows.map(({ stationLineId, currentRunId, ...rest }) => ({
+    return rows.map(({ stationLineId, currentRunId, superseded, ...rest }) => ({
       ...rest,
+      state: taskRunStateOf(rest.state, superseded),
       station: stationSummaryOf({ ...rest, stationLineId }, stationCounts),
       review: review.get(rest.id) ?? null,
       takenUpOnAnswer: takenUpOnAnswer(rest.id, {

@@ -1,8 +1,8 @@
 import type { ReviewsPort } from '@memory/application/ports/reviews.port';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
+import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -16,10 +16,8 @@ export class MemoryReactions {
     private readonly clock: ClockPort,
   ) {}
 
-  async onProposed(event: MemoriesProposed): Promise<void> {
-    if (event.proposed > 0) {
-      await this.reviews.create(event.taskId, event.runId);
-    }
+  async onReviewRequested(event: MemoryReviewRequested): Promise<void> {
+    await this.reviews.create(event.taskId, event.runId);
   }
 
   async onReviewResolved(event: MemoryReviewResolved): Promise<void> {
@@ -67,6 +65,14 @@ export class MemoryReactions {
         await this.memories.save(
           superseded.supersedeWith(event.memoryId, this.clock.now()),
         );
+        return;
+      }
+
+      const successor = await this.memories.find(event.memoryId);
+      const alone = successor?.afterPredecessor(superseded) ?? null;
+
+      if (successor && alone && alone !== successor) {
+        await this.memories.save(alone);
       }
     });
   }

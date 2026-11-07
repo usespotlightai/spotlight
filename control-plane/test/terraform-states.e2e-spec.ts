@@ -3,10 +3,21 @@ import {
   TERRAFORM_STATE_BODIES,
   type TerraformStateBodiesPort,
 } from '@configuration/application/ports/terraform-state-bodies.port';
+import { TerraformState } from '@configuration/domain/aggregates/terraform-state.aggregate';
+import {
+  TERRAFORM_STATES,
+  type TerraformStateRepository,
+} from '@configuration/domain/repositories/terraform-state.repository';
+import { StateName } from '@configuration/domain/value-objects/state-name.vo';
+import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
+import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
+import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -441,6 +452,45 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
         { version: 1, serial: 1, lineage: expect.any(String) },
       ],
     ]);
+  });
+
+  it('stores every version written before one save', async () => {
+    const states = app.get<TerraformStateRepository>(TERRAFORM_STATES);
+    const workspaceId = WorkspaceId.of(seat.workspaceId);
+    const by = ChangeActor.spotlight(workspaceId);
+    const snapshotOf = (serial: number) =>
+      StateSnapshot.of({
+        serial,
+        lineage: '9f0c1d2e-3a4b-5c6d-7e8f-90a1b2c3d4e5',
+        md5: createHash('md5').update(stateOf(serial)).digest('hex'),
+        size: stateOf(serial).length,
+      });
+    const opened = TerraformState.open({
+      id: TerraformStateId.of(randomUUID()),
+      workspaceId,
+      name: StateName.of('twice'),
+    });
+    const first = opened.write({
+      id: StateVersionId.of(randomUUID()),
+      snapshot: snapshotOf(1),
+      lockId: null,
+      by,
+      at: new Date(),
+    });
+    const second = first.state.write({
+      id: StateVersionId.of(randomUUID()),
+      snapshot: snapshotOf(2),
+      lockId: null,
+      by,
+      at: new Date(),
+    });
+
+    await states.save(second.state);
+
+    const stored = await states.named(workspaceId, StateName.of('twice'));
+
+    expect(stored?.versions.map((each) => each.number)).toEqual([1, 2]);
+    expect(stored?.latest?.id.value).toBe(second.version.id.value);
   });
 
   it('keeps the latest 100 versions and their bodies', async () => {

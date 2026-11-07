@@ -33,7 +33,7 @@ const setting = (member = true, actsAs = 'requester') => {
       integrations: () => [
         Integration.of({
           key: LINEAR,
-          requiresConnection: true,
+          connectsOver: 'oauth2',
           actsAs: actsAs === 'requester' ? ActsAs.requester() : ActsAs.team(),
           actions: DefinedActions.of([actionNamed('comment')]),
           tools: ['comment', 'issue'].map((name) =>

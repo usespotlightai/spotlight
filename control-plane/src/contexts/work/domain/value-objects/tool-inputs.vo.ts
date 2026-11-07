@@ -1,4 +1,4 @@
-import type { JsonValue } from '@shared-kernel/domain/services/json-value';
+import type { JsonValue } from '@shared-kernel/domain/json-value';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 

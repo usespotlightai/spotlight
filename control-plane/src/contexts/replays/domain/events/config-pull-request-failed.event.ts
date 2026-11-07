@@ -4,7 +4,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ConfigPullRequestFailed implements DomainEvent {
-  readonly kind = 'replays.config-pull-request-failed';
+  readonly kind = 'config-pull-request.failed';
 
   constructor(
     readonly pullRequestId: ConfigPullRequestId,

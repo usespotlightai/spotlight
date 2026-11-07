@@ -11,6 +11,7 @@ import {
   ModelUsage,
 } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -73,6 +74,7 @@ export class QuestionAnswer extends EventRecorder {
     readonly id: QuestionAnswerId,
     readonly workspaceId: WorkspaceId,
     readonly taskId: TaskId | null,
+    readonly teamId: TeamId | null,
     readonly stackId: ChangeStackId,
     readonly questionId: QuestionId,
     readonly personId: UserId,
@@ -96,6 +98,7 @@ export class QuestionAnswer extends EventRecorder {
     id: QuestionAnswerId;
     workspaceId: WorkspaceId;
     taskId: TaskId | null;
+    teamId: TeamId | null;
     stackId: ChangeStackId;
     question: LayerQuestion;
     personId: UserId;
@@ -109,6 +112,7 @@ export class QuestionAnswer extends EventRecorder {
       input.id,
       input.workspaceId,
       input.taskId,
+      input.teamId,
       input.stackId,
       input.question.id,
       input.personId,
@@ -127,6 +131,7 @@ export class QuestionAnswer extends EventRecorder {
     id: QuestionAnswerId;
     workspaceId: WorkspaceId;
     taskId: TaskId | null;
+    teamId: TeamId | null;
     stackId: ChangeStackId;
     questionId: QuestionId;
     personId: UserId;
@@ -150,6 +155,7 @@ export class QuestionAnswer extends EventRecorder {
       input.id,
       input.workspaceId,
       input.taskId,
+      input.teamId,
       input.stackId,
       input.questionId,
       input.personId,
@@ -191,6 +197,7 @@ export class QuestionAnswer extends EventRecorder {
       this.id,
       this.workspaceId,
       this.taskId,
+      this.teamId,
       this.stackId,
       this.questionId,
       this.personId,

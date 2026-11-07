@@ -31,6 +31,7 @@ import { ReplayAnswers } from '@work/application/services/replay-answers.service
 import { candidateOf } from '@work/application/services/replay-candidates.fake-spec';
 import { RunCatalog } from '@work/application/services/run-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
+import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
@@ -242,12 +243,13 @@ const original = (startedFrom: StartingPoint | null = null) =>
     attempt: 1,
     reservation: null,
     provisioning: Provisioning.none(),
-    briefedWith: BriefedMemories.of({
-      briefed: [{ id: 'memory_1', handle: 'M-1' }],
-      omitted: [{ id: 'memory_2', handle: 'M-2' }],
-    }),
     startedFrom,
   });
+
+const ORIGINAL_MEMORIES = BriefedMemories.of({
+  briefed: [{ id: 'memory_1', handle: 'M-1' }],
+  omitted: [{ id: 'memory_2', handle: 'M-2' }],
+});
 
 const STARTED = StartingPoint.of({
   archive: ARCHIVE,
@@ -277,6 +279,7 @@ let taskNotes: TaskNote[] = [];
 let stored: Run | null = null;
 let archive: WorkspaceArchive | null = null;
 let queued: Run[] = [];
+let trials: Dispatch[] = [];
 let requestedSkills: string[] = [];
 let requestedAgain: {
   place: BriefedContext;
@@ -382,6 +385,17 @@ const dispatching = () =>
         }),
       } as unknown as RunEvidencePort,
     ),
+    {
+      find: async (id: RunId) =>
+        id.equals(ORIGINAL)
+          ? ({ briefedMemories: ORIGINAL_MEMORIES } as Dispatch)
+          : (trials.find((each) => each.id.equals(id)) ?? null),
+      add: async (trial: Dispatch) => {
+        trials.push(trial);
+      },
+      save: async () => undefined,
+    },
+    { now: () => NOW, sleep: async () => {} },
   );
 
 const written = (run?: Run): RunSpecShape => {
@@ -409,6 +423,7 @@ describe('DispatchReplay', () => {
     stored = original(STARTED);
     archive = completed();
     queued = [];
+    trials = [];
     requestedSkills = [];
     requestedAgain = [];
     gone = [];
@@ -552,7 +567,7 @@ describe('DispatchReplay', () => {
       }),
     });
 
-    const [same, changed] = queued.map((each) => each.configuredAs);
+    const [same, changed] = trials.map((each) => each.configuredAs);
 
     expect(same?.parts.model).toBeNull();
     expect(changed?.parts.model).toBe('dev-large');
@@ -574,10 +589,11 @@ describe('DispatchReplay', () => {
       },
     ]);
     expect(written(queued[0]).briefing).toContain('Queues drain oldest first.');
-    expect(queued[0]?.briefedWith.value).toEqual({
+    expect(trials[0]?.briefedMemories.value).toEqual({
       briefed: [{ id: 'memory_1', handle: 'M-1' }],
       omitted: [{ id: 'memory_2', handle: 'M-2' }],
     });
+    expect(trials[0]?.pullEvents()).toEqual([]);
   });
 
   it('rejects a run there is no record of', async () => {

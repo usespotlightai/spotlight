@@ -2,7 +2,12 @@ import { basename } from 'node:path';
 import ts from 'typescript';
 import { tableNamed } from './drizzle-tables';
 import type { Violation } from './known-violations';
-import { type SourceFile, sourceFiles } from './source-index';
+import {
+  descendants,
+  importsOf,
+  type SourceFile,
+  sourceFiles,
+} from './source-index';
 
 const AGGREGATE_TABLES: Readonly<Record<string, string>> = {
   'replays/candidate': 'replay_candidate',
@@ -93,3 +98,75 @@ export const aggregateVersionViolations = (): Violation[] =>
 
     return [...member, ...column];
   });
+
+const AGGREGATE_FILE =
+  /^contexts\/[^/]+\/domain\/aggregates\/[^/]+\.aggregate$/;
+const PERSISTING_METHODS: ReadonlySet<string> = new Set([
+  'add',
+  'delete',
+  'remove',
+  'save',
+  'saveAll',
+  'store',
+]);
+
+const persistedTypesIn = (file: SourceFile): Violation[] => {
+  const imported = new Map(
+    importsOf(file).map((each) => [each.local, each.target] as const),
+  );
+
+  return descendants(file.tree, ts.isMethodSignature)
+    .filter(
+      (method) =>
+        ts.isIdentifier(method.name) &&
+        PERSISTING_METHODS.has(method.name.text),
+    )
+    .flatMap((method) =>
+      method.parameters.flatMap((parameter) =>
+        parameter.type
+          ? descendants(parameter.type, ts.isTypeReferenceNode).flatMap(
+              (reference) => {
+                const name = reference.typeName.getText();
+                const target = imported.get(name);
+
+                return target &&
+                  /\/domain\//.test(target) &&
+                  !AGGREGATE_FILE.test(target)
+                  ? [
+                      {
+                        key: `${target}: ${name} is stored by a repository outside domain/aggregates`,
+                        at: file.path,
+                      },
+                    ]
+                  : [];
+              },
+            )
+          : [],
+      ),
+    );
+};
+
+const recordersOutsideAggregates = (file: SourceFile): Violation[] =>
+  AGGREGATE_FILE.test(file.path.replace(/\.ts$/, ''))
+    ? []
+    : descendants(file.tree, ts.isClassDeclaration)
+        .filter((declaration) =>
+          (declaration.heritageClauses ?? []).some(
+            (clause) =>
+              clause.token === ts.SyntaxKind.ExtendsKeyword &&
+              clause.types.some(
+                (type) => type.expression.getText() === 'EventRecorder',
+              ),
+          ),
+        )
+        .map((declaration) => ({
+          key: `${file.path.replace(/\.ts$/, '')}: ${declaration.name?.text ?? 'a class'} records events outside domain/aggregates`,
+          at: file.path,
+        }));
+
+export const misplacedAggregateViolations = (): Violation[] => [
+  ...sourceFiles('contexts')
+    .filter((file) => /\/domain\/repositories\//.test(file.path))
+    .flatMap(persistedTypesIn),
+  ...sourceFiles('contexts').flatMap(recordersOutsideAggregates),
+];

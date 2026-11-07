@@ -125,15 +125,13 @@ export const createTeam = async (
     .insert(schema.workspaceMember)
     .values({ workspaceId, userId: owner, role: 'owner' });
 
-  await db
-    .insert(schema.team)
-    .values({
-      id: teamId,
-      workspaceId,
-      key: slug,
-      name: slug,
-      origin: 'configuration',
-    });
+  await db.insert(schema.team).values({
+    id: teamId,
+    workspaceId,
+    key: slug,
+    name: slug,
+    origin: 'configuration',
+  });
 
   await db
     .insert(schema.teamMember)
@@ -169,15 +167,13 @@ export const seatTeam = async (db: DrizzleDatabase, id: string) => {
     { workspaceId: id, userId: owner, role: 'owner' },
     { workspaceId: id, userId: member, role: 'member' },
   ]);
-  await db
-    .insert(schema.team)
-    .values({
-      id,
-      workspaceId: id,
-      key: 'team',
-      name: id,
-      origin: 'configuration',
-    });
+  await db.insert(schema.team).values({
+    id,
+    workspaceId: id,
+    key: 'team',
+    name: id,
+    origin: 'configuration',
+  });
   await db.insert(schema.teamMember).values([
     { workspaceId: id, teamId: id, userId: owner },
     { workspaceId: id, teamId: id, userId: member },

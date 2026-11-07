@@ -66,7 +66,7 @@ export class RecordLineChange {
       set.station.stationId,
     );
     const oracles = (await this.replays.ofSet(set.id)).filter(
-      (each) => each.isOracle && each.isDispatching && !each.stoppedAt,
+      (each) => each.isOracle && each.isStoppable,
     );
     const candidates = await this.candidates.findMany(
       oracles.map((each) => each.candidateId),
@@ -91,7 +91,7 @@ export class RecordLineChange {
 
       const oracle = await this.replays.find(oracleId);
 
-      if (oracle?.isDispatching && !oracle.stoppedAt) {
+      if (oracle?.isStoppable) {
         await this.replays.save(
           oracle.stop(
             this.clock.now(),

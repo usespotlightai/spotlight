@@ -3,7 +3,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReplayPairingRequested implements DomainEvent {
-  readonly kind = 'replays.replay-pairing-requested';
+  readonly kind = 'replay.pairing-requested';
 
   constructor(
     readonly replayId: ReplayId,

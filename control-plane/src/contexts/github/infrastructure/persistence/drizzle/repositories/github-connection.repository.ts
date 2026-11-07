@@ -89,7 +89,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
       )
       .returning({ workspaceId: githubConnection.workspaceId });
 
-    if (removed.length === 0 && connection.version > 0) {
+    if (removed.length === 0 && connection.isStored) {
       throw new GitHubConnectionVersionConflictError();
     }
   }
@@ -98,22 +98,30 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
     connection: GitHubConnection,
     installation: GitHubInstallation,
   ): Promise<void> {
-    const next = connection.version + 1;
-
     try {
-      const written = await this.context.db
-        .insert(githubConnection)
-        .values({
-          workspaceId: connection.workspaceId.value,
-          installationId: installation.value,
-          version: next,
-        })
-        .onConflictDoUpdate({
-          target: githubConnection.workspaceId,
-          set: { installationId: installation.value, version: next },
-          setWhere: eq(githubConnection.version, connection.version),
-        })
-        .returning({ workspaceId: githubConnection.workspaceId });
+      const written = connection.isStored
+        ? await this.context.db
+            .update(githubConnection)
+            .set({
+              installationId: installation.value,
+              version: connection.version + 1,
+            })
+            .where(
+              and(
+                eq(githubConnection.workspaceId, connection.workspaceId.value),
+                eq(githubConnection.version, connection.version),
+              ),
+            )
+            .returning({ workspaceId: githubConnection.workspaceId })
+        : await this.context.db
+            .insert(githubConnection)
+            .values({
+              workspaceId: connection.workspaceId.value,
+              installationId: installation.value,
+              version: connection.version,
+            })
+            .onConflictDoNothing({ target: githubConnection.workspaceId })
+            .returning({ workspaceId: githubConnection.workspaceId });
 
       if (written.length === 0) {
         throw new GitHubConnectionVersionConflictError();

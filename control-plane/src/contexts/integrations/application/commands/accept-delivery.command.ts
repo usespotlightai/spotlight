@@ -1,6 +1,6 @@
 import type { Delivered } from '@integrations/application/ports/webhook-provider.port';
 
-export interface TeamAddress {
+export interface DeliveryAddress {
   readonly slug: string;
   readonly teamKey: string;
 }
@@ -8,7 +8,7 @@ export interface TeamAddress {
 export class AcceptDeliveryCommand {
   constructor(
     readonly integration: string,
-    readonly addressedTo: TeamAddress | null,
+    readonly addressedTo: DeliveryAddress | null,
     readonly delivered: Delivered,
     readonly causeFiringId: string | null,
   ) {}

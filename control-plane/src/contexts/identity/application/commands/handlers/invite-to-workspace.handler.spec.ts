@@ -1,8 +1,5 @@
 import { InviteToWorkspaceHandler } from '@identity/application/commands/handlers/invite-to-workspace.handler';
-import {
-  InviteToWorkspaceCommand,
-  inviteesOf,
-} from '@identity/application/commands/invite-to-workspace.command';
+import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
 import type { InviteOutcomeDto } from '@identity/application/dto/invite.dto';
 import type {
   InviteMailPort,
@@ -160,27 +157,17 @@ const asked = async (
   handler: InviteToWorkspaceHandler,
   request: ReturnType<typeof invite>,
 ) => {
-  const outcomes: InviteOutcomeDto[] = [];
+  const outcomes = await handler.execute(
+    new InviteToWorkspaceCommand(
+      'acme',
+      request.emails,
+      request.role,
+      request.teamIds,
+      request.viewer,
+    ),
+  );
 
-  for (const email of inviteesOf(request.emails)) {
-    const outcome = await handler.execute(
-      new InviteToWorkspaceCommand(
-        'acme',
-        email,
-        request.role,
-        request.teamIds,
-        request.viewer,
-      ),
-    );
-
-    if (!outcome) {
-      return null;
-    }
-
-    outcomes.push(outcome);
-  }
-
-  return { outcomes };
+  return outcomes ? { outcomes } : null;
 };
 
 describe('InviteToWorkspaceHandler', () => {

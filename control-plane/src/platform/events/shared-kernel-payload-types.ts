@@ -1,5 +1,4 @@
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -96,7 +95,6 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   PoolId,
   RunnerReservation,
   Retry,
-  CausalChain,
   Effort,
   Happening,
   LineKey,

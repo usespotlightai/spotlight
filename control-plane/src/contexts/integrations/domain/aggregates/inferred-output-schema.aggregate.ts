@@ -2,7 +2,7 @@ import type { IntegrationKey } from '@integrations/domain/value-objects/integrat
 import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { JsonValue } from '@shared-kernel/domain/services/json-value';
+import type { JsonValue } from '@shared-kernel/domain/json-value';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 interface State {

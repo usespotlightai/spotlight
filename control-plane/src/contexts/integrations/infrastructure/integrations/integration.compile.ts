@@ -49,13 +49,13 @@ import {
 import {
   type ActionFile,
   type AuthFile,
+  apiSpecsOf,
   type EventFile,
   type GraphQlFile,
   type IntegrationFile,
   integrationSchema,
   isExpression,
   type McpFile,
-  ON_EVENTS,
   type OpenApiFile,
   type RaiseFile,
   type RequestFile,
@@ -82,6 +82,8 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { BINDABLE_CHAT_EVENTS } from '@work/application/contracts/bindable-chat-events.contract';
+import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 
 interface Freshness {
   readonly at: Expression;
@@ -293,10 +295,12 @@ export type Compiled =
       readonly skipped: readonly string[];
       readonly warnings: readonly ConfigurationProblem[];
       readonly places: ReadonlyMap<string, Place>;
+      readonly secretReferences: readonly SecretReferenceAt[];
     }
   | {
       readonly ok: false;
       readonly problems: readonly ConfigurationProblem[];
+      readonly secretReferences: readonly SecretReferenceAt[];
     };
 
 const reasoned = (error: unknown): string =>
@@ -331,10 +335,15 @@ const doubted = (error: ExpressionErrorDto): string =>
     ? `does not check: ${error.message}. Did you mean ${error.suggestion}?`
     : `does not check: ${error.message}`;
 
+export interface SecretReferenceAt {
+  readonly path: FieldPath;
+  readonly name: string;
+}
+
 class Compiler {
   readonly problems: ConfigurationProblem[] = [];
   readonly warnings: ConfigurationProblem[] = [];
-  readonly secrets = new Set<string>();
+  readonly secretReferences: SecretReferenceAt[] = [];
   readonly places = new Map<string, Place>();
   private readonly warned = new Set<string>();
 
@@ -343,6 +352,17 @@ class Compiler {
     private readonly path: string,
     private readonly hinting: boolean,
   ) {}
+
+  get secrets(): readonly string[] {
+    return [...new Set(this.secretReferences.map((each) => each.name))];
+  }
+
+  referenced(reference: string, path: FieldPath): string {
+    const name = secretOf(reference);
+    this.secretReferences.push({ path, name });
+
+    return name;
+  }
 
   part<T>(at: FieldPath, build: () => T): T | null {
     try {
@@ -538,12 +558,15 @@ class Compiler {
 
   auth(auth: AuthFile, place: Place): AuthIR {
     if (auth.hmac) {
-      this.secrets.add(secretOf(auth.hmac.secret));
+      const secret = this.referenced(
+        auth.hmac.secret,
+        place.field.to('hmac', 'secret'),
+      );
 
       return {
         kind: 'hmac',
         algorithm: auth.hmac.algorithm,
-        secret: secretOf(auth.hmac.secret),
+        secret,
         signed: auth.hmac.signed
           ? this.expression(auth.hmac.signed, place.to('hmac.signed'))
           : null,
@@ -558,21 +581,26 @@ class Compiler {
     }
 
     if (auth.token) {
-      this.secrets.add(secretOf(auth.token.secret));
+      const secret = this.referenced(
+        auth.token.secret,
+        place.field.to('token', 'secret'),
+      );
 
       return {
         kind: 'token',
-        secret: secretOf(auth.token.secret),
+        secret,
         header: auth.token.header ?? null,
       };
     }
 
     if (auth.secrets) {
-      const secrets = [...new Set(auth.secrets.map(secretOf))];
-
-      for (const name of secrets) {
-        this.secrets.add(name);
-      }
+      const secrets = [
+        ...new Set(
+          auth.secrets.map((each, at) =>
+            this.referenced(each, place.field.to('secrets', at)),
+          ),
+        ),
+      ];
 
       return { kind: 'secrets', secrets };
     }
@@ -969,6 +997,7 @@ export const compileIntegration = (
           reason: issue.message,
         }),
       ),
+      secretReferences: [],
     };
   }
 
@@ -1147,11 +1176,12 @@ export const compileIntegration = (
           : null,
         manual: file.connection.manual
           ? {
-              secrets: file.connection.manual.secrets.map((each) => {
-                const name = secretOf(each);
-                compiler.secrets.add(name);
-                return name;
-              }),
+              secrets: file.connection.manual.secrets.map((each, at) =>
+                compiler.referenced(
+                  each,
+                  FieldPath.of(['connection', 'manual', 'secrets', at]),
+                ),
+              ),
             }
           : null,
       }
@@ -1201,9 +1231,7 @@ export const compileIntegration = (
           defined?.forSchedule(written.action, 'schedule'),
         );
 
-        return cron && action
-          ? Schedule.of({ cron, action: action.name })
-          : null;
+        return cron && action ? Schedule.of({ cron, action }) : null;
       })()
     : null;
 
@@ -1212,11 +1240,22 @@ export const compileIntegration = (
     listed.map((binding, at) => {
       const place = root.to('on').each(event).each(at);
       const bound = compiler.part(FieldPath.of(['on', event, at]), () =>
-        Binding.of({ event, action: binding.action, known: ON_EVENTS }),
+        Binding.of({
+          event,
+          action: binding.action,
+          known: { task: BINDABLE_TASK_EVENTS, chat: BINDABLE_CHAT_EVENTS },
+        }),
       );
       const action = compiler.part(
         FieldPath.of(['on', event, at, 'action']),
-        () => defined?.forBinding(binding.action, event, `binding on ${event}`),
+        () =>
+          bound
+            ? defined?.forBinding(
+                binding.action,
+                bound.about,
+                `binding on ${event}`,
+              )
+            : null,
       );
 
       if (bound && action) {
@@ -1310,6 +1349,7 @@ export const compileIntegration = (
     return {
       ok: false,
       problems: [...compiler.problems, ...compiler.warnings],
+      secretReferences: compiler.secretReferences,
     };
   }
 
@@ -1329,10 +1369,14 @@ export const compileIntegration = (
       schedule,
       actions: defined,
       bindings,
-      requiresConnection:
-        connection?.oauth2 !== null && connection?.oauth2 !== undefined,
+      connectsOver: connection?.oauth2
+        ? 'oauth2'
+        : connection
+          ? 'secrets'
+          : null,
       actsAs: connection?.actsAs,
-      credentials: [...compiler.secrets].map((name) => SecretName.of(name)),
+      apiSpecs: apiSpecsOf(file),
+      credentials: compiler.secrets.map((name) => SecretName.of(name)),
       tools: [...providedTools.filter(isPresent), ...(generation?.tools ?? [])],
     });
 
@@ -1353,6 +1397,7 @@ export const compileIntegration = (
       skipped: generation?.skipped ?? [],
       warnings: compiler.warnings,
       places: compiler.places,
+      secretReferences: compiler.secretReferences,
     };
   } catch (error) {
     return {
@@ -1365,6 +1410,7 @@ export const compileIntegration = (
         }),
         ...compiler.warnings,
       ],
+      secretReferences: compiler.secretReferences,
     };
   }
 };

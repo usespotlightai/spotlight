@@ -10,6 +10,8 @@ import { WebhookProviders } from '@integrations/application/services/webhook-pro
 import type { InboundDelivery } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import type { InboundDeliveryRepository } from '@integrations/domain/repositories/inbound-delivery.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -36,7 +38,9 @@ const provider = (
 
 const workspaces = {
   identifyTeam: async (_slug: string, teamKey: string) =>
-    teamKey === 'platform' ? { workspaceId: 'ws_1', teamId: 'team_1' } : null,
+    teamKey === 'platform'
+      ? { workspaceId: WorkspaceId.of('ws_1'), teamId: TeamId.of('team_1') }
+      : null,
 } as unknown as WorkspaceReaderPort;
 
 const accepting = (
@@ -123,8 +127,16 @@ describe('AcceptDeliveryHandler', () => {
     expect(taken[0]?.id).toBe('d_1');
     expect(taken[0]?.headers).toEqual({ 'x-delivery': 'd_1' });
     expect(taken[0]?.body).toEqual({ action: 'closed' });
-    expect(taken[0]?.causeFiringId).toBe('firing_1');
+    expect(taken[0]?.causeFiringId?.value).toBe('firing_1');
     expect(taken[0]?.progress).toEqual({ kind: 'pending', dueAt: NOW });
+  });
+
+  it('stores no cause for a blank cause header', async () => {
+    const { handler, taken } = accepting();
+
+    await handler.execute(accept('github', { cause: '  ' }));
+
+    expect(taken[0]?.causeFiringId).toBeNull();
   });
 
   it('offers the same delivery to the store under one name', async () => {
@@ -173,8 +185,8 @@ describe('AcceptDeliveryHandler', () => {
     );
 
     expect(taken[0]?.to).toEqual({
-      workspaceId: 'ws_1',
-      teamId: 'team_1',
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
       teamKey: 'platform',
     });
   });

@@ -1,3 +1,4 @@
+import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { HookCallsPort } from '@integrations/application/ports/hook-calls.port';
 import type {
@@ -14,25 +15,27 @@ import type {
 import type {
   CallAttempt,
   IntegrationRuntimePort,
-  IntegrationTaskView,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { InvalidToolInputsError } from '@integrations/domain/exceptions/invalid-tool-inputs.error';
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import {
+  type WaitingHookStep,
+  waitExpiredAt,
+} from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { ToolInputs } from '@integrations/domain/value-objects/tool-inputs.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { ToolInputValues } from '@work/application/contracts/tools.contract';
 
 type CallStep = Extract<WrittenStep, { kind: 'call' }>;
 
 type RequestStep = Extract<WrittenStep, { kind: 'request' }>;
 
 type Called =
-  | { readonly inputs: ToolInputValues; readonly failure: HookFailure }
-  | { readonly inputs: ToolInputValues; readonly attempt: CallAttempt };
+  | { readonly inputs: ToolCallInputs; readonly failure: HookFailure }
+  | { readonly inputs: ToolCallInputs; readonly attempt: CallAttempt };
 
 const failedAt = (name: string, failure: HookFailure): StepResult => ({
   outcome: {
@@ -44,22 +47,6 @@ const failedAt = (name: string, failure: HookFailure): StepResult => ({
   },
   denyReason: null,
   trace: null,
-});
-
-const integrationTaskView = (
-  instance: HookEventInstance,
-): IntegrationTaskView => ({
-  taskId: instance.task.taskId.value,
-  workspaceId: instance.task.workspaceId.value,
-  teamId: instance.task.teamId.value,
-  title: instance.task.title,
-  url: instance.task.url,
-  pullRequest: instance.task.pullRequest,
-  line: instance.task.line,
-  station: instance.task.station,
-  stationKey: instance.task.stationKey.value,
-  marks: instance.task.marks,
-  waiting: null,
 });
 
 const failureOf = (attempt: CallAttempt, hook: Hook): HookFailure | null => {
@@ -92,17 +79,15 @@ export class HookSteps {
       return failedAt(request.step, HookFailure.ofBrokenHook());
     }
 
-    if (!hook.steps.some((each) => each.name === request.step)) {
-      return failedAt(request.step, HookFailure.noLongerAStep());
-    }
-
     const now = this.clock.now();
+    const unstartable = hook.startFailure(request.step, {
+      deadline: request.deadline,
+      now,
+      resuming: request.resuming !== null,
+    });
 
-    if (request.resuming === null && now >= request.deadline) {
-      return failedAt(
-        request.step,
-        HookFailure.notStartedWithin(hook.timeoutSeconds),
-      );
+    if (unstartable) {
+      return failedAt(request.step, unstartable);
     }
 
     const step = this.runtime.written(
@@ -165,8 +150,8 @@ export class HookSteps {
       return this.requests.notSent(sending, denial, now);
     }
 
-    if (request.resuming?.status === 'waiting') {
-      return this.requests.resumed(sending, request.resuming, now);
+    if (request.resuming) {
+      return this.resumed(sending, request.resuming, now);
     }
 
     const { instance } = request;
@@ -178,6 +163,22 @@ export class HookSteps {
     });
 
     return this.requests.sent(sending, callback, now);
+  }
+
+  private async resumed(
+    sending: HookRequest,
+    waiting: WaitingHookStep,
+    now: Date,
+  ): Promise<StepResult> {
+    const answered = await this.requests.resumed(sending, waiting, now);
+
+    if (answered) {
+      return answered;
+    }
+
+    return waitExpiredAt(waiting, now)
+      ? this.requests.unanswered(sending, now)
+      : { outcome: waiting, denyReason: null, trace: null };
   }
 
   private async called(
@@ -231,7 +232,7 @@ export class HookSteps {
     const resolved = await this.integrations.tool(
       await this.defined.ofTeam(task.teamId),
       step.tool.value,
-      integrationTaskView(request.instance),
+      request.instance.task,
     );
     const denial = hook.callDenial(
       step.tool,

@@ -6,13 +6,13 @@ import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
+import type { LeasedAttempt } from '@work/application/ports/run-leases.port';
 import type { PersonRule } from '@work/domain/services/stricter-rule';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type {
   DeclaredTool,
   ToolInput,
 } from '@work/domain/value-objects/declared-tool.vo';
-import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import type { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
@@ -51,7 +51,7 @@ export interface IntegrationToolsPort {
   resolve(
     tool: Tool,
     context: ToolContext,
-    attempt: RunAttempt,
+    attempt: LeasedAttempt,
     runnerId: string,
   ): Promise<ResolvedTool | null>;
 }

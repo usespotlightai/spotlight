@@ -1,3 +1,4 @@
+import { causationInMemory } from '@integrations/application/ports/causation.fake-spec';
 import type { ListeningHook } from '@integrations/application/ports/hook-runtime.port';
 import {
   brokenHook,
@@ -11,13 +12,16 @@ import {
   TASK,
 } from '@integrations/application/services/hook-firings.fake-spec';
 import { QueueHookFirings } from '@integrations/application/services/queue-hook-firings.service';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
-import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
+import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const setUp = (
@@ -55,13 +59,14 @@ describe('QueueHookFirings', () => {
     ]);
 
     await expect(
-      queueing.queue({
-        on: 'tool.used',
-        occurrence: 'occurrence_1',
-        change: 'grafana.search',
-        task: TASK,
-        event: EVENT,
-      }),
+      queueing.queue(
+        TASK,
+        HookOccurrence.toolUsed(
+          Tool.of('grafana.search'),
+          'occurrence_1',
+          EVENT,
+        ),
+      ),
     ).resolves.toBe(2);
 
     const [fired] = vi.mocked(firings.add).mock.calls[0] ?? [];
@@ -74,7 +79,7 @@ describe('QueueHookFirings', () => {
       matched: true,
       link: {
         kind: 'hook',
-        key: 'hook:a_id:tool.used:task_1:grafana.search',
+        key: 'hook:a_id:tool.used:task_1:grafana.search occurrence_1',
         description: 'the hook a',
       },
       progress: { kind: 'pending', dueAt: NOW },
@@ -93,13 +98,14 @@ describe('QueueHookFirings', () => {
     });
 
     await causation.runWith(delivered, () =>
-      queueing.queue({
-        on: 'task.moved',
-        occurrence: 'moved_1',
-        change: 'triage → build',
-        task: TASK,
-        event: { from: 'triage', to: 'build' },
-      }),
+      queueing.queue(
+        TASK,
+        HookOccurrence.taskMoved(TASK.taskId, {
+          from: 'triage',
+          to: 'build',
+          at: 'moved_1',
+        }),
+      ),
     );
 
     const [fired] = vi.mocked(firings.add).mock.calls[0] ?? [];
@@ -114,16 +120,14 @@ describe('QueueHookFirings', () => {
       [hookNamed('a', ['x'], { on: 'task.moved' })],
       () => false,
     );
-    const happened = {
-      on: 'task.moved' as const,
-      occurrence: 'moved_1',
-      change: 'triage → build',
-      task: TASK,
-      event: {},
-    };
+    const happened = HookOccurrence.taskMoved(TASK.taskId, {
+      from: 'triage',
+      to: 'build',
+      at: 'moved_1',
+    });
 
-    await expect(broken.queueing.queue(happened)).resolves.toBe(0);
-    await expect(unmatched.queueing.queue(happened)).resolves.toBe(0);
+    await expect(broken.queueing.queue(TASK, happened)).resolves.toBe(0);
+    await expect(unmatched.queueing.queue(TASK, happened)).resolves.toBe(0);
     expect(unmatched.firings.add).not.toHaveBeenCalled();
   });
 
@@ -134,14 +138,14 @@ describe('QueueHookFirings', () => {
     );
 
     await expect(
-      queueing.queue({
-        on: 'pull-request.merged',
-        occurrence: 'merged_1',
-        change: 'https://github.com/acme/api/pull/7',
-        task: TASK,
-        event: { url: 'https://github.com/acme/api/pull/7' },
-        matchedLater: true,
-      }),
+      queueing.queue(
+        TASK,
+        HookOccurrence.pullRequestMerged(
+          PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+          Repository.of('acme/api'),
+          'abc123',
+        ),
+      ),
     ).resolves.toBe(1);
     expect(runtime.whenHolds).not.toHaveBeenCalled();
     expect(vi.mocked(firings.add).mock.calls[0]?.[0]?.matched).toBe(false);
@@ -154,13 +158,14 @@ describe('QueueHookFirings', () => {
     vi.mocked(firings.add).mockResolvedValueOnce(false);
 
     await expect(
-      queueing.queue({
-        on: 'task.moved',
-        occurrence: 'moved_1',
-        change: 'triage → build',
-        task: TASK,
-        event: {},
-      }),
+      queueing.queue(
+        TASK,
+        HookOccurrence.taskMoved(TASK.taskId, {
+          from: 'triage',
+          to: 'build',
+          at: 'moved_1',
+        }),
+      ),
     ).resolves.toBe(0);
     expect(telemetry.counted).toEqual([]);
   });

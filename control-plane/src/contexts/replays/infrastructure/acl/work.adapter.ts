@@ -25,6 +25,7 @@ import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
@@ -56,13 +57,49 @@ import type {
   Replayability,
   ReplayableRunsPort,
 } from '@work/application/ports/replayable-runs.port';
-import type { SearchDispatchPort } from '@work/application/ports/search-dispatch.port';
-import type { SearchRunsPort } from '@work/application/ports/search-runs.port';
+import type {
+  SearchAgentProblem,
+  SearchDispatchPort,
+  UnclaimedCancellation as WorkUnclaimedCancellation,
+} from '@work/application/ports/search-dispatch.port';
+import type {
+  SearchRunsPort,
+  SearchRunStatus as WorkSearchRunStatus,
+} from '@work/application/ports/search-runs.port';
 import type { StartingPointHoldsPort } from '@work/application/ports/starting-point-holds.port';
 
 const OBJECTIVE: Readonly<Record<SearchObjectiveView, SearchObjective>> = {
   success: 'success',
   cost: 'cost',
+};
+
+const AGENT_FIELD: Readonly<
+  Record<SearchAgentProblem['field'], AgentProblem['field']>
+> = {
+  harness: 'harness',
+  model: 'model',
+  effort: 'effort',
+};
+
+const RUN_PHASE: Readonly<
+  Record<WorkSearchRunStatus['phase'], SearchRunStatus['phase']>
+> = {
+  queued: 'queued',
+  running: 'running',
+  ended: 'ended',
+};
+
+const unclaimedOf = (
+  cancellation: WorkUnclaimedCancellation,
+): UnclaimedCancellation => {
+  switch (cancellation.outcome) {
+    case 'cancelled':
+      return { outcome: 'cancelled', started: cancellation.started };
+    case 'claimed':
+      return { outcome: 'claimed' };
+    case 'ended':
+      return { outcome: 'ended' };
+  }
 };
 
 const objectiveOf = (written: string | null): SearchObjective | null => {
@@ -121,7 +158,7 @@ const scoringOf = (scoring: ScoredBy): CandidateScoring =>
   CandidateScoring.of({
     checksChanges: scoring.checksChanges,
     judge: scoring.judge && JudgeCriteria.of(scoring.judge),
-    rubricVersion: scoring.rubricVersion,
+    rubricVersion: RubricVersion.optional(scoring.rubricVersion),
   });
 
 const ANSWERS: Record<OracleAnswer, ReplayAnswer> = {
@@ -312,11 +349,15 @@ export class Work implements WorkPort {
   }
 
   agentProblem(agent: SearchAgent): AgentProblem | null {
-    return this.searching.problemOf({
+    const problem = this.searching.problemOf({
       harness: agent.harness,
       model: agent.model,
       effort: agent.effort,
     });
+
+    return problem
+      ? { field: AGENT_FIELD[problem.field], reason: problem.reason }
+      : null;
   }
 
   async dispatchSearch(order: SearchRunOrder): Promise<SearchRunQueued> {
@@ -343,8 +384,8 @@ export class Work implements WorkPort {
     return this.searching.cancel(run.value);
   }
 
-  cancelUnclaimedSearchRun(run: RunId): Promise<UnclaimedCancellation> {
-    return this.searching.cancelUnclaimed(run.value);
+  async cancelUnclaimedSearchRun(run: RunId): Promise<UnclaimedCancellation> {
+    return unclaimedOf(await this.searching.cancelUnclaimed(run.value));
   }
 
   async leasedSearchRun(
@@ -368,7 +409,7 @@ export class Work implements WorkPort {
     return (await this.searchRuns.statuses(runs.map((each) => each.value))).map(
       (status) => ({
         run: RunId.of(status.runId),
-        phase: status.phase,
+        phase: RUN_PHASE[status.phase],
         failed: status.failed,
         started: status.started,
         queuedAt: status.queuedAt,

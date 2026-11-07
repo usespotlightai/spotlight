@@ -24,6 +24,7 @@ export type HookStep =
       readonly name: string;
       readonly kind: 'request';
       readonly url: URL | null;
+      readonly headers: readonly string[];
       readonly fromNetwork: boolean;
     };
 
@@ -42,12 +43,26 @@ export interface StepEnded {
   readonly failedBecause: string | null;
 }
 
+export type HookRequestOrigin = 'spotlight' | 'network';
+
 const DEFAULTS = {
   failure: 'continue',
   timeoutSeconds: 10,
-} as const satisfies Pick<HookFields, 'failure' | 'timeoutSeconds'>;
+  from: 'spotlight',
+} as const satisfies Pick<HookFields, 'failure' | 'timeoutSeconds'> & {
+  readonly from: HookRequestOrigin;
+};
 
 const STEP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+const SET_BY_SPOTLIGHT =
+  /^(webhook-|spotlight-|authorization$|content-type$|host$)/i;
+
+export const SET_BY_SPOTLIGHT_REASON =
+  'is a header Spotlight sets itself on every request, to sign it and say where it came from';
+
+export const isSetBySpotlight = (header: string): boolean =>
+  SET_BY_SPOTLIGHT.test(header);
 
 const SHORTEST_TIMEOUT = 1;
 
@@ -80,6 +95,17 @@ const guardStep = (step: HookStep, index: number): void => {
       at('steps', index, 'request', 'url'),
       'must be https unless sent from the team’s network',
     );
+  }
+
+  if (step.kind === 'request') {
+    const signed = step.headers.find(isSetBySpotlight);
+
+    if (signed !== undefined) {
+      throw new InvalidHookError(
+        at('steps', index, 'request', 'headers', signed),
+        SET_BY_SPOTLIGHT_REASON,
+      );
+    }
   }
 };
 
@@ -204,6 +230,23 @@ export class Hook {
     return this.fields.match.matches(task, event);
   }
 
+  startFailure(
+    step: string,
+    at: {
+      readonly deadline: Date;
+      readonly now: Date;
+      readonly resuming: boolean;
+    },
+  ): HookFailure | null {
+    if (!this.fields.steps.some((each) => each.name === step)) {
+      return HookFailure.noLongerAStep();
+    }
+
+    return !at.resuming && at.now.getTime() >= at.deadline.getTime()
+      ? HookFailure.notStartedWithin(this.fields.timeoutSeconds)
+      : null;
+  }
+
   deadlineFrom(now: Date, budget: Date | null): Date {
     const own = now.getTime() + this.fields.timeoutSeconds * 1000;
 
@@ -221,7 +264,7 @@ export class Hook {
     provided: ProvidedTool | null,
     actsAs: ActsAs | null,
   ): HookFailure | null {
-    if (provided === null || actsAs === null || provided.tool !== named.value) {
+    if (provided === null || actsAs === null || !provided.tool.equals(named)) {
       return HookFailure.of(
         'not-allowed',
         `names ${named.value}, which no integration of the team offers now`,

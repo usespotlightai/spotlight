@@ -1,17 +1,14 @@
-import {
-  MAX_DELIVERY_ATTEMPTS,
-  nextDeliveryAttempt,
-} from '@integrations/domain/services/delivery-retry';
+import { DELIVERING } from '@integrations/domain/services/delivery-retry';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
 
-describe('nextDeliveryAttempt', () => {
+describe('DELIVERING', () => {
   it('waits longer after each failed attempt', () => {
-    expect(nextDeliveryAttempt(1, NOW)).toEqual(
+    expect(DELIVERING.nextAttemptAt(1, NOW)).toEqual(
       new Date(NOW.getTime() + 2_000),
     );
-    expect(nextDeliveryAttempt(3, NOW)).toEqual(
+    expect(DELIVERING.nextAttemptAt(3, NOW)).toEqual(
       new Date(NOW.getTime() + 8_000),
     );
   });
@@ -20,11 +17,11 @@ describe('nextDeliveryAttempt', () => {
     const inner = new Date(NOW.getTime() + 60 * 60 * 1000);
 
     expect(
-      nextDeliveryAttempt(MAX_DELIVERY_ATTEMPTS - 1, NOW)?.getTime(),
+      DELIVERING.nextAttemptAt(DELIVERING.maxAttempts - 1, NOW)?.getTime(),
     ).toBeLessThanOrEqual(inner.getTime());
   });
 
   it('schedules no next attempt once the delivery has had its attempts', () => {
-    expect(nextDeliveryAttempt(MAX_DELIVERY_ATTEMPTS, NOW)).toBeNull();
+    expect(DELIVERING.nextAttemptAt(DELIVERING.maxAttempts, NOW)).toBeNull();
   });
 });

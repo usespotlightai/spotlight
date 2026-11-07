@@ -1,7 +1,9 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+
 export const REPLAY_RECHECKS = Symbol('REPLAY_RECHECKS');
 
 export interface ReplayRechecksPort {
-  recheckable(runId: string): Promise<readonly string[]>;
+  recheckable(runId: RunId): Promise<readonly string[]>;
 
-  recheck(runId: string, stackId: string): Promise<void>;
+  recheck(runId: RunId, stackId: string): Promise<void>;
 }

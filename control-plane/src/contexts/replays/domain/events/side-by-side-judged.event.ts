@@ -5,7 +5,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class SideBySideJudged implements DomainEvent {
-  readonly kind = 'replays.side-by-side-judging-judged';
+  readonly kind = 'side-by-side-judging.judged';
 
   constructor(
     readonly runId: RunId,

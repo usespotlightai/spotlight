@@ -19,7 +19,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
-import { RunWorks } from '@work/application/services/run-works.service';
+import { runWorksOver } from '@work/application/services/run-works.fake-spec';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -35,28 +35,10 @@ import {
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
-
-const REPLAYED_AS = StationConfig.rehydrate(
-  {
-    prompt: null,
-    harness: 'dev',
-    model: null,
-    effort: null,
-    profile: null,
-    image: null,
-    repositories: [],
-    skills: [],
-    tools: [],
-    decisions: false,
-    memories: false,
-  },
-  'f'.repeat(64),
-);
 
 const NOW = new Date('2026-08-30T09:00:00.000Z');
 
@@ -172,7 +154,6 @@ const enqueued = (
     harness: HarnessId.of('dev'),
     subject,
     spec: specFor(subject),
-    configuredAs: subject.isReplay ? REPLAYED_AS : null,
   });
 
 const claimedBy = (runner: string, subject?: RunSubject) =>
@@ -189,7 +170,7 @@ const carrying = (
   };
 
   const service = new CarryGitCall(
-    new RunWorks(
+    runWorksOver(
       { findById: vi.fn(async () => run) } as unknown as RunRepository,
       { find: vi.fn(async () => existing) } as unknown as TaskRepository,
       { find: vi.fn(async () => chat()) } as unknown as ChatRepository,

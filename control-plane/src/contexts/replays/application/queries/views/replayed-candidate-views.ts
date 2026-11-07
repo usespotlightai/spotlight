@@ -15,19 +15,19 @@ import {
   healthView,
   intervalView,
 } from '@replays/application/queries/views/replay-views';
+import {
+  chartCurrencyOf,
+  chartStatusOf,
+} from '@replays/application/queries/views/replayed-chart';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import { baselineOf } from '@replays/domain/services/baseline';
+import { servingBaselineOf } from '@replays/domain/services/baseline';
 import { frontierOf } from '@replays/domain/services/frontier';
 import { gainBetween } from '@replays/domain/services/gain-estimate';
 import { taskComparisons } from '@replays/domain/services/replay-results';
-import {
-  chartCurrencyOf,
-  chartStatusOf,
-} from '@replays/domain/services/replayed-chart';
 import { scoredOn, scoresOf } from '@replays/domain/services/search-scores';
 import type { SetHealth } from '@replays/domain/services/set-health';
 import {
@@ -391,7 +391,9 @@ export const replayedCandidatesView = (
   const baselines = new Map(
     seen.sets.map((set) => [
       set.id.value,
-      baselineOf(seen.baselines.filter((each) => each.setId.equals(set.id))),
+      servingBaselineOf(
+        seen.baselines.filter((each) => each.setId.equals(set.id)),
+      ),
     ]),
   );
   const baselineAt = (setId: string) => baselines.get(setId) ?? null;

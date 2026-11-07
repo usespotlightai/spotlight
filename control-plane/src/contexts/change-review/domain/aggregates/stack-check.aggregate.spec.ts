@@ -40,6 +40,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -111,6 +112,7 @@ const stack = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    teamOfRun: TeamId.of('team_1'),
     replay: false,
     isSearch: false,
     workspaceId: WorkspaceId.of('workspace-1'),
@@ -135,6 +137,7 @@ const waiting = () => {
     stackId: ready.id,
     runId: ready.runId,
     taskId: null,
+    teamId: null,
     replay: false,
     workspaceId: ready.workspaceId,
     request: CheckRequest.of('npx tsc --noEmit', null),
@@ -176,6 +179,7 @@ const rehydrated = ({
     id: StackCheckId.of(ChangeStackId.of('stack-1'), recheck),
     runId: RunId.of('run-1'),
     taskId: null,
+    teamId: null,
     replay: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     request: CheckRequest.of('npx tsc --noEmit', null),
@@ -213,6 +217,7 @@ describe('StackCheck', () => {
           id: ChangeStackId.of('stack-2'),
           runId: RunId.of('run-1'),
           taskId: null,
+          teamOfRun: TeamId.of('team_1'),
           replay: false,
           isSearch: false,
           workspaceId: WorkspaceId.of('workspace-1'),
@@ -238,6 +243,7 @@ describe('StackCheck', () => {
           id: ChangeStackId.of('stack-2'),
           runId: RunId.of('run-1'),
           taskId: null,
+          teamOfRun: TeamId.of('team_1'),
           replay: false,
           isSearch: false,
           workspaceId: WorkspaceId.of('workspace-1'),
@@ -481,6 +487,7 @@ describe('StackCheck', () => {
         stackId: ChangeStackId.of('stack-1'),
         runId: RunId.of('run-1'),
         taskId: null,
+        teamId: null,
         replay: false,
         workspaceId: WorkspaceId.of('workspace-1'),
         request: CheckRequest.of(
@@ -1135,6 +1142,7 @@ describe('StackCheck, rechecked', () => {
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
+      teamId: null,
       replay: true,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),

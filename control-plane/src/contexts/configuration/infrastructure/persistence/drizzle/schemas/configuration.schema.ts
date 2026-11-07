@@ -1,7 +1,6 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
-  type AnyPgColumn,
   check,
   integer,
   jsonb,
@@ -71,9 +70,6 @@ export const terraformState = pgTable(
     workspaceId: text('workspace_id').notNull(),
     name: text('name').notNull(),
     lock: jsonb('lock').$type<StateLockRow>(),
-    latestVersionId: text('latest_version_id').references(
-      (): AnyPgColumn => terraformStateVersion.id,
-    ),
     version: integer('version').notNull().default(1),
     updatedAt: timestamptz('updated_at')
       .defaultNow()

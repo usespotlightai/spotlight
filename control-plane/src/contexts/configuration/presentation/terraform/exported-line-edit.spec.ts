@@ -2,6 +2,7 @@ import { STATION_SOURCE_FIELDS } from '@configuration/application/ports/station-
 import { HclStationSourceEdits } from '@configuration/infrastructure/terraform/hcl-station-source-edits';
 import { CONFIGURATION } from '@configuration/presentation/terraform/exportable-configuration.fake-spec';
 import { workspaceTerraform } from '@configuration/presentation/terraform/terraform-configuration';
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
 import {
   formattedByTerraform,
   TERRAFORM_INSTALLED,
@@ -24,7 +25,12 @@ const LINE = EXPORTED.find(
 
 const PROMPT = `${ROOT}/prompts/core/delivery/implementation.md`;
 
-const SEED: Readonly<Record<string, unknown>> = {
+const SEED: LineDefinitionStation = {
+  key: 'implementation',
+  name: 'Implementation',
+  kind: 'work',
+  alerts: [],
+  ends: false,
   harness: 'claude-code',
   profile: 'careful',
   prompt: 'Implement the task.\n\n',
@@ -41,7 +47,7 @@ const SEED: Readonly<Record<string, unknown>> = {
   },
 };
 
-const editedTo = (now: Readonly<Record<string, unknown>>) =>
+const editedTo = (now: Partial<LineDefinitionStation>) =>
   new HclStationSourceEdits().edited({
     file: LINE,
     teamKey: 'core',

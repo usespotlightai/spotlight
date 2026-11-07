@@ -5,6 +5,8 @@ import {
   timingSafeEqual,
   verify as verifySignature,
 } from 'node:crypto';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
 import type {
   Credentials,
   SigningSecrets,
@@ -35,8 +37,6 @@ import {
 } from '@platform/expressions/cel-variables';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
-import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 
@@ -371,10 +371,7 @@ export class WebhookRuntime implements WebhookProviderPort {
 
   private async onBehalfOf<T>(work: () => Promise<T>): Promise<T> {
     if (!(await this.limits.take(this.workspaceId.value))) {
-      throw new UpstreamError(
-        'calling a service',
-        `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
-      );
+      throw new OutboundLimitReachedError(this.limits.perSecond);
     }
 
     return this.scoped(work);

@@ -20,6 +20,7 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { LiveTaskDraftsPort } from '@work/application/ports/live-task-drafts.port';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import { RunFacts } from '@work/application/services/run-facts.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -156,7 +157,9 @@ const sendMessage = (
   };
 
   return new SendMessageHandler(
-    { findById: vi.fn(async () => run) } as unknown as RunRepository,
+    new RunFacts({
+      findById: vi.fn(async () => run),
+    } as unknown as RunRepository),
     {
       find: vi.fn(async () => task),
       save: vi.fn(async (each: Task) => {

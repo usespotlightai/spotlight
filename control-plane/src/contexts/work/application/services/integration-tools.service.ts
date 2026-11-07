@@ -9,10 +9,10 @@ import type {
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { LeasedAttempt } from '@work/application/ports/run-leases.port';
 import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
 export class IntegrationTools implements IntegrationToolsPort {
   constructor(
@@ -26,7 +26,7 @@ export class IntegrationTools implements IntegrationToolsPort {
   async resolve(
     tool: Tool,
     context: ToolContext,
-    attempt: RunAttempt,
+    attempt: LeasedAttempt,
     runnerId: string,
   ): Promise<ResolvedTool | null> {
     if (context.kind !== 'task') {
@@ -42,7 +42,7 @@ export class IntegrationTools implements IntegrationToolsPort {
       ? await this.calls.resolve(
           tool.value,
           view,
-          { runId: attempt.runId.value, attempt: attempt.number },
+          { runId: attempt.runId.value, attempt: attempt.attempt },
           context.requester?.value ?? null,
         )
       : null;

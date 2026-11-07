@@ -3,7 +3,7 @@ import { SetMetadata } from '@nestjs/common';
 export const AUDIENCES = [
   'web',
   'resources',
-  'insights',
+  'automation',
   'hosts',
   'public',
 ] as const;

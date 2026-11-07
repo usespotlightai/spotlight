@@ -29,7 +29,7 @@ export interface WorkspacePermissions {
   readonly slug: string;
   readonly plans: boolean;
   readonly configures: boolean;
-  allows(scope: TokenScopeName): boolean;
+  readonly scopes: ReadonlySet<TokenScopeName>;
   readonly isAdmin: boolean;
 }
 

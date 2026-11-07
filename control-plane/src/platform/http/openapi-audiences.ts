@@ -23,7 +23,7 @@ export interface Route {
 const CREDENTIALS: Readonly<Record<Audience, readonly Credential[]>> = {
   web: ['session', 'anonymous'],
   resources: ['workspace-token', 'anonymous'],
-  insights: ['workspace-token'],
+  automation: ['workspace-token'],
   hosts: ['runner', 'anonymous'],
   public: ['anonymous'],
 };

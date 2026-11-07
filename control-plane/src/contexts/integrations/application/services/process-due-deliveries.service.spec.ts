@@ -3,8 +3,9 @@ import { ProcessDueDeliveries } from '@integrations/application/services/process
 import { InboundDelivery } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { InboundDeliveryVersionConflictError } from '@integrations/domain/exceptions/inbound-delivery-version-conflict.error';
 import type { InboundDeliveryRepository } from '@integrations/domain/repositories/inbound-delivery.repository';
-import { MAX_DELIVERY_ATTEMPTS } from '@integrations/domain/services/delivery-retry';
+import { DELIVERING } from '@integrations/domain/services/delivery-retry';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -182,7 +183,7 @@ describe('ProcessDueDeliveries', () => {
 
   it('gives a delivery up once it has had its attempts', async () => {
     const { service, failed, retried } = working(
-      [waiting('d_1', MAX_DELIVERY_ATTEMPTS - 1)],
+      [waiting('d_1', DELIVERING.maxAttempts - 1)],
       async () => DeliveryFailure.transient('still nope'),
     );
 
@@ -259,7 +260,7 @@ describe('ProcessDueDeliveries', () => {
         id: 'd_1',
         headers: {},
         body: {},
-        causeFiringId: 'firing_1',
+        causeFiringId: HookFiringId.of('firing_1'),
       },
       NOW,
     );
@@ -269,7 +270,9 @@ describe('ProcessDueDeliveries', () => {
 
     expect(reacting.execute).toHaveBeenCalledWith(
       expect.objectContaining({
-        delivered: expect.objectContaining({ causeFiringId: 'firing_1' }),
+        delivered: expect.objectContaining({
+          causeFiringId: HookFiringId.of('firing_1'),
+        }),
       }),
     );
   });

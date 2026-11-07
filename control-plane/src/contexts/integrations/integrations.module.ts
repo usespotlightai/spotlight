@@ -10,7 +10,7 @@ import {
 } from '@integrations/integrations.wiring';
 import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
-import { DiscoveryModule } from '@nestjs/core';
+import { contextBindings } from '@platform/bindings/context-bindings';
 import { SecretsModule } from '@secrets/secrets.module';
 import { CHANNEL_NOTICES } from '@work/application/ports/channel-notices.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
@@ -19,9 +19,18 @@ import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 import { WorkModule } from '@work/work.module';
 
+const BINDINGS = contextBindings([
+  TEAM_INTEGRATIONS,
+  INTEGRATION_CONFIGS,
+  HOOK_CONFIGS,
+  TASK_NOTICES,
+  CHANNEL_NOTICES,
+  INTEGRATION_TOOL_CALLS,
+  LIFECYCLE_HOOKS,
+]);
+
 @Module({
   imports: [
-    DiscoveryModule,
     IdentityModule,
     SecretsModule,
     GitHubModule,
@@ -30,15 +39,18 @@ import { WorkModule } from '@work/work.module';
     ConfigurationModule,
   ],
   controllers: [...INTEGRATIONS_CONTROLLERS, ...HOOKS_CONTROLLERS],
-  providers: [...INTEGRATIONS_PROVIDERS, ...HOOKS_PROVIDERS],
-  exports: [
-    TEAM_INTEGRATIONS,
-    INTEGRATION_CONFIGS,
-    HOOK_CONFIGS,
-    TASK_NOTICES,
-    CHANNEL_NOTICES,
-    INTEGRATION_TOOL_CALLS,
-    LIFECYCLE_HOOKS,
+  providers: [
+    ...INTEGRATIONS_PROVIDERS,
+    ...HOOKS_PROVIDERS,
+    ...BINDINGS.exposed,
   ],
+  exports: [...BINDINGS.exposedTokens],
 })
 export class IntegrationsModule {}
+
+@Module({
+  imports: [IntegrationsModule],
+  providers: [...BINDINGS.bound],
+  exports: [...BINDINGS.tokens],
+})
+export class IntegrationsBindingsModule {}

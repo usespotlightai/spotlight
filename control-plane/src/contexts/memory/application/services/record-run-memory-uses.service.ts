@@ -1,6 +1,6 @@
 import type { WorkPort } from '@memory/application/ports/work.port';
 import type { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
-import type { UsingRun } from '@memory/domain/entities/recorded-memory-uses.entity';
+import type { UsingRun } from '@memory/domain/entities/memory-uses.entity';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { handlesRead } from '@memory/domain/services/memory-folder';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';

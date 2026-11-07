@@ -23,10 +23,12 @@ import type { TraceParentPort } from '@work/application/ports/trace-parent.port'
 import { Attached } from '@work/application/rendering/attached';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import {
+  type OrderedRun,
+  runOrderOf,
+} from '@work/application/services/ordered-run';
 import { chatWords } from '@work/application/services/remembering-words';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { builtInToolsForChat } from '@work/domain/services/built-in-tools';
 import {
   chatPlacement,
@@ -43,7 +45,6 @@ import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 
 export class DispatchChat implements ChatDispatching {
   constructor(
-    private readonly runs: RunRepository,
     private readonly ids: IdGeneratorPort,
     private readonly launch: HarnessLaunchPort,
     private readonly tracing: TraceParentPort,
@@ -68,11 +69,11 @@ export class DispatchChat implements ChatDispatching {
       : chat;
   }
 
-  async enqueue(
+  async ordered(
     chat: Chat,
     runId: RunId,
     handed: readonly MessagePosition[],
-  ): Promise<boolean> {
+  ): Promise<OrderedRun | null> {
     const command = this.launch.commandFor(chat.harness, {
       model: chat.model,
       effort: chat.effort,
@@ -80,7 +81,7 @@ export class DispatchChat implements ChatDispatching {
 
     if (!command) {
       this.notDispatched(chat, runId, 'harness-has-no-command');
-      return false;
+      return null;
     }
 
     const resume = chat.resume();
@@ -91,7 +92,7 @@ export class DispatchChat implements ChatDispatching {
 
     if (!placement) {
       this.notDispatched(chat, runId, 'no-placement');
-      return false;
+      return null;
     }
 
     const memories = resume.sessionId
@@ -118,17 +119,15 @@ export class DispatchChat implements ChatDispatching {
       ? ChatBriefing.followUp(chat, handed)
       : await this.briefed(chat, memories.briefed, memories.folder);
 
-    const queued = Run.enqueue({
+    const order = runOrderOf({
       id,
       workspaceId: chat.workspaceId,
       harness: chat.harness,
       priority: CHAT_PRIORITY,
       subject: RunSubject.chat(chat.id),
+      team: chat.teamId,
       placement,
-      briefedWith: BriefedMemories.of({
-        briefed: memories.briefed,
-        omitted: memories.omitted,
-      }),
+      refusals: [],
       spec: RunSpec.of({
         checkouts: chat.repositories.map((repository) => {
           const setup = chatSetupOf(repository, lines);
@@ -154,9 +153,15 @@ export class DispatchChat implements ChatDispatching {
       }),
     });
 
-    await this.runs.add(queued);
-
-    return true;
+    return {
+      order,
+      briefedTask: null,
+      briefedMemories: BriefedMemories.of({
+        briefed: memories.briefed,
+        omitted: memories.omitted,
+      }),
+      configuredAs: null,
+    };
   }
 
   private async briefed(

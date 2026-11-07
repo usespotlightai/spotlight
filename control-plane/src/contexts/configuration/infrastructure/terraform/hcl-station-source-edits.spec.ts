@@ -1,5 +1,6 @@
 import { STATION_SOURCE_FIELDS } from '@configuration/application/ports/station-source-edits.port';
 import { HclStationSourceEdits } from '@configuration/infrastructure/terraform/hcl-station-source-edits';
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
 import { describe, expect, it } from 'vitest';
 
 const LINE = `resource "spotlight_line" "core_delivery" {
@@ -25,7 +26,7 @@ const LINE = `resource "spotlight_line" "core_delivery" {
 }
 `;
 
-const SEED = {
+const SEED: LineDefinitionStation = {
   key: 'build',
   name: 'Build',
   kind: 'work',
@@ -42,9 +43,9 @@ const SEED = {
 };
 
 const edited = (
-  candidate: Record<string, unknown>,
+  candidate: Partial<LineDefinitionStation>,
   file = LINE,
-  seed: Record<string, unknown> = SEED,
+  seed: LineDefinitionStation = SEED,
 ) =>
   new HclStationSourceEdits().edited({
     file: { path: 'main.tf', content: file },
@@ -109,7 +110,9 @@ describe('HclStationSourceEdits', () => {
   });
 
   it('rejects a block value it cannot write as a failed edit', async () => {
-    const answer = await edited({ description: { nested: true } });
+    const answer = await edited({
+      description: { nested: true } as unknown as string,
+    });
 
     expect(answer.ok === false && answer.failure.code).toBe('edit-failed');
   });

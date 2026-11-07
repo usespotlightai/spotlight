@@ -1,4 +1,5 @@
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
+import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
@@ -51,18 +52,19 @@ export class Sandbox extends EventRecorder {
     id: SandboxId;
     workspaceId: WorkspaceId;
     key: SandboxKey | null;
-    hostId: HostId;
-    source: CredentialSource;
+    host: RunnerHost;
     tokenHash: TokenHash;
     runId: RunId;
     at: Date;
   }): Sandbox {
+    Sandbox.assertHostIn(input.host, input.workspaceId);
+
     return new Sandbox({
       id: input.id,
       workspaceId: input.workspaceId,
       key: input.key,
-      hostId: input.hostId,
-      source: input.source,
+      hostId: input.host.id,
+      source: input.host.source,
       tokenHash: input.tokenHash,
       state: 'open',
       leases: [SandboxLease.of(LeaseHolder.run(input.runId), input.at)],
@@ -137,6 +139,12 @@ export class Sandbox extends EventRecorder {
     }
 
     return new Sandbox({ ...state, leases: [...state.leases] });
+  }
+
+  private static assertHostIn(host: RunnerHost, workspaceId: WorkspaceId) {
+    if (!host.belongsTo(workspaceId)) {
+      throw new UnknownHostError(host.id.value);
+    }
   }
 
   static goneBefore(now: Date): Date {
@@ -229,25 +237,30 @@ export class Sandbox extends EventRecorder {
     return this.state.hostId?.equals(hostId) ?? false;
   }
 
-  isReadyOn(host: RunnerHost | null): boolean {
+  isLiveOn(host: RunnerHost | null, now: Date): boolean {
     return (
-      this.isOpen &&
-      host !== null &&
-      this.isOn(host.id) &&
-      host.reportsSandbox(this.state.id)
+      this.isLive && host !== null && this.isOn(host.id) && host.isOnlineAt(now)
     );
   }
 
-  statusOn(host: RunnerHost | null): SandboxStatus {
+  isReadyOn(host: RunnerHost | null, now: Date): boolean {
+    return (
+      this.isOpen &&
+      this.isLiveOn(host, now) &&
+      (host?.reportsSandbox(this.state.id) ?? false)
+    );
+  }
+
+  statusOn(host: RunnerHost | null, now: Date): SandboxStatus {
     if (!this.isOpen) {
       return this.state.state === 'draining' ? 'draining' : 'gone';
     }
 
-    return this.isReadyOn(host) ? 'ready' : 'starting';
+    return this.isReadyOn(host, now) ? 'ready' : 'starting';
   }
 
-  takesRunOn(host: RunnerHost): boolean {
-    return this.isReadyOn(host) && this.isIdle && !host.isStopping;
+  takesRunOn(host: RunnerHost, now: Date): boolean {
+    return this.isReadyOn(host, now) && this.isIdle && !host.isStopping;
   }
 
   keptBy(host: RunnerHost): boolean {
@@ -256,12 +269,7 @@ export class Sandbox extends EventRecorder {
     );
   }
 
-  placeOn(
-    hostId: HostId,
-    source: CredentialSource,
-    tokenHash: TokenHash,
-    at: Date,
-  ): Sandbox {
+  placeOn(host: RunnerHost, tokenHash: TokenHash, at: Date): Sandbox {
     if (!this.isRequested) {
       throw new InconsistentStateError(
         'sandbox',
@@ -269,9 +277,11 @@ export class Sandbox extends EventRecorder {
       );
     }
 
+    Sandbox.assertHostIn(host, this.state.workspaceId);
+
     return this.with({
-      hostId,
-      source,
+      hostId: host.id,
+      source: host.source,
       tokenHash,
       startedAt: at,
       idleSince: at,
@@ -292,7 +302,7 @@ export class Sandbox extends EventRecorder {
       (this.state.key?.equals(run.key) ?? false) &&
       this.state.workspaceId.equals(run.workspaceId);
 
-    return ownsTheRun && this.takesRunOn(host)
+    return ownsTheRun && this.takesRunOn(host, at)
       ? this.holdRun(run.runId, at)
       : this;
   }
@@ -351,10 +361,7 @@ export class Sandbox extends EventRecorder {
     }
 
     if (!this.isOpen) {
-      throw new InconsistentStateError(
-        'sandbox',
-        `is ${this.state.state}, and no editor can hold it`,
-      );
+      return this;
     }
 
     return this.with({
@@ -386,6 +393,16 @@ export class Sandbox extends EventRecorder {
 
   static unreportedStartedBefore(now: Date): Date {
     return new Date(now.getTime() - START_WINDOW_MS);
+  }
+
+  strandedOn(host: RunnerHost | null, now: Date): Sandbox {
+    const stranded = this.isLive && this.isPlaced && !this.isLiveOn(host, now);
+
+    return stranded ? this.lost(now) : this;
+  }
+
+  replacedForRun(): Sandbox {
+    return this.isOpen && this.isPlaced ? this.drain() : this;
   }
 
   droppedBy(hostId: HostId, at: Date): Sandbox {

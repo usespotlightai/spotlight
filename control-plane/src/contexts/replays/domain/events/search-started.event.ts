@@ -4,7 +4,7 @@ import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/co
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class SearchStarted implements ConfigurationChanged {
-  readonly kind = 'replays.search-started';
+  readonly kind = 'search.started';
 
   constructor(
     readonly searchId: SearchId,

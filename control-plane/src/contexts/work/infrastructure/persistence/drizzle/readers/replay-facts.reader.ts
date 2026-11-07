@@ -11,6 +11,7 @@ import {
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
+import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workspaceArchive } from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
@@ -38,7 +39,7 @@ export class DrizzleReplayFacts implements ReplayFactsPort {
         endedAt: run.endedAt,
         startedFromAt: run.startedFromAt,
         archiveId: run.startedFromArchiveId,
-        briefed: isNotNull(run.briefedTask).mapWith(Boolean),
+        briefed: isNotNull(dispatch.briefedTask).mapWith(Boolean),
         liveTask: task.id,
         title: task.title,
         openedFrom: task.openedFrom,
@@ -47,6 +48,7 @@ export class DrizzleReplayFacts implements ReplayFactsPort {
       })
       .from(run)
       .leftJoin(task, eq(task.id, run.taskId))
+      .leftJoin(dispatch, eq(dispatch.id, run.id))
       .leftJoin(
         workspaceArchive,
         and(

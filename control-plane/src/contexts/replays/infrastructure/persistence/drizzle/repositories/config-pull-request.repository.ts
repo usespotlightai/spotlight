@@ -3,15 +3,20 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   codeOf,
   UNIQUE_VIOLATION,
+  violates,
 } from '@platform/persistence/drizzle/violations';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
+import { PullRequestOpenAtStationError } from '@replays/domain/exceptions/pull-request-open-at-station.error';
 import type {
   ConfigPullRequestRepository,
-  GitHubPullRequestKey,
+  HostPullRequestKey,
 } from '@replays/domain/repositories/config-pull-request.repository';
+import { BranchName } from '@replays/domain/value-objects/branch-name.vo';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import { CommitSha } from '@replays/domain/value-objects/commit-sha.vo';
+import { ConfigPath } from '@replays/domain/value-objects/config-path.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
@@ -30,6 +35,8 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, inArray, lt, lte, type SQL, sql } from 'drizzle-orm';
+
+const OPEN_AT_STATION = 'config_pull_request_open_station_idx';
 
 type PullRequestRow = typeof configPullRequest.$inferSelect;
 
@@ -78,12 +85,12 @@ const toPullRequest = (row: PullRequestRow): ConfigPullRequest =>
     stationKey: row.stationKey,
     candidateName: CandidateName.rehydrate(row.candidateName),
     repository: row.repository === null ? null : Repository.of(row.repository),
-    path: row.path,
-    branch: row.branch,
+    path: row.path === null ? null : ConfigPath.of(row.path),
+    branch: BranchName.of(row.branch),
     state: row.state,
     url: row.url === null ? null : PullRequestUrl.of(row.url),
     number: row.number,
-    gitHubId: row.gitHubId,
+    hostId: row.hostId,
     basedOn: fingerprintOf(row.basedOn),
     proposing: fingerprintOf(row.proposing),
     checkedAt: row.checkedAt,
@@ -91,7 +98,7 @@ const toPullRequest = (row: PullRequestRow): ConfigPullRequest =>
     closeFailure: closeFailureOf(row),
     reason: reasonOf(row),
     retries: row.retries,
-    lastCommit: row.lastCommit,
+    lastCommit: row.lastCommit === null ? null : CommitSha.of(row.lastCommit),
     dueAt: row.dueAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -114,7 +121,7 @@ const columnsOf = (aggregate: ConfigPullRequest) => ({
   open: aggregate.isOpen,
   url: aggregate.url?.value ?? null,
   number: aggregate.number,
-  gitHubId: aggregate.gitHubId,
+  hostId: aggregate.hostId,
   basedOn: aggregate.basedOn?.value ?? null,
   proposing: aggregate.proposing?.value ?? null,
   checkedAt: aggregate.checkedAt,
@@ -212,14 +219,14 @@ export class DrizzleConfigPullRequestRepository
     );
   }
 
-  async fromGitHub(
+  async fromHost(
     workspaceId: WorkspaceId,
-    pullRequest: GitHubPullRequestKey,
+    pullRequest: HostPullRequestKey,
   ): Promise<ConfigPullRequest | null> {
     const [found] = await this.where(
       and(
         eq(configPullRequest.workspaceId, workspaceId.value),
-        pullRequest.gitHubId === null
+        pullRequest.hostId === null
           ? and(
               eq(
                 sql`lower(${configPullRequest.repository})`,
@@ -227,7 +234,7 @@ export class DrizzleConfigPullRequestRepository
               ),
               eq(configPullRequest.number, pullRequest.number),
             )
-          : eq(configPullRequest.gitHubId, pullRequest.gitHubId),
+          : eq(configPullRequest.hostId, pullRequest.hostId),
       ) as SQL,
     );
 
@@ -272,6 +279,9 @@ export class DrizzleConfigPullRequestRepository
           version: added.version,
         })
         .catch((error: unknown) => {
+          if (violates(error, UNIQUE_VIOLATION, OPEN_AT_STATION)) {
+            throw new PullRequestOpenAtStationError(added.station.stationId);
+          }
           if (codeOf(error) === UNIQUE_VIOLATION) {
             throw new ConfigPullRequestVersionConflictError(added.id.value);
           }
@@ -298,6 +308,11 @@ export class DrizzleConfigPullRequestRepository
             .where(at)
             .returning({ id: configPullRequest.id })
             .catch((error: unknown) => {
+              if (violates(error, UNIQUE_VIOLATION, OPEN_AT_STATION)) {
+                throw new PullRequestOpenAtStationError(
+                  saved.station.stationId,
+                );
+              }
               if (codeOf(error) === UNIQUE_VIOLATION) {
                 return [];
               }

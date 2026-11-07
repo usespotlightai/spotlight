@@ -1,4 +1,4 @@
-import { InvalidHarnessNameError } from '@work/domain/exceptions/invalid-harness-name.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 const MAX_LENGTH = 100;
 
@@ -11,10 +11,11 @@ export class HarnessName {
     const trimmed = raw.trim();
 
     if (trimmed.length === 0) {
-      throw new InvalidHarnessNameError('must not be empty');
+      throw new InconsistentStateError('harness name', 'must not be empty');
     }
     if (trimmed.length > MAX_LENGTH) {
-      throw new InvalidHarnessNameError(
+      throw new InconsistentStateError(
+        'harness name',
         `must be at most ${MAX_LENGTH} characters`,
       );
     }

@@ -23,7 +23,6 @@ import { RunnerPoolAlreadyExistsError } from '@runners/domain/exceptions/runner-
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { tokenTakenBy } from '@runners/domain/services/token-reuse';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -38,6 +37,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class CreateRunnerPoolHandler
@@ -71,7 +71,7 @@ export class CreateRunnerPoolHandler
         return null;
       }
 
-      if (!permissions.allows('runners')) {
+      if (!permissions.scopes.has('runners')) {
         return { created: forbiddenTo('runners'), token: null };
       }
 
@@ -131,7 +131,7 @@ export class CreateRunnerPoolHandler
               );
             }
 
-            const id = RunnerPoolId.of(this.ids.generate());
+            const id = PoolId.of(this.ids.generate());
             const accessInput = await poolAccessInput(
               supplied,
               { id, workspaceId: permissions.workspaceId },

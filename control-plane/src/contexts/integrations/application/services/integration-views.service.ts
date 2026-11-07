@@ -62,7 +62,9 @@ export class IntegrationViews {
             readAt: record.reading.readAt.toISOString(),
             problem: record.reading.problem,
             tools: compiled.ok
-              ? compiled.integration.generatedToolCount(record.tools)
+              ? compiled.integration.generatedToolCount(
+                  ToolName.parsedAll(record.tools),
+                )
               : record.tools.length,
           }
         : null;

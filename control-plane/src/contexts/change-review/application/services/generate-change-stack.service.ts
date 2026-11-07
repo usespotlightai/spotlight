@@ -40,11 +40,13 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface GenerationRun {
   readonly id: RunId;
   readonly taskId: TaskId | null;
+  readonly teamOfRun: TeamId | null;
   readonly isReplay: boolean;
   readonly isSearch: boolean;
   readonly workspaceId: WorkspaceId;
@@ -79,6 +81,7 @@ export class GenerateChangeStack {
       id,
       runId: run.id,
       taskId: run.taskId,
+      teamOfRun: run.teamOfRun,
       replay: run.isReplay,
       isSearch: run.isSearch,
       workspaceId: run.workspaceId,

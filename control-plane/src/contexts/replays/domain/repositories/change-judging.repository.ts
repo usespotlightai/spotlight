@@ -8,8 +8,6 @@ export interface ChangeJudgingRepository {
 
   save(judging: ChangeJudging): Promise<void>;
 
-  remove(judging: ChangeJudging): Promise<void>;
-
   of(runId: RunId, attempt: JudgingAttempt): Promise<ChangeJudging | null>;
 
   ofTeam(teamId: TeamId): Promise<readonly ChangeJudging[]>;

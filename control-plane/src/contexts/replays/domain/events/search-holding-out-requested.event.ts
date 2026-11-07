@@ -3,7 +3,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class SearchHoldingOutRequested implements DomainEvent {
-  readonly kind = 'replays.search-holding-out-requested';
+  readonly kind = 'search.holding-out-requested';
 
   constructor(
     readonly searchId: SearchId,

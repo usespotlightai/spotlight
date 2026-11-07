@@ -2,6 +2,7 @@ import type {
   HarnessProfileRecord,
   HarnessProfileResourcesPort,
 } from '@configuration/application/ports/harness-profile-resources.port';
+import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { storedProfileOf } from '@configuration/infrastructure/persistence/drizzle/harness-profile-rows';
 import { harnessProfile } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
@@ -24,8 +25,8 @@ export class DrizzleHarnessProfileResources
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  withId(id: string): Promise<HarnessProfileRecord | null> {
-    return this.stored(eq(harnessProfile.id, id));
+  withId(id: HarnessProfileId): Promise<HarnessProfileRecord | null> {
+    return this.stored(eq(harnessProfile.id, id.value));
   }
 
   at(teamId: TeamId, key: string): Promise<HarnessProfileRecord | null> {

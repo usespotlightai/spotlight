@@ -25,7 +25,10 @@ import {
 } from '@replays/domain/value-objects/search-iteration.vo';
 import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import type { SearchPickDecline } from '@replays/domain/value-objects/search-pick';
-import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
+import {
+  SEARCH_SKIP_REASONS,
+  type SearchSkipReason,
+} from '@replays/domain/value-objects/search-skip-reason';
 import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { SEARCH_STOP_REASONS } from '@replays/domain/value-objects/search-stop-reason';
 import { SEARCH_TRIGGERS } from '@replays/domain/value-objects/search-trigger';
@@ -319,7 +322,9 @@ export const replay = pgTable(
     liveCandidate: boolean('live_candidate').notNull(),
     baseline: boolean('baseline').notNull(),
     servesAsBaseline: boolean('serves_as_baseline').notNull(),
-    healthSample: boolean('health_sample').notNull(),
+    takesPairings: boolean('takes_pairings').notNull(),
+    healthSampleGroup: text('health_sample_group'),
+    sampledAt: timestamptz('sampled_at').notNull(),
     judges: boolean('judges').notNull(),
     checked: boolean('checked').notNull(),
     rubricVersion: text('rubric_version'),
@@ -353,8 +358,8 @@ export const replay = pgTable(
       .on(table.setId, table.startedAt)
       .where(sql`${table.servesAsBaseline}`),
     index('replay_set_health_sample_idx')
-      .on(table.setId)
-      .where(sql`${table.healthSample}`),
+      .on(table.setId, table.healthSampleGroup, table.sampledAt)
+      .where(sql`${table.healthSampleGroup} is not null`),
     index('replay_candidate_idx').on(table.candidateId),
     index('replay_team_state_idx').on(table.teamId, table.state),
     index('replay_team_started_idx').on(table.teamId, table.startedAt),
@@ -475,6 +480,7 @@ export const replaySearch = pgTable(
     trigger: replaySearchTrigger('trigger').notNull(),
     pick: jsonb('pick').$type<StoredSearchPick>(),
     awaitsReplays: boolean('awaits_replays').notNull(),
+    awaitsAgentSpend: boolean('awaits_agent_spend').notNull(),
     active: boolean('active').notNull(),
     startedAt: timestamptz('started_at').notNull(),
     endedAt: timestamptz('ended_at'),
@@ -558,6 +564,7 @@ export const replayCheck = pgTable(
     liveScoring: text('live_scoring').notNull(),
     candidateBehaviour: text('candidate_behaviour').notNull(),
     candidateScoring: text('candidate_scoring').notNull(),
+    change: text('change').notNull(),
     maxRegressions: integer('max_regressions').notNull(),
     minGain: doublePrecision('min_gain').notNull(),
     ceilingAmount: amount('ceiling_amount').notNull(),
@@ -582,8 +589,7 @@ export const replayCheck = pgTable(
     index('replay_check_set_idx').on(table.setId),
     uniqueIndex('replay_check_attempt_idx').on(
       table.stationId,
-      table.candidateBehaviour,
-      table.liveScoring,
+      table.change,
       table.attempt,
     ),
   ],
@@ -623,7 +629,7 @@ export const configPullRequest = pgTable(
     open: boolean('open').notNull(),
     url: text('url'),
     number: integer('number'),
-    gitHubId: bigint('github_id', { mode: 'number' }),
+    hostId: bigint('host_id', { mode: 'number' }),
     basedOn: text('based_on'),
     proposing: text('proposing'),
     checkedAt: timestamptz('checked_at'),
@@ -653,9 +659,9 @@ export const configPullRequest = pgTable(
     ),
     index('config_pull_request_team_idx').on(table.teamId),
     index('config_pull_request_station_idx').on(table.stationId),
-    uniqueIndex('config_pull_request_github_idx').on(
+    uniqueIndex('config_pull_request_host_idx').on(
       table.workspaceId,
-      table.gitHubId,
+      table.hostId,
     ),
     uniqueIndex('config_pull_request_number_idx').on(
       table.workspaceId,
@@ -692,19 +698,22 @@ export const stationSearchSchedule = pgTable(
     lastRejectedAt: timestamptz('last_rejected_at'),
     lastImprovedAt: timestamptz('last_improved_at'),
     requestDay: text('request_day'),
-    requestCount: integer('request_count').notNull().default(0),
+    requests: jsonb('requests').$type<string[]>().notNull(),
+    pendingSteps: jsonb('pending_steps')
+      .$type<StoredPendingSearchStep[]>()
+      .notNull(),
+    stepsPendingSince: timestamptz('steps_pending_since'),
     checkAfter: timestamptz('check_after').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    check(
-      'station_search_schedule_request_count_not_negative',
-      sql`${table.requestCount} >= 0`,
-    ),
     uniqueIndex('station_search_schedule_set_idx').on(table.setId),
     index('station_search_schedule_team_idx').on(table.teamId),
     index('station_search_schedule_line_idx').on(table.lineId),
     index('station_search_schedule_check_after_idx').on(table.checkAfter),
+    index('station_search_schedule_steps_pending_idx')
+      .on(table.stepsPendingSince)
+      .where(sql`${table.stepsPendingSince} is not null`),
   ],
 );
 
@@ -712,6 +721,24 @@ export interface StoredSearchAdmission {
   readonly searchId: string;
   readonly amount: number;
   readonly currency: string;
+  readonly admittedAt: string;
+}
+
+export interface StoredPendingSearchStep {
+  readonly kind: 'start' | 'join';
+  readonly searchId: string;
+  readonly at: string;
+  readonly request: string | null;
+  readonly candidates: string[];
+  readonly addedTasks: string[];
+  readonly replaced: {
+    readonly lastStartedAt: string | null;
+    readonly lastSkipReason: SearchSkipReason | null;
+    readonly lastSkipAt: string | null;
+    readonly alertPendingSince: string | null;
+    readonly checkAfter: string;
+    readonly startedCheckAfter: string;
+  } | null;
 }
 
 export const lineSearchBudget = pgTable(

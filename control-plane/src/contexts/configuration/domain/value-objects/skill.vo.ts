@@ -1,8 +1,8 @@
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { SkillKeyReservedError } from '@configuration/domain/exceptions/skill-key-reserved.error';
-import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
-import type { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
+import type { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
 export interface SkillSecret {
   readonly name: SecretName;
@@ -21,22 +21,22 @@ interface SkillFolderSize {
 }
 
 interface SkillInput {
-  readonly key: SkillKey;
+  readonly key: DefinedSkillKey;
   readonly named?: unknown;
   readonly folder?: SkillFolderSize;
   readonly description: string;
   readonly instructions: string;
   readonly secrets: readonly SkillSecret[];
-  readonly tools: readonly ToolName[];
+  readonly tools: readonly Tool[];
 }
 
 export class Skill {
   private constructor(
-    readonly key: SkillKey,
+    readonly key: DefinedSkillKey,
     readonly description: string,
     readonly instructions: string,
     readonly secrets: readonly SkillSecret[],
-    readonly tools: readonly ToolName[],
+    readonly tools: readonly Tool[],
     readonly isBuiltIn: boolean,
   ) {}
 
@@ -63,6 +63,14 @@ export class Skill {
     const description = input.description.trim();
     const instructions = input.instructions.trim();
     const folder = input.folder;
+    const catalogued = input.tools.find((each) => each.origin === 'catalog');
+
+    if (catalogued) {
+      throw new InvalidSkillError(
+        input.key.value,
+        `tool ${JSON.stringify(catalogued.value)} must be named integration.tool, as in grafana.search`,
+      );
+    }
 
     if (folder && folder.files > folder.limits.files) {
       throw new InvalidSkillError(

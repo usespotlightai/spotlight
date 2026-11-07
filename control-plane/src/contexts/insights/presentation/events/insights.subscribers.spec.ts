@@ -102,7 +102,6 @@ const WORK = {
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
   endedRun: async (runId: string) => (runId === ENDED.runId ? ENDED : null),
   configsInOrder: async () => [],
-  teamSkillKeys: async () => [],
 };
 
 const CLOCK = {
@@ -214,12 +213,17 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       inTransaction,
       CLOCK,
     ),
-    scoring: new RecordJudgeScore(judgings, scores, inTransaction, {
-      generate: () => {
-        next += 1;
-        return `score_${next}`;
+    scoring: new RecordJudgeScore(
+      scores,
+      new FactRecorder(deletions),
+      inTransaction,
+      {
+        generate: () => {
+          next += 1;
+          return `score_${next}`;
+        },
       },
-    }),
+    ),
     grading: new GradeInboxRequests({
       ask: async (taskId, runId) => {
         asked.push(`ask ${taskId.value} ${runId.value}`);
@@ -389,7 +393,9 @@ describe('insightsSubscribers', () => {
 
     await subscriber.deliver('insights.record-ended-run', runEnded());
 
-    expect((await subscriber.record())?.ending).toBe('completed');
+    expect((await subscriber.record())?.factWith(null, null)?.ending).toBe(
+      'completed',
+    );
   });
 
   it('records a run a person stopped as stopped', async () => {
@@ -400,7 +406,9 @@ describe('insightsSubscribers', () => {
       runEnded({ stopped: true }),
     );
 
-    expect((await subscriber.record())?.ending).toBe('stopped');
+    expect((await subscriber.record())?.factWith(null, null)?.ending).toBe(
+      'stopped',
+    );
   });
 
   it('records nothing for a run at no station', async () => {
@@ -461,7 +469,7 @@ describe('insightsSubscribers', () => {
     const record = await subscriber.record();
     expect(record?.checks).toBe('passed');
     expect(record?.firstHumanAction?.kind).toBe('sent-back');
-    expect(record?.ending).toBe('superseded');
+    expect(record?.factWith(null, null)?.ending).toBe('superseded');
   });
 
   it('follows the task’s pull request from opened to merged', async () => {
@@ -540,10 +548,10 @@ describe('insightsSubscribers', () => {
     });
     expect(record?.passed?.to.value).toBe('station_2');
     expect(record?.end?.agentConfig.harness).toBe('claude-code');
-    expect(record?.tools?.callsTo('linear')?.latency).toEqual(
-      LatencyHistogram.timing([300, 900]),
-    );
-    expect(record?.tools?.read('grafana')).toBe(true);
+    expect(
+      record?.tools?.servers.find((each) => each.server === 'linear')?.latency,
+    ).toEqual(LatencyHistogram.timing([300, 900]));
+    expect(record?.tools?.skillsRead.includes('grafana')).toBe(true);
   });
 
   it('keeps no cost for a run that worked no task', async () => {
@@ -718,14 +726,12 @@ describe('insightsSubscribers', () => {
 
     const humanActions = await subscriber.humanActions.of(TaskId.of('task_1'));
     expect(humanActions?.opening?.by?.value).toBe('user_ada');
-    expect(humanActions?.waits()).toEqual([
-      {
-        stationId: StationId.of('station_1'),
-        askedAt: new Date('2026-09-30T10:10:00.000Z'),
-        answeredAt: new Date('2026-09-30T10:20:00.000Z'),
-        answeredBy: 'user_bob',
-      },
-    ]);
+    expect(
+      humanActions?.asks.map((each) => [each.stationId.value, each.at]),
+    ).toEqual([['station_1', new Date('2026-09-30T10:10:00.000Z')]]);
+    expect(
+      humanActions?.actions.map((each) => [each.by.value, each.at]),
+    ).toEqual([['user_bob', new Date('2026-09-30T10:20:00.000Z')]]);
   });
 
   it('keeps who started a chat, once', async () => {
@@ -1063,6 +1069,64 @@ describe('insightsSubscribers', () => {
     expect(subscriber.chats.stored.size).toBe(0);
     expect(subscriber.humanActions.stored.size).toBe(0);
     expect(subscriber.failures.stored.size).toBe(0);
+  });
+
+  it('records no later ask or act of a task whose team was deleted, whichever came first', async () => {
+    const opened = {
+      kind: TASK_OPENED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      lineId: 'line_1',
+      stationId: 'station_0',
+      by: 'user_ada',
+      at: '2026-09-30T09:00:00.000Z',
+    };
+    const teamDeleted = {
+      kind: TEAM_DELETED,
+      workspaceId: 'ws_1',
+      teamId: 'team_1',
+      key: 'core',
+    };
+    const asked = {
+      kind: TASK_ASKED,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      at: '2026-09-30T10:10:00.000Z',
+    };
+    const acted = {
+      kind: TASK_ACTED_ON,
+      taskId: 'task_1',
+      workspaceId: 'ws_1',
+      stationId: 'station_1',
+      action: 'answered',
+      by: 'user_bob',
+      afterRunId: null,
+      at: '2026-09-30T10:20:00.000Z',
+      tool: null,
+      server: null,
+    };
+    const openedFirst = subscribed();
+    const deletedFirst = subscribed();
+
+    await openedFirst.deliver('insights.record-task-opening', opened);
+    await openedFirst.deliver(
+      'insights.delete-human-actions-of-deleted-team',
+      teamDeleted,
+    );
+    await openedFirst.deliver('insights.record-inbox-ask', asked);
+    await openedFirst.deliver('insights.record-task-human-action', acted);
+    await deletedFirst.deliver(
+      'insights.delete-human-actions-of-deleted-team',
+      teamDeleted,
+    );
+    await deletedFirst.deliver('insights.record-inbox-ask', asked);
+    await deletedFirst.deliver('insights.record-task-opening', opened);
+    await deletedFirst.deliver('insights.record-task-human-action', acted);
+
+    expect(openedFirst.humanActions.stored.size).toBe(0);
+    expect(deletedFirst.humanActions.stored.size).toBe(0);
   });
 
   it('records nothing more of a workspace received after it was deleted', async () => {

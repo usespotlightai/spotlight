@@ -12,7 +12,6 @@ import type { TeamRepository } from '@identity/domain/repositories/team.reposito
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { TeamAccess } from '@identity/domain/services/team-access';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
-import { TokenScope } from '@identity/domain/value-objects/token-scope.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import {
@@ -33,7 +32,7 @@ const published = (
         slug: workspace.slug.value,
         plans: permissions.plans,
         configures: permissions.configures,
-        allows: (scope) => permissions.allows(TokenScope.of(scope)),
+        scopes: new Set(permissions.allowedScopes.map((scope) => scope.value)),
         isAdmin: permissions.isAdmin,
       }
     : null;

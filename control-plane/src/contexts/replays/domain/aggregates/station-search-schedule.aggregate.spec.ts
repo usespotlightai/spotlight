@@ -9,7 +9,9 @@ import {
   NOW,
   STATION,
 } from '@replays/domain/replays.fake-spec';
+import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -25,6 +27,32 @@ const created = () =>
 const OTHER = StationFingerprint.of('c'.repeat(64));
 
 const tasks = (...names: string[]) => names.map((each) => TaskId.of(each));
+
+let starts = 0;
+
+const automatic = () => {
+  starts += 1;
+
+  return {
+    searchId: SearchId.of(`search_${starts}`),
+    request: null,
+    candidates: [CandidateId.of(`live_${starts}`)],
+  };
+};
+
+const SEARCH = SearchId.of('search_running');
+
+const join = (request: string, at: Date) => ({
+  searchId: SEARCH,
+  request: CandidateId.of(request),
+  at,
+});
+
+const joinOf = (request: string) => ({
+  kind: 'join' as const,
+  searchId: SEARCH,
+  request: CandidateId.of(request),
+});
 
 describe('StationSearchSchedule', () => {
   it('is due at once when created, with nothing searched yet', () => {
@@ -80,14 +108,14 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a', 'b', 'c', 'gone'),
         at: later(2),
         cooldownMilliseconds: 10,
-        trigger: 'schedule',
+        ...automatic(),
       })
       .started({
         searched: tasks('b', 'c', 'c'),
         inSet: tasks('a', 'b', 'c'),
         at: later(20),
         cooldownMilliseconds: 10,
-        trigger: 'schedule',
+        ...automatic(),
       });
 
     expect(started.lastSkip).toBeNull();
@@ -103,7 +131,7 @@ describe('StationSearchSchedule', () => {
       inSet: tasks('a'),
       at: NOW,
       cooldownMilliseconds: 10,
-      trigger: 'schedule',
+      ...automatic(),
     });
 
     expect(() =>
@@ -112,7 +140,7 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a'),
         at: later(9),
         cooldownMilliseconds: 10,
-        trigger: 'schedule',
+        ...automatic(),
       }),
     ).toThrow(SearchInCooldownError);
   });
@@ -123,7 +151,7 @@ describe('StationSearchSchedule', () => {
       inSet: tasks('a'),
       at: NOW,
       cooldownMilliseconds: 10,
-      trigger: 'schedule',
+      ...automatic(),
     });
     const rejected = started
       .configRejected(FINGERPRINT, LIVE_FINGERPRINT, later(8))
@@ -140,7 +168,7 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a'),
         at: later(18),
         cooldownMilliseconds: 10,
-        trigger: 'schedule',
+        ...automatic(),
       }),
     ).toThrow(SearchInCooldownError);
     expect(
@@ -149,7 +177,7 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a'),
         at: later(19),
         cooldownMilliseconds: 10,
-        trigger: 'schedule',
+        ...automatic(),
       }).lastStartedAt,
     ).toEqual(later(19));
   });
@@ -192,7 +220,7 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a', 'b', 'c'),
         at: NOW,
         cooldownMilliseconds: 10,
-        trigger: 'schedule',
+        ...automatic(),
       })
       .alerted(later(1));
     const after = before.started({
@@ -200,7 +228,9 @@ describe('StationSearchSchedule', () => {
       inSet: tasks('a', 'b', 'c'),
       at: later(2),
       cooldownMilliseconds: 1_000,
-      trigger: 'request',
+      searchId: SearchId.of('search_requested'),
+      request: CandidateId.of('requested'),
+      candidates: [CandidateId.of('live'), CandidateId.of('requested')],
     });
 
     expect(after.lastStartedAt).toEqual(before.lastStartedAt);
@@ -209,20 +239,25 @@ describe('StationSearchSchedule', () => {
     expect(after.searchedTasks.map((each) => each.value)).toEqual(['a', 'b']);
     expect(after.requests).toEqual({
       day: later(2).toISOString().slice(0, 10),
-      count: 1,
+      counted: [CandidateId.of('requested')],
     });
   });
 
   it('takes 3 requests a station a day, and more the next day', () => {
     const day = new Date('2026-10-29T08:00:00.000Z');
     const nextDay = new Date('2026-10-30T00:00:01.000Z');
-    const full = created().requested(day).requested(day).requested(day);
+    const full = created()
+      .requested(join('a', day))
+      .requested(join('b', day))
+      .requested(join('c', day));
 
     expect(full.takesRequestOn(day)).toBe(false);
-    expect(() => full.requested(day)).toThrow(RequestLimitReachedError);
-    expect(full.requested(nextDay).requests).toEqual({
+    expect(() => full.requested(join('d', day))).toThrow(
+      RequestLimitReachedError,
+    );
+    expect(full.requested(join('e', nextDay)).requests).toEqual({
       day: '2026-10-30',
-      count: 1,
+      counted: [CandidateId.of('e')],
     });
   });
 
@@ -246,9 +281,135 @@ describe('StationSearchSchedule', () => {
         lastRejectedAt: null,
         lastImprovedAt: null,
         requests: null,
+        pendingSteps: [],
         checkAfter: NOW,
         version: 0,
       }),
     ).toThrow(InconsistentStateError);
+  });
+
+  it('withdraws only its own request when another request counted after it', () => {
+    const day = new Date('2026-10-29T08:00:00.000Z');
+    const countedA = created().requested(join('a', day));
+    const countedB = countedA.requested(join('b', day));
+    const withdrawnA = countedB.stepWithdrawn(joinOf('a'));
+
+    expect(withdrawnA.requests).toEqual({
+      day: '2026-10-29',
+      counted: [CandidateId.of('b')],
+    });
+    expect(withdrawnA.pendingSteps.map((each) => each.request)).toEqual([
+      CandidateId.of('b'),
+    ]);
+    expect(
+      withdrawnA
+        .requested(join('c', day))
+        .requested(join('d', day))
+        .takesRequestOn(day),
+    ).toBe(false);
+  });
+
+  it('keeps an alert and a skip that came after a start it withdraws', () => {
+    const before = created().postponed(later(1));
+    const start = {
+      ...automatic(),
+      searched: tasks('a'),
+      inSet: tasks('a', 'b'),
+    };
+    const started = before.started({
+      ...start,
+      at: later(2),
+      cooldownMilliseconds: 100,
+    });
+    const alerted = started.alerted(later(3));
+    const withdrawn = alerted.stepWithdrawn({
+      kind: 'start',
+      searchId: start.searchId,
+      request: null,
+    });
+
+    expect(withdrawn.alertPendingSince).toEqual(later(3));
+    expect(withdrawn.lastStartedAt).toBeNull();
+    expect(withdrawn.searchedTasks).toEqual([]);
+    expect(withdrawn.checkAfter).toEqual(later(3));
+    expect(withdrawn.pendingSteps).toEqual([]);
+  });
+
+  it('restores what a start replaced while nothing else changed it', () => {
+    const before = created()
+      .skipped('cooldown', NOW, later(1))
+      .alerted(later(1));
+    const start = { ...automatic(), searched: tasks('a'), inSet: tasks('a') };
+    const withdrawn = before
+      .started({ ...start, at: later(2), cooldownMilliseconds: 100 })
+      .stepWithdrawn({
+        kind: 'start',
+        searchId: start.searchId,
+        request: null,
+      });
+
+    expect(withdrawn).toMatchObject({
+      lastStartedAt: null,
+      lastSkip: before.lastSkip,
+      alertPendingSince: later(1),
+      checkAfter: before.checkAfter,
+      searchedTasks: [],
+      pendingSteps: [],
+    });
+  });
+
+  it('keeps a later start when an earlier start is withdrawn, and undoes a step once', () => {
+    const first = {
+      ...automatic(),
+      searched: tasks('a'),
+      inSet: tasks('a', 'b'),
+    };
+    const second = {
+      ...automatic(),
+      searched: tasks('b'),
+      inSet: tasks('a', 'b'),
+    };
+    const both = created()
+      .started({ ...first, at: NOW, cooldownMilliseconds: 10 })
+      .stepConfirmed({ kind: 'start', searchId: first.searchId, request: null })
+      .started({ ...second, at: later(20), cooldownMilliseconds: 10 });
+    const firstAgain = both.stepWithdrawn({
+      kind: 'start',
+      searchId: first.searchId,
+      request: null,
+    });
+    const withdrawn = both.stepWithdrawn({
+      kind: 'start',
+      searchId: second.searchId,
+      request: null,
+    });
+
+    expect(firstAgain).toBe(both);
+    expect(withdrawn.lastStartedAt).toEqual(NOW);
+    expect(withdrawn.checkAfter).toEqual(later(10));
+    expect(withdrawn.searchedTasks).toEqual(tasks('a'));
+    expect(
+      withdrawn.stepWithdrawn({
+        kind: 'start',
+        searchId: second.searchId,
+        request: null,
+      }),
+    ).toBe(withdrawn);
+  });
+
+  it('knows since when its oldest step is pending, and forgets a confirmed one', () => {
+    const pending = created()
+      .requested(join('a', later(5)))
+      .requested(join('b', later(2)));
+
+    expect(pending.stepsPendingSince).toEqual(later(2));
+    expect(
+      pending.stepConfirmed(joinOf('b')).stepConfirmed(joinOf('a'))
+        .stepsPendingSince,
+    ).toBeNull();
+    expect(pending.stepConfirmed(joinOf('a')).requests?.counted).toEqual([
+      CandidateId.of('a'),
+      CandidateId.of('b'),
+    ]);
   });
 });

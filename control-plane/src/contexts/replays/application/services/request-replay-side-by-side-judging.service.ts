@@ -4,6 +4,7 @@ import { PAIR_ATTEMPTS } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import { judgingRequestOf } from '@replays/domain/services/judging-request';
 
 export class RequestReplaySideBySideJudging {
   constructor(
@@ -15,20 +16,25 @@ export class RequestReplaySideBySideJudging {
 
   async requested(event: ReplaySideBySideJudgingRequested): Promise<void> {
     const replay = await this.replays.find(event.replayId);
-    const candidate = await this.candidates.find(event.candidateId);
-    const judge = candidate?.judge ?? null;
-    const ordered =
-      replay && judge
-        ? await this.judgings.request({
-            run: event.run,
-            other: event.other,
-            workspaceId: event.workspaceId,
-            teamId: replay.teamId,
-            criteria: judge,
-            reference: event.original,
-            maxAttempts: PAIR_ATTEMPTS,
-          })
-        : 'unreadable-rubric';
+
+    if (!replay) {
+      return;
+    }
+
+    const judging = judgingRequestOf(
+      await this.candidates.find(event.candidateId),
+    );
+    const ordered = judging.judged
+      ? await this.judgings.request({
+          run: event.run,
+          other: event.other,
+          workspaceId: event.workspaceId,
+          teamId: replay.teamId,
+          criteria: judging.criteria,
+          reference: event.original,
+          maxAttempts: PAIR_ATTEMPTS,
+        })
+      : judging.failure;
 
     if (ordered !== 'requested') {
       await this.paired.failed(event.run, event.other, ordered, null);

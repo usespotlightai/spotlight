@@ -14,9 +14,9 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class RunnerConfiguration implements RunnerConfigurationPort {
@@ -51,7 +51,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   }
 
   async poolWithId(id: string): Promise<RunnerPoolView | null> {
-    const pool = await this.pools.find(RunnerPoolId.of(id));
+    const pool = await this.pools.find(PoolId.of(id));
 
     return pool ? RunnerResourceMapper.configuredPool(pool) : null;
   }
@@ -75,7 +75,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   private async declaration(
     declared: WorkspaceRunners,
   ): Promise<WorkspaceRunnersView | null> {
-    const slug = await this.workspaces.slugOf(declared.workspaceId.value);
+    const slug = await this.workspaces.slugOf(declared.workspaceId);
 
     return slug
       ? RunnerResourceMapper.configuredWorkspaceRunners(declared, slug)

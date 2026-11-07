@@ -1,5 +1,5 @@
+import { EXPRESSIONS } from '@integrations/presentation/http/expression-routes';
 import type { ApiConvention } from '@platform/http/api-conventions';
-import { EXPRESSIONS } from '@platform/http/routes';
 
 export const INTEGRATIONS_API_CONVENTIONS: readonly ApiConvention[] = [
   {

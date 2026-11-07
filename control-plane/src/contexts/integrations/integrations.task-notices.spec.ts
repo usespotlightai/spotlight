@@ -274,7 +274,7 @@ describe('TaskNotices', () => {
     expect(run).toHaveBeenCalledTimes(1);
 
     run.mockClear();
-    await notifier.notify(opened, 'task.moved');
+    await notifier.notify(opened, 'task.failed');
     expect(run).not.toHaveBeenCalled();
   });
 });

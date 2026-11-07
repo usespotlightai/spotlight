@@ -2,29 +2,21 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -113,44 +105,5 @@ describe('BriefedTask', () => {
     };
 
     expect(BriefedTask.rehydrate(parts).parts).toEqual(parts);
-  });
-});
-
-describe('a run briefed with a task', () => {
-  const spec = RunSpec.of({
-    command: { executable: 'sh', args: [] },
-    briefing: 'Fix the queue.',
-    handover: { options: [], noteLimit: 0 },
-    resume: { key: 'chat-chat_1' },
-  });
-
-  it('records it only when it works a task', () => {
-    expect(() =>
-      Run.enqueue({
-        id: RunId.of('run_1'),
-        workspaceId: WorkspaceId.of('ws_1'),
-        harness: HarnessId.of('dev'),
-        subject: RunSubject.chat(ChatId.of('chat_1')),
-        spec,
-        briefedTask: withBriefing().briefed,
-      }),
-    ).toThrow(InvalidRunTransitionError);
-  });
-
-  it('records it only as briefed at the station the run works at', () => {
-    expect(() =>
-      Run.enqueue({
-        id: RunId.of('run_1'),
-        workspaceId: WorkspaceId.of('ws_1'),
-        harness: HarnessId.of('dev'),
-        subject: RunSubject.task(
-          TaskId.of('task_1'),
-          StationId.of('station_2'),
-          TaskRevision.of(1),
-        ),
-        spec,
-        briefedTask: withBriefing().briefed,
-      }),
-    ).toThrow(InvalidRunTransitionError);
   });
 });

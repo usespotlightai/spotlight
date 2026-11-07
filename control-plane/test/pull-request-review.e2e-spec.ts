@@ -60,15 +60,13 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     await db
       .insert(workspace)
       .values({ id: workspaceId, name: workspaceId, slug: workspaceId });
-    await db
-      .insert(team)
-      .values({
-        id: workspaceId,
-        workspaceId,
-        key: 'team',
-        name: workspaceId,
-        origin: 'configuration',
-      });
+    await db.insert(team).values({
+      id: workspaceId,
+      workspaceId,
+      key: 'team',
+      name: workspaceId,
+      origin: 'configuration',
+    });
   });
 
   afterEach(async () => {

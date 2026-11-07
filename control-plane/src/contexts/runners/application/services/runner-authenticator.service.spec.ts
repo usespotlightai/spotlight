@@ -1,3 +1,4 @@
+import { scopeRecorder } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { RunnerAuthenticator } from '@runners/application/services/runner-authenticator.service';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
@@ -17,7 +18,6 @@ import type {
   ExpectedWorkload,
   WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
-import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
@@ -198,7 +198,7 @@ describe('RunnerAuthenticator', () => {
 
     await expect(authenticator.authenticate(pooled)).resolves.toBeNull();
     await expect(authenticator.authenticate(trusted)).resolves.toBeNull();
-    expect(isOpen).toHaveBeenCalledWith('ws_1');
+    expect(isOpen).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
     expect(verify).not.toHaveBeenCalled();
   });
 });

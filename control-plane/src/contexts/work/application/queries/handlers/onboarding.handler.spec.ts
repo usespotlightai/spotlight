@@ -1,5 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { SetupChatView } from '@work/application/ports/chat-reader.port';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
@@ -30,8 +32,8 @@ const handler = (options: Options = {}) => {
       options.member === false
         ? null
         : {
-            teamId: 'team_1',
-            workspaceId: 'ws_1',
+            teamId: TeamId.of('team_1'),
+            workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             teamKey: 'platform',
             origin: options.origin ?? 'sign-up',

@@ -1,6 +1,6 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
-import { QuestionAlreadyAnsweredError } from '@change-review/domain/exceptions/question-already-answered.error';
+import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
@@ -40,6 +40,7 @@ const ready = ChangeStack.startGeneration({
   id: ChangeStackId.of('stack_1'),
   runId: RUN,
   taskId: TaskId.of('task_1'),
+  teamOfRun: null,
   replay: false,
   isSearch: false,
   workspaceId: WorkspaceId.of('ws_1'),
@@ -100,6 +101,7 @@ const answered = (id: string, personId: UserId, asked = question) =>
     id: QuestionAnswerId.of(id),
     workspaceId: ready.workspaceId,
     taskId: ready.taskId,
+    teamId: ready.teamId,
     stackId: ready.id,
     question: asked,
     personId,
@@ -157,9 +159,9 @@ describe('answers to the questions of a change stack', () => {
     expect(found?.usage.inputTokens).toBe(200);
   });
 
-  it('refuses a second answer by the same reviewer', async () => {
+  it('refuses a second answer by the same reviewer as a version conflict, for the caller to decide again', async () => {
     await expect(answers.add(answered('answer_ada_2', ADA))).rejects.toThrow(
-      QuestionAlreadyAnsweredError,
+      QuestionAnswerVersionConflictError,
     );
   });
 

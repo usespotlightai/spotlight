@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
-import { FORBIDDEN_ACTS } from '@platform/http/resources/problem.exception';
+import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import {
   RESOURCE_OPERATIONS,
   type ResourceOperation,
@@ -649,7 +649,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       ];
 
       for (const answer of forbidden) {
-        expect(FORBIDDEN_ACTS).toContain(answer.permission);
+        expect(app.get(ForbiddenActs).acts).toContain(answer.permission);
       }
     });
 

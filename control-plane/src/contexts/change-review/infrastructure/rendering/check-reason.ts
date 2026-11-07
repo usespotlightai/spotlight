@@ -1,3 +1,4 @@
+import type { StackCheckDto } from '@change-review/application/dto/change-stack.dto';
 import type { SkipCode } from '@change-review/domain/value-objects/stack-check.vo';
 
 const SKIP_DESCRIPTION: Readonly<Record<SkipCode, string>> = {
@@ -16,14 +17,11 @@ const SKIP_DESCRIPTION: Readonly<Record<SkipCode, string>> = {
     'Spotlight couldn’t provision a runner to check the layers.',
 };
 
-export interface UncheckedFor {
-  readonly skipped: { code: SkipCode; detail: string | null } | null;
-  readonly wholeFailed: boolean;
-}
-
-export const checkReasonOf = (found: UncheckedFor): string | null => {
-  if (found.skipped) {
-    return [SKIP_DESCRIPTION[found.skipped.code], found.skipped.detail]
+export const checkReasonOf = (
+  found: Pick<StackCheckDto, 'skip' | 'wholeFailed'>,
+): string | null => {
+  if (found.skip) {
+    return [SKIP_DESCRIPTION[found.skip.code], found.skip.detail]
       .filter(Boolean)
       .join('\n\n');
   }

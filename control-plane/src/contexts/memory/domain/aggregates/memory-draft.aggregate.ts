@@ -2,8 +2,8 @@ import type {
   MemoryProposal,
   ProposedMemory,
 } from '@memory/domain/entities/memory-proposal.entity';
-import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
+import { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
@@ -237,16 +237,11 @@ export class MemoryDraft
         drafted.record(new MemoryReviewResolved(this.id, this.taskId, runId));
       }
     }
-    drafted.record(
-      new MemoriesProposed(
-        this.id,
-        this.taskId,
-        input.runId,
-        remaining.length,
-        input.proposed.length - remaining.length,
-        replaced.length,
-      ),
-    );
+    if (remaining.length > 0) {
+      drafted.record(
+        new MemoryReviewRequested(this.id, this.taskId, input.runId),
+      );
+    }
     return drafted;
   }
 
@@ -271,13 +266,10 @@ export class MemoryDraft
       proposals: [...this.proposals, proposal],
     });
     remembered.record(
-      new MemoriesProposed(
+      new MemoryReviewRequested(
         this.id,
         this.taskId,
         proposal.provenance.runId,
-        1,
-        0,
-        0,
       ),
     );
     return remembered;

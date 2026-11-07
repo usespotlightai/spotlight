@@ -1,4 +1,9 @@
+import type {
+  DeclaredTool,
+  ToolCallInputs,
+} from '@integrations/application/dto/declared-tool.dto';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
+import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
@@ -14,37 +19,12 @@ import type {
   Happened,
   TaskMark,
 } from '@work/application/contracts/happenings.contract';
-import type {
-  ToolDeclaration,
-  ToolInputValues,
-} from '@work/application/contracts/tools.contract';
 
-interface NoticeFileView {
+export interface NoticeFileView {
   readonly id: string;
   readonly name: string;
   readonly type: string;
   readonly size: number;
-}
-
-interface IntegrationTaskViewWaiting {
-  readonly conversationId: string;
-  readonly body: string;
-  readonly awaitsApproval: boolean;
-  readonly attachments: readonly NoticeFileView[];
-}
-
-export interface IntegrationTaskView {
-  readonly taskId: string;
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly title: string;
-  readonly url: string | null;
-  readonly pullRequest: string | null;
-  readonly line: string;
-  readonly station: string;
-  readonly stationKey: string;
-  readonly marks: Readonly<Record<string, string>>;
-  readonly waiting: IntegrationTaskViewWaiting | null;
 }
 
 export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
@@ -105,7 +85,7 @@ export type ActionResult =
   | { readonly kind: 'nothing-to-do' };
 
 export interface TaskPayload {
-  readonly task: IntegrationTaskView;
+  readonly task: TaskView;
   readonly ask: {
     readonly body: string;
     readonly link: string | null;
@@ -154,12 +134,12 @@ export type CallAttempt =
 export interface ResolvedTool {
   readonly integration: Integration;
   readonly provided: ProvidedTool;
-  readonly declared: ToolDeclaration;
+  readonly declared: DeclaredTool;
   readonly injectedSecrets: readonly string[];
   defaultFor(input: string): unknown;
-  call(inputs: ToolInputValues, callAuth: CallAuth): Promise<ToolOutput>;
+  call(inputs: ToolCallInputs, callAuth: CallAuth): Promise<ToolOutput>;
   attempt(
-    inputs: ToolInputValues,
+    inputs: ToolCallInputs,
     callAuth: CallAuth,
     withinMs: number,
   ): Promise<CallAttempt>;
@@ -194,7 +174,7 @@ export interface IntegrationRuntimePort {
   tool(
     definitions: readonly DefinedIntegration[],
     tool: string,
-    task: IntegrationTaskView,
+    task: TaskView,
   ): Promise<ResolvedTool | null>;
 
   refresh(

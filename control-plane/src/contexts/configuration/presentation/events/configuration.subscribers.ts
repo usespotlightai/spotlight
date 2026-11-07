@@ -32,6 +32,7 @@ export const configurationSubscribers = (
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'configuration.delete-harness-profiles-of-deleted-team',
@@ -41,6 +42,7 @@ export const configurationSubscribers = (
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
+    { callsOut: true },
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'configuration.delete-terraform-states-of-deleted-workspace',

@@ -25,6 +25,7 @@ import {
   pairTallyOf,
   taskComparisons,
 } from '@replays/domain/services/replay-results';
+import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -213,7 +214,7 @@ describe('Replay, set side by side with its baseline', () => {
     const answered = paired.pair(
       runOf('replay_1', 0),
       runOf('baseline_1', 0),
-      pairVerdictOf('run'),
+      pairVerdictOf('win'),
       ModelSpent.of([Money.of(0.1, 'USD')], 0),
     );
 
@@ -277,7 +278,7 @@ describe('Replay, set side by side with its baseline', () => {
     const paired = requested.pair(
       runOf('replay_1', 0),
       runOf('baseline_1', 0),
-      pairVerdictOf('run'),
+      pairVerdictOf('win'),
       ModelSpent.of([Money.of(0.25, 'USD')], 0),
     );
 
@@ -341,7 +342,7 @@ describe('Replay, set side by side with its baseline', () => {
     const paired = requested.pair(
       run,
       runOf('baseline_1', 0),
-      pairVerdictOf('run'),
+      pairVerdictOf('win'),
       ModelSpent.of([Money.of(0.25, 'USD')], 0),
     );
 
@@ -349,7 +350,7 @@ describe('Replay, set side by side with its baseline', () => {
     expect(paired.entries[0]?.succeeded).toBe(succeeded);
     expect(paired.charged.amount).toBeCloseTo(chargedBefore + 0.25);
     expect(
-      paired.pair(run, runOf('baseline_1', 1), pairVerdictOf('other'), null),
+      paired.pair(run, runOf('baseline_1', 1), pairVerdictOf('loss'), null),
     ).toBe(paired);
   });
 
@@ -371,7 +372,7 @@ describe('Replay, set side by side with its baseline', () => {
 const pairedAs = (
   replay: Replay,
   against: Replay,
-  winners: readonly ('run' | 'other' | 'tie')[],
+  outcomes: readonly PairOutcome[],
 ): Replay => {
   const requested = replay.pairAgainst(
     against.asPairingReference,
@@ -383,7 +384,7 @@ const pairedAs = (
       built.pair(
         entry.run as RunId,
         entry.pairing?.otherRunId as RunId,
-        pairVerdictOf(winners[at] ?? 'tie'),
+        pairVerdictOf(outcomes[at] ?? 'tie'),
         null,
       ),
     requested,
@@ -394,8 +395,8 @@ describe('pairOutcomeOf and pairTallyOf', () => {
   it('reads each task’s side-by-side verdict against the replay it started paired with, and tallies wins, losses and ties', () => {
     const against = concludedAll(baseline());
     const paired = pairedAs(concludedAll(judging('replay_1')), against, [
-      'run',
-      'other',
+      'win',
+      'loss',
     ]);
 
     expect(
@@ -419,7 +420,7 @@ describe('pairOutcomeOf and pairTallyOf', () => {
     const paired = pairedAs(
       concludedAll(judging('replay_1')),
       concludedAll(baseline()),
-      ['run', 'run'],
+      ['win', 'win'],
     );
     const newer = concludedAll(
       aReplay({
@@ -444,10 +445,10 @@ describe('pairOutcomeOf and pairTallyOf', () => {
   it('goes by most of a task’s repeats, and calls an even split a tie', () => {
     const against = concludedAll(baseline(2));
     const paired = pairedAs(concludedAll(judging('replay_1', 2)), against, [
-      'run',
-      'run',
-      'run',
-      'other',
+      'win',
+      'win',
+      'win',
+      'loss',
     ]);
     const [first, second] = [0, 1].map((original) =>
       paired.entries.filter(

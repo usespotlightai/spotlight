@@ -6,15 +6,18 @@ import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skil
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import type { SkillFolderReading } from '@configuration/domain/services/skill-folder-reading';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -23,7 +26,7 @@ const TEAM = TeamId.of('team_1');
 const ID = SkillDefinitionId.of('skill_1');
 
 const parsed = (key = 'grafana', body = 'Search first.') => ({
-  key: SkillKey.of(key),
+  key: DefinedSkillKey.of(key),
   files: SkillFiles.of({ 'SKILL.md': body }),
 });
 
@@ -42,7 +45,7 @@ const stored = (version = 3) =>
   SkillDefinition.rehydrate({
     id: ID,
     teamId: TEAM,
-    key: SkillKey.of('grafana'),
+    key: DefinedSkillKey.of('grafana'),
     files: SkillFiles.of({ 'SKILL.md': 'Search first.' }),
     version,
   });
@@ -52,7 +55,11 @@ const BY = changeActorIn();
 const GRAFANA = { resource: 'skill' as const, id: 'skill_1', key: 'grafana' };
 
 const ENABLED = StationUses.of([
-  { name: 'grafana', line: 'delivery', station: 'implementation' },
+  {
+    used: SkillKey.of('grafana'),
+    line: LineKey.of('delivery'),
+    station: StationKey.of('implementation'),
+  },
 ]);
 
 describe('SkillDefinition', () => {
@@ -71,7 +78,7 @@ describe('SkillDefinition', () => {
       new SkillCreated(
         ID,
         TEAM,
-        SkillKey.of('grafana'),
+        DefinedSkillKey.of('grafana'),
         ConfigurationChange.created(GRAFANA, BY),
       ),
     ]);
@@ -95,7 +102,7 @@ describe('SkillDefinition', () => {
       new SkillUpdated(
         ID,
         TEAM,
-        SkillKey.of('grafana'),
+        DefinedSkillKey.of('grafana'),
         ConfigurationChange.updated(GRAFANA, BY),
       ),
     ]);
@@ -117,7 +124,11 @@ describe('SkillDefinition', () => {
   it('is deleted when no station enables it, and cannot change after', () => {
     const deleted = stored().delete(
       StationUses.of([
-        { name: 'loki', line: 'delivery', station: 'implementation' },
+        {
+          used: SkillKey.of('loki'),
+          line: LineKey.of('delivery'),
+          station: StationKey.of('implementation'),
+        },
       ]),
       BY,
     );
@@ -127,7 +138,7 @@ describe('SkillDefinition', () => {
       new SkillDeleted(
         ID,
         TEAM,
-        SkillKey.of('grafana'),
+        DefinedSkillKey.of('grafana'),
         ConfigurationChange.deleted(GRAFANA, BY),
       ),
     ]);
@@ -144,7 +155,7 @@ describe('SkillDefinition', () => {
       new SkillDeleted(
         ID,
         TEAM,
-        SkillKey.of('grafana'),
+        DefinedSkillKey.of('grafana'),
         ConfigurationChange.deleted(GRAFANA, BY),
       ),
     ]);

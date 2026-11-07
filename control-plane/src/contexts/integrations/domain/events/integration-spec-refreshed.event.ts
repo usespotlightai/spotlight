@@ -6,7 +6,7 @@ import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/co
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class IntegrationSpecRefreshed implements ConfigurationChanged {
-  readonly kind = 'integrations.integration-spec-refreshed';
+  readonly kind = 'integration.spec-refreshed';
 
   constructor(
     readonly id: IntegrationDefinitionId,

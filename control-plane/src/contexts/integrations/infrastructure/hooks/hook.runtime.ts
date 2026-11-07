@@ -2,7 +2,6 @@ import type {
   HookEventInstance,
   HookRuntimePort,
   ListeningHook,
-  StepOutcome,
   WrittenStep,
 } from '@integrations/application/ports/hook-runtime.port';
 import type { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
@@ -10,6 +9,7 @@ import type { HookDefinitionRepository } from '@integrations/domain/repositories
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   compileHook,
@@ -61,13 +61,13 @@ const eventSeen = (instance: HookEventInstance) => ({
   at: instance.at.toISOString(),
 });
 
-const outputOf = (outcome: StepOutcome): unknown =>
+const outputOf = (outcome: HookStepOutcome): unknown =>
   outcome.status === 'waiting' ? null : outcome.output;
 
 const celVariablesFor = (
   hook: Readable,
   instance: HookEventInstance,
-  earlier: readonly StepOutcome[] = [],
+  earlier: readonly HookStepOutcome[] = [],
 ): CelVariables => ({
   event: sanitizedForCel(eventSeen(instance)),
   task: sanitizedForCel(taskSeen(instance)),
@@ -137,7 +137,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     hook: ListeningHook,
     step: string,
     instance: HookEventInstance,
-    earlier: readonly StepOutcome[],
+    earlier: readonly HookStepOutcome[],
   ): WrittenStep {
     const compiled = hook as Compiled;
     const found = isReadable(compiled)

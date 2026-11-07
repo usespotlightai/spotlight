@@ -18,8 +18,8 @@ import type { Harness } from '@work/domain/value-objects/harness.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
+import type { RefusalReason } from '@work/domain/value-objects/refusal-reason.vo';
 import type { Resume } from '@work/domain/value-objects/resume.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 
 export interface RunOrder {
@@ -36,7 +36,7 @@ export interface RunOrder {
   readonly enabled: EnabledForRun;
   readonly diffs: boolean;
   readonly check: string | null;
-  readonly refusal: RunOutcome | null;
+  readonly refusals: readonly RefusalReason[];
 }
 
 export interface OrderedAt {
@@ -90,7 +90,7 @@ export const orderAt = ({
     enabled,
     diffs: station.diffs,
     check: station.diffs ? station.check : null,
-    refusal: refusals.length > 0 ? RunOutcome.refused(refusals) : null,
+    refusals,
   };
 };
 

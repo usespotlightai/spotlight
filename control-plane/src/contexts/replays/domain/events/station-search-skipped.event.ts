@@ -6,7 +6,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class StationSearchSkipped implements DomainEvent {
-  readonly kind = 'replays.station-search-skipped';
+  readonly kind = 'station-search-schedule.skipped';
 
   constructor(
     readonly workspaceId: WorkspaceId,

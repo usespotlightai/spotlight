@@ -3,7 +3,7 @@ import {
   CatalogSkill,
   CatalogTool,
 } from '@catalog/domain/entities/catalog-item.entity';
-import type { CatalogItems } from '@catalog/domain/services/catalog-items';
+import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
 import {
   resolveEntitled,
   resolveEntitledFor,

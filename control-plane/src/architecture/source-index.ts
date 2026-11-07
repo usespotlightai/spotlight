@@ -76,15 +76,19 @@ export const sourceFile = (path: string): SourceFile => {
   return file;
 };
 
-export const sourceFiles = (
+export const sourcePaths = (
   folder = '',
   { specs = false }: { specs?: boolean } = {},
-): SourceFile[] =>
+): string[] =>
   walk(join(SOURCE_ROOT, folder))
     .map((at) => relative(SOURCE_ROOT, at))
     .filter((path) => specs || !isSpec(path))
-    .sort()
-    .map(sourceFile);
+    .sort();
+
+export const sourceFiles = (
+  folder = '',
+  { specs = false }: { specs?: boolean } = {},
+): SourceFile[] => sourcePaths(folder, { specs }).map(sourceFile);
 
 export const moduleTarget = (
   from: string,

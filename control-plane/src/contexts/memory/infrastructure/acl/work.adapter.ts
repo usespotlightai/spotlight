@@ -6,7 +6,6 @@ import type {
   RememberedRun,
   RememberedTask,
   TaskNote,
-  TeamLine,
   WorkPort,
 } from '@memory/application/ports/work.port';
 import {
@@ -95,18 +94,6 @@ export class Work implements WorkPort {
         repositories: runContext.repositories,
       }
     );
-  }
-
-  async linesOf(teamId: TeamId): Promise<readonly TeamLine[]> {
-    return (await this.work.linesOf(teamId)).map((line) => ({
-      id: LineId.of(line.id),
-      name: line.name,
-      stations: line.stations.map((station) => ({
-        id: StationId.of(station.id),
-        name: station.name,
-      })),
-      repositories: line.repositories,
-    }));
   }
 
   async task(taskId: TaskId): Promise<RememberedTask | null> {

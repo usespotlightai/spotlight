@@ -1,8 +1,10 @@
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
+import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
+import { SpotlightCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -19,7 +21,10 @@ import {
 } from '@integrations/integrations.mcp.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   NetworkCallState,
   NetworkCallsPort,
@@ -57,17 +62,19 @@ tools:
     output: \${{ capture.id }}
 `;
 
-const TASK = {
-  taskId: 'task_1',
-  workspaceId: 'ws_1',
-  teamId: 'team_1',
+const TASK: TaskView = {
+  taskId: TaskId.of('task_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
   title: 'Drain the queue',
   url: null,
   pullRequest: null,
   line: 'delivery',
   station: 'Implementation',
-  stationKey: 'implementation',
+  stationKey: StationKey.of('implementation'),
   marks: {},
+  repositories: [],
+  runId: null,
   waiting: null,
 };
 

@@ -77,7 +77,7 @@ export class WriteTerraformStateHandler
       return { outcome: 'done' };
     } catch (error) {
       if (error instanceof TerraformStateLockedError) {
-        return { outcome: 'locked', holder: error.holder.info };
+        return { outcome: 'locked', holder: error.holder.asWritten };
       }
 
       rethrowAsApplicationError(error);

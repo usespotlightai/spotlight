@@ -30,7 +30,7 @@ export class WorkspaceConfigurationHandler
       );
       const workspace =
         permissions &&
-        (await this.workspaces.profileOf(permissions.workspaceId.value));
+        (await this.workspaces.profileOf(permissions.workspaceId));
 
       return workspace ? await this.configurations.of(workspace) : null;
     } catch (error) {

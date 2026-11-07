@@ -1,14 +1,24 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid-repository.error';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
-
-const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 
 const REGEX_SPECIAL = /[.+^${}()|[\]\\]/g;
 
 interface HookMatchFields {
+  readonly tools: readonly ToolName[];
+  readonly lines: readonly LineKey[];
+  readonly stations: readonly StationKey[];
+  readonly repositories: readonly Repository[];
+  readonly paths: readonly string[];
+}
+
+export interface WrittenHookMatch {
   readonly tools: readonly ToolName[];
   readonly lines: readonly string[];
   readonly stations: readonly string[];
@@ -17,9 +27,9 @@ interface HookMatchFields {
 }
 
 export interface MatchedTask {
-  readonly line: string;
-  readonly stationKey: string;
-  readonly repositories: readonly string[];
+  readonly line: LineKey;
+  readonly stationKey: StationKey;
+  readonly repositories: readonly Repository[];
 }
 
 const at = (...segments: (string | number)[]) =>
@@ -55,6 +65,43 @@ const uniqueTools = (tools: readonly ToolName[]): ToolName[] =>
 const textOf = (value: unknown): string | null =>
   typeof value === 'string' ? value : null;
 
+const repositoryOf = (value: unknown): Repository | null => {
+  const text = textOf(value);
+
+  if (text === null) {
+    return null;
+  }
+
+  try {
+    return Repository.of(text);
+  } catch (error) {
+    if (error instanceof InvalidRepositoryError) {
+      return null;
+    }
+    throw error;
+  }
+};
+
+const readEach = <T>(
+  field: 'lines' | 'stations' | 'repositories',
+  written: readonly string[],
+  read: (raw: string) => T,
+  shape: string,
+): T[] =>
+  written.map((raw, index) => {
+    try {
+      return read(raw);
+    } catch (error) {
+      if (
+        error instanceof InvalidIdentifierError ||
+        error instanceof InvalidRepositoryError
+      ) {
+        throw new InvalidHookError(at(field, index), shape);
+      }
+      throw error;
+    }
+  });
+
 const textsOf = (value: unknown): readonly string[] | null =>
   Array.isArray(value) && value.every((each) => typeof each === 'string')
     ? value
@@ -74,33 +121,6 @@ const guarded = (fields: HookMatchFields, event: HookEvent): void => {
       `only applies to pull-request.opening and pull-request.merged, not ${event.name}`,
     );
   }
-
-  fields.lines.forEach((line, index) => {
-    if (!isSlug(line)) {
-      throw new InvalidHookError(
-        at('lines', index),
-        'is lowercase words joined by dashes, as in delivery',
-      );
-    }
-  });
-
-  fields.stations.forEach((station, index) => {
-    if (!isSlug(station)) {
-      throw new InvalidHookError(
-        at('stations', index),
-        'is lowercase words joined by dashes, as in implementation',
-      );
-    }
-  });
-
-  fields.repositories.forEach((repository, index) => {
-    if (!REPOSITORY.test(repository)) {
-      throw new InvalidHookError(
-        at('repositories', index),
-        'is owner/name, as in acme/api',
-      );
-    }
-  });
 
   fields.paths.forEach((path, index) => {
     if (path.length === 0) {
@@ -135,6 +155,34 @@ export class HookMatch {
     );
   }
 
+  static written(written: WrittenHookMatch, event: HookEvent): HookMatch {
+    return HookMatch.of(
+      {
+        tools: written.tools,
+        lines: readEach(
+          'lines',
+          written.lines,
+          LineKey.of,
+          'is lowercase words joined by dashes, as in delivery',
+        ),
+        stations: readEach(
+          'stations',
+          written.stations,
+          StationKey.of,
+          'is lowercase words joined by dashes, as in implementation, and not review or done',
+        ),
+        repositories: readEach(
+          'repositories',
+          written.repositories,
+          Repository.of,
+          'is owner/name, as in acme/api',
+        ),
+        paths: written.paths,
+      },
+      event,
+    );
+  }
+
   static anything(event: HookEvent): HookMatch {
     return HookMatch.of(
       { tools: [], lines: [], stations: [], repositories: [], paths: [] },
@@ -150,15 +198,15 @@ export class HookMatch {
     return this.fields.tools;
   }
 
-  get lines(): readonly string[] {
+  get lines(): readonly LineKey[] {
     return this.fields.lines;
   }
 
-  get stations(): readonly string[] {
+  get stations(): readonly StationKey[] {
     return this.fields.stations;
   }
 
-  get repositories(): readonly string[] {
+  get repositories(): readonly Repository[] {
     return this.fields.repositories;
   }
 
@@ -180,24 +228,31 @@ export class HookMatch {
   }
 
   equals(other: HookMatch): boolean {
-    const same = (one: readonly string[], two: readonly string[]) =>
-      one.length === two.length && one.every((each, i) => each === two[i]);
+    const same = <T>(
+      one: readonly T[],
+      two: readonly T[],
+      equal: (a: T, b: T) => boolean,
+    ) =>
+      one.length === two.length &&
+      one.every((each, i) => equal(each, two[i] as T));
+    const equalValues = <T extends { equals(other: T): boolean }>(a: T, b: T) =>
+      a.equals(b);
 
     return (
       this.event.equals(other.event) &&
-      same(
-        this.fields.tools.map((each) => each.value),
-        other.fields.tools.map((each) => each.value),
-      ) &&
-      same(this.fields.lines, other.fields.lines) &&
-      same(this.fields.stations, other.fields.stations) &&
-      same(this.fields.repositories, other.fields.repositories) &&
-      same(this.fields.paths, other.fields.paths)
+      same(this.fields.tools, other.fields.tools, equalValues) &&
+      same(this.fields.lines, other.fields.lines, equalValues) &&
+      same(this.fields.stations, other.fields.stations, equalValues) &&
+      same(this.fields.repositories, other.fields.repositories, equalValues) &&
+      same(this.fields.paths, other.fields.paths, (a, b) => a === b)
     );
   }
 
-  private within(listed: readonly string[], value: string): boolean {
-    return listed.length === 0 || listed.includes(value);
+  private within<T extends { equals(other: T): boolean }>(
+    listed: readonly T[],
+    value: T,
+  ): boolean {
+    return listed.length === 0 || listed.some((each) => each.equals(value));
   }
 
   private matchesTool(event: Readonly<Record<string, unknown>>): boolean {
@@ -223,12 +278,16 @@ export class HookMatch {
     }
 
     if (this.event.aboutChanges) {
-      const repository = textOf(event.repository);
+      const repository = repositoryOf(event.repository);
 
-      return repository !== null && listed.includes(repository);
+      return (
+        repository !== null && listed.some((each) => each.equals(repository))
+      );
     }
 
-    return task.repositories.some((each) => listed.includes(each));
+    return task.repositories.some((repository) =>
+      listed.some((each) => each.equals(repository)),
+    );
   }
 
   private matchesPaths(event: Readonly<Record<string, unknown>>): boolean {

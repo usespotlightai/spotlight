@@ -1,22 +1,38 @@
-import type { INestApplication } from '@nestjs/common';
+import type { OnApplicationBootstrap, Provider } from '@nestjs/common';
+import {
+  LOGGER,
+  type LoggerPort,
+} from '@shared-kernel/application/ports/logger.port';
 import {
   RUN_USAGE_WRITER,
   type RunUsageWriterPort,
 } from '@work/application/ports/run-usage-writer.port';
 import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
-import { Logger } from 'nestjs-pino';
 
-export function startWork(app: INestApplication): void {
-  const usages = app.get<RunUsageWriterPort>(RUN_USAGE_WRITER);
+export class WorkStartup implements OnApplicationBootstrap {
+  constructor(
+    private readonly usages: RunUsageWriterPort,
+    private readonly setup: ReconcileSetup,
+    private readonly logger: LoggerPort,
+  ) {}
 
-  void usages.catchUp().catch((error: unknown) => {
-    app.get(Logger).error(error, 'catching up run usages');
-  });
-
-  void app
-    .get(ReconcileSetup)
-    .wherever()
-    .catch((error: unknown) => {
-      app.get(Logger).error(error, 'reconciling setup lists');
+  onApplicationBootstrap(): void {
+    void this.usages.catchUp().catch((error: unknown) => {
+      this.logger.error({ err: error }, 'catching up run usages');
     });
+
+    void this.setup.wherever().catch((error: unknown) => {
+      this.logger.error({ err: error }, 'reconciling setup lists');
+    });
+  }
 }
+
+export const WORK_STARTUP: Provider = {
+  provide: WorkStartup,
+  inject: [RUN_USAGE_WRITER, ReconcileSetup, LOGGER],
+  useFactory: (
+    usages: RunUsageWriterPort,
+    setup: ReconcileSetup,
+    logger: LoggerPort,
+  ) => new WorkStartup(usages, setup, logger),
+};

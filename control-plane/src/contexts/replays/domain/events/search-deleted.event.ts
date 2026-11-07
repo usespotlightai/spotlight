@@ -4,7 +4,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class SearchDeleted implements DomainEvent {
-  readonly kind = 'replays.search-deleted';
+  readonly kind = 'search.deleted';
 
   constructor(
     readonly searchId: SearchId,

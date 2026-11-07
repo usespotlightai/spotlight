@@ -1,7 +1,7 @@
-import type { IntegrationTaskView } from '@integrations/application/ports/integration-runtime.port';
+import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 
 export const taskBinding = (
-  task: IntegrationTaskView,
+  task: TaskView,
 ): {
   title: string;
   url: string | null;
@@ -16,6 +16,6 @@ export const taskBinding = (
   pullRequest: task.pullRequest,
   line: task.line,
   station: task.station,
-  stationKey: task.stationKey,
+  stationKey: task.stationKey.value,
   marks: task.marks,
 });

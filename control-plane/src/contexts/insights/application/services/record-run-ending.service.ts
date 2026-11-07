@@ -6,10 +6,7 @@ import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerp
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
-import {
-  endingOf,
-  type RunEnding,
-} from '@insights/domain/value-objects/run-ending';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -24,8 +21,7 @@ export interface RunEnded {
   readonly runId: string;
   readonly taskId: string | null;
   readonly stationId: string | null;
-  readonly outcome: string;
-  readonly stopped: boolean;
+  readonly ending: RunEnding | null;
   readonly failure: string | null;
   readonly asked: boolean;
 }
@@ -72,7 +68,7 @@ export class RecordRunEnding {
   ) {}
 
   async ended(event: RunEnded): Promise<void> {
-    const ending = endingOf(event);
+    const { ending } = event;
 
     if (!ending || !event.taskId || !event.stationId) {
       return;

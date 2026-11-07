@@ -1,6 +1,7 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
+import { DispatchSlotTakenError } from '@replays/domain/exceptions/dispatch-slot-taken.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -64,7 +65,10 @@ export class DispatchReplayRuns implements PendingJobsPort {
       try {
         await this.transaction.inTransaction(() => this.replays.save(replay));
       } catch (error) {
-        if (!(error instanceof ReplayVersionConflictError)) {
+        if (
+          !(error instanceof ReplayVersionConflictError) &&
+          !(error instanceof DispatchSlotTakenError)
+        ) {
           throw error;
         }
 

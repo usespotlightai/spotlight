@@ -4,6 +4,7 @@ import {
   insightsPullRequestOf,
 } from '@insights/application/dto/insights-pull-requests.dto';
 import type { ListInsightsPullRequestsQuery } from '@insights/application/queries/list-insights-pull-requests.query';
+import { pullRequestFilterInputOf } from '@insights/application/queries/pull-request-filter-query';
 import type { TeamPullRequests } from '@insights/application/services/team-pull-requests.service';
 import { pullRequestFilterOf } from '@insights/domain/services/pull-request-filter';
 import {
@@ -23,7 +24,9 @@ export class ListInsightsPullRequestsHandler
     query: ListInsightsPullRequestsQuery,
   ): Promise<InsightsPullRequestListDto> {
     try {
-      const filter = pullRequestFilterOf(query.filter);
+      const filter = pullRequestFilterOf(
+        pullRequestFilterInputOf(query.filter),
+      );
       const size = listingSizeOf(query.size);
       const page = listingPageOf(query.page);
       const { period, total, pullRequests } = await this.pullRequests.page(

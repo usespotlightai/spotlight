@@ -229,7 +229,7 @@ export class StationAlertState extends EventRecorder {
     return scope.kind === 'task' ? this.withoutTask(scope.taskId) : null;
   }
 
-  withoutTask(taskId: TaskId): StationAlertState {
+  private withoutTask(taskId: TaskId): StationAlertState {
     const removed = this.firings.filter((each) => each.taskId.equals(taskId));
 
     if (removed.length === 0) {

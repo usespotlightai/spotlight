@@ -146,17 +146,6 @@ export class DrizzleJudgingRepository implements JudgingRepository {
     return row ? toJudging(row) : null;
   }
 
-  async ofForScoring(runId: RunId): Promise<Judging | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(judging)
-      .where(eq(judging.runId, runId.value))
-      .limit(1)
-      .for('update');
-
-    return row ? toJudging(row) : null;
-  }
-
   async nextDueJob(now: Date): Promise<Judging | null> {
     const [row] = await this.context.db
       .select()

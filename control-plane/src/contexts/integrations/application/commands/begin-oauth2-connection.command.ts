@@ -1,11 +1,11 @@
-import type { ConnectionOwnerKind } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { ActsAsKind } from '@integrations/domain/value-objects/acts-as.vo';
 
 export class BeginOAuth2ConnectionCommand {
   constructor(
     readonly teamId: string,
     readonly integration: string,
     readonly viewerId: string,
-    readonly owner: ConnectionOwnerKind,
+    readonly actsAs: ActsAsKind | null,
     readonly returnTo: string | null,
   ) {}
 }

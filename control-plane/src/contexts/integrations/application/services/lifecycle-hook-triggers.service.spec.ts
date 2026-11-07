@@ -1,30 +1,45 @@
 import { taskViewOf } from '@integrations/application/ports/tasks-for-hooks.fake-spec';
 import type {
+  LinkedTaskView,
   TasksForHooksPort,
   TaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
-import type {
-  HookEventOccurred,
-  QueueHookFirings,
-} from '@integrations/application/services/queue-hook-firings.service';
+import type { QueueHookFirings } from '@integrations/application/services/queue-hook-firings.service';
+import type { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const TASK = taskViewOf();
 
-const setUp = (task: TaskView | null = TASK) => {
-  const queue = vi.fn(async (_happened: HookEventOccurred) => 1);
+const setUp = (task: LinkedTaskView | null = TASK) => {
+  const queue = vi.fn(async (_task: TaskView, _occurred: HookOccurrence) => 1);
   const tasks = {
     of: vi.fn(async () => task),
     ofPullRequest: vi.fn(async () => task),
   } satisfies TasksForHooksPort;
 
+  const occurred = (index = 0) => {
+    const each = queue.mock.calls[index]?.[1];
+
+    return each
+      ? {
+          on: each.on,
+          occurrence: each.key,
+          change: each.change,
+          event: each.payload,
+          matchedAfterChanges: each.matchedAfterChanges,
+        }
+      : null;
+  };
+
   return {
     queue,
+    occurred,
     tasks,
     triggers: new LifecycleHookTriggers(
       { queue } as unknown as QueueHookFirings,
@@ -37,23 +52,25 @@ const PULL_REQUEST = 'https://github.com/acme/api/pull/7';
 
 describe('LifecycleHookTriggers', () => {
   it('tells each use of a tool apart, so using one often is never read as a loop', async () => {
-    const { triggers, queue } = setUp();
-    const used = { tool: 'github.comment', event: { tool: 'github.comment' } };
+    const { triggers, occurred } = setUp();
+    const used = {
+      tool: Tool.of('github.comment'),
+      event: { tool: 'github.comment' },
+    };
 
     await triggers.toolUsed(TASK, used, 'call_1');
     await triggers.toolUsed(TASK, used, 'call_2');
 
-    const [first, second] = queue.mock.calls.map(([each]) => each.change);
-    expect(first).not.toBe(second);
-    expect(first).toContain('github.comment');
-    expect(queue.mock.calls[0]?.[0]).toMatchObject({
+    expect(occurred(0)?.change).not.toBe(occurred(1)?.change);
+    expect(occurred(0)?.change).toContain('github.comment');
+    expect(occurred(0)).toMatchObject({
       on: 'tool.used',
       occurrence: 'call_1',
     });
   });
 
   it('fires the hooks of the task a run ended on', async () => {
-    const { triggers, queue, tasks } = setUp();
+    const { triggers, occurred, tasks } = setUp();
 
     await triggers.runEnded({
       runId: 'run_1',
@@ -65,13 +82,11 @@ describe('LifecycleHookTriggers', () => {
       TaskId.of('task_1'),
       RunId.of('run_1'),
     );
-    expect(queue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        on: 'run.ended',
-        occurrence: 'run-ended:run_1',
-        event: { outcome: 'handed-over' },
-      }),
-    );
+    expect(occurred()).toMatchObject({
+      on: 'run.ended',
+      occurrence: 'run-ended:run_1',
+      event: { outcome: 'handed-over' },
+    });
   });
 
   it('fires nothing for a run of no task, or a task gone', async () => {
@@ -90,7 +105,7 @@ describe('LifecycleHookTriggers', () => {
   });
 
   it('fires on a task that moved, naming where from and to', async () => {
-    const { triggers, queue } = setUp();
+    const { triggers, occurred } = setUp();
 
     await triggers.taskMoved({
       taskId: 'task_1',
@@ -99,17 +114,15 @@ describe('LifecycleHookTriggers', () => {
       at: '2026-09-26T10:00:00.000Z',
     } as never);
 
-    expect(queue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        on: 'task.moved',
-        change: 'triage → build',
-        event: { from: 'triage', to: 'build' },
-      }),
-    );
+    expect(occurred()).toMatchObject({
+      on: 'task.moved',
+      change: 'triage → build',
+      event: { from: 'triage', to: 'build' },
+    });
   });
 
   it('fires on a merged pull request, matching it once its changes are known', async () => {
-    const { triggers, queue, tasks } = setUp();
+    const { triggers, queue, occurred, tasks } = setUp();
 
     await triggers.pullRequestClosed({
       workspaceId: 'workspace_1',
@@ -130,16 +143,14 @@ describe('LifecycleHookTriggers', () => {
       PullRequestUrl.of(PULL_REQUEST),
     );
     expect(queue).toHaveBeenCalledOnce();
-    expect(queue).toHaveBeenCalledWith(
-      expect.objectContaining({
-        on: 'pull-request.merged',
-        matchedLater: true,
-        event: {
-          url: PULL_REQUEST,
-          repository: 'acme/api',
-          mergeCommit: 'abc',
-        },
-      }),
-    );
+    expect(occurred()).toMatchObject({
+      on: 'pull-request.merged',
+      matchedAfterChanges: true,
+      event: {
+        url: PULL_REQUEST,
+        repository: 'acme/api',
+        mergeCommit: 'abc',
+      },
+    });
   });
 });

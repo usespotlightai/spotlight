@@ -151,13 +151,6 @@ export class RunFact implements RunFactParts {
     return this.pullRequest !== null && this.pullRequest.state !== 'open';
   }
 
-  failedAfterCallingTo(server: string): boolean {
-    return (
-      this.ending === 'failed' &&
-      this.tools?.callsTo(server)?.lastCallFailed === true
-    );
-  }
-
   asOf(at: Date): RunFact | null {
     const known = knownBy(at);
 

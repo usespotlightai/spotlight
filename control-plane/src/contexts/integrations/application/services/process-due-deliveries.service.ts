@@ -34,8 +34,8 @@ export class ProcessDueDeliveries implements DeliveryWorkPort {
     const ids = {
       deliveryId: claimed.id,
       integration: claimed.integration.value,
-      workspaceId: claimed.to?.workspaceId,
-      teamId: claimed.to?.teamId,
+      workspaceId: claimed.to?.workspaceId.value,
+      teamId: claimed.to?.teamId.value,
     };
 
     await this.telemetry.inSpan('Reading a delivery', ids, async () => {

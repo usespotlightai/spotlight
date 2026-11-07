@@ -19,6 +19,7 @@ import { DecisionReactions } from '@change-review/application/events/handlers/de
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
+import { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
 import { CHANGE_REVIEW_EVENT_MAPPERS } from '@change-review/application/integration-events/change-review.event-mappers';
 import { ANSWER_GRADER } from '@change-review/application/ports/answer-grader.port';
 import { AVATARS } from '@change-review/application/ports/avatars.port';
@@ -61,13 +62,13 @@ import {
 } from '@change-review/application/ports/people.port';
 import { REPLAY_RECHECKS } from '@change-review/application/ports/replay-rechecks.port';
 import {
+  REVIEW_DELIVERIES,
+  type ReviewDeliveriesPort,
+} from '@change-review/application/ports/review-deliveries.port';
+import {
   REVIEW_LINKS,
   type ReviewLinksPort,
 } from '@change-review/application/ports/review-links.port';
-import {
-  REVIEW_OUTBOX,
-  type ReviewOutboxPort,
-} from '@change-review/application/ports/review-outbox.port';
 import { REVIEW_READER } from '@change-review/application/ports/review-reader.port';
 import { RUN_CHANGE_CHECKS } from '@change-review/application/ports/run-change-checks.port';
 import {
@@ -88,11 +89,13 @@ import {
 } from '@change-review/application/ports/workspaces.port';
 import { ListMergedDecisionsHandler } from '@change-review/application/queries/handlers/list-merged-decisions.handler';
 import { ListRunChangeStacksHandler } from '@change-review/application/queries/handlers/list-run-change-stacks.handler';
+import { ReadQuestionAnswerHandler } from '@change-review/application/queries/handlers/read-question-answer.handler';
 import { ReadRunReviewHandler } from '@change-review/application/queries/handlers/read-run-review.handler';
 import { ReadTaskChangeStackHandler } from '@change-review/application/queries/handlers/read-task-change-stack.handler';
 import { ReadTaskDecisionsHandler } from '@change-review/application/queries/handlers/read-task-decisions.handler';
 import { ListMergedDecisionsQuery } from '@change-review/application/queries/list-merged-decisions.query';
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
+import { ReadQuestionAnswerQuery } from '@change-review/application/queries/read-question-answer.query';
 import { ReadRunReviewQuery } from '@change-review/application/queries/read-run-review.query';
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
 import { ReadTaskDecisionsQuery } from '@change-review/application/queries/read-task-decisions.query';
@@ -101,6 +104,7 @@ import { ApplyPullRequestClose } from '@change-review/application/services/apply
 import { CheckAccess } from '@change-review/application/services/check-access.service';
 import { ClaimChangeStackCheck } from '@change-review/application/services/claim-change-stack-check.service';
 import { DecisionsForBriefing } from '@change-review/application/services/decisions-for-briefing.service';
+import { DeliverReviews } from '@change-review/application/services/deliver-reviews.service';
 import { ExpireWaitingChecks } from '@change-review/application/services/expire-waiting-checks.service';
 import { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
 import { PostChangeStackComment } from '@change-review/application/services/post-change-stack-comment.service';
@@ -112,11 +116,9 @@ import { RedraftChangeStack } from '@change-review/application/services/redraft-
 import { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import { SubmitReview } from '@change-review/application/services/submit-review.service';
-import { SyncReviews } from '@change-review/application/services/sync-reviews.service';
 import { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import { WorkDecisionSets } from '@change-review/application/services/work-decision-sets.service';
-import { CHANGE_REVIEW_PAYLOAD_TYPES } from '@change-review/infrastructure/events/change-review-payload-types';
 import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { CheckRunners } from '@change-review/infrastructure/acl/check-runners.adapter';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
@@ -129,6 +131,7 @@ import { GitPatchWriter } from '@change-review/infrastructure/change-stacks/git-
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
 import { TreeSitterSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/tree-sitter-symbol.indexer';
 import { ChatCompletionsDecisionGenerator } from '@change-review/infrastructure/decisions/chat-completions-decision.generator';
+import { CHANGE_REVIEW_PAYLOAD_TYPES } from '@change-review/infrastructure/events/change-review-payload-types';
 import { GitHubAvatars } from '@change-review/infrastructure/links/github-avatars';
 import { WebReviewLinks } from '@change-review/infrastructure/links/web-review.links';
 import { DrizzleChangeStackReader } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.reader';
@@ -139,7 +142,7 @@ import { DrizzleQuestionAnswerRepository } from '@change-review/infrastructure/p
 import { DrizzleReviewReader } from '@change-review/infrastructure/persistence/drizzle/repositories/review.reader';
 import { DrizzleReviewRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review.repository';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
-import { DrizzleReviewOutbox } from '@change-review/infrastructure/persistence/drizzle/repositories/review-outbox.repository';
+import { DrizzleReviewDeliveries } from '@change-review/infrastructure/persistence/drizzle/repositories/review-deliveries.repository';
 import { DrizzleRunChangeChecksReader } from '@change-review/infrastructure/persistence/drizzle/repositories/run-change-checks.reader';
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import { MarkdownCommentBodies } from '@change-review/infrastructure/rendering/markdown-comment-bodies';
@@ -149,7 +152,7 @@ import { DecisionController } from '@change-review/presentation/http/controllers
 import { MergedDecisionController } from '@change-review/presentation/http/controllers/merged-decision.controller';
 import { ReviewController } from '@change-review/presentation/http/controllers/review.controller';
 import { RunnerChangeStackController } from '@change-review/presentation/http/controllers/runner-change-stack.controller';
-import { ReviewOutboxWorker } from '@change-review/presentation/workers/review-outbox.worker';
+import { ReviewDeliveryWorker } from '@change-review/presentation/workers/review-delivery.worker';
 import {
   PULL_REQUEST_COMMENTS,
   type PullRequestCommentsPort,
@@ -318,7 +321,7 @@ const adapters: Provider[] = [
   { provide: REVIEW_READER, useClass: DrizzleReviewReader },
   DrizzleReviewCommentRepository,
   DrizzleReviewRepository,
-  { provide: REVIEW_OUTBOX, useClass: DrizzleReviewOutbox },
+  { provide: REVIEW_DELIVERIES, useClass: DrizzleReviewDeliveries },
   { provide: DIFF_READER, useClass: GitDiffReader },
   { provide: CODE_READING, useClass: PatternCodeReading },
   { provide: SYMBOL_INDEXER, useClass: TreeSitterSymbolIndexer },
@@ -614,7 +617,7 @@ const services: Provider[] = [
   {
     provide: TaskDeletionReactions,
     inject: [
-      REVIEW_OUTBOX,
+      REVIEW_DELIVERIES,
       DrizzleReviewRepository,
       DrizzleReviewCommentRepository,
       DrizzleStackCheckRepository,
@@ -624,7 +627,7 @@ const services: Provider[] = [
       CLOCK,
     ],
     useFactory: (
-      outbox: ReviewOutboxPort,
+      deliveries: ReviewDeliveriesPort,
       reviews: DrizzleReviewRepository,
       comments: DrizzleReviewCommentRepository,
       checks: DrizzleStackCheckRepository,
@@ -634,7 +637,7 @@ const services: Provider[] = [
       clock: ClockPort,
     ) =>
       new TaskDeletionReactions(
-        outbox,
+        deliveries,
         reviews,
         comments,
         checks,
@@ -643,6 +646,21 @@ const services: Provider[] = [
         sets,
         clock,
       ),
+  },
+  {
+    provide: TeamDeletionReactions,
+    inject: [
+      DrizzleStackCheckRepository,
+      DrizzleQuestionAnswerRepository,
+      DrizzleChangeStackRepository,
+      CLOCK,
+    ],
+    useFactory: (
+      checks: DrizzleStackCheckRepository,
+      answers: DrizzleQuestionAnswerRepository,
+      stacks: DrizzleChangeStackRepository,
+      clock: ClockPort,
+    ) => new TeamDeletionReactions(checks, answers, stacks, clock),
   },
   {
     provide: TeamWorkAccess,
@@ -668,9 +686,9 @@ const services: Provider[] = [
     ) => new SubmitReview(comments, reviews, transaction, ids, clock),
   },
   {
-    provide: SyncReviews,
+    provide: DeliverReviews,
     inject: [
-      REVIEW_OUTBOX,
+      REVIEW_DELIVERIES,
       DrizzleReviewRepository,
       DrizzleReviewCommentRepository,
       WORK,
@@ -682,7 +700,7 @@ const services: Provider[] = [
       ERROR_REPORTS,
     ],
     useFactory: (
-      outbox: ReviewOutboxPort,
+      deliveries: ReviewDeliveriesPort,
       reviews: DrizzleReviewRepository,
       comments: DrizzleReviewCommentRepository,
       work: WorkPort,
@@ -693,8 +711,8 @@ const services: Provider[] = [
       logger: LoggerPort,
       reports: ErrorReportsPort,
     ) =>
-      new SyncReviews(
-        outbox,
+      new DeliverReviews(
+        deliveries,
         reviews,
         comments,
         work,
@@ -707,10 +725,10 @@ const services: Provider[] = [
       ),
   },
   {
-    provide: ReviewOutboxWorker,
-    inject: [SyncReviews, LOGGER],
-    useFactory: (work: SyncReviews, logger: LoggerPort) =>
-      new ReviewOutboxWorker(work, logger),
+    provide: ReviewDeliveryWorker,
+    inject: [DeliverReviews, LOGGER],
+    useFactory: (work: DeliverReviews, logger: LoggerPort) =>
+      new ReviewDeliveryWorker(work, logger),
   },
   {
     provide: ReceiveReviewComment,
@@ -825,6 +843,10 @@ const handlers: Provider[] = [
     ID_GENERATOR,
     CLOCK,
   ]),
+  ...bindQueryHandler(ReadQuestionAnswerQuery, ReadQuestionAnswerHandler, [
+    TeamWorkAccess,
+    CHANGE_STACK_READER,
+  ]),
   ...bindQueryHandler(ListRunChangeStacksQuery, ListRunChangeStacksHandler, [
     TeamWorkAccess,
     CHANGE_STACK_READER,
@@ -842,8 +864,9 @@ const published: Provider[] = [
       ChangeStackReactions,
       STICKY_COMMENT_POSTER,
       TaskDeletionReactions,
+      TeamDeletionReactions,
       DrizzleReviewCommentRepository,
-      REVIEW_OUTBOX,
+      REVIEW_DELIVERIES,
       ID_GENERATOR,
       CLOCK,
       ReceiveReviewComment,
@@ -861,8 +884,9 @@ const published: Provider[] = [
       reactions: ChangeStackReactions,
       poster: StickyCommentPosterPort,
       deleting: TaskDeletionReactions,
+      teamDeleting: TeamDeletionReactions,
       comments: DrizzleReviewCommentRepository,
-      outbox: ReviewOutboxPort,
+      deliveries: ReviewDeliveriesPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
       receiving: ReceiveReviewComment,
@@ -880,7 +904,8 @@ const published: Provider[] = [
           reactions,
           poster,
           deleting,
-          new ReviewReactions(comments, outbox, ids, clock),
+          teamDeleting,
+          new ReviewReactions(comments, deliveries, ids, clock),
           receiving,
           signalling,
           checks,

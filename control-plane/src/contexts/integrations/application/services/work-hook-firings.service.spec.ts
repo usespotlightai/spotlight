@@ -1,11 +1,12 @@
+import { causationInMemory } from '@integrations/application/ports/causation.fake-spec';
 import type {
   ListeningHook,
   StepRequest,
   StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
+  LinkedTaskView,
   TasksForHooksPort,
-  TaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import {
   clock,
@@ -25,15 +26,14 @@ import {
 import { WorkHookFirings } from '@integrations/application/services/work-hook-firings.service';
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import {
   HookFailure,
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
-import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -61,7 +61,7 @@ const setUp = (
   }: {
     whenHolds?: () => boolean;
     stored?: HookFiring | null;
-    task?: TaskView | null;
+    task?: LinkedTaskView | null;
     repeats?: number;
     notice?: HookFailureNotice;
     movedOn?: boolean;

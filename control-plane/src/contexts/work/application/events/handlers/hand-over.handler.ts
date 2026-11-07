@@ -1,7 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
@@ -9,7 +8,6 @@ import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { NewNote, Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import { Placement } from '@work/domain/services/placement';
@@ -26,7 +24,6 @@ interface WaitingTask {
 export class HandOver implements RunOutcomes {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly runs: RunRepository,
     private readonly placements: TaskPlacementsPort,
     private readonly lines: LineMapsPort,
     private readonly dispatch: TaskDispatching,
@@ -36,7 +33,6 @@ export class HandOver implements RunOutcomes {
   async onRunCompleted(event: RunCompleted): Promise<void> {
     const found = await this.waiting(event);
     if (!found) {
-      await this.superseded(event.runId, event.taskId);
       return;
     }
 
@@ -60,7 +56,6 @@ export class HandOver implements RunOutcomes {
   async onRunExhausted(event: RunExhausted): Promise<void> {
     const found = await this.waiting(event);
     if (!found) {
-      await this.superseded(event.runId, event.taskId);
       return;
     }
 
@@ -80,19 +75,6 @@ export class HandOver implements RunOutcomes {
   // This is called directly, not dispatched, because the run-event dispatcher already runs this handler.
   private async saved(task: Task): Promise<void> {
     await this.tasks.save(task);
-  }
-
-  private async superseded(runId: RunId, taskId: TaskId | null): Promise<void> {
-    if (!taskId) {
-      return;
-    }
-
-    const run = await this.runs.findById(runId);
-    const superseded = run?.supersededByItsTask();
-
-    if (superseded && superseded !== run) {
-      await this.runs.save(superseded);
-    }
   }
 
   private async waiting(

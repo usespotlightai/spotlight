@@ -1,13 +1,6 @@
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
-import {
-  costedRecord,
-  endedRecord,
-  factOf,
-  usageOf,
-} from '@insights/runs.fake-spec';
-import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
+import { costedRecord, endedRecord, factOf } from '@insights/runs.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -49,7 +42,9 @@ describe('RunFact', () => {
       HumanAction.of('accepted', AT),
     );
 
-    expect(factOf(accepted).disposition).toBe(accepted.disposition);
+    expect(factOf(accepted).disposition).toBe(
+      accepted.factWith(null, null)?.disposition,
+    );
     expect(factOf(accepted).disposition).toBe('accepted');
   });
 
@@ -85,37 +80,5 @@ describe('RunFact', () => {
     );
 
     expect(fact.asOf(LATER)?.memories).toBe(fact.memories);
-  });
-
-  it('failed after calling a server only when it failed and its last call there failed', () => {
-    const timed = LatencyHistogram.timing([100, 200]);
-    const used = RunTools.of({
-      servers: [
-        {
-          server: 'linear',
-          calls: 2,
-          failed: 1,
-          latency: timed,
-          lastCallFailed: true,
-        },
-        {
-          server: 'sentry',
-          calls: 2,
-          failed: 1,
-          latency: timed,
-          lastCallFailed: false,
-        },
-      ],
-      skillsRead: [],
-    });
-    const failed = factOf(
-      endedRecord('run_1', { ending: 'failed' }).recordUsage(usageOf(), used),
-    );
-    const completed = factOf(endedRecord('run_2').recordUsage(usageOf(), used));
-
-    expect(failed.failedAfterCallingTo('linear')).toBe(true);
-    expect(failed.failedAfterCallingTo('sentry')).toBe(false);
-    expect(failed.failedAfterCallingTo('wiki')).toBe(false);
-    expect(completed.failedAfterCallingTo('linear')).toBe(false);
   });
 });

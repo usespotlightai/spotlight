@@ -5,7 +5,7 @@ import { SEEDING_HARNESS } from '@lines/application/ports/seeding-harness.port';
 import { STATION_HOLDERS } from '@lines/application/ports/station-holders.port';
 import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
-import { DiscoveryModule } from '@nestjs/core';
+import { contextBindings } from '@platform/bindings/context-bindings';
 import { RunnersModule } from '@runners/runners.module';
 import { SecretsModule } from '@secrets/secrets.module';
 import { BUILT_IN_SKILL_KEYS } from '@work/application/ports/built-in-skills.port';
@@ -29,11 +29,13 @@ import { STATION_RUNS } from '@work/application/ports/station-runs.port';
 import { TASK_NOTES_FROM_HOOKS } from '@work/application/ports/task-notes-from-hooks.port';
 import { TASK_VIEWS } from '@work/application/ports/task-views.port';
 import { WORK_LOOKUP } from '@work/application/ports/work-lookup.port';
+import { WORK_STARTUP } from '@work/work.startup';
 import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
+
+const BINDINGS = contextBindings([STATION_HOLDERS, SEEDING_HARNESS]);
 
 @Module({
   imports: [
-    DiscoveryModule,
     IdentityModule,
     SecretsModule,
     CatalogModule,
@@ -42,14 +44,12 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     LinesModule,
   ],
   controllers: [...WORK_CONTROLLERS],
-  providers: [...WORK_PROVIDERS],
+  providers: [...WORK_PROVIDERS, WORK_STARTUP, ...BINDINGS.exposed],
   exports: [
     WORK_LOOKUP,
     BUILT_IN_SKILL_KEYS,
     HAPPENING_REACTIONS,
     HARNESS_PROFILE_REVIEW,
-    STATION_HOLDERS,
-    SEEDING_HARNESS,
     CHECK_ENDINGS,
     TASK_VIEWS,
     HOOK_TRACES,
@@ -67,6 +67,14 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     STARTING_POINT_HOLDS,
     NOTE_FILES,
     CONNECTION_ASKS,
+    ...BINDINGS.exposedTokens,
   ],
 })
 export class WorkModule {}
+
+@Module({
+  imports: [WorkModule],
+  providers: [...BINDINGS.bound],
+  exports: [...BINDINGS.tokens],
+})
+export class WorkBindingsModule {}

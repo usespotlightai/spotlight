@@ -4,7 +4,7 @@ import type {
   CatalogSkill,
   CatalogTool,
 } from '@catalog/domain/entities/catalog-item.entity';
-import type { CatalogItems } from '@catalog/domain/services/catalog-items';
+import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
 import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';

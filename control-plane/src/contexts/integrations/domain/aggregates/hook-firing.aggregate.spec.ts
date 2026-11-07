@@ -1,10 +1,15 @@
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { InvalidHookFiringTransitionError } from '@integrations/domain/exceptions/invalid-hook-firing-transition.error';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -79,6 +84,37 @@ const working = (firing = fired()) => stored(firing).claimed(NOW);
 
 const DONE_A = { name: 'a', status: 'done' as const, output: null };
 
+const DONE_B = { name: 'b', status: 'done' as const, output: null };
+
+const FAILED_B = {
+  name: 'b',
+  status: 'failed' as const,
+  code: 'rejected' as const,
+  reason: 'was answered 400',
+  output: null,
+};
+
+const WAITING_B = {
+  name: 'b',
+  status: 'waiting' as const,
+  call: 'call_1',
+  until: later(60_000),
+};
+
+const HOOK = Hook.of({
+  key: HookKey.of('audit'),
+  event: HookEvent.of('task.moved'),
+  match: HookMatch.anything(HookEvent.of('task.moved')),
+  steps: ['a', 'b', 'c'].map((name) => ({
+    name,
+    kind: 'call' as const,
+    tool: ToolName.of('linear.comment'),
+  })),
+  signing: null,
+  failure: 'continue',
+  timeoutSeconds: 10,
+});
+
 describe('HookFiring', () => {
   it('waits to be worked from the moment it fired', () => {
     const firing = fired();
@@ -112,7 +148,9 @@ describe('HookFiring', () => {
     });
 
     it('is not claimed before it is due', () => {
-      const waiting = stored(working().waitedOn(NOW));
+      const waiting = stored(
+        working().stepTaken(HOOK, { ...WAITING_B, name: 'a' }, NOW),
+      );
 
       expect(() => waiting.claimed(later(1_000))).toThrow(
         InvalidHookFiringTransitionError,
@@ -143,7 +181,94 @@ describe('HookFiring', () => {
 
   describe('while a worker has the lease', () => {
     it('keeps the steps it has taken', () => {
-      expect(working().recordStep([DONE_A]).steps).toEqual([DONE_A]);
+      expect(working().stepTaken(HOOK, DONE_A, NOW).steps).toEqual([DONE_A]);
+    });
+
+    it('takes the steps of its hook in order, never one done', () => {
+      const firing = working();
+
+      expect(firing.nextStepOf(HOOK)).toEqual({
+        name: 'a',
+        earlier: [],
+        resuming: null,
+      });
+
+      const halfway = firing.stepTaken(HOOK, DONE_A, NOW);
+
+      expect(halfway.nextStepOf(HOOK)).toEqual({
+        name: 'b',
+        earlier: [DONE_A],
+        resuming: null,
+      });
+      expect(() => halfway.stepTaken(HOOK, DONE_A, NOW)).toThrow(
+        InvalidHookFiringTransitionError,
+      );
+      expect(() =>
+        halfway.stepTaken(HOOK, { ...DONE_B, name: 'c' }, NOW),
+      ).toThrow(InvalidHookFiringTransitionError);
+      expect(
+        halfway
+          .stepTaken(HOOK, DONE_B, NOW)
+          .stepTaken(HOOK, { ...DONE_B, name: 'c' }, NOW)
+          .nextStepOf(HOOK),
+      ).toBeNull();
+    });
+
+    it('takes a failed step again on its next attempt, and nothing after it', () => {
+      const failed = working()
+        .stepTaken(HOOK, DONE_A, NOW)
+        .stepTaken(HOOK, FAILED_B, NOW);
+
+      expect(failed.steps).toEqual([DONE_A, FAILED_B]);
+      expect(failed.nextStepOf(HOOK)?.name).toBe('b');
+      expect(failed.stepTaken(HOOK, DONE_B, NOW).steps).toEqual([
+        DONE_A,
+        DONE_B,
+      ]);
+    });
+
+    it('waits on one call at its last step, and resumes that call', () => {
+      const waiting = working()
+        .stepTaken(HOOK, DONE_A, NOW)
+        .stepTaken(HOOK, WAITING_B, NOW);
+
+      expect(waiting.progress).toEqual({
+        kind: 'pending',
+        dueAt: later(2_000),
+      });
+      expect(waiting.attempts).toBe(0);
+
+      const resumed = stored(waiting).claimed(later(2_000));
+
+      expect(resumed.nextStepOf(HOOK)).toEqual({
+        name: 'b',
+        earlier: [DONE_A],
+        resuming: WAITING_B,
+      });
+      expect(() =>
+        resumed.stepTaken(HOOK, { ...WAITING_B, call: 'call_2' }, NOW),
+      ).toThrow(InvalidHookFiringTransitionError);
+      expect(resumed.stepTaken(HOOK, DONE_B, NOW).steps).toEqual([
+        DONE_A,
+        DONE_B,
+      ]);
+    });
+
+    it('cannot be stored with an impossible trail of steps', () => {
+      expect(() =>
+        HookFiring.rehydrate({
+          ...stateOf(fired()),
+          steps: [FAILED_B, DONE_A],
+          version: 1,
+        }),
+      ).toThrow(InconsistentStateError);
+      expect(() =>
+        HookFiring.rehydrate({
+          ...stateOf(fired()),
+          steps: [DONE_A, DONE_A],
+          version: 1,
+        }),
+      ).toThrow(InconsistentStateError);
     });
 
     it('is matched once, with what it learned about the event', () => {
@@ -177,16 +302,6 @@ describe('HookFiring', () => {
       expect(Object.isFrozen(matched.event.changed)).toBe(true);
     });
 
-    it('waits on a host without spending an attempt', () => {
-      const waiting = working().waitedOn(NOW);
-
-      expect(waiting.progress).toEqual({
-        kind: 'pending',
-        dueAt: later(2_000),
-      });
-      expect(waiting.attempts).toBe(0);
-    });
-
     it('is worked, spending an attempt', () => {
       const done = working().worked(later(1_000));
 
@@ -198,10 +313,7 @@ describe('HookFiring', () => {
     it('rejects every change unless a worker has the lease', () => {
       const pending = stored(fired());
 
-      expect(() => pending.recordStep([DONE_A])).toThrow(
-        InvalidHookFiringTransitionError,
-      );
-      expect(() => pending.waitedOn(NOW)).toThrow(
+      expect(() => pending.stepTaken(HOOK, DONE_A, NOW)).toThrow(
         InvalidHookFiringTransitionError,
       );
       expect(() => pending.worked(NOW)).toThrow(
@@ -302,7 +414,9 @@ describe('HookFiring', () => {
 
     it('is never stopped once partway through its steps', () => {
       expect(
-        working(fired(looped)).recordStep([DONE_A]).loopStop('audit', 9),
+        working(fired(looped))
+          .stepTaken(HOOK, DONE_A, NOW)
+          .loopStop('audit', 9),
       ).toBeNull();
     });
 

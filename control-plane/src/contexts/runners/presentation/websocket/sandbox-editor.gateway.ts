@@ -11,6 +11,7 @@ import {
   type OnApplicationBootstrap,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { bearerIn } from '@platform/http/bearer';
 import { API_PREFIX } from '@platform/http/routes';
 import {
@@ -25,7 +26,6 @@ import {
   type EditorSessionsPort,
 } from '@runners/application/ports/editor-sessions.port';
 import { EditorSession } from '@runners/presentation/websocket/editor-session';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import {
   LOGGER,
   type LoggerPort,

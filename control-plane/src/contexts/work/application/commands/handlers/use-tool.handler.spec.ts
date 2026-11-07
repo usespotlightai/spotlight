@@ -42,7 +42,7 @@ import type {
 } from '@work/application/ports/task-views.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import { RunCatalog } from '@work/application/services/run-catalog.service';
-import { RunWorks } from '@work/application/services/run-works.service';
+import { runWorksOver } from '@work/application/services/run-works.fake-spec';
 import { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -423,7 +423,7 @@ const using = (
 
   const found = over.movedOnTo ? [run, over.movedOnTo] : [run];
   const handler = new UseToolHandler(
-    new RunWorks(
+    runWorksOver(
       {
         findById: async () =>
           (found.length > 1 ? found.shift() : found[0]) ?? null,

@@ -136,7 +136,9 @@ const channels = ({
     } satisfies MemberDirectoryPort,
     {
       findTeamForMember: vi.fn(async () =>
-        member ? { teamId: 'team_1', workspaceId: 'ws_1' } : null,
+        member
+          ? { teamId: TeamId.of('team_1'), workspaceId: WorkspaceId.of('ws_1') }
+          : null,
       ),
     } as unknown as WorkspaceReaderPort,
     {

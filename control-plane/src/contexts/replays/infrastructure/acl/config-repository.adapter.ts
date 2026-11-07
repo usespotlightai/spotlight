@@ -110,7 +110,7 @@ export class ConfigRepository implements ConfigRepositoryPort {
     return {
       url: opened.url,
       number: opened.number,
-      gitHubId: opened.id,
+      hostId: opened.id,
       repository: opened.repository,
     };
   }

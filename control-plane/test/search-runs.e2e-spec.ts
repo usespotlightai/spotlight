@@ -8,10 +8,6 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
-  RUN_EVENT_READER,
-  type RunEventReaderPort,
-} from '@work/application/ports/run-event-reader.port';
-import {
   SEARCH_DISPATCH,
   type SearchDispatchPort,
   type SearchOrder,
@@ -26,12 +22,14 @@ import {
   searchVisibilitiesInMemory,
 } from '@work/application/ports/search-visibility.fake-spec';
 import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
+import { RunAccess } from '@work/application/services/run-access.service';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { aTrial } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -193,29 +191,20 @@ const aCandidateRun = async (original: string, at: string): Promise<string> => {
     .select({ taskId: schema.run.taskId })
     .from(schema.run)
     .where(eq(schema.run.id, original));
+  const taskId = replayed?.taskId;
+
+  if (!taskId) {
+    throw new Error(`Run ${original} works no task`);
+  }
 
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
     replayOfRunId: original,
-    replayedTaskId: replayed?.taskId ?? null,
+    replayedTaskId: taskId,
     ranForTeamId: team.teamId.value,
     stationId: BUILD,
     harness: 'claude-code',
-    stationFingerprint: 'c'.repeat(64),
-    stationConfig: {
-      prompt: null,
-      harness: 'claude-code',
-      model: null,
-      effort: null,
-      profile: null,
-      image: null,
-      repositories: [],
-      skills: [],
-      tools: [],
-      decisions: false,
-      memories: false,
-    },
     spec: {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
@@ -225,6 +214,31 @@ const aCandidateRun = async (original: string, at: string): Promise<string> => {
     },
     ...ended(at),
   });
+  await db.insert(schema.dispatch).values(
+    aTrial({
+      runId,
+      workspaceId: team.workspaceId.value,
+      basedOn: original,
+      taskId,
+      stationId: BUILD,
+      fingerprint: 'c'.repeat(64),
+      config: {
+        prompt: null,
+        harness: 'claude-code',
+        model: null,
+        effort: null,
+        profile: null,
+        image: null,
+        repositories: [],
+        skills: [],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      orderedAt: new Date(at),
+      endedAt: new Date(at),
+    }),
+  );
   await db.insert(schema.runJournalEntry).values([
     {
       runId,
@@ -436,7 +450,6 @@ describe('a search run claimed by a runner', () => {
     expect(row?.ranForTeamId).toBe(team.teamId.value);
     expect(row?.stationId).toBe(BUILD);
     expect(row?.priority).toBe(-1);
-    expect(row?.briefedMemories).toEqual({ briefed: [], omitted: [] });
   });
 
   it('is named to the replays context by its search and iteration, only while its runner has a lease on it', async () => {
@@ -827,13 +840,11 @@ describe('who may watch a search run', () => {
 
     await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(queued);
 
-    const reader = app.get<RunEventReaderPort>(RUN_EVENT_READER);
+    const runs = app.get(RunAccess);
 
+    expect(await runs.watchedBy(RunId.of(queued.id), team.owner)).toBeNull();
     expect(
-      await reader.findForViewer(RunId.of(queued.id), team.owner),
-    ).toBeNull();
-    expect(
-      await reader.findForViewer(RunId.of(queued.id), UserId.of(randomUUID())),
+      await runs.watchedBy(RunId.of(queued.id), UserId.of(randomUUID())),
     ).toBeNull();
   });
 });

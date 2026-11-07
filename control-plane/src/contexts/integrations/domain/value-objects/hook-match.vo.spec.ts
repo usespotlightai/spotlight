@@ -5,6 +5,9 @@ import {
   pathPattern,
 } from '@integrations/domain/value-objects/hook-match.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOTHING = {
@@ -16,19 +19,19 @@ const NOTHING = {
 };
 
 const TASK = {
-  line: 'delivery',
-  stationKey: 'implementation',
-  repositories: ['acme/api', 'acme/web'],
+  line: LineKey.of('delivery'),
+  stationKey: StationKey.of('implementation'),
+  repositories: [Repository.of('acme/api'), Repository.of('acme/web')],
 };
 
 const matching = (
   on: string,
-  fields: Partial<Parameters<typeof HookMatch.of>[0]>,
-) => HookMatch.of({ ...NOTHING, ...fields }, HookEvent.of(on));
+  fields: Partial<Parameters<typeof HookMatch.written>[0]>,
+) => HookMatch.written({ ...NOTHING, ...fields }, HookEvent.of(on));
 
 const refused = (
   on: string,
-  fields: Partial<Parameters<typeof HookMatch.of>[0]>,
+  fields: Partial<Parameters<typeof HookMatch.written>[0]>,
 ) => {
   try {
     matching(on, fields);
@@ -124,6 +127,9 @@ describe('HookMatch', () => {
       'match.lines[0]',
     );
     expect(refused('task.moved', { stations: ['a b'] })).toBe(
+      'match.stations[0]',
+    );
+    expect(refused('task.moved', { stations: ['review'] })).toBe(
       'match.stations[0]',
     );
     expect(refused('task.moved', { repositories: ['acme'] })).toBe(

@@ -14,8 +14,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import { EnqueueRunCommand } from '@work/application/commands/runner.commands';
 import type { EnqueuedRunDto } from '@work/application/dto/run.dto';
 import { EnqueueRunRequestDto } from '@work/presentation/http/dto/runner.request.dto';

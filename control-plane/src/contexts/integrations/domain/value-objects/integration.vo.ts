@@ -1,5 +1,6 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
+import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import type { Binding } from '@integrations/domain/value-objects/binding.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -13,7 +14,44 @@ import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
+export type ConnectionKind = 'oauth2' | 'secrets';
+
+export type ToolSource =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'written'; readonly tool: ProvidedTool }
+  | { readonly kind: 'generated'; readonly from: ContentHash };
+
+export interface IntegrationParts {
+  readonly webhook: boolean;
+  readonly poll: boolean;
+  readonly schedule: boolean;
+  readonly actions: number;
+  readonly bindings: number;
+  readonly apiSpecs: readonly ApiSpecKind[];
+}
+
 export class Integration {
+  static readonly DOES_NOTHING =
+    'must do something: a webhook, a poll, a schedule, an action to run, or an API spec or MCP server to provide tools from';
+
+  static readonly TWO_API_SPECS =
+    'offers tools from one API spec: an openapi, a graphql or an mcp, not two';
+
+  static doesSomething(parts: IntegrationParts): boolean {
+    return (
+      parts.webhook ||
+      parts.poll ||
+      parts.schedule ||
+      parts.actions > 0 ||
+      parts.bindings > 0 ||
+      parts.apiSpecs.length > 0
+    );
+  }
+
+  static readsOneApiSpec(apiSpecs: readonly ApiSpecKind[]): boolean {
+    return apiSpecs.length < 2;
+  }
+
   private constructor(
     readonly key: IntegrationKey,
     readonly name: string,
@@ -26,6 +64,7 @@ export class Integration {
     readonly requiresConnection: boolean,
     readonly actsAs: ActsAs,
     readonly tools: readonly ProvidedTool[],
+    readonly apiSpec: ApiSpecKind | null,
   ) {}
 
   static of(input: {
@@ -37,8 +76,9 @@ export class Integration {
     actions?: DefinedActions;
     bindings?: readonly Binding[];
     credentials?: readonly SecretName[];
-    requiresConnection?: boolean;
+    connectsOver?: ConnectionKind | null;
     actsAs?: ActsAs;
+    apiSpecs?: readonly ApiSpecKind[];
     tools?: readonly ProvidedTool[];
   }): Integration {
     const key = input.key;
@@ -65,12 +105,12 @@ export class Integration {
       if (!provided.integration.equals(key)) {
         throw new InvalidIntegrationError(
           key.value,
-          `offers tool ${provided.tool}, which is named for another integration`,
+          `offers tool ${provided.tool.value}, which is named for another integration`,
         );
       }
     }
 
-    const names = tools.map((each) => each.tool);
+    const names = tools.map((each) => each.tool.value);
 
     if (new Set(names).size !== names.length) {
       throw new InvalidIntegrationError(
@@ -96,15 +136,20 @@ export class Integration {
 
     const actions = input.actions ?? DefinedActions.of([]);
     const schedule = input.schedule ?? null;
+    const apiSpecs = input.apiSpecs ?? [];
+
+    if (!Integration.readsOneApiSpec(apiSpecs)) {
+      throw new InvalidIntegrationError(key.value, Integration.TWO_API_SPECS);
+    }
 
     if (schedule) {
-      actions.forSchedule(schedule.action, 'schedule');
+      actions.forSchedule(schedule.action.name, 'schedule');
     }
 
     for (const binding of bindings) {
       actions.forBinding(
         binding.action,
-        binding.event,
+        binding.about,
         `binding on ${binding.event}`,
       );
     }
@@ -115,7 +160,7 @@ export class Integration {
       }
     }
 
-    const requiresConnection = input.requiresConnection ?? false;
+    const requiresConnection = input.connectsOver === 'oauth2';
     const actsAs = input.actsAs ?? ActsAs.team();
 
     if (actsAs.byRequester && !requiresConnection) {
@@ -123,6 +168,19 @@ export class Integration {
         key.value,
         'takes each person’s connection. A person can connect only over oauth2',
       );
+    }
+
+    if (
+      !Integration.doesSomething({
+        webhook: webhook !== null,
+        poll: poll !== null,
+        schedule: schedule !== null,
+        actions: actions.all.length,
+        bindings: bindings.length,
+        apiSpecs,
+      })
+    ) {
+      throw new InvalidIntegrationError(key.value, Integration.DOES_NOTHING);
     }
 
     return new Integration(
@@ -137,6 +195,7 @@ export class Integration {
       requiresConnection,
       actsAs,
       tools,
+      apiSpecs[0] ?? null,
     );
   }
 
@@ -160,22 +219,46 @@ export class Integration {
     );
   }
 
+  usesSecret(secret: SecretName): boolean {
+    return this.credentials.some((each) => each.equals(secret));
+  }
+
   takesConnectionFrom(owner: ConnectionOwner): boolean {
     return (
       this.requiresConnection && (!owner.isPerson || this.actsAs.byRequester)
     );
   }
 
-  generatedToolCount(provided: readonly string[]): number {
+  generatedToolCount(provided: readonly ToolName[]): number {
     return provided.filter((each) => this.providedTool(each) === null).length;
   }
 
   takesPersonRuleFor(tool: ToolName): boolean {
-    return this.actsAs.byRequester && this.providedTool(tool.value) !== null;
+    return this.actsAs.byRequester && this.providedTool(tool) !== null;
   }
 
-  providedTool(tool: string): ProvidedTool | null {
-    return this.tools.find((each) => each.tool === tool) ?? null;
+  providedTool(tool: ToolName): ProvidedTool | null {
+    return this.tools.find((each) => each.tool.equals(tool)) ?? null;
+  }
+
+  toolSource(
+    tool: ToolName,
+    listed: readonly ToolName[],
+    generatedFrom: ContentHash | null,
+  ): ToolSource {
+    if (!listed.some((each) => each.equals(tool))) {
+      return { kind: 'none' };
+    }
+
+    const written = this.providedTool(tool);
+
+    if (written) {
+      return { kind: 'written', tool: written };
+    }
+
+    return generatedFrom && this.apiSpec
+      ? { kind: 'generated', from: generatedFrom }
+      : { kind: 'none' };
   }
 
   equals(other: Integration): boolean {

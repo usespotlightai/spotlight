@@ -13,11 +13,11 @@ import {
 import type { ParsedProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
 import { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { madeBy, problemsIn } from '@platform/definitions/definition-schema';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { z } from 'zod';
 
 const rules = z.array(z.string()).default([]);

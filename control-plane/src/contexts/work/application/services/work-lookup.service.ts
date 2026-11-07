@@ -4,7 +4,6 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   JournalStep,
@@ -23,7 +22,6 @@ import type {
   RunReasoning,
   TaskLookup,
   TaskNoteView,
-  TeamLine,
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
 import { correlatedTask } from '@work/application/services/correlated-task';
@@ -33,6 +31,7 @@ import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
@@ -41,6 +40,7 @@ import {
   filesChangedIn,
   workspacePathsIn,
 } from '@work/domain/services/workspace-path';
+import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
@@ -85,6 +85,7 @@ export class WorkLookup implements WorkLookupPort {
     private readonly lines: LineMapsPort,
     private readonly chats: ChatRepository,
     private readonly journals: RunJournalReaderPort,
+    private readonly dispatches: DispatchRepository,
   ) {}
 
   async run(runId: RunId): Promise<RunLookup | null> {
@@ -109,7 +110,10 @@ export class WorkLookup implements WorkLookupPort {
       placement: run.placement,
       decisions: station?.decisions ?? false,
       memories: station?.memories ?? false,
-      briefedWith: run.briefedWith.value,
+      briefedWith: (
+        (await this.dispatches.find(run.id))?.briefedMemories ??
+        BriefedMemories.none()
+      ).value,
       ended: run.hasEnded,
       completed: run.hasCompleted,
       replay: run.isReplay,
@@ -134,20 +138,6 @@ export class WorkLookup implements WorkLookupPort {
           repositories: await this.repositoriesOf(run, line),
         }
       : null;
-  }
-
-  async linesOf(teamId: TeamId): Promise<readonly TeamLine[]> {
-    return (await this.lines.ofTeam(teamId)).map((line) => ({
-      id: line.id.value,
-      name: line.name.value,
-      stations: line.stations
-        .filter((station) => station.isAgentStation)
-        .map((station) => ({
-          id: station.id.value,
-          name: station.name.value,
-        })),
-      repositories: line.repositories.all,
-    }));
   }
 
   async reasoning(runId: RunId): Promise<RunReasoning | null> {

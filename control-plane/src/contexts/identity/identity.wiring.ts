@@ -100,6 +100,7 @@ import {
   WORKSPACE_OUTBOUND_HOSTS,
   type WorkspaceOutboundHostsPort,
 } from '@identity/application/ports/workspace-outbound-hosts.port';
+import { WORKSPACE_OUTBOUND_SCOPE } from '@identity/application/ports/workspace-outbound-scope.port';
 import {
   WORKSPACE_READER,
   type WorkspaceReaderPort,
@@ -218,6 +219,7 @@ import { WorkloadTokenExchangeController } from '@identity/presentation/http/con
 import { WorkspaceController } from '@identity/presentation/http/controllers/workspace.controller';
 import { WorkspaceResourceController } from '@identity/presentation/http/controllers/workspace-resource.controller';
 import { WorkspaceTokenResourceController } from '@identity/presentation/http/controllers/workspace-token-resource.controller';
+import { FORBIDDEN_TEXTS } from '@identity/presentation/http/forbidden-texts';
 import { AuthenticatedGuard } from '@identity/presentation/http/guards/authenticated.guard';
 import { ExpiredTokensWorker } from '@identity/presentation/workers/expired-tokens.worker';
 import type { Provider, Type } from '@nestjs/common';
@@ -231,6 +233,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
 import { ApiConventions } from '@platform/http/api-conventions';
+import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import {
   CLOCK,
   type ClockPort,
@@ -253,7 +256,6 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
-import { WORKSPACE_OUTBOUND_SCOPE } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -791,9 +793,10 @@ const published: Provider[] = [
 export const IDENTITY_PROVIDERS: readonly Provider[] = [
   {
     provide: IDENTITY_API_DOCUMENTATION,
-    inject: [ApiConventions],
-    useFactory: (conventions: ApiConventions) => {
+    inject: [ApiConventions, ForbiddenActs],
+    useFactory: (conventions: ApiConventions, forbidden: ForbiddenActs) => {
       conventions.register(IDENTITY_API_CONVENTIONS);
+      forbidden.register(FORBIDDEN_TEXTS);
       return true;
     },
   },

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { CauseCarrier } from '@platform/events/cause-carrier';
 import { EventCodec } from '@platform/events/event-codec';
 import { idsOf } from '@platform/events/event-ids';
 import { EventProjections } from '@platform/events/event-projections';
@@ -11,10 +12,6 @@ import {
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import { activeTraceparent } from '@platform/telemetry/trace-context';
-import {
-  CAUSATION,
-  type CausationPort,
-} from '@shared-kernel/application/ports/causation.port';
 import {
   CLOCK,
   type ClockPort,
@@ -49,7 +46,7 @@ export class EventOutbox implements DomainEventDispatcher {
     private readonly projections: EventProjections,
     @Inject(ID_GENERATOR) private readonly ids: IdGeneratorPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
-    @Inject(CAUSATION) private readonly causation: CausationPort,
+    private readonly causes: CauseCarrier,
     @Inject(LOGGER) private readonly logger: LoggerPort,
     @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {
@@ -71,8 +68,7 @@ export class EventOutbox implements DomainEventDispatcher {
     }
 
     const at = this.clock.now();
-    const chain = this.causation.current();
-    const cause = chain.started ? chain.stored : null;
+    const cause = this.causes.current();
     const traceparent = activeTraceparent();
     const recorded: Record<string, unknown>[] = [];
 
@@ -118,12 +114,11 @@ export class EventOutbox implements DomainEventDispatcher {
       }
 
       this.context.afterCommit(() => {
-        const causedBy = chain.started
-          ? { root: chain.links[0]?.key, depth: chain.depth }
-          : undefined;
-
         for (const each of recorded) {
-          this.logger.info({ ...each, causedBy }, 'Recorded event');
+          this.logger.info(
+            { ...each, caused: cause !== null },
+            'Recorded event',
+          );
           this.telemetry.count(EVENTS_METRIC, {
             'spotlight.event.kind': String(each.kind),
           });

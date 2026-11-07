@@ -90,7 +90,7 @@ export class StartCheckReplays {
         live && needsBaseline(set, ofSet, scoring, check.repeats)
           ? {
               id: ReplayId.of(this.ids.generate()),
-              candidate: live,
+              candidate: live.asReplayed,
               ceiling: check.threshold.ceiling,
               repeats: check.repeats,
             }
@@ -100,7 +100,7 @@ export class StartCheckReplays {
         Replay.start({
           id: check.replayId,
           set: set.snapshot,
-          candidate,
+          candidate: candidate.asReplayed,
           baseline: false,
           ceiling: check.threshold.ceiling,
           unpricedRate: check.threshold.unpricedRunIn(

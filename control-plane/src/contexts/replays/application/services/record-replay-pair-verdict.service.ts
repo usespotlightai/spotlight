@@ -1,6 +1,9 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import type { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
+import type {
+  PairVerdict,
+  Unpaired,
+} from '@replays/domain/value-objects/entry-pairing.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -25,7 +28,7 @@ export class RecordReplayPairVerdict {
   failed(
     run: RunId,
     other: RunId,
-    failure: string,
+    failure: Unpaired,
     spent: ModelSpent | null,
   ): Promise<void> {
     return this.changing(run, (replay) =>

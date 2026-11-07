@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
-import { ToolDeclarationMapper } from '@integrations/application/mappers/tool-declaration.mapper';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
+import { DeclaredToolMapper } from '@integrations/application/mappers/declared-tool.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type {
   ActionResult,
   CallAuth,
   IntegrationRuntimePort,
-  IntegrationTaskView,
   NoticePayload,
   PollResult,
   PostResult,
@@ -17,6 +18,8 @@ import type {
 import type { NoticeFileReaderPort } from '@integrations/application/ports/notice-file-reader.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
+import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
+import { postsAgainWithoutUploads } from '@integrations/domain/services/notice-posting';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
@@ -44,14 +47,12 @@ import {
 } from '@integrations/infrastructure/integrations/templating';
 import {
   McpQuestionUnsupportedError,
-  McpUnauthorizedError,
-  mcpReasonOf,
+  mcpFailureOf,
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import { mcpOutput } from '@integrations/infrastructure/mcp/mcp-output';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { refreshingOnce } from '@integrations/infrastructure/mcp/refreshing-once';
 import { ToolAskedMidCallError } from '@integrations/infrastructure/mcp/tool-asked-mid-call.error';
-import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type {
   HttpOutbound,
   OutboundResult,
@@ -63,7 +64,6 @@ import { taskBinding } from '@integrations/infrastructure/outbound/task-binding'
 import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import { evaluateText, value } from '@platform/expressions/readings';
 import { type Sleep, sleeping } from '@platform/time/sleep';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -141,21 +141,10 @@ const versionOf = (token: AccessToken | null): string =>
     ? createHash('sha256').update(token.value).digest('hex').slice(0, 16)
     : 'none';
 
-const failedUsing = (tool: string, server: string, error: unknown): Error => {
-  if (error instanceof McpQuestionUnsupportedError) {
-    return new ToolAskedMidCallError(tool);
-  }
-
-  if (error instanceof UpstreamError || error instanceof EgressBlockedError) {
-    return error;
-  }
-
-  return new UpstreamError(
-    `using ${tool}`,
-    mcpReasonOf(error, server),
-    error instanceof McpUnauthorizedError ? UNAUTHORIZED : null,
-  );
-};
+const failedUsing = (tool: string, server: string, error: unknown): Error =>
+  error instanceof McpQuestionUnsupportedError
+    ? new ToolAskedMidCallError(tool)
+    : mcpFailureOf(`using ${tool}`, server, error);
 
 export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   readonly #read = new WeakMap<
@@ -236,7 +225,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const readable = this.find(definitions, integration.key);
     const schedule = readable?.integration.schedule;
     const request = schedule
-      ? readable?.actions.get(schedule.action)
+      ? readable?.actions.get(schedule.action.name)
       : undefined;
 
     if (!request) {
@@ -321,10 +310,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       { ...addressed, uploaded: uploads.uploaded },
       callAuth,
     );
-    const answered =
-      first.kind === 'failed' && first.answered && uploads.uploaded.length > 0
-        ? await this.attempted(action, { ...addressed, uploaded: [] }, callAuth)
-        : first;
+    const answered = postsAgainWithoutUploads(first, uploads.uploaded.length)
+      ? await this.attempted(action, { ...addressed, uploaded: [] }, callAuth)
+      : first;
     const refused: PostResult[] =
       first.kind === 'failed' && answered !== first
         ? [{ kind: 'failed', error: first.error, target }]
@@ -409,7 +397,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           return { uploaded: [], failed: serviceErrorOf(prepared.result) };
         }
 
-        const bytes = await this.files.open(payload.task.taskId, file.id);
+        const bytes = await this.files.open(payload.task.taskId.value, file.id);
 
         if (!bytes) {
           return {
@@ -517,7 +505,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   async tool(
     definitions: readonly DefinedIntegration[],
     tool: string,
-    task: IntegrationTaskView,
+    task: TaskView,
   ): Promise<ResolvedTool | null> {
     const provided = await this.reader.providedTool(definitions, tool);
 
@@ -544,7 +532,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private written(
     { readable, tool: provided }: FoundTool,
     tool: string,
-    task: IntegrationTaskView,
+    task: TaskView,
   ): Omit<ResolvedTool, 'attempt'> | null {
     const compiled = readable.tools.get(provided.name);
     const action = provided.backing.action
@@ -562,10 +550,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       provided,
       injectedSecrets:
         action.auth?.kind === 'secrets' ? action.auth.secrets : [],
-      declared: ToolDeclarationMapper.toDeclaration(
-        provided,
-        readable.integration.name,
-      ),
+      declared: DeclaredToolMapper.of(provided, readable.integration.name),
       defaultFor: (input) => {
         const written = compiled.inputs.find(
           (each) => each.name === input,
@@ -611,10 +596,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       integration: readable.integration,
       provided,
       injectedSecrets: auth?.kind === 'secrets' ? auth.secrets : [],
-      declared: ToolDeclarationMapper.toDeclaration(
-        provided,
-        readable.integration.name,
-      ),
+      declared: DeclaredToolMapper.of(provided, readable.integration.name),
       defaultFor: () => undefined,
       call: (inputs, callAuth) =>
         this.onBehalfOf(callAuth, async () => {
@@ -660,7 +642,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private served(
     { readable, tool: provided, operation }: FoundTool,
     tool: string,
-    task: IntegrationTaskView,
+    task: TaskView,
   ): Omit<ResolvedTool, 'attempt'> | null {
     const apiSpec = readable.apiSpec;
     const call = operation?.call;
@@ -677,10 +659,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       integration: readable.integration,
       provided,
       injectedSecrets: secrets,
-      declared: ToolDeclarationMapper.toDeclaration(
-        provided,
-        readable.integration.name,
-      ),
+      declared: DeclaredToolMapper.of(provided, readable.integration.name),
       defaultFor: () => undefined,
       call: (inputs, callAuth) =>
         this.onBehalfOf(callAuth, async () => {
@@ -689,7 +668,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           const calling = (token: AccessToken | null) =>
             this.sessions.call(
               [
-                task.teamId,
+                task.teamId.value,
                 readable.integration.key.value,
                 auth?.kind ?? 'none',
                 connection?.owner.key ?? 'team',
@@ -842,10 +821,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const workspace = await callAuth.workspace();
 
     if (!(await this.limits.take(workspace))) {
-      throw new UpstreamError(
-        'calling a service',
-        `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
-      );
+      throw new OutboundLimitReachedError(this.limits.perSecond);
     }
 
     return workspace;

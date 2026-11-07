@@ -1,3 +1,4 @@
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -15,9 +16,11 @@ import type { ReplayAnswers } from '@work/application/services/replay-answers.se
 import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
+import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
@@ -30,6 +33,7 @@ import { REPLAY_PRIORITY } from '@work/domain/services/replay-priority';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 
 export interface ReplayInput {
@@ -59,6 +63,8 @@ export class DispatchReplay {
     private readonly files: AttachmentStorePort,
     hash: ContentHashPort,
     private readonly answers: ReplayAnswers,
+    private readonly dispatches: DispatchRepository,
+    private readonly clock: ClockPort,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -114,7 +120,8 @@ export class DispatchReplay {
           candidate,
         ),
       },
-      replayed.briefedWith.value,
+      (await this.dispatches.find(original))?.briefedMemories.value ??
+        BriefedMemories.none().value,
       plan.startedAt,
     );
     const briefed = TaskBriefing.brief({
@@ -144,11 +151,6 @@ export class DispatchReplay {
       priority: REPLAY_PRIORITY,
       subject: plan.subject,
       placement: order.placement,
-      briefedWith: BriefedMemories.of({
-        briefed: memories.briefed,
-        omitted: memories.omitted,
-      }),
-      configuredAs: this.ordering.configuredAs(ordered, candidate),
       spec: RunSpec.of({
         ...this.ordering.laid(ordered, {
           briefing,
@@ -159,7 +161,38 @@ export class DispatchReplay {
       }),
     });
 
-    await this.runs.add(order.refusal ? queued.refused(order.refusal) : queued);
+    await this.dispatches.add(
+      Dispatch.trialOrdered({
+        id,
+        workspaceId: replayed.workspaceId,
+        teamId: candidate.teamId,
+        subject: {
+          kind: 'trial',
+          basedOn: original,
+          taskId: plan.taskId,
+          stationId: plan.at.stationId,
+          asOf: plan.startedAt,
+          repositories: plan.replay.checkouts.map((each) => ({
+            path: each.path,
+            repository: each.repository,
+          })),
+          followUp: answer ? { answer } : null,
+        },
+        configuredAs: this.ordering.configuredAs(ordered, candidate),
+        briefedTask: plan.briefed,
+        briefing,
+        briefedMemories: BriefedMemories.of({
+          briefed: memories.briefed,
+          omitted: memories.omitted,
+        }),
+        now: this.clock.now(),
+      }),
+    );
+    await this.runs.add(
+      order.refusals.length > 0
+        ? queued.refused(RunOutcome.refused(order.refusals))
+        : queued,
+    );
 
     return id;
   }

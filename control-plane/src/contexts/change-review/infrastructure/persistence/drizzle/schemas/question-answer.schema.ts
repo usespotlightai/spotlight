@@ -22,6 +22,7 @@ export const questionAnswer = pgTable(
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     taskId: text('task_id'),
+    teamId: text('team_id'),
     stackId: text('stack_id').notNull(),
     questionId: text('question_id').notNull(),
     personId: text('person_id').notNull(),
@@ -41,5 +42,6 @@ export const questionAnswer = pgTable(
       table.questionId,
     ),
     index('question_answer_task_idx').on(table.taskId),
+    index('question_answer_team_idx').on(table.teamId),
   ],
 );

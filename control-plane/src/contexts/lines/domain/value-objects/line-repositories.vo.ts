@@ -2,7 +2,7 @@ import { DuplicateRepositoryError } from '@lines/domain/exceptions/duplicate-rep
 import { MixedRunnerImagesError } from '@lines/domain/exceptions/mixed-runner-images.error';
 import type { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import type { RepositorySetup } from '@lines/domain/value-objects/repository-setup.vo';
-import { distinct } from '@shared-kernel/domain/services/distinct';
+import { distinct } from '@shared-kernel/domain/distinct';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 

@@ -5,7 +5,6 @@ export const RUN_STATES = [
   'completed',
   'failed',
   'cancelled',
-  'superseded',
 ] as const;
 
 export type RunState = (typeof RUN_STATES)[number];
@@ -18,7 +17,6 @@ export const TERMINAL_RUN_STATES = [
   'completed',
   'failed',
   'cancelled',
-  'superseded',
 ] as const satisfies readonly RunState[];
 
 export const OPEN_RUN_STATES = RUN_STATES.filter(

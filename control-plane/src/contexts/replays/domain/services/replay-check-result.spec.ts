@@ -3,6 +3,7 @@ import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import {
   aSet,
   BY,
+  ENTRIES,
   FINGERPRINT,
   HASHES,
   LIVE_FINGERPRINT,
@@ -30,7 +31,7 @@ const checkOf = (maxRegressions = 0): ReplayCheck =>
     setId: SET.id,
     candidateId: CandidateId.of('candidate_planned'),
     replayId: ReplayId.of('replay_1'),
-    setEntries: 'entries_1',
+    setEntries: ENTRIES,
     attempt: 1,
     reference: PlannedReference.of({ pullRequest: 42 }),
     liveFingerprint: LIVE_FINGERPRINT,

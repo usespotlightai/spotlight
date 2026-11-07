@@ -2,6 +2,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { EGRESS_CHECKED } from '@work/application/contracts/run-journal.contract';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type { RunEventReaderPort } from '@work/application/ports/run-event-reader.port';
+import type { RunViewersPort } from '@work/application/ports/run-viewers.port';
 import { ReadRunNetworkHandler } from '@work/application/queries/handlers/read-run-network.handler';
 import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
@@ -27,9 +28,10 @@ const connection = (host: string) =>
 
 const reading = (checked: string | null, visible = true) => {
   const read: string[] = [];
+  const runs = {
+    watchedBy: async (runId: RunId) => (visible ? { runId, attempt: 2 } : null),
+  } as unknown as RunViewersPort;
   const events = {
-    findForViewer: async (runId: RunId) =>
-      visible ? { id: runId.value, attempt: 2 } : null,
     eventsSince: async () => [],
     lastOfType: async (_runId: RunId, _attempt: number, type: string) => {
       read.push(type);
@@ -49,7 +51,7 @@ const reading = (checked: string | null, visible = true) => {
   } satisfies RunConnectionsPort;
 
   return {
-    handler: new ReadRunNetworkHandler(events, connections),
+    handler: new ReadRunNetworkHandler(runs, events, connections),
     read,
   };
 };

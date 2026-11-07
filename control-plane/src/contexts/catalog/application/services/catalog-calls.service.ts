@@ -7,7 +7,7 @@ import type {
 import type { CatalogCallLedgerPort } from '@catalog/application/ports/catalog-call-ledger.port';
 import type { CatalogServicePort } from '@catalog/application/ports/catalog-service.port';
 import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
-import type { CatalogItems } from '@catalog/domain/services/catalog-items';
+import type { CatalogItems } from '@catalog/domain/repositories/catalog-items.repository';
 import { resolveEntitled } from '@catalog/domain/services/entitlement-resolution';
 import { CatalogCall } from '@catalog/domain/value-objects/catalog-call.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';

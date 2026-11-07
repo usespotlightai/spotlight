@@ -1,5 +1,6 @@
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
+import { MemoryDraftAlreadyOpenError } from '@memory/domain/exceptions/memory-draft-already-open.error';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { recentRejectionsAt } from '@memory/domain/services/recent-rejections';
@@ -185,6 +186,21 @@ describe('storing a task’s memory draft', () => {
     expect(read.hasPendingJob).toBe(false);
     expect(read.failure?.code).toBe('no-evidence');
     expect(read.failure?.at).toEqual(LATER);
+  });
+
+  it('refuses a second draft for a task that already has one', async () => {
+    const draft = newDraft();
+    await drafts.add(draft);
+
+    await expect(
+      drafts.add(
+        MemoryDraft.create({
+          id: MemoryDraftId.of(`${draft.id.value}_again`),
+          taskId: draft.taskId,
+          workspaceId: draft.workspaceId,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(MemoryDraftAlreadyOpenError);
   });
 
   it('does not write over a draft that changed since it was read', async () => {

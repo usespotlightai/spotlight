@@ -4,6 +4,7 @@ import type { EndedRun } from '@insights/application/ports/work.port';
 import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import { JudgingsInMemory, RUBRIC_VERSION } from '@insights/judging.fake-spec';
 import { FIRST_CONFIG, inTransaction, SET_UP } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -50,7 +51,6 @@ const requesting = (
       traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
       endedRun: async () => ENDED,
       configsInOrder: async () => [],
-      teamSkillKeys: async () => [],
     },
     {
       hasTask: async () => change.hasEvidence ?? true,
@@ -82,14 +82,12 @@ const requesting = (
   return {
     judgings,
     deletions,
-    ended: (outcome = 'completed', stopped = false) =>
+    ended: (ending: RunEnding = 'completed') =>
       service.runEnded({
         runId: 'run_1',
         taskId: 'task_1',
         stationId: 'station_1',
-        outcome,
-        stopped,
-        failure: null,
+        ending,
       }),
   };
 };
@@ -154,7 +152,7 @@ describe('RequestJudging', () => {
     expect(requested.judgings.stored.size).toBe(0);
   });
 
-  it.each(['failed', 'exhausted', 'cancelled'])(
+  it.each(['failed', 'exhausted', 'cancelled'] as const)(
     'requests nothing for a run that %s',
     async (outcome) => {
       const requested = requesting();
@@ -168,7 +166,7 @@ describe('RequestJudging', () => {
   it('requests a verdict on a run a person stopped', async () => {
     const requested = requesting();
 
-    await requested.ended('completed', true);
+    await requested.ended('stopped');
 
     expect(requested.judgings.stored.size).toBe(1);
   });

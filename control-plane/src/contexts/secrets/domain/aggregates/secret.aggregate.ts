@@ -72,6 +72,12 @@ const valueFor = (definition: SecretDefinition, because: string) => {
   return definition.value;
 };
 
+export interface SecretValueWrites<T> {
+  store(value: SecretValue): T;
+  delete(): T;
+  keep(): T;
+}
+
 export class Secret extends EventRecorder {
   private constructor(private readonly state: State) {
     super();
@@ -376,12 +382,12 @@ export class Secret extends EventRecorder {
     return this.state.deleted;
   }
 
-  get valueToStore(): SecretValue | null {
-    return this.state.valueToStore;
-  }
+  valueChange<T>(writes: SecretValueWrites<T>): T {
+    if (this.state.valueToStore) {
+      return writes.store(this.state.valueToStore);
+    }
 
-  get deletesValue(): boolean {
-    return this.state.deletingValue;
+    return this.state.deletingValue ? writes.delete() : writes.keep();
   }
 
   private get whatChanged() {

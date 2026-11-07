@@ -1,3 +1,4 @@
+import type { SessionReaderPort } from '@identity/application/ports/session-reader.port';
 import type { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import type { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import {
@@ -10,8 +11,7 @@ import {
   OAuth2NonceCookie,
 } from '@integrations/presentation/http/oauth2-nonce-cookie';
 import type { CommandBus } from '@nestjs/cqrs';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
-import type { SessionReaderPort } from '@identity/application/ports/session-reader.port';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { describe, expect, it, vi } from 'vitest';
 
 const ADMIN: AuthenticatedUser = {
@@ -120,13 +120,13 @@ describe('OAuth2ConnectionController', () => {
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
-  it('connects the team unless requested to connect the caller', async () => {
+  it('leaves whom the connection acts as to the domain unless requested', async () => {
     const { controller, execute } = controlling();
 
     await controller.connect('team_1', 'slack', ADMIN, answering().response);
 
     const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
-    expect(begin.owner).toBe('team');
+    expect(begin.actsAs).toBeNull();
     expect(begin.returnTo).toBeNull();
   });
 
@@ -139,7 +139,7 @@ describe('OAuth2ConnectionController', () => {
     });
 
     const begin = execute.mock.calls[0]?.[0] as BeginOAuth2ConnectionCommand;
-    expect(begin.owner).toBe('person');
+    expect(begin.actsAs).toBe('requester');
     expect(begin.returnTo).toBe('/w/acme/inbox/task_1');
   });
 

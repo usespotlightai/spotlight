@@ -11,6 +11,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -39,7 +40,7 @@ const generating = (
       isSearch: over.isSearch === true,
     }),
     wasClaimedBy: async () => over.claimed !== false,
-    teamOfRun: async () => null,
+    teamOfRun: async () => TeamId.of('team_1'),
     reasoning: async () => null,
     task: async () => null,
     taskWithPullRequest: async () => null,
@@ -85,6 +86,7 @@ describe('GenerateRunChangeStackHandler', () => {
       {
         id: RunId.of(RUN),
         taskId: TaskId.of('task_1'),
+        teamOfRun: null,
         isReplay: false,
         isSearch: false,
         workspaceId: WorkspaceId.of('ws_1'),
@@ -164,6 +166,7 @@ describe('GenerateRunChangeStackHandler', () => {
       {
         id: RunId.of(RUN),
         taskId: null,
+        teamOfRun: TeamId.of('team_1'),
         isReplay: true,
         isSearch: false,
         workspaceId: WorkspaceId.of('ws_1'),

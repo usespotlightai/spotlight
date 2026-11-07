@@ -3,7 +3,7 @@ import type { WorkPort } from '@memory/application/ports/work.port';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import type { RecordedMemoryUses } from '@memory/domain/entities/recorded-memory-uses.entity';
+import type { MemoryUses } from '@memory/domain/entities/memory-uses.entity';
 import { MemoriesUsed } from '@memory/domain/events/memories-used.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -70,9 +70,10 @@ const recording = (
   const service = new RecordRunMemoryUses(
     new RecordMemoryUses(
       {
-        record: async (uses: RecordedMemoryUses) => {
-          dispatched.push(...uses.pullEvents());
-          await record(uses.runId, uses.via, uses.memories, uses.at);
+        record: async (uses: MemoryUses) => {
+          const used = uses.usedFirst(uses.memories);
+          dispatched.push(...(used ? [used] : []));
+          await record(uses.run.id, uses.via, uses.memories, uses.at);
         },
       } as unknown as MemoryUsesPort,
       { inTransaction: (work) => work() },

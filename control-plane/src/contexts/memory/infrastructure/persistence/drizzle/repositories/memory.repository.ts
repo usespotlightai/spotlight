@@ -101,6 +101,7 @@ const changedColumnsOf = (stored: Memory) =>
     retiredById: stored.retirement?.by?.value ?? null,
     retireReason: stored.retirement?.reason ?? null,
     supersededBy: stored.retirement?.supersededBy?.value ?? null,
+    supersedes: stored.supersedes?.value ?? null,
   }) satisfies Partial<typeof memory.$inferInsert>;
 
 @Injectable()
@@ -131,7 +132,6 @@ export class DrizzleMemoryRepository implements MemoryRepository {
           steps: added.provenance ? [...added.provenance.steps] : null,
           notes: added.provenance ? [...added.provenance.notes] : null,
           source: added.source,
-          supersedes: added.supersedes?.value ?? null,
           approvedById: added.approval.by.value,
           approvedAt: added.approval.at,
           version: added.version,

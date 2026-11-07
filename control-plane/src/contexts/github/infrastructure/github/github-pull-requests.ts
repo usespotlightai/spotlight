@@ -17,8 +17,8 @@ import {
   sending,
 } from '@github/infrastructure/github/github.rest';
 import { Inject, Injectable } from '@nestjs/common';
-import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

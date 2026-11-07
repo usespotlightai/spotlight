@@ -12,6 +12,7 @@ import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -27,8 +28,9 @@ const integration = (
 ) =>
   Integration.of({
     key: IntegrationKey.of('slack'),
-    requiresConnection,
+    connectsOver: requiresConnection ? 'oauth2' : null,
     actsAs,
+    apiSpecs: ['mcp'],
   });
 
 const ALICE = UserId.of('user_alice');
@@ -86,6 +88,7 @@ const resolving = (
       { find, inWorkspace: vi.fn() } satisfies TeamDirectoryPort,
       { inWorkspaceOfTeam: onTeam } as unknown as WorkspaceAccessPort,
       secrets.injection,
+      new InjectedCallCredentials(secrets.injection),
       { afterUnauthorized } as unknown as ConnectionRefresh,
     ),
     of,

@@ -61,6 +61,7 @@ import { eventually } from './support/eventually';
 import { keptSet, runEnded } from './support/kept-sets';
 import { plannedCandidate, replayOf, startedReplay } from './support/replays';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -178,16 +179,6 @@ const anOriginal = async (
       resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(stationId),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     ...(input.startedFrom === false
       ? {}
       : {
@@ -197,6 +188,25 @@ const anOriginal = async (
           startedFromAt: at,
         }),
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(stationId),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      orderedAt: at,
+      endedAt: at,
+    }),
+  );
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
@@ -254,6 +264,15 @@ const runRow = async (runId: string) => {
     .select()
     .from(schema.run)
     .where(eq(schema.run.id, runId));
+
+  return row;
+};
+
+const dispatchRow = async (runId: string) => {
+  const [row] = await db
+    .select()
+    .from(schema.dispatch)
+    .where(eq(schema.dispatch.id, runId));
 
   return row;
 };
@@ -691,7 +710,7 @@ describe('a replay', () => {
     expect(baseline.baseline).toBe(true);
     expect(live?.kind).toBe('live');
     expect(
-      (await runRow((await replayRunsOf([baselineId as string]))[0] ?? ''))
+      (await dispatchRow((await replayRunsOf([baselineId as string]))[0] ?? ''))
         ?.stationFingerprint,
     ).toBe(live?.fingerprint.value);
     expect(totalsOf(baseline).endings.completed).toBe(2);
@@ -719,7 +738,7 @@ describe('a replay', () => {
     expect(comparison[0]?.costDelta).toBeCloseTo(-0.1);
     for (const entry of replayed.entries) {
       expect(entry.fingerprint?.value).toBe(
-        (await runRow(entry.run?.value ?? ''))?.stationFingerprint,
+        (await dispatchRow(entry.run?.value ?? ''))?.stationFingerprint,
       );
     }
   });

@@ -86,6 +86,10 @@ export class InMemoryChangeJudgings implements ChangeJudgingRepository {
       throw new ChangeJudgingVersionConflictError(judging.runId.value);
     }
     this.events.push(...judging.pullEvents());
+    if (judging.isDeleted) {
+      this.stored.delete(key);
+      return;
+    }
     this.stored.set(
       key,
       ChangeJudging.rehydrate({
@@ -103,15 +107,6 @@ export class InMemoryChangeJudgings implements ChangeJudgingRepository {
         version: judging.version + 1,
       }),
     );
-  }
-
-  async remove(judging: ChangeJudging): Promise<void> {
-    const key = changeKeyOf(judging.runId, judging.attempt);
-
-    if (this.stored.get(key)?.version !== judging.version) {
-      throw new ChangeJudgingVersionConflictError(judging.runId.value);
-    }
-    this.stored.delete(key);
   }
 
   async of(
@@ -168,6 +163,10 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
       );
     }
     this.events.push(...judging.pullEvents());
+    if (judging.isDeleted) {
+      this.stored.delete(key);
+      return;
+    }
     this.stored.set(
       key,
       SideBySideJudging.rehydrate({
@@ -187,18 +186,6 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
         version: judging.version + 1,
       }),
     );
-  }
-
-  async remove(judging: SideBySideJudging): Promise<void> {
-    const key = pairKeyOf(judging.runId, judging.otherRunId);
-
-    if (this.stored.get(key)?.version !== judging.version) {
-      throw new SideBySideJudgingVersionConflictError(
-        judging.runId.value,
-        judging.otherRunId.value,
-      );
-    }
-    this.stored.delete(key);
   }
 
   async of(runId: RunId, otherRunId: RunId): Promise<SideBySideJudging | null> {

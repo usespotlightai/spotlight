@@ -4,6 +4,9 @@ import {
 } from '@integrations/infrastructure/hooks/hook.compile';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { isTrue } from '@platform/expressions/readings';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const engine = new CelExpressionEngine();
@@ -57,9 +60,9 @@ const MIGRATIONS = {
 };
 
 const TASK = {
-  line: 'delivery',
-  stationKey: 'implementation',
-  repositories: ['acme/api'],
+  line: LineKey.of('delivery'),
+  stationKey: StationKey.of('implementation'),
+  repositories: [Repository.of('acme/api')],
 };
 
 const instance = (event: Record<string, unknown>) => ({

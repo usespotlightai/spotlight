@@ -1,3 +1,4 @@
+import type { NoticeFileView } from '@integrations/application/ports/integration-runtime.port';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -7,12 +8,19 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const TASKS_FOR_HOOKS = Symbol('TASKS_FOR_HOOKS');
 
+export interface TaskWaitingView {
+  readonly conversationId: string;
+  readonly body: string;
+  readonly awaitsApproval: boolean;
+  readonly attachments: readonly NoticeFileView[];
+}
+
 export interface TaskView {
   readonly taskId: TaskId;
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly title: string;
-  readonly url: string;
+  readonly url: string | null;
   readonly line: string;
   readonly station: string;
   readonly stationKey: StationKey;
@@ -20,13 +28,18 @@ export interface TaskView {
   readonly repositories: readonly string[];
   readonly pullRequest: string | null;
   readonly runId: RunId | null;
+  readonly waiting: TaskWaitingView | null;
 }
 
+export type UnlinkedTaskView = Omit<TaskView, 'url'>;
+
+export type LinkedTaskView = TaskView & { readonly url: string };
+
 export interface TasksForHooksPort {
-  of(taskId: TaskId, runId: RunId | null): Promise<TaskView | null>;
+  of(taskId: TaskId, runId: RunId | null): Promise<LinkedTaskView | null>;
 
   ofPullRequest(
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
-  ): Promise<TaskView | null>;
+  ): Promise<LinkedTaskView | null>;
 }

@@ -1,10 +1,24 @@
 import ts from 'typescript';
 import type { Violation } from './known-violations';
-import { type SourceFile, sourceFiles } from './source-index';
+import {
+  importsOf,
+  type SourceFile,
+  sourceFiles,
+  withoutExtension,
+} from './source-index';
 
 const DOMAIN_ERROR = 'DomainError';
 const APPLICATION_ERROR = 'ApplicationError';
-const PLAIN_BASES: ReadonlySet<string> = new Set(['Error', 'HttpException']);
+const PLAIN_BASES: ReadonlySet<string> = new Set([
+  'Error',
+  'EvalError',
+  'HttpException',
+  'RangeError',
+  'ReferenceError',
+  'SyntaxError',
+  'TypeError',
+  'URIError',
+]);
 
 const ERROR_KINDS: ReadonlySet<string> = new Set([
   'conflict',
@@ -16,6 +30,7 @@ const ERROR_KINDS: ReadonlySet<string> = new Set([
 ]);
 
 type DeclaredClass = {
+  readonly id: string;
   readonly name: string;
   readonly base: string | null;
   readonly declaresKind: boolean;
@@ -26,12 +41,35 @@ type DeclaredClass = {
 const isDomainLayer = (path: string): boolean =>
   /^(contexts\/[^/]+|shared-kernel)\/domain\//.test(path);
 
-const baseOf = (node: ts.ClassDeclaration): string | null => {
+const idOf = (module: string, name: string): string => `${module}#${name}`;
+
+const baseOf = (
+  node: ts.ClassDeclaration,
+  file: SourceFile,
+  declaredHere: ReadonlySet<string>,
+): string | null => {
   const extended = node.heritageClauses?.find(
     (clause) => clause.token === ts.SyntaxKind.ExtendsKeyword,
   )?.types[0]?.expression;
 
-  return extended && ts.isIdentifier(extended) ? extended.text : null;
+  if (!extended) {
+    return null;
+  }
+
+  const [head, ...rest] = extended.getText().split('.');
+  const imported = importsOf(file).find((each) => each.local === head);
+
+  if (imported) {
+    return imported.exported === '*'
+      ? idOf(imported.target, rest.join('.'))
+      : idOf(imported.target, imported.exported);
+  }
+
+  if (rest.length === 0 && declaredHere.has(head as string)) {
+    return idOf(withoutExtension(file.path), head as string);
+  }
+
+  return extended.getText();
 };
 
 const declaresErrorKind = (node: ts.ClassDeclaration): boolean =>
@@ -57,11 +95,19 @@ const declaresErrorKind = (node: ts.ClassDeclaration): boolean =>
 
 const classesIn = (file: SourceFile): DeclaredClass[] => {
   const found: DeclaredClass[] = [];
+  const declaredHere = new Set(
+    file.tree.statements.flatMap((statement) =>
+      ts.isClassDeclaration(statement) && statement.name
+        ? [statement.name.text]
+        : [],
+    ),
+  );
   const visit = (node: ts.Node): void => {
     if (ts.isClassDeclaration(node) && node.name) {
       found.push({
+        id: idOf(withoutExtension(file.path), node.name.text),
         name: node.name.text,
-        base: baseOf(node),
+        base: baseOf(node, file, declaredHere),
         declaresKind: declaresErrorKind(node),
         path: file.path,
         line: file.tree.getLineAndCharacterOfPosition(node.getStart()).line + 1,
@@ -75,24 +121,34 @@ const classesIn = (file: SourceFile): DeclaredClass[] => {
   return found;
 };
 
+const nameOfId = (id: string): string => id.slice(id.lastIndexOf('#') + 1);
+
 const rootOf = (
   declared: DeclaredClass,
-  byName: ReadonlyMap<string, DeclaredClass>,
+  byId: ReadonlyMap<string, DeclaredClass>,
 ): string | null => {
   let base = declared.base;
   const seen = new Set<string>();
 
   while (base !== null && !seen.has(base)) {
-    if (
-      base === DOMAIN_ERROR ||
-      base === APPLICATION_ERROR ||
-      PLAIN_BASES.has(base)
-    ) {
-      return base;
+    const known = byId.get(base);
+
+    if (!known) {
+      const name = nameOfId(base);
+
+      return name === DOMAIN_ERROR ||
+        name === APPLICATION_ERROR ||
+        PLAIN_BASES.has(name)
+        ? name
+        : null;
+    }
+
+    if (known.name === DOMAIN_ERROR || known.name === APPLICATION_ERROR) {
+      return known.name;
     }
 
     seen.add(base);
-    base = byName.get(base)?.base ?? null;
+    base = known.base;
   }
 
   return null;
@@ -105,14 +161,14 @@ const violation = (declared: DeclaredClass, rule: string): Violation => ({
 
 export const errorBaseViolations = (): Violation[] => {
   const declared = sourceFiles().flatMap(classesIn);
-  const byName = new Map(declared.map((each) => [each.name, each]));
+  const byId = new Map(declared.map((each) => [each.id, each]));
 
   return declared.flatMap((each) => {
     if (each.name === DOMAIN_ERROR || each.name === APPLICATION_ERROR) {
       return [];
     }
 
-    const root = rootOf(each, byName);
+    const root = rootOf(each, byId);
 
     if (root === null) {
       return [];

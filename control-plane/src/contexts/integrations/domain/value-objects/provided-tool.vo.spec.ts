@@ -33,7 +33,7 @@ const provided = (
 
 describe('ProvidedTool', () => {
   it('is named for the integration offering it', () => {
-    expect(provided([]).tool).toBe('linear.comment');
+    expect(provided([]).tool.value).toBe('linear.comment');
   });
 
   it('keeps what a tool is for, and what it takes', () => {

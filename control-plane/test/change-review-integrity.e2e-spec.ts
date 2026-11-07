@@ -1,4 +1,5 @@
 import { TaskDeletionReactions } from '@change-review/application/events/handlers/task-deletion-reactions.handler';
+import { TeamDeletionReactions } from '@change-review/application/events/handlers/team-deletion-reactions.handler';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
@@ -27,7 +28,7 @@ import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/pers
 import { DrizzleQuestionAnswerRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/question-answer.repository';
 import { DrizzleReviewRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review.repository';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
-import { DrizzleReviewOutbox } from '@change-review/infrastructure/persistence/drizzle/repositories/review-outbox.repository';
+import { DrizzleReviewDeliveries } from '@change-review/infrastructure/persistence/drizzle/repositories/review-deliveries.repository';
 import { DrizzleRunChangeChecksReader } from '@change-review/infrastructure/persistence/drizzle/repositories/run-change-checks.reader';
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -36,6 +37,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { sql } from 'drizzle-orm';
@@ -47,6 +49,7 @@ const LATER = new Date(NOW.getTime() + 60_000);
 const WORKSPACE = WorkspaceId.of('ws_integrity');
 const RUNNER = RunnerId.of('runner_1');
 const ADA = UserId.of('user_ada');
+const TEAM = TeamId.of('team_integrity');
 
 const EVENTS = {
   dispatch: async () => {},
@@ -61,7 +64,7 @@ let answers: DrizzleQuestionAnswerRepository;
 let reviews: DrizzleReviewRepository;
 let comments: DrizzleReviewCommentRepository;
 let sets: DrizzleDecisionSetRepository;
-let outbox: DrizzleReviewOutbox;
+let deliveries: DrizzleReviewDeliveries;
 let reader: DrizzleChangeStackReader;
 let runChecks: DrizzleRunChangeChecksReader;
 
@@ -75,6 +78,7 @@ const readyStack = (input: {
     id: ChangeStackId.of(input.id),
     runId: input.runId,
     taskId: input.taskId,
+    teamOfRun: TEAM,
     replay: input.replay,
     isSearch: false,
     workspaceId: WORKSPACE,
@@ -169,7 +173,7 @@ beforeAll(async () => {
   reviews = new DrizzleReviewRepository(context, EVENTS);
   comments = new DrizzleReviewCommentRepository(context, EVENTS);
   sets = new DrizzleDecisionSetRepository(context, EVENTS);
-  outbox = new DrizzleReviewOutbox(context);
+  deliveries = new DrizzleReviewDeliveries(context);
   reader = new DrizzleChangeStackReader(context);
   runChecks = new DrizzleRunChangeChecksReader(context, CLOCK);
 }, 60_000);
@@ -201,11 +205,11 @@ describe('reading a replay’s change that was checked again', () => {
   });
 
   it('reads the first check and the recheck of the change apart', async () => {
+    expect((await runChecks.ofRun(RUN)).map((each) => each.status)).toEqual([
+      'passed',
+    ]);
     expect(
-      (await runChecks.ofRun(RUN.value)).map((each) => each.status),
-    ).toEqual(['passed']);
-    expect(
-      (await runChecks.rechecksOfRun(RUN.value)).map((each) => each.status),
+      (await runChecks.rechecksOfRun(RUN)).map((each) => each.status),
     ).toEqual(['checking']);
   });
 });
@@ -228,6 +232,7 @@ describe('deleting the change review of a task', () => {
         id: QuestionAnswerId.of('answer_deleted'),
         workspaceId: WORKSPACE,
         taskId: TASK,
+        teamId: null,
         stackId: stack.id,
         question: stack.question(QuestionId.of('c1.l1.q1')),
         personId: ADA,
@@ -261,7 +266,7 @@ describe('deleting the change review of a task', () => {
     for (const each of claimed) {
       await comments.save(each);
     }
-    await outbox.enqueue(
+    await deliveries.enqueue(
       {
         id: 'delivery_deleted',
         workspaceId: WORKSPACE,
@@ -282,7 +287,7 @@ describe('deleting the change review of a task', () => {
 
   it('removes every aggregate of the task, one type at a time and in any order', async () => {
     const deleting = new TaskDeletionReactions(
-      outbox,
+      deliveries,
       reviews,
       comments,
       checks,
@@ -312,8 +317,60 @@ describe('deleting the change review of a task', () => {
     expect(await countOf('review_comment', `task_id = '${TASK.value}'`)).toBe(
       0,
     );
-    expect(await countOf('review_outbox', `task_id = '${TASK.value}'`)).toBe(0);
+    expect(await countOf('review_delivery', `task_id = '${TASK.value}'`)).toBe(
+      0,
+    );
     expect(await countOf('decision_set', `task_id = '${TASK.value}'`)).toBe(0);
+  });
+});
+
+describe('deleting the team that owned a replay’s change', () => {
+  const RUN = RunId.of('replay_of_deleted_team');
+
+  beforeAll(async () => {
+    const stack = readyStack({
+      id: 'team_stack',
+      runId: RUN,
+      taskId: null,
+      replay: true,
+    });
+    await stacks.add(stack);
+    await checks.add(StackCheck.beginFor(stack, NOW) as StackCheck);
+    await answers.add(
+      QuestionAnswer.given({
+        id: QuestionAnswerId.of('answer_of_team'),
+        workspaceId: WORKSPACE,
+        taskId: null,
+        teamId: stack.teamId,
+        stackId: stack.id,
+        question: stack.question(QuestionId.of('c1.l1.q1')),
+        personId: ADA,
+        reply: null,
+        graded: null,
+        now: NOW,
+      }),
+    );
+  });
+
+  it('removes its stacks, checks and answers, so no waiting check stays in the queue', async () => {
+    expect(
+      (await checks.waitingIn(WORKSPACE)).map((each) => each.stackId.value),
+    ).toContain('team_stack');
+
+    const deleting = new TeamDeletionReactions(checks, answers, stacks, CLOCK);
+
+    await deleting.removeChecks(TEAM);
+    await deleting.removeAnswers(TEAM);
+    await deleting.removeStacks(TEAM);
+
+    expect(await countOf('change_stack', `team_id = '${TEAM.value}'`)).toBe(0);
+    expect(await countOf('stack_check', `team_id = '${TEAM.value}'`)).toBe(0);
+    expect(await countOf('question_answer', `team_id = '${TEAM.value}'`)).toBe(
+      0,
+    );
+    expect(
+      (await checks.waitingIn(WORKSPACE)).map((each) => each.stackId.value),
+    ).not.toContain('team_stack');
   });
 });
 
@@ -328,9 +385,12 @@ describe('delivering a review to GitHub', () => {
   });
 
   it('keeps the outcome of the worker that holds the lease, not of one whose lease ran out', async () => {
-    await outbox.enqueue(delivery('delivery_leased'), NOW);
-    const first = await outbox.claimDue(NOW, new Date(NOW.getTime() + 1_000));
-    const second = await outbox.claimDue(
+    await deliveries.enqueue(delivery('delivery_leased'), NOW);
+    const first = await deliveries.leaseDue(
+      NOW,
+      new Date(NOW.getTime() + 1_000),
+    );
+    const second = await deliveries.leaseDue(
       new Date(NOW.getTime() + 2_000),
       new Date(NOW.getTime() + 60_000),
     );
@@ -339,20 +399,20 @@ describe('delivering a review to GitHub', () => {
       throw new Error('the delivery was not leased twice');
     }
 
-    await outbox.failed(first);
-    await outbox.done(second);
+    await deliveries.failed(first);
+    await deliveries.delivered(second);
 
     const [row] = (
       await database.db.execute<{ state: string; attempts: number }>(
-        sql`select state, attempts from review_outbox where id = 'delivery_leased'`,
+        sql`select state, attempts from review_delivery where id = 'delivery_leased'`,
       )
     ).rows;
     expect(row).toEqual({ state: 'done', attempts: 0 });
   });
 
   it('enqueues a delivery whose subject is already gone, to be settled when it is due', async () => {
-    await outbox.enqueue(delivery('delivery_gone'), NOW);
+    await deliveries.enqueue(delivery('delivery_gone'), NOW);
 
-    expect(await countOf('review_outbox', `id = 'delivery_gone'`)).toBe(1);
+    expect(await countOf('review_delivery', `id = 'delivery_gone'`)).toBe(1);
   });
 });

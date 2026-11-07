@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import {
   McpQuestionUnsupportedError,
@@ -10,7 +11,6 @@ import {
   fakeMcpServer,
 } from '@integrations/infrastructure/mcp/mcp-server.fake-spec';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
-import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

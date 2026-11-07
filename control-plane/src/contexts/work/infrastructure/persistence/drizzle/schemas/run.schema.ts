@@ -4,14 +4,11 @@ import {
   literals,
   timestamptz,
 } from '@platform/persistence/drizzle/columns';
-import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
-import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
 import {
   RUN_STATES,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
 import type { StartedCheckoutParts } from '@work/domain/value-objects/started-checkout.vo';
-import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
@@ -45,6 +42,8 @@ export const run = pgTable(
     ),
     replayedTaskId: text('replayed_task_id'),
     ranForTeamId: text('ran_for_team_id'),
+    teamId: text('team_id'),
+    orderFingerprint: text('order_fingerprint'),
     searchId: text('search_id'),
     searchIteration: integer('search_iteration'),
     stationId: text('station_id'),
@@ -70,15 +69,8 @@ export const run = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::integer[]`),
-    briefedMemories: jsonb('briefed_memories')
-      .$type<BriefedMemoriesParts>()
-      .notNull()
-      .default({ briefed: [], omitted: [] }),
     startedAt: timestamptz('started_at'),
     endedAt: timestamptz('ended_at'),
-    stationFingerprint: text('station_fingerprint'),
-    stationConfig: jsonb('station_config').$type<StationConfigParts>(),
-    briefedTask: jsonb('briefed_task').$type<BriefedTaskParts>(),
     startedFromArchiveId: text('started_from_archive_id'),
     startedFromCheckouts: jsonb('started_from_checkouts').$type<
       readonly StartedCheckoutParts[]
@@ -115,16 +107,12 @@ export const run = pgTable(
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
     index('run_task_idx').on(table.taskId),
+    index('run_team_idx').on(table.teamId, table.createdAt),
     index('run_created_idx').on(table.createdAt, table.id),
     index('run_station_idx').on(table.stationId, table.createdAt),
-    index('run_station_fingerprint_idx').on(table.stationFingerprint),
     check(
       'run_ended_at_matches_state',
       sql`(${table.state} in (${literals(TERMINAL_RUN_STATES)})) = (${table.endedAt} is not null)`,
-    ),
-    check(
-      'run_station_config_check',
-      sql`(${table.stationConfig} is null) = (${table.stationFingerprint} is null)`,
     ),
     unique('run_workspace_id_id_key').on(table.workspaceId, table.id),
     index('run_chat_idx').on(table.chatId),

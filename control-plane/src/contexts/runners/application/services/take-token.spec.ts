@@ -11,8 +11,8 @@ import { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-t
 import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
 import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -42,7 +42,7 @@ const nobody: TokenHolderLookup = async () => null;
 
 describe('takeToken', () => {
   const pool = TokenHolder.pool(POOL_ID);
-  const otherPool = TokenHolder.pool(RunnerPoolId.of('pool_2'));
+  const otherPool = TokenHolder.pool(PoolId.of('pool_2'));
   const egress = TokenHolder.egress(EgressId.of('egress_1'));
 
   it('records a token never used before for its holder', async () => {

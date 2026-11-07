@@ -7,6 +7,7 @@ import {
   ExpressionCheckResponseDto,
   ExpressionPositionResponseDto,
 } from '@integrations/presentation/http/dto/expression-check.response.dto';
+import { EXPRESSIONS } from '@integrations/presentation/http/expression-routes';
 import { Body, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
@@ -17,7 +18,6 @@ import {
   ConventionalApiController,
 } from '@platform/http/resources/conventional-api';
 import { ProblemException } from '@platform/http/resources/problem.exception';
-import { EXPRESSIONS } from '@platform/http/routes';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';

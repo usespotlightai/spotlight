@@ -2,15 +2,15 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/ports/git-gateway.port';
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
+import type { LeasedRun } from '@work/application/ports/run-leases.port';
+import type { RunsPort } from '@work/application/ports/runs.port';
 import type {
   Cleared,
   ConnectionAsked,
   PermissionCleared,
   RunWork,
 } from '@work/application/services/run-work';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
-import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
@@ -20,9 +20,10 @@ const NO_TOOLS =
 
 export class ReplayRunWork implements RunWork {
   constructor(
-    private readonly run: Run,
+    private readonly run: LeasedRun,
     private readonly briefed: BriefedTask | null,
     private readonly runs: RunRepository,
+    private readonly asking: RunsPort,
   ) {}
 
   get workspaceId(): WorkspaceId {
@@ -49,7 +50,9 @@ export class ReplayRunWork implements RunWork {
       throw new NotAllowedInReplayError(`push to ${name}`);
     }
 
-    return this.run.replayedRepository(name);
+    const run = await this.runs.findById(this.run.runId);
+
+    return run?.replayedRepository(name) ?? null;
   }
 
   async toolContext(): Promise<ToolContext> {
@@ -65,14 +68,10 @@ export class ReplayRunWork implements RunWork {
   }
 
   async clearPermission(): Promise<PermissionCleared> {
-    const current = await this.runs.findById(this.run.id);
-    const by = this.run.claimedBy;
-
-    if (!current || !by) {
-      throw new UnknownRunError(`Run ${this.run.id.value} is not leased.`);
-    }
-
-    await this.runs.save(current.askedAPersonBy(by));
+    await this.asking.askedAPerson({
+      runId: this.run.runId,
+      runner: this.run.claimedBy,
+    });
 
     return 'pending';
   }

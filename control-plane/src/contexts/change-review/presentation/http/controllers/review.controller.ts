@@ -39,8 +39,8 @@ import {
   ApiTags,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 @ApiTags('reviews')
 @ApiParam({ name: 'teamId', type: String })
@@ -75,14 +75,14 @@ export class ReviewController {
         (each) =>
           new ReviewCommentResponseDto({
             ...each,
-            failure: deliveryFailureText(each.failure, 'comment'),
+            failure: deliveryFailureText(each.failure),
           }),
       ),
       found.reviews.map(
         (each) =>
           new ReviewResponseDto({
             ...each,
-            failure: deliveryFailureText(each.failure, 'review'),
+            failure: deliveryFailureText(each.failure),
           }),
       ),
     );

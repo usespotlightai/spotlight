@@ -87,7 +87,7 @@ const onGitHub = (githubId: number, body = 'Earlier') =>
     anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 12 }),
     body,
     author: ReviewAuthor.onGitHub('octocat'),
-    replyTo: null,
+    inReplyTo: null,
     github: { id: githubId, url: `https://github.com/c/${githubId}` },
     at: NOW,
   });

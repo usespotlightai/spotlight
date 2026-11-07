@@ -1,9 +1,9 @@
+import { TerraformLockBody } from '@configuration/application/mappers/terraform-lock-body.mapper';
 import { TerraformState } from '@configuration/domain/aggregates/terraform-state.aggregate';
-import { TerraformStateWritten } from '@configuration/domain/events/terraform-state-written.event';
 import { TerraformStateVersionConflictError } from '@configuration/domain/exceptions/terraform-state-version-conflict.error';
 import type { TerraformStateRepository } from '@configuration/domain/repositories/terraform-state.repository';
 import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
-import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
+import type { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
@@ -24,7 +24,6 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 
@@ -35,18 +34,18 @@ const INSERTED_VERSION = 1;
 
 const lockOf = (row: StateLockRow | null): StateLock | null =>
   row
-    ? StateLock.of({
-        info: row.info,
-        lockedBy: PrincipalRef.rehydrate(row.lockedBy),
-        lockedAt: new Date(row.lockedAt),
-      })
+    ? TerraformLockBody.lockOf(
+        row.info,
+        PrincipalRef.rehydrate(row.lockedBy),
+        new Date(row.lockedAt),
+      )
     : null;
 
 const lockRowOf = (lock: StateLock | null): StateLockRow | null =>
   lock
     ? {
         id: lock.id.value,
-        info: { ...lock.info },
+        info: { ...lock.asWritten },
         lockedBy: lock.lockedBy.value,
         lockedAt: lock.lockedAt.toISOString(),
       }
@@ -66,13 +65,17 @@ const versionOf = (row: VersionRow): StateVersion =>
     writtenAt: row.writtenAt,
   });
 
-const writtenIn = (
-  events: readonly DomainEvent[],
-): TerraformStateWritten | null =>
-  events.find(
-    (event): event is TerraformStateWritten =>
-      event instanceof TerraformStateWritten,
-  ) ?? null;
+const versionRowOf = (state: TerraformState, version: StateVersion) => ({
+  id: version.id.value,
+  stateId: state.id.value,
+  number: version.number,
+  serial: version.snapshot.serial,
+  lineage: version.snapshot.lineage,
+  md5: version.snapshot.md5,
+  size: version.snapshot.size,
+  writtenBy: version.writtenBy.value,
+  writtenAt: version.writtenAt,
+});
 
 @Injectable()
 export class DrizzleTerraformStates implements TerraformStateRepository {
@@ -118,7 +121,7 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
       if (state.isDeleted) {
         await this.deleted(state);
       } else {
-        await this.stored(state, writtenIn(events));
+        await this.stored(state);
       }
 
       await this.events.dispatch(events);
@@ -158,59 +161,44 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
     }
   }
 
-  private async stored(
-    state: TerraformState,
-    written: TerraformStateWritten | null,
-  ): Promise<void> {
-    const stored = state.isNew
-      ? await this.inserted(state)
-      : await this.updated(state);
-
-    if (!written) {
-      return;
+  private async stored(state: TerraformState): Promise<void> {
+    if (state.isNew) {
+      await this.inserted(state);
+    } else {
+      await this.updated(state);
     }
 
-    await this.context.db.insert(terraformStateVersion).values({
-      id: written.written.id.value,
-      stateId: state.id.value,
-      number: written.written.number,
-      serial: written.written.snapshot.serial,
-      lineage: written.written.snapshot.lineage,
-      md5: written.written.snapshot.md5,
-      size: written.written.snapshot.size,
-      writtenBy: written.written.writtenBy.value,
-      writtenAt: written.written.writtenAt,
-    });
+    const kept = new Set(
+      (
+        await this.context.db
+          .select({ id: terraformStateVersion.id })
+          .from(terraformStateVersion)
+          .where(eq(terraformStateVersion.stateId, state.id.value))
+      ).map((row) => row.id),
+    );
+    const current = new Set(state.versions.map((each) => each.id.value));
+    const added = state.versions.filter((each) => !kept.has(each.id.value));
+    const dropped = [...kept].filter((id) => !current.has(id));
 
-    const pointed = await this.context.db
-      .update(terraformState)
-      .set({ latestVersionId: written.written.id.value })
-      .where(
-        and(
-          eq(terraformState.id, state.id.value),
-          eq(terraformState.version, stored),
-        ),
-      )
-      .returning({ id: terraformState.id });
-
-    if (pointed.length === 0) {
-      throw new TerraformStateVersionConflictError(state.name.value);
+    if (added.length > 0) {
+      await this.context.db
+        .insert(terraformStateVersion)
+        .values(added.map((each) => versionRowOf(state, each)));
     }
 
-    if (written.dropped.length > 0) {
-      await this.context.db.delete(terraformStateVersion).where(
-        and(
-          eq(terraformStateVersion.stateId, state.id.value),
-          inArray(
-            terraformStateVersion.id,
-            written.dropped.map((each) => each.value),
+    if (dropped.length > 0) {
+      await this.context.db
+        .delete(terraformStateVersion)
+        .where(
+          and(
+            eq(terraformStateVersion.stateId, state.id.value),
+            inArray(terraformStateVersion.id, dropped),
           ),
-        ),
-      );
+        );
     }
   }
 
-  private async updated(state: TerraformState): Promise<number> {
+  private async updated(state: TerraformState): Promise<void> {
     const touched = await this.context.db
       .update(terraformState)
       .set({ lock: lockRowOf(state.lock), version: state.version + 1 })
@@ -225,18 +213,15 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
     if (touched.length === 0) {
       throw new TerraformStateVersionConflictError(state.name.value);
     }
-
-    return state.version + 1;
   }
 
-  private async inserted(state: TerraformState): Promise<number> {
+  private async inserted(state: TerraformState): Promise<void> {
     try {
       await this.context.db.insert(terraformState).values({
         id: state.id.value,
         workspaceId: state.workspaceId.value,
         name: state.name.value,
         lock: lockRowOf(state.lock),
-        latestVersionId: null,
         version: INSERTED_VERSION,
       });
     } catch (error) {
@@ -246,7 +231,5 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
 
       throw error;
     }
-
-    return INSERTED_VERSION;
   }
 }

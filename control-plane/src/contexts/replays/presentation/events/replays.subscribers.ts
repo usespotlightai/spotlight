@@ -66,6 +66,7 @@ import type { SideBySideJudgingFailed } from '@replays/domain/events/side-by-sid
 import type { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import { runResultOf } from '@replays/presentation/events/run-result.translation';
 import {
   LINE_CHANGED,
   type LineChangedIntegrationEvent,
@@ -184,7 +185,7 @@ export const replaysSubscribers = (
     (event) =>
       reactions.ending.ended({
         runId: event.runId,
-        outcome: event.outcome,
+        outcome: runResultOf(event.outcome),
         failure: event.failure,
         stopped: event.stopped,
         asked: event.asked,
@@ -219,51 +220,53 @@ export const replaysSubscribers = (
   ),
   subscribing<ReplayJudgingRequested>(
     'replays.request-replay-run-judging',
-    ['replays.replay-judging-requested'],
+    ['replay.judging-requested'],
     (event) => reactions.requestingJudging.requested(event),
     { callsOut: true },
   ),
   subscribing<ChangeJudged>(
     'replays.record-replay-run-judged',
-    ['replays.change-judging-judged'],
+    ['change-judging.judged'],
     (event) =>
-      event.attempt !== 1
-        ? Promise.resolve()
-        : reactions.judging.judged(event.runId, event.verdict, event.spent),
+      reactions.judging.changeJudged(
+        event.attempt,
+        event.runId,
+        event.verdict,
+        event.spent,
+      ),
   ),
   subscribing<ChangeJudgingFailed>(
     'replays.record-replay-run-unjudged',
-    ['replays.change-judging-failed'],
+    ['change-judging.failed'],
     (event) =>
-      event.attempt !== 1
-        ? Promise.resolve()
-        : reactions.judging.failed(
-            event.runId,
-            event.failure.code,
-            event.spent,
-          ),
+      reactions.judging.changeJudgingFailed(
+        event.attempt,
+        event.runId,
+        event.failure.code,
+        event.spent,
+      ),
   ),
   subscribing<ReplayEntryConcluded>(
     'replays.find-replays-to-pair',
-    ['replays.replay-entry-concluded'],
+    ['replay.entry-concluded'],
     (event) => reactions.pairing.concluded(event),
     { callsOut: true },
   ),
   subscribing<ReplayPairingRequested>(
     'replays.pair-replay-entries',
-    ['replays.replay-pairing-requested'],
+    ['replay.pairing-requested'],
     (event) => reactions.pairing.paired(event.replayId),
     { callsOut: true },
   ),
   subscribing<ReplaySideBySideJudgingRequested>(
     'replays.request-side-by-side-judging',
-    ['replays.replay-side-by-side-judging-requested'],
+    ['replay.side-by-side-judging-requested'],
     (event) => reactions.requestingSideBySideJudging.requested(event),
     { callsOut: true },
   ),
   subscribing<SideBySideJudged>(
     'replays.record-side-by-side-judged',
-    ['replays.side-by-side-judging-judged'],
+    ['side-by-side-judging.judged'],
     (event) =>
       reactions.paired.paired(
         event.runId,
@@ -274,7 +277,7 @@ export const replaysSubscribers = (
   ),
   subscribing<SideBySideJudgingFailed>(
     'replays.record-side-by-side-unjudged',
-    ['replays.side-by-side-judging-failed'],
+    ['side-by-side-judging.failed'],
     (event) =>
       reactions.paired.failed(
         event.runId,
@@ -285,33 +288,13 @@ export const replaysSubscribers = (
   ),
   subscribing<ReplayRejudgingRequested>(
     'replays.request-calibration-run-rejudging',
-    ['replays.replay-rejudging-requested'],
+    ['replay.rejudging-requested'],
     (event) => reactions.requestingRejudging.requested(event),
     { callsOut: true },
   ),
-  subscribing<ChangeJudged>(
-    'replays.record-calibration-run-judged-again',
-    ['replays.change-judging-judged'],
-    (event) =>
-      event.attempt !== 2
-        ? Promise.resolve()
-        : reactions.judging.rejudged(event.runId, event.verdict, event.spent),
-  ),
-  subscribing<ChangeJudgingFailed>(
-    'replays.record-calibration-run-unjudged-again',
-    ['replays.change-judging-failed'],
-    (event) =>
-      event.attempt !== 2
-        ? Promise.resolve()
-        : reactions.judging.rejudgingFailed(
-            event.runId,
-            event.failure.code,
-            event.spent,
-          ),
-  ),
   subscribing<ReplayRecheckRequested>(
     'replays.request-calibration-run-recheck',
-    ['replays.replay-recheck-requested'],
+    ['replay.recheck-requested'],
     (event) => reactions.requestingRecheck.requested(event),
     { callsOut: true },
   ),
@@ -325,9 +308,9 @@ export const replaysSubscribers = (
   >(
     'replays.hold-starting-points-of-replay-set',
     [
-      'replays.replay-set-entries-changed',
-      'replays.replay-set-deleted',
-      'replays.replay-set-station-gone',
+      'replay-set.entries-changed',
+      'replay-set.deleted',
+      'replay-set.station-gone',
     ],
     (event) => reactions.startingPointHolds.changed(event.setId),
     { callsOut: true },
@@ -343,18 +326,18 @@ export const replaysSubscribers = (
   ),
   subscribing<ReplaySetCreated>(
     'replays.schedule-searches-of-created-set',
-    ['replays.replay-set-created'],
+    ['replay-set.created'],
     (event) => reactions.keeping.onSetCreated(event.setId),
   ),
   subscribing<ReplayStopped>(
     'replays.stop-runs-of-stopped-replay',
-    ['replays.replay-stopped'],
+    ['replay.stopped'],
     (event) => reactions.cancellingRuns.stopped(event.runs),
     { callsOut: true },
   ),
   subscribing<ReplayCeilingReached>(
     'replays.cancel-runs-of-replay-that-reached-its-ceiling',
-    ['replays.replay-ceiling-reached'],
+    ['replay.ceiling-reached'],
     (event) => reactions.cancellingRuns.ceilingReached(event.runs),
     { callsOut: true },
   ),
@@ -372,13 +355,13 @@ export const replaysSubscribers = (
   ),
   subscribing<ReplaySetDeleted>(
     'replays.delete-replays-of-deleted-set',
-    ['replays.replay-set-deleted'],
+    ['replay-set.deleted'],
     (event) => reactions.deleting.replaysOfSet(event.setId),
     { callsOut: true },
   ),
   subscribing<ReplayBaselineRequested>(
     'replays.start-wanted-baseline',
-    ['replays.replay-baseline-requested'],
+    ['replay.baseline-requested'],
     (event) => reactions.baselines.requested(event),
   ),
   subscribing<LineChangedIntegrationEvent>(
@@ -396,13 +379,13 @@ export const replaysSubscribers = (
   ),
   subscribing<ReplayEnded>(
     'replays.start-oracle-after-baseline',
-    ['replays.replay-ended'],
+    ['replay.ended'],
     (event) => reactions.oracles.baselineEnded(event),
     { callsOut: true },
   ),
   subscribing<ReplayEnded>(
     'replays.record-search-replay-ended',
-    ['replays.replay-ended'],
+    ['replay.ended'],
     (event) => reactions.searching.replayEnded(event),
   ),
   subscribing<SearchRunEndedIntegrationEvent>(
@@ -411,7 +394,7 @@ export const replaysSubscribers = (
     (event) =>
       reactions.searching.runEnded({
         runId: event.runId,
-        outcome: event.outcome,
+        outcome: runResultOf(event.outcome),
         asked: event.asked,
         started: event.started,
       }),
@@ -423,55 +406,58 @@ export const replaysSubscribers = (
   ),
   subscribing<SearchIterationRequested>(
     'replays.dispatch-search-iteration',
-    ['replays.search-iteration-requested'],
+    ['search.iteration-requested'],
     (event) => reactions.iterating.requested(event.searchId),
+    { callsOut: true },
   ),
   subscribing<SearchHoldingOutRequested>(
     'replays.hold-out-search',
-    ['replays.search-holding-out-requested'],
+    ['search.holding-out-requested'],
     (event) => reactions.holdingOut.requested(event.searchId),
   ),
   subscribing<SearchEnded>(
     'replays.pick-candidate-of-finished-search',
-    ['replays.search-ended'],
+    ['search.ended'],
     (event) => reactions.picking.searchEnded(event),
   ),
   subscribing<SearchCandidatePicked>(
     'replays.open-config-pull-request-of-picked-candidate',
-    ['replays.search-candidate-picked'],
+    ['search.candidate-picked'],
     (event) => reactions.picking.candidatePicked(event),
+    { callsOut: true },
   ),
   subscribing<ConfigPullRequestOpened>(
     'replays.notice-config-pull-request-opened',
-    ['replays.config-pull-request-opened'],
+    ['config-pull-request.opened'],
     (event) => reactions.noticingResults.pullRequestOpened(event),
     { callsOut: true },
   ),
   subscribing<ConfigPullRequestFailed>(
     'replays.notice-config-pull-request-failed',
-    ['replays.config-pull-request-failed'],
+    ['config-pull-request.failed'],
     (event) => reactions.noticingResults.pullRequestFailed(event),
     { callsOut: true },
   ),
   subscribing<ConfigPullRequestOpened>(
     'replays.close-stale-config-pull-request-once-opened',
-    ['replays.config-pull-request-opened'],
+    ['config-pull-request.opened'],
     (event) => reactions.following.check(event.pullRequestId),
   ),
   subscribing<LineChangedIntegrationEvent>(
     'replays.close-stale-config-pull-requests-of-changed-line',
     [LINE_CHANGED],
     (event) => reactions.following.lineChanged(LineId.of(event.lineId)),
+    { callsOut: true },
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'replays.record-config-pull-request-closed',
     [PULL_REQUEST_CLOSED],
     (event) =>
-      reactions.following.closedOnGitHub({
+      reactions.following.closedOnHost({
         workspaceId: WorkspaceId.of(event.workspaceId),
         repository: Repository.of(event.repository),
         pullRequest: PullRequestUrl.of(event.pullRequest),
-        gitHubId: event.gitHubId,
+        hostId: event.gitHubId,
         merged: event.merged,
         at: event.closedAt ? new Date(event.closedAt) : null,
       }),
@@ -480,56 +466,57 @@ export const replaysSubscribers = (
     'replays.record-config-pull-request-reopened',
     [PULL_REQUEST_REOPENED],
     (event) =>
-      reactions.following.reopenedOnGitHub({
+      reactions.following.reopenedOnHost({
         workspaceId: WorkspaceId.of(event.workspaceId),
         repository: Repository.of(event.repository),
         pullRequest: PullRequestUrl.of(event.pullRequest),
-        gitHubId: event.gitHubId,
+        hostId: event.gitHubId,
         at: event.reopenedAt ? new Date(event.reopenedAt) : null,
       }),
+    { callsOut: true },
   ),
   subscribing<ConfigPullRequestMerged>(
     'replays.record-station-improved-by-merge',
-    ['replays.config-pull-request-merged'],
+    ['config-pull-request.merged'],
     (event) => reactions.schedules.improved(event),
   ),
   subscribing<ConfigPullRequestClosed>(
     'replays.remember-config-rejected-by-person',
-    ['replays.config-pull-request-closed'],
+    ['config-pull-request.closed'],
     (event) => reactions.schedules.rejected(event),
   ),
   subscribing<ConfigPullRequestReopened>(
     'replays.forget-rejection-of-reopened-config',
-    ['replays.config-pull-request-reopened'],
+    ['config-pull-request.reopened'],
     (event) => reactions.schedules.reopened(event),
   ),
   subscribing<SearchPickDeclined>(
     'replays.advise-on-search-stalled-outside-config',
-    ['replays.search-pick-declined'],
+    ['search.pick-declined'],
     (event) => reactions.noticingResults.pickDeclined(event),
     { callsOut: true },
   ),
   subscribing<SearchPickDeclined>(
     'replays.notice-requesters-of-declined-search',
-    ['replays.search-pick-declined'],
+    ['search.pick-declined'],
     (event) => reactions.noticingResults.requestersOfDecline(event),
     { callsOut: true },
   ),
   subscribing<SearchCandidatePicked>(
     'replays.notice-requesters-of-other-pick',
-    ['replays.search-candidate-picked'],
+    ['search.candidate-picked'],
     (event) => reactions.noticingResults.requestersOfOtherPick(event),
     { callsOut: true },
   ),
   subscribing<SearchEnded>(
     'replays.notice-requesters-of-stopped-search',
-    ['replays.search-ended'],
+    ['search.ended'],
     (event) => reactions.noticingResults.requestersOfStop(event),
     { callsOut: true },
   ),
   subscribing<StationSearchSkipped>(
     'replays.notice-skipped-station-search',
-    ['replays.station-search-skipped'],
+    ['station-search-schedule.skipped'],
     (event) => reactions.noticingResults.skipped(event),
     { callsOut: true },
   ),
@@ -542,15 +529,17 @@ export const replaysSubscribers = (
     'replays.look-again-at-searches-of-changed-line',
     [LINE_CHANGED],
     (event) => reactions.schedules.lineChanged(LineId.of(event.lineId)),
+    { callsOut: true },
   ),
   subscribing<LineChangedIntegrationEvent>(
     'replays.stop-searches-turned-off-in-changed-line',
     [LINE_CHANGED],
     (event) => reactions.turningOff.lineChanged(LineId.of(event.lineId)),
+    { callsOut: true },
   ),
   subscribing<ReplaySetDeleted | ReplaySetStationGone>(
     'replays.delete-search-schedule-of-gone-set',
-    ['replays.replay-set-deleted', 'replays.replay-set-station-gone'],
+    ['replay-set.deleted', 'replay-set.station-gone'],
     (event) => reactions.schedules.setGone(event.setId),
   ),
   subscribing<TeamDeletedIntegrationEvent>(
@@ -561,7 +550,7 @@ export const replaysSubscribers = (
   ),
   subscribing<SearchEnded>(
     'replays.cancel-ended-search',
-    ['replays.search-ended'],
+    ['search.ended'],
     (event) => reactions.cancellingSearches.ended(event),
     { callsOut: true },
   ),
@@ -573,13 +562,13 @@ export const replaysSubscribers = (
   ),
   subscribing<SearchDeleted>(
     'replays.cancel-run-of-deleted-search',
-    ['replays.search-deleted'],
+    ['search.deleted'],
     (event) => reactions.deletingSearches.cancelRunOf(event),
     { callsOut: true },
   ),
   subscribing<ReplaySetStationGone>(
     'replays.end-search-of-gone-station',
-    ['replays.replay-set-station-gone'],
+    ['replay-set.station-gone'],
     (event) => reactions.deletingSearches.stationGone(event.setId),
   ),
   subscribing<TeamDeletedIntegrationEvent>(
@@ -590,7 +579,7 @@ export const replaysSubscribers = (
   ),
   subscribing<ReplaySetDeleted>(
     'replays.delete-replay-checks-of-deleted-set',
-    ['replays.replay-set-deleted'],
+    ['replay-set.deleted'],
     (event) => reactions.deletingChecks.ofSet(event.setId),
     { callsOut: true },
   ),
@@ -621,13 +610,13 @@ export const replaysSubscribers = (
   ),
   subscribing<SearchReplaysPlanned>(
     'replays.start-planned-search-replays',
-    ['replays.search-replays-planned'],
+    ['search.replays-planned'],
     (event) => reactions.startingSearchReplays.planned(event),
     { callsOut: true },
   ),
   subscribing<ReplayCheckStarted>(
     'replays.start-replay-of-started-check',
-    ['replays.replay-check-started'],
+    ['replay.check-started'],
     (event) => reactions.startingCheckReplays.started(event),
     { callsOut: true },
   ),

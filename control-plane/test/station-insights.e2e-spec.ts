@@ -30,6 +30,7 @@ import { WatchStations } from '@insights/application/services/watch-stations.ser
 import { RunRecordVersionConflictError } from '@insights/domain/exceptions/run-record-version-conflict.error';
 import type { ConfigIntervalBound } from '@insights/domain/services/config-intervals';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { DrizzleChats } from '@insights/infrastructure/persistence/drizzle/ledgers/chats.ledger';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
@@ -134,7 +135,6 @@ const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId) ?? null,
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
-  teamSkillKeys: async () => [],
   configsInOrder: async (fingerprints) =>
     fingerprints.map((fingerprint, index) => ({
       ...configOf(fingerprint, fingerprint === SONNET ? 'sonnet' : 'opus'),
@@ -290,7 +290,7 @@ beforeAll(async () => {
       context,
       { now: () => new Date(), sleep: async () => {} },
     ),
-    scoring: new RecordJudgeScore(judgings, scores, context, {
+    scoring: new RecordJudgeScore(scores, recorder, context, {
       generate: () => 'id',
     }),
     grading: new GradeInboxRequests({
@@ -328,7 +328,7 @@ beforeAll(async () => {
   listing = new ReadStationInsightsHandler(
     new InsightsAccess({
       namesOf: async () => new Map(),
-      membershipOnTeam: async (_teamId, principal) =>
+      viewerOf: async (_teamId, principal) =>
         principal.userId.equals(UserId.of('user_ada'))
           ? { workspaceId: WorkspaceId.of(WORKSPACE), by: principal.userId }
           : null,
@@ -354,7 +354,7 @@ describe('how a station’s runs turned out', () => {
     await runEnded('run_1', { outcome: 'failed', failure: 'exited' });
 
     const record = await records.of(RunId.of('run_1'));
-    expect(record?.ending).toBe('failed');
+    expect(record?.end?.ending).toBe('failed');
     expect(record?.end?.failure).toBe('exited');
     expect(record?.end?.fingerprint).toBe(SONNET);
     expect(record?.end?.visit).toBe(1);
@@ -453,10 +453,9 @@ describe('how a station’s runs turned out', () => {
       version: 2,
     });
 
-    const outcomes = await new RunOutcomes(stationFacts).of(
-      ['run_1', 'run_2'],
-      null,
-    );
+    const outcomes = await new WorkRunOutcomes(
+      new RunOutcomes(stationFacts),
+    ).of(['run_1', 'run_2'], null);
 
     expect(outcomes.get('run_1')?.pullRequestState).toBe('merged');
     expect(outcomes.get('run_2')).toMatchObject({
@@ -843,8 +842,7 @@ describe('the config runs a station’s runs make', () => {
         runId: run.runId,
         taskId: `task_${teamId}_${stationId}`,
         stationId,
-        outcome,
-        stopped: false,
+        ending: outcome,
         failure: outcome === 'failed' ? 'exited' : null,
         asked: false,
       });

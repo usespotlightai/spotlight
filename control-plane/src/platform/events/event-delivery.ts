@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { CauseCarrier } from '@platform/events/cause-carrier';
 import { idsOf } from '@platform/events/event-ids';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventSubscribers } from '@platform/events/event-subscribers';
@@ -8,10 +9,6 @@ import {
   eventOutbox,
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import { traceIdOfTraceparent } from '@platform/telemetry/trace-context';
-import {
-  CAUSATION,
-  type CausationPort,
-} from '@shared-kernel/application/ports/causation.port';
 import {
   CLOCK,
   type ClockPort,
@@ -29,7 +26,6 @@ import {
   type TelemetryPort,
 } from '@shared-kernel/application/ports/telemetry.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { and, asc, count, eq, isNull, lte } from 'drizzle-orm';
 
 export const MAX_ATTEMPTS = 8;
@@ -80,7 +76,7 @@ export class EventDelivery {
     private readonly subscribers: EventSubscribers,
     @Inject(CLOCK) private readonly clock: ClockPort,
     @Inject(LOGGER) private readonly logger: LoggerPort,
-    @Inject(CAUSATION) private readonly causation: CausationPort,
+    private readonly causes: CauseCarrier,
     @Inject(ERROR_REPORTS) private readonly reports: ErrorReportsPort,
     @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
@@ -426,7 +422,7 @@ export class EventDelivery {
         causedByTraceId: traceIdOfTraceparent(due.traceparent),
       },
       () =>
-        this.causation.runWith(CausalChain.read(due.cause), async () => {
+        this.causes.runWith(due.cause, async () => {
           const raised = await subscriber.handle(
             this.outbox.decode(due.payload),
           );

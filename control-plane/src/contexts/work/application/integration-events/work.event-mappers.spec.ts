@@ -11,14 +11,15 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
+import { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
+import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
+import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
-import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
 import { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
@@ -30,6 +31,10 @@ import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import {
+  DispatchEnding,
+  type DispatchOutcome,
+} from '@work/domain/value-objects/dispatch-ending.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -45,8 +50,25 @@ import { describe, expect, it } from 'vitest';
 const RECORDED_AT = new Date('2026-10-02T09:30:00.000Z');
 
 const published = (event: DomainEvent) =>
-  WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map((each) =>
-    each.map(event, RECORDED_AT),
+  WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
+    (each) => {
+      const mapped = each.map(event, RECORDED_AT);
+
+      return mapped ? [mapped] : [];
+    },
+  );
+
+const dispatchEnded = (
+  outcome: DispatchOutcome,
+  failure: string | null = null,
+  stopped = false,
+) =>
+  new DispatchEnded(
+    RUN,
+    WORKSPACE,
+    TASK,
+    StationId.of('station_1'),
+    DispatchEnding.of({ endedAt: RECORDED_AT, outcome, failure, stopped }),
   );
 
 const TASK = TaskId.of('task_1');
@@ -377,73 +399,37 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('says how a run ended', () => {
+  it('says how a dispatched run ended', () => {
     const ended = (event: DomainEvent) => published(event)[0]?.outcome;
 
-    expect(
-      ended(
-        new RunCompleted(
-          RUN,
-          WORKSPACE,
-          SUBJECT,
-          RunOutcome.of({ exitCode: 0, failed: false }),
-          null,
-          null,
-          null,
-          1,
-        ),
-      ),
-    ).toBe('completed');
-    expect(
-      ended(
-        new RunCompleted(
-          RUN,
-          WORKSPACE,
-          SUBJECT,
-          RunOutcome.of({ exitCode: 1, failed: true }),
-          null,
-          null,
-          null,
-          1,
-        ),
-      ),
-    ).toBe('failed');
-    expect(
-      ended(
-        new RunCompleted(
-          RUN,
-          WORKSPACE,
-          SUBJECT,
-          RunOutcome.refused([
-            { description: 'The hook core/freeze denied the run.' },
-          ]),
-          null,
-          null,
-          null,
-          1,
-        ),
-      ),
-    ).toBe('failed');
-    expect(
-      ended(
-        new RunCompleted(
-          RUN,
-          WORKSPACE,
-          SUBJECT,
-          RunOutcome.stopped(130),
-          null,
-          null,
-          null,
-          1,
-        ),
-      ),
-    ).toBe('completed');
-    expect(ended(new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3))).toBe(
-      'exhausted',
+    expect(ended(dispatchEnded('completed'))).toBe('completed');
+    expect(ended(dispatchEnded('failed', 'exited'))).toBe('failed');
+    expect(ended(dispatchEnded('exhausted', 'runner-lost'))).toBe('exhausted');
+    expect(ended(dispatchEnded('cancelled'))).toBe('cancelled');
+  });
+
+  it('leaves the end of a task, chat or raw run to its dispatch', () => {
+    const completed = (subject: RunSubject | null) =>
+      new RunCompleted(
+        RUN,
+        WORKSPACE,
+        subject,
+        RunOutcome.of({ exitCode: 1, failed: true }),
+        null,
+        null,
+        null,
+        1,
+      );
+
+    expect(published(completed(SUBJECT))).toEqual([]);
+    expect(published(completed(RunSubject.chat(ChatId.of('chat_1'))))).toEqual(
+      [],
     );
-    expect(ended(new RunCancelled(RUN, WORKSPACE, SUBJECT, 1))).toBe(
-      'cancelled',
+    expect(published(completed(null))).toEqual([]);
+    expect(published(new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3))).toEqual(
+      [],
     );
+    expect(published(new RunCancelled(RUN, WORKSPACE, null, 1))).toEqual([]);
   });
 
   it('publishes a replay’s end as a replay’s, never as a run’s', () => {
@@ -570,48 +556,27 @@ describe('WORK_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a run with no task as ending for no task', () => {
-    expect(published(new RunCancelled(RUN, WORKSPACE, null, 1))).toEqual([
+  it('says which station a dispatched run worked at, which failure ended it and whether a person stopped it', () => {
+    expect(published(dispatchEnded('completed', null, true))).toEqual([
       {
         kind: 'work.run-ended.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
-        taskId: null,
-        stationId: null,
-        outcome: 'cancelled',
+        taskId: 'task_1',
+        stationId: 'station_1',
+        outcome: 'completed',
         failure: null,
-        stopped: false,
+        stopped: true,
         asked: false,
       },
     ]);
-  });
-
-  it('says which station a run worked at, which failure ended it and whether a person stopped it', () => {
-    const fields = (event: DomainEvent) => {
-      const [ended] = published(event);
-      return {
-        stationId: ended?.stationId,
-        failure: ended?.failure,
-        stopped: ended?.stopped,
-      };
-    };
-    const completed = (outcome: RunOutcome) =>
-      new RunCompleted(RUN, WORKSPACE, SUBJECT, outcome, null, null, null, 1);
-
-    expect(fields(completed(RunOutcome.stopped(130)))).toEqual({
-      stationId: 'station_1',
-      failure: null,
-      stopped: true,
-    });
-    expect(fields(completed(RunOutcome.lost(3)))).toEqual({
-      stationId: 'station_1',
-      failure: 'runner-lost',
-      stopped: false,
-    });
+    expect(published(dispatchEnded('exhausted', 'runner-lost'))[0]).toEqual(
+      expect.objectContaining({ failure: 'runner-lost', stopped: false }),
+    );
   });
 
   it('publishes a run its task superseded', () => {
-    expect(published(new RunSuperseded(RUN, WORKSPACE, SUBJECT))).toEqual([
+    expect(published(new DispatchSuperseded(RUN, WORKSPACE, TASK))).toEqual([
       {
         kind: 'work.run-superseded.v1',
         runId: 'run_1',
@@ -676,7 +641,7 @@ describe('WORK_EVENT_MAPPERS', () => {
   it('publishes the memories a run was briefed with, and never those the cap omitted', () => {
     expect(
       published(
-        new RunBriefed(
+        new DispatchBriefed(
           RUN,
           WORKSPACE,
           TASK,

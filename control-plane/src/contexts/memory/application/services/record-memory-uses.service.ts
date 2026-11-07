@@ -1,8 +1,8 @@
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import {
-  RecordedMemoryUses,
+  MemoryUses,
   type UsingRun,
-} from '@memory/domain/entities/recorded-memory-uses.entity';
+} from '@memory/domain/entities/memory-uses.entity';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryUse } from '@memory/domain/value-objects/memory-use';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -20,7 +20,7 @@ export class RecordMemoryUses {
     via: MemoryUse,
     memories: readonly MemoryId[],
   ): Promise<void> {
-    const recorded = RecordedMemoryUses.of({
+    const recorded = MemoryUses.of({
       run,
       via,
       memories,

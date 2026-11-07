@@ -1,5 +1,6 @@
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import { InvalidPullRequestRecordError } from '@insights/domain/exceptions/invalid-pull-request-record.error';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { seenOf } from '@insights/pull-requests.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -137,14 +138,36 @@ describe('PullRequestRecord', () => {
     const purged = owned.purgedByGitHub(SEEN_AT);
     const unseen = noted().recordReview(TaskId.of('task_2'));
 
-    expect(owned.withoutTask(OWNER.taskId)?.owner).toBeNull();
-    expect(owned.withoutTask(OWNER.taskId)?.seen).not.toBeNull();
-    expect(owned.withoutTask(TaskId.of('task_9'))).toBe(owned);
-    expect(purged.withoutTask(OWNER.taskId)?.isTombstone).toBe(true);
-    expect(purged.withoutTask(OWNER.taskId)?.seen).toBeNull();
-    expect(unseen.withoutTask(TaskId.of('task_2'))).toBeNull();
     expect(
-      purged.recordReview(TaskId.of('task_2')).withoutTask(OWNER.taskId)
+      owned.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
+        ?.owner,
+    ).toBeNull();
+    expect(
+      owned.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
+        ?.seen,
+    ).not.toBeNull();
+    expect(
+      owned.erasing(
+        DeletionScope.ofTask(WorkspaceId.of('ws_1'), TaskId.of('task_9')),
+      ),
+    ).toBe(owned);
+    expect(
+      purged.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
+        ?.isTombstone,
+    ).toBe(true);
+    expect(
+      purged.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
+        ?.seen,
+    ).toBeNull();
+    expect(
+      unseen.erasing(
+        DeletionScope.ofTask(WorkspaceId.of('ws_1'), TaskId.of('task_2')),
+      ),
+    ).toBeNull();
+    expect(
+      purged
+        .recordReview(TaskId.of('task_2'))
+        .erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
         ?.reviewTasks,
     ).toEqual([TaskId.of('task_2')]);
   });
@@ -152,10 +175,20 @@ describe('PullRequestRecord', () => {
   it('lets go of a deleted team, and keeps a tombstone once GitHub purged it', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
 
-    expect(owned.withoutTeam(OWNER.teamId)?.owner).toBeNull();
-    expect(owned.withoutTeam(TeamId.of('team_2'))).toBe(owned);
     expect(
-      owned.purgedByGitHub(SEEN_AT).withoutTeam(OWNER.teamId)?.isTombstone,
+      owned.erasing(DeletionScope.ofTeam(WorkspaceId.of('ws_1'), OWNER.teamId))
+        ?.owner,
+    ).toBeNull();
+    expect(
+      owned.erasing(
+        DeletionScope.ofTeam(WorkspaceId.of('ws_1'), TeamId.of('team_2')),
+      ),
+    ).toBe(owned);
+    expect(
+      owned
+        .purgedByGitHub(SEEN_AT)
+        .erasing(DeletionScope.ofTeam(WorkspaceId.of('ws_1'), OWNER.teamId))
+        ?.isTombstone,
     ).toBe(true);
   });
 
@@ -227,9 +260,13 @@ describe('PullRequestRecord', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
     owned.pullEvents();
 
-    expect(kinds(owned.withoutTask(OWNER.taskId))).toEqual([
-      'pull-request-record.released',
-    ]);
+    expect(
+      kinds(
+        owned.erasing(
+          DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId),
+        ),
+      ),
+    ).toEqual(['pull-request-record.released']);
     expect(kinds(owned.erased())).toEqual(['pull-request-record.erased']);
   });
 });

@@ -1,7 +1,4 @@
-import type {
-  JsonObject,
-  JsonValue,
-} from '@shared-kernel/domain/services/json-value';
+import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import {

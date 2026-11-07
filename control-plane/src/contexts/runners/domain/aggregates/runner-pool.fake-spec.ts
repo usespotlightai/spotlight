@@ -17,19 +17,19 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
 
-export const POOL_ID = RunnerPoolId.of('pool_1');
+export const POOL_ID = PoolId.of('pool_1');
 
 export const TRUST_ID = RunnerTrustId.of('trust_1');
 
@@ -49,7 +49,7 @@ export const secretOf = (character: string): ProvisionSecret =>
 
 export const aPullPool = (
   input: {
-    id?: RunnerPoolId;
+    id?: PoolId;
     maxRuns?: number;
     labels?: string[];
     tokenVersion?: number;
@@ -232,6 +232,9 @@ export const storedHosts = (...known: RunnerHost[]) => {
     ),
     servingThrough: vi.fn(async (source: CredentialSource) =>
       [...stored.values()].filter((host) => host.hasSource(source)),
+    ),
+    inWorkspace: vi.fn(async (workspaceId: WorkspaceId) =>
+      [...stored.values()].filter((host) => host.belongsTo(workspaceId)),
     ),
   } satisfies RunnerHostRepository;
 

@@ -142,7 +142,7 @@ describe('DeleteOidcTrustHandler', () => {
       {
         permissionsIn: vi.fn(async () => ({
           workspaceId: WorkspaceId.of('ws_1'),
-          allows: () => true,
+          scopes: new Set(['trusts'] as const),
         })),
       } as unknown as WorkspaceAccessPort,
       {

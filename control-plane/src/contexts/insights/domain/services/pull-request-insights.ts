@@ -42,7 +42,7 @@ export interface SpotlightShare extends Share {
 export interface GroupMeasures {
   readonly merged: number;
   readonly toMerge: Spread;
-  readonly inReview: Spread;
+  readonly reviewedToClose: Spread;
   readonly meanRounds: number | null;
   readonly meanComments: number | null;
   readonly reverted: number;
@@ -88,7 +88,7 @@ export interface MergedTally {
 export interface MergedCounts {
   readonly merged: number;
   readonly toMerge: Spread;
-  readonly inReview: Spread;
+  readonly reviewedToClose: Spread;
   readonly rounds: number;
   readonly comments: number;
   readonly reverted: number;
@@ -210,7 +210,7 @@ const meanOf = (sum: number, count: number): number | null =>
 const measuresFrom = (counts: MergedCounts): GroupMeasures => ({
   merged: counts.merged,
   toMerge: counts.toMerge,
-  inReview: counts.inReview,
+  reviewedToClose: counts.reviewedToClose,
   meanRounds: meanOf(counts.rounds, counts.merged),
   meanComments: meanOf(counts.comments, counts.merged),
   reverted: counts.reverted,

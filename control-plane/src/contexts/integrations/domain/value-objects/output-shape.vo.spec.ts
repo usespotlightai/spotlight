@@ -1,5 +1,5 @@
 import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo';
-import type { JsonValue } from '@shared-kernel/domain/services/json-value';
+import type { JsonValue } from '@shared-kernel/domain/json-value';
 import { describe, expect, it } from 'vitest';
 
 const ISSUE: JsonValue = {

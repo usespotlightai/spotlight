@@ -35,7 +35,6 @@ import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
 import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
@@ -47,6 +46,7 @@ import type {
 } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -70,6 +70,13 @@ type Answered = ProvisionAnswer | Unusable;
 type ResolvedEgress =
   | { readonly outcome: 'found'; readonly url: EgressUrl | null }
   | Unusable;
+
+const NO_EGRESS_NAMED: ProvisionedRunner = {
+  outcome: 'failed',
+  kind: 'unusable',
+  detail:
+    'The pool names no egress now. A run that uses secrets or the Spotlight API needs one.',
+};
 
 export interface RunnersSettings {
   readonly insecureAllowed: boolean;
@@ -177,11 +184,12 @@ export class Runners implements RunnersPort {
         ? await this.beganThroughTrust(
             RunnerTrustId.of(source.id),
             'pull',
+            at,
             starting,
             entering,
           )
         : await this.beganThroughPool(
-            RunnerPoolId.of(source.id),
+            PoolId.of(source.id),
             'pull',
             at,
             starting,
@@ -205,7 +213,7 @@ export class Runners implements RunnersPort {
     const issued = this.tokens.issue();
     let credential: NewToken | null = null;
     const began = await this.beganThroughPool(
-      RunnerPoolId.of(request.poolId),
+      PoolId.of(request.poolId),
       'push',
       at,
       (through) => {
@@ -226,21 +234,13 @@ export class Runners implements RunnersPort {
           claimBy: request.claimBy,
         });
       },
+      null,
+      (pool) =>
+        pool.servesEgressNeed(request.needsEgress) ? null : NO_EGRESS_NAMED,
     );
 
     if (began.outcome !== 'began') {
       return began;
-    }
-
-    if (request.needsEgress && !began.through.egress) {
-      await this.release(request.runnerId, at);
-
-      return {
-        outcome: 'failed',
-        kind: 'unusable',
-        detail:
-          'The pool names no egress now. A run that uses secrets or the Spotlight API needs one.',
-      };
     }
 
     const answer = await this.called(
@@ -419,7 +419,10 @@ export class Runners implements RunnersPort {
     return { outcome: 'found', url: named?.url ?? platform?.url ?? null };
   }
 
-  private async takesRun(entering: Entering | null): Promise<boolean> {
+  private async takesRun(
+    entering: Entering | null,
+    at: Date,
+  ): Promise<boolean> {
     if (!entering) {
       return true;
     }
@@ -427,17 +430,18 @@ export class Runners implements RunnersPort {
     const sandbox = await this.sandboxes.find(entering.sandbox);
     const host = sandbox ? await this.hosts.find(entering.host) : null;
 
-    return !!sandbox && !!host && sandbox.takesRunOn(host);
+    return !!sandbox && !!host && sandbox.takesRunOn(host, at);
   }
 
   private beganThroughTrust(
     id: RunnerTrustId,
     mode: PoolMode,
+    at: Date,
     starting: Starting,
     entering: Entering | null,
   ): Promise<Began<RunnerTrust>> {
     return this.transaction.inTransaction(async () => {
-      if (!(await this.takesRun(entering))) {
+      if (!(await this.takesRun(entering, at))) {
         return { outcome: 'full' };
       }
 
@@ -453,13 +457,14 @@ export class Runners implements RunnersPort {
     });
   }
 
-  private beganThroughPool(
-    id: RunnerPoolId,
+  private beganThroughPool<Refusal = never>(
+    id: PoolId,
     mode: PoolMode,
     at: Date,
     starting: (through: RunnerPool) => Runner,
     entering: Entering | null = null,
-  ): Promise<Began<RunnerPool>> {
+    refusal: (pool: RunnerPool) => Refusal | null = () => null,
+  ): Promise<Began<RunnerPool> | Refusal> {
     return this.transaction.inTransaction(async () => {
       const pool = await this.pools.findForStart(id);
 
@@ -467,7 +472,13 @@ export class Runners implements RunnersPort {
         return { outcome: 'gone' };
       }
 
-      if (!(await this.takesRun(entering))) {
+      const refused = refusal(pool);
+
+      if (refused !== null) {
+        return refused;
+      }
+
+      if (!(await this.takesRun(entering, at))) {
         return { outcome: 'full' };
       }
 

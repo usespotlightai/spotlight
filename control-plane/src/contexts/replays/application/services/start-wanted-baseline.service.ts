@@ -40,7 +40,7 @@ export class StartWantedBaseline {
           event.repeats,
         )
       ) {
-        await this.candidates.save(candidate.cascadeDelete());
+        await this.candidates.save(candidate.delete());
         return;
       }
 
@@ -48,7 +48,7 @@ export class StartWantedBaseline {
         Replay.start({
           id: event.baselineId,
           set: set.snapshot,
-          candidate,
+          candidate: candidate.asReplayed,
           baseline: true,
           ceiling: event.ceiling,
           repeats: event.baselineRepeats,

@@ -7,10 +7,16 @@ import { chargeOf } from '@replays/domain/services/replay-charge';
 import { improvedOnBestBefore } from '@replays/domain/services/search-improvement';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const COMPLETED = 'completed';
+const SUCCEEDED: Readonly<Record<RunResult, boolean>> = {
+  completed: true,
+  failed: false,
+  exhausted: false,
+  cancelled: false,
+};
 
 const USAGE_WAIT_MS = 15 * 60_000;
 
@@ -83,11 +89,11 @@ const past = (since: Date | null, wait: number, at: Date): boolean =>
   since !== null && at.getTime() - since.getTime() >= wait;
 
 export const searchRunEnding = (ended: {
-  readonly outcome: string;
+  readonly outcome: RunResult;
   readonly asked: boolean;
   readonly started: boolean;
 }): RunEnding => ({
-  failed: ended.outcome !== COMPLETED || ended.asked,
+  failed: !SUCCEEDED[ended.outcome] || ended.asked,
   started: ended.started,
 });
 

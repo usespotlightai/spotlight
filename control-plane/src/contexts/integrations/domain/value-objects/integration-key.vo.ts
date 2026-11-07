@@ -1,12 +1,22 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import { isIntegrationKey } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import {
+  CATALOG_INTEGRATION,
+  isIntegrationKey,
+} from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class IntegrationKey {
   private readonly kind = 'integration-key';
 
+  static readonly RESERVED =
+    'is catalog, which is the name of Spotlight’s catalog. Please give the integration another name';
+
   private constructor(readonly value: string) {}
+
+  static isReserved(named: string): boolean {
+    return named === CATALOG_INTEGRATION;
+  }
 
   static of(raw: string): IntegrationKey {
     const named = raw.trim();
@@ -16,6 +26,10 @@ export class IntegrationKey {
         'integration',
         'is the name of the integration, as in slack',
       );
+    }
+
+    if (IntegrationKey.isReserved(named)) {
+      throw new InvalidIdentifierError('integration', IntegrationKey.RESERVED);
     }
 
     return new IntegrationKey(named);

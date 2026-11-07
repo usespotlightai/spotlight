@@ -35,7 +35,10 @@ export class ExpiredTokensWorker implements OnModuleDestroy {
     try {
       await this.issuedTokens.expireDue();
     } catch (error) {
-      this.logger.error({ err: error }, this.issuedTokens.name);
+      this.logger.error(
+        { err: error },
+        'Revoking and expiring tokens issued by a trust',
+      );
     }
   }
 }

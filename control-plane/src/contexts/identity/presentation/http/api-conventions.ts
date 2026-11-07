@@ -1,5 +1,5 @@
+import { WORKSPACE_TOKEN_EXCHANGE } from '@identity/presentation/http/workspace-token-routes';
 import type { ApiConvention } from '@platform/http/api-conventions';
-import { WORKSPACE_TOKEN_EXCHANGE } from '@platform/http/routes';
 
 export const IDENTITY_API_CONVENTIONS: readonly ApiConvention[] = [
   {

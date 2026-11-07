@@ -39,9 +39,12 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
+import { ChangeStackId } from '@replays/domain/value-objects/change-stack-id.vo';
+import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
+import { DispatchPool } from '@replays/domain/value-objects/dispatch-pool.vo';
 import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
 import {
@@ -65,6 +68,7 @@ import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.v
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
@@ -76,6 +80,7 @@ import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { SearchStartDetail } from '@replays/domain/value-objects/search-start-detail.vo';
+import { SeedCandidate } from '@replays/domain/value-objects/seed-candidate.vo';
 import { SetSnapshot } from '@replays/domain/value-objects/set-snapshot.vo';
 import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
@@ -128,6 +133,11 @@ export const REPLAYS_PAYLOAD_TYPES = [
   OracleReference,
   PairingReference,
   SetSnapshot,
+  ChangeStackId,
+  CheckedChange,
+  DispatchPool,
+  ReplayedCandidate,
+  SeedCandidate,
   SetUsers,
   ReplaySetEntriesChanged,
   ReplaySetCreated,

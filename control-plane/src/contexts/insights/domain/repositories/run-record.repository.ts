@@ -22,11 +22,7 @@ export interface RunRecordRepository extends ScopedRemoval<RunRecord> {
 
   ofTasks(taskIds: readonly TaskId[]): Promise<readonly RunRecord[]>;
 
-  lastEndedOfTaskAt(
-    taskId: TaskId,
-    stationId: StationId,
-    by: Date,
-  ): Promise<RunRecord | null>;
+  ofTaskAt(taskId: TaskId, stationId: StationId): Promise<readonly RunRecord[]>;
 
   runIdsOf(
     owner: RecordsOwner,

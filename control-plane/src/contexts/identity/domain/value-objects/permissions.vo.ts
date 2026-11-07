@@ -1,8 +1,8 @@
 import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
+import type { Permission } from '@identity/domain/value-objects/permission.vo';
 import { TokenScope } from '@identity/domain/value-objects/token-scope.vo';
 import type { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
-import type { Permission } from '@shared-kernel/domain/value-objects/permission';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const SCOPED: readonly (readonly [TokenScope, Permission])[] = [
@@ -73,7 +73,13 @@ export class Permissions {
   }
 
   allows(scope: TokenScope): boolean {
-    return this.granted.has(scope.value);
+    return this.allowedScopes.some((allowed) => allowed.equals(scope));
+  }
+
+  get allowedScopes(): readonly TokenScope[] {
+    return SCOPED.filter(([, permission]) => this.granted.has(permission)).map(
+      ([scope]) => scope,
+    );
   }
 
   get isAdmin(): boolean {

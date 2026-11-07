@@ -231,24 +231,14 @@ export class RunRecordsInMemory implements RunRecordRepository {
     );
   }
 
-  async lastEndedOfTaskAt(
+  async ofTaskAt(
     taskId: TaskId,
     stationId: StationId,
-    by: Date,
-  ): Promise<RunRecord | null> {
-    return (
-      this.ended()
-        .filter(
-          (each) =>
-            each.ran &&
-            each.end?.location.taskId.equals(taskId) &&
-            each.end.location.stationId.equals(stationId) &&
-            each.end.endedAt.getTime() <= by.getTime(),
-        )
-        .sort(
-          (a, b) =>
-            (b.end?.endedAt.getTime() ?? 0) - (a.end?.endedAt.getTime() ?? 0),
-        )[0] ?? null
+  ): Promise<readonly RunRecord[]> {
+    return this.ended().filter(
+      (each) =>
+        each.end?.location.taskId.equals(taskId) &&
+        each.end.location.stationId.equals(stationId),
     );
   }
 
@@ -525,7 +515,7 @@ export const SET_UP = {
 };
 
 export const NOBODY_ELSE = {
-  membershipOnTeam: async () => null,
+  viewerOf: async () => null,
   namesOf: async () => new Map<string, string>(),
 };
 

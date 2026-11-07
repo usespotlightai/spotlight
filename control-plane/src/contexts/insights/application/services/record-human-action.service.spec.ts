@@ -36,7 +36,6 @@ const workOfTeam = (teamId: string): WorkPort => ({
       taskId: 'task_1',
     }) as EndedRun,
   configsInOrder: async () => [],
-  teamSkillKeys: async () => [],
 });
 
 const acting = async (...runs: Ended[]) => {
@@ -79,7 +78,8 @@ const acting = async (...runs: Ended[]) => {
         server: each.server,
       })) ?? [],
     disposition: async (runId: string) =>
-      (await records.of(RunId.of(runId)))?.disposition ?? null,
+      (await records.of(RunId.of(runId)))?.factWith(null, null)?.disposition ??
+      null,
     next: async (runId: string) =>
       (await records.of(RunId.of(runId)))?.firstHumanAction?.kind ?? null,
   };
@@ -337,8 +337,10 @@ describe('recording how a run used its tools', () => {
       inTransaction,
     ).usageRecorded(usage('run_7'));
 
-    expect((await records.of(RunId.of('run_7')))?.tools?.read('grafana')).toBe(
-      true,
-    );
+    expect(
+      (await records.of(RunId.of('run_7')))?.tools?.skillsRead.includes(
+        'grafana',
+      ),
+    ).toBe(true);
   });
 });

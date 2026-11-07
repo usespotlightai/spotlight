@@ -16,6 +16,8 @@ import {
   slots,
 } from '@replays/domain/replays.fake-spec';
 import {
+  HEALTH_SAMPLES_PER_GROUP,
+  healthSamplesOf,
   setHealthOf,
   wantsCalibration,
 } from '@replays/domain/services/set-health';
@@ -71,7 +73,7 @@ const started = (
   const replay = Replay.start({
     id: ReplayId.of(id),
     set: SET.snapshot,
-    candidate,
+    candidate: candidate.asReplayed,
     baseline: false,
     ceiling: Money.ceiling(100, 'USD'),
     at: NOW,
@@ -86,7 +88,7 @@ const started = (
               answer: 'accepted' as const,
             })),
             against: against.asOracleReference,
-            live: PLAIN,
+            live: PLAIN.asReplayed,
           },
         }
       : runSubset
@@ -402,5 +404,41 @@ describe('wantsCalibration', () => {
     expect(wantsCalibration(aSet(7), [calibration], [SCORED], FINGER)).toBe(
       true,
     );
+  });
+});
+
+describe('healthSamplesOf', () => {
+  const sample = (
+    id: string,
+    group: string | null,
+    sampledAt: number,
+    setId = 'set_1',
+  ) => ({
+    id: { value: id },
+    setId: { value: setId },
+    healthSampleGroup: group,
+    sampledAt: later(sampledAt),
+    startedAt: later(sampledAt - 1),
+  });
+
+  it('keeps the newest samples of each set and group, oldest first, and no replay outside a group', () => {
+    const picked = healthSamplesOf([
+      sample('a', 'live:plain:1', 1),
+      sample('b', 'live:plain:1', 2),
+      sample('c', 'live:plain:1', 3),
+      sample('d', 'live:plain:1', 4),
+      sample('e', 'other:plain:1', 1),
+      sample('f', 'live:plain:1', 5, 'set_2'),
+      sample('g', null, 9),
+    ]);
+
+    expect(picked.map((each) => each.id.value)).toEqual([
+      'e',
+      'b',
+      'c',
+      'd',
+      'f',
+    ]);
+    expect(HEALTH_SAMPLES_PER_GROUP).toBe(3);
   });
 });

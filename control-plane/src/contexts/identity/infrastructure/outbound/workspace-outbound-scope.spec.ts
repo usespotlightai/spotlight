@@ -1,7 +1,7 @@
+import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
 import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
 import { WorkspaceOutboundScope } from '@identity/infrastructure/outbound/workspace-outbound-scope';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { describe, expect, it, vi } from 'vitest';
 

@@ -15,6 +15,7 @@ import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -49,6 +50,7 @@ const stack = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    teamOfRun: TeamId.of('team_1'),
     replay: false,
     isSearch: false,
     workspaceId: WorkspaceId.of('workspace-1'),
@@ -85,6 +87,7 @@ const checkOf = (built = stack()) =>
     stackId: built.id,
     runId: built.runId,
     taskId: null,
+    teamId: null,
     replay: false,
     workspaceId: built.workspaceId,
     request: CheckRequest.of('npx tsc --noEmit', null),
@@ -144,6 +147,7 @@ describe('redraftRequestOf', () => {
       id: ChangeStackId.of('stack-2'),
       runId: RunId.of('run-1'),
       taskId: null,
+      teamOfRun: TeamId.of('team_1'),
       replay: false,
       isSearch: false,
       workspaceId: WorkspaceId.of('workspace-1'),
@@ -162,6 +166,7 @@ describe('redraftRequestOf', () => {
           stackId: built.id,
           runId: built.runId,
           taskId: null,
+          teamId: null,
           replay: false,
           workspaceId: built.workspaceId,
           request: CheckRequest.of('npx tsc --noEmit', null),

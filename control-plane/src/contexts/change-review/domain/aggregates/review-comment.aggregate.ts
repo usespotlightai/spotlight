@@ -16,7 +16,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const REVIEW_COMMENT_STATES = [
   'draft',
-  'submitted',
+  'sending',
   'posted',
   'failed',
   'deleted',
@@ -114,7 +114,7 @@ export class ReviewComment extends EventRecorder {
     anchor: ReviewAnchor;
     body: string;
     author: ReviewAuthor;
-    replyTo: ReviewCommentId | null;
+    inReplyTo: ReviewComment | null;
     github: OnGitHub;
     at: Date;
   }): ReviewComment {
@@ -131,7 +131,7 @@ export class ReviewComment extends EventRecorder {
       input.anchor,
       input.body.trim(),
       input.author,
-      input.replyTo,
+      input.inReplyTo?.threadRoot ?? null,
       null,
       'posted',
       input.github,
@@ -178,7 +178,7 @@ export class ReviewComment extends EventRecorder {
     }
     if (
       input.state !== 'deleted' &&
-      (input.state === 'submitted') !== (input.sentBody !== null)
+      (input.state === 'sending') !== (input.sentBody !== null)
     ) {
       throw new InconsistentStateError(
         'review comment',
@@ -221,7 +221,7 @@ export class ReviewComment extends EventRecorder {
 
   get answerable(): boolean {
     return (
-      this.state === 'submitted' ||
+      this.state === 'sending' ||
       (this.state === 'posted' && this.github !== null)
     );
   }
@@ -261,9 +261,9 @@ export class ReviewComment extends EventRecorder {
       this.anchor,
       body,
       input.author,
-      this.replyTo ?? this.id,
+      this.threadRoot,
       null,
-      'submitted',
+      'sending',
       null,
       body,
       false,
@@ -279,6 +279,10 @@ export class ReviewComment extends EventRecorder {
     );
 
     return reply;
+  }
+
+  get threadRoot(): ReviewCommentId {
+    return this.replyTo ?? this.id;
   }
 
   writtenBy(viewer: UserId): boolean {
@@ -310,7 +314,7 @@ export class ReviewComment extends EventRecorder {
       throw new InvalidReviewError('can only submit draft comments');
     }
 
-    return this.with({ state: 'submitted', reviewId, sentBody: this.body });
+    return this.with({ state: 'sending', reviewId, sentBody: this.body });
   }
 
   postedAs(github: OnGitHub | null): ReviewComment {

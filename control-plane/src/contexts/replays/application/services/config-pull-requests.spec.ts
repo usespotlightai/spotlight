@@ -125,7 +125,7 @@ class FakeConfigs implements ConfigRepositoryPort {
     return {
       url: `https://github.com/${repository.value}/pull/${number}`,
       number,
-      gitHubId: 100 + number,
+      hostId: 100 + number,
       repository: 'Acme/Platform',
     };
   }
@@ -222,12 +222,7 @@ const picking = () =>
     pullRequests,
     memory.candidateRepository,
     memory.scheduleRepository,
-    new SetHealths(
-      work,
-      memory.replayRepository,
-      memory.replaysReader,
-      memory.candidateRepository,
-    ),
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
     work,
     IDS,
     clock,
@@ -256,12 +251,7 @@ const opening = () =>
     TRANSACTION,
     clock,
     QUIET,
-    new SetHealths(
-      work,
-      memory.replayRepository,
-      memory.replaysReader,
-      memory.candidateRepository,
-    ),
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
     memory.setRepository,
     new SearchFindings(work),
   );
@@ -296,10 +286,10 @@ const liveIs = (fingerprint: StationFingerprint) => {
   work.live = async () => ({ ...(await live()), fingerprint });
 };
 
-const onGitHub = (
+const onHost = (
   over: {
     number?: number;
-    gitHubId?: number | null;
+    hostId?: number | null;
     repository?: string;
     workspaceId?: string;
   } = {},
@@ -315,15 +305,15 @@ const onGitHub = (
     pullRequest: PullRequestUrl.of(
       `https://github.com/${repository}/pull/${number}`,
     ),
-    gitHubId: over.gitHubId === undefined ? 100 + number : over.gitHubId,
+    hostId: over.hostId === undefined ? 100 + number : over.hostId,
     at: later(100),
   };
 };
 
-const closedOnGitHub = (
+const closedOnHost = (
   merged: boolean,
-  over: Parameters<typeof onGitHub>[0] = {},
-) => following().closedOnGitHub({ ...onGitHub(over), merged });
+  over: Parameters<typeof onHost>[0] = {},
+) => following().closedOnHost({ ...onHost(over), merged });
 
 const opened = async () => {
   await pick();
@@ -592,7 +582,7 @@ describe('following a config pull request after it opened', () => {
     expect(only()).toMatchObject({
       current: 'opened',
       number: 1,
-      gitHubId: 101,
+      hostId: 101,
       basedOn: FINGERPRINT,
       proposing: PROPOSED,
     });
@@ -717,7 +707,7 @@ describe('following a config pull request after it opened', () => {
 
     expect(only().current).toBe('opened');
 
-    await closedOnGitHub(true);
+    await closedOnHost(true);
 
     expect(only()).toMatchObject({ current: 'merged' });
     expect(configs.closings).toEqual([]);
@@ -728,21 +718,21 @@ describe('following a config pull request after it opened', () => {
     liveIs(StationFingerprint.of('c'.repeat(64)));
     await following().lineChanged(STATION_VIEW.lineId);
     await closing().processDue();
-    await closedOnGitHub(true);
+    await closedOnHost(true);
 
     expect(only()).toMatchObject({ current: 'merged', closedBecause: null });
   });
 
   it('matches GitHub by workspace and GitHub id, or by repository in any case and number without an id', async () => {
     await opened();
-    await closedOnGitHub(false, { workspaceId: 'workspace_other' });
-    await closedOnGitHub(false, { gitHubId: 999 });
-    await closedOnGitHub(false, { number: 2, gitHubId: null });
+    await closedOnHost(false, { workspaceId: 'workspace_other' });
+    await closedOnHost(false, { hostId: 999 });
+    await closedOnHost(false, { number: 2, hostId: null });
 
     expect(only().current).toBe('opened');
 
-    await closedOnGitHub(false, {
-      gitHubId: null,
+    await closedOnHost(false, {
+      hostId: null,
       repository: 'ACME/platform',
     });
 
@@ -757,8 +747,8 @@ describe('following a config pull request after it opened', () => {
 
   it('reopens a pull request reopened on GitHub', async () => {
     await opened();
-    await closedOnGitHub(false);
-    await following().reopenedOnGitHub(onGitHub());
+    await closedOnHost(false);
+    await following().reopenedOnHost(onHost());
 
     expect(only()).toMatchObject({ current: 'opened', closedBecause: null });
   });

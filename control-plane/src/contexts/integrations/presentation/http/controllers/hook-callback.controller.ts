@@ -4,6 +4,7 @@ import type { CallbackTaskView } from '@integrations/application/dto/callback-ta
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackNoteRequestDto } from '@integrations/presentation/http/dto/callback-note.request.dto';
 import { CallbackTaskResponseDto } from '@integrations/presentation/http/dto/callback-task.response.dto';
+import { HOOK_CALLBACKS } from '@integrations/presentation/http/hook-callback-route';
 import {
   BadRequestException,
   Body,
@@ -29,7 +30,6 @@ import {
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { InAudience } from '@platform/http/decorators/in-audience.decorator';
-import { HOOK_CALLBACKS } from '@platform/http/routes';
 
 const UNAUTHORIZED =
   'The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.';

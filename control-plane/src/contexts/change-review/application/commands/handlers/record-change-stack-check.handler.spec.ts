@@ -17,6 +17,7 @@ import { ApplicationError } from '@shared-kernel/application/errors/application-
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -66,6 +67,7 @@ const ready = () =>
     id: ChangeStackId.of(STACK),
     runId: RunId.of(RUN),
     taskId: null,
+    teamOfRun: TeamId.of('team_1'),
     replay: false,
     isSearch: false,
     workspaceId: WorkspaceId.of('ws_1'),
@@ -82,6 +84,7 @@ const checkFor = (stack: ChangeStack) =>
     stackId: stack.id,
     runId: stack.runId,
     taskId: null,
+    teamId: null,
     replay: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),
@@ -99,6 +102,7 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     nextDueJob: async () => null,
     ofRun: async () => [],
     ofTask: async () => [],
+    ofTeam: async () => [],
     remove: async () => undefined,
   };
 
@@ -108,9 +112,10 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
       saved.push(each);
     },
     find: async () => check,
-    latestOf: async () => check,
+    ofStack: async () => (check ? [check] : []),
     ofRun: async () => [],
     ofTask: async () => [],
+    ofTeam: async () => [],
     remove: async () => undefined,
     waiting: async () => [],
     waitingIn: async () => [],

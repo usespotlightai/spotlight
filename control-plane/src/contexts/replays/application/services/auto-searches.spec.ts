@@ -8,6 +8,7 @@ import {
   QUIET,
   refreshingFor,
   snapshotsFor,
+  stepsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { SetHealths } from '@replays/application/services/set-healths.service';
@@ -87,12 +88,7 @@ const auto = () =>
     refreshingFor(memory, work),
     new CheckSearchReadiness(
       memory.setRepository,
-      new SetHealths(
-        work,
-        memory.replayRepository,
-        memory.replaysReader,
-        memory.candidateRepository,
-      ),
+      new SetHealths(work, memory.replayRepository, memory.candidateRepository),
       work,
       { sha256 },
       IDS,
@@ -100,6 +96,7 @@ const auto = () =>
     ),
     new StartSearch(
       snapshotsFor(memory, work),
+      stepsFor(memory, work, clock),
       memory.setRepository,
       memory.searchRepository,
       memory.scheduleRepository,
@@ -352,7 +349,9 @@ describe('AutoSearches', () => {
           inSet: aSet(10).entries.map((each) => each.taskId),
           at: new Date(NOW.getTime() - 30 * DAY),
           cooldownMilliseconds: 3 * DAY,
-          trigger: 'schedule',
+          searchId: SearchId.of('search_earlier'),
+          request: null,
+          candidates: [],
         })
         .postponed(NOW),
     );
@@ -463,6 +462,7 @@ describe('AutoSearches', () => {
       {
         searchId: SearchId.of('search_meanwhile'),
         ceiling: Money.of(10, 'USD'),
+        admittedAt: now,
       },
       policy,
       [],

@@ -163,15 +163,13 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
   });
 
   it('keeps the teams it was sent for as they were, after one of them is deleted', async () => {
-    await database.db
-      .insert(schema.team)
-      .values({
-        id: 'team_9',
-        workspaceId: 'ws_1',
-        key: 'gone',
-        name: 'Gone',
-        origin: 'configuration',
-      });
+    await database.db.insert(schema.team).values({
+      id: 'team_9',
+      workspaceId: 'ws_1',
+      key: 'gone',
+      name: 'Gone',
+      origin: 'configuration',
+    });
     const invite = newInvite('ada@example.com', ['team_1', 'team_9']);
     await invites.add(invite);
     await database.db.delete(schema.team).where(eq(schema.team.id, 'team_9'));

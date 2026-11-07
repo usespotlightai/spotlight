@@ -10,7 +10,9 @@ export class DeleteSideBySideJudgings {
 
   async ofTeam(teamId: TeamId): Promise<void> {
     for (const judging of await this.judgings.ofTeam(teamId)) {
-      await this.transaction.inTransaction(() => this.judgings.remove(judging));
+      await this.transaction.inTransaction(() =>
+        this.judgings.save(judging.delete()),
+      );
     }
   }
 }

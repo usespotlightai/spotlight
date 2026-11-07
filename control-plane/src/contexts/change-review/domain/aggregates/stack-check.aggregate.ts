@@ -35,6 +35,7 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const MAX_CHECK_OUTPUT = 16_000;
@@ -60,6 +61,7 @@ export class StackCheck extends EventRecorder {
     readonly id: StackCheckId,
     readonly runId: RunId,
     readonly taskId: TaskId | null,
+    readonly teamId: TeamId | null,
     readonly replay: boolean,
     readonly workspaceId: WorkspaceId,
     readonly request: CheckRequest,
@@ -80,6 +82,7 @@ export class StackCheck extends EventRecorder {
     stackId: ChangeStackId;
     runId: RunId;
     taskId: TaskId | null;
+    teamId: TeamId | null;
     replay: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
@@ -90,6 +93,7 @@ export class StackCheck extends EventRecorder {
       StackCheckId.first(input.stackId),
       input.runId,
       input.taskId,
+      input.teamId,
       input.replay,
       input.workspaceId,
       input.request,
@@ -114,6 +118,7 @@ export class StackCheck extends EventRecorder {
       stackId: stack.id,
       runId: stack.runId,
       taskId: stack.taskId,
+      teamId: stack.teamId,
       replay: stack.replay,
       workspaceId: stack.workspaceId,
       request: stack.request,
@@ -126,6 +131,7 @@ export class StackCheck extends EventRecorder {
     id: StackCheckId;
     runId: RunId;
     taskId: TaskId | null;
+    teamId: TeamId | null;
     replay: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
@@ -164,6 +170,7 @@ export class StackCheck extends EventRecorder {
       input.id,
       input.runId,
       input.taskId,
+      input.teamId,
       input.replay,
       input.workspaceId,
       input.request,
@@ -176,6 +183,14 @@ export class StackCheck extends EventRecorder {
       input.reservation,
       input.provisioning,
       input.version,
+    );
+  }
+
+  static latestOf(checks: readonly StackCheck[]): StackCheck | null {
+    return checks.reduce<StackCheck | null>(
+      (latest, each) =>
+        !latest || each.id.laterRoundThan(latest.id) ? each : latest,
+      null,
     );
   }
 
@@ -202,6 +217,7 @@ export class StackCheck extends EventRecorder {
       StackCheckId.recheckOf(this.stackId),
       this.runId,
       this.taskId,
+      this.teamId,
       this.replay,
       this.workspaceId,
       this.request,
@@ -607,6 +623,7 @@ export class StackCheck extends EventRecorder {
       this.id,
       this.runId,
       this.taskId,
+      this.teamId,
       this.replay,
       this.workspaceId,
       this.request,

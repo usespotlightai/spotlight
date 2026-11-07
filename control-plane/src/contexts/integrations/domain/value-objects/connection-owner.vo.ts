@@ -1,3 +1,4 @@
+import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -23,6 +24,12 @@ export class ConnectionOwner {
       : ConnectionOwner.team();
   }
 
+  static actingAs(actsAs: ActsAs, by: UserId): ConnectionOwner {
+    return actsAs.byRequester
+      ? ConnectionOwner.person(by)
+      : ConnectionOwner.team();
+  }
+
   static fromKey(key: string): ConnectionOwner {
     if (key === TEAM) {
       return ConnectionOwner.team();
@@ -44,6 +51,10 @@ export class ConnectionOwner {
 
   get key(): string {
     return this.personId ? `${PERSON}${this.personId.value}` : TEAM;
+  }
+
+  get actsAs(): ActsAs {
+    return this.personId ? ActsAs.requester() : ActsAs.team();
   }
 
   get kind(): ConnectionOwnerKind {

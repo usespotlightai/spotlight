@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
-import type {
-  HookRequest,
-  WaitingOutcome,
-} from '@integrations/application/ports/hook-requests.port';
+import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import type { HookRequest } from '@integrations/application/ports/hook-requests.port';
 import type {
   HookEventInstance,
   ListeningHook,
@@ -13,6 +12,7 @@ import { HookDefinitionId } from '@integrations/domain/value-objects/hook-defini
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
+import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
@@ -21,8 +21,6 @@ import {
   unscoped,
 } from '@platform/outbound/outbound-scope.fake-spec';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
-import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
 import { describe, expect, it, vi } from 'vitest';
@@ -100,7 +98,7 @@ const requests = (
     signed,
     requests: new HookRequests(
       {
-        publicUrl: 'https://spotlight.example.com',
+        callbackUrl: 'https://spotlight.example.com/api/hook-callbacks',
         policy: allowingOutbound(allowed),
       },
       { signingSecretOf: async () => secret },
@@ -113,6 +111,7 @@ const requests = (
       calls,
       limits,
       hosts,
+      { now: () => new Date(), sleep: async () => {} },
       fetch as unknown as typeof globalThis.fetch,
     ),
   };
@@ -521,10 +520,10 @@ describe('HookRequests', () => {
     await expect(
       sending.resumed(
         hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
-        first.outcome as WaitingOutcome,
+        first.outcome as WaitingHookStep,
         NOW,
       ),
-    ).resolves.toMatchObject({ outcome: first.outcome });
+    ).resolves.toBeNull();
 
     vi.mocked(calls.stateOf).mockResolvedValueOnce({
       kind: 'answered',
@@ -540,12 +539,43 @@ describe('HookRequests', () => {
     await expect(
       sending.resumed(
         hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
-        first.outcome as WaitingOutcome,
+        first.outcome as WaitingHookStep,
         NOW,
       ),
     ).resolves.toMatchObject({
       outcome: { status: 'done' },
       trace: { status: 204, ms: 30 },
+    });
+  });
+
+  it('fails a resumed request whose call ended unanswered', async () => {
+    const calls = network();
+    vi.mocked(calls.stateOf).mockResolvedValueOnce({
+      kind: 'expired',
+      claimed: false,
+    });
+    const { requests: sending } = requests(
+      async () => new Response('{}'),
+      calls,
+    );
+    const waiting: WaitingHookStep = {
+      name: 'check',
+      status: 'waiting',
+      call: 'call_1',
+      until: new Date(NOW.getTime() + 60_000),
+    };
+
+    await expect(
+      sending.resumed(
+        hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
+        waiting,
+        NOW,
+      ),
+    ).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        reason: expect.stringMatching(/no host of the workspace answered/),
+      },
     });
   });
 

@@ -1,24 +1,12 @@
-import {
-  WORKSPACE_ACCESS,
-  type WorkspaceAccessPort,
-} from '@identity/application/ports/workspace-access.port';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CONTROL_PLANE_SEQ } from '@work/application/contracts/run-journal.contract';
-import type {
-  RunEventReaderPort,
-  WatchableRun,
-} from '@work/application/ports/run-event-reader.port';
+import type { RunEventReaderPort } from '@work/application/ports/run-event-reader.port';
 import type { RunEventView } from '@work/application/ports/run-stream.port';
-import {
-  run,
-  runJournalEntry,
-} from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { and, asc, desc, eq, gt, isNull, lte } from 'drizzle-orm';
+import { runJournalEntry } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
+import { and, asc, desc, eq, gt, lte } from 'drizzle-orm';
 
 const MAX_CONTROL_PLANE_ENTRIES = 200;
 
@@ -51,42 +39,7 @@ const viewOf = (row: {
 
 @Injectable()
 export class DrizzleRunEventReader implements RunEventReaderPort {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
-    @Inject(WORKSPACE_ACCESS) private readonly access: WorkspaceAccessPort,
-  ) {}
-
-  async findForViewer(
-    runId: RunId,
-    viewerId: UserId,
-  ): Promise<WatchableRun | null> {
-    const [found] = await this.db
-      .select({
-        id: run.id,
-        attempt: run.attempt,
-        workspaceId: run.workspaceId,
-      })
-      .from(run)
-      .where(
-        and(
-          eq(run.id, runId.value),
-          isNull(run.replayOfRunId),
-          isNull(run.searchId),
-        ),
-      )
-      .limit(1);
-
-    return found && (await this.mayWatch(found, viewerId))
-      ? { id: found.id, attempt: found.attempt }
-      : null;
-  }
-
-  private mayWatch(
-    found: { workspaceId: string },
-    viewerId: UserId,
-  ): Promise<boolean> {
-    return this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId));
-  }
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async eventsSince(
     runId: RunId,

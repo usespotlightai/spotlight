@@ -1,6 +1,6 @@
 import { OAUTH2_CALLBACK_ROUTE } from '@integrations/presentation/http/oauth2-callback-route';
-import { API_PREFIX } from '@platform/http/routes';
 import type { RequestHeaders } from '@platform/http/request-headers';
+import { API_PREFIX } from '@platform/http/routes';
 
 export interface CookieOptions {
   readonly httpOnly: boolean;

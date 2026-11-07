@@ -12,7 +12,6 @@ describe('RunFailure', () => {
     ['refused', false, 1],
     ['unprovisioned', false, 1],
     ['cancelled', false, 1],
-    ['superseded', false, 1],
     ['hooks-unanswered', true, 6],
     ['runner-lost', true, 3],
     ['timed-out', true, 3],
@@ -34,7 +33,6 @@ describe('RunFailure', () => {
         'hooks-unanswered',
         'refused',
         'runner-lost',
-        'superseded',
         'timed-out',
         'unprepared',
         'unprovisioned',
@@ -44,5 +42,9 @@ describe('RunFailure', () => {
 
   it('rejects a code nobody knows', () => {
     expect(() => RunFailure.of('exploded')).toThrow(InvalidRunOutcomeError);
+  });
+
+  it('never ends a run as superseded, which only its task decides', () => {
+    expect(() => RunFailure.of('superseded')).toThrow(InvalidRunOutcomeError);
   });
 });

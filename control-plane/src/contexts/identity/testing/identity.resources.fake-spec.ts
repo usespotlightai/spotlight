@@ -3,13 +3,11 @@ import type { TeamDependentsPort } from '@identity/application/ports/team-depend
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
-import {
-  Workspace,
-  type WorkspaceContents,
-} from '@identity/domain/aggregates/workspace.aggregate';
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import type { WorkspaceContents } from '@identity/domain/services/workspace-contents';
 import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';

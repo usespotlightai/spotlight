@@ -2,6 +2,7 @@ import type {
   TeamWorkspaceMembership,
   WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import type { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
@@ -13,13 +14,13 @@ import type {
 import type { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
+import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -60,7 +61,10 @@ export class BeginOAuth2ConnectionHandler
   ): Promise<OAuth2Start | null> {
     try {
       const viewer = UserId.of(command.viewerId);
-      const owner = ConnectionOwner.ofKind(command.owner, viewer);
+      const owner = ConnectionOwner.actingAs(
+        ActsAs.chosen(command.actsAs),
+        viewer,
+      );
       const membership = await this.access.inWorkspaceOfTeam(
         TeamId.of(command.teamId),
         viewer,
@@ -105,7 +109,7 @@ export class BeginOAuth2ConnectionHandler
                 teamId: command.teamId,
                 integration: command.integration,
                 by: command.viewerId,
-                owner: command.owner,
+                owner: owner.kind,
                 returnTo: command.returnTo,
               },
               client,

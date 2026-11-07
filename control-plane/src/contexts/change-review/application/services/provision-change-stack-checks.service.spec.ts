@@ -29,6 +29,7 @@ const waiting = (stack: string, placement: string[] = []) =>
     stackId: ChangeStackId.of(stack),
     runId: RunId.of(`run_of_${stack}`),
     taskId: null,
+    teamId: null,
     replay: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null, RunnerPlacement.of(placement)),
@@ -43,7 +44,11 @@ const provisioning = (
 ) => {
   const stored = new Map(checks.map((each) => [each.stackId.value, each]));
   let conflicting = conflicts;
-  const find = vi.fn(async (id: ChangeStackId) => stored.get(id.value) ?? null);
+  const find = vi.fn(async (id: ChangeStackId) => {
+    const found = stored.get(id.value);
+
+    return found ? [found] : [];
+  });
   const save = vi.fn(async (check: StackCheck) => {
     if (conflicting > 0) {
       conflicting -= 1;
@@ -60,7 +65,7 @@ const provisioning = (
     waitingIn,
     check: (stack: string) => stored.get(stack) as StackCheck,
     service: new ProvisionChangeStackChecks({
-      latestOf: find,
+      ofStack: find,
       save,
       waitingIn,
       reserved,

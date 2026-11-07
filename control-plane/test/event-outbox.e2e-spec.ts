@@ -4,7 +4,7 @@ import { DrizzleOidcTrustUsage } from '@identity/infrastructure/persistence/driz
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 import { DrizzleSignupSurveys } from '@identity/infrastructure/persistence/drizzle/signup-surveys';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
-import { AsyncLocalCausation } from '@platform/events/async-local-causation';
+import { CauseCarrier } from '@platform/events/cause-carrier';
 import {
   EventDelivery,
   LEASE_MS,
@@ -27,7 +27,6 @@ import { subscribing } from '@shared-kernel/application/ports/domain-event-subsc
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import {
   actorFor,
   changeActorIn,
@@ -75,8 +74,8 @@ let context: DrizzleContext;
 let now = new Date();
 const received: string[] = [];
 let failing = 0;
-const causation = new AsyncLocalCausation();
-const causes: string[] = [];
+const causation = new CauseCarrier();
+const causes: unknown[] = [];
 let callOut: (event: Called) => Promise<readonly DomainEvent[]> =
   async () => [];
 
@@ -102,7 +101,7 @@ const outboxWith = () => {
       ['bell.answered'],
       async (event) => {
         received.push(`answered ${event.marker.value}`);
-        causes.push(causation.current().description);
+        causes.push(causation.current());
       },
     ),
     subscribing<{ kind: string; marker: string }>(
@@ -243,26 +242,22 @@ describe('the event outbox', () => {
     expect(received).toHaveLength(4);
   });
 
-  it('carries the chain of causes an event was recorded in to what its subscribers raise', async () => {
+  it('carries the cause an event was recorded in to what its subscribers raise', async () => {
     causes.length = 0;
     const { outbox, delivery } = outboxWith();
-    const chain = CausalChain.none().append({
-      kind: 'hook',
-      key: 'hook:bell',
-      description: 'the hook bell',
-    });
+    const cause = { links: [{ key: 'hook:bell' }], depth: 1 };
 
-    await causation.runWith(chain, () =>
+    await causation.runWith(cause, () =>
       outbox.record([new Rang(Marker.of('caused'))]),
     );
     await delivery.processDue();
 
-    expect(causes).toEqual(['the hook bell']);
+    expect(causes).toEqual([cause]);
     expect(
-      (await database.db.select({ cause: eventOutbox.cause }).from(eventOutbox))
-        .map((each) => CausalChain.read(each.cause).description)
-        .filter((each) => each !== ''),
-    ).toEqual(['the hook bell', 'the hook bell', 'the hook bell']);
+      (
+        await database.db.select({ cause: eventOutbox.cause }).from(eventOutbox)
+      ).filter((each) => each.cause !== null),
+    ).toEqual([{ cause }, { cause }, { cause }]);
   });
 
   it('publishes what other contexts may receive as plain data, beside the domain event', async () => {

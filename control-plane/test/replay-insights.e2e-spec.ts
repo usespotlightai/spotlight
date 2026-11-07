@@ -10,7 +10,7 @@ import {
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
-import { baselineOf } from '@replays/domain/services/baseline';
+import { servingBaselineOf } from '@replays/domain/services/baseline';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -35,6 +35,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { type SearchPolicyTerms, searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { searchReadOf } from './support/search-read';
 import { insertStations } from './support/stations';
@@ -172,21 +173,29 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
       resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(stationId),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: { briefed: [], omitted: [] },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(stationId),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      endedAt: at,
+    }),
+  );
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
@@ -782,7 +791,8 @@ describe('replayed candidates beside live runs', () => {
         id: stoppedId,
         state: 'stopped',
         servesAsBaseline: false,
-        healthSample: false,
+        takesPairings: false,
+        healthSampleGroup: null,
         startedAt: new Date(Date.now() + 60_000),
         version: 0,
       });
@@ -800,7 +810,7 @@ describe('replayed candidates beside live runs', () => {
     expect(read).toHaveLength(setIds.length);
     for (const setId of setIds) {
       expect(read.find((each) => each.setId.equals(setId))?.id.value).toBe(
-        baselineOf(await replays.ofSet(setId))?.id.value,
+        servingBaselineOf(await replays.ofSet(setId))?.id.value,
       );
     }
   });

@@ -1,6 +1,7 @@
 import { ScheduleCursor } from '@integrations/domain/aggregates/schedule-cursor.aggregate';
 import { InvalidCursorTransitionError } from '@integrations/domain/exceptions/invalid-cursor-transition.error';
 import type { CronCalendar } from '@integrations/domain/services/cron-calendar';
+import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { Schedule } from '@integrations/domain/value-objects/schedule.vo';
@@ -19,7 +20,7 @@ const hourly: CronCalendar = {
 
 const schedule = Schedule.of({
   cron: CronExpression.of('0 * * * *', hourly),
-  action: 'digest',
+  action: actionNamed('digest'),
 });
 
 const stored = (ranAt: Date | null) =>

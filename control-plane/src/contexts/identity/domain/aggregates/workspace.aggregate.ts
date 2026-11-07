@@ -1,6 +1,3 @@
-import type { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
-import type { Team } from '@identity/domain/aggregates/team.aggregate';
-import type { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-joined.event';
@@ -17,13 +14,13 @@ import {
   type RoleAssignmentContext,
   roleAssignmentDenial,
 } from '@identity/domain/services/role-assignment';
-import { Dependents } from '@identity/domain/value-objects/dependents.vo';
+import type { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
-import type { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import type { SignupSurvey } from '@identity/domain/value-objects/signup-survey.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import type { TeamOrigin } from '@identity/domain/value-objects/team-origin.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -55,43 +52,6 @@ export interface WorkspaceDefinition {
   readonly slug: WorkspaceSlug;
   readonly outboundHosts: HostAllowList;
 }
-
-export interface WorkspaceContents {
-  readonly teams: readonly Team[];
-  readonly tokens: readonly WorkspaceToken[];
-  readonly trusts: readonly OidcTrust[];
-}
-
-const dependentsIn = (contents: WorkspaceContents): Dependents => {
-  const trustKeyOf = (trustId: OidcTrustId): string =>
-    contents.trusts.find((each) => each.id.equals(trustId))?.key.value ??
-    'a deleted OIDC trust';
-  const issuing = [
-    ...new Set(
-      contents.tokens.flatMap((each) =>
-        each.issuedByTrustId ? [trustKeyOf(each.issuedByTrustId)] : [],
-      ),
-    ),
-  ];
-
-  return Dependents.of([
-    ...contents.teams.map((each) => ({
-      kind: 'team' as const,
-      key: each.key.value,
-    })),
-    ...contents.tokens
-      .filter((each) => !each.isIssuedBySpotlight)
-      .map((each) => ({
-        kind: 'workspace-token' as const,
-        key: each.name.value,
-      })),
-    ...contents.trusts.map((each) => ({
-      kind: 'oidc-trust' as const,
-      key: each.key.value,
-    })),
-    ...issuing.map((key) => ({ kind: 'issued-tokens' as const, key })),
-  ]);
-};
 
 interface TeamOfWorkspace {
   readonly id: TeamId;
@@ -220,14 +180,8 @@ export class Workspace extends EventRecorder {
     return updated;
   }
 
-  delete(
-    contents: WorkspaceContents,
-    dependents: Dependents,
-    by: ChangeActor,
-  ): Workspace {
+  delete(remaining: Dependents, by: ChangeActor): Workspace {
     this.assertNotDeleted();
-
-    const remaining = dependentsIn(contents).and(dependents);
 
     if (!remaining.isEmpty) {
       throw new WorkspaceInUseError(this.slug.value, remaining);
@@ -250,10 +204,10 @@ export class Workspace extends EventRecorder {
     return this.firstTeamPending ? 'pending' : 'done';
   }
 
-  firstTeamCreated(): Workspace {
+  teamCreated(origin: TeamOrigin): Workspace {
     this.assertNotDeleted();
 
-    return this.firstTeamPending
+    return this.firstTeamPending && origin === 'sign-up'
       ? this.with({ members: this.members, firstTeamPending: false })
       : this;
   }

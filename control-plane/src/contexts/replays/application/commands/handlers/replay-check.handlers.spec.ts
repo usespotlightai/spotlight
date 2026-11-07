@@ -41,6 +41,8 @@ import { CandidateScoring } from '@replays/domain/value-objects/candidate-scorin
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
+import { ScoringHash } from '@replays/domain/value-objects/scoring-hash.vo';
 import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
@@ -434,17 +436,17 @@ describe('StartReplayCheckHandler', () => {
     const staleLive = Replay.start({
       id: ReplayId.of('replay_stale'),
       set: set.snapshot,
-      candidate: {
+      candidate: ReplayedCandidate.of({
         id: old.id,
+        stationId: set.station.stationId,
         isLive: true,
         isOracle: false,
         basedOn: old.basedOn,
         judges: false,
         checksChanges: true,
         rubricVersion: null,
-        scoringHash: '9'.repeat(64),
-        isFor: () => true,
-      },
+        scoringHash: ScoringHash.of('9'.repeat(64)),
+      }),
       baseline: true,
       ceiling: Money.ceiling(5, 'USD'),
       at: NOW,

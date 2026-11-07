@@ -61,7 +61,7 @@ export class StartSearchReplays {
         Replay.start({
           id: replayId,
           set: set.snapshot,
-          candidate,
+          candidate: candidate.asReplayed,
           baseline: terms.baseline,
           ceiling: terms.ceiling,
           unpricedRate: terms.unpricedRate,

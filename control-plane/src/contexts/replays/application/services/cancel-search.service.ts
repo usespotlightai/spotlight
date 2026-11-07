@@ -32,7 +32,7 @@ export class CancelSearch {
     }
 
     for (const replay of replays) {
-      if (replay.isDispatching) {
+      if (replay.isStoppable) {
         await this.stop(replay.id);
       }
     }
@@ -42,7 +42,7 @@ export class CancelSearch {
     return this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(replayId);
 
-      if (replay?.isDispatching && !replay.stoppedAt) {
+      if (replay?.isStoppable) {
         await this.replays.save(
           replay.stop(
             this.clock.now(),

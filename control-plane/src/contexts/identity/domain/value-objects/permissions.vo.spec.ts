@@ -103,6 +103,27 @@ describe('Permissions of a token’s scopes', () => {
   );
 });
 
+describe('The scopes permissions allow', () => {
+  it('names the scopes a role or a token is allowed, and no more', () => {
+    const named = (permissions: Permissions) =>
+      permissions.allowedScopes.map((scope) => scope.value);
+
+    expect(named(Permissions.ofRole(WorkspaceRole.member))).toEqual([
+      'read',
+      'plan',
+    ]);
+    expect(named(Permissions.ofRole(WorkspaceRole.admin))).toEqual([
+      'read',
+      'plan',
+      'configure',
+      'secrets',
+      'runners',
+      'trusts',
+    ]);
+    expect(named(Permissions.none)).toEqual([]);
+  });
+});
+
 describe('Permissions beyond any one workspace', () => {
   it('lets a person plan and create workspaces', () => {
     const permissions = Permissions.global(

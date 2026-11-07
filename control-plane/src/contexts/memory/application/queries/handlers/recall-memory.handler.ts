@@ -8,6 +8,8 @@ import { recallableBy } from '@memory/domain/services/recall-policy';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export class RecallMemoryHandler
   implements QueryHandlerPort<RecallMemoryQuery, TeamMemoryDetailDto>
@@ -21,7 +23,10 @@ export class RecallMemoryHandler
   async execute(query: RecallMemoryQuery): Promise<TeamMemoryDetailDto> {
     try {
       const handle = MemoryHandle.parse(query.handle);
-      const run = await this.loader.recalling(query.runId, query.runnerId);
+      const run = await this.loader.recalling(
+        RunId.of(query.runId),
+        RunnerId.of(query.runnerId),
+      );
       const memory = await this.memories.withHandle(run.teamId, handle);
 
       if (!memory || !recallableBy(memory, run)) {

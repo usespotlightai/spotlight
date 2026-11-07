@@ -1,10 +1,9 @@
 import type { AnswerQuestionCommand } from '@change-review/application/commands/answer-question.command';
-import type { QuestionAnswerDto } from '@change-review/application/dto/change-stack.dto';
 import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
-import { questionAnswerDtoOf } from '@change-review/application/mappers/question-answer.to-dto';
 import type { AnswerGraderPort } from '@change-review/application/ports/answer-grader.port';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
+import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
@@ -18,6 +17,8 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
+const ATTEMPTS = 3;
+
 const questionIdOf = (raw: string): QuestionId => {
   const parsed = QuestionId.parsed(raw);
 
@@ -29,7 +30,7 @@ const questionIdOf = (raw: string): QuestionId => {
 };
 
 export class AnswerQuestionHandler
-  implements CommandHandlerPort<AnswerQuestionCommand, QuestionAnswerDto>
+  implements CommandHandlerPort<AnswerQuestionCommand, void>
 {
   constructor(
     private readonly access: TeamWorkAccess,
@@ -40,7 +41,7 @@ export class AnswerQuestionHandler
     private readonly clock: ClockPort,
   ) {}
 
-  async execute(command: AnswerQuestionCommand): Promise<QuestionAnswerDto> {
+  async execute(command: AnswerQuestionCommand): Promise<void> {
     try {
       const run = await this.access.run(
         command.teamId,
@@ -78,23 +79,42 @@ export class AnswerQuestionHandler
         : null;
       const now = this.clock.now();
 
-      const answer = earlier
-        ? earlier.answeredAgain({ question, reply, graded, now })
-        : QuestionAnswer.given({
-            id: QuestionAnswerId.of(this.ids.generate()),
-            workspaceId: stack.workspaceId,
-            taskId: stack.taskId,
-            stackId: stack.id,
-            question,
-            personId,
-            reply,
-            graded,
-            now,
-          });
+      for (let attempt = 1, stored = earlier; ; attempt += 1) {
+        stored?.refuseIfAnswered(question);
 
-      await (earlier ? this.answers.save(answer) : this.answers.add(answer));
+        try {
+          if (stored) {
+            await this.answers.save(
+              stored.answeredAgain({ question, reply, graded, now }),
+            );
+          } else {
+            await this.answers.add(
+              QuestionAnswer.given({
+                id: QuestionAnswerId.of(this.ids.generate()),
+                workspaceId: stack.workspaceId,
+                taskId: stack.taskId,
+                teamId: stack.teamId,
+                stackId: stack.id,
+                question,
+                personId,
+                reply,
+                graded,
+                now,
+              }),
+            );
+          }
+          return;
+        } catch (error) {
+          if (
+            !(error instanceof QuestionAnswerVersionConflictError) ||
+            attempt >= ATTEMPTS
+          ) {
+            throw error;
+          }
+        }
 
-      return questionAnswerDtoOf(answer);
+        stored = await this.answers.of(stack.id, question.id, personId);
+      }
     } catch (error) {
       rethrowAsApplicationError(error);
     }

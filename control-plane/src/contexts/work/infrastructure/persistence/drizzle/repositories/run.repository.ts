@@ -1,6 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { placementMatches } from '@work/infrastructure/persistence/drizzle/placement-matches';
 import {
   UNIQUE_VIOLATION,
   violates,
@@ -36,8 +35,6 @@ import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exist
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
-import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type {
   Claimant,
@@ -57,8 +54,8 @@ import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
-import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { placementMatches } from '@work/infrastructure/persistence/drizzle/placement-matches';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   and,
@@ -153,6 +150,8 @@ export class DrizzleRunRepository implements RunRepository {
           replayOfRunId: added.replayOf?.value ?? null,
           replayedTaskId: added.subject?.replayedTaskId?.value ?? null,
           ranForTeamId: added.ranFor?.value ?? null,
+          teamId: added.team?.value ?? null,
+          orderFingerprint: added.orderFingerprint,
           searchId: added.subject?.searchId?.value ?? null,
           searchIteration: added.subject?.iteration?.value ?? null,
           taskRevision: added.subject?.revision?.value ?? null,
@@ -164,11 +163,7 @@ export class DrizzleRunRepository implements RunRepository {
           stopped: added.outcome?.stopped ?? false,
           placement: added.placement.labelGroups,
           placementImage: added.placement.image?.value ?? null,
-          briefedMemories: added.briefedWith.value,
           endedAt: endedAtFor(added.state, sql`now()`),
-          stationFingerprint: added.configuredAs?.fingerprint ?? null,
-          stationConfig: added.configuredAs?.parts ?? null,
-          briefedTask: added.briefedTask?.parts ?? null,
           askedAPerson: added.askedAPerson,
           traceparent: activeTraceparent(),
           ...startOf(added),
@@ -399,21 +394,6 @@ const startOf = (saving: Run) => ({
   startedFromAt: saving.startedFrom?.at ?? null,
 });
 
-const configuredFrom = (row: Row): StationConfig | null => {
-  if (row.stationConfig === null && row.stationFingerprint === null) {
-    return null;
-  }
-
-  if (row.stationConfig === null || row.stationFingerprint === null) {
-    throw new InconsistentStateError(
-      'run',
-      `stores only half of its station config (${row.id})`,
-    );
-  }
-
-  return StationConfig.rehydrate(row.stationConfig, row.stationFingerprint);
-};
-
 const startFrom = (row: Row): StartingPoint | null => {
   const { startedFromAttempt, startedFromAt, startedFromCheckouts } = row;
 
@@ -514,16 +494,11 @@ const toRun = ({ run: row }: Selected): Run =>
     attempt: row.attempt,
     requeueCount: RequeueCount.rehydrate(row.requeueCount, row.claimableFrom),
     ranIn: row.ranIn ? RunnerImage.of(row.ranIn) : null,
-    briefedWith: row.briefedMemories
-      ? BriefedMemories.of(row.briefedMemories)
-      : BriefedMemories.none(),
     suspendedAttempts: row.suspendedAttempts,
-    configuredAs: configuredFrom(row),
     startedAt: row.startedAt,
     startedFrom: startFrom(row),
     askedAPerson: row.askedAPerson,
     version: row.version,
-    briefedTask: row.briefedTask
-      ? BriefedTask.rehydrate(row.briefedTask)
-      : null,
+    team: row.teamId ? TeamId.of(row.teamId) : null,
+    orderFingerprint: row.orderFingerprint,
   });

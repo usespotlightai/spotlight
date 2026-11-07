@@ -28,6 +28,7 @@ const checkOf = (
     id: StackCheckId.of(ChangeStackId.of(id), over.recheck ?? false),
     runId: RUN,
     taskId: null,
+    teamId: null,
     replay: over.replay ?? true,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),
@@ -85,14 +86,14 @@ describe('RecheckReplayChanges', () => {
       checkOf('task', 'checked', { replay: false }),
     ]);
 
-    expect(await service.recheckable(RUN.value)).toEqual(['passed']);
+    expect(await service.recheckable(RUN)).toEqual(['passed']);
   });
 
   it('checks one stack again, once however often it is requested', async () => {
     const { added, service } = rechecking([checkOf('passed', 'checked')]);
 
-    await service.recheck(RUN.value, 'passed');
-    await service.recheck(RUN.value, 'passed');
+    await service.recheck(RUN, 'passed');
+    await service.recheck(RUN, 'passed');
 
     expect(added.map((each) => [each.stackId.value, each.recheck])).toEqual([
       ['passed', true],
@@ -105,9 +106,9 @@ describe('RecheckReplayChanges', () => {
       checkOf('passed', 'checked'),
     ]);
 
-    await service.recheck(RUN.value, 'skipped');
-    await service.recheck('replay-2', 'passed');
-    await service.recheck(RUN.value, 'missing');
+    await service.recheck(RUN, 'skipped');
+    await service.recheck(RunId.of('replay-2'), 'passed');
+    await service.recheck(RUN, 'missing');
 
     expect(added).toEqual([]);
   });

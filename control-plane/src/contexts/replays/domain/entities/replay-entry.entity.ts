@@ -1,10 +1,14 @@
 import { resultOf, type Scoring } from '@replays/domain/services/entry-result';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
-import { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
+import {
+  EntryJudging,
+  type Unjudged,
+} from '@replays/domain/value-objects/entry-judging.vo';
 import type { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
 import {
   EntryPairing,
   type PairVerdict,
+  type Unpaired,
 } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
@@ -101,6 +105,15 @@ export class ReplayEntry {
         'ended or was queued without a run of its own',
       );
     }
+    if (
+      state.slot !== null &&
+      (!Number.isInteger(state.slot) || state.slot < 0)
+    ) {
+      throw new InconsistentStateError(
+        'replay entry',
+        'holds a run slot that is not a pool position',
+      );
+    }
     if (state.unreplayableReason !== null && state.end !== null) {
       throw new InconsistentStateError(
         'replay entry',
@@ -126,7 +139,16 @@ export class ReplayEntry {
       );
     }
 
-    return new ReplayEntry(state);
+    const entry = new ReplayEntry(state);
+
+    if (entry.occupiesARunner && state.slot === null) {
+      throw new InconsistentStateError(
+        'replay entry',
+        'occupies a runner without a run slot',
+      );
+    }
+
+    return entry;
   }
 
   get position(): number {
@@ -234,7 +256,7 @@ export class ReplayEntry {
       : this;
   }
 
-  pairingLeft(other: RunId, why: string): ReplayEntry {
+  pairingLeft(other: RunId, why: Unpaired): ReplayEntry {
     return this.state.pairing === null
       ? this.with({ pairing: EntryPairing.requested(other).failed(why) })
       : this;
@@ -254,7 +276,7 @@ export class ReplayEntry {
 
   pairingFailed(
     other: RunId,
-    why: string,
+    why: Unpaired,
     spent: ModelSpent | null,
   ): ReplayEntry {
     const pairing = this.state.pairing;
@@ -320,7 +342,7 @@ export class ReplayEntry {
       : this;
   }
 
-  rejudgingFailed(why: string, spent: ModelSpent | null): ReplayEntry {
+  rejudgingFailed(why: Unjudged, spent: ModelSpent | null): ReplayEntry {
     return this.state.secondJudging?.pending
       ? this.with({
           secondJudging: EntryJudging.failed(why),
@@ -388,7 +410,7 @@ export class ReplayEntry {
         });
   }
 
-  judgingFailed(why: string, spent: ModelSpent | null): ReplayEntry {
+  judgingFailed(why: Unjudged, spent: ModelSpent | null): ReplayEntry {
     return (this.state.judging && !this.state.judging.pending) ||
       this.state.run === null
       ? this

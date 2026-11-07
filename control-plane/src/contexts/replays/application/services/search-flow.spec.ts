@@ -7,6 +7,7 @@ import type {
   SearchNotice,
   StationNotice,
 } from '@replays/application/ports/search-notices.port';
+import { SearchVisibilities } from '@replays/application/queries/search-visibilities';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { DeleteSearches } from '@replays/application/services/delete-searches.service';
@@ -24,10 +25,10 @@ import {
   QUIET,
   refreshingFor,
   snapshotsFor,
+  stepsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { SearchFindings } from '@replays/application/services/search-findings.service';
-import { SearchVisibilities } from '@replays/application/services/search-visibilities.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { StartSearch } from '@replays/application/services/start-search.service';
 import { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
@@ -67,8 +68,10 @@ import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -86,12 +89,7 @@ let work: FakeWork;
 const HASH = { sha256 };
 
 const healthsFor = () =>
-  new SetHealths(
-    work,
-    memory.replayRepository,
-    memory.replaysReader,
-    memory.candidateRepository,
-  );
+  new SetHealths(work, memory.replayRepository, memory.candidateRepository);
 
 interface BudgetTerms {
   readonly iterations: number;
@@ -116,6 +114,7 @@ const SEED_BLOCK = { key: 'build', name: 'Build', kind: 'work' };
 const starting = () =>
   new StartSearch(
     snapshotsFor(memory, work),
+    stepsFor(memory, work, CLOCK),
     memory.setRepository,
     memory.searchRepository,
     memory.scheduleRepository,
@@ -381,7 +380,7 @@ const NO_SPEND = ModelSpent.of([], 0);
 
 const runEnds = async (
   run: string,
-  outcome = 'completed',
+  outcome: RunResult = 'completed',
   spent: ModelSpent | null = NO_SPEND,
 ) => {
   await progress().runEnded({
@@ -971,7 +970,7 @@ describe('SearchVisibilities', () => {
           claims: [],
           passThreshold: 1,
         }),
-        rubricVersion: 'c'.repeat(64),
+        rubricVersion: RubricVersion.of('c'.repeat(64)),
       }),
     });
     const started = await start();

@@ -43,7 +43,7 @@ export const ConnectionChoice = {
   ): ActingAs | null {
     return integration.requiresConnection
       ? {
-          actsAs: owner.isPerson ? 'requester' : 'team',
+          actsAs: owner.actsAs.kind,
           personId: owner.personId,
           linkedAccount: connection?.linkedAccount ?? null,
         }

@@ -59,6 +59,7 @@ import type {
   SearchStopReason,
 } from '@replays/domain/value-objects/search-stop-reason';
 import type { SearchTrigger } from '@replays/domain/value-objects/search-trigger';
+import type { SeedCandidate } from '@replays/domain/value-objects/seed-candidate.vo';
 import type { SetSnapshot } from '@replays/domain/value-objects/set-snapshot.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -66,7 +67,6 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -88,13 +88,6 @@ export interface SearchSeed {
 export interface HeldOutReplay {
   readonly candidateId: CandidateId;
   readonly replay: SearchReplay;
-}
-
-export interface SeedCandidate {
-  readonly id: CandidateId;
-  readonly isLive: boolean;
-  readonly fingerprint: StationFingerprint;
-  isFor(stationId: StationId): boolean;
 }
 
 export interface SearchReplayTerms {
@@ -396,6 +389,10 @@ export class Search extends EventRecorder {
     return this.state.split;
   }
 
+  get visibleOriginals(): readonly RunId[] {
+    return this.state.split.searchedRuns;
+  }
+
   get ceilingSplit(): SearchCeilingSplit {
     return this.state.budget.splitCeiling(
       this.state.split,
@@ -463,6 +460,10 @@ export class Search extends EventRecorder {
       ...this.state.requests,
       ...this.state.dropped,
     ];
+  }
+
+  holdsRequest(candidateId: CandidateId): boolean {
+    return this.requested.some((each) => each.candidateId.equals(candidateId));
   }
 
   get openingRequest(): CandidateId | null {

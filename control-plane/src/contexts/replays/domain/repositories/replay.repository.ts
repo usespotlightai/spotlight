@@ -14,6 +14,11 @@ export interface ReplayRepository {
 
   ofSet(setId: ReplaySetId): Promise<readonly Replay[]>;
 
+  healthSamplesOfSets(
+    setIds: readonly ReplaySetId[],
+    perGroup: number,
+  ): Promise<readonly Replay[]>;
+
   pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]>;
 
   ofSearch(searchId: SearchId): Promise<readonly Replay[]>;

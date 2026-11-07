@@ -1,4 +1,4 @@
-import type { RunFilterQuery } from '@insights/domain/services/run-filter';
+import type { RunFilterQuery } from '@insights/application/queries/run-filter-query';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 export class ListInsightsTracesQuery {

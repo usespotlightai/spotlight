@@ -126,7 +126,7 @@ describe('AgentReviews', () => {
     expect(reviews[0]?.author.runId?.equals(RUN)).toBe(true);
     expect(reviews[0]?.author.name.value).toBe('Spotlight');
     expect(reviews[0]?.comments.map((each) => each.value)).toEqual([left]);
-    expect(comments.get(left)?.state).toBe('submitted');
+    expect(comments.get(left)?.state).toBe('sending');
     expect(comments.get('comment_ada')?.state).toBe('draft');
   });
 

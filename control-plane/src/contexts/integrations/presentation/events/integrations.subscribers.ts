@@ -49,6 +49,7 @@ export const integrationsSubscribers = (
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'integrations.delete-hooks-of-deleted-team',
@@ -58,30 +59,35 @@ export const integrationsSubscribers = (
         TeamId.of(event.teamId),
         WorkspaceId.of(event.workspaceId),
       ),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'integrations.disconnect-connections-of-deleted-team',
     [TEAM_DELETED],
     (event) => deleting.disconnectConnections(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'integrations.remove-client-registrations-of-deleted-team',
     [TEAM_DELETED],
     (event) => deleting.removeClientRegistrations(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'integrations.remove-inferred-output-schemas-of-deleted-team',
     [TEAM_DELETED],
     (event) => deleting.removeInferredOutputSchemas(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'integrations.remove-person-tool-policies-of-deleted-team',
     [TEAM_DELETED],
     (event) => deleting.removePersonToolPolicies(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<IntegrationConnected>(
     'integrations.refresh-spec-when-an-integration-connected',
-    ['integrations.integration-connected'],
+    ['integration.connected'],
     async (event) =>
       event.changesSpecFetch &&
       refreshingSpec.execute(
@@ -94,39 +100,49 @@ export const integrationsSubscribers = (
   ),
   subscribing<IntegrationConnected>(
     'integrations.answer-asks-to-connect',
-    ['integrations.integration-connected'],
-    async (event) =>
-      event.owner.personId !== null &&
-      connectionAsks.answer({
-        teamId: event.teamId,
-        integration: event.integration.value,
-        personId: event.owner.personId,
-      }),
+    ['integration.connected'],
+    async (event) => {
+      const person = event.answersAsksOf;
+
+      return (
+        person !== null &&
+        connectionAsks.answer({
+          teamId: event.teamId,
+          integration: event.integration.value,
+          personId: person,
+        })
+      );
+    },
     { callsOut: true },
   ),
   subscribing<IntegrationUpdated | IntegrationDeleted>(
     'integrations.delete-inferred-output-schemas-of-a-changed-integration',
-    ['integrations.integration-updated', 'integrations.integration-deleted'],
+    ['integration.updated', 'integration.deleted'],
     (event) => inferring.forget(event.teamId, event.integration),
+    { callsOut: true },
   ),
   subscribing<RunEndedIntegrationEvent>(
     'integrations.fire-hooks-when-a-run-ended',
     [RUN_ENDED],
     (event) => hookTriggers.runEnded(event),
+    { callsOut: true },
   ),
   subscribing<TaskOpenedIntegrationEvent>(
     'integrations.fire-hooks-when-a-task-opened',
     [TASK_OPENED],
     (event) => hookTriggers.taskOpened(event),
+    { callsOut: true },
   ),
   subscribing<TaskMovedIntegrationEvent>(
     'integrations.fire-hooks-when-a-task-moved',
     [TASK_MOVED],
     (event) => hookTriggers.taskMoved(event),
+    { callsOut: true },
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'integrations.fire-hooks-when-a-pull-request-merged',
     [PULL_REQUEST_CLOSED],
     (event) => hookTriggers.pullRequestClosed(event),
+    { callsOut: true },
   ),
 ];

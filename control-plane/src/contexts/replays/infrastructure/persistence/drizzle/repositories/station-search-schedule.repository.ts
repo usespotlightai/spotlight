@@ -1,11 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
+import {
+  type PendingSearchStep,
+  StationSearchSchedule,
+} from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { StationSearchScheduleVersionConflictError } from '@replays/domain/exceptions/station-search-schedule-version-conflict.error';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
+import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-import { stationSearchSchedule } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import {
+  type StoredPendingSearchStep,
+  stationSearchSchedule,
+} from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -18,6 +26,48 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, asc, eq, lte, type SQL } from 'drizzle-orm';
 
 type ScheduleRow = typeof stationSearchSchedule.$inferSelect;
+
+const dateOf = (value: string | null): Date | null =>
+  value === null ? null : new Date(value);
+
+const toStep = (stored: StoredPendingSearchStep): PendingSearchStep => ({
+  kind: stored.kind,
+  searchId: SearchId.of(stored.searchId),
+  at: new Date(stored.at),
+  request: stored.request === null ? null : CandidateId.of(stored.request),
+  candidates: stored.candidates.map((each) => CandidateId.of(each)),
+  addedTasks: stored.addedTasks.map((each) => TaskId.of(each)),
+  replaced: stored.replaced && {
+    lastStartedAt: dateOf(stored.replaced.lastStartedAt),
+    lastSkip:
+      stored.replaced.lastSkipReason && stored.replaced.lastSkipAt
+        ? {
+            reason: stored.replaced.lastSkipReason,
+            at: new Date(stored.replaced.lastSkipAt),
+          }
+        : null,
+    alertPendingSince: dateOf(stored.replaced.alertPendingSince),
+    checkAfter: new Date(stored.replaced.checkAfter),
+    startedCheckAfter: new Date(stored.replaced.startedCheckAfter),
+  },
+});
+
+const storedOf = (step: PendingSearchStep): StoredPendingSearchStep => ({
+  kind: step.kind,
+  searchId: step.searchId.value,
+  at: step.at.toISOString(),
+  request: step.request?.value ?? null,
+  candidates: step.candidates.map((each) => each.value),
+  addedTasks: step.addedTasks.map((each) => each.value),
+  replaced: step.replaced && {
+    lastStartedAt: step.replaced.lastStartedAt?.toISOString() ?? null,
+    lastSkipReason: step.replaced.lastSkip?.reason ?? null,
+    lastSkipAt: step.replaced.lastSkip?.at.toISOString() ?? null,
+    alertPendingSince: step.replaced.alertPendingSince?.toISOString() ?? null,
+    checkAfter: step.replaced.checkAfter.toISOString(),
+    startedCheckAfter: step.replaced.startedCheckAfter.toISOString(),
+  },
+});
 
 const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
   StationSearchSchedule.rehydrate({
@@ -45,7 +95,11 @@ const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
     requests:
       row.requestDay === null
         ? null
-        : { day: row.requestDay, count: row.requestCount },
+        : {
+            day: row.requestDay,
+            counted: row.requests.map((each) => CandidateId.of(each)),
+          },
+    pendingSteps: row.pendingSteps.map(toStep),
     checkAfter: row.checkAfter,
     version: row.version,
   });
@@ -65,7 +119,9 @@ const columnsOf = (schedule: StationSearchSchedule) => ({
   lastRejectedAt: schedule.lastRejectedAt,
   lastImprovedAt: schedule.lastImprovedAt,
   requestDay: schedule.requests?.day ?? null,
-  requestCount: schedule.requests?.count ?? 0,
+  requests: schedule.requests?.counted.map((each) => each.value) ?? [],
+  pendingSteps: schedule.pendingSteps.map(storedOf),
+  stepsPendingSince: schedule.stepsPendingSince,
   checkAfter: schedule.checkAfter,
 });
 
@@ -112,6 +168,23 @@ export class DrizzleStationSearchScheduleRepository
         .where(lte(stationSearchSchedule.checkAfter, now))
         .orderBy(
           asc(stationSearchSchedule.checkAfter),
+          asc(stationSearchSchedule.stationId),
+        )
+        .limit(limit)
+    ).map((each) => StationId.of(each.stationId));
+  }
+
+  async withStepsPendingSince(
+    before: Date,
+    limit: number,
+  ): Promise<readonly StationId[]> {
+    return (
+      await this.context.db
+        .select({ stationId: stationSearchSchedule.stationId })
+        .from(stationSearchSchedule)
+        .where(lte(stationSearchSchedule.stepsPendingSince, before))
+        .orderBy(
+          asc(stationSearchSchedule.stepsPendingSince),
           asc(stationSearchSchedule.stationId),
         )
         .limit(limit)

@@ -102,9 +102,9 @@ const rejection = (
   scope: MemoryScope,
   decidedAt = NOW,
 ): RejectedMemory => ({
-  id,
+  id: MemoryId.of(id),
   kind: 'rejected-approach',
-  body: 'Retry forever.',
+  body: MemoryBody.of('Retry forever.'),
   scope,
   decidedAt,
 });
@@ -176,7 +176,6 @@ const working = (input: {
       leasedBy: async () => null,
       contextOfRun: async () => null,
       memoryFilesRead: async () => null,
-      linesOf: async () => [],
       stationContextOf: async () =>
         input.runContext === undefined ? RUN_CONTEXT : input.runContext,
       task: async () => ({

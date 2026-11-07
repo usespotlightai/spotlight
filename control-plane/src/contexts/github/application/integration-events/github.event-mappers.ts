@@ -1,7 +1,6 @@
 import type { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import type { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
 import type { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
-import type { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import type { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import type { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { WorkspaceConnected } from '@github/domain/events/workspace-connected.event';
@@ -17,10 +16,6 @@ import {
   PULL_REQUEST_REOPENED,
   type PullRequestReopenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
-import {
-  PULL_REQUEST_REVIEWED,
-  type PullRequestReviewedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/pull-request-reviewed.integration-event';
 import {
   PULL_REQUEST_UPDATED,
   type PullRequestUpdatedIntegrationEvent,
@@ -95,18 +90,6 @@ export const GITHUB_EVENT_MAPPERS = [
       repository: event.repository.value,
       gitHubId: event.gitHubId,
       reopenedAt: event.reopenedAt?.toISOString() ?? null,
-    }),
-  ),
-  mapping<PullRequestReviewed>(
-    'pull-request.reviewed',
-    (event): PullRequestReviewedIntegrationEvent => ({
-      kind: PULL_REQUEST_REVIEWED,
-      workspaceId: event.workspaceId.value,
-      pullRequest: event.pullRequest.value,
-      state: event.state,
-      login: event.login,
-      byBot: event.byBot,
-      submittedAt: event.submittedAt?.toISOString() ?? null,
     }),
   ),
   mapping<PullRequestUpdated>(

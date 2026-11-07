@@ -1,15 +1,8 @@
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
-import type { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 
 export interface SandboxPlacementsPort {
-  liveKeysIn(
-    workspaceId: WorkspaceId,
-    heardSince: Date,
-  ): Promise<readonly SandboxKey[]>;
-
-  idleInPool(poolId: RunnerPoolId): Promise<readonly SandboxId[]>;
+  idleInPool(poolId: PoolId): Promise<readonly SandboxId[]>;
 
   unreportedStartedBefore(cutoff: Date): Promise<readonly SandboxId[]>;
 

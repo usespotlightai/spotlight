@@ -5,7 +5,7 @@ export class TerraformStateLockNotYoursError extends DomainError {
 
   constructor(name: string, id: string) {
     super(
-      `Terraform state ${name} is locked by ${id}, which another token or person took. Releasing it needs the configure permission.`,
+      `Terraform state ${name} is locked by ${id}, which another token or person took.`,
     );
     this.name = 'TerraformStateLockNotYoursError';
   }

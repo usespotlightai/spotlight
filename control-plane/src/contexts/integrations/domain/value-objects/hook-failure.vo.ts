@@ -29,6 +29,7 @@ export type CallFailureFact =
       readonly reason: string;
     }
   | { readonly kind: 'blocked'; readonly reason: string }
+  | { readonly kind: 'over-outbound-limit'; readonly perSecond: number }
   | { readonly kind: 'unknown'; readonly reason: string };
 
 const THROTTLING = new Set([408, 425, 429]);
@@ -124,6 +125,10 @@ export class HookFailure {
   static callFailed(fact: CallFailureFact): HookFailure {
     if (fact.kind === 'blocked') {
       return HookFailure.of('not-allowed', fact.reason);
+    }
+
+    if (fact.kind === 'over-outbound-limit') {
+      return HookFailure.overOutboundLimit(fact.perSecond);
     }
 
     if (fact.kind === 'unknown' || !fact.transient) {

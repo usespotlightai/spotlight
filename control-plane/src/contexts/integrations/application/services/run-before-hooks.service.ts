@@ -2,7 +2,6 @@ import type {
   HookEventInstance,
   HookRuntimePort,
   ListeningHook,
-  StepOutcome,
   StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
@@ -12,11 +11,12 @@ import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
-const reasonOf = (outcome: StepOutcome): string =>
+const reasonOf = (outcome: HookStepOutcome): string =>
   outcome.status === 'failed' ? outcome.reason : 'had no answer in time';
 
 const because = (error: unknown): string =>
@@ -104,7 +104,7 @@ export class RunBeforeHooks {
     budget: Date,
   ): Promise<HookDecision> {
     const deadline = written.deadlineFrom(this.clock.now(), budget);
-    const earlier: StepOutcome[] = [];
+    const earlier: HookStepOutcome[] = [];
 
     for (const { name: step } of written.steps) {
       const stepResult = await this.steps

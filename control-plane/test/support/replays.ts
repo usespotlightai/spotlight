@@ -109,12 +109,15 @@ export const startedReplay = async (
       : await app
           .get(DrizzleCandidateRepository)
           .find(CandidateId.of(terms.candidate));
-  const scoring =
-    (
-      await app
-        .get<WorkPort>(WORK)
-        .live(seen.station.lineId, seen.station.stationId)
-    )?.hashes.scoring ?? '';
+  const config = await app
+    .get<WorkPort>(WORK)
+    .live(seen.station.lineId, seen.station.stationId);
+
+  if (!config) {
+    throw new Error(`Station of replay set ${setId} is not live.`);
+  }
+
+  const scoring = config.hashes.scoring;
   const wantedBefore = needsBaseline(
     seen,
     await replays.ofSet(seen.id),
@@ -139,14 +142,14 @@ export const startedReplay = async (
       const asBaseline = needed && !requested;
       const wanting =
         requested && needed && live
-          ? { id: baselineId, candidate: live, repeats, ceiling }
+          ? { id: baselineId, candidate: live.asReplayed, repeats, ceiling }
           : null;
 
       await replays.add(
         Replay.start({
           id,
           set: set.snapshot,
-          candidate: requested ?? (live as Candidate),
+          candidate: (requested ?? (live as Candidate)).asReplayed,
           baseline: asBaseline,
           ceiling,
           repeats,

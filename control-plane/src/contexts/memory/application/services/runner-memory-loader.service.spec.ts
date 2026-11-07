@@ -3,6 +3,7 @@ import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-l
 import { NotAllowedInSearchError } from '@memory/domain/exceptions/not-allowed-in-search.error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -26,10 +27,16 @@ const loader = (run: LeasedRun) =>
 describe('a run that recalls memories', () => {
   it('is not allowed in a search, which may not recall them at all', async () => {
     await expect(
-      loader(leasedRun(true)).recalling('run_1', 'runner_1'),
+      loader(leasedRun(true)).recalling(
+        RunId.of('run_1'),
+        RunnerId.of('runner_1'),
+      ),
     ).rejects.toThrow(NotAllowedInSearchError);
     await expect(
-      loader(leasedRun(false)).recalling('run_1', 'runner_1'),
+      loader(leasedRun(false)).recalling(
+        RunId.of('run_1'),
+        RunnerId.of('runner_1'),
+      ),
     ).resolves.toMatchObject({ isSearch: false });
   });
 });

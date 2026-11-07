@@ -1,5 +1,5 @@
 import type { RepositorySetup } from '@lines/domain/value-objects/repository-setup.vo';
-import { sameOrBothNone } from '@shared-kernel/domain/services/same-or-both-none';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 

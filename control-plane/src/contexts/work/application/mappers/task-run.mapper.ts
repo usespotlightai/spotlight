@@ -6,7 +6,19 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
-import { progressOfCurrentRun } from '@work/domain/value-objects/run-state';
+import {
+  type Progress,
+  progressOfCurrentRun,
+} from '@work/domain/value-objects/run-state';
+import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
+
+const progressOfTaskRun = (
+  run: { readonly state: TaskRunState; readonly stopRequested: boolean },
+  takenUp: boolean,
+): Progress | null =>
+  run.state === 'superseded'
+    ? null
+    : progressOfCurrentRun({ ...run, state: run.state }, takenUp);
 
 export const TaskRunMapper = {
   summaryToDto(summary: TaskRunSummary): TaskRunDto {
@@ -24,7 +36,7 @@ export const TaskRunMapper = {
         state: summary.review.state,
         conversationId: summary.review.conversationId,
       },
-      progress: progressOfCurrentRun(summary, summary.takenUpOnAnswer),
+      progress: progressOfTaskRun(summary, summary.takenUpOnAnswer),
     };
   },
 

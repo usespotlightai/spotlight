@@ -65,7 +65,7 @@ const writing = (input: { latest: number; save?: () => Promise<void> }) => {
         slug: 'acme',
         plans: true,
         configures: true,
-        allows: () => false,
+        scopes: new Set(),
         isAdmin: false,
       }),
     } as unknown as WorkspaceAccessPort,

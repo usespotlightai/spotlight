@@ -1,9 +1,6 @@
 import { InvalidToolInputsError } from '@integrations/domain/exceptions/invalid-tool-inputs.error';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
-import {
-  type JsonValue,
-  sameJson,
-} from '@shared-kernel/domain/services/json-value';
+import { type JsonValue, sameJson } from '@shared-kernel/domain/json-value';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 type Values = Readonly<Record<string, JsonValue>>;

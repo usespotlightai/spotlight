@@ -22,13 +22,13 @@ import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
@@ -87,7 +87,7 @@ const accessOf = (row: Row): PoolAccess => {
 
 const toPool = (row: Row): RunnerPool =>
   RunnerPool.rehydrate({
-    id: RunnerPoolId.of(row.id),
+    id: PoolId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     key: PoolKey.of(row.key),
     labels: RunnerLabels.of(row.labels),
@@ -161,11 +161,11 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
     });
   }
 
-  find(id: RunnerPoolId): Promise<RunnerPool | null> {
+  find(id: PoolId): Promise<RunnerPool | null> {
     return this.one(eq(runnerPool.id, id.value), { locked: false });
   }
 
-  findForStart(id: RunnerPoolId): Promise<RunnerPool | null> {
+  findForStart(id: PoolId): Promise<RunnerPool | null> {
     return this.one(eq(runnerPool.id, id.value), { locked: true });
   }
 

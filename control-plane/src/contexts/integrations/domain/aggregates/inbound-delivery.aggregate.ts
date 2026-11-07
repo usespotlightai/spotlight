@@ -1,13 +1,16 @@
 import { InvalidInboundDeliveryTransitionError } from '@integrations/domain/exceptions/invalid-inbound-delivery-transition.error';
 import { DELIVERING } from '@integrations/domain/services/delivery-retry';
 import type { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface DeliveryAddressee {
-  readonly workspaceId: string;
-  readonly teamId: string;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
   readonly teamKey: string;
 }
 
@@ -36,7 +39,7 @@ interface Received {
   readonly id: string;
   readonly headers: DeliveryHeaders;
   readonly body: unknown;
-  readonly causeFiringId: string | null;
+  readonly causeFiringId: HookFiringId | null;
 }
 
 interface State extends Received {
@@ -62,7 +65,6 @@ export class InboundDelivery {
 
     return new InboundDelivery({
       ...input,
-      causeFiringId: input.causeFiringId?.trim() || null,
       headers: deepFrozen(structuredClone(input.headers)),
       receivedAt: now,
       progress: { kind: 'pending', dueAt: now },
@@ -121,7 +123,7 @@ export class InboundDelivery {
     return this.state.body;
   }
 
-  get causeFiringId(): string | null {
+  get causeFiringId(): HookFiringId | null {
     return this.state.causeFiringId;
   }
 

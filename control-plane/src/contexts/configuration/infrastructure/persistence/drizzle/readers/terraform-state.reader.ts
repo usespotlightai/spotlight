@@ -12,7 +12,7 @@ import {
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleTerraformStateReader implements TerraformStateReaderPort {
@@ -31,7 +31,7 @@ export class DrizzleTerraformStateReader implements TerraformStateReaderPort {
       .from(terraformState)
       .innerJoin(
         terraformStateVersion,
-        eq(terraformStateVersion.id, terraformState.latestVersionId),
+        eq(terraformStateVersion.stateId, terraformState.id),
       )
       .where(
         and(
@@ -39,6 +39,7 @@ export class DrizzleTerraformStateReader implements TerraformStateReaderPort {
           eq(terraformState.name, name.value),
         ),
       )
+      .orderBy(desc(terraformStateVersion.number))
       .limit(1);
 
     return row

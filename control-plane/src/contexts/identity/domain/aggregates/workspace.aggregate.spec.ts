@@ -7,6 +7,7 @@ import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-
 import { RoleAssignmentDeniedError } from '@identity/domain/exceptions/role-assignment-denied.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
+import { dependentsInWorkspace } from '@identity/domain/services/workspace-contents';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -53,6 +54,14 @@ const build = (id = 'ws_1') =>
   });
 
 describe('Workspace', () => {
+  it('is set up once the team made at sign-up exists, and not by a configured team', () => {
+    const pending = build();
+
+    expect(pending.setupStatus).toBe('pending');
+    expect(pending.teamCreated('configuration')).toBe(pending);
+    expect(pending.teamCreated('sign-up').setupStatus).toBe('done');
+  });
+
   it('starts with its creator as the sole owner', () => {
     expect(build().members).toEqual([
       { userId: UserId.of('user_1'), role: WorkspaceRole.owner },
@@ -516,44 +525,44 @@ describe('Workspace', () => {
 
       expect(() =>
         stored().delete(
-          contents({ teams: [teamAt(0, 'core')] }),
-          Dependents.none(),
+          dependentsInWorkspace(contents({ teams: [teamAt(0, 'core')] })),
           BY,
         ),
       ).toThrow(/It still has: team core/);
       expect(() =>
         stored().delete(
-          contents({ tokens: [handIssued('ci')] }),
-          Dependents.none(),
+          dependentsInWorkspace(contents({ tokens: [handIssued('ci')] })),
           BY,
         ),
       ).toThrow(/It still has: token ci/);
       expect(() =>
-        stored().delete(contents({ trusts: [trust] }), Dependents.none(), BY),
+        stored().delete(
+          dependentsInWorkspace(contents({ trusts: [trust] })),
+          BY,
+        ),
       ).toThrow(/It still has: OIDC trust github-main/);
       expect(() =>
         stored().delete(
-          contents({ tokens: [issuedBy(trust)] }),
-          Dependents.none(),
+          dependentsInWorkspace(contents({ tokens: [issuedBy(trust)] })),
           BY,
         ),
       ).toThrow(/It still has: tokens issued by a deleted OIDC trust$/);
       expect(() =>
         stored().delete(
-          contents({ tokens: [issuedBy(trust)], trusts: [trust] }),
-          Dependents.none(),
+          dependentsInWorkspace(
+            contents({ tokens: [issuedBy(trust)], trusts: [trust] }),
+          ),
           BY,
         ),
       ).toThrow(/OIDC trust github-main, tokens issued by github-main$/);
       expect(() =>
         stored().delete(
-          contents(),
           Dependents.of([{ kind: 'secret', key: 'LINEAR_API_KEY' }]),
           BY,
         ),
       ).toThrow(/It still has: secret LINEAR_API_KEY/);
 
-      const deleted = stored().delete(contents(), Dependents.none(), BY);
+      const deleted = stored().delete(Dependents.none(), BY);
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([
@@ -670,9 +679,8 @@ describe('Workspace', () => {
 
     it('clears nothing once it is deleted', () => {
       expect(
-        acme
-          .delete(contents(), Dependents.none(), BY)
-          .permissionsFor(person('owner')).reads,
+        acme.delete(Dependents.none(), BY).permissionsFor(person('owner'))
+          .reads,
       ).toBe(false);
     });
   });

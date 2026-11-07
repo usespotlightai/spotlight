@@ -13,6 +13,11 @@ export interface StationSearchScheduleRepository {
 
   dueStations(now: Date, limit: number): Promise<readonly StationId[]>;
 
+  withStepsPendingSince(
+    before: Date,
+    limit: number,
+  ): Promise<readonly StationId[]>;
+
   ofLine(lineId: LineId): Promise<readonly StationSearchSchedule[]>;
 
   ofTeam(teamId: TeamId): Promise<readonly StationSearchSchedule[]>;

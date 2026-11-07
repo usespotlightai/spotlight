@@ -29,10 +29,10 @@ describe('DefinedActions', () => {
   });
 
   it('lets only a binding on an event that has files name an action that uploads them', () => {
-    expect(() =>
-      UPLOADING.forBinding('attach', 'chat.dispatched', 'binding'),
-    ).toThrow(/A chat event has no files/);
-    expect(UPLOADING.forBinding('attach', 'task.waiting', 'binding').name).toBe(
+    expect(() => UPLOADING.forBinding('attach', 'chat', 'binding')).toThrow(
+      /A chat event has no files/,
+    );
+    expect(UPLOADING.forBinding('attach', 'task', 'binding').name).toBe(
       'attach',
     );
   });

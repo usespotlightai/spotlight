@@ -13,6 +13,7 @@ import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-need
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { CallbackNote } from '@integrations/domain/value-objects/callback-note.vo';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { ConnectionMissing } from '@integrations/domain/value-objects/connection-missing.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -31,6 +32,7 @@ import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo'
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
@@ -56,6 +58,7 @@ import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 
 export const INTEGRATIONS_PAYLOAD_TYPES = [
+  CausalChain,
   HookFailure,
   ApprovalNeeded,
   AuthorizationServer,
@@ -80,6 +83,7 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   HookFiringId,
   HookKey,
   HookMatch,
+  HookOccurrence,
   Hook,
   HookReply,
   HookDecision,

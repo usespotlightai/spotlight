@@ -89,7 +89,7 @@ const guardRead = (
 };
 
 const providedBy = (compiled: Compiled): readonly ToolName[] =>
-  compiled.integration.tools.map((each) => ToolName.of(each.tool));
+  compiled.integration.tools.map((each) => each.tool);
 
 const without = (
   tools: readonly ToolName[],

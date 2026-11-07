@@ -17,8 +17,9 @@ const NOW = new Date('2026-10-05T10:00:00.000Z');
 const integration = (actsAs = ActsAs.requester()) =>
   Integration.of({
     key: LINEAR,
+    apiSpecs: ['mcp'],
     name: 'Linear',
-    requiresConnection: true,
+    connectsOver: 'oauth2',
     actsAs,
   });
 
@@ -45,7 +46,11 @@ describe('ConnectionChoice', () => {
     it('needs no connection for an integration that takes none', () => {
       expect(
         ConnectionChoice.forUnrequestedCall(
-          Integration.of({ key: LINEAR, requiresConnection: false }),
+          Integration.of({
+            key: LINEAR,
+            connectsOver: null,
+            apiSpecs: ['mcp'],
+          }),
         ),
       ).toBeNull();
     });

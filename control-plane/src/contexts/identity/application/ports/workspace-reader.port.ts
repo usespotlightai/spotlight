@@ -1,5 +1,7 @@
 import type { TeamSummary } from '@identity/application/ports/workspace-records.port';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export type WorkspaceRoleName = 'owner' | 'admin' | 'member';
 
@@ -30,32 +32,34 @@ export interface WorkspaceProfile {
   readonly outboundHosts: readonly string[];
 }
 
+export interface IdentifiedTeam {
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+}
+
 export const WORKSPACE_READER = Symbol('WORKSPACE_READER');
 
 export interface WorkspaceReaderPort {
   listForMember(userId: UserId): Promise<WorkspaceListing[]>;
 
   // Not viewer-scoped. Use it only for webhook callers with a verified signature.
-  idForSlug(slug: string): Promise<string | null>;
+  idForSlug(slug: string): Promise<WorkspaceId | null>;
 
-  slugOf(workspaceId: string): Promise<string | null>;
+  slugOf(workspaceId: WorkspaceId): Promise<string | null>;
 
-  profileOf(workspaceId: string): Promise<WorkspaceProfile | null>;
+  profileOf(workspaceId: WorkspaceId): Promise<WorkspaceProfile | null>;
 
-  isOpen(workspaceId: string): Promise<boolean>;
+  isOpen(workspaceId: WorkspaceId): Promise<boolean>;
 
   // Not viewer-scoped. Use it only for webhook callers with a verified signature.
-  identifyTeam(
-    slug: string,
-    teamKey: string,
-  ): Promise<{ workspaceId: string; teamId: string } | null>;
+  identifyTeam(slug: string, teamKey: string): Promise<IdentifiedTeam | null>;
 
   findTeamForMember(
-    teamId: string,
+    teamId: TeamId,
     userId: UserId,
   ): Promise<{
-    workspaceId: string;
-    teamId: string;
+    workspaceId: WorkspaceId;
+    teamId: TeamId;
     teamKey: string;
     slug: string;
     origin: TeamOriginName;

@@ -12,6 +12,7 @@ import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.v
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const MAX_AROUND = 500;
 
@@ -40,7 +41,10 @@ export class ReadStationAlertHandler
 
   async execute(query: ReadStationAlertQuery): Promise<StationAlertDto> {
     try {
-      const access = await this.access.accessFor(query.teamId, query.principal);
+      const access = await this.access.accessFor(
+        TeamId.of(query.teamId),
+        query.principal,
+      );
       const alertId = AlertId.of(query.alertId);
       const fired = await this.facts.firedAlert(alertId);
 

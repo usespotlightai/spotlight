@@ -5,14 +5,17 @@ import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-repl
 import {
   aSet,
   BY,
+  ENTRIES,
   FINGERPRINT,
   HASHES,
   LIVE_FINGERPRINT,
   LIVE_HASHES,
   NOW,
+  OTHER_ENTRIES,
   STATION,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -28,7 +31,7 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
     setId: ReplaySetId.of('set_1'),
     candidateId: CandidateId.of('candidate_planned'),
     replayId: ReplayId.of('replay_1'),
-    setEntries: 'entries_1',
+    setEntries: ENTRIES,
     attempt: 1,
     reference: PlannedReference.of({ pullRequest: 42 }),
     liveFingerprint: LIVE_FINGERPRINT,
@@ -80,7 +83,7 @@ describe('ReplayCheck', () => {
   });
 
   it('is reused only for its own set with the same runs, under the same threshold, while running, passed or failed', () => {
-    const check = started({ setId: SET.id, setEntries: 'entries_1' });
+    const check = started({ setId: SET.id, setEntries: ENTRIES });
     const threshold = ReplayThreshold.of({
       maxRegressions: 0,
       ceiling: 10,
@@ -94,22 +97,49 @@ describe('ReplayCheck', () => {
       minGain: 0.05,
     });
     const reusable = (result: 'running' | 'passed' | 'failed' | 'undecided') =>
-      check.reusableFor(SET, 'entries_1', threshold, 1, result);
+      check.reusableFor(check.change, SET.id, ENTRIES, threshold, 1, result);
 
     expect(reusable('running')).toBe(true);
     expect(reusable('passed')).toBe(true);
     expect(reusable('failed')).toBe(true);
     expect(reusable('undecided')).toBe(false);
-    expect(check.reusableFor(SET, 'entries_1', raised, 1, 'passed')).toBe(
-      false,
-    );
-    expect(check.reusableFor(SET, 'entries_2', threshold, 1, 'passed')).toBe(
-      false,
-    );
+    expect(
+      check.reusableFor(check.change, SET.id, ENTRIES, raised, 1, 'passed'),
+    ).toBe(false);
     expect(
       check.reusableFor(
-        aSet(1, 'set_other'),
-        'entries_1',
+        CheckedChange.of(LIVE_HASHES, LIVE_HASHES),
+        SET.id,
+        ENTRIES,
+        threshold,
+        1,
+        'passed',
+      ),
+    ).toBe(false);
+    expect(ReplayCheck.nextAttemptAfter([check], check.change)).toBe(
+      check.attempt + 1,
+    );
+    expect(
+      ReplayCheck.nextAttemptAfter(
+        [check],
+        CheckedChange.of(LIVE_HASHES, LIVE_HASHES),
+      ),
+    ).toBe(1);
+    expect(
+      check.reusableFor(
+        check.change,
+        SET.id,
+        OTHER_ENTRIES,
+        threshold,
+        1,
+        'passed',
+      ),
+    ).toBe(false);
+    expect(
+      check.reusableFor(
+        check.change,
+        aSet(1, 'set_other').id,
+        ENTRIES,
         threshold,
         1,
         'passed',
@@ -120,7 +150,7 @@ describe('ReplayCheck', () => {
   it('is reused only when it replays each run as many times as requested, and replays each from 1 to 5 times', () => {
     const check = started({
       setId: SET.id,
-      setEntries: 'entries_1',
+      setEntries: ENTRIES,
       repeats: 3,
     });
     const threshold = ReplayThreshold.of({
@@ -130,18 +160,18 @@ describe('ReplayCheck', () => {
       minGain: 0.05,
     });
 
-    expect(check.reusableFor(SET, 'entries_1', threshold, 3, 'passed')).toBe(
-      true,
-    );
-    expect(check.reusableFor(SET, 'entries_1', threshold, 1, 'passed')).toBe(
-      false,
-    );
+    expect(
+      check.reusableFor(check.change, SET.id, ENTRIES, threshold, 3, 'passed'),
+    ).toBe(true);
+    expect(
+      check.reusableFor(check.change, SET.id, ENTRIES, threshold, 1, 'passed'),
+    ).toBe(false);
     expect(() => started({ repeats: 0 })).toThrow(InvalidReplayCheckError);
     expect(() => started({ repeats: 6 })).toThrow(InvalidReplayCheckError);
   });
 
   it('is reused under another min gain, which only reads the gain and is a share above 0 and at most 1', () => {
-    const check = started({ setId: SET.id, setEntries: 'entries_1' });
+    const check = started({ setId: SET.id, setEntries: ENTRIES });
     const wider = ReplayThreshold.of({
       maxRegressions: 0,
       ceiling: 10,
@@ -149,7 +179,9 @@ describe('ReplayCheck', () => {
       minGain: 0.1,
     });
 
-    expect(check.reusableFor(SET, 'entries_1', wider, 1, 'passed')).toBe(true);
+    expect(
+      check.reusableFor(check.change, SET.id, ENTRIES, wider, 1, 'passed'),
+    ).toBe(true);
     for (const minGain of [0, -0.1, 1.5, Number.NaN]) {
       expect(() =>
         ReplayThreshold.of({

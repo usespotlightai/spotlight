@@ -15,6 +15,7 @@ import {
 } from '@insights/insights.fake-spec';
 import { JudgingsInMemory, ScoresInMemory } from '@insights/judging.fake-spec';
 import {
+  observedOf,
   PullRequestRecordsInMemory,
   seenOf,
   TaskChangeShapesInMemory,
@@ -94,7 +95,7 @@ describe('recording every pull request', () => {
     await recording(repositories).seen({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
-      seen: seenOf(),
+      observed: observedOf(),
     });
     await recording(repositories).purgedByGitHub({
       workspaceId: WORKSPACE,
@@ -143,7 +144,7 @@ describe('recording every pull request', () => {
     await recording(repositories).seen({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
-      seen: seenOf({ updatedAt: SEEN_AT, version: 9 }),
+      observed: observedOf({ updatedAt: SEEN_AT, version: 9 }),
     });
 
     const record = await repositories.pullRequests.at(WORKSPACE, PULL);
@@ -171,7 +172,7 @@ describe('recording every pull request', () => {
     await recording(repositories).seen({
       workspaceId: WORKSPACE,
       pullRequest: PULL,
-      seen: seenOf(),
+      observed: observedOf(),
     });
     await deleting(repositories).pullRequests(
       DeletionScope.ofTeam(WORKSPACE, TEAM),

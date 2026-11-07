@@ -12,9 +12,11 @@ import type {
   RunEvidencePort,
   StationJudgeSettings,
 } from '@work/application/ports/run-evidence.port';
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@work/application/ports/run-facts.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { hunksOf } from '@work/domain/services/change-hunks';
 import { workspacePath } from '@work/domain/services/workspace-path';
@@ -78,7 +80,7 @@ const hunksIn = (
 
 export class RunEvidences implements RunEvidencePort {
   constructor(
-    private readonly runs: RunRepository,
+    private readonly runs: RunFactsPort,
     private readonly tasks: TaskRepository,
     private readonly lines: LineMapsPort,
     private readonly journals: RunJournalReaderPort,
@@ -87,15 +89,18 @@ export class RunEvidences implements RunEvidencePort {
   ) {}
 
   async hasTask(runId: string): Promise<boolean> {
-    const run = await this.runs.findById(RunId.of(runId));
+    const run = await this.found(RunId.of(runId));
 
-    return Boolean(run?.taskId && (await this.tasks.find(run.taskId)));
+    return Boolean(
+      run?.subject?.kind === 'task' &&
+        (await this.tasks.find(run.subject.taskId)),
+    );
   }
 
   async of(runId: string): Promise<EvidencedRun | null> {
-    const run = await this.runs.findById(RunId.of(runId));
+    const run = await this.found(RunId.of(runId));
     const task = run ? await this.taskOf(run) : null;
-    const attempts = run ? await this.journals.attemptsOfRun(run.id) : [];
+    const attempts = run ? await this.journals.attemptsOfRun(run.runId) : [];
 
     if (!run || !task || attempts.length === 0) {
       return null;
@@ -104,28 +109,37 @@ export class RunEvidences implements RunEvidencePort {
     const steps = attempts.flatMap((each) => each.steps);
 
     return {
-      runId: run.id.value,
+      runId: run.runId.value,
       ...task,
       steps: steps.map(evidenced),
-      hunks: hunksIn(steps, run.spec.checkoutFolders),
+      hunks: hunksIn(steps, run.checkouts),
     };
   }
 
-  private async taskOf(run: Run): Promise<TaskOfRun | null> {
-    if (run.replayOf) {
-      const original = await this.runs.findById(run.replayOf);
-      const briefed = await this.briefed.of(run.replayOf);
+  private async found(runId: RunId): Promise<RunFacts | null> {
+    const [run] = await this.runs.of([runId]);
 
-      return original?.taskId && briefed
+    return run ?? null;
+  }
+
+  private async taskOf(run: RunFacts): Promise<TaskOfRun | null> {
+    const subject = run.subject;
+
+    if (subject?.kind === 'replay') {
+      const original = await this.found(subject.replayOf);
+      const briefed = await this.briefed.of(subject.replayOf);
+
+      return original?.subject?.kind === 'task' && briefed
         ? {
-            taskId: original.taskId.value,
+            taskId: original.subject.taskId.value,
             title: briefed.title,
             description: briefed.description,
           }
         : null;
     }
 
-    const task = run.taskId ? await this.tasks.find(run.taskId) : null;
+    const task =
+      subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
 
     return (
       task && {

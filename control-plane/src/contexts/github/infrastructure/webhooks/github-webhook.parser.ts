@@ -15,11 +15,8 @@ import type {
   PullRequestSize,
   PullRequestSnapshot,
 } from '@github/domain/aggregates/pull-request.aggregate';
-import { mergeOf } from '@github/domain/events/pull-request-closed.event';
-import {
-  ignoredAsBot,
-  pullRequestActivityOf,
-} from '@github/domain/services/pull-request-activity-policy';
+import { ignoredAsBot } from '@github/domain/services/pull-request-activity-policy';
+import { mergeOf } from '@github/domain/value-objects/pull-request-merge.vo';
 import {
   closedAtOf,
   type PullRequestState,
@@ -28,6 +25,7 @@ import {
 import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import type { ReviewState } from '@github/domain/value-objects/review-state.vo';
 import { stripByline } from '@github/infrastructure/github/byline';
+import { pullRequestActivityOf } from '@github/infrastructure/webhooks/pull-request-activity.translation';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 

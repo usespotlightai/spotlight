@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -25,9 +24,7 @@ beforeAll(async () => {
   database = await openDatabase('run_journal_attempts');
   db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
-  events = new DrizzleRunEventReader(db, {
-    mayView: async () => true,
-  } as unknown as WorkspaceAccessPort);
+  events = new DrizzleRunEventReader(db);
   runUsages = new DrizzleRunUsages(db, {
     skillHomes: () => ['.claude/skills'],
   } as unknown as HarnessLaunchPort);

@@ -9,71 +9,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('TaskHumanActions', () => {
-  it('pairs each ask with the first thing a person did after it', () => {
-    const humanActions = humanActionsOf('task_1', {
-      asks: [
-        ['station_1', day('2026-09-29', 9)],
-        ['station_2', day('2026-09-29', 14)],
-      ],
-      actions: [
-        ['answered', 'user_bob', 'station_1', day('2026-09-29', 10)],
-        ['approved', 'user_ada', 'station_1', day('2026-09-29', 11)],
-      ],
-    });
-
-    expect(humanActions.waits()).toEqual([
-      {
-        stationId: StationId.of('station_1'),
-        askedAt: day('2026-09-29', 9),
-        answeredAt: day('2026-09-29', 10),
-        answeredBy: 'user_bob',
-      },
-      {
-        stationId: StationId.of('station_2'),
-        askedAt: day('2026-09-29', 14),
-        answeredAt: null,
-        answeredBy: null,
-      },
-    ]);
-  });
-
-  it('answers no ask with an act from before the next one was asked', () => {
-    const humanActions = humanActionsOf('task_1', {
-      asks: [
-        ['station_1', day('2026-09-29', 9)],
-        ['station_1', day('2026-09-29', 10)],
-      ],
-      actions: [['answered', 'user_bob', 'station_1', day('2026-09-29', 11)]],
-    });
-
-    expect(humanActions.waits().map((each) => each.answeredAt)).toEqual([
-      null,
-      day('2026-09-29', 11),
-    ]);
-  });
-
-  it('answers each ask with the first act from the moment it was asked until the next ask, wherever the act was done', () => {
-    const humanActions = humanActionsOf('task_1', {
-      asks: [
-        ['station_1', day('2026-09-29', 9)],
-        ['station_2', day('2026-09-29', 12)],
-      ],
-      actions: [
-        ['answered', 'user_bob', 'station_9', day('2026-09-29', 9)],
-        ['approved', 'user_ada', 'station_1', day('2026-09-29', 10)],
-        ['accepted', 'user_cy', 'station_2', day('2026-09-29', 12)],
-      ],
-    });
-
-    expect(
-      humanActions.waits().map((each) => [each.answeredAt, each.answeredBy]),
-    ).toEqual([
-      [day('2026-09-29', 9), 'user_bob'],
-      [day('2026-09-29', 12), 'user_cy'],
-    ]);
-  });
-
-  it('pairs asks and answers received in any order', () => {
+  it('keeps asks and acts in time order, however they are received', () => {
     const answer = TaskHumanAction.of({
       kind: 'answered',
       by: UserId.of('user_bob'),
@@ -84,7 +20,15 @@ describe('TaskHumanActions', () => {
       .recordAction(answer)
       .asked(InboxAsk.of(StationId.of('station_1'), day('2026-09-29', 9)));
 
-    expect(humanActions.waits()[0]?.answeredBy).toBe('user_bob');
+    const later = humanActions.asked(
+      InboxAsk.of(StationId.of('station_1'), day('2026-09-29', 8)),
+    );
+
+    expect(later.asks.map((each) => each.at)).toEqual([
+      day('2026-09-29', 8),
+      day('2026-09-29', 9),
+    ]);
+    expect(later.actions).toEqual([answer]);
   });
 
   it('keeps each ask and act once, however often it is received', () => {

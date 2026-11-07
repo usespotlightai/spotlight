@@ -7,13 +7,17 @@ import {
 
 const PROVIDED = new RegExp(`^${INTEGRATION_KEY_SHAPE}\\.${SLUG_SHAPE}$`);
 
+const isProvided = (named: string): boolean =>
+  PROVIDED.test(named) &&
+  !IntegrationKey.isReserved(named.slice(0, named.indexOf('.')));
+
 export class ToolName {
   private constructor(readonly value: string) {}
 
   static of(raw: string): ToolName {
     const trimmed = raw.trim();
 
-    if (!PROVIDED.test(trimmed)) {
+    if (!isProvided(trimmed)) {
       throw new InvalidIdentifierError(
         'tool',
         'is named for the integration that offers it, as in linear.comment',
@@ -26,7 +30,15 @@ export class ToolName {
   static parsed(raw: string): ToolName | null {
     const trimmed = raw.trim();
 
-    return PROVIDED.test(trimmed) ? new ToolName(trimmed) : null;
+    return isProvided(trimmed) ? new ToolName(trimmed) : null;
+  }
+
+  static parsedAll(raw: readonly string[]): readonly ToolName[] {
+    return raw.flatMap((each) => {
+      const named = ToolName.parsed(each);
+
+      return named ? [named] : [];
+    });
   }
 
   get integration(): IntegrationKey {

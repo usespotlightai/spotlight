@@ -9,12 +9,12 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SendMessageCommand } from '@work/application/commands/send-message.command';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
@@ -32,7 +32,7 @@ export class SendMessageHandler
   implements CommandHandlerPort<SendMessageCommand, void>
 {
   constructor(
-    private readonly runs: RunRepository,
+    private readonly facts: RunFactsPort,
     private readonly tasks: TaskRepository,
     private readonly lines: LineMapsPort,
     private readonly transaction: TransactionPort,
@@ -45,21 +45,26 @@ export class SendMessageHandler
 
   async execute(command: SendMessageCommand): Promise<void> {
     try {
-      const run = await this.runs.findById(RunId.of(command.runId));
-      const taskId = run?.taskId;
-      const stationId = run?.stationId;
+      const [run] = await this.facts.of([RunId.of(command.runId)]);
+      const subject = run?.subject?.kind === 'task' ? run.subject : null;
+      const stationId = subject?.stationId;
 
-      if (!run || !taskId || !stationId) {
+      if (!run || !subject || !stationId) {
         throw new UnknownTaskError(command.runId);
       }
 
+      const { taskId } = subject;
       const attachments = await this.files.handedOver(
         run.workspaceId,
         command.attachments,
       );
 
       const next = await this.transaction.inTransaction(() =>
-        this.send(command, { runId: run.id, taskId, stationId }, attachments),
+        this.send(
+          command,
+          { runId: run.runId, taskId, stationId },
+          attachments,
+        ),
       );
       await this.drafts.announce(taskId, next, command.body);
     } catch (error) {

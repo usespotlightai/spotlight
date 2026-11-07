@@ -91,7 +91,7 @@ describe('SubmitReviewHandler', () => {
 
     expect(reviews.map((each) => each.id.value)).toEqual(['review_1']);
     expect(comments.get('comment_1')?.reviewId?.value).toBe('review_1');
-    expect(comments.get('comment_1')?.state).toBe('submitted');
+    expect(comments.get('comment_1')?.state).toBe('sending');
   });
 
   it('submits the same drafts only once, however often it is requested', async () => {

@@ -28,7 +28,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, desc, eq, gt, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray } from 'drizzle-orm';
 
 type RecordRow = typeof runRecord.$inferSelect;
 
@@ -147,26 +147,21 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
     return rows.map(toRecord);
   }
 
-  async lastEndedOfTaskAt(
+  async ofTaskAt(
     taskId: TaskId,
     stationId: StationId,
-    by: Date,
-  ): Promise<RunRecord | null> {
-    const [row] = await this.context.db
+  ): Promise<readonly RunRecord[]> {
+    const rows = await this.context.db
       .select()
       .from(runRecord)
       .where(
         and(
           eq(runRecord.taskId, taskId.value),
           eq(runRecord.stationId, stationId.value),
-          ne(runRecord.ending, 'cancelled'),
-          lte(runRecord.endedAt, by),
         ),
-      )
-      .orderBy(desc(runRecord.endedAt))
-      .limit(1);
+      );
 
-    return row ? toRecord(row) : null;
+    return rows.map(toRecord);
   }
 
   async runIdsOf(

@@ -20,6 +20,7 @@ import {
   StackLayerResponseDto,
 } from '@change-review/presentation/http/dto/change-stack.response.dto';
 import { changeStackFailureText } from '@change-review/presentation/http/mappers/change-stack-failure.text';
+import { stackCheckReasonText } from '@change-review/presentation/http/mappers/stack-check-reason.text';
 
 const stepOf = (step: CheckedStepDto): CheckedStepResponseDto =>
   new CheckedStepResponseDto(
@@ -42,7 +43,7 @@ const checkOf = (check: StackCheckDto): StackCheckResponseDto =>
   new StackCheckResponseDto(
     check.command,
     check.status,
-    check.reason,
+    stackCheckReasonText(check),
     check.whole && stepOf(check.whole),
     check.layers.map(stepOf),
   );

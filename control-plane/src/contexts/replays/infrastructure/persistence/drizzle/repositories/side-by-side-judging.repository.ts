@@ -130,11 +130,16 @@ export class DrizzleSideBySideJudgingRepository
 
   async save(saved: SideBySideJudging): Promise<void> {
     await this.context.inTransaction(async () => {
-      const written = await this.context.db
-        .update(sideBySideJudging)
-        .set({ version: saved.version + 1, ...columnsOf(saved) })
-        .where(keyOf(saved))
-        .returning({ runId: sideBySideJudging.runId });
+      const written = saved.isDeleted
+        ? await this.context.db
+            .delete(sideBySideJudging)
+            .where(keyOf(saved))
+            .returning({ runId: sideBySideJudging.runId })
+        : await this.context.db
+            .update(sideBySideJudging)
+            .set({ version: saved.version + 1, ...columnsOf(saved) })
+            .where(keyOf(saved))
+            .returning({ runId: sideBySideJudging.runId });
 
       if (written.length === 0) {
         throw conflictOver(saved);
@@ -142,17 +147,6 @@ export class DrizzleSideBySideJudgingRepository
 
       await this.events.dispatch(saved.pullEvents());
     });
-  }
-
-  async remove(removed: SideBySideJudging): Promise<void> {
-    const gone = await this.context.db
-      .delete(sideBySideJudging)
-      .where(keyOf(removed))
-      .returning({ runId: sideBySideJudging.runId });
-
-    if (gone.length === 0) {
-      throw conflictOver(removed);
-    }
   }
 
   async of(runId: RunId, otherRunId: RunId): Promise<SideBySideJudging | null> {

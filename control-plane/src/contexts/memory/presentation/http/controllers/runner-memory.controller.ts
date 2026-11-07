@@ -5,6 +5,7 @@ import type {
   TeamMemoryDetailDto,
   TeamMemoryDto,
 } from '@memory/application/dto/team-memory.dto';
+import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
 import { RecallMemoriesQuery } from '@memory/application/queries/recall-memories.query';
 import { RecallMemoryQuery } from '@memory/application/queries/recall-memory.query';
 import { ProposedMemoryResponseDto } from '@memory/presentation/http/dto/memory-review.response.dto';
@@ -147,19 +148,23 @@ export class RunnerMemoryController {
     @Body() body: RememberRequestDto | undefined,
     @CurrentRunner() runnerId: string,
   ): Promise<ProposedMemoryResponseDto> {
+    const memoryId = await this.commandBus.execute<RememberCommand, string>(
+      new RememberCommand(runId, runnerId, {
+        kind: text(body?.kind),
+        body: text(body?.body),
+        scope: optional(body?.scope),
+        paths: Array.isArray(body?.paths)
+          ? body.paths.filter(
+              (each): each is string => typeof each === 'string',
+            )
+          : [],
+        supersedes: optional(body?.supersedes),
+      }),
+    );
+
     return new ProposedMemoryResponseDto(
-      await this.commandBus.execute<RememberCommand, ProposedMemoryDto>(
-        new RememberCommand(runId, runnerId, {
-          kind: text(body?.kind),
-          body: text(body?.body),
-          scope: optional(body?.scope),
-          paths: Array.isArray(body?.paths)
-            ? body.paths.filter(
-                (each): each is string => typeof each === 'string',
-              )
-            : [],
-          supersedes: optional(body?.supersedes),
-        }),
+      await this.queryBus.execute<ReadProposedMemoryQuery, ProposedMemoryDto>(
+        new ReadProposedMemoryQuery(runId, runnerId, memoryId),
       ),
     );
   }

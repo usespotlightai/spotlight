@@ -1,4 +1,3 @@
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -20,7 +19,6 @@ import { RunReservationDropped } from '@work/domain/events/run-reservation-dropp
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
-import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
@@ -30,7 +28,6 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -76,46 +73,6 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     reservation: null,
     provisioning: Provisioning.none(),
   });
-
-describe('Run, read back', () => {
-  it('refuses a station config without the station it was configured at', () => {
-    const config = StationConfig.rehydrate(
-      {
-        prompt: null,
-        harness: 'dev',
-        model: null,
-        effort: null,
-        profile: null,
-        image: null,
-        repositories: [],
-        skills: [],
-        tools: [],
-        decisions: false,
-        memories: false,
-      },
-      'a'.repeat(64),
-    );
-
-    expect(() =>
-      Run.rehydrate({
-        id: RunId.of('run_1'),
-        workspaceId: WorkspaceId.of('ws_1'),
-        harness: HarnessId.of('dev'),
-        priority: RunPriority.normal,
-        subject: null,
-        spec: aSpec(),
-        state: 'queued',
-        claimedBy: null,
-        leaseExpiresAt: null,
-        outcome: null,
-        attempt: 1,
-        reservation: null,
-        provisioning: Provisioning.none(),
-        configuredAs: config,
-      }),
-    ).toThrow(InconsistentStateError);
-  });
-});
 
 describe('Run', () => {
   it('is exhausted rather than requeued for ever', () => {
@@ -512,24 +469,6 @@ describe('Run', () => {
       ).toEqual([]);
     });
 
-    it('says which memories it was briefed with once enqueued, and nothing when it was told none', () => {
-      const briefed = Run.enqueue({
-        id: RunId.of('run_1'),
-        workspaceId: WorkspaceId.of('ws_1'),
-        harness: HarnessId.of('dev'),
-        spec: aSpec(),
-        briefedWith: BriefedMemories.of({
-          briefed: [{ id: 'memory_1', handle: 'M-1' }],
-          omitted: [],
-        }),
-      });
-
-      expect(briefed.pullEvents().map((each) => each.kind)).toEqual([
-        'run.briefed',
-      ]);
-      expect(queued().pullEvents()).toEqual([]);
-    });
-
     it('is leased only by the runner that claimed it, and only until it ends', () => {
       const leased = claimed();
 
@@ -822,7 +761,6 @@ describe('Run', () => {
       expect(cancelled.state).toBe('cancelled');
       expect(cancelled.outcome?.failure?.code).toBe('cancelled');
       expect(cancelled.outcome?.cancelled).toBe(true);
-      expect(cancelled.outcome?.superseded).toBe(false);
       expect(cancelled.hasEnded).toBe(true);
       expect(cancelled.outcome?.message).toBe('The task moved on.');
       expect(cancelled.pullEvents().map((each) => each.kind)).toEqual([
@@ -1252,50 +1190,12 @@ describe('Run', () => {
     });
   });
 
-  describe('superseded by its task', () => {
+  describe('failing', () => {
     const failedRun = () =>
       claimed().complete(
         runner(),
         RunOutcome.of({ exitCode: 1, failed: true }),
       );
-
-    it('supersedes a failure its task has since moved on from', () => {
-      const failed = failedRun();
-      failed.pullEvents();
-      const superseded = failed.supersededByItsTask();
-
-      expect(superseded.state).toBe('superseded');
-      expect(superseded.hasEnded).toBe(true);
-      expect(superseded.outcome?.failure?.code).toBe('superseded');
-      expect(superseded.outcome?.message).toBe(failed.outcome?.message);
-      expect(superseded.pullEvents().map((each) => each.kind)).toEqual([
-        'run.superseded',
-      ]);
-    });
-
-    it('leaves a run that succeeded, is still going, or was already superseded as it was', () => {
-      const succeeded = claimed().complete(
-        runner(),
-        RunOutcome.of({ exitCode: 0, failed: false }),
-      );
-      const superseded = failedRun().supersededByItsTask();
-
-      expect(succeeded.supersededByItsTask()).toBe(succeeded);
-      expect(claimed().supersededByItsTask().state).toBe('claimed');
-      expect(superseded.supersededByItsTask()).toBe(superseded);
-    });
-
-    it('leaves a run cancelled before a runner claimed it as it was', () => {
-      const cancelled = queued().cancelQueued('The task moved on.');
-      cancelled.pullEvents();
-
-      const after = cancelled.supersededByItsTask();
-
-      expect(after).toBe(cancelled);
-      expect(after.state).toBe('cancelled');
-      expect(after.outcome?.failure?.code).toBe('cancelled');
-      expect(after.pullEvents()).toEqual([]);
-    });
 
     it('ends failed, not superseded, when it exits badly while its task still has it as its current run', () => {
       expect(failedRun().state).toBe('failed');

@@ -6,8 +6,11 @@ import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-requ
 import { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
 import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import { ConfigPullRequestTransitionError } from '@replays/domain/exceptions/config-pull-request-transition.error';
+import { BranchName } from '@replays/domain/value-objects/branch-name.vo';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
+import type { CommitSha } from '@replays/domain/value-objects/commit-sha.vo';
+import { ConfigPath } from '@replays/domain/value-objects/config-path.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
@@ -40,7 +43,7 @@ const AGGREGATE = 'config pull request';
 
 const SEARCH_PREFIX = 8;
 
-const ON_GITHUB: readonly ConfigPullRequestState[] = [
+const ON_HOST: readonly ConfigPullRequestState[] = [
   'opened',
   'closing',
   'merged',
@@ -52,18 +55,18 @@ const DUE: readonly ConfigPullRequestState[] = ['opening', 'closing'];
 export interface OpenedPullRequest {
   readonly url: PullRequestUrl;
   readonly number: number;
-  readonly gitHubId: number;
+  readonly hostId: number;
   readonly repository: Repository;
   readonly basedOn: StationFingerprint;
   readonly proposing: StationFingerprint;
 }
 
-export interface GitHubClose {
+export interface HostClose {
   readonly merged: boolean;
   readonly at: Date;
 }
 
-export interface GitHubPullRequest {
+export interface HostPullRequest {
   readonly repository: Repository;
   readonly number: number;
 }
@@ -81,12 +84,12 @@ interface State {
   readonly stationKey: string;
   readonly candidateName: CandidateName;
   readonly repository: Repository | null;
-  readonly path: string | null;
-  readonly branch: string;
+  readonly path: ConfigPath | null;
+  readonly branch: BranchName;
   readonly state: ConfigPullRequestState;
   readonly url: PullRequestUrl | null;
   readonly number: number | null;
-  readonly gitHubId: number | null;
+  readonly hostId: number | null;
   readonly basedOn: StationFingerprint | null;
   readonly proposing: StationFingerprint | null;
   readonly checkedAt: Date | null;
@@ -94,7 +97,7 @@ interface State {
   readonly closeFailure: ConfigPullRequestReason | null;
   readonly reason: ConfigPullRequestReason | null;
   readonly retries: number;
-  readonly lastCommit: string | null;
+  readonly lastCommit: CommitSha | null;
   readonly dueAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
@@ -115,8 +118,13 @@ export class ConfigPullRequest extends EventRecorder {
     super();
   }
 
-  static branchFor(searchId: SearchId, candidateName: CandidateName): string {
-    return `spotlight/search-${searchId.value.slice(0, SEARCH_PREFIX)}-${slugOf(candidateName.value)}`;
+  static branchFor(
+    searchId: SearchId,
+    candidateName: CandidateName,
+  ): BranchName {
+    return BranchName.of(
+      `spotlight/search-${searchId.value.slice(0, SEARCH_PREFIX)}-${slugOf(candidateName.value)}`,
+    );
   }
 
   static pick(input: {
@@ -157,21 +165,21 @@ export class ConfigPullRequest extends EventRecorder {
   static rehydrate(state: State): ConfigPullRequest {
     const { state: current, url, reason, repository, path } = state;
 
-    const onGitHub = ON_GITHUB.includes(current);
+    const onHost = ON_HOST.includes(current);
 
     if (
       [
         url,
         state.number,
-        state.gitHubId,
+        state.hostId,
         state.basedOn,
         state.proposing,
         state.checkedAt,
-      ].some((each) => (each !== null) !== onGitHub)
+      ].some((each) => (each !== null) !== onHost)
     ) {
       throw new InconsistentStateError(
         AGGREGATE,
-        'has a pull request link, number, GitHub id, fingerprints and check time when, and only when, it opened',
+        'has a pull request link, number, code host id, fingerprints and check time when, and only when, it opened',
       );
     }
     if (
@@ -225,7 +233,7 @@ export class ConfigPullRequest extends EventRecorder {
     | 'state'
     | 'url'
     | 'number'
-    | 'gitHubId'
+    | 'hostId'
     | 'basedOn'
     | 'proposing'
     | 'checkedAt'
@@ -238,11 +246,11 @@ export class ConfigPullRequest extends EventRecorder {
   > {
     return {
       repository: source?.repository ?? null,
-      path: source?.path ?? null,
+      path: source ? ConfigPath.of(source.path) : null,
       state: source ? 'opening' : 'failed',
       url: null,
       number: null,
-      gitHubId: null,
+      hostId: null,
       basedOn: null,
       proposing: null,
       checkedAt: null,
@@ -291,11 +299,11 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.repository;
   }
 
-  get path(): string | null {
+  get path(): ConfigPath | null {
     return this.state.path;
   }
 
-  get branch(): string {
+  get branch(): BranchName {
     return this.state.branch;
   }
 
@@ -319,8 +327,8 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.proposing;
   }
 
-  get gitHubId(): number | null {
-    return this.state.gitHubId;
+  get hostId(): number | null {
+    return this.state.hostId;
   }
 
   get checkedAt(): Date | null {
@@ -335,7 +343,7 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.closeFailure;
   }
 
-  get gitHubPullRequest(): GitHubPullRequest | null {
+  get hostPullRequest(): HostPullRequest | null {
     const { repository, number } = this.state;
 
     return repository && number !== null ? { repository, number } : null;
@@ -355,7 +363,7 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.retries;
   }
 
-  get lastCommit(): string | null {
+  get lastCommit(): CommitSha | null {
     return this.state.lastCommit;
   }
 
@@ -385,7 +393,7 @@ export class ConfigPullRequest extends EventRecorder {
     return this.with({ dueAt: until });
   }
 
-  commit(commit: string, at: Date): ConfigPullRequest {
+  commit(commit: CommitSha, at: Date): ConfigPullRequest {
     this.mustBe('opening');
 
     return this.with({ lastCommit: commit, updatedAt: at });
@@ -399,7 +407,7 @@ export class ConfigPullRequest extends EventRecorder {
       repository: opened.repository,
       url: opened.url,
       number: opened.number,
-      gitHubId: opened.gitHubId,
+      hostId: opened.hostId,
       basedOn: opened.basedOn,
       proposing: opened.proposing,
       checkedAt: at,
@@ -477,7 +485,7 @@ export class ConfigPullRequest extends EventRecorder {
     return this.ended({ merged: false, at });
   }
 
-  recordGitHubClose(close: GitHubClose): ConfigPullRequest {
+  recordHostClose(close: HostClose): ConfigPullRequest {
     const { state } = this.state;
 
     if (state === 'opened' || state === 'closing') {
@@ -529,7 +537,7 @@ export class ConfigPullRequest extends EventRecorder {
     return this.with({ checkedAt: at });
   }
 
-  private ended(close: GitHubClose): ConfigPullRequest {
+  private ended(close: HostClose): ConfigPullRequest {
     const { station, basedOn, proposing } = this.state;
 
     if (close.merged) {

@@ -15,8 +15,8 @@ import {
   PullRequestLines,
 } from '@github/infrastructure/github/pull-request-lines';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
-import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
 
 interface Posted {
   readonly id: number;

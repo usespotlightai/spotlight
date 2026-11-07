@@ -16,6 +16,7 @@ const facts = (
   branch: 'feat/a',
   labelled: false,
   described: true,
+  body: null,
   comment: null,
   ...over,
 });
@@ -77,5 +78,25 @@ describe('PullRequestHappenings', () => {
         facts({ activity: 'opened', pullRequest: null }),
       ),
     ).toThrow(UnplaceableHappeningError);
+  });
+
+  it('describes a review request, and carries the comment only of a mention', () => {
+    const [opened] = PullRequestHappenings.of(
+      facts({ activity: 'opened', body: 'Adds the cache.' }),
+    );
+    const mentioned = PullRequestHappenings.of(
+      facts({ comment: 'please look @spotlight' }),
+    ).find((each) => each.kind === 'review-request');
+
+    expect(opened).toMatchObject({
+      kind: 'review-request',
+      carriesComment: false,
+      description: `Review ${PR.value}\n\nAdds the cache.`,
+    });
+    expect(mentioned).toMatchObject({
+      kind: 'review-request',
+      carriesComment: true,
+      description: `Review ${PR.value}`,
+    });
   });
 });

@@ -16,7 +16,6 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
@@ -25,16 +24,15 @@ import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
-import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
 import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
 import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import { policyOf } from '@work/domain/services/policy-of';
+import { requesterOf } from '@work/domain/services/requester-of';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
-import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -44,7 +42,9 @@ import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import type { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import type { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import type {
   RunCheckout,
   RunSpec,
@@ -61,7 +61,6 @@ import {
   type ReportedStart,
   StartingPoint,
 } from '@work/domain/value-objects/starting-point.vo';
-import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 const LEASE_DURATION_MS = 60_000;
@@ -76,13 +75,7 @@ const LOST = RunFailure.of('runner-lost').retry;
 const CANCELLED_QUEUED = 'Task moved on before a runner claimed the run.';
 
 const endingIn = (outcome: RunOutcome): RunState =>
-  outcome.cancelled
-    ? 'cancelled'
-    : outcome.superseded
-      ? 'superseded'
-      : outcome.failed
-        ? 'failed'
-        : 'completed';
+  outcome.cancelled ? 'cancelled' : outcome.failed ? 'failed' : 'completed';
 
 const isLeased = (state: RunState): boolean =>
   (LEASED_RUN_STATES as readonly RunState[]).includes(state);
@@ -106,14 +99,13 @@ export class Run extends EventRecorder {
     readonly provisioning: Provisioning,
     readonly ranIn: RunnerImage | null,
     readonly requeueCount: RequeueCount,
-    readonly briefedWith: BriefedMemories = BriefedMemories.none(),
     readonly suspendedAttempts: readonly number[] = [],
-    readonly configuredAs: StationConfig | null = null,
     readonly startedAt: Date | null = null,
     readonly startedFrom: StartingPoint | null = null,
     readonly askedAPerson: boolean = false,
     readonly version: number = 0,
-    readonly briefedTask: BriefedTask | null = null,
+    readonly team: TeamId | null = null,
+    readonly orderFingerprint: string | null = null,
   ) {
     super();
   }
@@ -126,9 +118,8 @@ export class Run extends EventRecorder {
     subject?: RunSubject | null;
     spec: RunSpec;
     placement?: RunnerPlacement;
-    briefedWith?: BriefedMemories;
-    configuredAs?: StationConfig | null;
-    briefedTask?: BriefedTask | null;
+    team?: TeamId | null;
+    orderFingerprint?: string | null;
   }): Run {
     const run = new Run(
       input.id,
@@ -148,14 +139,13 @@ export class Run extends EventRecorder {
       Provisioning.none(),
       null,
       RequeueCount.none(),
-      input.briefedWith ?? BriefedMemories.none(),
       [],
-      input.configuredAs ?? null,
       null,
       null,
       false,
       0,
-      input.briefedTask ?? null,
+      input.team ?? input.subject?.ranFor ?? null,
+      input.orderFingerprint ?? null,
     );
 
     if (run.isReplay !== run.spec.isReplay) {
@@ -175,44 +165,6 @@ export class Run extends EventRecorder {
     if (resumeKey && !resumeKey.belongsTo(run.subject)) {
       throw new InvalidRunTransitionError(
         `Run ${run.id.value} cannot resume ${resumeKey.value}. That workspace belongs to another task, chat, replay or search.`,
-      );
-    }
-
-    if (run.configuredAs && !run.stationId) {
-      throw new InvalidRunTransitionError(
-        `Run ${run.id.value} works at no station. It cannot record a station config.`,
-      );
-    }
-
-    if (run.isReplay && !run.configuredAs) {
-      throw new InvalidRunTransitionError(
-        `Run ${run.id.value} is a replay without a station config.`,
-      );
-    }
-
-    const briefed = run.briefedTask;
-
-    if (briefed && !run.taskId) {
-      throw new InvalidRunTransitionError(
-        `Run ${run.id.value} works no task. It cannot record a briefed task.`,
-      );
-    }
-
-    if (briefed && !run.stationId?.equals(briefed.stationId)) {
-      throw new InvalidRunTransitionError(
-        `Run ${run.id.value} cannot record a task briefed at another station.`,
-      );
-    }
-
-    if (run.briefedWith.briefed.length > 0 && run.isSearch) {
-      throw new InvalidRunTransitionError(
-        `Run ${run.id.value} is a search. Searches are not briefed with team memories.`,
-      );
-    }
-
-    if (run.briefedWith.briefed.length > 0 && !run.isReplay) {
-      run.record(
-        new RunBriefed(run.id, run.workspaceId, run.taskId, run.briefedWith),
       );
     }
 
@@ -237,14 +189,13 @@ export class Run extends EventRecorder {
     provisioning: Provisioning;
     ranIn?: RunnerImage | null;
     requeueCount?: RequeueCount;
-    briefedWith?: BriefedMemories;
     suspendedAttempts?: readonly number[];
-    configuredAs?: StationConfig | null;
     startedAt?: Date | null;
     startedFrom?: StartingPoint | null;
     askedAPerson?: boolean;
     version?: number;
-    briefedTask?: BriefedTask | null;
+    team?: TeamId | null;
+    orderFingerprint?: string | null;
   }): Run {
     Run.guardReconstituted(input);
 
@@ -266,14 +217,13 @@ export class Run extends EventRecorder {
       input.provisioning,
       input.ranIn ?? null,
       input.requeueCount ?? RequeueCount.none(),
-      input.briefedWith ?? BriefedMemories.none(),
       [...(input.suspendedAttempts ?? [])],
-      input.configuredAs ?? null,
       input.startedAt ?? null,
       input.startedFrom ?? null,
       input.askedAPerson ?? false,
       input.version ?? 0,
-      input.briefedTask ?? null,
+      input.team ?? null,
+      input.orderFingerprint ?? null,
     );
   }
 
@@ -286,27 +236,25 @@ export class Run extends EventRecorder {
     spec: RunSpec;
     startedFrom?: StartingPoint | null;
     askedAPerson?: boolean;
-    configuredAs?: StationConfig | null;
+    team?: TeamId | null;
   }): void {
     if (input.attempt < 1) {
       throw new InconsistentStateError('run', 'has no attempt to its name');
+    }
+    if (
+      input.subject?.ranFor &&
+      input.team &&
+      !input.subject.ranFor.equals(input.team)
+    ) {
+      throw new InconsistentStateError(
+        'run',
+        'works for a team other than the one its replay or search is for',
+      );
     }
     if ((input.subject?.isReplay ?? false) !== input.spec.isReplay) {
       throw new InconsistentStateError(
         'run',
         'replays a run with a spec that does not say what it replays, or the other way round',
-      );
-    }
-    if (input.subject?.isReplay && !input.configuredAs) {
-      throw new InconsistentStateError(
-        'run',
-        'replays a run without the station config it replays with',
-      );
-    }
-    if (input.configuredAs && !input.subject?.stationId) {
-      throw new InconsistentStateError(
-        'run',
-        'records a station config but works at no station',
       );
     }
     if ((input.subject?.isSearch ?? false) !== input.spec.isSearch) {
@@ -351,6 +299,14 @@ export class Run extends EventRecorder {
         `is ${input.state} yet still leased by a runner`,
       );
     }
+  }
+
+  get requester(): RunRequester {
+    return requesterOf(this.id, this.subject, this.team);
+  }
+
+  get policy(): RunPolicy {
+    return policyOf(this.subject);
   }
 
   get taskId(): TaskId | null {
@@ -1091,28 +1047,6 @@ export class Run extends EventRecorder {
     return ended;
   }
 
-  supersededByItsTask(): Run {
-    if (
-      !this.hasEnded ||
-      !this.outcome?.failed ||
-      this.outcome.superseded ||
-      this.outcome.cancelled
-    ) {
-      return this;
-    }
-
-    const superseded = this.with({
-      state: 'superseded',
-      outcome: this.outcome.supersede(),
-    });
-
-    superseded.record(
-      new RunSuperseded(this.id, this.workspaceId, this.subject),
-    );
-
-    return superseded;
-  }
-
   requestStop(now: Date): Run {
     if (this.state === 'suspended') {
       return this.endedUnstarted(RunOutcome.stopped(-1));
@@ -1250,14 +1184,13 @@ export class Run extends EventRecorder {
       part.provisioning ?? this.provisioning,
       part.ranIn !== undefined ? part.ranIn : this.ranIn,
       part.requeueCount ?? this.requeueCount,
-      this.briefedWith,
       part.suspendedAttempts ?? this.suspendedAttempts,
-      this.configuredAs,
       part.startedAt !== undefined ? part.startedAt : this.startedAt,
       part.startedFrom !== undefined ? part.startedFrom : this.startedFrom,
       part.askedAPerson ?? this.askedAPerson,
       this.version,
-      this.briefedTask,
+      this.team,
+      this.orderFingerprint,
     );
 
     next.inheritEvents(this);

@@ -3,8 +3,10 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   codeOf,
   UNIQUE_VIOLATION,
+  violates,
 } from '@platform/persistence/drizzle/violations';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
+import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
 import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -66,6 +68,8 @@ import {
   or,
   type SQL,
 } from 'drizzle-orm';
+
+const ACTIVE_AT_STATION = 'replay_search_active_idx';
 
 type SearchRow = typeof replaySearch.$inferSelect;
 
@@ -367,17 +371,7 @@ export class DrizzleSearchRepository implements SearchRepository {
       or(
         active,
         eq(replaySearch.awaitsReplays, true),
-        exists(
-          this.context.db
-            .select({ one: replaySearchIteration.number })
-            .from(replaySearchIteration)
-            .where(
-              and(
-                eq(replaySearchIteration.searchId, replaySearch.id),
-                isNull(replaySearchIteration.agentSpent),
-              ),
-            ),
-        ),
+        eq(replaySearch.awaitsAgentSpend, true),
       ) as SQL,
     );
   }
@@ -388,6 +382,9 @@ export class DrizzleSearchRepository implements SearchRepository {
         .insert(replaySearch)
         .values({ ...this.columnsOf(added), version: added.version })
         .catch((error: unknown) => {
+          if (violates(error, UNIQUE_VIOLATION, ACTIVE_AT_STATION)) {
+            throw new SearchInProgressError(added.station.stationId);
+          }
           if (codeOf(error) === UNIQUE_VIOLATION) {
             throw new SearchVersionConflictError(added.id.value);
           }
@@ -454,6 +451,7 @@ export class DrizzleSearchRepository implements SearchRepository {
       seedFingerprint: aggregate.seed.fingerprint.value,
       seedReplay: storedReplay(aggregate.seed.replay),
       awaitsReplays: aggregate.unendedReplays.length > 0,
+      awaitsAgentSpend: aggregate.awaitingAgentSpend.length > 0,
       active: aggregate.isActive,
       requests: aggregate.requests.map(storedRequest),
       droppedRequests: aggregate.dropped.map(storedRequest),

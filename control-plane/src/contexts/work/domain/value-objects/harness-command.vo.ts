@@ -1,4 +1,4 @@
-import { InvalidHarnessCommandError } from '@work/domain/exceptions/invalid-harness-command.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type {
   RunCommand,
   SessionOption,
@@ -21,7 +21,10 @@ export class HarnessCommand {
     const executable = input.executable.trim();
 
     if (executable.length === 0) {
-      throw new InvalidHarnessCommandError('must name an executable');
+      throw new InconsistentStateError(
+        'harness command',
+        'must name an executable',
+      );
     }
 
     const sessionOptions = (input.sessionOptions ?? []).map(
@@ -33,7 +36,8 @@ export class HarnessCommand {
     );
 
     if (sessionOptions.some(({ id, value }) => !id || !value)) {
-      throw new InvalidHarnessCommandError(
+      throw new InconsistentStateError(
+        'harness command',
         'must name each session option and its value',
       );
     }

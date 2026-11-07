@@ -1,6 +1,8 @@
 import { RememberHandler } from '@memory/application/commands/handlers/remember.handler';
 import { RememberCommand } from '@memory/application/commands/remember.command';
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
+import { ReadProposedMemoryHandler } from '@memory/application/queries/handlers/read-proposed-memory.handler';
+import { ReadProposedMemoryQuery } from '@memory/application/queries/read-proposed-memory.query';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
@@ -70,7 +72,6 @@ const remembering = (run: LeasedRun | null = LEASED) => {
       },
     } as unknown as MemoryDraftRepository,
     {} as MemoryRepository,
-    new MemoryReviews(work, { find: async () => null } as never),
     { inTransaction: <T>(each: () => Promise<T>) => each() },
     {
       generate: () => {
@@ -81,8 +82,20 @@ const remembering = (run: LeasedRun | null = LEASED) => {
     { now: () => NOW, sleep: async () => undefined },
   );
 
+  const reading = new ReadProposedMemoryHandler(
+    new RunnerMemoryLoader(work),
+    {
+      forTask: async () => added.at(-1) ?? null,
+    } as unknown as MemoryDraftRepository,
+    new MemoryReviews(work, { find: async () => null } as never),
+  );
+
   return {
     added,
+    proposedAs: (memoryId: string) =>
+      reading.execute(
+        new ReadProposedMemoryQuery('run_1', 'runner_1', memoryId),
+      ),
     remember: (body = 'Uploads retry in the request.') =>
       handler.execute(
         new RememberCommand('run_1', 'runner_1', {
@@ -98,9 +111,9 @@ const remembering = (run: LeasedRun | null = LEASED) => {
 
 describe('RememberHandler', () => {
   it('opens the task’s draft with what the run proposed to remember, which cites its step', async () => {
-    const { added, remember } = remembering();
+    const { added, remember, proposedAs } = remembering();
 
-    const proposed = await remember();
+    const proposed = await proposedAs(await remember());
 
     expect(proposed).toMatchObject({
       proposedBy: 'agent',

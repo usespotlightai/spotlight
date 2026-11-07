@@ -40,7 +40,10 @@ export class SideBySideJudging
   extends EventRecorder
   implements HasPendingJob<SideBySideJudging>
 {
-  private constructor(private readonly state: State) {
+  private constructor(
+    private readonly state: State,
+    readonly isDeleted = false,
+  ) {
     super();
   }
 
@@ -233,21 +236,19 @@ export class SideBySideJudging
       !first ||
       !second ||
       judgment.passes.length !== this.orders.length ||
-      judgment.passes.some((each, at) => each.order !== this.orders[at])
+      judgment.passes.some(
+        (each, at) => each.ownShownFirst !== (this.orders[at] === 'run-first'),
+      )
     ) {
       throw new InvalidJudgingError(
         'must judge its own two runs, once in each order',
       );
     }
 
-    const verdict = PairVerdict.fromWinner({
-      winner: first.winner === second.winner ? first.winner : 'tie',
+    const verdict = PairVerdict.of({
+      outcome: first.outcome === second.outcome ? first.outcome : 'tie',
       model: judgment.model,
-      passes: judgment.passes.map((each) => ({
-        runShownFirst: each.order === 'run-first',
-        winner: each.winner,
-        reasons: each.reasons,
-      })),
+      passes: judgment.passes,
     });
     const judged = spending.with({
       job: null,
@@ -285,8 +286,19 @@ export class SideBySideJudging
     return ended;
   }
 
+  delete(): SideBySideJudging {
+    const deleted = new SideBySideJudging(this.state, true);
+
+    deleted.inheritEvents(this);
+
+    return deleted;
+  }
+
   private with(part: Partial<State>): SideBySideJudging {
-    const next = new SideBySideJudging({ ...this.state, ...part });
+    const next = new SideBySideJudging(
+      { ...this.state, ...part },
+      this.isDeleted,
+    );
 
     next.inheritEvents(this);
 

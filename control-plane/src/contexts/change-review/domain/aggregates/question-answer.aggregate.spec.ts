@@ -26,6 +26,7 @@ const given = (
     id: QuestionAnswerId.of('answer-1'),
     workspaceId: WorkspaceId.of('workspace-1'),
     taskId: null,
+    teamId: null,
     stackId: ChangeStackId.of('stack-1'),
     question: QUESTION,
     personId: UserId.of('user-1'),

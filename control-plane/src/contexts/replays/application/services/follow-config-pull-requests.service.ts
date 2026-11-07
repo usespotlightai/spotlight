@@ -1,8 +1,9 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import { PullRequestOpenAtStationError } from '@replays/domain/exceptions/pull-request-open-at-station.error';
 import type {
   ConfigPullRequestRepository,
-  GitHubPullRequestKey,
+  HostPullRequestKey,
 } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -12,23 +13,23 @@ import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-re
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface GitHubPullRequestEvent {
+export interface HostPullRequestEvent {
   readonly workspaceId: WorkspaceId;
   readonly repository: Repository;
   readonly pullRequest: PullRequestUrl;
-  readonly gitHubId: number | null;
+  readonly hostId: number | null;
   readonly at: Date | null;
 }
 
-export interface ClosedPullRequest extends GitHubPullRequestEvent {
+export interface ClosedPullRequest extends HostPullRequestEvent {
   readonly merged: boolean;
 }
 
-const keyOf = (event: GitHubPullRequestEvent): GitHubPullRequestKey | null =>
+const keyOf = (event: HostPullRequestEvent): HostPullRequestKey | null =>
   event.pullRequest.number === null
     ? null
     : {
-        gitHubId: event.gitHubId,
+        hostId: event.hostId,
         repository: event.repository.value,
         number: event.pullRequest.number,
       };
@@ -41,22 +42,27 @@ export class FollowConfigPullRequests {
     private readonly clock: ClockPort,
   ) {}
 
-  closedOnGitHub(closed: ClosedPullRequest): Promise<void> {
+  closedOnHost(closed: ClosedPullRequest): Promise<void> {
     return this.changed(closed, (pullRequest) =>
-      pullRequest.recordGitHubClose({
+      pullRequest.recordHostClose({
         merged: closed.merged,
         at: closed.at ?? this.clock.now(),
       }),
     );
   }
 
-  reopenedOnGitHub(reopened: GitHubPullRequestEvent): Promise<void> {
-    return this.changed(reopened, async (pullRequest) =>
-      pullRequest.current === 'closed' &&
-      !(await this.pullRequests.openAtStation(pullRequest.station.stationId))
-        ? pullRequest.reopened(reopened.at ?? this.clock.now())
-        : pullRequest,
-    );
+  async reopenedOnHost(reopened: HostPullRequestEvent): Promise<void> {
+    try {
+      await this.changed(reopened, async (pullRequest) =>
+        (await this.pullRequests.openAtStation(pullRequest.station.stationId))
+          ? pullRequest
+          : pullRequest.reopened(reopened.at ?? this.clock.now()),
+      );
+    } catch (error) {
+      if (!(error instanceof PullRequestOpenAtStationError)) {
+        throw error;
+      }
+    }
   }
 
   async lineChanged(lineId: LineId): Promise<void> {
@@ -87,7 +93,7 @@ export class FollowConfigPullRequests {
   }
 
   private async changed(
-    event: GitHubPullRequestEvent,
+    event: HostPullRequestEvent,
     change: (
       pullRequest: ConfigPullRequest,
     ) => ConfigPullRequest | Promise<ConfigPullRequest>,
@@ -99,7 +105,7 @@ export class FollowConfigPullRequests {
     }
 
     await this.transaction.inTransaction(async () => {
-      const pullRequest = await this.pullRequests.fromGitHub(
+      const pullRequest = await this.pullRequests.fromHost(
         event.workspaceId,
         key,
       );

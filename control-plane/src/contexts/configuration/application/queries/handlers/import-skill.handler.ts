@@ -2,7 +2,7 @@ import type { SkillResourceDto } from '@configuration/application/dto/skill-reso
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { ImportSkillQuery } from '@configuration/application/queries/import-skill.query';
 import type { SkillViews } from '@configuration/application/services/skill-views.service';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -39,7 +39,7 @@ export class ImportSkillHandler
 
       const record = await this.resources.at(
         team.id,
-        SkillKey.of(address.key).value,
+        DefinedSkillKey.of(address.key).value,
       );
 
       return record ? this.views.of(record) : null;

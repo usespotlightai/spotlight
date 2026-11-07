@@ -354,7 +354,8 @@ const domainStep = (step: HookStepFile): HookStep =>
         name: step.name,
         kind: 'request',
         url: staticUrl(step.request?.url ?? ''),
-        fromNetwork: step.request?.from === 'network',
+        headers: Object.keys(step.request?.headers ?? {}),
+        fromNetwork: (step.request?.from ?? Hook.DEFAULTS.from) === 'network',
       };
 
 const signingKind = (file: HookFile): HookSigning | null =>
@@ -390,7 +391,7 @@ export const compileHook = (
     hook = Hook.of({
       key: HookKey.of(file.key),
       event,
-      match: HookMatch.of(
+      match: HookMatch.written(
         {
           tools: file.match.tools.map((tool) => ToolName.of(tool)),
           lines: file.match.lines,

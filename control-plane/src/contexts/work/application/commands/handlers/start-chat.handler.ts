@@ -56,7 +56,7 @@ export class StartChatHandler
     try {
       const startedBy = UserId.of(command.startedBy);
       const member = await this.workspaces.findTeamForMember(
-        command.teamId,
+        TeamId.of(command.teamId),
         startedBy,
       );
 
@@ -70,8 +70,7 @@ export class StartChatHandler
         throw new UnknownHarnessError(command.harness);
       }
 
-      const workspaceId = WorkspaceId.of(member.workspaceId);
-      const teamId = TeamId.of(member.teamId);
+      const { workspaceId, teamId } = member;
       const asked = command.setup
         ? await this.admitted(
             ConfigFolder.of(command.setup),

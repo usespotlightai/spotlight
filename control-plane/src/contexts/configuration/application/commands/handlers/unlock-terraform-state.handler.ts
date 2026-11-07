@@ -1,10 +1,10 @@
 import type { UnlockTerraformStateCommand } from '@configuration/application/commands/unlock-terraform-state.command';
 import type { StateChanged } from '@configuration/application/dto/terraform-state-outcomes.dto';
+import { TerraformLockBody } from '@configuration/application/mappers/terraform-lock-body.mapper';
 import { TerraformStateLockNotYoursError } from '@configuration/domain/exceptions/terraform-state-lock-not-yours.error';
 import { TerraformStateLockedError } from '@configuration/domain/exceptions/terraform-state-locked.error';
 import type { TerraformStateRepository } from '@configuration/domain/repositories/terraform-state.repository';
 import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
-import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -37,7 +37,7 @@ export class UnlockTerraformStateHandler
         return forbiddenTo(force ? 'configure' : 'plan');
       }
 
-      const id = force ? null : StateLockId.in(command.info);
+      const id = force ? null : TerraformLockBody.idIn(command.info);
       const state = await this.states.named(
         permissions.workspaceId,
         StateName.of(command.name),
@@ -59,7 +59,7 @@ export class UnlockTerraformStateHandler
       return { outcome: 'done' };
     } catch (error) {
       if (error instanceof TerraformStateLockedError) {
-        return { outcome: 'locked', holder: error.holder.info };
+        return { outcome: 'locked', holder: error.holder.asWritten };
       }
 
       if (error instanceof TerraformStateLockNotYoursError) {

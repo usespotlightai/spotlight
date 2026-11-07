@@ -69,7 +69,7 @@ export const replayOf = (
   const started = Replay.start({
     id: ReplayId.of(id),
     set: set.snapshot,
-    candidate,
+    candidate: candidate.asReplayed,
     baseline: false,
     ceiling: Money.ceiling(100, 'USD'),
     at,

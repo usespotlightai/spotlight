@@ -1,4 +1,4 @@
-import type { PullRequestFilterQuery } from '@insights/domain/services/pull-request-filter';
+import type { PullRequestFilterQuery } from '@insights/application/queries/pull-request-filter-query';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 export class ListInsightsPullRequestsQuery {

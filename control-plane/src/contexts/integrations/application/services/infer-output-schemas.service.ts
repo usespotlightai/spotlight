@@ -5,10 +5,7 @@ import type { IntegrationKey } from '@integrations/domain/value-objects/integrat
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import {
-  isJsonValue,
-  type JsonValue,
-} from '@shared-kernel/domain/services/json-value';
+import { isJsonValue, type JsonValue } from '@shared-kernel/domain/json-value';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const ATTEMPTS = 3;

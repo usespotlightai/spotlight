@@ -20,6 +20,7 @@ const reading = (
     workspace?: null;
     defined?: boolean;
     linkedAccount?: string | null;
+    refreshFailedAt?: Date;
     requiresConnection?: boolean;
     spec?: boolean;
   } = {},
@@ -58,7 +59,13 @@ const reading = (
       ofTeam: vi.fn(async () =>
         over.linkedAccount === undefined
           ? []
-          : [{ integration: 'linear', linkedAccount: over.linkedAccount }],
+          : [
+              {
+                integration: 'linear',
+                linkedAccount: over.linkedAccount,
+                refreshFailedAt: over.refreshFailedAt ?? null,
+              },
+            ],
       ),
     } satisfies ConnectedIntegrationsPort,
   );
@@ -113,6 +120,16 @@ describe('TeamIntegrationsHandler', () => {
       connectionStatus: 'connected',
       linkedAccount: 'Acme',
     });
+  });
+
+  it('says an integration is disconnected once refreshing the team’s connection failed', async () => {
+    const read = await reading({
+      requiresConnection: true,
+      linkedAccount: 'Acme',
+      refreshFailedAt: new Date('2026-11-07T10:00:00.000Z'),
+    }).execute(query());
+
+    expect(read?.integrations[0]?.connectionStatus).toBe('disconnected');
   });
 
   it('says an integration needs no connection where it requires none', async () => {

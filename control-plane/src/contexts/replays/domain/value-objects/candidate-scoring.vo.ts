@@ -1,17 +1,18 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
+import type { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 
 export class CandidateScoring {
   private constructor(
     readonly checksChanges: boolean,
     readonly judge: JudgeCriteria | null,
-    readonly rubricVersion: string | null,
+    readonly rubricVersion: RubricVersion | null,
   ) {}
 
   static of(input: {
     checksChanges: boolean;
     judge: JudgeCriteria | null;
-    rubricVersion: string | null;
+    rubricVersion: RubricVersion | null;
   }): CandidateScoring {
     if ((input.judge === null) !== (input.rubricVersion === null)) {
       throw new InvalidCandidateError(

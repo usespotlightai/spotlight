@@ -8,12 +8,10 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
-import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -24,26 +22,8 @@ import {
 } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
-import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
-
-const REPLAYED_AS = StationConfig.rehydrate(
-  {
-    prompt: null,
-    harness: 'dev',
-    model: null,
-    effort: null,
-    profile: null,
-    image: null,
-    repositories: [],
-    skills: [],
-    tools: [],
-    decisions: false,
-    memories: false,
-  },
-  'f'.repeat(64),
-);
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
@@ -81,11 +61,6 @@ const REPLAY_SPEC: RunSpecParts = {
   },
 };
 
-const MEMORIES = BriefedMemories.of({
-  briefed: [{ id: 'memory_1', handle: 'M-1' }],
-  omitted: [],
-});
-
 const queued = (
   subject: RunSubject | null = REPLAY,
   spec: RunSpecParts = REPLAY_SPEC,
@@ -97,8 +72,6 @@ const queued = (
     priority: RunPriority.of(-1),
     subject,
     spec: RunSpec.of(spec),
-    briefedWith: MEMORIES,
-    configuredAs: subject?.isReplay ? REPLAYED_AS : null,
   });
 
 const claimed = () => queued().claim(RUNNER, NOW);
@@ -124,28 +97,6 @@ describe('a replay', () => {
     expect(() => queued(REPLAY, TASK_SPEC)).toThrow(InvalidRunTransitionError);
     expect(() => queued(OF_TASK, REPLAY_SPEC)).toThrow(
       InvalidRunTransitionError,
-    );
-  });
-
-  it('is replayed only as the station it replays at is configured', () => {
-    expect(() =>
-      Run.enqueue({
-        id: RunId.of('run_1'),
-        workspaceId: WorkspaceId.of('ws_1'),
-        harness: HarnessId.of('dev'),
-        priority: RunPriority.of(-1),
-        subject: REPLAY,
-        spec: RunSpec.of(REPLAY_SPEC),
-      }),
-    ).toThrow(InvalidRunTransitionError);
-  });
-
-  it('says nothing of the memories it was briefed with, which are the ones its original was', () => {
-    const run = queued();
-
-    expect(run.briefedWith.equals(MEMORIES)).toBe(true);
-    expect(run.pullEvents().some((each) => each instanceof RunBriefed)).toBe(
-      false,
     );
   });
 
@@ -285,19 +236,11 @@ describe('a replay', () => {
         askedAPerson: true,
       }),
     ).toThrow(InconsistentStateError);
-    expect(() =>
-      Run.rehydrate({
-        ...stored,
-        subject: REPLAY,
-        spec: RunSpec.of(REPLAY_SPEC),
-      }),
-    ).toThrow(InconsistentStateError);
     expect(
       Run.rehydrate({
         ...stored,
         subject: REPLAY,
         spec: RunSpec.of(REPLAY_SPEC),
-        configuredAs: REPLAYED_AS,
         askedAPerson: true,
       }).askedAPerson,
     ).toBe(true);

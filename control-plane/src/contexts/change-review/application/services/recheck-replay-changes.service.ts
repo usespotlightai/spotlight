@@ -4,7 +4,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class RecheckReplayChanges implements ReplayRechecksPort {
   constructor(
@@ -13,20 +13,20 @@ export class RecheckReplayChanges implements ReplayRechecksPort {
     private readonly clock: ClockPort,
   ) {}
 
-  async recheckable(runId: string): Promise<readonly string[]> {
-    return (await this.checks.ofRun(RunId.of(runId)))
+  async recheckable(runId: RunId): Promise<readonly string[]> {
+    return (await this.checks.ofRun(runId))
       .filter((each) => each.recheckable)
       .map((each) => each.stackId.value);
   }
 
-  recheck(runId: string, stackId: string): Promise<void> {
+  recheck(runId: RunId, stackId: string): Promise<void> {
     const stack = ChangeStackId.of(stackId);
 
     return this.transaction.inTransaction(async () => {
       const first = await this.checks.find(StackCheckId.first(stack));
 
       if (
-        !first?.runId.equals(RunId.of(runId)) ||
+        !first?.runId.equals(runId) ||
         !first.recheckable ||
         (await this.checks.find(StackCheckId.recheckOf(stack)))
       ) {

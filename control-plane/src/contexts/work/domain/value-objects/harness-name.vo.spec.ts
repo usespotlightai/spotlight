@@ -1,15 +1,15 @@
-import { InvalidHarnessNameError } from '@work/domain/exceptions/invalid-harness-name.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('HarnessName', () => {
   it('rejects a name that names nothing', () => {
-    expect(() => HarnessName.of('   ')).toThrow(InvalidHarnessNameError);
+    expect(() => HarnessName.of('   ')).toThrow(InconsistentStateError);
   });
 
   it('rejects a name too long to read', () => {
     expect(() => HarnessName.of('a'.repeat(101))).toThrow(
-      InvalidHarnessNameError,
+      InconsistentStateError,
     );
   });
 

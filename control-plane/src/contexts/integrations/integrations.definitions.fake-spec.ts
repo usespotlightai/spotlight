@@ -12,7 +12,7 @@ export const defined = (
   const definition = parseYaml(text);
   const compiled = compileIntegration(definition, expressions);
   const handWritten = compiled.ok
-    ? compiled.readable.integration.tools.map((each) => each.tool)
+    ? compiled.readable.integration.tools.map((each) => each.tool.value)
     : [];
 
   return {

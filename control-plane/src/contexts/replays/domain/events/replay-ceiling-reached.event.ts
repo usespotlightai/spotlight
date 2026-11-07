@@ -4,7 +4,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReplayCeilingReached implements DomainEvent {
-  readonly kind = 'replays.replay-ceiling-reached';
+  readonly kind = 'replay.ceiling-reached';
 
   constructor(
     readonly replayId: ReplayId,

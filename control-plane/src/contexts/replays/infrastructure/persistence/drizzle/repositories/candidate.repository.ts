@@ -9,6 +9,7 @@ import { CandidateScoring } from '@replays/domain/value-objects/candidate-scorin
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
+import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
@@ -89,7 +90,7 @@ const toCandidate = (row: CandidateRow): Candidate =>
               claims: row.claims,
               passThreshold: row.passThreshold,
             }),
-      rubricVersion: row.rubricVersion,
+      rubricVersion: RubricVersion.optional(row.rubricVersion),
     }),
     changedFrom: StationChanges.of(
       StationFingerprint.of(row.changedFrom),

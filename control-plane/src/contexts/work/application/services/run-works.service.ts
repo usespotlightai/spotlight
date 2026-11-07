@@ -5,22 +5,26 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { RunFactsPort } from '@work/application/ports/run-facts.port';
+import type {
+  LeasedAttempt,
+  LeasedRun,
+  RunLeasesPort,
+} from '@work/application/ports/run-leases.port';
+import type { RunsPort } from '@work/application/ports/runs.port';
 import { ChatRunWork } from '@work/application/services/chat-run-work';
 import { ReplayRunWork } from '@work/application/services/replay-run-work';
 import type { RunWork } from '@work/application/services/run-work';
 import { SearchRunWork } from '@work/application/services/search-run-work';
 import { TaskRunWork } from '@work/application/services/task-run-work';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
-import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
 export interface LeasedRunWork {
-  readonly run: Run;
+  readonly run: LeasedRun;
   readonly work: RunWork | null;
 }
 
@@ -31,6 +35,9 @@ export interface CheckedRepository {
 
 export class RunWorks {
   constructor(
+    private readonly leases: RunLeasesPort,
+    private readonly facts: RunFactsPort,
+    private readonly runCommands: RunsPort,
     private readonly runs: RunRepository,
     private readonly tasks: TaskRepository,
     private readonly chats: ChatRepository,
@@ -40,85 +47,86 @@ export class RunWorks {
   ) {}
 
   async leasedBy(runId: string, runnerId: string): Promise<LeasedRunWork> {
-    const run = await this.runs.findById(RunId.of(runId));
-
-    if (!run) {
-      throw new UnknownRunError(`Run ${runId} not found.`);
-    }
-
-    run.assertLeasedBy(RunnerId.of(runnerId));
+    const run = await this.leases.leaseOf(
+      RunId.of(runId),
+      RunnerId.of(runnerId),
+    );
 
     return { run, work: await this.workOf(run) };
   }
 
   async workLeasedBy(runId: string, runnerId: string): Promise<RunWork | null> {
-    const run = await this.runs.findById(RunId.of(runId));
+    const run = await this.leases.leasedBy(
+      RunId.of(runId),
+      RunnerId.of(runnerId),
+    );
 
-    return run?.isLeasedBy(RunnerId.of(runnerId)) ? this.workOf(run) : null;
+    return run ? this.workOf(run) : null;
   }
 
-  async stillOn(attempt: RunAttempt, runnerId: string): Promise<void> {
-    const run = await this.runs.findById(attempt.runId);
-
-    if (!run) {
-      throw new UnknownRunError(`Run ${attempt.runId.value} not found.`);
-    }
-
-    run.assertStillOn(attempt, RunnerId.of(runnerId));
+  async stillOn(leased: LeasedAttempt, runnerId: string): Promise<void> {
+    await this.leases.assertStillOn(
+      leased.runId,
+      leased.attempt,
+      RunnerId.of(runnerId),
+    );
   }
 
   async repositoryForCheck(
     runId: RunId,
     name: string,
   ): Promise<CheckedRepository | null> {
-    const run = await this.runs.findById(runId);
+    const [run] = await this.facts.of([runId]);
+    const subject = run?.subject;
 
-    if (run?.isReplay) {
-      const replayed = run.replayedRepository(name);
+    if (subject?.kind === 'replay') {
+      const replayed = (await this.runs.findById(runId))?.replayedRepository(
+        name,
+      );
 
-      return replayed
+      return run && replayed
         ? { workspaceId: run.workspaceId, repository: replayed }
         : null;
     }
 
-    if (!run?.stationId || run.isSearch) {
+    if (!run || subject?.kind !== 'task' || !subject.stationId) {
       return null;
     }
 
-    const task =
-      (await run.subject?.match<Promise<Task | null>>({
-        task: (taskId) => this.tasks.find(taskId),
-        chat: async () => null,
-        replay: async () => null,
-        search: async () => null,
-      })) ?? null;
-    const line = await this.lines.findByStation(run.stationId);
+    const task = await this.tasks.find(subject.taskId);
+    const line = await this.lines.findByStation(subject.stationId);
     const repository = line ? repositoryForTaskNamed(name, task, line) : null;
 
     return repository ? { workspaceId: run.workspaceId, repository } : null;
   }
 
-  private async workOf(run: Run): Promise<RunWork | null> {
-    if (!run.subject) {
-      return null;
-    }
+  private async workOf(run: LeasedRun): Promise<RunWork | null> {
+    const subject = run.subject;
 
-    return run.subject.match<Promise<RunWork | null>>({
-      task: async (taskId) => {
-        const task = await this.tasks.find(taskId);
+    switch (subject?.kind) {
+      case 'task': {
+        const task = await this.tasks.find(subject.taskId);
 
-        return task?.hasCurrentRun(run.id)
+        return task?.hasCurrentRun(run.runId)
           ? new TaskRunWork(run, task, this.tasks, this.lines, this.clock)
           : null;
-      },
-      chat: async (chatId) => {
-        const chat = await this.chats.find(chatId);
+      }
+      case 'chat': {
+        const chat = await this.chats.find(ChatId.of(subject.chatId));
 
         return chat ? new ChatRunWork(run, chat, this.chats) : null;
-      },
-      replay: async (original) =>
-        new ReplayRunWork(run, await this.briefedTasks.of(original), this.runs),
-      search: async () => new SearchRunWork(run, this.runs),
-    });
+      }
+      case 'replay':
+        return new ReplayRunWork(
+          run,
+          await this.briefedTasks.of(subject.replayOf),
+          this.runs,
+          this.runCommands,
+        );
+      case 'search':
+        return new SearchRunWork(run, this.runCommands);
+      default:
+        return null;
+    }
   }
 }

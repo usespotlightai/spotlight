@@ -34,7 +34,6 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -42,23 +41,6 @@ import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
-
-const REPLAYED_AS = StationConfig.rehydrate(
-  {
-    prompt: null,
-    harness: 'dev',
-    model: null,
-    effort: null,
-    profile: null,
-    image: null,
-    repositories: [],
-    skills: [],
-    tools: [],
-    decisions: false,
-    memories: false,
-  },
-  'f'.repeat(64),
-);
 
 const NOW = new Date('2026-09-29T09:00:00.000Z');
 const RUN = RunId.of('run_1');
@@ -306,7 +288,6 @@ describe('the end of a replay’s turn', () => {
       id: RUN,
       workspaceId: WorkspaceId.of('ws_1'),
       harness: HarnessId.of('dev'),
-      configuredAs: REPLAYED_AS,
       subject: RunSubject.replay(
         RunId.of('run_0'),
         TaskId.of('task_1'),

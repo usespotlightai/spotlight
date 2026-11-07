@@ -28,8 +28,8 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 const approvedIn = (body: ApproveMemoriesRequestDto | undefined) =>
   (Array.isArray(body?.memories) ? body.memories : []).map((each) => ({
@@ -63,18 +63,7 @@ export class MemoryReviewController {
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<MemoryReviewResponseDto> {
-    const found = await this.queryBus.execute<
-      ReadMemoryReviewQuery,
-      MemoryReviewDto | null
-    >(new ReadMemoryReviewQuery(teamId, taskId, runId, user.id));
-
-    if (!found) {
-      throw new NotFoundException(
-        `Run ${runId} of task ${taskId} has no memories to review.`,
-      );
-    }
-
-    return new MemoryReviewResponseDto(found);
+    return this.reviewOf(teamId, taskId, runId, user.id);
   }
 
   @Post('approve')
@@ -101,17 +90,17 @@ export class MemoryReviewController {
     @Body() body: ApproveMemoriesRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<MemoryReviewResponseDto> {
-    return new MemoryReviewResponseDto(
-      await this.commandBus.execute<ApproveMemoriesCommand, MemoryReviewDto>(
-        new ApproveMemoriesCommand(
-          teamId,
-          taskId,
-          runId,
-          approvedIn(body),
-          user.id,
-        ),
+    await this.commandBus.execute<ApproveMemoriesCommand, void>(
+      new ApproveMemoriesCommand(
+        teamId,
+        taskId,
+        runId,
+        approvedIn(body),
+        user.id,
       ),
     );
+
+    return this.reviewOf(teamId, taskId, runId, user.id);
   }
 
   @Post(':memoryId/reject')
@@ -134,10 +123,30 @@ export class MemoryReviewController {
     @Param('memoryId') memoryId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<MemoryReviewResponseDto> {
-    return new MemoryReviewResponseDto(
-      await this.commandBus.execute<RejectMemoryCommand, MemoryReviewDto>(
-        new RejectMemoryCommand(teamId, taskId, runId, memoryId, user.id),
-      ),
+    await this.commandBus.execute<RejectMemoryCommand, void>(
+      new RejectMemoryCommand(teamId, taskId, runId, memoryId, user.id),
     );
+
+    return this.reviewOf(teamId, taskId, runId, user.id);
+  }
+
+  private async reviewOf(
+    teamId: string,
+    taskId: string,
+    runId: string,
+    viewerId: string,
+  ): Promise<MemoryReviewResponseDto> {
+    const found = await this.queryBus.execute<
+      ReadMemoryReviewQuery,
+      MemoryReviewDto | null
+    >(new ReadMemoryReviewQuery(teamId, taskId, runId, viewerId));
+
+    if (!found) {
+      throw new NotFoundException(
+        `Run ${runId} of task ${taskId} has no memories to review.`,
+      );
+    }
+
+    return new MemoryReviewResponseDto(found);
   }
 }

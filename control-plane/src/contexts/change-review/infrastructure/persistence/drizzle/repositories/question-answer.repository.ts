@@ -1,5 +1,4 @@
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
-import { QuestionAlreadyAnsweredError } from '@change-review/domain/exceptions/question-already-answered.error';
 import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -18,11 +17,12 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
 
-const isAnsweredTwice = (error: unknown): boolean =>
+const isAnswerTaken = (error: unknown): boolean =>
   violates(error, UNIQUE_VIOLATION, 'question_answer_person_idx');
 
 type Row = typeof questionAnswer.$inferSelect;
@@ -32,6 +32,7 @@ const toAnswer = (row: Row): QuestionAnswer =>
     id: QuestionAnswerId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
+    teamId: row.teamId ? TeamId.of(row.teamId) : null,
     stackId: ChangeStackId.of(row.stackId),
     questionId: QuestionId.of(row.questionId),
     personId: UserId.of(row.personId),
@@ -49,6 +50,7 @@ const toRow = (answer: QuestionAnswer): Row => ({
   id: answer.id.value,
   workspaceId: answer.workspaceId.value,
   taskId: answer.taskId?.value ?? null,
+  teamId: answer.teamId?.value ?? null,
   stackId: answer.stackId.value,
   questionId: answer.questionId,
   personId: answer.personId.value,
@@ -83,8 +85,8 @@ export class DrizzleQuestionAnswerRepository
       try {
         await this.context.db.insert(questionAnswer).values(toRow(added));
       } catch (error) {
-        throw isAnsweredTwice(error)
-          ? new QuestionAlreadyAnsweredError()
+        throw isAnswerTaken(error)
+          ? new QuestionAnswerVersionConflictError(added.id.value)
           : error;
       }
       await this.events.dispatch(added.pullEvents());
@@ -135,6 +137,15 @@ export class DrizzleQuestionAnswerRepository
       .select()
       .from(questionAnswer)
       .where(eq(questionAnswer.taskId, taskId.value));
+
+    return rows.map(toAnswer);
+  }
+
+  async ofTeam(teamId: TeamId): Promise<readonly QuestionAnswer[]> {
+    const rows = await this.context.db
+      .select()
+      .from(questionAnswer)
+      .where(eq(questionAnswer.teamId, teamId.value));
 
     return rows.map(toAnswer);
   }

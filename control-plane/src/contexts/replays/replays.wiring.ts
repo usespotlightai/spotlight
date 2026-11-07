@@ -93,6 +93,7 @@ import { ReadReplayCheckHandler } from '@replays/application/queries/handlers/re
 import { ReadReplayedCandidatesHandler } from '@replays/application/queries/handlers/read-replayed-candidates.handler';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
+import { SearchVisibilities } from '@replays/application/queries/search-visibilities';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
@@ -118,6 +119,7 @@ import { LiveCandidates } from '@replays/application/services/live-candidates.se
 import { NoticeSearchResults } from '@replays/application/services/notice-search-results.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
+import { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
 import { PickSearchCandidates } from '@replays/application/services/pick-search-candidates.service';
 import { ReconcileConfigPullRequests } from '@replays/application/services/reconcile-config-pull-requests.service';
 import { RecordLineChange } from '@replays/application/services/record-line-change.service';
@@ -137,7 +139,6 @@ import { RequestReplaySideBySideJudging } from '@replays/application/services/re
 import { RequestSideBySideJudging } from '@replays/application/services/request-side-by-side-judging.service';
 import { SearchFindings } from '@replays/application/services/search-findings.service';
 import { SearchSchedules } from '@replays/application/services/search-schedules.service';
-import { SearchVisibilities } from '@replays/application/services/search-visibilities.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { SetStations } from '@replays/application/services/set-stations.service';
 import { SetUsage } from '@replays/application/services/set-usage.service';
@@ -547,18 +548,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: SetHealths,
-    inject: [
-      WORK,
-      DrizzleReplayRepository,
-      REPLAYS_READER,
-      DrizzleCandidateRepository,
-    ],
+    inject: [WORK, DrizzleReplayRepository, DrizzleCandidateRepository],
     useFactory: (
       work: WorkPort,
       replays: DrizzleReplayRepository,
-      reader: ReplaysReaderPort,
       candidates: DrizzleCandidateRepository,
-    ) => new SetHealths(work, replays, reader, candidates),
+    ) => new SetHealths(work, replays, candidates),
   },
   {
     provide: CheckEvaluations,
@@ -1026,6 +1021,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     provide: StartSearch,
     inject: [
       LiveCandidates,
+      PendingSearchSteps,
       DrizzleReplaySetRepository,
       DrizzleSearchRepository,
       DrizzleStationSearchScheduleRepository,
@@ -1037,6 +1033,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       snapshots: LiveCandidates,
+      steps: PendingSearchSteps,
       sets: DrizzleReplaySetRepository,
       searches: DrizzleSearchRepository,
       schedules: DrizzleStationSearchScheduleRepository,
@@ -1048,6 +1045,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ) =>
       new StartSearch(
         snapshots,
+        steps,
         sets,
         searches,
         schedules,
@@ -1056,6 +1054,36 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         ids,
         clock,
         transaction,
+      ),
+  },
+  {
+    provide: PendingSearchSteps,
+    inject: [
+      DrizzleStationSearchScheduleRepository,
+      DrizzleSearchRepository,
+      DrizzleLineSearchBudgetRepository,
+      LiveCandidates,
+      CLOCK,
+      TRANSACTION,
+      LOGGER,
+    ],
+    useFactory: (
+      schedules: DrizzleStationSearchScheduleRepository,
+      searches: DrizzleSearchRepository,
+      budgets: DrizzleLineSearchBudgetRepository,
+      snapshots: LiveCandidates,
+      clock: ClockPort,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+    ) =>
+      new PendingSearchSteps(
+        schedules,
+        searches,
+        budgets,
+        snapshots,
+        clock,
+        transaction,
+        logger,
       ),
   },
   {
@@ -1120,6 +1148,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       CheckSearchReadiness,
       StartSearch,
       LiveCandidates,
+      PendingSearchSteps,
       ID_GENERATOR,
       CLOCK,
       TRANSACTION,
@@ -1136,6 +1165,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       readiness: CheckSearchReadiness,
       starting: StartSearch,
       snapshots: LiveCandidates,
+      steps: PendingSearchSteps,
       ids: IdGeneratorPort,
       clock: ClockPort,
       transaction: TransactionPort,
@@ -1152,6 +1182,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         readiness,
         starting,
         snapshots,
+        steps,
         ids,
         clock,
         transaction,
@@ -1284,6 +1315,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       EnsureCheckBaselines,
       RefreshReplaySets,
       AutoSearches,
+      PendingSearchSteps,
       WorkChangeJudgings,
       WorkSideBySideJudgings,
       LOGGER,
@@ -1297,6 +1329,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       baselines: EnsureCheckBaselines,
       refreshing: RefreshReplaySets,
       searching: AutoSearches,
+      steps: PendingSearchSteps,
       changes: WorkChangeJudgings,
       pairs: WorkSideBySideJudgings,
       logger: LoggerPort,
@@ -1311,6 +1344,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           baselines,
           refreshing,
           searching,
+          steps,
           changes,
           pairs,
         ],

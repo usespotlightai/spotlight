@@ -52,6 +52,7 @@ const serving = (
     silentHosts?: string[];
     reported?: string[];
     stopping?: boolean;
+    now?: Date;
   } = {},
 ) => {
   const { stored, sandboxes, placements } = storedSandboxes(
@@ -60,13 +61,20 @@ const serving = (
   );
   const reported =
     input.reported ?? (input.known ?? []).map((each) => each.id.value);
+  const heardAt = (host: string) =>
+    input.silentHosts?.includes(host) ? later(-10 * 60_000) : STARTED_AT;
   const { stored: hostsStored, hosts } = storedHosts(
     aHost({
       id: HostId.of(HOST),
       sandboxes: reported,
       stopping: input.stopping,
+      at: heardAt(HOST),
     }),
-    aHost({ id: HostId.of(OTHER_HOST), sandboxes: reported }),
+    aHost({
+      id: HostId.of(OTHER_HOST),
+      sandboxes: reported,
+      at: heardAt(OTHER_HOST),
+    }),
   );
   let next = 0;
   const service = new Sandboxes(
@@ -76,6 +84,7 @@ const serving = (
     DRAIN_POLICY,
     { generate: () => `sandbox_new_${++next}` },
     sandboxTokens(),
+    { now: () => input.now ?? STARTED_AT, sleep: async () => {} },
     { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as LoggerPort,
   );
 

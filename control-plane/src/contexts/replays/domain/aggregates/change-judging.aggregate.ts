@@ -34,7 +34,10 @@ export class ChangeJudging
   extends EventRecorder
   implements HasPendingJob<ChangeJudging>
 {
-  private constructor(private readonly state: State) {
+  private constructor(
+    private readonly state: State,
+    readonly isDeleted = false,
+  ) {
     super();
   }
 
@@ -256,8 +259,16 @@ export class ChangeJudging
     return ended;
   }
 
+  delete(): ChangeJudging {
+    const deleted = new ChangeJudging(this.state, true);
+
+    deleted.inheritEvents(this);
+
+    return deleted;
+  }
+
   private with(part: Partial<State>): ChangeJudging {
-    const next = new ChangeJudging({ ...this.state, ...part });
+    const next = new ChangeJudging({ ...this.state, ...part }, this.isDeleted);
 
     next.inheritEvents(this);
 

@@ -8,8 +8,6 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 const EXPIRE_BATCH = 100;
 
 export class IssuedTokens {
-  readonly name = 'Revoking and expiring tokens issued by a trust';
-
   constructor(
     private readonly tokens: WorkspaceTokenRepository,
     private readonly clock: ClockPort,

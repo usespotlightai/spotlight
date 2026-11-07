@@ -24,6 +24,7 @@ export * from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema
 export * from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/inbox-request.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';

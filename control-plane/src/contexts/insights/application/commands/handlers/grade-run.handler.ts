@@ -1,7 +1,7 @@
 import type { GradeRunCommand } from '@insights/application/commands/grade-run.command';
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
+import type { GradingTermsOf } from '@insights/application/services/grading-terms-of.service';
 import type { InsightsAccess } from '@insights/application/services/insights-access.service';
-import type { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { Score } from '@insights/domain/aggregates/score.aggregate';
 import { UnknownRunError } from '@insights/domain/exceptions/unknown-run.error';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
@@ -15,13 +15,15 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class GradeRunHandler
   implements CommandHandlerPort<GradeRunCommand, void>
 {
   constructor(
     private readonly access: InsightsAccess,
-    private readonly views: RunScoresViews,
+    private readonly terms: GradingTermsOf,
     private readonly records: RunRecordRepository,
     private readonly scores: ScoreRepository,
     private readonly recorder: FactRecorder,
@@ -33,8 +35,8 @@ export class GradeRunHandler
   async execute(command: GradeRunCommand): Promise<void> {
     try {
       const access = await this.access.forTeam(
-        command.teamId,
-        command.viewerId,
+        TeamId.of(command.teamId),
+        UserId.of(command.viewerId),
       );
       const record = await this.records.of(RunId.of(command.runId));
       const end = record?.end;
@@ -52,7 +54,7 @@ export class GradeRunHandler
       const { location } = end;
 
       await this.transaction.inTransaction(async () => {
-        const terms = await this.views.gradingTerms(
+        const terms = await this.terms.of(
           run,
           await this.scores.ofRuns([runId]),
         );

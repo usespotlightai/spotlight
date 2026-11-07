@@ -82,25 +82,31 @@ const withTask = (alertStates: StationAlertStatesInMemory) =>
   alertStates.ofScope(DeletionScope.ofTask(WORKSPACE, TASK), 10);
 
 describe('DeleteInsights', () => {
-  it('marks the task deleted and drops its firings from each station alert state in one transaction', async () => {
+  it('marks the task deleted, then drops its firings from each station alert state in a transaction of its own', async () => {
     const alertStates = new StationAlertStatesInMemory();
     const { insights, deletions, transactions } = await deleting(alertStates);
 
     await insights.alertStates(DeletionScope.ofTask(WORKSPACE, TASK));
 
     expect(deletions.deleted(DeletionScope.ofTask(WORKSPACE, TASK))).toBe(true);
-    expect(transactions()).toBe(1);
+    expect(transactions()).toBe(3);
     expect(await withTask(alertStates)).toEqual([]);
     expect(alertStates.stored.size).toBe(2);
   });
 
-  it('fails the whole deletion when an alert state changed meanwhile, so it is retried', async () => {
+  it('keeps what it erased when another alert state changed meanwhile, and a retry erases the rest', async () => {
     const alertStates = new AlertStatesMovingOn('station_2');
-    const { insights } = await deleting(alertStates);
+    const { insights, deletions } = await deleting(alertStates);
+    const scope = DeletionScope.ofTask(WORKSPACE, TASK);
 
-    await expect(
-      insights.alertStates(DeletionScope.ofTask(WORKSPACE, TASK)),
-    ).rejects.toBeInstanceOf(StationAlertStateVersionConflictError);
+    await expect(insights.alertStates(scope)).rejects.toBeInstanceOf(
+      StationAlertStateVersionConflictError,
+    );
+
+    expect(deletions.deleted(scope)).toBe(true);
+    expect(
+      (await withTask(alertStates)).map((each) => each.station.stationId.value),
+    ).toEqual(['station_2']);
   });
 
   it('marks the team as deleted as it removes its alert states', async () => {

@@ -26,6 +26,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations, mapOf } from './support/stations';
 import { createTeam } from './support/team';
@@ -144,31 +145,40 @@ const anOriginal = async (): Promise<Original> => {
       resume: { key: `task-${taskId}` },
       startingPoint: true,
     },
-    briefedTask: BriefedTask.of({
-      stationId: StationId.of(BUILD),
-      title: 'Drain the queue',
-      description: 'It stalls on restart.',
-      reviewing: null,
-      attachments: [
-        Attachment.of({
-          id: briefedFile,
-          name: 'queue-0.png',
-          contentType: 'image/png',
-          size: 4,
-        }),
-      ],
-      notes: [],
-      openReviewComments: [],
-    }).parts,
-    briefedMemories: {
-      briefed: [{ id: memoryId, handle: `M-${memoryHandle}` }],
-      omitted: [],
-    },
     startedFromArchiveId: archiveId,
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      taskId,
+      stationId: BUILD,
+      briefedTask: BriefedTask.of({
+        stationId: StationId.of(BUILD),
+        title: 'Drain the queue',
+        description: 'It stalls on restart.',
+        reviewing: null,
+        attachments: [
+          Attachment.of({
+            id: briefedFile,
+            name: 'queue-0.png',
+            contentType: 'image/png',
+            size: 4,
+          }),
+        ],
+        notes: [],
+        openReviewComments: [],
+      }).parts,
+      briefedMemories: {
+        briefed: [{ id: memoryId, handle: `M-${memoryHandle}` }],
+        omitted: [],
+      },
+      endedAt: new Date(),
+    }),
+  );
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
@@ -255,6 +265,15 @@ const runRow = async (runId: string) => {
     .select()
     .from(schema.run)
     .where(eq(schema.run.id, runId));
+
+  return row;
+};
+
+const dispatchRow = async (runId: string) => {
+  const [row] = await db
+    .select()
+    .from(schema.dispatch)
+    .where(eq(schema.dispatch.id, runId));
 
   return row;
 };
@@ -477,7 +496,7 @@ describe('a replay claimed by a runner', () => {
       (await app.get(DrizzleRunRepository).findById(RunId.of(replayId)))
         ?.subject?.replayedTaskId?.value,
     ).toBe(original.taskId);
-    expect(row?.stationFingerprint).not.toBeNull();
+    expect((await dispatchRow(replayId))?.stationFingerprint).not.toBeNull();
     expect(row?.priority).toBe(-1);
   });
 

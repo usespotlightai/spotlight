@@ -62,12 +62,7 @@ const read = (period = '30d', mayPlan: boolean | null = false) => {
     memory.candidateRepository,
     work,
     { now: () => now, sleep: async () => {} },
-    new SetHealths(
-      work,
-      memory.replayRepository,
-      memory.replaysReader,
-      memory.candidateRepository,
-    ),
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
   ).execute(
     new ReadReplayedCandidatesQuery(STATION.teamId.value, PERSON, period),
   );

@@ -21,6 +21,7 @@ import { WorkLookup } from '@work/application/services/work-lookup.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -61,6 +62,10 @@ const task = () =>
     newId: fresh,
   });
 
+const NO_DISPATCHES = {
+  find: async () => null,
+} as unknown as DispatchRepository;
+
 const lookingUp = (markedTasks: readonly Task[]) =>
   new WorkLookup(
     {} as RunRepository,
@@ -78,6 +83,7 @@ const lookingUp = (markedTasks: readonly Task[]) =>
     { findByStation: async () => line } as unknown as LineMapsPort,
     {} as ChatRepository,
     {} as RunJournalReaderPort,
+    NO_DISPATCHES,
   );
 
 describe('WorkLookup, finding the task a pull request belongs to', () => {
@@ -153,6 +159,7 @@ describe('WorkLookup, looking up a run', () => {
       { findByStation: async () => line } as unknown as LineMapsPort,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
+      NO_DISPATCHES,
     );
   };
 
@@ -286,6 +293,7 @@ describe('WorkLookup, reading how a run reasoned', () => {
           changesOf('run_1', steps, ['api', 'web']),
         ],
       } as unknown as RunJournalReaderPort,
+      NO_DISPATCHES,
     ).reasoning(RunId.of('run_1'));
 
   it('offers the messages, thoughts and plans of the agent, where it is in the journal', async () => {
@@ -401,6 +409,7 @@ describe('WorkLookup, reading what a run changed', () => {
             })),
           }) as unknown as RunJournal,
       } as unknown as RunJournalReaderPort,
+      NO_DISPATCHES,
     ).changedBy(RunId.of('run_1'));
 
   it('names each file the run changed once, in the repository it lies in', async () => {
@@ -448,6 +457,7 @@ describe('WorkLookup, reading the notes of people on a task', () => {
       {} as LineMapsPort,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
+      NO_DISPATCHES,
     ).notesOf(TaskId.of('task_1'));
 
     expect(views).toEqual([
@@ -459,28 +469,6 @@ describe('WorkLookup, reading the notes of people on a task', () => {
       },
       { position: 2, by: 'world', author: null, text: 'Never retry on a 403.' },
     ]);
-  });
-});
-
-describe('WorkLookup, reading a team’s lines', () => {
-  it('names each line, with the stations that work and its repositories', async () => {
-    const lines = await new WorkLookup(
-      {} as RunRepository,
-      {} as TaskRepository,
-      { ofTeam: async () => [line] } as unknown as LineMapsPort,
-      {} as ChatRepository,
-      {} as RunJournalReaderPort,
-    ).linesOf(TeamId.of('team_1'));
-
-    expect(lines.map((each) => each.id)).toEqual([line.id.value]);
-    expect(lines[0]?.stations.map((each) => each.name)).toEqual(
-      line.stations
-        .filter((each) => each.isAgentStation)
-        .map((each) => each.name.value),
-    );
-    expect(lines[0]?.stations.some((each) => each.name === 'Backlog')).toBe(
-      false,
-    );
   });
 });
 
@@ -531,6 +519,7 @@ describe('WorkLookup, finding the run a runner leases', () => {
         }),
       } as unknown as ChatRepository,
       {} as RunJournalReaderPort,
+      NO_DISPATCHES,
     );
 
   const leasedRun = (run: Parameters<typeof lookingAt>[0]) =>

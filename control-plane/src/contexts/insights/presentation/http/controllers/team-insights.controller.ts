@@ -32,13 +32,13 @@ import { ReadInsightsShippingQuery } from '@insights/application/queries/read-in
 import { ReadInsightsStationsQuery } from '@insights/application/queries/read-insights-stations.query';
 import { ReadInsightsToolsQuery } from '@insights/application/queries/read-insights-tools.query';
 import { ReadStationAlertQuery } from '@insights/application/queries/read-station-alert.query';
-import { MAX_FILTERED_REPOSITORIES } from '@insights/domain/services/pull-request-filter';
 import {
   HARNESS_DEFAULT_MODEL,
-  MAX_FILTERED_TASKS,
   NO_REPOSITORY,
   NO_SERVER,
-} from '@insights/domain/services/run-filter';
+} from '@insights/application/queries/run-filter-query';
+import { MAX_FILTERED_REPOSITORIES } from '@insights/domain/services/pull-request-filter';
+import { MAX_FILTERED_TASKS } from '@insights/domain/services/run-filter';
 import { RUN_SIZES } from '@insights/domain/services/run-size';
 import {
   PULL_REQUEST_AUTHORS,
@@ -152,7 +152,7 @@ const FilterQuery = (name: string, description: string) =>
     'No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last',
 })
 @ApiParam({ name: 'teamId', type: String })
-@InAudience('insights')
+@InAudience('automation')
 @Controller('teams/:teamId/insights')
 export class TeamInsightsController {
   constructor(private readonly queryBus: QueryBus) {}

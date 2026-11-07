@@ -26,14 +26,18 @@ export const RUN_FAILURES = {
     maxDelayMs: 0,
   }),
   cancelled: Retry.never(),
-  superseded: Retry.never(),
-} as const satisfies Record<RunFailureCode, Retry>;
+} as const satisfies Record<RunEndFailureCode, Retry>;
+
+export type RunEndFailureCode = Exclude<RunFailureCode, 'superseded'>;
+
+const isRunEndFailureCode = (code: string): code is RunEndFailureCode =>
+  isRunFailureCode(code) && code in RUN_FAILURES;
 
 export class RunFailure {
-  private constructor(readonly code: RunFailureCode) {}
+  private constructor(readonly code: RunEndFailureCode) {}
 
   static of(code: string): RunFailure {
-    if (!isRunFailureCode(code)) {
+    if (!isRunEndFailureCode(code)) {
       throw new InvalidRunOutcomeError(`failure code ${code} is unknown`);
     }
 
@@ -46,10 +50,6 @@ export class RunFailure {
 
   get cancelled(): boolean {
     return this.code === 'cancelled';
-  }
-
-  get superseded(): boolean {
-    return this.code === 'superseded';
   }
 
   equals(other: RunFailure): boolean {

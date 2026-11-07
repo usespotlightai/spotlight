@@ -11,6 +11,11 @@ import {
   terraformNameOf,
   terraformTypeOf,
 } from '@configuration/application/rendering/terraform-layout';
+import {
+  LINE_DEFINITION_STATION_DEFAULTS,
+  type LineDefinitionJudge,
+  type LineDefinitionStation,
+} from '@lines/application/contracts/line-definition.contract';
 import type { HclLiteral } from '@platform/hcl/hcl.parse';
 import {
   editedHclBlock,
@@ -22,8 +27,6 @@ import {
 
 const TERRAFORM_FILE = '.tf';
 
-type Block = Readonly<Record<string, unknown>>;
-
 const UNSET: Readonly<Record<StationSourceField, HclLiteral>> = {
   prompt: null,
   harness: null,
@@ -32,8 +35,8 @@ const UNSET: Readonly<Record<StationSourceField, HclLiteral>> = {
   profile: null,
   skills: [],
   tools: [],
-  decisions: false,
-  memories: false,
+  decisions: LINE_DEFINITION_STATION_DEFAULTS.decisions,
+  memories: LINE_DEFINITION_STATION_DEFAULTS.memories,
   description: null,
 };
 
@@ -68,16 +71,21 @@ const FILE_FIELDS: ReadonlySet<StationSourceField> = new Set([
 ]);
 
 const GUARDED: readonly {
-  readonly from: string;
+  readonly from: keyof LineDefinitionStation;
   readonly unset: HclLiteral;
 }[] = [
   { from: 'check', unset: null },
   { from: 'passesTo', unset: [] },
 ];
 
-const JUDGE_FIELDS = ['rubric', 'claims', 'sample', 'minAgreement'] as const;
+const JUDGE_FIELDS: readonly (keyof LineDefinitionJudge)[] = [
+  'rubric',
+  'claims',
+  'sample',
+  'minAgreement',
+];
 
-const ALL_CLAIMS = 1;
+const ALL_CLAIMS = LINE_DEFINITION_STATION_DEFAULTS.judgePassThreshold;
 
 const FAILURES: Readonly<
   Record<HclEditErrorCode, StationSourceEditFailureCode>
@@ -100,7 +108,11 @@ const isLiteral = (value: unknown): value is HclLiteral =>
   typeof value === 'boolean' ||
   (Array.isArray(value) && value.every(isLiteral));
 
-const literalIn = (block: Block, field: string, unset: HclLiteral) => {
+const literalIn = <T extends object>(
+  block: T,
+  field: keyof T & string,
+  unset: HclLiteral,
+) => {
   const value = block[field] ?? unset;
 
   if (!isLiteral(value)) {
@@ -144,7 +156,7 @@ const fieldsOf = (request: StationSourceEditRequest): readonly HclField[] => [
   }),
 ];
 
-const judgeOf = (seed: Block): HclGuardedBlock => {
+const judgeOf = (seed: LineDefinitionStation): HclGuardedBlock => {
   const judge = seed.judge;
 
   if (typeof judge !== 'object' || judge === null) {
@@ -158,9 +170,9 @@ const judgeOf = (seed: Block): HclGuardedBlock => {
     expected: Object.fromEntries([
       ...JUDGE_FIELDS.map((field) => [
         terraformAttributeOf(field),
-        literalIn(judge as Block, field, null),
+        literalIn(judge, field, null),
       ]),
-      [passThreshold, literalIn(judge as Block, 'passThreshold', ALL_CLAIMS)],
+      [passThreshold, literalIn(judge, 'passThreshold', ALL_CLAIMS)],
     ]),
     unset: { [passThreshold]: ALL_CLAIMS },
   };

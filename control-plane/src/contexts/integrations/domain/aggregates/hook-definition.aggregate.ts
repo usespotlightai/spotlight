@@ -49,12 +49,11 @@ interface Props {
 
 interface State extends Props {
   readonly deleted: boolean;
-  readonly secretInput: HookSigningSecret | null;
 }
 
 interface Signing {
   readonly signing: SigningVersion | null;
-  readonly secretInput: HookSigningSecret | null;
+  readonly supplied: HookSigningSecret | null;
 }
 
 export interface Compiled {
@@ -108,7 +107,7 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   }
 };
 
-const NOT_SIGNED: Signing = { signing: null, secretInput: null };
+const NOT_SIGNED: Signing = { signing: null, supplied: null };
 
 const signingFor = (
   hook: Hook,
@@ -121,15 +120,15 @@ const signingFor = (
 
   if (change.kind === 'supplied') {
     return stored && change.versioned.version === stored.version
-      ? { signing: stored, secretInput: null }
+      ? { signing: stored, supplied: null }
       : {
           signing: { version: change.versioned.version },
-          secretInput: change.versioned.secret,
+          supplied: change.versioned.secret,
         };
   }
 
   if (stored && (change.kind === 'none' || change.version === stored.version)) {
-    return { signing: stored, secretInput: null };
+    return { signing: stored, supplied: null };
   }
 
   if (stored) {
@@ -146,7 +145,10 @@ const signingFor = (
 };
 
 export class HookDefinition extends EventRecorder {
-  private constructor(private readonly state: State) {
+  private constructor(
+    private readonly state: State,
+    readonly uncommittedSigningSecret: HookSigningSecret | null = null,
+  ) {
     super();
   }
 
@@ -162,18 +164,22 @@ export class HookDefinition extends EventRecorder {
   ): HookDefinition {
     guardAllowed(input.hook, input.allowances);
 
-    const created = new HookDefinition({
-      id: input.id,
-      workspaceId: input.workspaceId,
-      teamId: input.teamId,
-      key: input.hook.key,
-      event: input.hook.event,
-      document: input.document,
-      tools: input.hook.tools,
-      ...signingFor(input.hook, input.secret, null),
-      version: 0,
-      deleted: false,
-    });
+    const { signing, supplied } = signingFor(input.hook, input.secret, null);
+    const created = new HookDefinition(
+      {
+        id: input.id,
+        workspaceId: input.workspaceId,
+        teamId: input.teamId,
+        key: input.hook.key,
+        event: input.hook.event,
+        document: input.document,
+        tools: input.hook.tools,
+        signing,
+        version: 0,
+        deleted: false,
+      },
+      supplied,
+    );
 
     created.record(
       new HookCreated(
@@ -195,7 +201,7 @@ export class HookDefinition extends EventRecorder {
       );
     }
 
-    return new HookDefinition({ ...input, deleted: false, secretInput: null });
+    return new HookDefinition({ ...input, deleted: false });
   }
 
   assertVersion(version: number): void {
@@ -224,12 +230,20 @@ export class HookDefinition extends EventRecorder {
 
     guardAllowed(compiled.hook, allowances);
 
-    const updated = this.with({
-      event: compiled.hook.event,
-      document: compiled.document,
-      tools: compiled.hook.tools,
-      ...signingFor(compiled.hook, secret, this.signing),
-    });
+    const { signing, supplied } = signingFor(
+      compiled.hook,
+      secret,
+      this.signing,
+    );
+    const updated = this.with(
+      {
+        event: compiled.hook.event,
+        document: compiled.document,
+        tools: compiled.hook.tools,
+        signing,
+      },
+      supplied,
+    );
 
     updated.record(
       new HookUpdated(
@@ -291,10 +305,6 @@ export class HookDefinition extends EventRecorder {
     return this.state.signing;
   }
 
-  get secretInput(): HookSigningSecret | null {
-    return this.state.secretInput;
-  }
-
   get version(): number {
     return this.state.version;
   }
@@ -324,8 +334,11 @@ export class HookDefinition extends EventRecorder {
     };
   }
 
-  private with(change: Partial<State>): HookDefinition {
-    const next = new HookDefinition({ ...this.state, ...change });
+  private with(
+    change: Partial<State>,
+    supplied = this.uncommittedSigningSecret,
+  ): HookDefinition {
+    const next = new HookDefinition({ ...this.state, ...change }, supplied);
 
     next.inheritEvents(this);
 

@@ -1,4 +1,5 @@
 import type {
+  IdentifiedTeam,
   TeamOriginName,
   WorkspaceDetail,
   WorkspaceListing,
@@ -29,40 +30,49 @@ export class WorkspaceReader implements WorkspaceReaderPort {
     );
   }
 
-  idForSlug(slug: string): Promise<string | null> {
-    return this.records.idForSlug(slug);
+  async idForSlug(slug: string): Promise<WorkspaceId | null> {
+    const id = await this.records.idForSlug(slug);
+
+    return id === null ? null : WorkspaceId.of(id);
   }
 
-  slugOf(workspaceId: string): Promise<string | null> {
-    return this.records.slugOf(workspaceId);
+  slugOf(workspaceId: WorkspaceId): Promise<string | null> {
+    return this.records.slugOf(workspaceId.value);
   }
 
-  profileOf(workspaceId: string): Promise<WorkspaceProfile | null> {
-    return this.records.profileOf(workspaceId);
+  profileOf(workspaceId: WorkspaceId): Promise<WorkspaceProfile | null> {
+    return this.records.profileOf(workspaceId.value);
   }
 
-  async isOpen(workspaceId: string): Promise<boolean> {
-    return (await this.records.slugOf(workspaceId)) !== null;
+  async isOpen(workspaceId: WorkspaceId): Promise<boolean> {
+    return (await this.records.slugOf(workspaceId.value)) !== null;
   }
 
-  identifyTeam(
+  async identifyTeam(
     slug: string,
     teamKey: string,
-  ): Promise<{ workspaceId: string; teamId: string } | null> {
-    return this.records.identifyTeam(slug, teamKey);
+  ): Promise<IdentifiedTeam | null> {
+    const team = await this.records.identifyTeam(slug, teamKey);
+
+    return team
+      ? {
+          workspaceId: WorkspaceId.of(team.workspaceId),
+          teamId: TeamId.of(team.teamId),
+        }
+      : null;
   }
 
   async findTeamForMember(
-    teamId: string,
+    teamId: TeamId,
     userId: UserId,
   ): Promise<{
-    workspaceId: string;
-    teamId: string;
+    workspaceId: WorkspaceId;
+    teamId: TeamId;
     teamKey: string;
     slug: string;
     origin: TeamOriginName;
   } | null> {
-    const team = await this.teams.find(TeamId.of(teamId));
+    const team = await this.teams.find(teamId);
     const workspace = team
       ? await this.workspaces.find(team.workspaceId)
       : null;
@@ -75,8 +85,8 @@ export class WorkspaceReader implements WorkspaceReaderPort {
         PersonPrincipal.of(userId),
       ).reads
       ? {
-          workspaceId: workspace.id.value,
-          teamId: team.id.value,
+          workspaceId: workspace.id,
+          teamId: team.id,
           teamKey: team.key.value,
           slug: workspace.slug.value,
           origin: team.origin,

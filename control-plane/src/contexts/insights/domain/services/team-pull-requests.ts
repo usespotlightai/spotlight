@@ -111,7 +111,7 @@ export const toMergeMs = (each: TeamPullRequest): number | null =>
     ? between(each.seen.openedAt, each.seen.closedAt)
     : null;
 
-export const inReviewMs = (each: TeamPullRequest): number | null =>
+export const reviewedToCloseMs = (each: TeamPullRequest): number | null =>
   each.seen.state !== 'open' && each.seen.firstReviewAt && each.seen.closedAt
     ? between(each.seen.firstReviewAt, each.seen.closedAt)
     : null;

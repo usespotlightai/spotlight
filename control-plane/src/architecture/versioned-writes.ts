@@ -125,6 +125,19 @@ const conditionsOf = (chain: ts.Node, write: Write): ts.Node[] =>
       )
     : callsIn(chain, 'where').flatMap((call) => [...call.arguments]);
 
+const assignmentsOf = (chain: ts.Node, write: Write): ts.Node[] =>
+  write === 'upsert'
+    ? callsIn(chain, 'onConflictDoUpdate').flatMap((call) =>
+        descendants(call, ts.isPropertyAssignment).filter(
+          (property) =>
+            ts.isIdentifier(property.name) && property.name.text === 'set',
+        ),
+      )
+    : callsIn(chain, 'set').flatMap((call) => [...call.arguments]);
+
+const raisesVersion = (text: string): boolean =>
+  /(^|[{,\s])version\s*[:,}]/m.test(text);
+
 const comparesVersion = (text: string, binding: string): boolean =>
   new RegExp(`\\beq\\(\\s*${binding.replaceAll('.', '\\.')}\\.version\\b`).test(
     text,
@@ -187,13 +200,28 @@ const builderWrites = (file: SourceFile): Violation[] => {
         : [];
     }
 
-    return !table.versioned ||
-      comparesVersion(
-        conditionText(conditionsOf(chain, write), declarations),
-        binding,
-      )
+    if (!table.versioned) {
+      return [];
+    }
+
+    const compared = comparesVersion(
+      conditionText(conditionsOf(chain, write), declarations),
+      binding,
+    )
       ? []
       : [violation(file, call, write, table)];
+    const raised =
+      write === 'delete' ||
+      raisesVersion(conditionText(assignmentsOf(chain, write), declarations))
+        ? []
+        : [
+            {
+              key: `${file.path}: ${write} ${table.name} without raising its version`,
+              at: at(file, call),
+            },
+          ];
+
+    return [...compared, ...raised];
   });
 };
 

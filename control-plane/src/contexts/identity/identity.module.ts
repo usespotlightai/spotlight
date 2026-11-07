@@ -8,15 +8,14 @@ import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port'
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
 import { WORKSPACE_OUTBOUND_HOSTS } from '@identity/application/ports/workspace-outbound-hosts.port';
+import { WORKSPACE_OUTBOUND_SCOPE } from '@identity/application/ports/workspace-outbound-scope.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import {
   IDENTITY_CONTROLLERS,
   IDENTITY_PROVIDERS,
 } from '@identity/identity.wiring';
-
 import { AuthenticationModule } from '@identity/infrastructure/auth/auth.module';
 import { Module } from '@nestjs/common';
-import { WORKSPACE_OUTBOUND_SCOPE } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 
 @Module({
   imports: [AuthenticationModule],

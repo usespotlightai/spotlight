@@ -58,6 +58,7 @@ export const hookNamed = (
         name,
         kind: 'request' as const,
         url: new URL('https://a.example.com'),
+        headers: [],
         fromNetwork: false,
       })),
       signing: 'hmac',

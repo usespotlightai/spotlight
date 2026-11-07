@@ -1,7 +1,4 @@
-import type {
-  ReplayedStation,
-  ReplaySet,
-} from '@replays/domain/aggregates/replay-set.aggregate';
+import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
 import {
@@ -11,6 +8,7 @@ import {
 import type { CheckResult } from '@replays/domain/services/replay-check-result';
 import type { BaselineStatus } from '@replays/domain/value-objects/baseline-status';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CheckedChange } from '@replays/domain/value-objects/checked-change.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -20,6 +18,7 @@ import {
 } from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import type { SetEntriesDigest } from '@replays/domain/value-objects/set-entries-digest.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -33,7 +32,7 @@ interface State {
   readonly station: ReplayedStation;
   readonly stationKey: string;
   readonly setId: ReplaySetId;
-  readonly setEntries: string;
+  readonly setEntries: SetEntriesDigest;
   readonly attempt: number;
   readonly candidateId: CandidateId;
   readonly replayId: ReplayId;
@@ -103,8 +102,18 @@ export class ReplayCheck extends EventRecorder {
     return started;
   }
 
-  static nextAttemptAfter(earlier: readonly ReplayCheck[]): number {
-    return Math.max(0, ...earlier.map((each) => each.attempt)) + 1;
+  static nextAttemptAfter(
+    earlier: readonly ReplayCheck[],
+    change: CheckedChange,
+  ): number {
+    return (
+      Math.max(
+        0,
+        ...earlier
+          .filter((each) => each.change.equals(change))
+          .map((each) => each.attempt),
+      ) + 1
+    );
   }
 
   static rehydrate(state: State): ReplayCheck {
@@ -142,7 +151,7 @@ export class ReplayCheck extends EventRecorder {
     return this.state.setId;
   }
 
-  get setEntries(): string {
+  get setEntries(): SetEntriesDigest {
     return this.state.setEntries;
   }
 
@@ -168,6 +177,10 @@ export class ReplayCheck extends EventRecorder {
 
   get candidateFingerprint(): StationFingerprint {
     return this.state.candidateFingerprint;
+  }
+
+  get change(): CheckedChange {
+    return CheckedChange.of(this.state.candidateHashes, this.state.liveHashes);
   }
 
   get liveHashes(): StationHashes {
@@ -223,14 +236,16 @@ export class ReplayCheck extends EventRecorder {
   }
 
   reusableFor(
-    set: ReplaySet,
-    setEntries: string,
+    change: CheckedChange,
+    setId: ReplaySetId,
+    setEntries: SetEntriesDigest,
     threshold: ReplayThreshold,
     repeats: number,
     result: CheckResult,
   ): boolean {
     return (
-      set.id.equals(this.state.setId) &&
+      change.equals(this.change) &&
+      setId.equals(this.state.setId) &&
       setEntries === this.state.setEntries &&
       threshold.equals(this.state.threshold) &&
       repeats === this.state.repeats &&

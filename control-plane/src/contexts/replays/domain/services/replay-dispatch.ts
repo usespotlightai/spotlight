@@ -31,10 +31,10 @@ export const dispatchedInTurn = (
   for (const replay of replays) {
     const pool = replay.dispatchPool;
 
-    if (!free.has(pool)) {
-      free.set(pool, [
+    if (!free.has(pool.value)) {
+      free.set(pool.value, [
         ...freeSlotsAmong(
-          replays.filter((each) => each.dispatchPool === pool),
+          replays.filter((each) => each.dispatchPool.equals(pool)),
           replay.searchId
             ? concurrencyOf(replay.searchId)
             : REPLAY_RUNS_AT_ONCE,
@@ -46,7 +46,7 @@ export const dispatchedInTurn = (
   const changed: Replay[] = [];
 
   for (const replay of [...replays].sort(inTurn)) {
-    const slots = free.get(replay.dispatchPool) ?? [];
+    const slots = free.get(replay.dispatchPool.value) ?? [];
 
     if (slots.length === 0) {
       continue;
@@ -57,7 +57,7 @@ export const dispatchedInTurn = (
     if (reserved !== replay) {
       const taken = reserved.occupying.length - replay.occupying.length;
 
-      free.set(replay.dispatchPool, slots.slice(taken));
+      free.set(replay.dispatchPool.value, slots.slice(taken));
       changed.push(reserved);
     }
   }

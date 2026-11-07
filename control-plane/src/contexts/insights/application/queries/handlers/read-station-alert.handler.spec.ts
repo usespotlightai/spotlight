@@ -33,7 +33,7 @@ const ADA = PersonPrincipal.of(UserId.of('user_ada'));
 const STRANGER = PersonPrincipal.of(UserId.of('user_eve'));
 
 const people: PeoplePort = {
-  membershipOnTeam: async (_teamId, principal) =>
+  viewerOf: async (_teamId, principal) =>
     principal.kind === 'person' &&
     principal.userId.equals(UserId.of('user_ada'))
       ? { workspaceId: WorkspaceId.of('ws_1'), by: principal.userId }

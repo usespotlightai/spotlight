@@ -81,7 +81,8 @@ const started = (
   Replay.start({
     id: ReplayId.of(id),
     set: SET.snapshot,
-    candidate: candidateOf(id === SEED ? 'live' : 'searched', candidate),
+    candidate: candidateOf(id === SEED ? 'live' : 'searched', candidate)
+      .asReplayed,
     baseline: id === SEED,
     ceiling,
     unpricedRate: search.ceilingSplit.perRun,

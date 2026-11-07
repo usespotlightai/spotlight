@@ -23,6 +23,14 @@ export class LiveCandidates {
   ) {}
 
   async taken(set: ReplaySet): Promise<Candidate> {
+    const live = await this.snapshotOf(set);
+
+    await this.kept(live);
+
+    return live;
+  }
+
+  async snapshotOf(set: ReplaySet): Promise<Candidate> {
     const { lineId, stationId } = set.station;
     const config = await this.work.live(lineId, stationId);
 
@@ -39,7 +47,7 @@ export class LiveCandidates {
       throw new UnknownStationError(stationId.value);
     }
 
-    const live = Candidate.live({
+    return Candidate.live({
       id: CandidateId.of(this.ids.generate()),
       station: set.station,
       address,
@@ -49,10 +57,6 @@ export class LiveCandidates {
       scoring: config.scoring,
       at: this.clock.now(),
     });
-
-    await this.kept(live);
-
-    return live;
   }
 
   kept(candidate: Candidate): Promise<void> {
@@ -65,18 +69,22 @@ export class LiveCandidates {
     }
 
     try {
-      await this.transaction.inTransaction(async () => {
-        const stored = await this.candidates.find(candidate.id);
-
-        if (stored) {
-          await this.candidates.save(stored.cascadeDelete());
-        }
-      });
+      await this.released(candidate.id);
     } catch (error) {
       this.logger.warn(
         { candidateId: candidate.id.value, error },
         'A candidate nothing used could not be released; it stays unused',
       );
     }
+  }
+
+  released(id: CandidateId): Promise<void> {
+    return this.transaction.inTransaction(async () => {
+      const stored = await this.candidates.find(id);
+
+      if (stored) {
+        await this.candidates.save(stored.delete());
+      }
+    });
   }
 }

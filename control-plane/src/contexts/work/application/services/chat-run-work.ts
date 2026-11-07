@@ -3,6 +3,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { GitService } from '@work/application/ports/git-gateway.port';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
+import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import type {
   Cleared,
   ConnectionAsked,
@@ -10,7 +11,6 @@ import type {
   RunWork,
 } from '@work/application/services/run-work';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
@@ -18,7 +18,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 
 export class ChatRunWork implements RunWork {
   constructor(
-    private readonly run: Run,
+    private readonly run: LeasedRun,
     private readonly chat: Chat,
     private readonly chats: ChatRepository,
   ) {}
@@ -29,7 +29,11 @@ export class ChatRunWork implements RunWork {
 
   async acknowledgeUpTo(position: number, at: Date): Promise<void> {
     await this.chats.save(
-      this.chat.acknowledgeUpTo(this.run.id, MessagePosition.of(position), at),
+      this.chat.acknowledgeUpTo(
+        this.run.runId,
+        MessagePosition.of(position),
+        at,
+      ),
     );
   }
 
@@ -76,7 +80,7 @@ export class ChatRunWork implements RunWork {
   async toolContext(): Promise<ChatToolContext> {
     return {
       kind: 'chat',
-      runId: this.run.id,
+      runId: this.run.runId,
       workspaceId: this.chat.workspaceId,
       chatId: this.chat.id,
       teamId: this.chat.teamId,

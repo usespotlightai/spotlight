@@ -23,6 +23,7 @@ describe('OpenSandboxHandler', () => {
         DRAIN_POLICY,
         { generate: () => 'sandbox_1' },
         sandboxTokens(),
+        { now: () => NOW, sleep: async () => {} },
         { info: vi.fn() } as unknown as LoggerPort,
       ),
       { now: () => NOW, sleep: async () => {} },

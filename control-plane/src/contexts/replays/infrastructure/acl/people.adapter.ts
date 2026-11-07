@@ -3,7 +3,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { Membership } from '@replays/application/services/team-access';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class People implements PeoplePort {
   constructor(
@@ -12,11 +12,11 @@ export class People implements PeoplePort {
   ) {}
 
   async membershipOn(
-    teamId: string,
+    teamId: TeamId,
     principal: Principal,
   ): Promise<Membership | null> {
     const permissions = await this.access.permissionsAsTeamReader(
-      TeamId.of(teamId),
+      teamId,
       principal,
     );
 

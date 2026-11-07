@@ -44,6 +44,17 @@ const occupied = (runners: number, idleSandboxes = 0): PoolOccupancy =>
   });
 
 describe('RunnerPool', () => {
+  it('serves a run that needs egress only when it names an egress', () => {
+    const bare = aPushPool({ egress: null });
+    const withEgress = aPushPool({
+      egress: EgressReference.of(EGRESS_ID.value),
+    });
+
+    expect(bare.servesEgressNeed(false)).toBe(true);
+    expect(bare.servesEgressNeed(true)).toBe(false);
+    expect(withEgress.servesEgressNeed(true)).toBe(true);
+  });
+
   it('is created as a change to the workspace’s configuration, naming its mode', () => {
     const [created] = aPullPool().pullEvents();
 

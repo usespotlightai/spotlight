@@ -1,4 +1,4 @@
-import { InvalidHarnessCommandError } from '@work/domain/exceptions/invalid-harness-command.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -54,7 +54,7 @@ describe('HarnessCommand', () => {
 
   it('needs something to run', () => {
     expect(() => HarnessCommand.of({ executable: '   ' })).toThrow(
-      InvalidHarnessCommandError,
+      InconsistentStateError,
     );
   });
 

@@ -2,7 +2,6 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { DeleteRunnerPoolCommand } from '@runners/application/commands/runner-resource.commands';
 import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
-import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import {
   forbiddenTo,
   type ResourceDeleted,
@@ -11,6 +10,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 
 export class DeleteRunnerPoolHandler
   implements CommandHandlerPort<DeleteRunnerPoolCommand, ResourceDeleted | null>
@@ -24,7 +24,7 @@ export class DeleteRunnerPoolHandler
   async execute(
     command: DeleteRunnerPoolCommand,
   ): Promise<ResourceDeleted | null> {
-    const id = RunnerPoolId.of(command.poolId);
+    const id = PoolId.of(command.poolId);
 
     try {
       const existing = await this.pools.find(id);
@@ -39,7 +39,7 @@ export class DeleteRunnerPoolHandler
         return null;
       }
 
-      if (!permissions.allows('runners')) {
+      if (!permissions.scopes.has('runners')) {
         return forbiddenTo('runners');
       }
 

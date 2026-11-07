@@ -1,7 +1,7 @@
+import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
 import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
 export class WorkspaceOutboundScope implements WorkspaceOutboundScopePort {

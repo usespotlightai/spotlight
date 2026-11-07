@@ -25,7 +25,8 @@ import type { StationAlertFired } from '@insights/domain/events/station-alert-fi
 import type { StationAlertReopened } from '@insights/domain/events/station-alert-reopened.event';
 import type { StationAlertResolved } from '@insights/domain/events/station-alert-resolved.event';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
-import { seenPullRequestOf } from '@insights/presentation/events/github-pull-request.translation';
+import { observedPullRequestOf } from '@insights/presentation/events/github-pull-request.translation';
+import { runEndedOf } from '@insights/presentation/events/run-ended.translation';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -229,6 +230,7 @@ const deletionSubscriber = (
     `insights.delete-${name}-of-deleted-${scope}`,
     [DELETED[scope]],
     (event) => erase(scopeOf(event)),
+    { callsOut: true },
   );
 
 export const insightsSubscribers = (
@@ -237,12 +239,12 @@ export const insightsSubscribers = (
   subscribing<RunEndedIntegrationEvent>(
     'insights.record-ended-run',
     [RUN_ENDED],
-    (event) => handlers.ending.ended(event),
+    (event) => handlers.ending.ended(runEndedOf(event)),
   ),
   subscribing<RunEndedIntegrationEvent>(
     'insights.judge-ended-run',
     [RUN_ENDED],
-    (event) => handlers.judging.runEnded(event),
+    (event) => handlers.judging.runEnded(runEndedOf(event)),
   ),
   subscribing<RunJudged>(
     'insights.record-judge-score',
@@ -354,7 +356,7 @@ export const insightsSubscribers = (
       handlers.recording.seen({
         workspaceId: WorkspaceId.of(event.workspaceId),
         pullRequest: PullRequestUrl.of(event.pullRequest),
-        seen: seenPullRequestOf(event),
+        observed: observedPullRequestOf(event),
       }),
   ),
   subscribing<PullRequestPurgedIntegrationEvent>(

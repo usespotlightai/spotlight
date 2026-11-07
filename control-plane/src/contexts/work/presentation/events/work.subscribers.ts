@@ -35,10 +35,13 @@ import type { CancelDetachedRun } from '@work/application/events/handlers/cancel
 import type { DeleteTaskDraft } from '@work/application/events/handlers/delete-task-draft.handler';
 import type { DeleteTaskInboxRequests } from '@work/application/events/handlers/delete-task-inbox-requests.handler';
 import type { DeleteTeamChats } from '@work/application/events/handlers/delete-team-chats.handler';
-import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
-import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
+import type { DispatchRunEndings } from '@work/application/events/handlers/dispatch-run-endings.handler';
+import type { DropUnorderedRun } from '@work/application/events/handlers/drop-unordered-run.handler';
+import type { EnqueueOrderedRun } from '@work/application/events/handlers/enqueue-ordered-run.handler';
 import type { NotifyChannel } from '@work/application/events/handlers/notify-channel.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
+import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
+import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import {
@@ -63,6 +66,8 @@ import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
 import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
+import type { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
+import type { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
@@ -128,9 +133,12 @@ export const workSubscribers = (reactions: {
   welcoming: WelcomeTeam;
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
-  taskRuns: EnqueueTaskRun;
+  taskRuns: OrderTaskRun;
   detachedRuns: CancelDetachedRun;
-  chatRuns: EnqueueChatRun;
+  chatRuns: OrderChatRun;
+  orderedRuns: EnqueueOrderedRun;
+  unorderedRuns: DropUnorderedRun;
+  dispatchEndings: DispatchRunEndings;
   setup: ReconcileSetup;
   deletingChats: DeleteTeamChats;
   taskInboxRequests: DeleteTaskInboxRequests;
@@ -310,9 +318,50 @@ export const workSubscribers = (reactions: {
     { callsOut: true },
   ),
   subscribing<TaskDispatched>(
-    'work.enqueue-task-run',
+    'work.order-task-run',
     ['task.dispatched'],
     (event) => reactions.taskRuns.on(event),
+  ),
+  subscribing<DispatchOrdered>(
+    'work.enqueue-ordered-run',
+    ['dispatch.ordered'],
+    (event) => reactions.orderedRuns.on(event),
+    { callsOut: true },
+  ),
+  subscribing<DispatchRefused>(
+    'work.drop-unordered-task-run',
+    ['dispatch.refused'],
+    (event) => reactions.unorderedRuns.ofTask(event),
+  ),
+  subscribing<DispatchRefused>(
+    'work.drop-unordered-chat-run',
+    ['dispatch.refused'],
+    (event) => reactions.unorderedRuns.ofChat(event),
+  ),
+  subscribing<RunCompleted>(
+    'work.end-dispatch.completed',
+    ['run.completed'],
+    (event) => reactions.dispatchEndings.onRunCompleted(event),
+  ),
+  subscribing<RunExhausted>(
+    'work.end-dispatch.exhausted',
+    ['run.exhausted'],
+    (event) => reactions.dispatchEndings.onRunExhausted(event),
+  ),
+  subscribing<RunCancelled>(
+    'work.end-dispatch.cancelled',
+    ['run.cancelled'],
+    (event) => reactions.dispatchEndings.onRunCancelled(event),
+  ),
+  subscribing<TaskRunDetached>(
+    'work.detach-dispatch',
+    ['task.run-detached'],
+    (event) => reactions.dispatchEndings.onTaskRunDetached(event),
+  ),
+  subscribing<ChatDeleted>(
+    'work.detach-dispatch-of-deleted-chat',
+    ['chat.deleted'],
+    (event) => reactions.dispatchEndings.onChatDeleted(event),
   ),
   subscribing<TaskRunDetached>(
     'work.cancel-detached-run',
@@ -341,7 +390,7 @@ export const workSubscribers = (reactions: {
     (event) => reactions.detachedRuns.onChatDeleted(event),
   ),
   subscribing<ChatDispatched>(
-    'work.enqueue-chat-run',
+    'work.order-chat-run',
     ['chat.dispatched'],
     (event) => reactions.chatRuns.on(event),
   ),

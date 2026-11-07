@@ -1,5 +1,5 @@
 import type { EgressId } from '@runners/domain/value-objects/egress-id.vo';
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 
 export const TOKEN_HOLDER_KINDS = ['pool', 'egress'] as const;
 
@@ -11,7 +11,7 @@ export class TokenHolder {
     readonly id: string,
   ) {}
 
-  static pool(id: RunnerPoolId): TokenHolder {
+  static pool(id: PoolId): TokenHolder {
     return new TokenHolder('pool', id.value);
   }
 

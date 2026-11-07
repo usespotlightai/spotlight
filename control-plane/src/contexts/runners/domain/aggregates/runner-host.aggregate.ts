@@ -185,8 +185,7 @@ export class RunnerHost extends EventRecorder {
         return this;
       }
 
-      return new RunnerHost({
-        ...this.state,
+      return this.with({
         bootId: input.bootId,
         report: input.report,
         sandboxes: input.sandboxes,
@@ -206,8 +205,7 @@ export class RunnerHost extends EventRecorder {
       throw new HostInUseError(this.state.id.value);
     }
 
-    return new RunnerHost({
-      ...this.state,
+    return this.with({
       workspaceId: input.workspaceId,
       source: input.source,
       bootId: input.bootId,
@@ -219,6 +217,13 @@ export class RunnerHost extends EventRecorder {
     })
       .recordReadyOnFirstHarness(null)
       .recordSandboxesDroppedSince(this, input.at);
+  }
+
+  private with(changes: Partial<State>): RunnerHost {
+    const next = new RunnerHost({ ...this.state, ...changes });
+    next.inheritEvents(this);
+
+    return next;
   }
 
   private cameOnlineAgain(bootId: BootId, at: Date): boolean {

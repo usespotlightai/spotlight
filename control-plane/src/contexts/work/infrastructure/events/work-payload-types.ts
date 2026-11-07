@@ -2,12 +2,16 @@ import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
+import { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
+import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
+import { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
+import { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
+import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
-import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
@@ -16,7 +20,6 @@ import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
-import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
 import { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
@@ -65,6 +68,8 @@ import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { DiffSide } from '@work/domain/value-objects/diff-side.vo';
+import { DispatchEnding } from '@work/domain/value-objects/dispatch-ending.vo';
+import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
@@ -110,7 +115,12 @@ import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import {
+  RequesterOwner,
+  RunRequester,
+} from '@work/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
@@ -259,8 +269,16 @@ export const WORK_PAYLOAD_TYPES = [
   PullRequestReviewTaken,
   RunExhausted,
   RunCancelled,
-  RunBriefed,
-  RunSuperseded,
+  DispatchBriefed,
+  DispatchEnded,
+  DispatchOrdered,
+  DispatchRefused,
+  DispatchSuperseded,
+  DispatchEnding,
+  DispatchOrder,
+  RunPolicy,
+  RequesterOwner,
+  RunRequester,
   RunCompleted,
   RunUsageRecorded,
   ReplayRunUsageRecorded,

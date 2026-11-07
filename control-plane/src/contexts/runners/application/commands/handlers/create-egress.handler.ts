@@ -60,7 +60,7 @@ export class CreateEgressHandler
         return null;
       }
 
-      if (!permissions.allows('runners')) {
+      if (!permissions.scopes.has('runners')) {
         return { created: forbiddenTo('runners'), token: null };
       }
 

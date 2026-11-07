@@ -6,8 +6,9 @@ import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type { ReviewState } from '@work/domain/services/conversations';
-import type { Progress, RunState } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
+import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
 
 export interface RunReview {
   readonly state: ReviewState;
@@ -24,7 +25,7 @@ export interface RunStationSummary {
 
 export interface TaskRunSummary {
   readonly id: string;
-  readonly state: RunState;
+  readonly state: TaskRunState;
   readonly stopRequested: boolean;
   readonly attempt: number;
   readonly exitCode: number | null;
@@ -59,7 +60,7 @@ export interface RunNotesSummary {
 
 interface LatestRunSummary {
   readonly id: string;
-  readonly state: RunState;
+  readonly state: TaskRunState;
   readonly progress: Progress | null;
 }
 

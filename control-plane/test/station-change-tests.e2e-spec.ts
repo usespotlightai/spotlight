@@ -178,7 +178,7 @@ const proposalReplayOf = async (searchId: string) =>
 const freshRequests = async (stationId: string): Promise<void> => {
   await db
     .update(schema.stationSearchSchedule)
-    .set({ requestDay: null, requestCount: 0 })
+    .set({ requestDay: null, requests: [] })
     .where(eq(schema.stationSearchSchedule.stationId, stationId));
 };
 
@@ -224,7 +224,7 @@ describe('the improve-station chat testing its change', () => {
 
     expect(schedule?.lastStartedAt).toBeNull();
     expect(schedule?.searchedTasks.length).toBeGreaterThan(0);
-    expect(schedule?.requestCount).toBe(1);
+    expect(schedule?.requests).toHaveLength(1);
 
     const id = search?.id as string;
     const seed = search?.seedReplay.replayId as string;

@@ -3,8 +3,6 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
-import { NoFreshHeldOutError } from '@replays/domain/exceptions/no-fresh-held-out.error';
-import { SearchSetTooSmallError } from '@replays/domain/exceptions/search-set-too-small.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { objectiveFor } from '@replays/domain/services/search-objective';
 import {
@@ -12,7 +10,10 @@ import {
   setVerdict,
 } from '@replays/domain/services/search-schedule';
 import { searchWarningsOf } from '@replays/domain/services/search-warnings';
-import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import {
+  HeldOutSplit,
+  type SplitRefusal,
+} from '@replays/domain/value-objects/held-out-split.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -21,7 +22,7 @@ import type { SearchPolicy } from '@replays/domain/value-objects/search-policy.v
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 
-type SplitReading = 'too-small' | 'no-fresh' | HeldOutSplit;
+type SplitReading = SplitRefusal | HeldOutSplit;
 
 export type SearchReadiness =
   | {
@@ -118,22 +119,12 @@ export class CheckSearchReadiness {
     set: ReplaySet,
     schedule: StationSearchSchedule,
   ): SplitReading {
-    try {
-      return HeldOutSplit.drawn({
-        searchId: id,
-        entries: set.entries,
-        hash: (text) => this.hash.sha256(text),
-        excluding: schedule.searchedTasks,
-      });
-    } catch (error) {
-      if (error instanceof SearchSetTooSmallError) {
-        return 'too-small';
-      }
-      if (error instanceof NoFreshHeldOutError) {
-        return 'no-fresh';
-      }
-      throw error;
-    }
+    return HeldOutSplit.tryDraw({
+      searchId: id,
+      entries: set.entries,
+      hash: (text) => this.hash.sha256(text),
+      excluding: schedule.searchedTasks,
+    });
   }
 
   private agentOf(

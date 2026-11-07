@@ -103,7 +103,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
           Replay.start({
             id: ReplayId.of(this.ids.generate()),
             set: locked.snapshot,
-            candidate: snapshot,
+            candidate: snapshot.asReplayed,
             baseline: true,
             ceiling: check.threshold.ceiling,
             unpricedRate: check.threshold.unpricedRunIn(

@@ -29,7 +29,7 @@ const periodOf = (raw: unknown): string => {
   return typeof raw === 'string' ? raw : '';
 };
 
-@InAudience('insights')
+@InAudience('automation')
 @ConventionalApiController('teams/:teamId', 'replays')
 @ApiParam({ name: 'teamId', type: String })
 @ApiProblemResponse(HttpStatus.NOT_FOUND, 'No such team for this caller')

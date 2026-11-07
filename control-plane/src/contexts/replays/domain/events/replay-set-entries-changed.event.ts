@@ -3,7 +3,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReplaySetEntriesChanged implements DomainEvent {
-  readonly kind = 'replays.replay-set-entries-changed';
+  readonly kind = 'replay-set.entries-changed';
 
   constructor(
     readonly setId: ReplaySetId,

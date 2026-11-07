@@ -62,16 +62,6 @@ export interface TaskNote {
   readonly text: string;
 }
 
-export interface TeamLine {
-  readonly id: LineId;
-  readonly name: string;
-  readonly stations: readonly {
-    readonly id: StationId;
-    readonly name: string;
-  }[];
-  readonly repositories: readonly Repository[];
-}
-
 export interface WorkPort {
   run(runId: RunId): Promise<RememberedRun | null>;
 
@@ -82,8 +72,6 @@ export interface WorkPort {
   memoryFilesRead(runId: RunId): Promise<readonly string[] | null>;
 
   stationContextOf(runId: RunId): Promise<NamedStationContext | null>;
-
-  linesOf(teamId: TeamId): Promise<readonly TeamLine[]>;
 
   task(taskId: TaskId): Promise<RememberedTask | null>;
 

@@ -436,7 +436,7 @@ describe('what GitHub said, stored in order and purged in time (e2e)', () => {
       (
         await drained(async () => {
           const record = await recordOf(92);
-          return record?.seen && record.seen.version >= 2 ? record : null;
+          return record?.seen && record.seen.version >= 1 ? record : null;
         })
       ).seen,
     ).toMatchObject({ reviews: 0, reviewRounds: 0, firstReviewAt: null });

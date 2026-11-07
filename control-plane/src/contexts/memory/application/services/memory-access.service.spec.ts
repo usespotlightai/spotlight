@@ -33,7 +33,7 @@ const access = (input: {
       task: async () =>
         input.task === null ? null : { ...TASK, ...input.task },
     } as unknown as WorkPort,
-  ).ofTask('team_1', 'task_1', 'user_ada');
+  ).ofTask(TeamId.of('team_1'), TaskId.of('task_1'), UserId.of('user_ada'));
 
 describe('MemoryAccess', () => {
   it('lets anyone on the task’s team review its memories', async () => {

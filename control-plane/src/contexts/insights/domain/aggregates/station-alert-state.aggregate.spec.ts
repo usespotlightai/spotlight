@@ -7,6 +7,7 @@ import { StationAlertReopened } from '@insights/domain/events/station-alert-reop
 import { StationAlertResolved } from '@insights/domain/events/station-alert-resolved.event';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { TEAM, WORKSPACE } from '@insights/runs.fake-spec';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -311,7 +312,9 @@ describe('StationAlertState', () => {
       .check([rising(2, 0.6, 0.3), read(PRICEY, 2, 3)], atRun(2), next);
     alertState.pullEvents();
 
-    const withoutTask = alertState.withoutTask(TaskId.of('task_1'));
+    const withoutTask = alertState.erasing(
+      DeletionScope.ofTask(WORKSPACE, TaskId.of('task_1')),
+    ) as StationAlertState;
 
     expect(withoutTask.firings.map((each) => each.id.value)).toEqual([
       'alert_2',
@@ -321,7 +324,9 @@ describe('StationAlertState', () => {
       'alert_2',
     ]);
     expect(kinds(withoutTask)).toEqual([]);
-    expect(withoutTask.withoutTask(TaskId.of('task_9'))).toBe(withoutTask);
+    expect(
+      withoutTask.erasing(DeletionScope.ofTask(WORKSPACE, TaskId.of('task_9'))),
+    ).toBe(withoutTask);
   });
 
   it('rejects two open firings for one rule', () => {

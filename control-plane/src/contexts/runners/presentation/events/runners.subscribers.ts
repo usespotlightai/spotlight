@@ -29,31 +29,37 @@ export const runnersSubscribers = (reactions: {
     'runners.delete-hosts-of-deleted-pool',
     ['runner-pool.deleted'],
     (event) => reactions.hosts.deleteHostsOf(event.poolId),
+    { callsOut: true },
   ),
   subscribing<RunnerTrustDeleted>(
     'runners.delete-hosts-of-deleted-trust',
     ['runner-trust.deleted'],
     (event) => reactions.hosts.deleteHostsOf(event.trustId),
+    { callsOut: true },
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'runners.delete-trusts-of-deleted-workspace',
     [WORKSPACE_DELETED],
     (event) => reactions.deleting.trustsOf(WorkspaceId.of(event.workspaceId)),
+    { callsOut: true },
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'runners.delete-pools-of-deleted-workspace',
     [WORKSPACE_DELETED],
     (event) => reactions.deleting.poolsOf(WorkspaceId.of(event.workspaceId)),
+    { callsOut: true },
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'runners.delete-egresses-of-deleted-workspace',
     [WORKSPACE_DELETED],
     (event) => reactions.deleting.egressesOf(WorkspaceId.of(event.workspaceId)),
+    { callsOut: true },
   ),
   subscribing<RunnerPoolDeleted>(
     'runners.delete-egresses-after-last-pool-of-deleted-workspace',
     ['runner-pool.deleted'],
     (event) => reactions.deleting.egressesAfterPoolOf(event.workspaceId),
+    { callsOut: true },
   ),
   subscribing<WorkspaceDeletedIntegrationEvent>(
     'runners.delete-runners-of-deleted-workspace',

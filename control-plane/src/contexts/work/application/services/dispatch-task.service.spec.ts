@@ -40,7 +40,9 @@ import type {
   TouchedFile,
 } from '@work/application/ports/team-memories.port';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
+import type { OrderedRun } from '@work/application/services/ordered-run';
 import { RunCatalog } from '@work/application/services/run-catalog.service';
+import { Runs } from '@work/application/services/runs.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import type { TouchedFiles } from '@work/application/services/touched-files';
@@ -193,12 +195,19 @@ const task = (stationId: string, title = 'Fix the queue') =>
   });
 
 let queued: Run[] = [];
+let ordered: OrderedRun[] = [];
 
 const runs = {
   add: async (run: Run) => {
     queued.push(run);
   },
+  findById: async () => null,
 } as unknown as RunRepository;
+
+const facade = new Runs(runs, new Sha256ContentHash(), {
+  now: () => NOW,
+  sleep: async () => {},
+});
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
@@ -334,7 +343,6 @@ const dispatch = async (
   repositories?: readonly RepositoryInput[],
 ) => {
   const service = new DispatchTask(
-    runs,
     ids,
     harnesses,
     launch,
@@ -368,12 +376,17 @@ const dispatch = async (
   const line = lineWith(station, repositories);
   const runId = await service.runIdFor({ task: working, line });
 
-  if (runId) {
-    await service.enqueue({
-      task: working.assignRun(runId, line),
-      line,
-      runId,
-    });
+  const found = runId
+    ? await service.ordered({
+        task: working.assignRun(runId, line),
+        line,
+        runId,
+      })
+    : null;
+
+  if (found) {
+    ordered.push(found);
+    await facade.enqueue(found.order);
   }
 
   return runId;
@@ -385,6 +398,7 @@ describe('DispatchTask', () => {
     remembered = { briefed: [], omitted: [], folder: null };
     touchedOnTask = [];
     queued = [];
+    ordered = [];
     entitledItems = { tools: [], skills: [], denied: [] };
     catalogRequested = [];
   });
@@ -822,8 +836,8 @@ describe('DispatchTask', () => {
 
     const run = queued[0] as Run;
 
-    expect(run.briefedTask?.equals(dispatched.briefed)).toBe(true);
-    expect(run.briefedTask?.title).toBe('Drain the queue');
+    expect(ordered[0]?.briefedTask?.equals(dispatched.briefed)).toBe(true);
+    expect(ordered[0]?.briefedTask?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
   });
 
@@ -1155,14 +1169,11 @@ describe('DispatchTask, the tools a run is told about', () => {
       );
       expect(await place?.touched()).toEqual(touchedOnTask);
       const run = queued.slice(-1)[0];
-      expect(run?.briefedWith.value).toEqual({
+      expect(ordered.slice(-1)[0]?.briefedMemories.value).toEqual({
         briefed: [{ id: 'memory_1', handle: 'M-12' }],
         omitted: [{ id: 'memory_2', handle: 'M-13' }],
       });
       expect(run?.spec.value.briefing).not.toContain('M-13');
-      expect(run?.pullEvents().map((each) => each.kind)).toContain(
-        'run.briefed',
-      );
       expect(run?.spec.value.briefing).toContain(
         '- **M-12** · preference: Name branches after the ticket.',
       );
@@ -1176,7 +1187,10 @@ describe('DispatchTask, the tools a run is told about', () => {
 
       memoryFails = false;
       const run = queued.slice(-1)[0];
-      expect(run?.briefedWith.value).toEqual({ briefed: [], omitted: [] });
+      expect(ordered.slice(-1)[0]?.briefedMemories.value).toEqual({
+        briefed: [],
+        omitted: [],
+      });
       expect(run?.spec.value.briefing).not.toContain(
         'What the team has learned',
       );
@@ -1192,8 +1206,9 @@ describe('DispatchTask, the tools a run is told about', () => {
       repositories?: readonly RepositoryInput[],
     ) => {
       queued = [];
+      ordered = [];
       await dispatch(station, task(station.id.value, title), repositories);
-      const config = queued[0]?.configuredAs;
+      const config = ordered[0]?.configuredAs;
 
       if (!config) {
         throw new Error('the run recorded no station config');

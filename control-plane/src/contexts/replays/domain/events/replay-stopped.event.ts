@@ -4,7 +4,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReplayStopped implements DomainEvent {
-  readonly kind = 'replays.replay-stopped';
+  readonly kind = 'replay.stopped';
 
   constructor(
     readonly replayId: ReplayId,

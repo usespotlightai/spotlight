@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { SECRET_LOCATIONS } from '@shared-kernel/domain/value-objects/secret-locations';
+import { SECRET_LOCATIONS } from '@secrets/application/contracts/injected-secrets.contract';
 
 export class ExternalSecretRefResponseDto {
   @ApiProperty({ enum: ['aws-secrets-manager'] })

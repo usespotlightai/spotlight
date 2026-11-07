@@ -2,6 +2,7 @@ import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid
 import type { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import {
   INPUT_NAME,
@@ -104,11 +105,11 @@ export class ProvidedTool {
     );
   }
 
-  get tool(): string {
-    return `${this.integration.value}.${this.name}`;
+  get tool(): ToolName {
+    return ToolName.of(`${this.integration.value}.${this.name}`);
   }
 
   equals(other: ProvidedTool): boolean {
-    return this.tool === other.tool;
+    return this.tool.equals(other.tool);
   }
 }

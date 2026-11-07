@@ -4,6 +4,8 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { RunFacts } from '@work/application/services/run-facts.service';
+import { Runs } from '@work/application/services/runs.service';
 import { SearchRunWork } from '@work/application/services/search-run-work';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
@@ -37,11 +39,11 @@ const search = () =>
     }),
   }).claim(RUNNER, NOW);
 
-const working = (leasedNow: (run: Run) => Run = (run) => run) => {
+const working = async (leasedNow: (run: Run) => Run = (run) => run) => {
   const saved: Run[] = [];
   const searched = search();
   let current: Run = leasedNow(searched.renewLease(RUNNER, NOW));
-  const work = new SearchRunWork(searched, {
+  const runs = {
     findById: async () => current,
     save: async (run: Run) => {
       if (run.version !== current.version) {
@@ -50,46 +52,56 @@ const working = (leasedNow: (run: Run) => Run = (run) => run) => {
       saved.push(run);
       current = run;
     },
-  } as unknown as RunRepository);
+  } as unknown as RunRepository;
+  const work = new SearchRunWork(
+    await new RunFacts({
+      findById: async () => searched,
+    } as unknown as RunRepository).leaseOf(searched.id, RUNNER),
+    new Runs(
+      runs,
+      { sha256: (text) => text },
+      { now: () => NOW, sleep: async () => {} },
+    ),
+  );
 
   return { work, saved };
 };
 
 describe('the work of a search', () => {
   it('uses no repository, to fetch or to push', async () => {
-    const { work } = working();
+    const { work } = await working();
 
     await expect(work.repositoryNamed('api')).rejects.toThrow(
       NotAllowedInSearchError,
     );
   });
 
-  it('reads no attachment', () => {
-    expect(working().work.attachment()).toBeNull();
+  it('reads no attachment', async () => {
+    expect((await working()).work.attachment()).toBeNull();
   });
 
   it('uses no tool', async () => {
-    const { work } = working();
+    const { work } = await working();
 
     await expect(work.toolContext()).rejects.toThrow(NotAllowedInSearchError);
     expect((await work.clearFor()).kind).toBe('dismissed');
   });
 
   it('takes up nothing a person says', async () => {
-    await expect(working().work.acknowledgeUpTo()).rejects.toThrow(
+    await expect((await working()).work.acknowledgeUpTo()).rejects.toThrow(
       NotAllowedInSearchError,
     );
   });
 
   it('records a permission it would have asked a person for on the run, and ends its turn there', async () => {
-    const { work, saved } = working();
+    const { work, saved } = await working();
 
     expect(await work.clearPermission()).toBe('pending');
     expect(saved[0]?.askedAPerson).toBe(true);
   });
 
   it('asks nothing on a run another runner leases by now', async () => {
-    const { work, saved } = working((run) =>
+    const { work, saved } = await working((run) =>
       run
         .expireLease(run.leaseExpiresAt as Date)
         .claim(RunnerId.of('runner_2'), NOW),

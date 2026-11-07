@@ -11,6 +11,7 @@ import {
   InboundDelivery,
 } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import type { InboundDeliveryRepository } from '@integrations/domain/repositories/inbound-delivery.repository';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -67,7 +68,9 @@ export class AcceptDeliveryHandler
             id: provider.delivery(command.delivered),
             headers: command.delivered.headers,
             body: command.delivered.body,
-            causeFiringId: command.causeFiringId,
+            causeFiringId: command.causeFiringId?.trim()
+              ? HookFiringId.of(command.causeFiringId.trim())
+              : null,
           },
           this.clock.now(),
         ),
@@ -93,7 +96,13 @@ export class AcceptDeliveryHandler
       address.teamKey,
     );
 
-    return team ? { ...team, teamKey: address.teamKey } : undefined;
+    return team
+      ? {
+          workspaceId: team.workspaceId,
+          teamId: team.teamId,
+          teamKey: address.teamKey,
+        }
+      : undefined;
   }
 
   private async trusts(
@@ -119,8 +128,8 @@ export class AcceptDeliveryHandler
   ): DeliveryReceipt {
     this.logger.warn(
       {
-        workspaceId: to?.workspaceId,
-        teamId: to?.teamId,
+        workspaceId: to?.workspaceId.value,
+        teamId: to?.teamId.value,
         integration: command.integration,
         reason,
       },

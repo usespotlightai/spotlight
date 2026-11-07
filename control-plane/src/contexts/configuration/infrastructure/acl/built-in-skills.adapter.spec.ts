@@ -1,17 +1,17 @@
 import type { BuiltInSkillsPort } from '@configuration/application/ports/built-in-skills.port';
 import type { ReadSkillFolder } from '@configuration/application/ports/skill-folders.port';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { Skill } from '@configuration/domain/value-objects/skill.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
-import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills.adapter';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const HANDOVER: ReadSkillFolder = {
   skill: Skill.builtIn({
-    key: SkillKey.of('spotlight-handover'),
+    key: DefinedSkillKey.of('spotlight-handover'),
     description: 'Passing a task on.',
     instructions: 'Write the note.',
-    tools: [ToolName.of('pull-request')],
+    tools: [Tool.of('pull-request')],
     secrets: [],
   }),
   files: [{ path: 'SKILL.md', text: 'Write the note.' }],

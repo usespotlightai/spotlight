@@ -14,7 +14,6 @@ import {
   type ReviewTrigger,
 } from '@integrations/domain/services/pull-request-happenings';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
-import { WebhookProvider } from '@integrations/infrastructure/webhooks/webhook-provider.decorator';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
@@ -103,24 +102,25 @@ const messageOf = (event: PullRequestActivity): Happened['message'] =>
       }
     : null;
 
-const describedFor = (pullRequest: string, body: string | null): string =>
-  [`Review ${pullRequest}`, body ?? ''].filter(Boolean).join('\n\n');
-
 const factsOf = (event: PullRequestActivity): PullRequestActivityFacts => ({
   activity: event.activity,
   pullRequest: event.pullRequest ? PullRequestUrl.of(event.pullRequest) : null,
   branch: event.branch,
   labelled: event.label !== null && event.label !== '',
   described: event.details !== null,
+  body: event.details?.body ?? null,
   comment: event.reviewComment?.body ?? null,
 });
 
+type ReviewRequest = Extract<PullRequestHappening, { kind: 'review-request' }>;
+
 const reviewRequested = (
   event: PullRequestActivity,
-  trigger: ReviewTrigger,
-  pullRequest: string,
+  happening: ReviewRequest,
   details: NonNullable<PullRequestActivity['details']>,
 ): Happened => {
+  const { trigger } = happening;
+  const pullRequest = happening.pullRequest.value;
   const marks = [{ kind: REVIEW_MARK, value: pullRequest }];
   const raising = REVIEW_REQUEST_RAISED[trigger];
 
@@ -130,13 +130,13 @@ const reviewRequested = (
     answers: raising.answers,
     state: 'raised',
     correlationKeys: { branch: null, marks },
-    message: trigger === 'mentioned' ? messageOf(event) : null,
+    message: happening.carriesComment ? messageOf(event) : null,
     ourOwn: event.ignoredAsBot,
     opens: {
       lineRole: REVIEW_ROLE,
       station: null,
       title: details.title,
-      description: describedFor(pullRequest, details.body),
+      description: happening.description,
       assignEmail: null,
       marks,
       review: {
@@ -177,12 +177,7 @@ const happenedFrom = (
 ): Happened | null => {
   if (happening.kind === 'review-request') {
     return event.details
-      ? reviewRequested(
-          event,
-          happening.trigger,
-          happening.pullRequest.value,
-          event.details,
-        )
+      ? reviewRequested(event, happening, event.details)
       : null;
   }
 
@@ -212,7 +207,6 @@ const happenedIn = (event: PullRequestActivity): readonly Happened[] =>
     return happened ? [happened] : [];
   });
 
-@WebhookProvider()
 export class GitHubWebhookProvider implements WebhookProviderPort {
   readonly key = 'github';
 

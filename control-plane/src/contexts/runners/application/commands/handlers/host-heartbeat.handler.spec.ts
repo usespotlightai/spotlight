@@ -95,6 +95,7 @@ const reporting = (
       DRAIN_POLICY,
       { generate: () => 'sandbox_new' },
       sandboxTokens(),
+      { now: () => now } as ClockPort,
       { info: vi.fn() } as unknown as LoggerPort,
     ),
     { now: () => now } as ClockPort,
@@ -264,9 +265,12 @@ describe('HostHeartbeatHandler', () => {
       workspaceId: 'ws_1',
       drain: ['sandbox_2', 'sandbox_9'],
     });
-    expect(placed.get('sandbox_1')?.isReadyOn(stored.get(HOST) ?? null)).toBe(
-      true,
-    );
+    const reported = stored.get(HOST) ?? null;
+    expect(
+      placed
+        .get('sandbox_1')
+        ?.isReadyOn(reported, reported?.lastHeartbeatAt ?? STARTED_AT),
+    ).toBe(true);
 
     at(40_000);
     await report({}, CREDENTIAL, 'boot_1', ['sandbox_1']);

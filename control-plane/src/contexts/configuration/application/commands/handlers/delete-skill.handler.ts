@@ -46,10 +46,7 @@ export class DeleteSkillHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const references = await this.stationReferences.onTeam(
-        existing.teamId,
-        'skill',
-      );
+      const references = await this.stationReferences.skillsOn(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(

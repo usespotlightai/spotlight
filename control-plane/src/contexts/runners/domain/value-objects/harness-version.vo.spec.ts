@@ -1,5 +1,5 @@
-import { InvalidHarnessVersionError } from '@runners/domain/exceptions/invalid-harness-version.error';
 import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { describe, expect, it } from 'vitest';
 
 describe('HarnessVersion', () => {
@@ -9,10 +9,8 @@ describe('HarnessVersion', () => {
   });
 
   it('rejects what is not a release', () => {
-    expect(() => HarnessVersion.of('latest')).toThrow(
-      InvalidHarnessVersionError,
-    );
-    expect(() => HarnessVersion.of('')).toThrow(InvalidHarnessVersionError);
+    expect(() => HarnessVersion.of('latest')).toThrow(InconsistentStateError);
+    expect(() => HarnessVersion.of('')).toThrow(InconsistentStateError);
   });
 
   it('reads nothing from a report it cannot make sense of', () => {

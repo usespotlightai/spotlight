@@ -19,6 +19,8 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ReadRunMemoriesHandler
   implements QueryHandlerPort<ReadRunMemoriesQuery, RunMemoriesDto>
@@ -36,7 +38,10 @@ export class ReadRunMemoriesHandler
 
   async execute(query: ReadRunMemoriesQuery): Promise<RunMemoriesDto> {
     try {
-      const access = await this.access.forTeam(query.teamId, query.viewerId);
+      const access = await this.access.forTeam(
+        TeamId.of(query.teamId),
+        UserId.of(query.viewerId),
+      );
       const runId = RunId.of(query.runId);
       const [run, runContext] = await Promise.all([
         this.work.run(runId),

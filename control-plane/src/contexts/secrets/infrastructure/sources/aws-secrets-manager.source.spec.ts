@@ -2,8 +2,8 @@ import {
   GetSecretValueCommand,
   type SecretsManagerClient,
 } from '@aws-sdk/client-secrets-manager';
-import type { SecretReference } from '@secrets/application/ports/secret-source.port';
 import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
+import type { SecretReference } from '@secrets/application/ports/secret-source.port';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { AwsSecretsManagerSource } from '@secrets/infrastructure/sources/aws-secrets-manager.source';

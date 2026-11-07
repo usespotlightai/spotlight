@@ -6,7 +6,7 @@ export const PEOPLE = Symbol('REPLAYS_PEOPLE');
 
 export interface PeoplePort {
   membershipOn(
-    teamId: string,
+    teamId: TeamId,
     principal: Principal,
   ): Promise<Membership | null>;
 

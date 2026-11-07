@@ -1,6 +1,11 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { Unjudged } from '@replays/domain/value-objects/entry-judging.vo';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
+import {
+  type JudgingAttempt,
+  judgingPurposeOf,
+} from '@replays/domain/value-objects/judging-attempt';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -13,13 +18,35 @@ export class RecordReplayVerdict {
     private readonly clock: ClockPort,
   ) {}
 
+  changeJudged(
+    attempt: JudgingAttempt,
+    run: RunId,
+    verdict: JudgeVerdict,
+    spent: ModelSpent,
+  ): Promise<void> {
+    return judgingPurposeOf(attempt) === 'original'
+      ? this.judged(run, verdict, spent)
+      : this.rejudged(run, verdict, spent);
+  }
+
+  changeJudgingFailed(
+    attempt: JudgingAttempt,
+    run: RunId,
+    failure: Unjudged,
+    spent: ModelSpent,
+  ): Promise<void> {
+    return judgingPurposeOf(attempt) === 'original'
+      ? this.failed(run, failure, spent)
+      : this.rejudgingFailed(run, failure, spent);
+  }
+
   judged(run: RunId, verdict: JudgeVerdict, spent: ModelSpent): Promise<void> {
     return this.changing(run, (replay, now) =>
       replay.recordVerdict(run, verdict, spent, now),
     );
   }
 
-  failed(run: RunId, failure: string, spent: ModelSpent): Promise<void> {
+  failed(run: RunId, failure: Unjudged, spent: ModelSpent): Promise<void> {
     return this.changing(run, (replay, now) =>
       replay.recordJudgingFailure(run, failure, spent, now),
     );
@@ -37,7 +64,7 @@ export class RecordReplayVerdict {
 
   rejudgingFailed(
     run: RunId,
-    failure: string,
+    failure: Unjudged,
     spent: ModelSpent | null,
   ): Promise<void> {
     return this.changing(run, (replay) =>

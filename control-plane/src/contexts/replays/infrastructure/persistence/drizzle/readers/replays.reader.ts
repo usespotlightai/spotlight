@@ -17,9 +17,7 @@ import {
   replaySearch,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
-
-const NEWEST_SAMPLES_PER_KIND = 3;
+import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm';
 
 const distinct = (values: readonly { value: string }[]): string[] => [
   ...new Set(values.map((each) => each.value)),
@@ -93,39 +91,6 @@ export class DrizzleReplaysReader implements ReplaysReaderPort {
         ),
       )
       .orderBy(asc(replay.setId), desc(replay.startedAt), asc(replay.id));
-
-    return this.replaysIn(rows.map((each) => each.id));
-  }
-
-  async healthSamplesOfSets(
-    setIds: readonly ReplaySetId[],
-  ): Promise<readonly Replay[]> {
-    if (setIds.length === 0) {
-      return [];
-    }
-
-    const ranked = this.context.db
-      .select({
-        id: replay.id,
-        startedAt: replay.startedAt,
-        place:
-          sql<number>`row_number() over (partition by ${replay.setId}, ${replay.liveCandidate}, ${replay.calibration}, ${replay.repeats} order by coalesce(${replay.endedAt}, ${replay.startedAt}) desc, ${replay.id} desc)`.as(
-            'place',
-          ),
-      })
-      .from(replay)
-      .where(
-        and(
-          inArray(replay.setId, distinct(setIds)),
-          eq(replay.healthSample, true),
-        ),
-      )
-      .as('ranked');
-    const rows = await this.context.db
-      .select({ id: ranked.id })
-      .from(ranked)
-      .where(lte(ranked.place, NEWEST_SAMPLES_PER_KIND))
-      .orderBy(asc(ranked.startedAt), asc(ranked.id));
 
     return this.replaysIn(rows.map((each) => each.id));
   }

@@ -70,7 +70,7 @@ export class UpdateHarnessProfileHandler
             compiled,
             ChangeActor.of(command.actor, permissions.workspaceId),
             await this.secrets.ofTeam(existing.teamId),
-            this.compiler.compatibilityOf(compiled),
+            this.compiler,
           ),
         ),
       );

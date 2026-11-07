@@ -1,3 +1,4 @@
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import type {
   AuthIR,
@@ -13,7 +14,6 @@ import {
   cappedReply,
   cappedText,
 } from '@integrations/infrastructure/outbound/capped-body';
-import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import {
   type Dressed,
   followed,

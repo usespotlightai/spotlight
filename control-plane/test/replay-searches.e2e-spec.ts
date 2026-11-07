@@ -176,7 +176,7 @@ describe('DrizzleSearchRepository', () => {
     );
     expect(await searches.ranAs(RunId.of('elsewhere'))).toBeNull();
     expect(dispatched.map((each) => each.kind)).toContain(
-      'replays.search-iteration-requested',
+      'search.iteration-requested',
     );
   });
 
@@ -343,7 +343,7 @@ describe('replays, candidates and sets a search stores', () => {
     const started = Replay.start({
       id: ReplayId.of('replay_some'),
       set: set.snapshot,
-      candidate: searched('candidate_a', 'terse'),
+      candidate: searched('candidate_a', 'terse').asReplayed,
       baseline: false,
       ceiling: Money.ceiling(3, 'USD'),
       at: NOW,

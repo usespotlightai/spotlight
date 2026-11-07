@@ -7,18 +7,17 @@ import { SkillUpdated } from '@configuration/domain/events/skill-updated.event';
 import { TerraformStateDeleted } from '@configuration/domain/events/terraform-state-deleted.event';
 import { TerraformStateLockReleased } from '@configuration/domain/events/terraform-state-lock-released.event';
 import { TerraformStateWritten } from '@configuration/domain/events/terraform-state-written.event';
+import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { McpServer } from '@configuration/domain/value-objects/mcp-server.vo';
 import { PermissionRule } from '@configuration/domain/value-objects/permission-rule.vo';
 import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
-import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
 import { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
-import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { StateChangeDetail } from '@configuration/domain/value-objects/state-change-detail.vo';
 import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
@@ -28,21 +27,18 @@ import { StateVersion } from '@configuration/domain/value-objects/state-version.
 import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
-import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 
 export const CONFIGURATION_PAYLOAD_TYPES = [
   Skill,
   SkillDefinitionId,
   SkillFiles,
-  SkillKey,
+  DefinedSkillKey,
   StationUses,
-  ToolName,
   SkillCreated,
   SkillUpdated,
   SkillDeleted,
   HarnessProfileId,
   HarnessCompatibility,
-  ProfileKey,
   McpServer,
   PermissionRule,
   ProfileSettings,

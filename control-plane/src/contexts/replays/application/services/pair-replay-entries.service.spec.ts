@@ -81,7 +81,7 @@ describe('PairReplayEntries', () => {
     memory.events
       .filter(
         (each): each is ReplaySideBySideJudgingRequested =>
-          each.kind === 'replays.replay-side-by-side-judging-requested',
+          each.kind === 'replay.side-by-side-judging-requested',
       )
       .map((each) => each.replayId.value);
 
@@ -128,7 +128,7 @@ describe('PairReplayEntries', () => {
 
     const wanted = memory.events.filter(
       (each): each is ReplaySideBySideJudgingRequested =>
-        each.kind === 'replays.replay-side-by-side-judging-requested',
+        each.kind === 'replay.side-by-side-judging-requested',
     );
     expect(wanted.map((each) => [each.run.value, each.other.value])).toEqual([
       ['replay_1_run_0', 'baseline_1_run_0'],
@@ -150,7 +150,7 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
 
     return memory.events.find(
       (each): each is ReplaySideBySideJudgingRequested =>
-        each.kind === 'replays.replay-side-by-side-judging-requested',
+        each.kind === 'replay.side-by-side-judging-requested',
     ) as ReplaySideBySideJudgingRequested;
   };
 
@@ -202,12 +202,12 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
     ).paired(
       event.run,
       event.other,
-      PairVerdict.fromWinner({
-        winner: 'other',
+      PairVerdict.of({
+        outcome: 'loss',
         model: 'judge/model',
         passes: [
-          { runShownFirst: true, winner: 'other', reasons: [] },
-          { runShownFirst: false, winner: 'other', reasons: [] },
+          { ownShownFirst: true, outcome: 'loss', reasons: [] },
+          { ownShownFirst: false, outcome: 'loss', reasons: [] },
         ],
       }),
       ModelSpent.of([Money.of(0.02, 'USD')], 0),

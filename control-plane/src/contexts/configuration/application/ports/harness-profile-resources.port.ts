@@ -1,5 +1,6 @@
-import type { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
+import type { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
+import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const HARNESS_PROFILE_RESOURCES = Symbol('HARNESS_PROFILE_RESOURCES');
@@ -13,7 +14,7 @@ export interface HarnessProfileRecord {
 }
 
 export interface HarnessProfileResourcesPort {
-  withId(id: string): Promise<HarnessProfileRecord | null>;
+  withId(id: HarnessProfileId): Promise<HarnessProfileRecord | null>;
 
   at(teamId: TeamId, key: string): Promise<HarnessProfileRecord | null>;
 

@@ -1,7 +1,7 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, matchesGlob } from 'node:path';
 import type { Violation } from './known-violations';
-import { isSpec, SOURCE_ROOT } from './source-index';
+import { SOURCE_ROOT, sourcePaths } from './source-index';
 
 type BiomeOverride = {
   readonly includes?: readonly string[];
@@ -29,12 +29,8 @@ const isIncluded = (path: string, includes: readonly string[]): boolean =>
   );
 
 export const rootLintCoverageViolations = (): Violation[] =>
-  readdirSync(SOURCE_ROOT, { withFileTypes: true })
-    .filter(
-      (entry) =>
-        entry.isFile() && entry.name.endsWith('.ts') && !isSpec(entry.name),
-    )
-    .map((entry) => `src/${entry.name}`)
+  sourcePaths('', { specs: true })
+    .map((path) => `src/${path}`)
     .filter(
       (path) =>
         !IMPORT_RULE_INCLUDES.some((includes) => isIncluded(path, includes)),

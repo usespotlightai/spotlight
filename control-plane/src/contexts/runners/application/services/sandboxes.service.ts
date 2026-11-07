@@ -20,12 +20,14 @@ import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-
 import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
+import { sandboxesToDrainOn } from '@runners/domain/services/sandbox-drains';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import type { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
@@ -40,9 +42,10 @@ const REQUESTS_PER_CLAIM = 20;
 const editorSandboxOf = (
   sandbox: Sandbox,
   host: RunnerHost | null,
+  now: Date,
 ): EditorSandbox => ({
   open: sandbox.isOpen,
-  ready: sandbox.isReadyOn(host),
+  ready: sandbox.isReadyOn(host, now),
 });
 
 export class Sandboxes
@@ -55,14 +58,14 @@ export class Sandboxes
     private readonly policy: SandboxDrainPolicy,
     private readonly ids: IdGeneratorPort,
     private readonly tokens: TokenIssuer,
+    private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
 
   async holdForRun(run: SandboxForRun, at: Date): Promise<StartedSandbox> {
     const workspaceId = WorkspaceId.of(run.workspaceId);
     const key = run.key === null ? null : SandboxKey.of(run.key);
-    const hostId = HostId.of(run.hostId);
-    const host = await this.hosts.find(hostId);
+    const host = await this.hosts.find(HostId.of(run.hostId));
 
     if (!host) {
       throw new UnknownHostError(run.hostId);
@@ -79,7 +82,7 @@ export class Sandboxes
 
         if (open?.isRequested) {
           const placed = open
-            .placeOn(hostId, host.source, tokenHash, at)
+            .placeOn(host, tokenHash, at)
             .holdRun(RunId.of(run.runId), at);
 
           await this.sandboxes.save(placed);
@@ -87,15 +90,18 @@ export class Sandboxes
         }
 
         if (open) {
-          await this.sandboxes.save(open.drain());
+          const replaced = open.replacedForRun();
+
+          if (replaced !== open) {
+            await this.sandboxes.save(replaced);
+          }
         }
 
         const started = Sandbox.startForRun({
           id: SandboxId.of(this.ids.generate()),
           workspaceId,
           key,
-          hostId,
-          source: host.source,
+          host,
           tokenHash,
           runId: RunId.of(run.runId),
           at,
@@ -121,7 +127,7 @@ export class Sandboxes
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
     const host = found?.key ? await this.hosts.find(HostId.of(hostId)) : null;
 
-    if (!found?.key || !host || !found.takesRunOn(host)) {
+    if (!found?.key || !host || !found.takesRunOn(host, this.clock.now())) {
       return null;
     }
 
@@ -157,12 +163,16 @@ export class Sandboxes
   }
 
   async liveKeysIn(workspaceId: string, at: Date): Promise<readonly string[]> {
-    const keys = await this.placements.liveKeysIn(
-      WorkspaceId.of(workspaceId),
-      RunnerHost.onlineCutoff(at),
-    );
+    const workspace = WorkspaceId.of(workspaceId);
+    const hosts = await this.hosts.inWorkspace(workspace);
+    const hostOf = (sandbox: Sandbox) =>
+      hosts.find((host) => sandbox.isOn(host.id)) ?? null;
 
-    return keys.map((each) => each.value);
+    return (await this.sandboxes.liveIn(workspace)).flatMap((sandbox) =>
+      sandbox.key && sandbox.isLiveOn(hostOf(sandbox), at)
+        ? [sandbox.key.value]
+        : [],
+    );
   }
 
   async releaseRun(runId: string, at: Date): Promise<void> {
@@ -199,7 +209,7 @@ export class Sandboxes
       if (open) {
         return {
           id: open.id.value,
-          state: open.statusOn(await this.hostOf(open)),
+          state: open.statusOn(await this.hostOf(open), at),
         };
       }
 
@@ -218,7 +228,10 @@ export class Sandboxes
           'Requested a sandbox with no run',
         );
 
-        return { id: requested.id.value, state: requested.statusOn(null) };
+        return {
+          id: requested.id.value,
+          state: requested.statusOn(null, at),
+        };
       } catch (error) {
         if (
           !(error instanceof SandboxVersionConflictError) ||
@@ -259,7 +272,7 @@ export class Sandboxes
 
     try {
       await this.sandboxes.save(
-        found.placeOn(host.id, host.source, TokenHash.of(issued.hash), at),
+        found.placeOn(host, TokenHash.of(issued.hash), at),
       );
     } catch (error) {
       if (error instanceof SandboxVersionConflictError) {
@@ -304,11 +317,11 @@ export class Sandboxes
 
     const editor = LeaseHolder.editor(holder);
     const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
-      sandbox.isOpen ? sandbox.holdEditor(editor, at) : sandbox,
+      sandbox.holdEditor(editor, at),
     );
 
     return held?.holdsEditor(editor)
-      ? editorSandboxOf(held, await this.hostOf(held))
+      ? editorSandboxOf(held, await this.hostOf(held), at)
       : null;
   }
 
@@ -344,7 +357,9 @@ export class Sandboxes
   async stateOf(sandboxId: string): Promise<EditorSandbox | null> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
 
-    return found ? editorSandboxOf(found, await this.hostOf(found)) : null;
+    return found
+      ? editorSandboxOf(found, await this.hostOf(found), this.clock.now())
+      : null;
   }
 
   renewEvery(): number {
@@ -356,7 +371,9 @@ export class Sandboxes
 
     const host = found ? await this.hostOf(found) : null;
 
-    return found?.isReadyOn(host) && host ? host.id.value : null;
+    return found?.isReadyOn(host, this.clock.now()) && host
+      ? host.id.value
+      : null;
   }
 
   async authenticate(
@@ -380,15 +397,8 @@ export class Sandboxes
   }
 
   async toDrainOn(host: RunnerHost): Promise<readonly string[]> {
-    const kept = new Set(
-      (await this.sandboxes.liveOn(host.id))
-        .filter((sandbox) => sandbox.keptBy(host))
-        .map((sandbox) => sandbox.id.value),
-    );
-
-    return host.sandboxes.sandboxes
+    return sandboxesToDrainOn(host, await this.sandboxes.liveOn(host.id))
       .map((each) => each.value)
-      .filter((id) => !kept.has(id))
       .sort();
   }
 
@@ -425,11 +435,12 @@ export class Sandboxes
     for (const id of await this.placements.liveOnHostsSilentSince(
       RunnerHost.onlineCutoff(now),
     )) {
-      const stranded = await this.sandboxes.find(id);
+      const placed = await this.sandboxes.find(id);
+      const host = placed ? await this.hostOf(placed) : null;
 
-      if (stranded) {
-        await reviseSandbox(this.sandboxes, stranded, (sandbox) =>
-          sandbox.lost(now),
+      if (placed) {
+        await reviseSandbox(this.sandboxes, placed, (sandbox) =>
+          sandbox.strandedOn(host, now),
         );
       }
     }

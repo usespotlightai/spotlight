@@ -1,10 +1,10 @@
 import {
   HookFiring,
   type HookFiringProgress,
-  type HookStepOutcome,
 } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
+import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import {
@@ -13,6 +13,7 @@ import {
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { hookFiring } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -21,7 +22,6 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -77,15 +77,48 @@ const progressOf = (row: Row): HookFiringProgress => {
 
 type StoredStep = Readonly<Record<string, unknown>>;
 
-const stepOf = (stored: StoredStep): HookStepOutcome =>
-  stored.status === 'waiting'
-    ? {
-        name: String(stored.name),
-        status: 'waiting',
-        call: String(stored.call),
-        until: new Date(String(stored.until)),
+const unreadableStep = (id: string, why: string): InconsistentStateError =>
+  new InconsistentStateError('hook firing', `stores a step ${why} (${id})`);
+
+const stepOf =
+  (id: string) =>
+  (stored: StoredStep): HookStepOutcome => {
+    const { name, status } = stored;
+
+    if (typeof name !== 'string' || name.length === 0) {
+      throw unreadableStep(id, 'without a name');
+    }
+
+    if (status === 'done') {
+      return { name, status, output: stored.output ?? null };
+    }
+
+    if (status === 'failed') {
+      const { code, reason } = stored;
+
+      if (typeof code !== 'string' || !isCode(code)) {
+        throw unreadableStep(id, `${name} that failed in a way no hook can`);
       }
-    : (stored as unknown as HookStepOutcome);
+
+      if (typeof reason !== 'string') {
+        throw unreadableStep(id, `${name} that failed for no reason`);
+      }
+
+      return { name, status, code, reason, output: stored.output ?? null };
+    }
+
+    if (status === 'waiting') {
+      const until = new Date(String(stored.until));
+
+      if (typeof stored.call !== 'string' || Number.isNaN(until.getTime())) {
+        throw unreadableStep(id, `${name} that waits on nothing`);
+      }
+
+      return { name, status, call: stored.call, until };
+    }
+
+    throw unreadableStep(id, `${name} in no known status`);
+  };
 
 const storedStep = (step: HookStepOutcome): StoredStep =>
   step.status === 'waiting'
@@ -108,7 +141,7 @@ const toFiring = (row: Row): HookFiring =>
     matched: row.matched,
     cause: CausalChain.read(row.cause),
     link: row.link,
-    steps: row.steps.map(stepOf),
+    steps: row.steps.map(stepOf(row.id)),
     progress: progressOf(row),
     attempts: row.attempts,
     failure: failureOf(row),
@@ -155,6 +188,15 @@ export class DrizzleHookFirings implements HookFiringRepository {
   ) {}
 
   async add(firing: HookFiring): Promise<boolean> {
+    const { progress } = firing;
+
+    if (progress.kind !== 'pending') {
+      throw new InconsistentStateError(
+        'hook firing',
+        `is added while ${progress.kind} (${firing.id.value})`,
+      );
+    }
+
     return this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(hookFiring)
@@ -172,6 +214,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
           link: { ...firing.link },
           firedAt: firing.firedAt,
           ...columnsOf(firing),
+          dueAt: progress.dueAt,
         })
         .onConflictDoNothing()
         .returning({ id: hookFiring.id });

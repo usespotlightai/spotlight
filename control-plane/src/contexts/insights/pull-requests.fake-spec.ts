@@ -9,6 +9,7 @@ import type { TeamPullRequest } from '@insights/domain/services/team-pull-reques
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 import {
+  type ObservedPullRequest,
   SeenPullRequest,
   type SeenPullRequestFields,
 } from '@insights/domain/value-objects/seen-pull-request.vo';
@@ -50,6 +51,31 @@ export const seenOf = (
     version: 1,
     ...over,
   });
+
+export const observedOf = (
+  over: Partial<ObservedPullRequest> = {},
+): ObservedPullRequest => {
+  const {
+    firstReviewAt,
+    firstUnblockingReviewAt,
+    firstApprovedAt,
+    humanReviewedAt,
+    reviews,
+    reviewRounds,
+    reviewComments,
+    botActivity,
+    ...facts
+  } = seenOf();
+
+  return {
+    ...facts,
+    reviews: [],
+    reviewComments,
+    botComments: [],
+    threads: [],
+    ...over,
+  };
+};
 
 export const teamPullRequestOf = (
   number: number,

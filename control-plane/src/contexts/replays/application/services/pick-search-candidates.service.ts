@@ -7,7 +7,7 @@ import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-reques
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
-import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
+import { PullRequestOpenAtStationError } from '@replays/domain/exceptions/pull-request-open-at-station.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -46,19 +46,19 @@ export class PickSearchCandidates {
 
     const seen = await this.searches.find(event.searchId);
 
-    if (!seen || seen.pick !== null) {
+    if (!seen?.awaitsPick) {
       return;
     }
 
     const standard = await this.healths.standardAt(seen.station);
-    const stationThere =
-      (await this.work.station(seen.station.lineId, seen.station.stationId)) !==
+    const stationGone =
+      (await this.work.station(seen.station.lineId, seen.station.stationId)) ===
       null;
 
     await this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(event.searchId);
 
-      if (search?.current !== 'finished' || search.pick !== null) {
+      if (!search?.awaitsPick) {
         return;
       }
 
@@ -72,18 +72,17 @@ export class PickSearchCandidates {
         scores,
         search.objective,
         standard.threshold,
-        await this.pickConstraintsOf(search),
+        await this.pickConstraintsOf(search, stationGone),
       );
 
-      await this.searches.save(
-        search.picked(
-          stationThere ? pick : { outcome: 'declined', reason: 'station-gone' },
-        ),
-      );
+      await this.searches.save(search.picked(pick));
     });
   }
 
-  private async pickConstraintsOf(search: Search): Promise<PickConstraints> {
+  private async pickConstraintsOf(
+    search: Search,
+    stationGone: boolean,
+  ): Promise<PickConstraints> {
     const { stationId } = search.station;
     const schedule = await this.schedules.ofStation(stationId);
     const pullRequestOpen = await this.pullRequests.openAtStation(stationId);
@@ -98,6 +97,7 @@ export class PickSearchCandidates {
         .filter((each) => schedule?.hasRejected(each.fingerprint))
         .map((each) => each.id),
       pullRequestOpen,
+      stationGone,
     };
   }
 
@@ -168,18 +168,16 @@ export class PickSearchCandidates {
 
       return true;
     } catch (error) {
-      if (!(error instanceof ConfigPullRequestVersionConflictError)) {
+      if (!(error instanceof PullRequestOpenAtStationError)) {
         throw error;
       }
-      if (
-        await this.pullRequests.forCandidate(search.id, proposal.candidateId)
-      ) {
-        return true;
-      }
-      if (await this.pullRequests.openAtStation(stationId)) {
-        return false;
-      }
-      throw error;
+
+      return (
+        (await this.pullRequests.forCandidate(
+          search.id,
+          proposal.candidateId,
+        )) !== null
+      );
     }
   }
 }

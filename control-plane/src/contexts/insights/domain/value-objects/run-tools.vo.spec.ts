@@ -12,13 +12,17 @@ const linear = {
 };
 
 describe('RunTools', () => {
-  it('finds the calls to a server and the skills read', () => {
+  it('keeps the calls to each server and the skills read', () => {
     const tools = RunTools.of({ servers: [linear], skillsRead: ['grafana'] });
 
-    expect(tools.callsTo('linear')?.calls).toBe(2);
-    expect(tools.callsTo('sentry')).toBeNull();
-    expect(tools.read('grafana')).toBe(true);
-    expect(tools.read('our-migrations')).toBe(false);
+    expect(tools.servers.find((each) => each.server === 'linear')?.calls).toBe(
+      2,
+    );
+    expect(
+      tools.servers.find((each) => each.server === 'sentry'),
+    ).toBeUndefined();
+    expect(tools.skillsRead.includes('grafana')).toBe(true);
+    expect(tools.skillsRead.includes('our-migrations')).toBe(false);
   });
 
   it('rejects calls it cannot account for', () => {

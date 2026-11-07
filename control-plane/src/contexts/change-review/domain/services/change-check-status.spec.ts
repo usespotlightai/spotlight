@@ -15,6 +15,7 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -50,6 +51,7 @@ const stackOf = (
     id: ChangeStackId.of(id),
     runId: RUN,
     taskId: null,
+    teamOfRun: TeamId.of('team_1'),
     replay: true,
     isSearch: false,
     workspaceId: WorkspaceId.of('ws-1'),
@@ -99,6 +101,7 @@ const checkOf = (
     id: StackCheckId.of(ChangeStackId.of(id), recheck),
     runId: RUN,
     taskId: null,
+    teamId: null,
     replay: true,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),

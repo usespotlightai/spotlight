@@ -29,6 +29,7 @@ import {
 } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -66,6 +67,7 @@ const generating = (
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    teamOfRun: TeamId.of('team_1'),
     replay,
     isSearch,
     workspaceId: WorkspaceId.of('workspace-1'),
@@ -164,6 +166,7 @@ describe('ChangeStack', () => {
           id: ChangeStackId.of('stack-1'),
           runId: RunId.of('run-1'),
           taskId: TaskId.of('task-1'),
+          teamOfRun: TeamId.of('team_1'),
           replay: true,
           isSearch: false,
           workspaceId: WorkspaceId.of('workspace-1'),
@@ -190,6 +193,37 @@ describe('ChangeStack', () => {
         'change-stack.completed',
         'change-stack.became-ready',
       ]);
+    });
+  });
+
+  describe('owner', () => {
+    const owned = (taskId: TaskId | null, teamOfRun: TeamId | null) =>
+      ChangeStack.startGeneration({
+        id: ChangeStackId.of('stack-1'),
+        runId: RunId.of('run-1'),
+        taskId,
+        teamOfRun,
+        replay: false,
+        isSearch: false,
+        workspaceId: WorkspaceId.of('workspace-1'),
+        repository: 'web',
+        base: null,
+        diff: DIFF,
+        facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
+        request: null,
+        now: NOW,
+      });
+
+    it('belongs to its task, or without a task to the team of its run', () => {
+      const ofTask = owned(TaskId.of('task-1'), TeamId.of('team_1'));
+      const ofTeam = owned(null, TeamId.of('team_1'));
+
+      expect([ofTask.taskId?.value, ofTask.teamId]).toEqual(['task-1', null]);
+      expect([ofTeam.taskId, ofTeam.teamId?.value]).toEqual([null, 'team_1']);
+    });
+
+    it('is refused without a task or a team, since nothing could remove it', () => {
+      expect(() => owned(null, null)).toThrow(InconsistentStateError);
     });
   });
 
@@ -616,6 +650,7 @@ describe('ChangeStack read back from what was stored', () => {
       id: ChangeStackId.of('stack-1'),
       runId: RunId.of('run-1'),
       taskId: null,
+      teamId: TeamId.of('team_1'),
       replay: false,
       workspaceId: WorkspaceId.of('workspace-1'),
       repository: RepositoryName.of('web'),
@@ -634,6 +669,12 @@ describe('ChangeStack read back from what was stored', () => {
 
   it('takes a stack back as it was left', () => {
     expect(stored({}).state).toBe('ready');
+  });
+
+  it('is refused when stored with both a task and a team', () => {
+    expect(() =>
+      stored({ taskId: TaskId.of('task-1'), teamId: TeamId.of('team_1') }),
+    ).toThrow(InconsistentStateError);
   });
 
   it('rejects a ready stack that leaves a hunk out, or assigns one twice', () => {

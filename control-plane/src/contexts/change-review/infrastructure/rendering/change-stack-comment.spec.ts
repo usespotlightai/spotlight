@@ -10,10 +10,10 @@ import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { ChangeStackComment } from '@change-review/infrastructure/rendering/change-stack-comment';
-import { checkReasonOf } from '@change-review/infrastructure/rendering/check-reason';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -43,6 +43,7 @@ const checked = () =>
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
+    teamOfRun: TeamId.of('team_1'),
     replay: false,
     isSearch: false,
     workspaceId: WorkspaceId.of('workspace-1'),
@@ -98,6 +99,7 @@ describe('ChangeStackComment', () => {
       stackId: stack.id,
       runId: stack.runId,
       taskId: null,
+      teamId: null,
       replay: false,
       workspaceId: stack.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
@@ -126,10 +128,8 @@ describe('ChangeStackComment', () => {
         check: {
           command: check.request.command,
           status: check.statusAt(NOW),
-          reason: checkReasonOf({
-            skipped: check.skippedAt(NOW),
-            wholeFailed: check.wholeFailed,
-          }),
+          skip: check.skippedAt(NOW),
+          wholeFailed: check.wholeFailed,
           whole: check.outcome?.whole ?? null,
           layers: check.outcome?.layers ?? [],
         },

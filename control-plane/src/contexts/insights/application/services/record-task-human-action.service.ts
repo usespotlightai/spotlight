@@ -96,11 +96,14 @@ export class RecordTaskHumanAction {
     const taskId = TaskId.of(event.taskId);
     const workspaceId = WorkspaceId.of(event.workspaceId);
 
+    const owner = FactOwner.of(workspaceId, { teamId, taskId });
+
     return this.transaction.inTransaction(() =>
       this.recorder.record(this.humanActions, {
-        owner: FactOwner.of(workspaceId, { teamId, taskId }),
+        owner,
         erased: (existing) => existing.erased(),
         load: () => this.humanActions.of(taskId),
+        ownerOf: (existing) => owner.withTeam(existing.opening?.teamId),
         fresh: () => TaskHumanActions.empty(taskId, workspaceId),
         change,
       }),

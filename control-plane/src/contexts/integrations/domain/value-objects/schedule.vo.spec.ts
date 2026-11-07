@@ -1,4 +1,5 @@
 import type { CronCalendar } from '@integrations/domain/services/cron-calendar';
+import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec';
 import { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 import { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import { describe, expect, it } from 'vitest';
@@ -18,7 +19,7 @@ const hourly: CronCalendar = {
 const schedule = () =>
   Schedule.of({
     cron: CronExpression.of('0 * * * *', hourly),
-    action: 'digest',
+    action: actionNamed('digest'),
   });
 
 describe('Schedule', () => {

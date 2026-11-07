@@ -13,10 +13,16 @@ import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+export const ADMISSION_LEASE_MS = 15 * 60 * 1000;
+
 export interface SearchAdmission {
   readonly searchId: SearchId;
   readonly ceiling: Money;
+  readonly admittedAt: Date;
 }
+
+const holdsLease = (admission: SearchAdmission, at: Date): boolean =>
+  at.getTime() < admission.admittedAt.getTime() + ADMISSION_LEASE_MS;
 
 export interface StartedSearch extends SpendingSearch {
   readonly id: SearchId;
@@ -117,11 +123,13 @@ export class LineSearchBudget extends EventRecorder {
       return this;
     }
 
-    const notStartedYet = this.state.admissions
-      .filter(
-        (each) =>
-          !startedThisMonth.some((started) => started.id.equals(each.searchId)),
-      )
+    const isStarted = (each: SearchAdmission): boolean =>
+      startedThisMonth.some((started) => started.id.equals(each.searchId));
+    const kept = this.state.admissions.filter(
+      (each) => isStarted(each) || holdsLease(each, admission.admittedAt),
+    );
+    const notStartedYet = kept
+      .filter((each) => !isStarted(each))
       .map(
         (each): SpendingSearch => ({
           isActive: true,
@@ -134,9 +142,7 @@ export class LineSearchBudget extends EventRecorder {
       throw new MonthlyCeilingReachedError(this.state.lineId);
     }
 
-    return this.with({
-      admissions: [...this.state.admissions, admission],
-    });
+    return this.with({ admissions: [...kept, admission] });
   }
 
   withdrawn(searchId: SearchId): LineSearchBudget {

@@ -1,12 +1,12 @@
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 
 export const occupancyOf = async (
   runners: RunnerRepository,
   placements: SandboxPlacementsPort,
-  poolId: RunnerPoolId,
+  poolId: PoolId,
   at: Date,
 ): Promise<PoolOccupancy> => {
   const alive = await runners.aliveIn(poolId, at);

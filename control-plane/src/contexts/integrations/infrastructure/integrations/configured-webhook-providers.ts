@@ -1,3 +1,4 @@
+import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type {
   ConfiguredWebhookProvidersPort,
   OfTeam,
@@ -5,14 +6,15 @@ import type {
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
-import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
-import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
+import {
+  SpotlightCredentials,
+  SpotlightSigningSecrets,
+} from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
-import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 
 export class ConfiguredWebhookProviders
   implements ConfiguredWebhookProvidersPort

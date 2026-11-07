@@ -109,6 +109,8 @@ export class McpSessions implements OnModuleDestroy {
           new UpstreamError(
             `reading what ${new URL(url.toString()).host} answered`,
             `it is larger than the ${MAX_ANSWER_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
+            null,
+            false,
           ),
       );
     };

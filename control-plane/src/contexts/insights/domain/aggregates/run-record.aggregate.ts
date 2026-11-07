@@ -4,19 +4,13 @@ import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.e
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
 import { RunRecordErased } from '@insights/domain/events/run-record-erased.event';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
-import {
-  dispositionOf,
-  effectiveEndingOf,
-} from '@insights/domain/services/run-classification';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
 import type {
   ActedOnTool,
   HumanAction,
 } from '@insights/domain/value-objects/human-action.vo';
-import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
-import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import {
   RunFact,
   type RunPullRequest,
@@ -135,6 +129,21 @@ export class RunRecord extends EventRecorder {
     );
   }
 
+  static creditedWithActionAt(
+    records: readonly RunRecord[],
+    at: Date,
+  ): RunRecord | null {
+    return records.reduce<RunRecord | null>((credited, each) => {
+      const endedAt = each.end?.endedAt;
+
+      if (!each.ran || !endedAt || endedAt.getTime() > at.getTime()) {
+        return credited;
+      }
+
+      return credited?.end && credited.end.endedAt >= endedAt ? credited : each;
+    }, null);
+  }
+
   get superseded(): boolean {
     return this.supersededAt !== null;
   }
@@ -145,19 +154,6 @@ export class RunRecord extends EventRecorder {
 
   get ran(): boolean {
     return this.end?.ran === true;
-  }
-
-  get ending(): RunEnding | null {
-    return this.end ? effectiveEndingOf(this.end, this.supersededAt) : null;
-  }
-
-  get disposition(): RunDisposition {
-    return dispositionOf({
-      ending: this.ending,
-      asked: this.end?.asked ?? false,
-      firstHumanAction: this.firstHumanAction,
-      approvalAnsweredAt: this.approvalAnsweredAt,
-    });
   }
 
   factWith(

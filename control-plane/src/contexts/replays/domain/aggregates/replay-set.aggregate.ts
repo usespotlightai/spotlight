@@ -11,6 +11,7 @@ import { UnknownReplaySetEntryError } from '@replays/domain/exceptions/unknown-r
 import { UnreplayableEntryError } from '@replays/domain/exceptions/unreplayable-entry.error';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SetEntriesDigest } from '@replays/domain/value-objects/set-entries-digest.vo';
 import { SetSnapshot } from '@replays/domain/value-objects/set-snapshot.vo';
 import type { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
@@ -177,12 +178,14 @@ export class ReplaySet extends EventRecorder {
     return ReplaySet.holderOf(this.state.id);
   }
 
-  digestOfEntries(sha256: (text: string) => string): string {
-    return sha256(
-      this.runs
-        .map((each) => each.value)
-        .sort()
-        .join('\n'),
+  digestOfEntries(sha256: (text: string) => string): SetEntriesDigest {
+    return SetEntriesDigest.of(
+      sha256(
+        this.runs
+          .map((each) => each.value)
+          .sort()
+          .join('\n'),
+      ),
     );
   }
 
