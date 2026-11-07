@@ -219,7 +219,7 @@ describe('recording the usage of a run that paused for a person', () => {
     await journal.appendControlPlaneEntry(RunAttempt.of(runId, 1), {
       type: 'run.paused',
       at: new Date(Date.UTC(2026, 8, 17, 9, 0, 5)),
-      message: 'Waiting for a person',
+      resumesAtOnce: false,
     });
     await db
       .update(schema.run)
@@ -324,11 +324,28 @@ describe('recording the tokens a run used', () => {
 });
 
 describe('journalling what happened around a run', () => {
-  const controlPlaneEntry = (message: string, second: number) => ({
-    type: 'hook.called',
-    at: new Date(Date.UTC(2026, 8, 17, 9, 0, second)),
-    message,
-  });
+  const controlPlaneEntry = (hook: string, second: number) => {
+    const at = new Date(Date.UTC(2026, 8, 17, 9, 0, second));
+
+    return {
+      type: 'hook.called' as const,
+      at,
+      call: {
+        attempt: 1,
+        hook,
+        step: 'check',
+        kind: 'call' as const,
+        target: 'ci',
+        request: null,
+        response: null,
+        status: 200,
+        failed: false,
+        startedAt: at,
+        ms: 0,
+      },
+    };
+  };
+  const shown = (hook: string) => `Hook ${hook} · check → ci`;
 
   it('gives each entry its own place below the runner’s, however many arrive at once', async () => {
     const { runId } = await chatRun();
@@ -346,9 +363,10 @@ describe('journalling what happened around a run', () => {
       ),
     );
 
-    expect(new Set(placed).size).toBe(4);
-    expect(Math.max(...placed)).toBe(-1_000_000);
-    expect(Math.min(...placed)).toBe(-1_000_003);
+    const seqs = placed.map((each) => each.seq);
+    expect(new Set(seqs).size).toBe(4);
+    expect(Math.max(...seqs)).toBe(-1_000_000);
+    expect(Math.min(...seqs)).toBe(-1_000_003);
 
     const stored = await db
       .select({ seq: schema.runJournalEntry.seq })
@@ -371,13 +389,13 @@ describe('journalling what happened around a run', () => {
     expect(all.map((each) => each.message)).toEqual([
       'one',
       'two',
-      'between',
+      shown('between'),
       'three',
     ]);
 
     const later = await events.entriesSince(runId, 1, 3, 50);
     expect(later.map((each) => [each.seq, each.message])).toEqual([
-      [-1_000_000, 'between'],
+      [-1_000_000, shown('between')],
     ]);
   });
 

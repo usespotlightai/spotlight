@@ -20,9 +20,7 @@ async function rebuild(): Promise<void> {
   const { outcomes, close } = openReplayOutcomesRebuild();
 
   try {
-    for (const teamId of values.team
-      ? [values.team]
-      : await outcomes.teams()) {
+    for (const teamId of values.team ? [values.team] : await outcomes.teams()) {
       console.log(
         `Rebuilt ${await outcomes.ofTeam(teamId)} replay outcomes for team ${teamId}.`,
       );

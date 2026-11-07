@@ -3,7 +3,6 @@ import { InvalidReviewPolicyError } from '@lines/domain/exceptions/invalid-revie
 import { InvalidStationLayoutError } from '@lines/domain/exceptions/invalid-station-layout.error';
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
-import { StationNotEmptyError } from '@lines/domain/exceptions/station-not-empty.error';
 import type {
   Invalid,
   Rejected,
@@ -15,10 +14,7 @@ export const lineRejection = (
   key: string,
   error: unknown,
 ): Invalid | Extract<Rejected, { outcome: 'in-use' }> | null => {
-  if (
-    error instanceof LineInUseError ||
-    error instanceof StationNotEmptyError
-  ) {
+  if (error instanceof LineInUseError) {
     return { outcome: 'in-use', reason: error.message };
   }
 

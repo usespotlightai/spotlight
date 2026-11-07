@@ -14,7 +14,9 @@ export interface ReplayOutcomesRebuildSession {
 
 const READ_ONLY: DomainEventDispatcher = {
   dispatch: async () => {
-    throw new Error('The replay outcomes rebuild reads replays and never saves them');
+    throw new Error(
+      'The replay outcomes rebuild reads replays and never saves them',
+    );
   },
 };
 

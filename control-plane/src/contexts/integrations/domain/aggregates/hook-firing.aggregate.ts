@@ -116,7 +116,7 @@ const impossibleTrail = (steps: readonly HookStepOutcome[]): string | null => {
   const unfinished = steps.slice(0, -1).find((step) => step.status !== 'done');
 
   return unfinished
-    ? `took a step after ${unfinished.name} ended ${unfinished.status}`
+    ? `took a step after ${unfinished.name.value} ended ${unfinished.status}`
     : null;
 };
 
@@ -307,6 +307,10 @@ export class HookFiring extends EventRecorder {
 
   get stoppedForLooping(): boolean {
     return isLoop(this.state.failure);
+  }
+
+  get loopNoticeKey(): string {
+    return `loop:${this.state.id.value}`;
   }
 
   get repeatsCountedSince(): Date {

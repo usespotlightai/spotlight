@@ -1,15 +1,16 @@
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import type { JudgeCalibration } from '@insights/domain/services/judge-calibration';
 import type { StationLocation } from '@insights/domain/services/station-ranking';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 
 interface StationJudgeCalibration extends StationLocation, JudgeCalibration {
-  readonly rubricVersion: string | null;
+  readonly rubricVersion: RubricVersion | null;
 }
 
 export interface JudgeCalibrations {
   readonly judges: readonly StationJudgeCalibration[];
-  readonly qualified: ReadonlyMap<string, string>;
+  readonly qualified: ReadonlyMap<string, RubricVersion>;
 }
 
 export class QualifiedJudges {

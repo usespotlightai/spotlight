@@ -6,8 +6,8 @@ import type { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import type { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import {
   RUN_ENDED,
-  type RunEndedIntegrationEvent,
   type RunEndedByPublished,
+  type RunEndedIntegrationEvent,
   type RunOutcomePublished,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {

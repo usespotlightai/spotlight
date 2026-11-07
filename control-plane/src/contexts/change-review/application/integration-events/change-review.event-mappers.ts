@@ -18,9 +18,9 @@ import {
   type TrialChangeRecheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/trial-change-rechecked.integration-event';
 import {
-  TRIAL_STACK_COMPLETED,
-  type TrialStackCompletedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/trial-stack-completed.integration-event';
+  TRIAL_STACK_SETTLED,
+  type TrialStackSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/trial-stack-settled.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const CHANGE_REVIEW_EVENT_MAPPERS = [
@@ -76,8 +76,8 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
   ),
   mapping<TrialStackSettled>(
     'change-stack.trial-settled',
-    (event): TrialStackCompletedIntegrationEvent => ({
-      kind: TRIAL_STACK_COMPLETED,
+    (event): TrialStackSettledIntegrationEvent => ({
+      kind: TRIAL_STACK_SETTLED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
     }),

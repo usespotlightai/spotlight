@@ -776,7 +776,7 @@ describe('replayed candidates beside live runs', () => {
       .where(eq(schema.replay.teamId, team.teamId.value));
     const setIds = sets.map((each) => ReplaySetId.of(each.setId));
 
-    for (const each of await reader.baselinesOfSets(setIds)) {
+    for (const each of await reader.servingBaselinesOfSets(setIds)) {
       const [row] = await db
         .select()
         .from(schema.replay)
@@ -797,9 +797,7 @@ describe('replayed candidates beside live runs', () => {
         ...(row as typeof schema.replay.$inferInsert),
         id: stoppedId,
         state: 'stopped',
-        servesAsBaseline: false,
         takesPairings: false,
-        healthSampleGroup: null,
         startedAt,
         version: 0,
       });
@@ -820,13 +818,13 @@ describe('replayed candidates beside live runs', () => {
       );
     }
 
-    const read = await reader.baselinesOfSets(setIds);
+    const read = await reader.servingBaselinesOfSets(setIds);
 
-    expect(read).toHaveLength(setIds.length);
     for (const setId of setIds) {
-      expect(read.find((each) => each.setId.equals(setId))?.id.value).toBe(
-        servingBaselineOf(await replays.ofSet(setId))?.id.value,
-      );
+      expect(
+        servingBaselineOf(read.filter((each) => each.setId.equals(setId)))?.id
+          .value,
+      ).toBe(servingBaselineOf(await replays.ofSet(setId))?.id.value);
     }
   });
 

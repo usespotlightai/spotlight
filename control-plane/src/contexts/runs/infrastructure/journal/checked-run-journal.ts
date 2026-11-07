@@ -59,7 +59,7 @@ export class CheckedRunJournal implements RunJournalPort {
   appendControlPlaneEntry(
     attempt: RunAttempt,
     entry: ControlPlaneEntry,
-  ): Promise<number> {
+  ): Promise<JournalEntry> {
     return this.journal.appendControlPlaneEntry(attempt, entry);
   }
 

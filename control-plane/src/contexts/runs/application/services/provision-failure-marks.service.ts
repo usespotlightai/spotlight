@@ -1,8 +1,10 @@
-import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
+import type {
+  ControlPlaneEntry,
+  RunJournalPort,
+} from '@runs/application/ports/run-journal.port';
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
-import { journalEntryText } from '@runs/application/rendering/journal-entry.text';
+import { controlPlaneEntryText } from '@runs/application/rendering/journal-entry.text';
 import type { RunProvisionFailed } from '@runs/domain/events/run-provision-failed.event';
-import { PROVISION_FAILED } from '@runs/domain/value-objects/journal-entry-type';
 
 export class ProvisionFailureMarks {
   constructor(
@@ -11,23 +13,23 @@ export class ProvisionFailureMarks {
   ) {}
 
   async onProvisionFailed(event: RunProvisionFailed): Promise<void> {
-    const entry = {
-      type: PROVISION_FAILED,
-      data: Buffer.from(
-        JSON.stringify({ failure: event.failure, detail: event.detail }),
-        'utf8',
-      ).toString('base64'),
-    };
-    const seq = await this.journal.appendControlPlaneEntry(event.attempt, {
-      ...entry,
+    const entry: ControlPlaneEntry = {
+      type: 'provision.failed',
+      failure: event.failure,
+      detail: event.detail,
       at: event.at,
-    });
+    };
+    const written = await this.journal.appendControlPlaneEntry(
+      event.attempt,
+      entry,
+    );
 
     this.stream.publish(event.runId.value, [
       {
-        ...entry,
-        message: journalEntryText(entry),
-        seq,
+        type: written.type,
+        data: written.data,
+        message: controlPlaneEntryText(entry),
+        seq: written.seq,
         attempt: event.attempt.number,
         at: event.at.toISOString(),
       },

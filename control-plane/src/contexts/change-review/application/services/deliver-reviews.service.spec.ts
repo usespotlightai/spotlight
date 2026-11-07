@@ -56,6 +56,7 @@ const delivering = (over: {
     readonly sendingSince?: Date | null;
   };
   reviewSaveFails?: boolean;
+  leaseLost?: boolean;
   comments?: ReviewComment[];
   reviews?: Review[];
   github?: Partial<PullRequestReviewsPort>;
@@ -89,7 +90,10 @@ const delivering = (over: {
       pending = null;
       return next;
     },
-    sending: async (delivery) => void sendings.push(delivery.id.value),
+    sending: async (delivery) => {
+      sendings.push(delivery.id.value);
+      return !over.leaseLost;
+    },
     delivered: async (delivery) =>
       void recorded.push({ how: 'delivered', args: [delivery.id.value] }),
     retry: async (delivery, retry) =>
@@ -178,7 +182,7 @@ const delivering = (over: {
     {
       find: async () => ({ name: 'Ada', image: null }),
       viewerOf: async () => null,
-      actsForTeam: async () => false,
+      actsOnTeam: async () => false,
     },
     github,
     { now: () => NOW, sleep: async () => {} },
@@ -454,6 +458,48 @@ describe('DeliverReviews', () => {
 
     expect(again.github.submit).not.toHaveBeenCalled();
     expect(again.recorded).toEqual([{ how: 'failed', args: ['delivery_1'] }]);
+  });
+
+  it('does not post where another worker took the delivery over', async () => {
+    const { review, comments } = submitted();
+    const delivered = delivering({
+      delivery: { kind: 'review', subjectId: 'review_1', attempts: 0 },
+      reviews: [review],
+      comments,
+      leaseLost: true,
+    });
+
+    await delivered.service.deliverDue();
+
+    expect(delivered.github.submit).not.toHaveBeenCalled();
+    expect(delivered.recorded).toEqual([]);
+    expect(delivered.reviews.get('review_1')?.state).toBe('submitted');
+  });
+
+  it('never posts again where GitHub sent no answer to a post', async () => {
+    const { review, comments } = submitted();
+    const delivered = delivering({
+      delivery: { kind: 'review', subjectId: 'review_1', attempts: 0 },
+      reviews: [review],
+      comments,
+      github: {
+        submit: vi.fn(async () => {
+          throw new ReviewPostingFailedError(
+            DeliveryFailure.of('github-unreachable'),
+            { outcomeUnknown: true },
+          );
+        }),
+      },
+    });
+
+    await delivered.service.deliverDue();
+
+    expect(delivered.recorded).toEqual([
+      { how: 'failed', args: ['delivery_1'] },
+    ]);
+    expect(delivered.reviews.get('review_1')?.failure).toEqual(
+      DeliveryFailure.of('not-recorded'),
+    );
   });
 
   it('settles a delivery whose review no longer exists, with nothing to mark', async () => {

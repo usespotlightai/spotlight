@@ -47,7 +47,13 @@ const CALL: HookCallTrace = {
 
 const tracing = (run: Run | null = onSecondAttempt()) => {
   let seq = -1_000_000;
-  const appendControlPlaneEntry = vi.fn(async () => seq--);
+  const appendControlPlaneEntry = vi.fn(
+    async (_: RunAttempt, entry: { type: string; at: Date }) => ({
+      seq: seq--,
+      type: entry.type,
+      at: entry.at,
+    }),
+  );
   const publish = vi.fn();
 
   return {
@@ -61,9 +67,6 @@ const tracing = (run: Run | null = onSecondAttempt()) => {
   };
 };
 
-const decoded = (data: string | undefined) =>
-  JSON.parse(Buffer.from(data ?? '', 'base64').toString('utf8'));
-
 describe('HookTraces', () => {
   it('journals a hook’s call as a control-plane entry', async () => {
     const { traces, appendControlPlaneEntry } = tracing();
@@ -72,18 +75,12 @@ describe('HookTraces', () => {
 
     expect(appendControlPlaneEntry).toHaveBeenCalledWith(
       RunAttempt.of(RunId.of('run_1'), 2),
-      expect.objectContaining({
+      {
         type: 'hook.called',
+        call: CALL,
         at: new Date(NOW.getTime() + 120),
-      }),
+      },
     );
-    const [[, entry]] = appendControlPlaneEntry.mock.calls as unknown as [
-      [RunAttempt, { data: string }],
-    ];
-    expect(decoded(entry.data)).toEqual({
-      ...CALL,
-      startedAt: NOW.toISOString(),
-    });
   });
 
   it('streams the call at the place the journal put it', async () => {

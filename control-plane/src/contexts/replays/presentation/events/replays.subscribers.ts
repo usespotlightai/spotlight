@@ -43,6 +43,7 @@ import type { ConfigPullRequestReopened } from '@replays/domain/events/config-pu
 import type { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import type { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
 import type { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
+import type { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
@@ -54,7 +55,6 @@ import type { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted
 import type { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import type { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
 import type { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
-import type { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import type { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import type { SearchDeleted } from '@replays/domain/events/search-deleted.event';
@@ -114,9 +114,9 @@ import {
   type TrialChangeRecheckedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/trial-change-rechecked.integration-event';
 import {
-  TRIAL_STACK_COMPLETED,
-  type TrialStackCompletedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/trial-stack-completed.integration-event';
+  TRIAL_STACK_SETTLED,
+  type TrialStackSettledIntegrationEvent,
+} from '@shared-kernel/application/integration-events/trial-stack-settled.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -232,10 +232,10 @@ export const replaysSubscribers = (
     },
   ),
   subscribing<
-    TrialStackCompletedIntegrationEvent | TrialChangeCheckedIntegrationEvent
+    TrialStackSettledIntegrationEvent | TrialChangeCheckedIntegrationEvent
   >(
     'replays.record-replay-change-reviewed',
-    [TRIAL_STACK_COMPLETED, TRIAL_CHANGE_CHECKED],
+    [TRIAL_STACK_SETTLED, TRIAL_CHANGE_CHECKED],
     (event) => reactions.reviewing.reviewed(event.runId),
   ),
   subscribing<ReplayJudgingRequested>(

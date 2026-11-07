@@ -1,5 +1,6 @@
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
 import type { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -59,7 +60,7 @@ export interface StationConfigView {
   readonly decisions: boolean;
   readonly memories: boolean;
   readonly judge?: {
-    readonly rubricVersion: string;
+    readonly rubricVersion: RubricVersion;
     readonly sample: number;
     readonly minAgreement: number;
   };

@@ -1,6 +1,5 @@
 import type { ApplyLines } from '@lines/application/services/apply-lines.service';
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
-import { StationNotEmptyError } from '@lines/domain/exceptions/station-not-empty.error';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -22,10 +21,7 @@ export class DeleteTeamLines {
           this.applying.delete(line, ChangeActor.spotlight(line.workspaceId)),
         );
       } catch (error) {
-        if (
-          !(error instanceof LineInUseError) &&
-          !(error instanceof StationNotEmptyError)
-        ) {
+        if (!(error instanceof LineInUseError)) {
           throw error;
         }
 

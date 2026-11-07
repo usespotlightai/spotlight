@@ -6,15 +6,10 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { TaskLinksPort } from '@work/application/ports/task-links.port';
 
 export class WebInboxLinks implements InboxLinksPort {
-  private readonly base: string;
-
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly taskLinks: TaskLinksPort,
-    base: string,
-  ) {
-    this.base = base.replace(/\/+$/, '');
-  }
+  ) {}
 
   async conversation(
     workspaceId: WorkspaceId,
@@ -22,7 +17,7 @@ export class WebInboxLinks implements InboxLinksPort {
   ): Promise<string | null> {
     const slug = await this.workspaces.slugOf(workspaceId);
 
-    return slug ? `${this.base}/w/${slug}/inbox/${conversationId}` : null;
+    return slug ? this.taskLinks.conversationPage(slug, conversationId) : null;
   }
 
   async chat(
@@ -30,7 +25,9 @@ export class WebInboxLinks implements InboxLinksPort {
     teamId: TeamId,
     chatId: string,
   ): Promise<string | null> {
-    return this.inTeam(workspaceId, teamId, `agent/${chatId}`);
+    const slug = await this.workspaces.slugOf(workspaceId);
+
+    return slug ? this.taskLinks.chatPage(slug, teamId.value, chatId) : null;
   }
 
   async task(
@@ -43,15 +40,5 @@ export class WebInboxLinks implements InboxLinksPort {
     return slug
       ? this.taskLinks.taskPage(slug, teamId.value, taskId.value)
       : null;
-  }
-
-  private async inTeam(
-    workspaceId: WorkspaceId,
-    teamId: TeamId,
-    path: string,
-  ): Promise<string | null> {
-    const slug = await this.workspaces.slugOf(workspaceId);
-
-    return slug ? `${this.base}/w/${slug}/team/${teamId.value}/${path}` : null;
   }
 }

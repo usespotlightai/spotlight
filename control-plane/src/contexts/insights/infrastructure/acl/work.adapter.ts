@@ -9,6 +9,7 @@ import type {
 } from '@insights/application/ports/work.port';
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
 import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -40,7 +41,7 @@ const configViewOf = (config: StationConfigShape): StationConfigView => ({
   ...(config.judge
     ? {
         judge: {
-          rubricVersion: config.judge.rubricHash,
+          rubricVersion: RubricVersion.of(config.judge.rubricHash),
           sample: config.judge.sample,
           minAgreement: config.judge.minAgreement,
         },

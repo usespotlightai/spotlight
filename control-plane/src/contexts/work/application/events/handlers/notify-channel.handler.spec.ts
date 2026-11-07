@@ -174,7 +174,7 @@ describe('NotifyChannel', () => {
 
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ body: '', chatId: 'chat_1', proposals: [] }),
-      'chat.dispatched',
+      'chat.run-assigned',
     );
   });
 

@@ -40,7 +40,7 @@ export interface ReviewDeliveriesPort {
 
   leaseDue(now: Date, leaseUntil: Date): Promise<LeasedReviewDelivery | null>;
 
-  sending(delivery: LeasedReviewDelivery, at: Date): Promise<void>;
+  sending(delivery: LeasedReviewDelivery, at: Date): Promise<boolean>;
 
   delivered(delivery: LeasedReviewDelivery): Promise<void>;
 

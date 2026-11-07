@@ -6,7 +6,7 @@ import type {
   HookRuntimePort,
   ListeningHook,
 } from '@integrations/application/ports/hook-runtime.port';
-import type { LoopNoticesPort } from '@integrations/application/ports/loop-notices.port';
+import type { HookTaskNotesPort } from '@integrations/application/ports/hook-task-notes.port';
 import type {
   TasksForHooksPort,
   TaskView,
@@ -21,10 +21,10 @@ import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
-import type { TaskNotesFromHooksPort } from '@work/application/ports/task-notes-from-hooks.port';
 
 interface LeasedFiring {
   firing: HookFiring;
@@ -54,8 +54,7 @@ export class WorkHookFirings {
     private readonly firings: HookFiringRepository,
     private readonly history: HookFiringHistoryPort,
     private readonly tasks: TasksForHooksPort,
-    private readonly notes: TaskNotesFromHooksPort,
-    private readonly loopNotices: LoopNoticesPort,
+    private readonly notes: HookTaskNotesPort,
     private readonly pullRequests: PullRequestPort,
     private readonly clock: ClockPort,
     private readonly causation: CausationPort,
@@ -139,14 +138,14 @@ export class WorkHookFirings {
     const now = this.clock.now();
     const movedOn = firing.willRetry(failure, now)
       ? false
-      : await this.notes.movedOn(firing.taskId.value, firing.stationKey.value);
+      : await this.notes.movedOn(firing.taskId, firing.stationKey);
 
     await this.firings.save(firing.failedWith(failure, now, movedOn));
   }
 
   private async stopped(
     leased: LeasedFiring,
-    hook: string,
+    hook: HookKey,
     loop: HookFailure,
   ): Promise<void> {
     if (!leased.firing.stoppedForLooping) {
@@ -155,17 +154,21 @@ export class WorkHookFirings {
     }
 
     const { firing } = leased;
-    const notice = await this.loopNotices.send({
+    const notice = await this.notes.loopNotice({
       taskId: firing.taskId,
       stationKey: firing.stationKey,
       hook,
       loop,
-      receivedAs: `loop:${firing.id.value}`,
+      receivedAs: firing.loopNoticeKey,
     });
 
     if (notice.kind === 'failed') {
       this.logger.warn(
-        { hook, task: firing.taskId.value, reason: notice.failure.reason },
+        {
+          hook: hook.value,
+          task: firing.taskId.value,
+          reason: notice.failure.reason,
+        },
         'Could not send the notice of a hook stopped for looping',
       );
       await this.firings.save(
@@ -176,7 +179,7 @@ export class WorkHookFirings {
 
     this.logger.warn(
       {
-        hook,
+        hook: hook.value,
         task: firing.taskId.value,
         loop: loop.reason,
         notice: notice.onTask,
@@ -266,7 +269,7 @@ export class WorkHookFirings {
     );
 
     if (loop) {
-      await this.stopped(leased, hook.key.value, loop);
+      await this.stopped(leased, hook.key, loop);
       return null;
     }
 

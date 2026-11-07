@@ -8,7 +8,7 @@ export type ChatNoticeKind = (typeof CHAT_NOTICE_KINDS)[number];
 
 export const BINDABLE_CHAT_EVENTS = [
   'chat.started',
-  'chat.dispatched',
+  'chat.run-assigned',
   ...CHAT_NOTICE_KINDS,
 ] as const;
 

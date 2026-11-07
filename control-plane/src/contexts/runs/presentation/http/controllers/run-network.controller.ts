@@ -14,6 +14,22 @@ import type { RunNetworkDto } from '@runs/application/dto/run-network.dto';
 import { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.query';
 import { RunNetworkResponseDto } from '@runs/presentation/http/dto/run-network.response.dto';
 
+const read = async (
+  queryBus: QueryBus,
+  query: ReadRunNetworkQuery,
+): Promise<RunNetworkResponseDto> => {
+  const found = await queryBus.execute<
+    ReadRunNetworkQuery,
+    RunNetworkDto | null
+  >(query);
+
+  if (!found) {
+    throw new NotFoundException();
+  }
+
+  return new RunNetworkResponseDto(found);
+};
+
 @ApiTags('runs')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @ApiParam({
@@ -41,15 +57,31 @@ export class RunNetworkController {
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunNetworkResponseDto> {
-    const found = await this.queryBus.execute<
-      ReadRunNetworkQuery,
-      RunNetworkDto | null
-    >(new ReadRunNetworkQuery(teamId, runId, user.id));
+    return read(this.queryBus, new ReadRunNetworkQuery(teamId, runId, user.id));
+  }
+}
 
-    if (!found) {
-      throw new NotFoundException();
-    }
+@ApiTags('runs')
+@ApiUnauthorizedResponse({ description: 'No valid session' })
+@Controller()
+export class TeamlessRunNetworkController {
+  constructor(private readonly queryBus: QueryBus) {}
 
-    return new RunNetworkResponseDto(found);
+  @Get('runs/:runId/network')
+  @ApiOperation({
+    operationId: 'readTeamlessRunNetwork',
+    summary:
+      'The connections a run of no team made through a shared egress, and if egress was enforced',
+  })
+  @ApiParam({ name: 'runId', type: String })
+  @ApiOkResponse({ type: RunNetworkResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such run of no team for this caller',
+  })
+  async network(
+    @Param('runId') runId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<RunNetworkResponseDto> {
+    return read(this.queryBus, new ReadRunNetworkQuery(null, runId, user.id));
   }
 }

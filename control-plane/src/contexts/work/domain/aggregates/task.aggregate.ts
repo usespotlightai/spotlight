@@ -1742,7 +1742,7 @@ export class Task extends EventRecorder {
           ...newNote,
           station:
             newNote.line?.stationAt(this.stationId)?.name ??
-            StationName.unknown(),
+            StationName.of('Unknown'),
           stationId: this.stationId,
           kind,
           position: NotePosition.nextIn(this.notes),

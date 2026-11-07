@@ -3,7 +3,6 @@ import type { DeleteLineCommand } from '@lines/application/commands/delete-line.
 import type { ApplyLines } from '@lines/application/services/apply-lines.service';
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
 import { LineVersionConflictError } from '@lines/domain/exceptions/line-version-conflict.error';
-import { StationNotEmptyError } from '@lines/domain/exceptions/station-not-empty.error';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
 import {
   forbiddenTo,
@@ -64,10 +63,7 @@ export class DeleteLineHandler
           : null;
       }
 
-      if (
-        error instanceof LineInUseError ||
-        error instanceof StationNotEmptyError
-      ) {
+      if (error instanceof LineInUseError) {
         return { outcome: 'in-use', reason: error.message };
       }
 

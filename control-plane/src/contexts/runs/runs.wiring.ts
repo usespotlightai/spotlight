@@ -280,7 +280,10 @@ import { HostCallSecretsController } from '@runs/presentation/http/controllers/h
 import { HostWorkController } from '@runs/presentation/http/controllers/host-work.controller';
 import { PoolController } from '@runs/presentation/http/controllers/pool.controller';
 import { RunController } from '@runs/presentation/http/controllers/run.controller';
-import { RunNetworkController } from '@runs/presentation/http/controllers/run-network.controller';
+import {
+  RunNetworkController,
+  TeamlessRunNetworkController,
+} from '@runs/presentation/http/controllers/run-network.controller';
 import { RunStreamController } from '@runs/presentation/http/controllers/run-stream.controller';
 import { RunnerController } from '@runs/presentation/http/controllers/runner.controller';
 import { RunnerActivityController } from '@runs/presentation/http/controllers/runner-activity.controller';
@@ -333,6 +336,7 @@ export const RUNS_CONTROLLERS: readonly Type[] = [
   RunController,
   RunnerController,
   RunNetworkController,
+  TeamlessRunNetworkController,
   RunStreamController,
   WorkingCopyArchiveController,
   SandboxArchiveController,

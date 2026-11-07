@@ -43,11 +43,13 @@ const failing = (stored: Run, conflicts = 0) => {
   let current = stored;
   let clashes = conflicts;
   const written: number[] = [];
-  const append = vi.fn(async () => {
-    const seq = JournalSeq.firstControlPlane - written.length;
-    written.push(seq);
-    return seq;
-  });
+  const append = vi.fn(
+    async (_: RunAttempt, entry: { type: string; at: Date }) => {
+      const seq = JournalSeq.firstControlPlane - written.length;
+      written.push(seq);
+      return { seq, type: entry.type, at: entry.at };
+    },
+  );
   const publish = vi.fn();
   const marks = new ProvisionFailureMarks(
     { appendControlPlaneEntry: append } as unknown as RunJournalPort,
@@ -101,13 +103,8 @@ describe('ProvisionFailures', () => {
 
     expect(append).toHaveBeenCalledWith(RunAttempt.of(RunId.of('run_1'), 1), {
       type: 'provision.failed',
-      data: Buffer.from(
-        JSON.stringify({
-          failure: 'http-error',
-          detail: 'the pool is draining',
-        }),
-        'utf8',
-      ).toString('base64'),
+      failure: 'http-error',
+      detail: 'the pool is draining',
       at: NOON,
     });
   });

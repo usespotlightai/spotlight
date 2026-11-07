@@ -7,6 +7,7 @@ import type {
 } from '@runs/application/ports/run-journal.port';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import { encodedFacts } from '@runs/infrastructure/journal/control-plane-facts';
 import { runJournalEntry } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { and, eq, lte, min } from 'drizzle-orm';
 
@@ -49,7 +50,9 @@ export class DrizzleRunJournal implements RunJournalPort {
   async appendControlPlaneEntry(
     attempt: RunAttempt,
     entry: ControlPlaneEntry,
-  ): Promise<number> {
+  ): Promise<JournalEntry> {
+    const data = encodedFacts(entry);
+
     for (let tried = 1; ; tried++) {
       const [lowest] = await this.context.db
         .select({ seq: min(runJournalEntry.seq) })
@@ -71,8 +74,8 @@ export class DrizzleRunJournal implements RunJournalPort {
           seq,
           type: entry.type,
           at: entry.at,
-          message: entry.message ?? null,
-          data: entry.data ?? null,
+          message: null,
+          data,
         })
         .onConflictDoNothing({
           target: [
@@ -84,7 +87,7 @@ export class DrizzleRunJournal implements RunJournalPort {
         .returning({ seq: runJournalEntry.seq });
 
       if (written.length > 0) {
-        return seq;
+        return { seq, type: entry.type, at: entry.at, data };
       }
 
       if (tried >= CONTROL_PLANE_ENTRY_TRIES) {

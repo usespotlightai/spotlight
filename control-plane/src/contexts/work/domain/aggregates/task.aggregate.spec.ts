@@ -167,7 +167,7 @@ describe('Task, the station a note is written at', () => {
 
   it('names a station its line no longer has as gone', () => {
     expect(lastOf(added().addMessage(newNote))?.station).toEqual(
-      StationName.unknown(),
+      StationName.of('Unknown'),
     );
   });
 });
@@ -1648,7 +1648,7 @@ describe('Task, what it is doing', () => {
           notes: [
             TaskNote.of({
               ...newNote,
-              station: StationName.unknown(),
+              station: StationName.of('Unknown'),
               stationId: HERE,
               kind: 'message',
               position: NotePosition.of(1),

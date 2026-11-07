@@ -110,6 +110,7 @@ import {
 } from '@shared-kernel/domain/value-objects/principal.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -211,8 +212,7 @@ export class InMemoryReplays {
       servingBaselinesOfSets: async (setIds) =>
         outcomesWhere(
           (each) =>
-            each.servesAsBaseline &&
-            setIds.some((id) => each.setId.equals(id)),
+            each.servesAsBaseline && setIds.some((id) => each.setId.equals(id)),
         ),
       healthSamplesOfSets: async (setIds) =>
         outcomesWhere(
@@ -580,7 +580,7 @@ export class FakeLines implements LinesPort {
           workspaceId: station.workspaceId,
           teamId: station.teamId,
           runsAnAgent: true,
-          placement: { labelGroups: [], image: null },
+          placement: RunnerPlacement.anywhere(),
         }
       : null;
   };

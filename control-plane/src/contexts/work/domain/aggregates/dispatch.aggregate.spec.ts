@@ -134,6 +134,16 @@ describe('Dispatch', () => {
     ).toThrow(InvalidDispatchTransitionError);
   });
 
+  it('leaves the enqueue of a trial to its requester', () => {
+    const trial = Dispatch.trialOrdered({
+      ...ordering(TRIAL),
+      order: trialOrderOf(RUN),
+    });
+
+    expect(() => trial.enqueuedAsRun()).toThrow(InvalidDispatchTransitionError);
+    expect(trial.settled).toBe(false);
+  });
+
   it('refuses an order of another kind or of another run', () => {
     expect(() =>
       Dispatch.ordered({ ...ordering(TASK), order: trialOrderOf(RUN) }),

@@ -110,7 +110,7 @@ const answering = (
         _viewerId: string,
         unseen: () => Error,
       ) =>
-        TeamStanding.of({ actsForTeam: over.onTeam !== false }).actingOn(
+        TeamStanding.of({ actsOnTeam: over.onTeam !== false }).actingOn(
           over.run === undefined ? RUN : over.run,
           unseen,
         ),

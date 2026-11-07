@@ -10,4 +10,12 @@ export class WebTaskLinks implements TaskLinksPort {
   taskPage(slug: string, teamId: string, taskId: string): string {
     return `${this.base}/w/${slug}/team/${teamId}/tasks/${taskId}`;
   }
+
+  conversationPage(slug: string, conversationId: string): string {
+    return `${this.base}/w/${slug}/inbox/${conversationId}`;
+  }
+
+  chatPage(slug: string, teamId: string, chatId: string): string {
+    return `${this.base}/w/${slug}/team/${teamId}/agent/${chatId}`;
+  }
 }

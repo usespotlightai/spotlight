@@ -54,6 +54,10 @@ import {
   type HookSigningSecretsPort,
 } from '@integrations/application/ports/hook-signing-secrets.port';
 import {
+  HOOK_TASK_NOTES,
+  type HookTaskNotesPort,
+} from '@integrations/application/ports/hook-task-notes.port';
+import {
   HOOK_TOKENS,
   type HookTokensPort,
 } from '@integrations/application/ports/hook-tokens.port';
@@ -62,10 +66,6 @@ import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
 } from '@integrations/application/ports/integration-runtime.port';
-import {
-  LOOP_NOTICES,
-  type LoopNoticesPort,
-} from '@integrations/application/ports/loop-notices.port';
 import {
   OUTBOUND_HOSTS,
   type OutboundHostsPort,
@@ -122,8 +122,8 @@ import {
 } from '@integrations/domain/repositories/integration-definition.repository';
 import { HookCalls } from '@integrations/infrastructure/acl/hook-calls.adapter';
 import { HookConfigs } from '@integrations/infrastructure/acl/hook-configs.adapter';
+import { HookTaskNotes } from '@integrations/infrastructure/acl/hook-task-notes.adapter';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
-import { LoopNotices } from '@integrations/infrastructure/acl/loop-notices.adapter';
 import { RunAttempts } from '@integrations/infrastructure/acl/run-attempts.adapter';
 import { TasksForHooks } from '@integrations/infrastructure/acl/tasks-for-hooks.adapter';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
@@ -232,9 +232,9 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: LOOP_NOTICES,
+    provide: HOOK_TASK_NOTES,
     inject: [TASK_NOTES_FROM_HOOKS],
-    useFactory: (notes: TaskNotesFromHooksPort) => new LoopNotices(notes),
+    useFactory: (notes: TaskNotesFromHooksPort) => new HookTaskNotes(notes),
   },
 
   {
@@ -460,8 +460,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       HOOK_FIRINGS,
       HOOK_FIRING_HISTORY,
       TASKS_FOR_HOOKS,
-      TASK_NOTES_FROM_HOOKS,
-      LOOP_NOTICES,
+      HOOK_TASK_NOTES,
       PULL_REQUESTS,
       CLOCK,
       CAUSATION,
@@ -474,8 +473,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       firings: HookFiringRepository,
       history: HookFiringHistoryPort,
       tasks: TasksForHooksPort,
-      notes: TaskNotesFromHooksPort,
-      loopNotices: LoopNoticesPort,
+      notes: HookTaskNotesPort,
       pullRequests: PullRequestPort,
       clock: ClockPort,
       causation: CausationPort,
@@ -489,7 +487,6 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         history,
         tasks,
         notes,
-        loopNotices,
         pullRequests,
         clock,
         causation,

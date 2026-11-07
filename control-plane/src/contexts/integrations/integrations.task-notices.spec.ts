@@ -46,6 +46,10 @@ import { describe, expect, it, vi } from 'vitest';
 const taskLinks: TaskLinksPort = {
   taskPage: (slug, teamId, taskId) =>
     `https://app.example/w/${slug}/team/${teamId}/tasks/${taskId}`,
+  conversationPage: (slug, conversationId) =>
+    `https://app.example/w/${slug}/inbox/${conversationId}`,
+  chatPage: (slug, teamId, chatId) =>
+    `https://app.example/w/${slug}/team/${teamId}/agent/${chatId}`,
 };
 
 const taskNotices = (...args: ConstructorParameters<typeof NotifyTask>) =>
@@ -164,7 +168,6 @@ const notifying = (
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
       taskLinks,
-      'https://app.example',
     ),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
@@ -493,7 +496,6 @@ const uploading = (
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
       taskLinks,
-      'https://app.example',
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );

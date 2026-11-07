@@ -130,10 +130,6 @@ describe('Integration', () => {
       }),
     ).toThrow(/names undefined action/);
   });
-
-  it('is the same integration as another with the same name', () => {
-    expect(integration().sameKeyAs(integration())).toBe(true);
-  });
 });
 
 describe('Integration actsAs', () => {

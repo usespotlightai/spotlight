@@ -1,5 +1,5 @@
+import type { TokenScopeName } from '@identity/application/ports/workspace-access.port';
 import type { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
-import type { TokenScopeName } from '@identity/domain/value-objects/token-scope.vo';
 import type { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

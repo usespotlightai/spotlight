@@ -44,7 +44,7 @@ export class NotifyChannel implements RunEndingReactions {
     const chat = await this.fromChannel(event.chatId);
 
     if (chat) {
-      await this.post(chat, 'chat.dispatched', '');
+      await this.post(chat, 'chat.run-assigned', '');
     }
   }
 

@@ -44,6 +44,12 @@ class SubjectGone extends Error {
   }
 }
 
+class LeaseLost extends Error {
+  constructor() {
+    super('Another worker holds the delivery now.');
+  }
+}
+
 class DeliveryFailed extends Error {
   readonly failure: DeliveryFailure;
 
@@ -108,6 +114,14 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
     error: unknown,
     now: Date,
   ): Promise<void> {
+    if (error instanceof LeaseLost) {
+      this.logger.info(
+        { deliveryId: delivery.id, kind: delivery.kind },
+        'Leaving a review delivery to the worker that holds it',
+      );
+      return;
+    }
+
     const attempts = DeliveryAttempts.of(delivery.attempts);
 
     if (error instanceof NoPullRequestYet) {
@@ -316,9 +330,18 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       throw new DeliveryFailed('not-recorded');
     }
 
-    await this.deliveries.sending(delivery, this.clock.now());
+    if (!(await this.deliveries.sending(delivery, this.clock.now()))) {
+      throw new LeaseLost();
+    }
 
-    return post();
+    try {
+      return await post();
+    } catch (error) {
+      if (error instanceof ReviewPostingFailedError && error.outcomeUnknown) {
+        throw new DeliveryFailed('not-recorded');
+      }
+      throw error;
+    }
   }
 
   private async postReply(

@@ -23,7 +23,11 @@ const connection = (host: string) =>
     at: AT,
   });
 
-const reading = (checked: EgressEnforcement | null, visible = true) => {
+const reading = (
+  checked: EgressEnforcement | null,
+  visible = true,
+  team: string | null = 'team_1',
+) => {
   const read: number[] = [];
   const runs = {
     watchedBy: async (runId: RunId) =>
@@ -36,7 +40,7 @@ const reading = (checked: EgressEnforcement | null, visible = true) => {
               kind: 'task',
               id: 'task_1',
               token: null,
-              team: 'team_1',
+              team,
             },
           }
         : null,
@@ -116,5 +120,18 @@ describe('ReadRunNetworkHandler', () => {
         new ReadRunNetworkQuery('team_2', 'run_1', 'user_1'),
       ),
     ).toBeNull();
+  });
+
+  it('reads a run of no team only outside every team', async () => {
+    const { handler } = reading(null, true, null);
+
+    expect(
+      await handler.execute(
+        new ReadRunNetworkQuery('team_1', 'run_1', 'user_1'),
+      ),
+    ).toBeNull();
+    expect(
+      await handler.execute(new ReadRunNetworkQuery(null, 'run_1', 'user_1')),
+    ).not.toBeNull();
   });
 });

@@ -1,10 +1,12 @@
-import type { StationTaskCount } from '@lines/domain/value-objects/stranded-station';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
-export type { StationTaskCount };
-
 export const STATION_DELETION_GUARD = Symbol('STATION_DELETION_GUARD');
+
+export interface StationTaskCount {
+  readonly stationId: StationId;
+  readonly tasks: number;
+}
 
 export interface LineSave {
   readonly lineId: LineId;

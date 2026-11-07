@@ -1,6 +1,6 @@
 export class ReadRunNetworkQuery {
   constructor(
-    readonly teamId: string,
+    readonly teamId: string | null,
     readonly runId: string,
     readonly viewerId: string,
   ) {}

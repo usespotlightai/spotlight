@@ -10,6 +10,7 @@ import {
   type JudgeReport,
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
+import type { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -30,7 +31,7 @@ export interface StationOnLine {
 
 export interface JudgeCalibrationShape {
   readonly stationId: string;
-  readonly rubricVersion: string | null;
+  readonly rubricVersion: RubricVersion | null;
   readonly qualified: boolean;
   readonly measure: 'kappa' | 'spearman' | null;
   readonly agreement: number | null;
@@ -57,7 +58,7 @@ export interface StationLocation {
 }
 
 export interface CurrentCalibration {
-  readonly rubricVersion: string | null;
+  readonly rubricVersion: RubricVersion | null;
   readonly calibration: JudgeCalibration;
 }
 

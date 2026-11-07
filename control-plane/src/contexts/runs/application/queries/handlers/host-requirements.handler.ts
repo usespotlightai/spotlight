@@ -1,12 +1,12 @@
 import type { LineImagesPort } from '@lines/application/ports/line-images.port';
 import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
+import { MIN_RUNNER_RELEASE } from '@runs/application/contracts/least-runner-release.contract';
 import type { HostRequirementsDto } from '@runs/application/dto/host-requirements.dto';
 import { HarnessMapper } from '@runs/application/mappers/harness.mapper';
 import type { ControlPlaneReleasePort } from '@runs/application/ports/control-plane-release.port';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { HostRequirementsQuery } from '@runs/application/queries/host.queries';
-import { MIN_RUNNER_RELEASE } from '@runs/application/contracts/least-runner-release.contract';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';

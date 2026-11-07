@@ -8,34 +8,34 @@ const unseen = () => new UnknownReviewError('run run_1');
 describe('who acts in the reviews of a team’s work', () => {
   it('is someone the team rule admits, on work they see', () => {
     expect(
-      TeamStanding.of({ actsForTeam: true }).actingOn('task_1', unseen),
+      TeamStanding.of({ actsOnTeam: true }).actingOn('task_1', unseen),
     ).toBe('task_1');
   });
 
   it('is nobody who does not see the work, admitted or not: the work is not found', () => {
     expect(() =>
-      TeamStanding.of({ actsForTeam: true }).actingOn(null, unseen),
+      TeamStanding.of({ actsOnTeam: true }).actingOn(null, unseen),
     ).toThrow(UnknownReviewError);
     expect(() =>
-      TeamStanding.of({ actsForTeam: false }).actingOn(null, unseen),
+      TeamStanding.of({ actsOnTeam: false }).actingOn(null, unseen),
     ).toThrow(UnknownReviewError);
   });
 
   it('is not a workspace member outside the team, who still sees the work', () => {
     expect(() =>
-      TeamStanding.of({ actsForTeam: false }).actingOn('task_1', unseen),
+      TeamStanding.of({ actsOnTeam: false }).actingOn('task_1', unseen),
     ).toThrow(TeamMembershipRequiredError);
   });
 
   it('equals a standing with the same admission', () => {
     expect(
-      TeamStanding.of({ actsForTeam: true }).equals(
-        TeamStanding.of({ actsForTeam: true }),
+      TeamStanding.of({ actsOnTeam: true }).equals(
+        TeamStanding.of({ actsOnTeam: true }),
       ),
     ).toBe(true);
     expect(
-      TeamStanding.of({ actsForTeam: true }).equals(
-        TeamStanding.of({ actsForTeam: false }),
+      TeamStanding.of({ actsOnTeam: true }).equals(
+        TeamStanding.of({ actsOnTeam: false }),
       ),
     ).toBe(false);
   });

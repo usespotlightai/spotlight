@@ -1,10 +1,10 @@
 import { TeamMembershipRequiredError } from '@change-review/domain/exceptions/team-membership-required.error';
 
 export class TeamStanding {
-  private constructor(private readonly actsForTeam: boolean) {}
+  private constructor(private readonly actsOnTeam: boolean) {}
 
-  static of(input: { readonly actsForTeam: boolean }): TeamStanding {
-    return new TeamStanding(input.actsForTeam);
+  static of(input: { readonly actsOnTeam: boolean }): TeamStanding {
+    return new TeamStanding(input.actsOnTeam);
   }
 
   actingOn<T>(seen: T | null, unseen: () => Error): T {
@@ -12,7 +12,7 @@ export class TeamStanding {
       throw unseen();
     }
 
-    if (!this.actsForTeam) {
+    if (!this.actsOnTeam) {
       throw new TeamMembershipRequiredError();
     }
 
@@ -20,6 +20,6 @@ export class TeamStanding {
   }
 
   equals(other: TeamStanding): boolean {
-    return this.actsForTeam === other.actsForTeam;
+    return this.actsOnTeam === other.actsOnTeam;
   }
 }

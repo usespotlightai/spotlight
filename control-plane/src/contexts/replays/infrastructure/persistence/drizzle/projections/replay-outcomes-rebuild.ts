@@ -1,8 +1,8 @@
+import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import { replay } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
-import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { asc, eq } from 'drizzle-orm';
 
 const BATCH = 100;

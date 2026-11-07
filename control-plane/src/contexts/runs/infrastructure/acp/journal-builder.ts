@@ -5,10 +5,6 @@ import type {
   StepChange,
   StepLocation,
 } from '@runs/application/contracts/run-journal.contract';
-import {
-  entryFactsOf,
-  journalEntryText,
-} from '@runs/application/rendering/journal-entry.text';
 import type { CalledStep } from '@runs/domain/services/tool-attribution';
 import { AgentTurns } from '@runs/domain/value-objects/agent-turns.vo';
 import {
@@ -31,6 +27,10 @@ import {
   readingPaths,
   requestedSkillOf,
 } from '@runs/infrastructure/acp/harness-tools';
+import {
+  controlPlaneFactsOf,
+  journalEntryText,
+} from '@runs/infrastructure/journal/control-plane-facts';
 import { enforcementOf } from '@runs/infrastructure/journal/egress-enforcement';
 import {
   decoded,
@@ -434,7 +434,7 @@ export class JournalBuilder {
   private failedToProvision(event: Journalled): void {
     this.flushText();
 
-    const { detail } = entryFactsOf(event);
+    const facts = controlPlaneFactsOf(event);
     const step = bare(
       'hook',
       journalEntryText(event) ?? 'Provisioning failed',
@@ -442,7 +442,9 @@ export class JournalBuilder {
     );
     step.status = 'failed';
     step.detail =
-      typeof detail === 'string' ? detail.slice(0, DETAIL_LIMIT) : null;
+      facts.type === 'provision.failed'
+        ? facts.detail.slice(0, DETAIL_LIMIT)
+        : null;
 
     this.#steps.push(step);
   }

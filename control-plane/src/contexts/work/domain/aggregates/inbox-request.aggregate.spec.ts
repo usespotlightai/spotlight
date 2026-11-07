@@ -160,9 +160,7 @@ describe('InboxRequest', () => {
       expect(attending({ form: 'grade', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'grade', actsOnTeam: false })).toBe(
-        false,
-      );
+      expect(attending({ form: 'grade', actsOnTeam: false })).toBe(false);
       expect(
         attending({
           form: 'grade',
@@ -178,9 +176,7 @@ describe('InboxRequest', () => {
       expect(attending({ form: 'alert', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'alert', actsOnTeam: false })).toBe(
-        false,
-      );
+      expect(attending({ form: 'alert', actsOnTeam: false })).toBe(false);
       expect(
         attending({
           form: 'alert',

@@ -1,11 +1,13 @@
 import type {
+  HookTaskNotesPort,
   LoopNotice,
   LoopNoticeReport,
-  LoopNoticesPort,
-} from '@integrations/application/ports/loop-notices.port';
+} from '@integrations/application/ports/hook-task-notes.port';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TaskNotesFromHooksPort } from '@work/application/ports/task-notes-from-hooks.port';
 
 const failureOf = (error: unknown): HookFailure => {
@@ -20,17 +22,17 @@ const failureOf = (error: unknown): HookFailure => {
     : HookFailure.errored(error.message);
 };
 
-export class LoopNotices implements LoopNoticesPort {
+export class HookTaskNotes implements HookTaskNotesPort {
   constructor(private readonly notes: TaskNotesFromHooksPort) {}
 
-  async send(report: LoopNoticeReport): Promise<LoopNotice> {
+  async loopNotice(report: LoopNoticeReport): Promise<LoopNotice> {
     try {
       return {
         kind: 'sent',
         onTask: await this.notes.failed({
           taskId: report.taskId.value,
           stationKey: report.stationKey.value,
-          hook: report.hook,
+          hook: report.hook.value,
           code: report.loop.code,
           reason: report.loop.reason,
           receivedAs: report.receivedAs,
@@ -39,5 +41,9 @@ export class LoopNotices implements LoopNoticesPort {
     } catch (error) {
       return { kind: 'failed', failure: failureOf(error) };
     }
+  }
+
+  movedOn(taskId: TaskId, stationKey: StationKey): Promise<boolean> {
+    return this.notes.movedOn(taskId.value, stationKey.value);
   }
 }

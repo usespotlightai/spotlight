@@ -5,10 +5,10 @@ import type {
   StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
+  HookTaskNotesPort,
   LoopNotice,
   LoopNoticeReport,
-  LoopNoticesPort,
-} from '@integrations/application/ports/loop-notices.port';
+} from '@integrations/application/ports/hook-task-notes.port';
 import type {
   LinkedTaskView,
   TasksForHooksPort,
@@ -91,17 +91,17 @@ const setUp = (
   const notes = {
     noted: vi.fn(async () => true),
     failed: vi.fn(async (_report: HookFailureReport) => notice),
-    movedOn: vi.fn(async () => movedOn),
+    movedOn: vi.fn(async (_taskId: string, _stationKey: string) => movedOn),
   } satisfies TaskNotesFromHooksPort;
-  const loopNotices = {
-    send: async (report: LoopNoticeReport): Promise<LoopNotice> => {
+  const taskNotes = {
+    loopNotice: async (report: LoopNoticeReport): Promise<LoopNotice> => {
       try {
         return {
           kind: 'sent',
           onTask: await notes.failed({
             taskId: report.taskId.value,
             stationKey: report.stationKey.value,
-            hook: report.hook,
+            hook: report.hook.value,
             code: report.loop.code,
             reason: report.loop.reason,
             receivedAs: report.receivedAs,
@@ -114,7 +114,9 @@ const setUp = (
         };
       }
     },
-  } satisfies LoopNoticesPort;
+    movedOn: (taskId: TaskId, stationKey: StationKey) =>
+      notes.movedOn(taskId.value, stationKey.value),
+  } satisfies HookTaskNotesPort;
   const causation = causationInMemory();
   const changedIn = vi.fn(async () => ['db/migrations/1.sql']);
 
@@ -133,8 +135,7 @@ const setUp = (
       inMemory.firings,
       history,
       tasks,
-      notes,
-      loopNotices,
+      taskNotes,
       {
         open: vi.fn(),
         edit: vi.fn(),

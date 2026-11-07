@@ -1304,10 +1304,7 @@ CREATE TABLE "replay" (
 	"candidate_id" text NOT NULL,
 	"live_candidate" boolean NOT NULL,
 	"baseline" boolean NOT NULL,
-	"serves_as_baseline" boolean NOT NULL,
 	"takes_pairings" boolean NOT NULL,
-	"health_sample_group" text,
-	"sampled_at" timestamp (3) with time zone NOT NULL,
 	"judges" boolean NOT NULL,
 	"checked" boolean NOT NULL,
 	"rubric_version" text,
@@ -2433,8 +2430,6 @@ CREATE INDEX "config_pull_request_check_idx" ON "config_pull_request" USING btre
 CREATE INDEX "config_pull_request_due_idx" ON "config_pull_request" USING btree ("state","due_at") WHERE "config_pull_request"."state" in ('opening', 'closing');--> statement-breakpoint
 CREATE INDEX "line_search_budget_team_idx" ON "line_search_budget" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "replay_set_idx" ON "replay" USING btree ("set_id");--> statement-breakpoint
-CREATE INDEX "replay_set_baseline_idx" ON "replay" USING btree ("set_id","started_at") WHERE "replay"."serves_as_baseline";--> statement-breakpoint
-CREATE INDEX "replay_set_health_sample_idx" ON "replay" USING btree ("set_id","health_sample_group","sampled_at") WHERE "replay"."health_sample_group" is not null;--> statement-breakpoint
 CREATE INDEX "replay_candidate_idx" ON "replay" USING btree ("candidate_id");--> statement-breakpoint
 CREATE INDEX "replay_team_state_idx" ON "replay" USING btree ("team_id","state");--> statement-breakpoint
 CREATE INDEX "replay_team_started_idx" ON "replay" USING btree ("team_id","started_at");--> statement-breakpoint
@@ -2454,6 +2449,7 @@ CREATE INDEX "replay_outcome_set_baseline_idx" ON "replay_outcome" USING btree (
 CREATE INDEX "replay_outcome_set_health_sample_idx" ON "replay_outcome" USING btree ("set_id","health_sample_group","sampled_at") WHERE "replay_outcome"."health_sample_group" is not null;--> statement-breakpoint
 CREATE INDEX "replay_outcome_search_idx" ON "replay_outcome" USING btree ("search_id");--> statement-breakpoint
 CREATE INDEX "replay_run_decision_team_idx" ON "replay_run_decision" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX "replay_run_decision_replay_idx" ON "replay_run_decision" USING btree ("replay_id");--> statement-breakpoint
 CREATE INDEX "replay_search_team_idx" ON "replay_search" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "replay_search_set_idx" ON "replay_search" USING btree ("set_id");--> statement-breakpoint
 CREATE INDEX "replay_search_line_started_idx" ON "replay_search" USING btree ("line_id","started_at");--> statement-breakpoint

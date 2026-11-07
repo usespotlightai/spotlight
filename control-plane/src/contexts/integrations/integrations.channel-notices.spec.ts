@@ -35,6 +35,10 @@ import { describe, expect, it, vi } from 'vitest';
 const taskLinks: TaskLinksPort = {
   taskPage: (slug, teamId, taskId) =>
     `https://app.example/w/${slug}/team/${teamId}/tasks/${taskId}`,
+  conversationPage: (slug, conversationId) =>
+    `https://app.example/w/${slug}/inbox/${conversationId}`,
+  chatPage: (slug, teamId, chatId) =>
+    `https://app.example/w/${slug}/team/${teamId}/agent/${chatId}`,
 };
 
 const channelNotices = (...args: ConstructorParameters<typeof NotifyChannel>) =>
@@ -117,7 +121,6 @@ const notifying = (definition = SLACK) => {
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
       taskLinks,
-      'https://app.example',
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
@@ -161,7 +164,7 @@ describe('ChannelNotices', () => {
   });
 
   it('runs each action bound to an event, in order', async () => {
-    const { notices, run } = notifying(`${SLACK}  chat.dispatched:
+    const { notices, run } = notifying(`${SLACK}  chat.run-assigned:
     - action: post-reply
       to:
         channel: '\${{ chat.marks["slack.channel"] }}'
@@ -172,7 +175,7 @@ describe('ChannelNotices', () => {
         thread: '\${{ "second" }}'
 `);
 
-    await notices.notify(notice(), 'chat.dispatched');
+    await notices.notify(notice(), 'chat.run-assigned');
 
     expect(
       run.mock.calls.map(
@@ -182,7 +185,7 @@ describe('ChannelNotices', () => {
   });
 
   it('runs the next action when one fails', async () => {
-    const { notices, run, warn } = notifying(`${SLACK}  chat.dispatched:
+    const { notices, run, warn } = notifying(`${SLACK}  chat.run-assigned:
     - action: post-reply
       to:
         channel: '\${{ chat.marks["slack.channel"] }}'
@@ -194,7 +197,7 @@ describe('ChannelNotices', () => {
 `);
     run.mockRejectedValueOnce(new Error('Slack is down'));
 
-    await notices.notify(notice(), 'chat.dispatched');
+    await notices.notify(notice(), 'chat.run-assigned');
 
     expect(run).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalledWith(

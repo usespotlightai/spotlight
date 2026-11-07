@@ -723,12 +723,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INBOX_LINKS,
-    inject: [WORKSPACE_READER, TASK_LINKS, ENV],
-    useFactory: (
-      workspaces: WorkspaceReaderPort,
-      taskLinks: TaskLinksPort,
-      env: Env,
-    ) => new WebInboxLinks(workspaces, taskLinks, publicUrlOf(env)),
+    inject: [WORKSPACE_READER, TASK_LINKS],
+    useFactory: (workspaces: WorkspaceReaderPort, taskLinks: TaskLinksPort) =>
+      new WebInboxLinks(workspaces, taskLinks),
   },
 
   {

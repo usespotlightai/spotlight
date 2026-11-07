@@ -214,8 +214,4 @@ export class Integration {
   writtenTool(tool: ToolName): ProvidedTool | null {
     return this.writtenTools.find((each) => each.tool.equals(tool)) ?? null;
   }
-
-  sameKeyAs(other: Integration): boolean {
-    return this.key.equals(other.key);
-  }
 }

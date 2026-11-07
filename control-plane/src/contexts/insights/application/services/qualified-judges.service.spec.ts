@@ -1,5 +1,6 @@
 import { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
 import type { JudgeCalibrationShape } from '@insights/application/services/station-judge-reports.service';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -36,7 +37,7 @@ describe('QualifiedJudges', () => {
         return [
           shapeOf('station_c', {}),
           shapeOf('station_b', {
-            rubricVersion: 'b'.repeat(64),
+            rubricVersion: RubricVersion.of('b'.repeat(64)),
             measure: 'spearman',
             agreement: 0.3,
             pairs: 9,
@@ -44,7 +45,7 @@ describe('QualifiedJudges', () => {
             hiddenReason: 'below-min-agreement',
           }),
           shapeOf('station_a', {
-            rubricVersion: 'a'.repeat(64),
+            rubricVersion: RubricVersion.of('a'.repeat(64)),
             qualified: true,
             measure: 'kappa',
             agreement: 0.8,

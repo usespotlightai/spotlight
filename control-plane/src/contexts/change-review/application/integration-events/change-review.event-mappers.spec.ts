@@ -133,7 +133,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       ).map((each) => each.map(completed, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.trial-stack-completed.v1',
+        kind: 'change-review.trial-stack-settled.v1',
         runId: 'replay_1',
         workspaceId: 'ws_1',
       },

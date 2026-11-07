@@ -15,7 +15,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lte, sql } from 'drizzle-orm';
 
 const subjectColumns = (delivery: ReviewDeliverySubject) =>
   delivery.kind === 'review'
@@ -101,11 +101,14 @@ export class DrizzleReviewDeliveries implements ReviewDeliveriesPort {
       : null;
   }
 
-  async sending(delivery: LeasedReviewDelivery, at: Date): Promise<void> {
-    await this.context.db
+  async sending(delivery: LeasedReviewDelivery, at: Date): Promise<boolean> {
+    const marked = await this.context.db
       .update(reviewDelivery)
       .set({ sendingSince: at })
-      .where(leasedBy(delivery));
+      .where(and(leasedBy(delivery), isNull(reviewDelivery.sendingSince)))
+      .returning({ id: reviewDelivery.id });
+
+    return marked.length > 0;
   }
 
   async delivered(delivery: LeasedReviewDelivery): Promise<void> {

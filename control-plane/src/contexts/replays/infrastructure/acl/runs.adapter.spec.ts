@@ -9,6 +9,7 @@ import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import type { RunsPort as RunQueuePort } from '@runs/application/ports/runs.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -96,7 +97,7 @@ describe('Runs (Replays ACL)', () => {
       teamId: TeamId.of('team_1'),
       agent: { harness: 'claude-code', model: null, effort: null },
       briefing: 'Search.',
-      placement: { labelGroups: [['gpu']], image: null },
+      placement: RunnerPlacement.of(['gpu']),
     } as const;
 
     await runsWith(enqueued).enqueueSearch(order as never);

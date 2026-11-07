@@ -22,10 +22,6 @@ export class StationName {
     return new StationName(trimmed);
   }
 
-  static unknown(): StationName {
-    return StationName.of('Unknown');
-  }
-
   static maybe(raw: string | null | undefined): StationName | null {
     return raw ? StationName.of(raw) : null;
   }

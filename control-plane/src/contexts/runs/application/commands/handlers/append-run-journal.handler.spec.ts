@@ -40,7 +40,11 @@ const journalling = () => {
     {
       append: async (attempt, entries) =>
         void appended.push({ attempt, entries }),
-      appendControlPlaneEntry: async () => -1_000_000,
+      appendControlPlaneEntry: async (_, entry) => ({
+        seq: -1_000_000,
+        type: entry.type,
+        at: entry.at,
+      }),
     },
     { publish: (runId: string) => void published.push(runId) } as never,
   );

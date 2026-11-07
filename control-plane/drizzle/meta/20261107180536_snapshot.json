@@ -1,5 +1,5 @@
 {
-  "id": "0443d801-9765-460f-bc5b-1b3420c0efa5",
+  "id": "8bee6ef3-abe7-4759-9f7e-e8c1480e8b13",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -10585,27 +10585,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "serves_as_baseline": {
-          "name": "serves_as_baseline",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
         "takes_pairings": {
           "name": "takes_pairings",
           "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "health_sample_group": {
-          "name": "health_sample_group",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sampled_at": {
-          "name": "sampled_at",
-          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -10739,56 +10721,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "replay_set_baseline_idx": {
-          "name": "replay_set_baseline_idx",
-          "columns": [
-            {
-              "expression": "set_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "started_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"replay\".\"serves_as_baseline\"",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "replay_set_health_sample_idx": {
-          "name": "replay_set_health_sample_idx",
-          "columns": [
-            {
-              "expression": "set_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "health_sample_group",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sampled_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"replay\".\"health_sample_group\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -12027,6 +11959,21 @@
           "columns": [
             {
               "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "replay_run_decision_replay_idx": {
+          "name": "replay_run_decision_replay_idx",
+          "columns": [
+            {
+              "expression": "replay_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

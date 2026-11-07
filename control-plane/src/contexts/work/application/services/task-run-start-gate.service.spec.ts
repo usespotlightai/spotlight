@@ -115,10 +115,10 @@ describe('TaskRunStartGate', () => {
 
     it('lets a domain or programming error through', async () => {
       await expect(
-        gating(true, new InconsistentStateError('hook', 'is torn')).gate.mayStart(
-          taskRun,
-          UNTIL,
-        ),
+        gating(
+          true,
+          new InconsistentStateError('hook', 'is torn'),
+        ).gate.mayStart(taskRun, UNTIL),
       ).rejects.toBeInstanceOf(InconsistentStateError);
       await expect(
         gating(true, new TypeError('x is undefined')).gate.mayStart(

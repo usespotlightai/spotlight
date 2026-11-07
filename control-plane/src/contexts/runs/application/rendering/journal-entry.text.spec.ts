@@ -1,40 +1,48 @@
-import { journalEntryText } from '@runs/application/rendering/journal-entry.text';
+import { controlPlaneEntryText } from '@runs/application/rendering/journal-entry.text';
 import { describe, expect, it } from 'vitest';
 
-const data = (facts: object) =>
-  Buffer.from(JSON.stringify(facts), 'utf8').toString('base64');
-
-describe('journalEntryText', () => {
+describe('controlPlaneEntryText', () => {
   it.each([
     [
       {
-        type: 'hook.called',
-        data: data({ hook: 'h', step: 's', target: 't' }),
+        type: 'hook.called' as const,
+        call: {
+          attempt: 1,
+          hook: 'h',
+          step: 's',
+          kind: 'call' as const,
+          target: 't',
+          request: null,
+          response: null,
+          status: null,
+          failed: false,
+          startedAt: new Date(0),
+          ms: 0,
+        },
       },
       'Hook h · s → t',
     ],
     [
-      { type: 'provision.failed', data: data({ failure: 'unreachable' }) },
+      {
+        type: 'provision.failed' as const,
+        failure: 'unreachable',
+        detail: 'no route',
+      },
       'Provisioning failed · unreachable',
     ],
     [
-      { type: 'run.paused', data: data({ resumesAtOnce: false }) },
+      { type: 'run.paused' as const, resumesAtOnce: false },
       'Waiting for a person',
     ],
     [
-      { type: 'run.paused', data: data({ resumesAtOnce: true }) },
+      { type: 'run.paused' as const, resumesAtOnce: true },
       'Messages came in during the turn. The run starts again to read them.',
     ],
-  ])('words the control-plane entry %o from its facts', (entry, text) => {
-    expect(journalEntryText(entry)).toBe(text);
-  });
-
-  it('keeps the message an entry came with', () => {
-    expect(journalEntryText({ type: 'output', message: 'hello' })).toBe(
-      'hello',
-    );
-    expect(journalEntryText({ type: 'output', data: data({}) })).toBe(
-      undefined,
-    );
+    [
+      { type: 'unreadable' as const, entryType: 'hook.called' },
+      'Unreadable journal entry · hook.called',
+    ],
+  ])('words the control-plane entry %o from its facts', (facts, text) => {
+    expect(controlPlaneEntryText(facts)).toBe(text);
   });
 });

@@ -27,7 +27,7 @@ export class People implements PeoplePort {
       : null;
   }
 
-  async actsForTeam(teamId: TeamId, userId: UserId): Promise<boolean> {
+  async actsOnTeam(teamId: TeamId, userId: UserId): Promise<boolean> {
     return (
       (await this.access.permissionsAsTeamMember(
         teamId,

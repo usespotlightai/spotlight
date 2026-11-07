@@ -10,7 +10,11 @@ const encoded = (text: string) => Buffer.from(text, 'utf8').toString('base64');
 const checking = () => {
   const journal = {
     append: vi.fn(async () => undefined),
-    appendControlPlaneEntry: vi.fn(async () => 1),
+    appendControlPlaneEntry: vi.fn(async () => ({
+      seq: 1,
+      type: 'run.paused',
+      at: new Date(0),
+    })),
   } satisfies RunJournalPort;
   const logger = {
     debug: vi.fn(),

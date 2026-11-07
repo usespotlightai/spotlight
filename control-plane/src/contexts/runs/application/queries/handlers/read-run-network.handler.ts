@@ -24,7 +24,7 @@ export class ReadRunNetworkHandler
 
       const team = found?.requester.team ?? null;
 
-      if (!found || (team !== null && team !== query.teamId)) {
+      if (!found || team !== query.teamId) {
         return null;
       }
 
