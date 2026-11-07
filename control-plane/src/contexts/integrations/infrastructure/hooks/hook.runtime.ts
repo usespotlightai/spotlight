@@ -1,14 +1,15 @@
 import type {
+  CompiledHook,
   HookEventInstance,
   HookRuntimePort,
   ListeningHook,
   WrittenStep,
 } from '@integrations/application/ports/hook-runtime.port';
-import type { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
-import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
@@ -16,11 +17,16 @@ import {
   type HookIR,
   type HookStepIR,
 } from '@integrations/infrastructure/hooks/hook.compile';
+import { recordOfEvent } from '@integrations/infrastructure/hooks/hook-event-record';
 import {
   asJson,
   requiredTextOf,
   requiredValueOf,
 } from '@integrations/infrastructure/integrations/templating';
+import type {
+  DrizzleHookDefinitionsReader,
+  StoredHookDefinition,
+} from '@integrations/infrastructure/persistence/drizzle/readers/hook-definitions.reader';
 import {
   type CelVariables,
   sanitizedForCel,
@@ -29,15 +35,10 @@ import type { ExpressionEnginePort } from '@platform/expressions/expression-engi
 import { isTrue } from '@platform/expressions/readings';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-interface Compiled extends ListeningHook {
-  readonly ir: HookIR | null;
-}
-
-interface Readable extends Compiled {
+interface Readable {
+  readonly key: HookKey;
   readonly ir: HookIR;
 }
-
-const isReadable = (hook: Compiled): hook is Readable => hook.ir !== null;
 
 const REMEMBERED = 256;
 
@@ -48,16 +49,16 @@ const taskSeen = (instance: HookEventInstance) => ({
   id: instance.task.taskId.value,
   title: instance.task.title,
   url: instance.task.url,
-  line: instance.task.line,
-  station: instance.task.station,
+  line: instance.task.line.value,
+  station: instance.task.station.value,
   stationKey: instance.task.stationKey.value,
   marks: instance.task.marks,
-  repositories: instance.task.repositories,
-  pullRequest: instance.task.pullRequest,
+  repositories: instance.task.repositories.map((each) => each.value),
+  pullRequest: instance.task.pullRequest?.value ?? null,
 });
 
 const eventSeen = (instance: HookEventInstance) => ({
-  ...instance.event,
+  ...recordOfEvent(instance.event),
   at: instance.at.toISOString(),
 });
 
@@ -76,7 +77,7 @@ const celVariablesFor = (
   hook: { key: hook.key.value },
   step: Object.fromEntries(
     earlier.map((each) => [
-      each.name,
+      each.name.value,
       { status: each.status, output: sanitizedForCel(outputOf(each)) },
     ]),
   ),
@@ -85,23 +86,25 @@ const celVariablesFor = (
 const defaultBody = (hook: Readable, instance: HookEventInstance) => ({
   hook: hook.key.value,
   on: instance.on,
-  occurrence: instance.occurrence,
+  occurrence: instance.occurrence.value,
   event: eventSeen(instance),
   task: taskSeen(instance),
   run: instance.task.runId ? { id: instance.task.runId.value } : null,
 });
 
-const unwritable = (name: string, error: unknown): WrittenStep => ({
+const unwritable = (name: HookStepName, error: unknown): WrittenStep => ({
   kind: 'unwritable',
   name,
   failure: HookFailure.unwritable(reasoned(error)),
 });
 
 export class CompiledHookRuntime implements HookRuntimePort {
-  private readonly compiled = new Map<string, Compiled>();
+  private readonly compiled = new Map<string, ListeningHook>();
+
+  private readonly irs = new WeakMap<CompiledHook, HookIR>();
 
   constructor(
-    private readonly hooks: HookDefinitionRepository,
+    private readonly hooks: DrizzleHookDefinitionsReader,
     private readonly expressions: ExpressionEnginePort,
   ) {}
 
@@ -109,9 +112,9 @@ export class CompiledHookRuntime implements HookRuntimePort {
     teamId: TeamId,
     on: HookEventName,
   ): Promise<readonly ListeningHook[]> {
-    return (await this.hooks.ofTeam(teamId))
-      .filter((hook) => hook.event.name === on)
-      .map((hook) => this.compiledOf(hook));
+    return (await this.hooks.listening(teamId, on)).map((hook) =>
+      this.compiledOf(hook),
+    );
   }
 
   async hook(hookId: HookDefinitionId): Promise<ListeningHook | null> {
@@ -121,9 +124,9 @@ export class CompiledHookRuntime implements HookRuntimePort {
   }
 
   whenHolds(hook: ListeningHook, instance: HookEventInstance): boolean {
-    const compiled = hook as Compiled;
+    const compiled = this.readableOf(hook);
 
-    if (!isReadable(compiled)) {
+    if (!compiled) {
       return false;
     }
 
@@ -135,20 +138,18 @@ export class CompiledHookRuntime implements HookRuntimePort {
 
   written(
     hook: ListeningHook,
-    step: string,
+    step: HookStepName,
     instance: HookEventInstance,
     earlier: readonly HookStepOutcome[],
   ): WrittenStep {
-    const compiled = hook as Compiled;
-    const found = isReadable(compiled)
-      ? compiled.ir.steps.find((each) => each.name === step)
-      : undefined;
+    const compiled = this.readableOf(hook);
+    const found = compiled?.ir.steps.find((each) => each.name === step.value);
 
-    if (!isReadable(compiled) || !found) {
+    if (!compiled || !found) {
       return {
         kind: 'unwritable',
         name: step,
-        failure: isReadable(compiled)
+        failure: compiled
           ? HookFailure.noLongerAStep()
           : HookFailure.ofBrokenHook(),
       };
@@ -157,27 +158,29 @@ export class CompiledHookRuntime implements HookRuntimePort {
     const variables = celVariablesFor(compiled, instance, earlier);
 
     return found.kind === 'call'
-      ? this.call(found, variables)
-      : this.request(compiled, found, instance, variables);
+      ? this.call(step, found, variables)
+      : this.request(step, compiled, found, instance, variables);
   }
 
   private call(
+    name: HookStepName,
     step: Extract<HookStepIR, { kind: 'call' }>,
     variables: CelVariables,
   ): WrittenStep {
     try {
       return {
         kind: 'call',
-        name: step.name,
+        name,
         tool: ToolName.of(step.tool),
         with: requiredValueOf(step.with, variables),
       };
     } catch (error) {
-      return unwritable(step.name, error);
+      return unwritable(name, error);
     }
   }
 
   private request(
+    name: HookStepName,
     hook: Readable,
     step: Extract<HookStepIR, { kind: 'request' }>,
     instance: HookEventInstance,
@@ -186,7 +189,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     try {
       return {
         kind: 'request',
-        name: step.name,
+        name,
         url: new URL(requiredTextOf(step.url, variables) ?? ''),
         headers: Object.fromEntries(
           step.headers.map((header) => [
@@ -203,11 +206,17 @@ export class CompiledHookRuntime implements HookRuntimePort {
         signing: hook.ir.signing,
       };
     } catch (error) {
-      return unwritable(step.name, error);
+      return unwritable(name, error);
     }
   }
 
-  private compiledOf(hook: HookDefinition): Compiled {
+  private readableOf(hook: ListeningHook): Readable | null {
+    const ir = hook.compiled ? this.irs.get(hook.compiled) : undefined;
+
+    return ir ? { key: hook.key, ir } : null;
+  }
+
+  private compiledOf(hook: StoredHookDefinition): ListeningHook {
     const key = `${hook.id.value}@${hook.version}`;
     const known = this.compiled.get(key);
 
@@ -215,28 +224,35 @@ export class CompiledHookRuntime implements HookRuntimePort {
       return known;
     }
 
-    const read = compileHook(hook.document.fields, this.expressions);
-    const compiled: Compiled = read.ok
-      ? {
-          id: hook.id,
-          key: hook.key,
-          teamId: hook.teamId,
-          blocks: read.ir.hook.blocks,
-          broken: null,
-          written: read.ir.hook,
-          ir: read.ir,
-        }
-      : {
-          id: hook.id,
-          key: hook.key,
-          teamId: hook.teamId,
-          blocks: hook.blocks,
-          broken: read.problems
-            .map((problem) => `${problem.field.rendered} ${problem.reason}`)
-            .join('; '),
-          written: null,
-          ir: null,
-        };
+    const read = compileHook(hook.document, this.expressions);
+    let compiled: ListeningHook;
+
+    if (read.ok) {
+      const handle = Object.freeze({}) as CompiledHook;
+
+      this.irs.set(handle, read.ir);
+      compiled = {
+        id: hook.id,
+        key: hook.key,
+        teamId: hook.teamId,
+        blocks: read.ir.hook.blocks,
+        broken: null,
+        written: read.ir.hook,
+        compiled: handle,
+      };
+    } else {
+      compiled = {
+        id: hook.id,
+        key: hook.key,
+        teamId: hook.teamId,
+        blocks: hook.blocks,
+        broken: read.problems
+          .map((problem) => `${problem.field.rendered} ${problem.reason}`)
+          .join('; '),
+        written: null,
+        compiled: null,
+      };
+    }
 
     this.compiled.set(key, compiled);
 

@@ -235,9 +235,11 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
     return this.github.workspaceOf(delivered);
   }
 
-  async read(delivered: Delivered): Promise<readonly Happened[]> {
+  async received(delivered: Delivered): Promise<void> {
     await this.github.receive(delivered);
+  }
 
+  async read(delivered: Delivered): Promise<readonly Happened[]> {
     return (await this.github.activityIn(delivered)).flatMap(happenedIn);
   }
 }

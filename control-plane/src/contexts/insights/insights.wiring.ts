@@ -227,8 +227,9 @@ export const INSIGHTS_CONTROLLERS: readonly Type[] = [
 export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   {
     provide: WORK,
-    inject: [STATION_RUNS],
-    useFactory: (stations: StationRunsPort) => new Work(stations),
+    inject: [STATION_RUNS, LOGGER],
+    useFactory: (stations: StationRunsPort, logger: LoggerPort) =>
+      new Work(stations, logger),
   },
   {
     provide: DEFINED_SKILLS,
@@ -660,20 +661,13 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RecordRunEnding,
-    inject: [
-      WORK,
-      DrizzleRunRecordRepository,
-      FactRecorder,
-      TRANSACTION,
-      LOGGER,
-    ],
+    inject: [WORK, DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
       recorder: FactRecorder,
       transaction: TransactionPort,
-      logger: LoggerPort,
-    ) => new RecordRunEnding(work, records, recorder, transaction, logger),
+    ) => new RecordRunEnding(work, records, recorder, transaction),
   },
   {
     provide: RecordSupersededRun,

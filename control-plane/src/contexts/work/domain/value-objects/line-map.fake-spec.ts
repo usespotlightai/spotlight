@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -86,6 +87,15 @@ export const judgeOf = (input: {
     rubric: input.rubric ?? null,
     claims: input.claims ?? [],
     passThreshold: input.passThreshold ?? 1,
+    rubricVersion: createHash('sha256')
+      .update(
+        JSON.stringify({
+          rubric: input.rubric ?? null,
+          claims: input.claims ?? [],
+          passThreshold: input.passThreshold ?? 1,
+        }),
+      )
+      .digest('hex'),
     sample: input.sample,
     minAgreement: input.minAgreement,
   });

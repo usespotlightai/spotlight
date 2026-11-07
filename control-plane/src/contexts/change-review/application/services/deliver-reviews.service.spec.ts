@@ -1,6 +1,8 @@
+import { ReviewPostingFailedError } from '@change-review/application/errors/review-posting-failed.error';
 import type {
   LeasedReviewDelivery,
   ReviewDeliveriesPort,
+  ReviewDeliveryKind,
 } from '@change-review/application/ports/review-deliveries.port';
 import { DeliverReviews } from '@change-review/application/services/deliver-reviews.service';
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
@@ -13,10 +15,10 @@ import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-fa
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
+import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 
 import type { PullRequestReviewsPort } from '@github/application/ports/pull-request-reviews.port';
-import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -47,10 +49,13 @@ const MAX_WAITS_FOR_THREAD = 30;
 
 const delivering = (over: {
   pullRequest?: PullRequestUrl | null;
-  delivery: Omit<
-    LeasedReviewDelivery,
-    'id' | 'workspaceId' | 'taskId' | 'leaseUntil'
-  >;
+  delivery: {
+    readonly kind: ReviewDeliveryKind;
+    readonly subjectId: string;
+    readonly attempts: number;
+    readonly sendingSince?: Date | null;
+  };
+  reviewSaveFails?: boolean;
   comments?: ReviewComment[];
   reviews?: Review[];
   github?: Partial<PullRequestReviewsPort>;
@@ -63,12 +68,18 @@ const delivering = (over: {
     (over.reviews ?? []).map((each) => [each.id.value, each]),
   );
   const recorded: { how: string; args: unknown[] }[] = [];
+  const sendings: string[] = [];
+  const { kind, subjectId, attempts, sendingSince } = over.delivery;
   let pending: LeasedReviewDelivery | null = {
-    id: 'delivery_1',
+    id: ReviewDeliveryId.of('delivery_1'),
     workspaceId: WORKSPACE,
     taskId: TASK,
     leaseUntil: NOW,
-    ...over.delivery,
+    sendingSince: sendingSince ?? null,
+    attempts,
+    ...(kind === 'review'
+      ? { kind, subject: ReviewId.of(subjectId) }
+      : { kind, subject: ReviewCommentId.of(subjectId) }),
   };
 
   const deliveries: ReviewDeliveriesPort = {
@@ -78,15 +89,16 @@ const delivering = (over: {
       pending = null;
       return next;
     },
+    sending: async (delivery) => void sendings.push(delivery.id.value),
     delivered: async (delivery) =>
-      void recorded.push({ how: 'delivered', args: [delivery.id] }),
+      void recorded.push({ how: 'delivered', args: [delivery.id.value] }),
     retry: async (delivery, retry) =>
       void recorded.push({
         how: 'retry',
-        args: [delivery.id, retry.at, retry.counted],
+        args: [delivery.id.value, retry.at, retry.counted],
       }),
     failed: async (delivery) =>
-      void recorded.push({ how: 'failed', args: [delivery.id] }),
+      void recorded.push({ how: 'failed', args: [delivery.id.value] }),
     dropTask: async () => undefined,
   };
 
@@ -137,7 +149,12 @@ const delivering = (over: {
     deliveries,
     {
       find: async (id) => reviews.get(id.value) ?? null,
-      save: async (review) => void reviews.set(review.id.value, review),
+      save: async (review) => {
+        if (over.reviewSaveFails && review.state === 'posted') {
+          throw new Error('The database could not be reached.');
+        }
+        reviews.set(review.id.value, review);
+      },
     } as ReviewRepository,
     {
       find: async (id) => comments.get(id.value) ?? null,
@@ -150,7 +167,6 @@ const delivering = (over: {
     } as ReviewCommentRepository,
     {
       run: async () => null,
-      wasClaimedBy: async () => false,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => task,
@@ -162,7 +178,7 @@ const delivering = (over: {
     {
       find: async () => ({ name: 'Ada', image: null }),
       viewerOf: async () => null,
-      readsTeam: async () => false,
+      actsForTeam: async () => false,
     },
     github,
     { now: () => NOW, sleep: async () => {} },
@@ -170,7 +186,7 @@ const delivering = (over: {
     reports,
   );
 
-  return { service, recorded, github, comments, reviews, reports };
+  return { service, recorded, sendings, github, comments, reviews, reports };
 };
 
 const submitted = () => {
@@ -334,7 +350,9 @@ describe('DeliverReviews', () => {
     const { review, comments } = submitted();
     const failing = {
       submit: vi.fn(async () => {
-        throw new UpstreamError('submit the review', 'Server Error');
+        throw new ReviewPostingFailedError(
+          DeliveryFailure.of('github-unreachable'),
+        );
       }),
     };
 
@@ -369,15 +387,73 @@ describe('DeliverReviews', () => {
     expect(last.recorded).toEqual([{ how: 'failed', args: ['delivery_1'] }]);
     expect(last.reviews.get('review_1')?.state).toBe('failed');
     expect(last.reviews.get('review_1')?.failure).toEqual(
-      DeliveryFailure.of('github-error', 'submit the review: Server Error'),
+      DeliveryFailure.of('github-unreachable'),
     );
     expect(last.reviews.get('review_1')?.pullEvents()).toContainEqual(
       expect.objectContaining({ kind: 'review.included-comment-returned' }),
     );
     expect(last.reports.report).toHaveBeenCalledExactlyOnceWith(
-      expect.any(UpstreamError),
+      expect.any(ReviewPostingFailedError),
       expect.objectContaining({ source: 'Delivering reviews to GitHub' }),
     );
+  });
+
+  it('fails a delivery at once where something unexpected goes wrong, and shows no error text', async () => {
+    const { review, comments } = submitted();
+    const delivered = delivering({
+      delivery: { kind: 'review', subjectId: 'review_1', attempts: 0 },
+      reviews: [review],
+      comments,
+      github: {
+        submit: vi.fn(async () => {
+          throw new Error('Cannot read properties of undefined');
+        }),
+      },
+    });
+
+    await delivered.service.deliverDue();
+
+    expect(delivered.recorded).toEqual([
+      { how: 'failed', args: ['delivery_1'] },
+    ]);
+    expect(delivered.reviews.get('review_1')?.failure).toEqual(
+      DeliveryFailure.of('unexpected'),
+    );
+  });
+
+  it('never posts a review twice where recording the first post failed', async () => {
+    const { review, comments } = submitted();
+    const first = delivering({
+      delivery: { kind: 'review', subjectId: 'review_1', attempts: 0 },
+      reviews: [review],
+      comments,
+      reviewSaveFails: true,
+    });
+
+    await first.service.deliverDue();
+
+    expect(first.github.submit).toHaveBeenCalledOnce();
+    expect(first.sendings).toEqual(['delivery_1']);
+    expect(first.recorded).toEqual([{ how: 'failed', args: ['delivery_1'] }]);
+    expect(first.reviews.get('review_1')?.failure).toEqual(
+      DeliveryFailure.of('not-recorded'),
+    );
+
+    const again = delivering({
+      delivery: {
+        kind: 'review',
+        subjectId: 'review_1',
+        attempts: 1,
+        sendingSince: NOW,
+      },
+      reviews: [review],
+      comments,
+    });
+
+    await again.service.deliverDue();
+
+    expect(again.github.submit).not.toHaveBeenCalled();
+    expect(again.recorded).toEqual([{ how: 'failed', args: ['delivery_1'] }]);
   });
 
   it('settles a delivery whose review no longer exists, with nothing to mark', async () => {
@@ -741,7 +817,9 @@ describe('DeliverReviews', () => {
       comments: [pending],
       github: {
         edit: vi.fn(async () => {
-          throw new UpstreamError('edit the review comment', '422');
+          throw new ReviewPostingFailedError(
+            DeliveryFailure.of('github-rejected', 'Validation Failed'),
+          );
         }),
       },
     });

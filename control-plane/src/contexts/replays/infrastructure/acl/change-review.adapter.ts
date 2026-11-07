@@ -8,6 +8,7 @@ import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo
 import { ChangeStackId } from '@replays/domain/value-objects/change-stack-id.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const WHOLE_CHANGE = 'the whole change';
@@ -39,11 +40,11 @@ export class ChangeReview implements ChangeReviewPort {
 
   async recheckable(run: RunId): Promise<readonly ChangeStackId[]> {
     return (await this.rechecks.recheckable(run)).map((each) =>
-      ChangeStackId.of(each),
+      ChangeStackId.of(each.value),
     );
   }
 
   recheck(run: RunId, stackId: ChangeStackId): Promise<void> {
-    return this.rechecks.recheck(run, stackId.value);
+    return this.rechecks.recheck(run, CheckWorkId.of(stackId.value));
   }
 }

@@ -54,9 +54,3 @@ export const readyProfile = (
     ),
   };
 };
-
-export const withoutServers = (profile: ReadyProfile): ReadyProfile => ({
-  ...profile,
-  mcpServers: [],
-  injectedSecrets: [],
-});

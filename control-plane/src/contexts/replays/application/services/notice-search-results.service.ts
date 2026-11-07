@@ -1,5 +1,5 @@
+import type { LinesPort } from '@replays/application/ports/lines.port';
 import type { SearchNoticesPort } from '@replays/application/ports/search-notices.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
 import type { NoticeWords } from '@replays/application/rendering/reflection-notice';
 import {
   type PickedResult,
@@ -38,7 +38,7 @@ export class NoticeSearchResults {
     private readonly replays: ReplayRepository,
     private readonly healths: SetHealths,
     private readonly findings: SearchFindings,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly notices: SearchNoticesPort,
   ) {}
 
@@ -125,7 +125,7 @@ export class NoticeSearchResults {
       return;
     }
 
-    const station = await this.work.station(event.lineId, event.stationId);
+    const station = await this.lines.station(event.lineId, event.stationId);
 
     await this.notices.advise({
       workspaceId: event.workspaceId,
@@ -262,7 +262,7 @@ export class NoticeSearchResults {
   private async stationNameOf(search: Search): Promise<string | null> {
     const { lineId, stationId } = search.station;
 
-    return (await this.work.station(lineId, stationId))?.name ?? null;
+    return (await this.lines.station(lineId, stationId))?.name ?? null;
   }
 
   private notified(

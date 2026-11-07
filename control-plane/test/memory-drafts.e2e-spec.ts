@@ -240,7 +240,7 @@ describe('storing a task’s memory draft', () => {
     await drafts.add(draft);
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
 
-    await drafts.remove(await stored(draft));
+    await drafts.remove((await stored(draft)).erased());
 
     expect(await drafts.forTask(draft.taskId)).toBeNull();
     const [{ n }] = (

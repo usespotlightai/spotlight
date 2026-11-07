@@ -6,6 +6,7 @@ const settings = {
   rubric: 'scores: yes-no',
   claims: [],
   passThreshold: 1,
+  rubricVersion: 'v1',
   sample: 0.2,
   minAgreement: 0.6,
 };

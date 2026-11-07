@@ -3,9 +3,13 @@ import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.p
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import type { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import type { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import type { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type {
   HookStepOutcome,
   WaitingHookStep,
@@ -17,11 +21,18 @@ export const HOOK_RUNTIME = Symbol('HOOK_RUNTIME');
 
 export interface HookEventInstance {
   readonly on: HookEventName;
-  readonly occurrence: string;
+  readonly occurrence: HookOccurrenceKey;
   readonly at: Date;
   readonly task: TaskView;
-  readonly event: Readonly<Record<string, unknown>>;
+  readonly run: HookRunAttempt | null;
+  readonly event: HookEventFacts;
   readonly firing: HookFiringId | null;
+}
+
+declare const COMPILED_HOOK: unique symbol;
+
+export interface CompiledHook {
+  readonly [COMPILED_HOOK]: true;
 }
 
 export interface ListeningHook {
@@ -31,6 +42,7 @@ export interface ListeningHook {
   readonly blocks: boolean;
   readonly broken: string | null;
   readonly written: Hook | null;
+  readonly compiled: CompiledHook | null;
 }
 
 export interface StepResult {
@@ -43,7 +55,7 @@ export type WaitMode = 'wait' | 'suspend';
 
 export interface StepRequest {
   readonly hook: ListeningHook;
-  readonly step: string;
+  readonly step: HookStepName;
   readonly instance: HookEventInstance;
   readonly earlier: readonly HookStepOutcome[];
   readonly resuming: WaitingHookStep | null;
@@ -58,13 +70,13 @@ export type HookRequestSigning =
 export type WrittenStep =
   | {
       readonly kind: 'call';
-      readonly name: string;
+      readonly name: HookStepName;
       readonly tool: ToolName;
       readonly with: unknown;
     }
   | {
       readonly kind: 'request';
-      readonly name: string;
+      readonly name: HookStepName;
       readonly url: URL;
       readonly headers: Readonly<Record<string, string>>;
       readonly body: string;
@@ -73,7 +85,7 @@ export type WrittenStep =
     }
   | {
       readonly kind: 'unwritable';
-      readonly name: string;
+      readonly name: HookStepName;
       readonly failure: HookFailure;
     };
 
@@ -89,7 +101,7 @@ export interface HookRuntimePort {
 
   written(
     hook: ListeningHook,
-    step: string,
+    step: HookStepName,
     instance: HookEventInstance,
     earlier: readonly HookStepOutcome[],
   ): WrittenStep;

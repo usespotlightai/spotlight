@@ -165,7 +165,7 @@ export const ReactionFor = {
       lines: input.lines,
       opens: input.opens,
       request: {
-        ...input.request,
+        ...input.request.parts,
         anchor: input.anchor,
         ours: spotlights(
           input.request,

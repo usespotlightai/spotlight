@@ -57,10 +57,15 @@ import {
   HOOK_TOKENS,
   type HookTokensPort,
 } from '@integrations/application/ports/hook-tokens.port';
+import { HOOK_TOOLS } from '@integrations/application/ports/hook-tools.port';
 import {
   INTEGRATION_RUNTIME,
   type IntegrationRuntimePort,
 } from '@integrations/application/ports/integration-runtime.port';
+import {
+  LOOP_NOTICES,
+  type LoopNoticesPort,
+} from '@integrations/application/ports/loop-notices.port';
 import {
   OUTBOUND_HOSTS,
   type OutboundHostsPort,
@@ -69,6 +74,10 @@ import {
   OUTBOUND_LIMITS,
   type OutboundLimitsPort,
 } from '@integrations/application/ports/outbound-limits.port';
+import {
+  RUN_ATTEMPTS,
+  type RunAttemptsPort,
+} from '@integrations/application/ports/run-attempts.port';
 import {
   TASKS_FOR_HOOKS,
   type TasksForHooksPort,
@@ -117,12 +126,15 @@ import {
 import { HookCalls } from '@integrations/infrastructure/acl/hook-calls.adapter';
 import { HookConfigs } from '@integrations/infrastructure/acl/hook-configs.adapter';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
+import { LoopNotices } from '@integrations/infrastructure/acl/loop-notices.adapter';
+import { RunAttempts } from '@integrations/infrastructure/acl/run-attempts.adapter';
 import { TasksForHooks } from '@integrations/infrastructure/acl/tasks-for-hooks.adapter';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
 import { HookCompiler } from '@integrations/infrastructure/hooks/hook-compiler';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { JoseHookTokens } from '@integrations/infrastructure/hooks/jose-hook-tokens';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { DrizzleHookDefinitionsReader } from '@integrations/infrastructure/persistence/drizzle/readers/hook-definitions.reader';
 import { DrizzleHookFiringHistory } from '@integrations/infrastructure/persistence/drizzle/readers/hook-firing-history.reader';
 import { DrizzleHookResources } from '@integrations/infrastructure/persistence/drizzle/readers/hook-resources.reader';
 import { DrizzleHookSigningSecrets } from '@integrations/infrastructure/persistence/drizzle/readers/hook-signing-secrets.reader';
@@ -154,6 +166,10 @@ import {
   NETWORK_CALLS,
   type NetworkCallsPort,
 } from '@runs/application/ports/network-calls.port';
+import {
+  RUN_FACTS,
+  type RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
 import {
   CLOCK,
   type ClockPort,
@@ -216,6 +232,18 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     provide: TASKS_FOR_HOOKS,
     inject: [TASK_VIEWS],
     useFactory: (tasks: TaskViewsPort) => new TasksForHooks(tasks),
+  },
+
+  {
+    provide: LOOP_NOTICES,
+    inject: [TASK_NOTES_FROM_HOOKS],
+    useFactory: (notes: TaskNotesFromHooksPort) => new LoopNotices(notes),
+  },
+
+  {
+    provide: RUN_ATTEMPTS,
+    inject: [RUN_FACTS],
+    useFactory: (facts: RunFactsPort) => new RunAttempts(facts),
   },
 
   {
@@ -315,10 +343,17 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: DrizzleHookDefinitionsReader,
+    useClass: DrizzleHookDefinitionsReader,
+  },
+
+  { provide: HOOK_TOOLS, useExisting: DrizzleHookDefinitionsReader },
+
+  {
     provide: HOOK_RUNTIME,
-    inject: [HOOK_DEFINITIONS, EXPRESSION_ENGINE],
+    inject: [DrizzleHookDefinitionsReader, EXPRESSION_ENGINE],
     useFactory: (
-      hooks: HookDefinitionRepository,
+      hooks: DrizzleHookDefinitionsReader,
       expressions: ExpressionEnginePort,
     ) => new CompiledHookRuntime(hooks, expressions),
   },
@@ -368,14 +403,22 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RunBeforeHooks,
-    inject: [HOOK_RUNTIME, HookSteps, ID_GENERATOR, CLOCK, LOGGER],
+    inject: [
+      HOOK_RUNTIME,
+      HookSteps,
+      ID_GENERATOR,
+      CLOCK,
+      LOGGER,
+      RUN_ATTEMPTS,
+    ],
     useFactory: (
       runtime: HookRuntimePort,
       steps: HookSteps,
       ids: IdGeneratorPort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new RunBeforeHooks(runtime, steps, ids, clock, logger),
+      attempts: RunAttemptsPort,
+    ) => new RunBeforeHooks(runtime, steps, ids, clock, logger, attempts),
   },
 
   {
@@ -388,6 +431,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       CAUSATION,
       LOGGER,
       TELEMETRY,
+      RUN_ATTEMPTS,
     ],
     useFactory: (
       runtime: HookRuntimePort,
@@ -397,6 +441,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       causation: CausationPort,
       logger: LoggerPort,
       telemetry: TelemetryPort,
+      attempts: RunAttemptsPort,
     ) =>
       new QueueHookFirings(
         runtime,
@@ -406,6 +451,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         causation,
         logger,
         telemetry,
+        attempts,
       ),
   },
 
@@ -418,6 +464,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       HOOK_FIRING_HISTORY,
       TASKS_FOR_HOOKS,
       TASK_NOTES_FROM_HOOKS,
+      LOOP_NOTICES,
       PULL_REQUESTS,
       CLOCK,
       CAUSATION,
@@ -431,6 +478,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       history: HookFiringHistoryPort,
       tasks: TasksForHooksPort,
       notes: TaskNotesFromHooksPort,
+      loopNotices: LoopNoticesPort,
       pullRequests: PullRequestPort,
       clock: ClockPort,
       causation: CausationPort,
@@ -444,6 +492,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         history,
         tasks,
         notes,
+        loopNotices,
         pullRequests,
         clock,
         causation,

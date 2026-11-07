@@ -17,6 +17,7 @@ import {
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -90,7 +91,7 @@ const waitingCheck = (placement = RunnerPlacement.anywhere()) => {
     stackId: stack.id,
     runId: stack.runId,
     taskId: null,
-    teamId: null,
+    teamId: TeamId.of('team_1'),
     trial: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null, placement),
@@ -148,7 +149,7 @@ describe('ClaimChangeStackCheck', () => {
       stackId: ChangeStackId.of('stack_2'),
       runId: first.runId,
       taskId: null,
-      teamId: null,
+      teamId: TeamId.of('team_1'),
       trial: false,
       workspaceId: first.workspaceId,
       request: first.request,
@@ -185,8 +186,8 @@ describe('ClaimChangeStackCheck', () => {
       const claimed = await service.claimReserved(RUNNER, LAPTOP, NOW);
 
       expect(claimed).toMatchObject({
-        stackId: 'stack_1',
-        runId: 'run_1',
+        checkId: CheckWorkId.of('stack_1'),
+        runId: RunId.of('run_1'),
         command: 'npm test',
       });
       expect(listedFor).toHaveBeenCalledWith(RUNNER);
@@ -307,7 +308,7 @@ describe('ClaimChangeStackCheck', () => {
         waitingCheck().claimedFor(RUNNER, LAPTOP, NOW),
       );
 
-      await service.unclaim('stack_1', false, RUNNER, NOW);
+      await service.unclaim(CheckWorkId.of('stack_1'), false, RUNNER, NOW);
 
       expect(saved[0]?.claim.claimedBy).toBeNull();
       expect(saved[0]?.claim.attempts).toBe(0);
@@ -319,8 +320,13 @@ describe('ClaimChangeStackCheck', () => {
       );
       const free = unclaiming(waitingCheck());
 
-      await unclaimed.service.unclaim('stack_1', false, RUNNER, NOW);
-      await free.service.unclaim('stack_1', false, RUNNER, NOW);
+      await unclaimed.service.unclaim(
+        CheckWorkId.of('stack_1'),
+        false,
+        RUNNER,
+        NOW,
+      );
+      await free.service.unclaim(CheckWorkId.of('stack_1'), false, RUNNER, NOW);
 
       expect(unclaimed.saved).toEqual([]);
       expect(free.saved).toEqual([]);
@@ -332,7 +338,7 @@ describe('ClaimChangeStackCheck', () => {
         1,
       );
 
-      await service.unclaim('stack_1', false, RUNNER, NOW);
+      await service.unclaim(CheckWorkId.of('stack_1'), false, RUNNER, NOW);
 
       expect(saved).toHaveLength(1);
     });
@@ -376,7 +382,13 @@ describe('ClaimChangeStackCheck', () => {
       const { service, saved } = renewing(check);
 
       await expect(
-        service.renewLease(RUN, 'stack_1', false, RUNNER, nearlyExpired),
+        service.renewLease(
+          RUN,
+          CheckWorkId.of('stack_1'),
+          false,
+          RUNNER,
+          nearlyExpired,
+        ),
       ).resolves.toBe('renewed');
       expect(
         saved[0]?.beingCheckedBy(RUNNER, new Date(leaseOf(check) + 1000)),
@@ -394,7 +406,7 @@ describe('ClaimChangeStackCheck', () => {
       await expect(
         service.renewLease(
           RUN,
-          'stack_1',
+          CheckWorkId.of('stack_1'),
           false,
           RUNNER,
           new Date(NOW.getTime() + WAITING_LIMIT_MS + 1),
@@ -407,7 +419,7 @@ describe('ClaimChangeStackCheck', () => {
       const { service, saved } = renewing(leased(), 2);
 
       await expect(
-        service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
+        service.renewLease(RUN, CheckWorkId.of('stack_1'), false, RUNNER, NOW),
       ).resolves.toBe('renewed');
       expect(saved).toHaveLength(1);
     });
@@ -416,7 +428,7 @@ describe('ClaimChangeStackCheck', () => {
       const { service, saved } = renewing(leased(), 3);
 
       await expect(
-        service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
+        service.renewLease(RUN, CheckWorkId.of('stack_1'), false, RUNNER, NOW),
       ).rejects.toThrow(StackCheckVersionConflictError);
       expect(saved).toEqual([]);
     });
@@ -425,7 +437,7 @@ describe('ClaimChangeStackCheck', () => {
       const { service, saved } = renewing(null);
 
       await expect(
-        service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
+        service.renewLease(RUN, CheckWorkId.of('stack_1'), false, RUNNER, NOW),
       ).resolves.toBe('stop');
       expect(saved).toEqual([]);
     });
@@ -437,12 +449,18 @@ describe('ClaimChangeStackCheck', () => {
       const expired = renewing(leased());
 
       await expect(
-        skipped.service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
+        skipped.service.renewLease(
+          RUN,
+          CheckWorkId.of('stack_1'),
+          false,
+          RUNNER,
+          NOW,
+        ),
       ).resolves.toBe('stop');
       await expect(
         expired.service.renewLease(
           RUN,
-          'stack_1',
+          CheckWorkId.of('stack_1'),
           false,
           RUNNER,
           new Date(NOW.getTime() + WAITING_LIMIT_MS + 1),
@@ -462,19 +480,25 @@ describe('ClaimChangeStackCheck', () => {
       await expect(
         elsewhere.service.renewLease(
           RunId.of('run_other'),
-          'stack_1',
+          CheckWorkId.of('stack_1'),
           false,
           RunnerId.of('runner_9'),
           NOW,
         ),
       ).resolves.toBe('stop');
       await expect(
-        expiring.service.renewLease(RUN, 'stack_1', false, RUNNER, expired),
+        expiring.service.renewLease(
+          RUN,
+          CheckWorkId.of('stack_1'),
+          false,
+          RUNNER,
+          expired,
+        ),
       ).resolves.toBe('stop');
       await expect(
         missing.service.renewLease(
           RunId.of('run_other'),
-          'stack_1',
+          CheckWorkId.of('stack_1'),
           false,
           RunnerId.of('runner_9'),
           NOW,
@@ -493,7 +517,13 @@ describe('ClaimChangeStackCheck', () => {
 
       expect(leaseOf(check)).toBeGreaterThan(ceiling);
       await expect(
-        service.renewLease(RUN, 'stack_1', false, RUNNER, new Date(ceiling)),
+        service.renewLease(
+          RUN,
+          CheckWorkId.of('stack_1'),
+          false,
+          RUNNER,
+          new Date(ceiling),
+        ),
       ).resolves.toBe('stop');
       expect(saved).toEqual([]);
     });
@@ -502,7 +532,7 @@ describe('ClaimChangeStackCheck', () => {
       await expect(
         renewing(leased()).service.renewLease(
           RunId.of('run_2'),
-          'stack_1',
+          CheckWorkId.of('stack_1'),
           false,
           RUNNER,
           NOW,

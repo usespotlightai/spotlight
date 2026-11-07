@@ -9,9 +9,12 @@ import type {
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { taskViewOf } from '@integrations/application/ports/tasks-for-hooks.fake-spec';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import { pullRequestOpening } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
@@ -36,23 +39,25 @@ const HOOK: ListeningHook = {
   key: HookKey.of('dba-review'),
   teamId: TeamId.of('team_1'),
   blocks: true,
+  compiled: null,
   broken: null,
   written: null,
 };
 
 const INSTANCE: HookEventInstance = {
   on: 'pull-request.opening',
-  occurrence: 'occurrence_1',
+  occurrence: HookOccurrenceKey.of('occurrence_1'),
   firing: null,
+  run: null,
   at: NOW,
-  event: { changed: ['db/migrations/1.sql'] },
+  event: pullRequestOpening(['db/migrations/1.sql']),
   task: taskViewOf(),
 };
 
 const hookRequest = (overrides: Partial<HookRequest> = {}): HookRequest => ({
   hook: HOOK,
   instance: INSTANCE,
-  step: 'check',
+  step: HookStepName.of('check'),
   url: 'https://dba.example.com/review',
   headers: { 'x-team': 'core' },
   body: '{"files":["db/migrations/1.sql"]}',
@@ -133,7 +138,7 @@ describe('HookRequests', () => {
     const headers = sentHeaders(fetch);
 
     expect(stepResult.outcome).toEqual({
-      name: 'check',
+      name: HookStepName.of('check'),
       status: 'done',
       output: { ok: true },
     });
@@ -492,7 +497,7 @@ describe('HookRequests', () => {
       new Date(NOW.getTime() + 10_000),
     );
     expect(stepResult.outcome).toEqual({
-      name: 'check',
+      name: HookStepName.of('check'),
       status: 'done',
       output: { ok: true },
     });
@@ -512,7 +517,7 @@ describe('HookRequests', () => {
     );
 
     expect(first.outcome).toEqual({
-      name: 'check',
+      name: HookStepName.of('check'),
       status: 'waiting',
       call: 'call_1',
       until: new Date(NOW.getTime() + 2 * 60 * 1000),
@@ -559,7 +564,7 @@ describe('HookRequests', () => {
       calls,
     );
     const waiting: WaitingHookStep = {
-      name: 'check',
+      name: HookStepName.of('check'),
       status: 'waiting',
       call: 'call_1',
       until: new Date(NOW.getTime() + 60_000),

@@ -4,10 +4,16 @@ import type { IntegrationConnectionRepository } from '@integrations/domain/repos
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { integrationConnection } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  codeOf,
+  UNIQUE_VIOLATION,
+} from '@platform/persistence/drizzle/violations';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { CredentialEncryptionPort } from '@secrets/application/ports/credential-encryption.port';
 import {
@@ -30,14 +36,8 @@ const labelFor = (
 ): string =>
   ['integration-connection', teamId, integration, owner, kind].join(':');
 
-const UNIQUE_VIOLATION = '23505';
-
 const collided = (error: unknown): boolean =>
-  (
-    ((error as { cause?: unknown } | null)?.cause ?? error) as {
-      code?: string;
-    } | null
-  )?.code === UNIQUE_VIOLATION;
+  codeOf(error) === UNIQUE_VIOLATION;
 
 const inPlace = (connection: IntegrationConnection) =>
   and(
@@ -143,7 +143,7 @@ export class DrizzleIntegrationConnections
           )
         : null,
       expiresAt: connection.expiresAt,
-      scopes: connection.scopes.join(' '),
+      scopes: connection.scopes.map((each) => each.value).join(' '),
       linkedAccount: connection.linkedAccount,
       refreshFailedAt: connection.refreshFailedAt,
       refreshClaimedUntil: connection.refreshClaim?.until ?? null,
@@ -226,10 +226,12 @@ export class DrizzleIntegrationConnections
         await this.decrypted(row, 'access', row.accessToken),
       ),
       refreshToken: row.refreshToken
-        ? AccessToken.of(await this.decrypted(row, 'refresh', row.refreshToken))
+        ? RefreshToken.of(
+            await this.decrypted(row, 'refresh', row.refreshToken),
+          )
         : null,
       expiresAt: row.expiresAt,
-      scopes: row.scopes ? row.scopes.split(' ') : [],
+      scopes: row.scopes ? row.scopes.split(' ').map(OAuthScope.of) : [],
       linkedAccount: row.linkedAccount,
       refreshFailedAt: row.refreshFailedAt,
       refreshClaim: row.refreshClaimedUntil

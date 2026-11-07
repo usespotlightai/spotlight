@@ -1,23 +1,23 @@
-import {
-  AGENT_STOPPED,
-  EGRESS_CHECKED,
-  type EgressEnforcement,
-  type JournalStep,
-  type RunMarks,
-  type RunSpent,
-  type StepChange,
-  type StepLocation,
-  TOOL_REFUSED,
-  TURN_USAGE,
+import type {
+  EgressEnforcement,
+  JournalStep,
+  RunMarks,
+  StepChange,
+  StepLocation,
 } from '@runs/application/contracts/run-journal.contract';
 import type { CalledStep } from '@runs/domain/services/tool-attribution';
 import { AgentTurns } from '@runs/domain/value-objects/agent-turns.vo';
 import {
+  AGENT_STOPPED,
+  EGRESS_CHECKED,
   HOOK_CALLED,
   PROVISION_FAILED,
   RUN_PAUSED,
+  TOOL_REFUSED,
+  TURN_USAGE,
 } from '@runs/domain/value-objects/journal-entry-type';
 import { Money } from '@runs/domain/value-objects/money.vo';
+import type { SpentReading } from '@runs/domain/value-objects/run-usage.vo';
 import type { StepKind } from '@runs/domain/value-objects/step-kind';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import { type Content, diffIn } from '@runs/infrastructure/acp/content';
@@ -232,9 +232,9 @@ export class JournalBuilder {
   #tools = new Map<string, number>();
   #refused = new Set<string>();
   #textStep: Building | null = null;
-  #spent: RunSpent | null = null;
+  #spent: SpentReading | null = null;
   #egressEnforcement: EgressEnforcement | null = null;
-  #spentBySession = new Map<string, RunSpent>();
+  #spentBySession = new Map<string, SpentReading>();
   #tokens = Tokens.UNREPORTED;
   #first: Date | null = null;
   #last: Date | null = null;
@@ -516,7 +516,7 @@ export class JournalBuilder {
     };
   }
 
-  spent(): RunSpent | null {
+  spent(): SpentReading | null {
     return this.#spent;
   }
 
@@ -524,7 +524,7 @@ export class JournalBuilder {
     return this.#egressEnforcement;
   }
 
-  spentBySession(): ReadonlyMap<string, RunSpent> {
+  spentBySession(): ReadonlyMap<string, SpentReading> {
     return this.#spentBySession;
   }
 

@@ -20,5 +20,5 @@ export interface PeoplePort {
 
   viewerOf(teamId: TeamId, userId: UserId): Promise<TeamViewer | null>;
 
-  readsTeam(teamId: TeamId, userId: UserId): Promise<boolean>;
+  actsForTeam(teamId: TeamId, userId: UserId): Promise<boolean>;
 }

@@ -13,8 +13,8 @@ export class RenewLeaseCommand {
 export class RenewCheckLeaseCommand {
   constructor(
     readonly runId: string,
-    readonly stackId: string,
-    readonly recheck: boolean,
+    readonly checkId: string,
+    readonly repeat: boolean,
     readonly runnerId: string,
   ) {}
 }
@@ -82,7 +82,7 @@ export class EnqueueRunCommand {
     readonly slug: string,
     readonly viewerId: string,
     readonly harness: string,
-    readonly spec: unknown,
+    readonly spec: Readonly<Record<string, unknown>>,
   ) {}
 }
 

@@ -1,17 +1,44 @@
 import type { EgressEnforcement } from '@runs/application/contracts/run-journal.contract';
 import type {
+  Category,
+  NodeKind,
+} from '@runs/application/contracts/run-trace.contract';
+import type {
   ConnectionError,
   ConnectionOutcome,
   ConnectionReason,
-} from '@runs/application/contracts/run-reading.contract';
+} from '@runs/application/ports/run-connections.port';
 import type {
   JournalStepDto,
   RunSpanDto,
 } from '@work/application/dto/run-journal.dto';
-import type {
-  Category,
-  NodeKind,
-} from '@work/application/read-models/trace-of';
+
+const listOf = <T extends string>(all: Record<T, true>): readonly T[] =>
+  Object.keys(all) as T[];
+
+export const TRACE_CONNECTION_OUTCOMES = listOf<ConnectionOutcome>({
+  passthrough: true,
+  injected: true,
+  blocked: true,
+  failed: true,
+});
+
+export const TRACE_CONNECTION_REASONS = listOf<ConnectionReason>({
+  'not-allowed': true,
+  'private-address': true,
+  'not-bound': true,
+  'no-such-host': true,
+  'timed-out': true,
+  'tls-failed': true,
+  unreachable: true,
+});
+
+export const TRACE_CONNECTION_ERRORS = listOf<ConnectionError>({
+  blocked: true,
+  failed: true,
+  'auth-failed': true,
+  'server-error': true,
+});
 
 export interface TraceConnectionDto {
   readonly host: string;

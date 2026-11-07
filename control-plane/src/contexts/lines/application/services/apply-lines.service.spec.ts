@@ -1,7 +1,7 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type {
+  LineSave,
   StationDeletionGuardPort,
-  StationRelease,
 } from '@lines/application/ports/station-deletion-guard.port';
 import { ApplyLines } from '@lines/application/services/apply-lines.service';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
@@ -26,6 +26,7 @@ import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -111,7 +112,6 @@ const applying = (
   over: {
     teamLines?: readonly Line[];
     tasks?: Record<string, number>;
-    release?: StationRelease;
     existing?: Line;
   } = {},
 ) => {
@@ -120,30 +120,25 @@ const applying = (
   const add = vi.fn(async () => {});
 
   const lines = {
-    ofWorkspace: vi.fn(async () => over.teamLines ?? [existing]),
     ofTeam: vi.fn(async () => over.teamLines ?? [existing]),
     save,
     add,
     find: vi.fn(),
-    findByStation: vi.fn(),
   } as unknown as LineRepository;
 
-  const tally = async (stationIds: readonly { value: string }[]) =>
-    new Map(
-      stationIds.map((stationId) => [
-        stationId.value,
+  const tally = async (_save: LineSave, stationIds: readonly StationId[]) =>
+    stationIds.map((stationId) => ({
+      stationId,
+      tasks:
         over.tasks?.[
-          existing.stations.find((each) => each.id.value === stationId.value)
-            ?.key.value ?? ''
+          existing.stations.find((each) => each.id.equals(stationId))?.key
+            .value ?? ''
         ] ?? 0,
-      ]),
-    );
+    }));
 
   const tallies = {
     lockedTaskCountsAt: vi.fn(tally),
-    release: vi.fn(
-      async (): Promise<StationRelease> => over.release ?? 'released',
-    ),
+    release: vi.fn(async (): Promise<void> => {}),
   } satisfies StationDeletionGuardPort;
 
   let next = 100;
@@ -237,6 +232,18 @@ describe('ApplyLines', () => {
     expect(tallies.lockedTaskCountsAt).toHaveBeenCalledTimes(1);
   });
 
+  it('tells the guard the version the change is saved as', async () => {
+    const existing = line();
+    const { applied, tallies } = applying(asPlan(existing), { existing });
+
+    await applied();
+
+    expect(tallies.lockedTaskCountsAt).toHaveBeenCalledWith(
+      { lineId: existing.id, version: existing.version + 1 },
+      existing.stations.map((each) => each.id),
+    );
+  });
+
   it('releases the stations it drops, and nothing it keeps', async () => {
     const existing = line();
     const plan = asPlan(existing);
@@ -249,18 +256,6 @@ describe('ApplyLines', () => {
     await applied();
 
     expect(tallies.release).toHaveBeenCalledWith([going?.id]);
-  });
-
-  it('rejects a change whose dropped stations still hold tasks, writing nothing', async () => {
-    const existing = line();
-    const plan = asPlan(existing);
-    const { applied, save } = applying(
-      like(plan, { stations: plan.stations.filter((_, at) => at !== 1) }),
-      { existing, release: 'occupied' },
-    );
-
-    await expect(applied()).rejects.toThrow(StationNotEmptyError);
-    expect(save).not.toHaveBeenCalled();
   });
 
   it('deletes a line once every station is released', async () => {

@@ -15,6 +15,7 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { documentsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -39,17 +40,22 @@ export const LINEAR = { integration: 'linear', name: 'Linear' };
 
 export const SLACK = { integration: 'slack', name: 'Slack' };
 
-const compiledFor = (integration: string, raw: object): ParsedIntegration => ({
-  ok: true,
-  integration: Integration.of({
+const compiledFor = (integration: string, raw: object): ParsedIntegration => {
+  const compiled = Integration.of({
     key: IntegrationKey.of(integration),
     actions: DefinedActions.of([actionNamed('comment')]),
-  }),
-  document: DefinitionDocument.of(raw),
-  spec: null,
-  skipped: [],
-  warnings: [],
-});
+  });
+
+  return {
+    ok: true,
+    integration: compiled,
+    offered: OfferedTools.generatedFor(compiled, []),
+    document: DefinitionDocument.of(raw),
+    spec: null,
+    skipped: [],
+    warnings: [],
+  };
+};
 
 const compiler: IntegrationCompilerPort = {
   compile: (raw): ParsedIntegration =>

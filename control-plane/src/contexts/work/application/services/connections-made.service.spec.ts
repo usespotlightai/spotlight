@@ -81,7 +81,7 @@ const waiting = () => {
     ConnectionAsk.of({
       teamId: TEAM,
       integration: IntegrationName.of('linear'),
-      integrationName: 'Linear',
+      providedBy: 'Linear',
       personId: ALICE,
     }),
   );

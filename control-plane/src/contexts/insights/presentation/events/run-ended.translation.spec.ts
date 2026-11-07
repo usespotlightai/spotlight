@@ -1,5 +1,5 @@
 import { endingOf } from '@insights/presentation/events/run-ended.translation';
-import type { RunEnding as RunEndedOutcome } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import type { DispatchOutcomePublished as RunEndedOutcome } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import { describe, expect, it } from 'vitest';
 
 describe('endingOf', () => {

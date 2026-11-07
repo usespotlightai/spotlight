@@ -1,4 +1,4 @@
-import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
+import type { HookToolsPort } from '@integrations/application/ports/hook-tools.port';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import type { EnabledAtStationsPort } from '@lines/application/ports/enabled-at-stations.port';
@@ -7,7 +7,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 export class EnabledTools {
   constructor(
     private readonly enabledAtStations: EnabledAtStationsPort,
-    private readonly hooks: HookDefinitionRepository,
+    private readonly hooks: HookToolsPort,
   ) {}
 
   async onTeam(teamId: TeamId): Promise<ToolUses> {
@@ -25,7 +25,10 @@ export class EnabledTools {
           : [];
       }),
       ...hooks.flatMap((hook) =>
-        hook.tools.map((tool) => ({ tool, by: `the hook ${hook.key.value}` })),
+        hook.tools.map((tool) => ({
+          tool,
+          by: `the hook ${hook.hook.value}`,
+        })),
       ),
     ]);
   }

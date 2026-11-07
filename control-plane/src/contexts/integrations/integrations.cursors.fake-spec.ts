@@ -71,6 +71,10 @@ class VersionedStore<S> {
 export class FakePollCursors implements PollCursorRepository {
   private readonly store = new VersionedStore<PollState>();
 
+  readonly ofTeam = async (): Promise<readonly PollCursor[]> => [];
+
+  readonly remove = async (): Promise<void> => {};
+
   constructor(
     private readonly beforeRead: () => Promise<void> = async () => {},
   ) {}
@@ -109,6 +113,10 @@ export class FakePollCursors implements PollCursorRepository {
 
 export class FakeScheduleCursors implements ScheduleCursorRepository {
   private readonly store = new VersionedStore<ScheduleState>();
+
+  readonly ofTeam = async (): Promise<readonly ScheduleCursor[]> => [];
+
+  readonly remove = async (): Promise<void> => {};
 
   constructor(
     private readonly beforeRead: () => Promise<void> = async () => {},

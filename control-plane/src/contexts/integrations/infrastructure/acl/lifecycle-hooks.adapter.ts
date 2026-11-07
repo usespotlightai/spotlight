@@ -2,7 +2,10 @@ import type { HooksListening } from '@integrations/application/services/hooks-li
 import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import type { RunBeforeHooks } from '@integrations/application/services/run-before-hooks.service';
 import type { HookDecision as FiredDecision } from '@integrations/domain/value-objects/hook-decision.vo';
+import { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { TaskViewMapper } from '@integrations/infrastructure/acl/task-view.mapper';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type {
@@ -13,8 +16,32 @@ import type {
 } from '@work/application/ports/lifecycle-hooks.port';
 import type { TaskViewDto } from '@work/application/ports/task-views.port';
 
-const eventOf = ({ on: _, ...event }: BeforeHookEvent | ToolUsedHookEvent) =>
-  event;
+const beforeFactsOf = (event: BeforeHookEvent): HookEventFacts => {
+  switch (event.on) {
+    case 'tool.using':
+      return HookEventFacts.of({
+        on: event.on,
+        tool: Tool.of(event.tool),
+        inputs: event.inputs,
+      });
+    case 'run.starting':
+      return HookEventFacts.of({ on: event.on });
+    case 'handover.submitting':
+      return HookEventFacts.of({
+        on: event.on,
+        to: event.to,
+        note: event.note,
+      });
+    case 'pull-request.opening':
+      return HookEventFacts.of({
+        on: event.on,
+        repository: Repository.of(event.repository),
+        branch: event.branch,
+        title: event.title,
+        changed: event.changed,
+      });
+  }
+};
 
 const decisionOf = (decision: FiredDecision): HookDecision =>
   decision.denyReason === null
@@ -40,8 +67,7 @@ export class LifecycleHooks implements LifecycleHooksPort {
     return decisionOf(
       await this.beforeHooks.decide(
         TaskViewMapper.toView(task),
-        instance.on,
-        eventOf(instance),
+        beforeFactsOf(instance),
         until ?? null,
       ),
     );
@@ -54,8 +80,14 @@ export class LifecycleHooks implements LifecycleHooksPort {
   ): Promise<void> {
     await this.triggers.toolUsed(
       TaskViewMapper.toView(task),
-      { tool: Tool.of(instance.tool), event: eventOf(instance) },
-      occurrence,
+      {
+        on: instance.on,
+        tool: Tool.of(instance.tool),
+        inputs: instance.inputs,
+        output: instance.output,
+        failed: instance.failed,
+      },
+      HookOccurrenceKey.of(occurrence),
     );
   }
 }

@@ -47,6 +47,7 @@ export interface SearchStepKey {
 export interface PendingSearchStep extends SearchStepKey {
   readonly at: Date;
   readonly candidates: readonly CandidateId[];
+  readonly searched: readonly TaskId[];
   readonly addedTasks: readonly TaskId[];
   readonly replaced: ReplacedSchedule | null;
 }
@@ -56,6 +57,9 @@ const isStep = (step: SearchStepKey, key: SearchStepKey): boolean =>
   step.searchId.equals(key.searchId) &&
   (key.kind === 'start' ||
     (key.request !== null && (step.request?.equals(key.request) ?? false)));
+
+const includes = (tasks: readonly TaskId[], task: TaskId): boolean =>
+  tasks.some((each) => each.equals(task));
 
 const sameTime = (one: Date | null, other: Date | null): boolean =>
   one?.getTime() === other?.getTime();
@@ -270,6 +274,7 @@ export class StationSearchSchedule extends EventRecorder {
       at: input.at,
       request: input.request,
       candidates: [input.request],
+      searched: [],
       addedTasks: [],
       replaced: null,
     });
@@ -402,6 +407,9 @@ export class StationSearchSchedule extends EventRecorder {
     const searchedTasks = kept.filter(
       (task, at) => !kept.slice(0, at).some((each) => each.equals(task)),
     );
+    const searched = searchedTasks.filter((task) =>
+      input.searched.some((each) => each.equals(task)),
+    );
     const addedTasks = searchedTasks.filter(
       (task) => !this.state.searchedTasks.some((each) => each.equals(task)),
     );
@@ -411,6 +419,7 @@ export class StationSearchSchedule extends EventRecorder {
       at: input.at,
       request: input.request,
       candidates: [...input.candidates],
+      searched,
       addedTasks,
     };
 
@@ -446,7 +455,19 @@ export class StationSearchSchedule extends EventRecorder {
   }
 
   stepConfirmed(key: SearchStepKey): StationSearchSchedule {
-    return this.resolved(key);
+    const step = this.stepOf(key);
+    const confirmed = this.resolved(key);
+
+    return step
+      ? confirmed.with({
+          pendingSteps: confirmed.state.pendingSteps.map((each) => ({
+            ...each,
+            addedTasks: each.addedTasks.filter(
+              (task) => !includes(step.searched, task),
+            ),
+          })),
+        })
+      : confirmed;
   }
 
   stepWithdrawn(key: SearchStepKey): StationSearchSchedule {
@@ -457,12 +478,30 @@ export class StationSearchSchedule extends EventRecorder {
     }
 
     const { replaced } = step;
+    const others = this.state.pendingSteps.filter((each) => !isStep(each, key));
+    const searchedElsewhere = (task: TaskId) =>
+      others.some((each) => includes(each.searched, task));
     const searchedTasks = this.state.searchedTasks.filter(
-      (task) => !step.addedTasks.some((each) => each.equals(task)),
+      (task) => !includes(step.addedTasks, task) || searchedElsewhere(task),
     );
+    const handedOn = step.addedTasks.filter(searchedElsewhere);
     const withdrawn = this.resolved(key)
       .uncounted(step.request)
-      .with({ searchedTasks });
+      .with({
+        searchedTasks,
+        pendingSteps: others.map((each) => ({
+          ...each,
+          addedTasks: [
+            ...each.addedTasks,
+            ...handedOn.filter(
+              (task) =>
+                includes(each.searched, task) &&
+                !includes(each.addedTasks, task) &&
+                others.find((other) => includes(other.searched, task)) === each,
+            ),
+          ],
+        })),
+      });
 
     return replaced
       ? withdrawn.with({

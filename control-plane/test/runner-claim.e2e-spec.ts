@@ -9,6 +9,7 @@ import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persi
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunClaims } from '@runs/application/services/run-claims.service';
+import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/drizzle/exclusive-claim-locks';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -18,11 +19,12 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { requestedBySpec } from './support/runs';
+import { requestedBySpec, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
@@ -40,9 +42,12 @@ beforeAll(async () => {
   runs = new DrizzleRunRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  claims = new RunClaims(runs, telemetry, {
-    linkActiveSpanTo: async () => {},
-  });
+  claims = new RunClaims(
+    runs,
+    telemetry,
+    { linkActiveSpanTo: async () => {} },
+    new DrizzleExclusiveClaimLocks(new DrizzleContext(db)),
+  );
   checks = new DrizzleStackCheckRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -125,6 +130,14 @@ const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
     id: stackId,
     runId,
     workspaceId,
+    teamId: 'team_checked',
+    trial: false,
+    cohorts: [],
+    checkPlacement: [],
+    redrafting: false,
+    pendingJob: false,
+    jobAttempts: 0,
+    version: 0,
     state: 'ready',
     files: [],
     facts: { hunks: [], links: [], imports: [] },
@@ -139,12 +152,20 @@ const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
   });
   await db.insert(schema.stackCheck).values({
     stackId,
+    recheck: false,
     runId,
     workspaceId,
+    teamId: 'team_checked',
+    trial: false,
     command: 'npm test',
     placement,
     status: 'waiting',
+    entries: [],
+    redraftCount: 0,
+    attempts: 0,
+    provisionAttempts: 0,
     waitingSince: NOW,
+    version: 0,
   });
 
   return stackId;
@@ -155,6 +176,35 @@ describe('claiming a run', () => {
     await queue('ws_theirs');
 
     await expect(claims.next(claimant('ws_mine'), NOW)).resolves.toBeNull();
+  });
+
+  it('leases one run of an exclusive requester to one runner, however many claim at once', async () => {
+    const workspaceId = `ws_${randomUUID()}`;
+    const taskId = randomUUID();
+
+    for (const id of [randomUUID(), randomUUID()]) {
+      await db.insert(schema.run).values({
+        id,
+        workspaceId,
+        harness: 'dev',
+        state: 'queued',
+        placement: [['runner-1']],
+        ...requestedByTask(taskId),
+        spec: {
+          command: { executable: 'sh', args: [] },
+          briefing: 'do the thing',
+          handover: { options: [], noteLimit: 0 },
+          resume: {},
+        },
+      });
+    }
+
+    const claimed = await Promise.all([
+      claims.next(claimant(workspaceId), NOW),
+      claims.next(claimant(workspaceId), NOW),
+    ]);
+
+    expect(claimed.filter((each) => each !== null)).toHaveLength(1);
   });
 
   it('hands a runner a run queued in its own workspace', async () => {
@@ -346,6 +396,15 @@ const withStack = async (check: StackCheck): Promise<StackCheck> => {
     id: check.stackId.value,
     runId: randomUUID(),
     workspaceId: check.workspaceId.value,
+    taskId: check.taskId?.value ?? null,
+    teamId: check.teamId?.value ?? null,
+    trial: false,
+    cohorts: [],
+    checkPlacement: [],
+    redrafting: false,
+    pendingJob: false,
+    jobAttempts: 0,
+    version: 0,
     state: 'ready',
     files: [],
     facts: { hunks: [], links: [], imports: [] },
@@ -438,7 +497,7 @@ describe('a runner reaching git for a run whose check it leases', () => {
       stackId: ChangeStackId.of(randomUUID()),
       runId,
       taskId: null,
-      teamId: null,
+      teamId: TeamId.of('team_checked'),
       trial: false,
       workspaceId: WorkspaceId.of(randomUUID()),
       request: CheckRequest.of('npm test', null),

@@ -1,4 +1,4 @@
-export const PROVISIONINGS = ['pending', 'done'] as const;
+const PROVISIONINGS = ['pending', 'done'] as const;
 
 export type Provisioning = (typeof PROVISIONINGS)[number];
 

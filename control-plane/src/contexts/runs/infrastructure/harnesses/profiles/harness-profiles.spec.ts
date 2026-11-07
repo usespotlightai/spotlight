@@ -43,7 +43,7 @@ const prepared = (
     throw new Error(`${harness} was not set up`);
   }
 
-  return { ...ready, setup: ready.setup, started: ready.command.started() };
+  return { ...ready, setup: ready.setup, started: ready.command };
 };
 
 const fileAt = (

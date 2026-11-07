@@ -5,7 +5,7 @@ import {
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
-import { VOICES } from '@work/domain/value-objects/voice.vo';
+import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { sql } from 'drizzle-orm';
 import {
@@ -84,7 +84,7 @@ export interface FailureRow {
 
 export const taskNoteKind = pgEnum('task_note_kind', TASK_NOTE_KINDS);
 export const taskNoteForm = pgEnum('task_note_form', TASK_NOTE_FORMS);
-export const voice = pgEnum('voice', VOICES);
+export const voice = pgEnum('voice', VOICE_KINDS);
 
 export const task = pgTable(
   'task',
@@ -109,6 +109,7 @@ export const task = pgTable(
     reviewing: boolean('reviewing').notNull().default(false),
     reviewFromOutside: boolean('review_from_outside').notNull().default(false),
     finishedAt: timestamptz('finished_at'),
+    workspaceReleasedAt: timestamptz('workspace_released_at'),
     revision: integer('revision').notNull().default(0),
     isSetup: boolean('is_setup').notNull().default(false),
     setupOpen: boolean('setup_open').notNull().default(false),

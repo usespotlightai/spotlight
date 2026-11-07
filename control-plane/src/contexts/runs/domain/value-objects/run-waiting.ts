@@ -1,6 +1,6 @@
 import type { RunState } from '@runs/domain/value-objects/run-state';
 
-export interface WaitingFacts {
+interface WaitingFacts {
   readonly state: RunState;
   readonly claimableFrom: Date | null;
   readonly reservedUntil: Date | null;

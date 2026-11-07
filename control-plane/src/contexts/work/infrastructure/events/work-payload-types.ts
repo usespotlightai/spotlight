@@ -61,6 +61,7 @@ import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.v
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
+import { HistoryAccess } from '@work/domain/value-objects/history-access.vo';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -86,6 +87,7 @@ import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
+import { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { ReviewVerdict } from '@work/domain/value-objects/review-verdict.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunResult } from '@work/domain/value-objects/run-result.vo';
@@ -109,6 +111,7 @@ import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import { WorkspaceRelease } from '@work/domain/value-objects/workspace-release.vo';
 
 export const WORK_PAYLOAD_TYPES = [
   RunResult,
@@ -208,7 +211,10 @@ export const WORK_PAYLOAD_TYPES = [
   DispatchSuperseded,
   DispatchEnding,
   DispatchOrder,
+  WorkspaceRelease,
   AwaitedTurn,
+  HistoryAccess,
+  ReviewRequest,
   TaskFailed,
   TaskPassed,
   TaskActedOn,

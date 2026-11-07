@@ -8,10 +8,7 @@ import {
   providesTool,
 } from '@integrations/domain/services/hook-allowances';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
-import type {
-  Hook,
-  HookOnFailure,
-} from '@integrations/domain/value-objects/hook.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
@@ -43,6 +40,7 @@ interface Props {
   readonly event: HookEvent;
   readonly document: DefinitionDocument;
   readonly tools: readonly ToolName[];
+  readonly blocks: boolean;
   readonly signing: SigningVersion | null;
   readonly version: number;
 }
@@ -174,6 +172,7 @@ export class HookDefinition extends EventRecorder {
         event: input.hook.event,
         document: input.document,
         tools: input.hook.tools,
+        blocks: input.hook.blocks,
         signing,
         version: 0,
         deleted: false,
@@ -240,6 +239,7 @@ export class HookDefinition extends EventRecorder {
         event: compiled.hook.event,
         document: compiled.document,
         tools: compiled.hook.tools,
+        blocks: compiled.hook.blocks,
         signing,
       },
       supplied,
@@ -292,9 +292,7 @@ export class HookDefinition extends EventRecorder {
   }
 
   get blocks(): boolean {
-    const blocking: HookOnFailure = 'block';
-
-    return this.state.document.hasValue('failure', blocking);
+    return this.state.blocks;
   }
 
   get workspaceId(): WorkspaceId {

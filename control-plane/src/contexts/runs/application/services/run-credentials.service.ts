@@ -24,15 +24,11 @@ export class RunCredentials {
   }
 
   revokeTokensOf(run: EndedAttempt): Promise<void> {
-    return this.tokens.revokeFor(run.workspaceId.value, run.runId.value, null);
+    return this.tokens.revokeFor(run.workspaceId, run.runId, null);
   }
 
   revokeAttemptTokensOf(run: EndedAttempt): Promise<void> {
-    return this.tokens.revokeFor(
-      run.workspaceId.value,
-      run.runId.value,
-      run.attempt,
-    );
+    return this.tokens.revokeFor(run.workspaceId, run.runId, run.attempt);
   }
 }
 

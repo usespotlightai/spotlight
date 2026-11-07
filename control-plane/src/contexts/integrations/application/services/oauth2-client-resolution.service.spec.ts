@@ -5,6 +5,7 @@ import type { OAuth2ClientRegistration } from '@integrations/domain/aggregates/o
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -25,7 +26,7 @@ const server = (token = 'https://auth.tracker.example/token') =>
 const resolving = (configured = '{}') => {
   let stored: OAuth2ClientRegistration | null = null;
   const register = vi.fn(async () => ({
-    clientId: `client-${register.mock.calls.length}`,
+    clientId: OAuth2ClientId.of(`client-${register.mock.calls.length}`),
     clientSecret: null,
     secretExpiresAt: null,
   }));

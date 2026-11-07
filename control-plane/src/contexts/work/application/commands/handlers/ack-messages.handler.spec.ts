@@ -1,3 +1,4 @@
+import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -11,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-17T09:00:00.000Z');
 
 const leased = aRunFor(RunId.of('run_1'), 'dev').claim(
-  RunnerId.of('runner_1'),
+  claimer(RunnerId.of('runner_1')),
   NOW,
 );
 

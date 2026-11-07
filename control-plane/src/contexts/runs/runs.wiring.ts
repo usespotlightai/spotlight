@@ -2,7 +2,10 @@ import {
   RUN_TOKENS,
   type RunTokensPort,
 } from '@identity/application/ports/run-tokens.port';
-import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
+import {
+  WORKSPACE_ACCESS,
+  type WorkspaceAccessPort,
+} from '@identity/application/ports/workspace-access.port';
 import { LINE_IMAGES } from '@lines/application/ports/line-images.port';
 import {
   SEEDING_HARNESS,
@@ -20,8 +23,8 @@ import { PayloadTypes } from '@platform/events/payload-types';
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import { RedisConnection } from '@platform/redis/redis-connection';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
+import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
-import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
 import {
   RUNNER_POOLS,
   type RunnerPoolsPort,
@@ -84,6 +87,10 @@ import {
 import { RecordRunUsage } from '@runs/application/events/handlers/record-run-usage.handler';
 import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
 import { ARCHIVE_HOLDERS } from '@runs/application/ports/archive-holders.port';
+import {
+  ARCHIVE_REFERENCE_LOCKS,
+  type ArchiveReferenceLocksPort,
+} from '@runs/application/ports/archive-reference-locks.port';
 import type { ArchiveReferencesPort } from '@runs/application/ports/archive-references.port';
 import { ARCHIVE_REFERENCES } from '@runs/application/ports/archive-references.port';
 import {
@@ -103,6 +110,10 @@ import {
   type ControlPlaneReleasePort,
 } from '@runs/application/ports/control-plane-release.port';
 import {
+  EXCLUSIVE_CLAIM_LOCKS,
+  type ExclusiveClaimLocksPort,
+} from '@runs/application/ports/exclusive-claim-locks.port';
+import {
   HARNESS_LAUNCH,
   type HarnessLaunchPort,
 } from '@runs/application/ports/harness-launch.port';
@@ -112,17 +123,26 @@ import { HOOK_TRACES } from '@runs/application/ports/hook-traces.port';
 import { NETWORK_CALLS } from '@runs/application/ports/network-calls.port';
 import { QUEUED_PLACEMENTS } from '@runs/application/ports/queued-placements.port';
 import {
-  RUN_CONNECTIONS,
-  type RunConnectionsPort,
-} from '@runs/application/ports/run-connections.port';
+  RUN_CONNECTION_LEDGER,
+  type RunConnectionLedgerPort,
+} from '@runs/application/ports/run-connection-ledger.port';
+import { RUN_CONNECTIONS } from '@runs/application/ports/run-connections.port';
 import {
   RUN_FACTS,
   type RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
+import {
+  RUN_FACTS_READER,
+  type RunFactsReaderPort,
+} from '@runs/application/ports/run-facts-reader.port';
 import { RUN_FILES } from '@runs/application/ports/run-files.port';
 import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import { RUN_JOURNAL } from '@runs/application/ports/run-journal.port';
-import { RUN_JOURNAL_ENTRY_READER } from '@runs/application/ports/run-journal-entry-reader.port';
+import {
+  RUN_JOURNAL_ENTRY_READER,
+  type RunJournalEntryReaderPort,
+} from '@runs/application/ports/run-journal-entry-reader.port';
+import { RUN_JOURNAL_READINGS } from '@runs/application/ports/run-journal-readings.port';
 import { RUN_JOURNALS } from '@runs/application/ports/run-journals.port';
 import { RUN_LEASES } from '@runs/application/ports/run-leases.port';
 import { RUN_PROGRESS } from '@runs/application/ports/run-progress.port';
@@ -165,12 +185,10 @@ import {
 } from '@runs/application/queries/handlers/list-harnesses.handler';
 import { ListRunnerActivityHandler } from '@runs/application/queries/handlers/list-runner-activity.handler';
 import { PoolQueueHandler } from '@runs/application/queries/handlers/pool-queue.handler';
-import { ReadRunEventsHandler } from '@runs/application/queries/handlers/read-run-events.handler';
 import { ReadRunNetworkHandler } from '@runs/application/queries/handlers/read-run-network.handler';
 import { RunStopRequestedHandler } from '@runs/application/queries/handlers/run-stop-requested.handler';
 import { StoredSandboxArchiveHandler } from '@runs/application/queries/handlers/stored-sandbox-archive.handler';
 import { StoredWorkspaceArchiveHandler } from '@runs/application/queries/handlers/stored-workspace-archive.handler';
-import { WatchRunHandler } from '@runs/application/queries/handlers/watch-run.handler';
 import { HostRequirementsQuery } from '@runs/application/queries/host.queries';
 import {
   HarnessCatalogueQuery,
@@ -178,14 +196,13 @@ import {
 } from '@runs/application/queries/list-harnesses.query';
 import { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import { PoolQueueQuery } from '@runs/application/queries/pool.queries';
-import { ReadRunEventsQuery } from '@runs/application/queries/read-run-events.query';
 import { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.query';
 import { RunStopRequestedQuery } from '@runs/application/queries/run-stop-requested.query';
 import {
   StoredSandboxArchiveQuery,
   StoredWorkspaceArchiveQuery,
 } from '@runs/application/queries/stored-workspace-archive.query';
-import { WatchRunQuery } from '@runs/application/queries/watch-run.query';
+import { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import { ClaimGate } from '@runs/application/services/claim-gate.service';
 import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
@@ -193,32 +210,58 @@ import { EgressSecretFetches } from '@runs/application/services/egress-secret-fe
 import { HoldStartingPoints } from '@runs/application/services/hold-starting-points.service';
 import { HookTraces } from '@runs/application/services/hook-traces.service';
 import { LongPoll } from '@runs/application/services/long-poll';
+import { NetworkCallClaims } from '@runs/application/services/network-call-claims.service';
 import { NetworkCalls } from '@runs/application/services/network-calls.service';
 import { PauseMarks } from '@runs/application/services/pause-marks.service';
+import { ProvisionFailureMarks } from '@runs/application/services/provision-failure-marks.service';
 import { ProvisionFailures } from '@runs/application/services/provision-failures.service';
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
 import { PurgeRunConnections } from '@runs/application/services/purge-run-connections.service';
 import { RemoveReleasedArchives } from '@runs/application/services/remove-released-archives.service';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { RunCredentials } from '@runs/application/services/run-credentials.service';
-import { RunFacts } from '@runs/application/services/run-facts.service';
+import { RunFileSources } from '@runs/application/services/run-file-sources.service';
+import { RunJournalReadings } from '@runs/application/services/run-journal-readings.service';
 import { RunLeases } from '@runs/application/services/run-leases.service';
+import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
+import { RunViewing } from '@runs/application/services/run-viewing.service';
 import { RunnerLeases } from '@runs/application/services/runner-leases.service';
 import { Runs } from '@runs/application/services/runs.service';
 import { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
 import { SandboxLeases } from '@runs/application/services/sandbox-leases.service';
+import { WatchRunStream } from '@runs/application/services/watch-run-stream.service';
+import {
+  NETWORK_CALL_REPOSITORY,
+  type NetworkCallRepository,
+} from '@runs/domain/repositories/network-call.repository';
+import {
+  RUN_REPOSITORY,
+  type RunRepository,
+} from '@runs/domain/repositories/run.repository';
+import {
+  STARTING_POINT_HOLD_REPOSITORY,
+  type StartingPointHoldRepository,
+} from '@runs/domain/repositories/starting-point-hold.repository';
+import {
+  WORKSPACE_ARCHIVE_REPOSITORY,
+  type WorkspaceArchiveRepository,
+} from '@runs/domain/repositories/workspace-archive.repository';
 import { AcpHarnessToolNames } from '@runs/infrastructure/acp/harness-tools';
 import { RUNS_PAYLOAD_TYPES } from '@runs/infrastructure/events/runs-payload-types';
 import { BuiltInHarnesses } from '@runs/infrastructure/harnesses/built-in-harnesses';
 import { CheckedRunJournal } from '@runs/infrastructure/journal/checked-run-journal';
+import { DrizzleArchiveReferenceLocks } from '@runs/infrastructure/persistence/drizzle/archive-reference-locks';
+import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/drizzle/exclusive-claim-locks';
 import { DrizzleRunConnections } from '@runs/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunUsages } from '@runs/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleQueuedPlacements } from '@runs/infrastructure/persistence/drizzle/readers/queued-placements.reader';
+import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
 import { DrizzleRunJournalEntryReader } from '@runs/infrastructure/persistence/drizzle/readers/run-journal-entry.reader';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
+import { DrizzleRunUsagesReader } from '@runs/infrastructure/persistence/drizzle/readers/run-usages.reader';
 import { DrizzleRunnerActivityReader } from '@runs/infrastructure/persistence/drizzle/readers/runner-activity.reader';
 import { DrizzleNetworkCallRepository } from '@runs/infrastructure/persistence/drizzle/repositories/network-call.repository';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -306,42 +349,66 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   DrizzleRunRepository,
 
+  { provide: RUN_REPOSITORY, useExisting: DrizzleRunRepository },
+
   {
     provide: RUNS,
-    inject: [DrizzleRunRepository, CONTENT_HASH, CLOCK],
+    inject: [RUN_REPOSITORY, CONTENT_HASH, CLOCK],
     useFactory: (
-      runs: DrizzleRunRepository,
+      runs: RunRepository,
       hash: ContentHashPort,
       clock: ClockPort,
     ) => new Runs(runs, hash, clock),
   },
 
   {
-    provide: RunFacts,
-    inject: [DrizzleRunRepository, DrizzleWorkspaceArchiveRepository],
-    useFactory: (
-      runs: DrizzleRunRepository,
-      archives: DrizzleWorkspaceArchiveRepository,
-    ) => new RunFacts(runs, archives),
+    provide: RunReadModel,
+    inject: [RUN_FACTS_READER],
+    useFactory: (reader: RunFactsReaderPort) => new RunReadModel(reader),
   },
 
-  { provide: RUN_FACTS, useExisting: RunFacts },
+  { provide: RUN_FACTS_READER, useClass: DrizzleRunFactsReader },
 
-  { provide: RUN_PROGRESS, useExisting: RunFacts },
+  { provide: RUN_FACTS, useExisting: RunReadModel },
 
-  { provide: RUN_TURNS, useExisting: RunFacts },
+  {
+    provide: RunViewing,
+    inject: [RunReadModel, WORKSPACE_ACCESS],
+    useFactory: (facts: RunReadModel, access: WorkspaceAccessPort) =>
+      new RunViewing(facts, access),
+  },
 
-  { provide: RUN_LEASES, useExisting: RunFacts },
+  { provide: RUN_VIEWERS, useExisting: RunViewing },
+
+  RunFileSources,
+
+  { provide: RUN_FILES, useExisting: RunFileSources },
+
+  { provide: RUN_PROGRESS, useExisting: RunReadModel },
+
+  { provide: RUN_TURNS, useExisting: RunReadModel },
+
+  { provide: RUN_LEASES, useExisting: RunReadModel },
 
   DrizzleWorkspaceArchiveRepository,
+
+  {
+    provide: WORKSPACE_ARCHIVE_REPOSITORY,
+    useExisting: DrizzleWorkspaceArchiveRepository,
+  },
 
   DrizzleNetworkCallRepository,
 
   {
+    provide: NETWORK_CALL_REPOSITORY,
+    useExisting: DrizzleNetworkCallRepository,
+  },
+
+  {
     provide: HOOK_TRACES,
-    inject: [DrizzleRunRepository, RUN_JOURNAL, RUN_STREAM],
+    inject: [RUN_REPOSITORY, RUN_JOURNAL, RUN_STREAM],
     useFactory: (
-      runs: DrizzleRunRepository,
+      runs: RunRepository,
       journal: RunJournalPort,
       stream: RunStreamPort,
     ) => new HookTraces(runs, journal, stream),
@@ -349,9 +416,9 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: NetworkCalls,
-    inject: [DrizzleNetworkCallRepository, ID_GENERATOR, CLOCK],
+    inject: [NETWORK_CALL_REPOSITORY, ID_GENERATOR, CLOCK],
     useFactory: (
-      calls: DrizzleNetworkCallRepository,
+      calls: NetworkCallRepository,
       ids: IdGeneratorPort,
       clock: ClockPort,
     ) => new NetworkCalls(calls, ids, clock),
@@ -381,21 +448,18 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ClaimGate,
-    inject: [DrizzleRunRepository, CLOCK, LOGGER],
-    useFactory: (
-      runs: DrizzleRunRepository,
-      clock: ClockPort,
-      logger: LoggerPort,
-    ) => new ClaimGate(runs, clock, logger),
+    inject: [RUN_REPOSITORY, CLOCK, LOGGER],
+    useFactory: (runs: RunRepository, clock: ClockPort, logger: LoggerPort) =>
+      new ClaimGate(runs, clock, logger),
   },
 
   { provide: RUN_START_GATES, useExisting: ClaimGate },
 
   {
     provide: ClaimsTaken,
-    inject: [DrizzleRunRepository, CHECK_WORK, RUNNERS, CLOCK, LOGGER],
+    inject: [RUN_REPOSITORY, CHECK_WORK, RUNNERS, CLOCK, LOGGER],
     useFactory: (
-      runs: DrizzleRunRepository,
+      runs: RunRepository,
       checks: CheckWorkPort,
       runners: RunnersPort,
       clock: ClockPort,
@@ -404,6 +468,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: ARCHIVE_REFERENCES, useClass: DrizzleArchiveReferences },
+
+  { provide: ARCHIVE_REFERENCE_LOCKS, useClass: DrizzleArchiveReferenceLocks },
 
   ArchiveHolders,
 
@@ -422,6 +488,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   { provide: HARNESS_PROFILE_REVIEW, useExisting: BuiltInHarnesses },
 
   { provide: RUN_JOURNALS, useClass: DrizzleRunJournals },
+  { provide: RUN_JOURNAL_READINGS, useClass: RunJournalReadings },
 
   {
     provide: SANDBOX_HOSTS,
@@ -431,7 +498,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   DrizzleRunUsages,
 
-  { provide: RUN_USAGES, useExisting: DrizzleRunUsages },
+  { provide: RUN_USAGES, useClass: DrizzleRunUsagesReader },
 
   { provide: RUN_USAGE_WRITER, useExisting: DrizzleRunUsages },
 
@@ -449,6 +516,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       RunnerLeases,
       SandboxLeases,
       RUN_JOURNAL,
+      RUN_STREAM,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -462,6 +530,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       runners: RunnerLeases,
       sandboxes: SandboxLeases,
       journal: RunJournalPort,
+      stream: RunStreamPort,
     ) => {
       types.register('runs', RUNS_PAYLOAD_TYPES);
       mappers.register(RUNS_EVENT_MAPPERS);
@@ -471,6 +540,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
           runners,
           sandboxes,
           pauseMarks: new PauseMarks(journal),
+          provisionFailures: new ProvisionFailureMarks(journal, stream),
           usages: new RecordRunUsage(facts, usages, launch),
         }),
       );
@@ -494,8 +564,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RunLeases,
-    inject: [DrizzleRunRepository],
-    useFactory: (runs: DrizzleRunRepository) => new RunLeases(runs),
+    inject: [RUN_REPOSITORY],
+    useFactory: (runs: RunRepository) => new RunLeases(runs),
   },
 
   DrizzleRunTraceLinks,
@@ -503,12 +573,18 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RunClaims,
-    inject: [DrizzleRunRepository, TELEMETRY, RUN_TRACE_LINKS],
+    inject: [RUN_REPOSITORY, TELEMETRY, RUN_TRACE_LINKS, EXCLUSIVE_CLAIM_LOCKS],
     useFactory: (
-      runs: DrizzleRunRepository,
+      runs: RunRepository,
       telemetry: TelemetryPort,
       traces: RunTraceLinksPort,
-    ) => new RunClaims(runs, telemetry, traces),
+      locks: ExclusiveClaimLocksPort,
+    ) => new RunClaims(runs, telemetry, traces, locks),
+  },
+
+  {
+    provide: EXCLUSIVE_CLAIM_LOCKS,
+    useClass: DrizzleExclusiveClaimLocks,
   },
 
   {
@@ -537,16 +613,26 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   DrizzleStartingPointHoldRepository,
 
   {
+    provide: STARTING_POINT_HOLD_REPOSITORY,
+    useExisting: DrizzleStartingPointHoldRepository,
+  },
+
+  {
     provide: STARTING_POINT_HOLDS,
-    inject: [DrizzleStartingPointHoldRepository, TRANSACTION],
+    inject: [
+      STARTING_POINT_HOLD_REPOSITORY,
+      TRANSACTION,
+      ARCHIVE_REFERENCE_LOCKS,
+    ],
     useFactory: (
-      holds: DrizzleStartingPointHoldRepository,
+      holds: StartingPointHoldRepository,
       transaction: TransactionPort,
-    ) => new HoldStartingPoints(holds, transaction),
+      locks: ArchiveReferenceLocksPort,
+    ) => new HoldStartingPoints(holds, transaction, locks),
   },
 
   ...bindQueryHandler(ReadRunNetworkQuery, ReadRunNetworkHandler, [
-    RUN_VIEWERS,
+    RunViewing,
     RUN_JOURNAL_ENTRY_READER,
     RUN_CONNECTIONS,
   ]),
@@ -560,46 +646,31 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(
     StoredWorkspaceArchiveQuery,
     StoredWorkspaceArchiveHandler,
-    [
-      DrizzleRunRepository,
-      DrizzleWorkspaceArchiveRepository,
-      WORKSPACE_ARCHIVE_STORE,
-    ],
+    [RUN_REPOSITORY, WORKSPACE_ARCHIVE_REPOSITORY, WORKSPACE_ARCHIVE_STORE],
   ),
 
   ...bindCommandHandler(
     GrantWorkspaceArchiveCommand,
     GrantWorkspaceArchiveHandler,
-    [
-      DrizzleRunRepository,
-      DrizzleWorkspaceArchiveRepository,
-      WORKSPACE_ARCHIVE_STORE,
-      ArchiveHolders,
-      ID_GENERATOR,
-      CLOCK,
-    ],
+    [RUN_REPOSITORY, ArchiveGrants],
   ),
 
   ...bindCommandHandler(
     RecordStartingPointCommand,
     RecordStartingPointHandler,
     [
-      DrizzleRunRepository,
-      DrizzleWorkspaceArchiveRepository,
-      RUNNER_HEARTBEATS,
+      RUN_REPOSITORY,
+      WORKSPACE_ARCHIVE_REPOSITORY,
+      RUNNER_CLAIMANTS,
       CLOCK,
+      ARCHIVE_REFERENCE_LOCKS,
     ],
   ),
 
   ...bindCommandHandler(
     CompleteWorkspaceArchiveCommand,
     CompleteWorkspaceArchiveHandler,
-    [
-      DrizzleRunRepository,
-      DrizzleWorkspaceArchiveRepository,
-      WORKSPACE_ARCHIVE_STORE,
-      CLOCK,
-    ],
+    [RUN_REPOSITORY, WORKSPACE_ARCHIVE_REPOSITORY, ArchiveGrants],
   ),
 
   {
@@ -610,54 +681,63 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(StoredSandboxArchiveQuery, StoredSandboxArchiveHandler, [
     SandboxArchives,
-    DrizzleWorkspaceArchiveRepository,
+    WORKSPACE_ARCHIVE_REPOSITORY,
     WORKSPACE_ARCHIVE_STORE,
   ]),
 
   ...bindCommandHandler(
     GrantSandboxArchiveCommand,
     GrantSandboxArchiveHandler,
-    [
-      SandboxArchives,
-      DrizzleWorkspaceArchiveRepository,
-      WORKSPACE_ARCHIVE_STORE,
-      ArchiveHolders,
-      ID_GENERATOR,
-      CLOCK,
-    ],
+    [SandboxArchives, ArchiveGrants],
   ),
 
   ...bindCommandHandler(
     CompleteSandboxArchiveCommand,
     CompleteSandboxArchiveHandler,
-    [
-      SandboxArchives,
-      DrizzleWorkspaceArchiveRepository,
+    [SandboxArchives, WORKSPACE_ARCHIVE_REPOSITORY, ArchiveGrants],
+  ),
+
+  {
+    provide: ArchiveGrants,
+    inject: [
+      WORKSPACE_ARCHIVE_REPOSITORY,
       WORKSPACE_ARCHIVE_STORE,
+      ArchiveHolders,
+      ID_GENERATOR,
       CLOCK,
     ],
-  ),
+    useFactory: (
+      archives: WorkspaceArchiveRepository,
+      store: WorkspaceArchiveStorePort,
+      holders: ArchiveHolders,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new ArchiveGrants(archives, store, holders, ids, clock),
+  },
 
   {
     provide: RemoveReleasedArchives,
     inject: [
       ARCHIVE_REFERENCES,
+      ARCHIVE_REFERENCE_LOCKS,
       ArchiveHolders,
-      DrizzleWorkspaceArchiveRepository,
+      WORKSPACE_ARCHIVE_REPOSITORY,
       WORKSPACE_ARCHIVE_STORE,
       CLOCK,
       LOGGER,
     ],
     useFactory: (
       references: ArchiveReferencesPort,
+      locks: ArchiveReferenceLocksPort,
       holders: ArchiveHolders,
-      archives: DrizzleWorkspaceArchiveRepository,
+      archives: WorkspaceArchiveRepository,
       store: WorkspaceArchiveStorePort,
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
       new RemoveReleasedArchives(
         references,
+        locks,
         holders,
         archives,
         store,
@@ -712,28 +792,24 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: SandboxLeases,
-    inject: [SANDBOXES, DrizzleRunRepository, CLOCK],
+    inject: [SANDBOXES, RUN_REPOSITORY, CLOCK],
     useFactory: (
       sandboxes: SandboxesPort,
-      runs: DrizzleRunRepository,
+      runs: RunRepository,
       clock: ClockPort,
     ) => new SandboxLeases(sandboxes, runs, clock),
   },
 
   {
     provide: ProvisionFailures,
-    inject: [DrizzleRunRepository, RUN_JOURNAL, RUN_STREAM],
-    useFactory: (
-      runs: DrizzleRunRepository,
-      journal: RunJournalPort,
-      stream: RunStreamPort,
-    ) => new ProvisionFailures(runs, journal, stream),
+    inject: [RUN_REPOSITORY],
+    useFactory: (runs: RunRepository) => new ProvisionFailures(runs),
   },
 
   {
     provide: ProvisionWork,
     inject: [
-      DrizzleRunRepository,
+      RUN_REPOSITORY,
       CHECK_PROVISIONING,
       RUNNER_POOLS,
       RUNNERS,
@@ -744,7 +820,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       LOGGER,
     ],
     useFactory: (
-      runs: DrizzleRunRepository,
+      runs: RunRepository,
       checks: CheckProvisioningPort,
       pools: RunnerPoolsPort,
       runners: RunnersPort,
@@ -778,20 +854,23 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     RUNNER_ACTIVITY_READER,
     RunRequesterLabels,
-    RUN_VIEWERS,
+    RunViewing,
   ]),
 
-  ...bindQueryHandler(WatchRunQuery, WatchRunHandler, [RUN_VIEWERS]),
-
-  ...bindQueryHandler(ReadRunEventsQuery, ReadRunEventsHandler, [
-    RUN_VIEWERS,
-    RUN_JOURNAL_ENTRY_READER,
-  ]),
+  {
+    provide: WatchRunStream,
+    inject: [RunViewing, RUN_JOURNAL_ENTRY_READER, RUN_STREAM],
+    useFactory: (
+      runs: RunViewing,
+      entries: RunJournalEntryReaderPort,
+      stream: RunStreamPort,
+    ) => new WatchRunStream(runs, entries, stream),
+  },
 
   ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [
-    DrizzleRunRepository,
+    RUN_REPOSITORY,
     RunClaims,
-    RUNNER_HEARTBEATS,
+    RUNNER_CLAIMANTS,
     CLOCK,
     CHECK_WORK,
     ClaimsTaken,
@@ -804,8 +883,8 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ClaimHostWorkCommand, ClaimHostWorkHandler, [
     RUNNER_AUTHENTICATOR,
     RUNNERS,
-    RUNNER_HEARTBEATS,
-    DrizzleRunRepository,
+    RUNNER_CLAIMANTS,
+    RUN_REPOSITORY,
     RunClaims,
     CHECK_WORK,
     CLOCK,
@@ -816,10 +895,17 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     SANDBOX_HOSTS,
   ]),
 
+  {
+    provide: NetworkCallClaims,
+    inject: [NETWORK_CALL_REPOSITORY, TRANSACTION],
+    useFactory: (calls: NetworkCallRepository, transaction: TransactionPort) =>
+      new NetworkCallClaims(calls, transaction),
+  },
+
   ...bindCommandHandler(ClaimHostCallCommand, ClaimHostCallHandler, [
     RUNNER_AUTHENTICATOR,
     RUNNERS,
-    DrizzleNetworkCallRepository,
+    NetworkCallClaims,
     CLOCK,
     LongPoll,
     TOKEN_ISSUER,
@@ -828,11 +914,11 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(
     RecordHostCallResponseCommand,
     RecordHostCallResponseHandler,
-    [RUNNER_AUTHENTICATOR, DrizzleNetworkCallRepository, CLOCK],
+    [RUNNER_AUTHENTICATOR, NETWORK_CALL_REPOSITORY, CLOCK],
   ),
 
   ...bindCommandHandler(RedeemCallSecretsCommand, RedeemCallSecretsHandler, [
-    DrizzleNetworkCallRepository,
+    NETWORK_CALL_REPOSITORY,
     CALL_SECRET_FETCHES,
     TOKEN_ISSUER,
     CLOCK,
@@ -841,7 +927,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   {
     provide: EgressSecretFetches,
     inject: [
-      DrizzleRunRepository,
+      RUN_REPOSITORY,
       RUN_SECRET_FETCHES,
       RUN_GRANTS,
       SANDBOX_HOSTS,
@@ -850,7 +936,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       CONTROL_PLANE_HOST,
     ],
     useFactory: (
-      runs: DrizzleRunRepository,
+      runs: RunRepository,
       runSecretFetches: RunSecretFetchesPort,
       grants: RunGrantsPort,
       sandboxHosts: SandboxHostsPort,
@@ -869,12 +955,16 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       ),
   },
 
-  { provide: RUN_CONNECTIONS, useClass: DrizzleRunConnections },
+  DrizzleRunConnections,
+
+  { provide: RUN_CONNECTIONS, useExisting: DrizzleRunConnections },
+
+  { provide: RUN_CONNECTION_LEDGER, useExisting: DrizzleRunConnections },
 
   {
     provide: PurgeRunConnections,
-    inject: [RUN_CONNECTIONS, CLOCK],
-    useFactory: (connections: RunConnectionsPort, clock: ClockPort) =>
+    inject: [RUN_CONNECTION_LEDGER, CLOCK],
+    useFactory: (connections: RunConnectionLedgerPort, clock: ClockPort) =>
       new PurgeRunConnections(connections, clock),
   },
 
@@ -915,38 +1005,38 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(
     RecordEgressConnectionsCommand,
     RecordEgressConnectionsHandler,
-    [RUNNER_EGRESS, EgressSecretFetches, RUN_CONNECTIONS, CLOCK],
+    [RUNNER_EGRESS, EgressSecretFetches, RUN_CONNECTION_LEDGER, CLOCK],
   ),
 
   ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
-    DrizzleRunRepository,
-    RUNNER_HEARTBEATS,
+    RUN_REPOSITORY,
+    RUNNER_CLAIMANTS,
     CLOCK,
   ]),
 
   ...bindCommandHandler(RenewCheckLeaseCommand, RenewCheckLeaseHandler, [
     CHECK_WORK,
-    RUNNER_HEARTBEATS,
+    RUNNER_CLAIMANTS,
     CLOCK,
   ]),
 
   ...bindCommandHandler(RecordRunImageCommand, RecordRunImageHandler, [
-    DrizzleRunRepository,
-    RUNNER_HEARTBEATS,
+    RUN_REPOSITORY,
+    RUNNER_CLAIMANTS,
     CLOCK,
   ]),
 
   ...bindCommandHandler(AppendRunJournalCommand, AppendRunJournalHandler, [
-    DrizzleRunRepository,
+    RUN_REPOSITORY,
     RUN_JOURNAL,
     RUN_STREAM,
   ]),
 
   ...bindCommandHandler(CompleteRunCommand, CompleteRunHandler, [
-    DrizzleRunRepository,
+    RUN_REPOSITORY,
     TRANSACTION,
     CLOCK,
-    RUN_FILES,
+    RunFileSources,
   ]),
 
   ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [

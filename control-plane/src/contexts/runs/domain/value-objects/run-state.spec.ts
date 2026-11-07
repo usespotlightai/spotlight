@@ -1,8 +1,4 @@
-import {
-  isStopping,
-  progressOfCurrentRun,
-  resumable,
-} from '@runs/domain/value-objects/run-state';
+import { isStopping, resumable } from '@runs/domain/value-objects/run-state';
 import { describe, expect, it } from 'vitest';
 
 describe('isStopping', () => {
@@ -20,45 +16,6 @@ describe('isStopping', () => {
   });
 });
 
-describe('progressOfCurrentRun', () => {
-  it('counts a run that has no record yet as queued', () => {
-    expect(progressOfCurrentRun(null, false)).toBe('queued');
-  });
-
-  it('counts a run that waits for a runner as queued', () => {
-    expect(
-      progressOfCurrentRun({ state: 'queued', stopRequested: false }, false),
-    ).toBe('queued');
-  });
-
-  it('counts a run that a runner took as in progress', () => {
-    expect(
-      progressOfCurrentRun({ state: 'claimed', stopRequested: false }, false),
-    ).toBe('in-progress');
-  });
-
-  it('counts a run that someone asked to stop as stopping', () => {
-    expect(
-      progressOfCurrentRun({ state: 'claimed', stopRequested: true }, false),
-    ).toBe('stopping');
-  });
-
-  it('counts a suspended run that a person answered as queued, as the answer takes it up', () => {
-    expect(
-      progressOfCurrentRun({ state: 'suspended', stopRequested: false }, true),
-    ).toBe('queued');
-  });
-
-  it('counts no progress for a run that waits for a person or has ended', () => {
-    expect(
-      progressOfCurrentRun({ state: 'suspended', stopRequested: false }, false),
-    ).toBeNull();
-    expect(
-      progressOfCurrentRun({ state: 'completed', stopRequested: false }, false),
-    ).toBeNull();
-  });
-});
-
 describe('resumable', () => {
   it('takes up a suspended run', () => {
     expect(resumable('suspended', false)).toBe(true);
@@ -67,30 +24,5 @@ describe('resumable', () => {
   it('does not take up a run that is not suspended', () => {
     expect(resumable('claimed', false)).toBe(false);
     expect(resumable('completed', false)).toBe(false);
-  });
-});
-
-describe('the progress of a run whose turn is still being decided (R12)', () => {
-  const pending = {
-    state: 'suspended' as const,
-    stopRequested: false,
-    turn: 'pending' as const,
-  };
-
-  it('stays in progress for a task that took it up, rather than flickering back to queued', () => {
-    expect(progressOfCurrentRun(pending, true)).toBe('in-progress');
-  });
-
-  it('is stopping when a stop came in during the turn', () => {
-    expect(
-      progressOfCurrentRun({ ...pending, stopRequested: true }, true),
-    ).toBe('stopping');
-  });
-
-  it('counts a kept turn as queued for a task taking it up again, and as nothing otherwise', () => {
-    const kept = { ...pending, turn: 'kept' as const };
-
-    expect(progressOfCurrentRun(kept, true)).toBe('queued');
-    expect(progressOfCurrentRun(kept, false)).toBeNull();
   });
 });

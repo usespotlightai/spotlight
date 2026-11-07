@@ -1,10 +1,11 @@
 import {
   orderedFor,
-  RunCompleted,
+  RunEnded,
   RunExhausted,
   RunOutcome,
   runEndedOf,
 } from '@runs/application/ports/run-fixtures.fake-spec';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -103,6 +104,7 @@ const notifying = (chat: Chat) => {
               },
             ],
     } as unknown as RunJournalReaderPort,
+    runJournalReadings(),
   );
 
   return { handler, notify };
@@ -113,7 +115,7 @@ let said: string | null = null;
 const completed = (chat: Chat, lastWords: string | null) => {
   said = lastWords;
 
-  return new RunCompleted(
+  return new RunEnded(
     RUN,
     WORKSPACE,
     subject(chat),
@@ -125,6 +127,7 @@ const completed = (chat: Chat, lastWords: string | null) => {
     false,
     true,
     true,
+    NOW,
   );
 };
 
@@ -215,6 +218,7 @@ describe('NotifyChannel', () => {
           false,
           null,
           true,
+          NOW,
         ),
       ),
     );

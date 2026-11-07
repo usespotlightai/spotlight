@@ -1,10 +1,9 @@
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { isRunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import { lastWordsIn } from '@work/application/services/last-words';
 import {
-  type RunEnded,
   RunEndedFacts,
   type RunEndingReactions,
 } from '@work/application/services/run-ending-reactions';
@@ -26,9 +25,10 @@ export class HandOver implements RunEndingReactions {
     private readonly lines: LineMapsPort,
     private readonly routing: RunRouting,
     private readonly journals: RunJournalReaderPort,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
-  async onRunEnded(event: RunEnded): Promise<void> {
+  async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
     if (event.ending === 'completed') {
       await this.completed(event);
     }
@@ -38,7 +38,7 @@ export class HandOver implements RunEndingReactions {
     }
   }
 
-  private async completed(event: RunEnded): Promise<void> {
+  private async completed(event: RunEndedIntegrationEvent): Promise<void> {
     if (event.handsOver) {
       return;
     }
@@ -60,7 +60,7 @@ export class HandOver implements RunEndingReactions {
       currentStation: task.stationId,
       lastWords:
         event.reported && !handed
-          ? lastWordsIn(
+          ? this.readings.lastWordsIn(
               await this.journals.attemptsOfRun(runId),
               task.lastPersonNoteAt,
             )
@@ -76,7 +76,7 @@ export class HandOver implements RunEndingReactions {
     );
   }
 
-  private async exhausted(event: RunEnded): Promise<void> {
+  private async exhausted(event: RunEndedIntegrationEvent): Promise<void> {
     const found = await this.waiting(event);
     if (!found) {
       return;
@@ -86,9 +86,7 @@ export class HandOver implements RunEndingReactions {
       await this.routing.routed(
         HandoverFor.exhausted(
           event.expiredLeases,
-          event.failure !== null && isRunFailureCode(event.failure)
-            ? event.failure
-            : 'runner-lost',
+          RunEndedFacts.failure(event) ?? 'runner-lost',
         ),
         found.task,
         found.line,
@@ -102,7 +100,9 @@ export class HandOver implements RunEndingReactions {
     await this.tasks.save(task);
   }
 
-  private async waiting(ended: RunEnded): Promise<WaitingTask | null> {
+  private async waiting(
+    ended: RunEndedIntegrationEvent,
+  ): Promise<WaitingTask | null> {
     const requested = WorkRequesters.decode(ended.requester);
 
     if (!requested || !('task' in requested)) {

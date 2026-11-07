@@ -10,7 +10,6 @@ import {
   type JudgeReport,
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
-import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { ScoreFact } from '@insights/domain/value-objects/score-fact.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -117,7 +116,7 @@ export class StationJudgeReports {
   }): Promise<CurrentStationJudge | null> {
     return currentJudgeOf(
       station,
-      await this.judges.judgeAt(station.stationId.value),
+      await this.judges.judgeAt(station.stationId),
     );
   }
 
@@ -126,7 +125,7 @@ export class StationJudgeReports {
     stations: readonly StationOnLine[],
   ): Promise<readonly JudgeCalibrationShape[]> {
     const teamId = TeamId.of(team.teamId);
-    const judges = await this.judges.judgesOnTeam(team.teamId);
+    const judges = await this.judges.judgesOnTeam(teamId);
     const current = stations.map((station) => ({
       station,
       judge: currentJudgeOf(
@@ -143,7 +142,7 @@ export class StationJudgeReports {
               {
                 lineId: LineId.of(station.lineId),
                 stationId: StationId.of(station.stationId),
-                rubricVersion: RubricVersion.of(judge.rubricVersion),
+                rubricVersion: judge.rubricVersion,
               },
             ]
           : [],
@@ -174,7 +173,7 @@ export class StationJudgeReports {
     const judged = judge?.scale
       ? await this.facts.judgedAtStation({
           ...station,
-          rubricVersion: RubricVersion.of(judge.rubricVersion),
+          rubricVersion: judge.rubricVersion,
           last: MAX_JUDGED,
         })
       : [];

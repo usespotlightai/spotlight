@@ -10,7 +10,7 @@ import {
 } from '@replays/application/services/replayed-candidates.fake-spec';
 import {
   accessFor,
-  FakeWork,
+  FakeSuppliers,
   InMemoryConfigPullRequests,
   InMemoryReplays,
   PERSON,
@@ -52,17 +52,21 @@ let now: Date;
 let pullRequests: InMemoryConfigPullRequests;
 
 const read = (period = '30d', mayPlan: boolean | null = false) => {
-  const work = new FakeWork();
+  const suppliers = new FakeSuppliers();
 
   return new ReadReplayedCandidatesHandler(
-    accessFor(memory, work, mayPlan),
+    accessFor(memory, suppliers, mayPlan),
     memory.readerOver(pullRequests),
     memory.searchRepository,
     memory.setRepository,
     memory.candidateRepository,
-    work,
+    suppliers.trialableRuns,
     { now: () => now, sleep: async () => {} },
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
   ).execute(
     new ReadReplayedCandidatesQuery(STATION.teamId.value, PERSON, period),
   );

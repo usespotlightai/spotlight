@@ -9,27 +9,36 @@ describe('TaskOrigin', () => {
       Happening.of('linear.issue.created'),
     );
 
-    expect(origin.value).toBe('linear');
+    expect(origin.encoded).toBe('integration:linear');
     expect(origin.integration?.value).toBe('linear');
   });
 
   it('reads back a stored integration as that integration', () => {
     expect(
-      TaskOrigin.of('github').equals(
+      TaskOrigin.decode('integration:github').equals(
         TaskOrigin.receivedFrom(Happening.of('github.pull_request.opened')),
       ),
     ).toBe(true);
   });
 
-  it('is a person, or an integration named in lower case', () => {
-    expect(TaskOrigin.person().value).toBe('person');
-    expect(TaskOrigin.of('person').equals(TaskOrigin.person())).toBe(true);
-    expect(TaskOrigin.person().integration).toBeNull();
-    expect(() => TaskOrigin.of('Slack!')).toThrow(InconsistentStateError);
+  it('tells a person apart from an integration keyed person', () => {
+    const integration = TaskOrigin.receivedFrom(
+      Happening.of('person.card.created'),
+    );
+
+    expect(TaskOrigin.decode(TaskOrigin.person().encoded)).toEqual(
+      TaskOrigin.person(),
+    );
+    expect(TaskOrigin.decode(integration.encoded).equals(integration)).toBe(
+      true,
+    );
+    expect(integration.equals(TaskOrigin.person())).toBe(false);
   });
 
-  it('tells a task passed on from a station apart from one a person opened', () => {
-    expect(TaskOrigin.passed().equals(TaskOrigin.person())).toBe(false);
-    expect(TaskOrigin.passed().value).toBe('station');
+  it('refuses a stored origin that is neither a person nor an integration', () => {
+    expect(() => TaskOrigin.decode('github')).toThrow(InconsistentStateError);
+    expect(() => TaskOrigin.decode('integration:Slack!')).toThrow(
+      InconsistentStateError,
+    );
   });
 });

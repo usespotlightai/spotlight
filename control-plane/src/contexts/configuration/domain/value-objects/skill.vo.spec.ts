@@ -4,8 +4,6 @@ import { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
-const LIMITS = { files: 2, characters: 100 };
-
 const defined = (over: {
   named?: unknown;
   files?: number;
@@ -20,7 +18,6 @@ const defined = (over: {
     folder: {
       files: over.files ?? 1,
       characters: over.characters ?? 10,
-      limits: LIMITS,
     },
     secrets: [],
     tools: over.tools ?? [],
@@ -36,9 +33,9 @@ describe('Skill', () => {
   });
 
   it('rejects a folder that contains more than a run receives', () => {
-    expect(() => defined({ files: 3 })).toThrow(/more than 2 files/);
-    expect(() => defined({ characters: 101 })).toThrow(
-      /more than 100 characters/,
+    expect(() => defined({ files: 51 })).toThrow(/more than 50 files/);
+    expect(() => defined({ characters: 512 * 1024 + 1 })).toThrow(
+      /more than 524288 characters/,
     );
   });
 

@@ -4,7 +4,7 @@ import type {
 } from '@runs/application/ports/workspace-archive-store.port';
 import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type {
   StoredArchive,
   WorkspaceArchive,
@@ -57,7 +57,7 @@ export const aLeasedRun = (
       },
       ...(over.restoresWorkspace === false ? {} : { startingPoint: true }),
     }),
-  }).claim(RunnerId.of(over.runner ?? 'runner_1'), CLAIMED_AT);
+  }).claim(claimer(RunnerId.of(over.runner ?? 'runner_1')), CLAIMED_AT);
 
 export const holding = (...owners: readonly string[]): ArchiveHolders => {
   const holders = new ArchiveHolders();

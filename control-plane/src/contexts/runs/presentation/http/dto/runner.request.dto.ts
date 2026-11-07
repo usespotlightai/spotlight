@@ -30,13 +30,13 @@ export class HandoverDto {
   @ApiProperty({
     example: 'code-review',
     description:
-      'The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task at its current station. Anything this line does not know is treated as a question for a person.',
+      'Where the run hands its work on, as one of the hand-over options its spec names. The requester of the run reads it.',
   })
   readonly next!: string;
 
   @ApiPropertyOptional({
     example: 'Reproduced on restart. Needs a spec for draining the queue.',
-    description: 'What the next station, or the person, should know',
+    description: 'What whoever takes the hand-over should know',
   })
   readonly note?: string;
 
@@ -67,7 +67,7 @@ export class CompleteRunRequestDto {
   @ApiPropertyOptional({
     example: false,
     description:
-      'With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease expired',
+      'With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as after its lease expired',
   })
   readonly timedOut?: boolean;
 

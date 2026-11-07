@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import { InvalidTaskFailureError } from '@work/domain/exceptions/invalid-task-failure.error';
 
 const RUN = 'run';
@@ -8,10 +9,13 @@ export type TaskFailureSource = typeof RUN | `${typeof HOOK}${string}`;
 
 const blank = (text: string): boolean => text.trim().length === 0;
 
-const UNFINISHED = new Set(['runner-lost', 'timed-out']);
+const UNFINISHED: readonly string[] = [
+  'runner-lost',
+  'timed-out',
+] satisfies readonly RunFailureCode[];
 
 const kindOf = (source: TaskFailureSource, code: string): string =>
-  source === RUN && UNFINISHED.has(code) ? 'unfinished' : code;
+  source === RUN && UNFINISHED.includes(code) ? 'unfinished' : code;
 
 const isSource = (source: string): source is TaskFailureSource =>
   source === RUN ||
@@ -24,7 +28,7 @@ export class TaskFailure {
     readonly occurrences: number,
   ) {}
 
-  static fromRun(code: string): TaskFailure {
+  static fromRun(code: RunFailureCode): TaskFailure {
     return TaskFailure.raised(RUN, code);
   }
 

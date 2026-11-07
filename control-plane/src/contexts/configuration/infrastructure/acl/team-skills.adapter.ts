@@ -8,10 +8,6 @@ import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 export class TeamSkills implements TeamSkillsPort {
   constructor(private readonly skills: ReadySkills) {}
 
-  async definedFor(teamId: TeamId): Promise<readonly string[]> {
-    return (await this.skills.definedFor(teamId)).map((key) => key.value);
-  }
-
   async readyFor(
     teamId: TeamId,
     named: readonly string[],

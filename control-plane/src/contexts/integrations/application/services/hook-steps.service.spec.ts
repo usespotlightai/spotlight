@@ -26,16 +26,21 @@ import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-need
 import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import { usedTool } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -48,22 +53,23 @@ const HOOK: ListeningHook = {
   key: HookKey.of('grafana-reads'),
   teamId: TeamId.of('team_1'),
   blocks: false,
+  compiled: null,
   broken: null,
   written: Hook.of({
     key: HookKey.of('grafana-reads'),
     event: EVENT,
     match: HookMatch.anything(EVENT),
     steps: [
-      { name: 'notify', kind: 'call', tool: POST },
+      { name: HookStepName.of('notify'), kind: 'call', tool: POST },
       {
-        name: 'audit',
+        name: HookStepName.of('audit'),
         kind: 'request',
         url: new URL('https://audit.example.com/'),
         headers: [],
         fromNetwork: false,
       },
       {
-        name: 'plain',
+        name: HookStepName.of('plain'),
         kind: 'request',
         url: null,
         headers: [],
@@ -78,23 +84,24 @@ const HOOK: ListeningHook = {
 
 const INSTANCE: HookEventInstance = {
   on: 'tool.used',
-  occurrence: 'occurrence_1',
+  occurrence: HookOccurrenceKey.of('occurrence_1'),
   firing: HookFiringId.of('firing_1'),
+  run: HookRunAttempt.of(RunId.of('run_1'), 2),
   at: NOW,
-  event: { tool: 'grafana.search' },
+  event: usedTool('grafana.search'),
   task: TASK,
 };
 
 const CALL: WrittenStep = {
   kind: 'call',
-  name: 'notify',
+  name: HookStepName.of('notify'),
   tool: POST,
   with: { channel: 'C1', text: 'Searched cpu' },
 };
 
 const AUDIT: WrittenStep = {
   kind: 'request',
-  name: 'audit',
+  name: HookStepName.of('audit'),
   url: new URL('https://audit.example.com/'),
   headers: { 'x-team': 'core' },
   body: '{}',
@@ -102,7 +109,7 @@ const AUDIT: WrittenStep = {
   signing: { kind: 'hmac' },
 };
 
-const answered = (name: string): StepResult => ({
+const answered = (name: HookStepName): StepResult => ({
   outcome: { name, status: 'done', output: null },
   denyReason: null,
   trace: null,
@@ -152,13 +159,15 @@ const setUp = (
     runtime.written.mockImplementation(() => written);
   }
   const requests = {
-    sent: vi.fn(async (request: { step: string }) => answered(request.step)),
+    sent: vi.fn(async (request: { step: HookStepName }) =>
+      answered(request.step),
+    ),
     resumed: vi.fn(
-      async (request: { step: string }): Promise<StepResult | null> =>
+      async (request: { step: HookStepName }): Promise<StepResult | null> =>
         answered(request.step),
     ),
     unanswered: vi.fn(
-      (request: { step: string }): StepResult => ({
+      (request: { step: HookStepName }): StepResult => ({
         outcome: {
           name: request.step,
           status: 'failed',
@@ -171,7 +180,7 @@ const setUp = (
       }),
     ),
     notSent: vi.fn(
-      (request: { step: string }, failure: HookFailure): StepResult => ({
+      (request: { step: HookStepName }, failure: HookFailure): StepResult => ({
         outcome: {
           name: request.step,
           status: 'failed',
@@ -215,7 +224,7 @@ const request = (
   overrides: Partial<StepRequest> = {},
 ): StepRequest => ({
   hook: HOOK,
-  step,
+  step: HookStepName.of(step),
   instance: INSTANCE,
   earlier: [],
   resuming: null,
@@ -275,7 +284,7 @@ describe('HookSteps', () => {
     it('fails a step it cannot write out', async () => {
       const { steps } = setUp({
         kind: 'unwritable',
-        name: 'audit',
+        name: HookStepName.of('audit'),
         failure: HookFailure.unwritable('no such key: missing'),
       });
 
@@ -309,7 +318,7 @@ describe('HookSteps', () => {
         resolved.integration,
       );
       expect(stepResult.outcome).toEqual({
-        name: 'notify',
+        name: HookStepName.of('notify'),
         status: 'done',
         output: { ok: true },
       });
@@ -462,7 +471,7 @@ describe('HookSteps', () => {
       });
       expect(requests.sent).toHaveBeenCalledWith(
         expect.objectContaining({
-          step: 'audit',
+          step: HookStepName.of('audit'),
           url: 'https://audit.example.com/',
           headers: { 'x-team': 'core' },
           signing: { kind: 'hmac' },
@@ -476,7 +485,7 @@ describe('HookSteps', () => {
     it('never sends a request in the clear from Spotlight once its url is written out', async () => {
       const { steps, requests, issued } = setUp({
         ...AUDIT,
-        name: 'plain',
+        name: HookStepName.of('plain'),
         url: new URL('http://audit.example.com/grafana.search'),
       });
 
@@ -493,7 +502,7 @@ describe('HookSteps', () => {
 
     it('resumes a request it was waiting on, issuing no new token', async () => {
       const waiting = {
-        name: 'audit',
+        name: HookStepName.of('audit'),
         status: 'waiting' as const,
         call: 'call_1',
         until: new Date(NOW.getTime() + 60_000),
@@ -503,7 +512,7 @@ describe('HookSteps', () => {
       await steps.take(request('audit', { resuming: waiting }));
 
       expect(requests.resumed).toHaveBeenCalledWith(
-        expect.objectContaining({ step: 'audit' }),
+        expect.objectContaining({ step: HookStepName.of('audit') }),
         waiting,
         NOW,
       );
@@ -513,7 +522,7 @@ describe('HookSteps', () => {
 
     it('resumes a step past the deadline it started within', async () => {
       const waiting = {
-        name: 'audit',
+        name: HookStepName.of('audit'),
         status: 'waiting' as const,
         call: 'call_1',
         until: new Date(NOW.getTime() + 60_000),
@@ -532,7 +541,7 @@ describe('HookSteps', () => {
 
     it('keeps waiting on a call no host has answered yet, until its time is up', async () => {
       const waiting = {
-        name: 'audit',
+        name: HookStepName.of('audit'),
         status: 'waiting' as const,
         call: 'call_1',
         until: new Date(NOW.getTime() + 60_000),
@@ -548,7 +557,7 @@ describe('HookSteps', () => {
 
     it('gives up on a call no host answered by the time it waited until', async () => {
       const waiting = {
-        name: 'audit',
+        name: HookStepName.of('audit'),
         status: 'waiting' as const,
         call: 'call_1',
         until: NOW,
@@ -563,7 +572,7 @@ describe('HookSteps', () => {
         code: 'unreachable',
       });
       expect(requests.unanswered).toHaveBeenCalledWith(
-        expect.objectContaining({ step: 'audit' }),
+        expect.objectContaining({ step: HookStepName.of('audit') }),
         NOW,
       );
     });
@@ -585,9 +594,15 @@ describe('HookSteps', () => {
         ms: 3,
       };
 
-      await steps.traced(INSTANCE, { ...answered('audit'), trace });
+      await steps.traced(INSTANCE, {
+        ...answered(HookStepName.of('audit')),
+        trace,
+      });
 
-      expect(record).toHaveBeenCalledWith('run_1', trace);
+      expect(record).toHaveBeenCalledWith(
+        HookRunAttempt.of(RunId.of('run_1'), 2),
+        trace,
+      );
     });
 
     it('records nothing for a task with no run, and survives a trace it cannot record', async () => {
@@ -606,14 +621,17 @@ describe('HookSteps', () => {
       };
 
       await steps.traced(
-        { ...INSTANCE, task: { ...TASK, runId: null } },
-        { ...answered('audit'), trace },
+        { ...INSTANCE, task: { ...TASK, runId: null }, run: null },
+        { ...answered(HookStepName.of('audit')), trace },
       );
       expect(record).not.toHaveBeenCalled();
 
       record.mockRejectedValueOnce(new Error('db went away'));
       await expect(
-        steps.traced(INSTANCE, { ...answered('audit'), trace }),
+        steps.traced(INSTANCE, {
+          ...answered(HookStepName.of('audit')),
+          trace,
+        }),
       ).resolves.toBeUndefined();
     });
   });

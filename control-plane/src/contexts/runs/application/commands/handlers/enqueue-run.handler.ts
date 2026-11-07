@@ -1,18 +1,17 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { EnqueueRunCommand } from '@runs/application/commands/runner.commands';
-import {
-  type RunPolicyContract,
-  type RunWorkspaceContract,
-  workspaceKeyOf,
+import type {
+  RunPolicyContract,
+  RunWorkspaceContract,
 } from '@runs/application/contracts/run-order.contract';
-import { RunSpecContract } from '@runs/application/contracts/run-spec.contract';
 import type { EnqueuedRunDto } from '@runs/application/dto/run.dto';
+import { RunSpecMapper } from '@runs/application/mappers/run-spec.mapper';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import { RunOrderRefusedError } from '@runs/domain/exceptions/run-order-refused.error';
-import { RunWorkspaceKeyConflictError } from '@runs/domain/exceptions/run-workspace-key-conflict.error';
 import { UnknownHarnessError } from '@runs/domain/exceptions/unknown-harness.error';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
+import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -30,19 +29,11 @@ const SPEC_POLICY: RunPolicyContract = {
   exclusive: false,
 };
 
-const workspaceOf = (requested: string): RunWorkspaceContract => {
-  const at = requested.indexOf('/');
-
-  if (at >= 0 && requested.slice(0, at) !== OWNER) {
-    throw new RunWorkspaceKeyConflictError(requested);
-  }
-
-  return {
-    key: workspaceKeyOf(OWNER, at >= 0 ? requested.slice(at + 1) : requested),
-    rejoinable: false,
-    restores: 'when-continuing',
-  };
-};
+const workspaceOf = (requested: string): RunWorkspaceContract => ({
+  key: WorkspaceKey.requestedBy(OWNER, requested).value,
+  rejoinable: false,
+  restores: 'when-continuing',
+});
 
 export class EnqueueRunHandler
   implements CommandHandlerPort<EnqueueRunCommand, EnqueuedRunDto | null>
@@ -75,14 +66,14 @@ export class EnqueueRunHandler
       }
 
       const id = this.ids.generate();
-      const ordered = RunSpecContract.ordered(command.spec, started.started());
+      const ordered = RunSpecMapper.ordered(command.spec, started);
       const enqueued = await this.runs.enqueue({
         runId: id,
         workspaceId: membership.workspaceId.value,
         harness: harness.value,
         priority: RunPriority.normal.value,
         placement: { labelGroups: [], image: null },
-        spec: RunSpecContract.toWire(ordered.spec),
+        spec: ordered.spec.value,
         requester: {
           owner: OWNER,
           kind: 'spec',

@@ -1,5 +1,6 @@
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -58,6 +59,7 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   RubricScale,
   Actor,
   ChangeActor,
+  CheckWorkId,
   Client,
   ConfigurationChange,
   ConfigurationProblem,

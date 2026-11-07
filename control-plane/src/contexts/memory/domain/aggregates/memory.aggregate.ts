@@ -13,6 +13,7 @@ import type { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
 import type { MemoryStatus } from '@memory/domain/value-objects/memory-status';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -276,5 +277,9 @@ export class Memory extends EventRecorder {
     const retired = new Memory({ ...this.state, retirement });
     retired.inheritEvents(this);
     return retired;
+  }
+
+  erased(): Erased<Memory> {
+    return erasedAs(this);
   }
 }

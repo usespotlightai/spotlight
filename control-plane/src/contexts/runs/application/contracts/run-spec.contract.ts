@@ -1,31 +1,7 @@
-import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.error';
-import {
-  checkoutFoldersOf,
-  type RunAttachment,
-  type RunCheckout,
-  type RunCommand,
-  type RunFile,
-  type RunHarnessSetup,
-  type RunMcpServer,
-  type RunResume,
-  RunSpec,
-  type RunSpecParts,
-  type RunToolApproval,
-  type RunToolInput,
-  type RunToolManifest,
-} from '@runs/domain/value-objects/run-spec.vo';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import {
-  isJsonObject,
-  isJsonValue,
-  type JsonObject,
-} from '@shared-kernel/domain/json-value';
+import type { JsonObject } from '@shared-kernel/domain/json-value';
 
-export type ToolManifestShape = RunToolManifest;
-export type SkillFileShape = RunFile;
-export type AttachmentShape = RunAttachment;
-export type RunSpecShape = RunSpecParts;
-export type HarnessSetupShape = RunHarnessSetup;
+// Do not send a host address to a runner. Name each remote as Spotlight serves it.
+export const REMOTE_VIA_GIT_PROXY = 'spotlight:repository';
 
 export const TRACE_PARENT_VAR = 'TRACEPARENT';
 
@@ -36,393 +12,96 @@ export const SKILL_FOLDER_LIMITS = {
   characters: 512 * 1024,
 } as const;
 
-type Json = Record<string, unknown>;
-
-const UNORDERABLE = [
-  'apiGrant',
-  'restore',
-  'extensions',
-  'injectedSecrets',
-] as const;
-
-export interface OrderedSpec {
-  readonly spec: RunSpec;
-  readonly key: string | null;
+export interface RunCheckoutShape {
+  readonly remote: string;
+  readonly path?: string;
+  readonly branch?: string;
+  readonly ref?: string;
+  readonly diffOf?: 'commits';
+  readonly setup?: string;
 }
 
-const unreadable = (what: string): never => {
-  throw new InvalidRunSpecError(`must describe ${what}`);
-};
+export interface SessionOptionShape {
+  readonly id: string;
+  readonly value: string;
+  readonly optional?: boolean;
+}
 
-const objectAt = (raw: unknown, what: string): Json =>
-  raw && typeof raw === 'object' && !Array.isArray(raw)
-    ? (raw as Json)
-    : unreadable(what);
+export interface RunCommandShape {
+  readonly executable: string;
+  readonly args: readonly string[];
+  readonly env?: Readonly<Record<string, string>>;
+  readonly sessionOptions?: readonly SessionOptionShape[];
+}
 
-const stringAt = (raw: unknown, what: string): string =>
-  typeof raw === 'string' ? raw : unreadable(what);
+export interface RunHandoverShape {
+  readonly options: readonly string[];
+  readonly noteLimit: number;
+}
 
-const optionalStringAt = (raw: unknown, what: string): string | undefined =>
-  raw === undefined ? undefined : stringAt(raw, what);
+export interface RunResumeShape {
+  readonly sessionId?: string;
+  readonly resumeSession?: boolean;
+}
 
-const booleanAt = (raw: unknown, what: string): boolean =>
-  typeof raw === 'boolean' ? raw : unreadable(what);
+export interface ToolInputShape {
+  readonly name: string;
+  readonly schema: JsonObject;
+  readonly description?: string;
+  readonly required: boolean;
+  readonly defaulted: boolean;
+  readonly stdin: boolean;
+}
 
-const numberAt = (raw: unknown, what: string): number =>
-  typeof raw === 'number' ? raw : unreadable(what);
+export interface ToolManifestShape {
+  readonly name: string;
+  readonly description: string;
+  readonly inputs: readonly ToolInputShape[];
+  readonly approval: { readonly because: string } | null;
+  readonly integration?: string;
+  readonly output?: JsonObject;
+}
 
-const listAt = <T>(
-  raw: unknown,
-  what: string,
-  each: (item: unknown) => T,
-): T[] => (Array.isArray(raw) ? raw.map(each) : unreadable(what));
+export interface SkillFileShape {
+  readonly path: string;
+  readonly text: string;
+}
 
-const optionalListAt = <T>(
-  raw: unknown,
-  what: string,
-  each: (item: unknown) => T,
-): T[] | undefined => (raw === undefined ? undefined : listAt(raw, what, each));
+export interface McpServerSetupShape {
+  readonly name: string;
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly env: readonly { readonly name: string; readonly value: string }[];
+}
 
-const checkoutOf = (raw: unknown): RunCheckout => {
-  const input = objectAt(raw, 'its checkouts');
-  const path = optionalStringAt(input.path, 'where a checkout goes');
-  const branch = optionalStringAt(input.branch, 'which branch to check out');
-  const ref = optionalStringAt(input.ref, 'which ref to check out');
-  const diffOf = optionalStringAt(input.diffOf, 'what its change stack diffs');
-  const setup = optionalStringAt(input.setup, 'how its checkout is made ready');
+export interface HarnessSetupShape {
+  readonly files: readonly SkillFileShape[];
+  readonly session?: Readonly<Record<string, unknown>>;
+  readonly mcpServers: readonly McpServerSetupShape[];
+  readonly askKinds: readonly string[];
+}
 
-  if (diffOf !== undefined && diffOf !== 'commits') {
-    throw new InvalidRunSpecError(
-      'must diff a checkout by its commits or its worktree',
-    );
-  }
+export interface AttachmentShape {
+  readonly id: string;
+  readonly path: string;
+}
 
-  return {
-    remote: stringAt(input.remote, 'where a checkout comes from'),
-    ...(path !== undefined ? { path } : {}),
-    ...(branch !== undefined ? { branch } : {}),
-    ...(ref !== undefined ? { ref } : {}),
-    ...(diffOf !== undefined ? { diffOf } : {}),
-    ...(setup !== undefined ? { setup } : {}),
-  };
-};
-
-const commandOf = (raw: unknown): RunCommand => {
-  const input = objectAt(raw, 'what to run');
-  const env =
-    input.env === undefined
-      ? undefined
-      : Object.fromEntries(
-          Object.entries(objectAt(input.env, 'the environment')).map(
-            ([name, value]) => [name, stringAt(value, 'the environment')],
-          ),
-        );
-
-  return {
-    executable: stringAt(input.executable, 'what to run'),
-    args: listAt(input.args, 'what to run with', (arg) =>
-      stringAt(arg, 'what to run with'),
-    ),
-    ...(env ? { env } : {}),
-  };
-};
-
-const inputSchemaOf = (raw: unknown): JsonObject =>
-  isJsonObject(raw) && isJsonValue(raw)
-    ? raw
-    : unreadable('the shape a tool input takes');
-
-const toolInputOf = (raw: unknown): RunToolInput => {
-  const input = objectAt(raw, 'what a tool takes');
-  const description = optionalStringAt(input.description, 'what a tool takes');
-
-  return {
-    name: stringAt(input.name, 'what a tool takes'),
-    schema: inputSchemaOf(input.schema),
-    ...(description !== undefined ? { description } : {}),
-    required: booleanAt(input.required, 'what a tool takes'),
-    defaulted: booleanAt(input.defaulted, 'what a tool takes'),
-    stdin: booleanAt(input.stdin, 'what a tool takes'),
-  };
-};
-
-const toolApprovalOf = (raw: unknown): RunToolApproval | null =>
-  raw === null
-    ? null
-    : {
-        because: stringAt(
-          objectAt(raw, 'why a tool waits for a person').because,
-          'why a tool waits for a person',
-        ),
-      };
-
-const toolOutputOf = (raw: unknown): JsonObject =>
-  isJsonObject(raw) && isJsonValue(raw)
-    ? raw
-    : unreadable('what a tool answered before');
-
-const toolOf = (raw: unknown): RunToolManifest => {
-  const input = objectAt(raw, 'its tools');
-  const integration = optionalStringAt(
-    input.integration,
-    'the integration a tool comes from',
-  );
-
-  return {
-    name: stringAt(input.name, 'its tools'),
-    description: stringAt(input.description, 'its tools'),
-    inputs: listAt(input.inputs, 'what a tool takes', toolInputOf),
-    approval: toolApprovalOf(input.approval),
-    ...(integration !== undefined ? { integration } : {}),
-    ...(input.output !== undefined
-      ? { output: toolOutputOf(input.output) }
-      : {}),
-  };
-};
-
-const fileOf =
-  (where: string) =>
-  (raw: unknown): RunFile => {
-    const input = objectAt(raw, where);
-
-    return {
-      path: stringAt(input.path, where),
-      text: stringAt(input.text, where),
-    };
-  };
-
-const attachmentOf = (raw: unknown): RunAttachment => {
-  const input = objectAt(raw, 'its attachments');
-
-  return {
-    id: stringAt(input.id, 'its attachments'),
-    path: stringAt(input.path, 'its attachments'),
-  };
-};
-
-const mcpServerOf = (raw: unknown): RunMcpServer => {
-  const input = objectAt(raw, 'its MCP servers');
-
-  return {
-    name: stringAt(input.name, 'its MCP servers'),
-    command: stringAt(input.command, 'its MCP servers'),
-    args: listAt(input.args, 'its MCP servers', (arg) =>
-      stringAt(arg, 'its MCP servers'),
-    ),
-    env: listAt(input.env, 'its MCP servers', (each) => {
-      const variable = objectAt(each, 'its MCP servers');
-
-      return {
-        name: stringAt(variable.name, 'its MCP servers'),
-        value: stringAt(variable.value, 'its MCP servers'),
-      };
-    }),
-  };
-};
-
-const harnessSetupOf = (raw: unknown): RunHarnessSetup => {
-  const input = objectAt(raw, 'how its harness is set up');
-
-  return {
-    files: listAt(
-      input.files,
-      'how its harness is set up',
-      fileOf('how its harness is set up'),
-    ),
-    ...(input.session === undefined
-      ? {}
-      : { session: objectAt(input.session, 'how its harness is set up') }),
-    mcpServers: listAt(input.mcpServers, 'its MCP servers', mcpServerOf),
-    askKinds: listAt(
-      input.askKinds,
-      'which permissions its harness asks a person about',
-      (each) =>
-        stringAt(each, 'which permissions its harness asks a person about'),
-    ),
-  };
-};
-
-const parsedResume = (raw: unknown): RunResume => {
-  const input = objectAt(raw, 'where to carry on');
-  const sessionId = optionalStringAt(
-    input.sessionId,
-    'which conversation to carry on',
-  );
-
-  const resumeSession =
-    input.resumeSession === undefined
-      ? false
-      : booleanAt(
-          input.resumeSession,
-          'whether it takes up a paused conversation',
-        );
-
-  return {
-    ...(sessionId !== undefined ? { sessionId } : {}),
-    ...(resumeSession ? { resumeSession } : {}),
-  };
-};
-
-const handoverOf = (raw: unknown) => {
-  const input = objectAt(raw, 'what may be handed over to');
-
-  return {
-    options: listAt(input.options, 'what may be handed over to', (each) =>
-      stringAt(each, 'what may be handed over to'),
-    ),
-    noteLimit: numberAt(input.noteLimit, 'how long a note may be'),
-  };
-};
-
-const read = (raw: unknown): RunSpec => {
-  const input = objectAt(raw, 'the run');
-  const checkouts = optionalListAt(
-    input.checkouts,
-    'its checkouts',
-    checkoutOf,
-  );
-  const skills = optionalListAt(
-    input.skills,
-    'its skills',
-    fileOf('its skills'),
-  );
-  const skillHomes = optionalListAt(
-    input.skillHomes,
-    'where skills are stored',
-    (each) => stringAt(each, 'where skills are stored'),
-  );
-  const manifest = optionalListAt(input.manifest, 'its tools', toolOf);
-  const catalog = optionalListAt(input.catalog, 'its catalog tools', (each) =>
-    stringAt(each, 'its catalog tools'),
-  );
-  const attachments = optionalListAt(
-    input.attachments,
-    'its attachments',
-    attachmentOf,
-  );
-
-  const injectedSecrets = optionalListAt(
-    input.injectedSecrets,
-    'the secrets that egress injects for it',
-    (each) => stringAt(each, 'the secrets that egress injects for it'),
-  );
-
-  const settingFiles = optionalListAt(
-    input.settingFiles,
-    'where its harness stores settings',
-    (each) => stringAt(each, 'where its harness stores settings'),
-  );
-
-  const spotlightApi =
-    input.spotlightApi === undefined
-      ? undefined
-      : booleanAt(input.spotlightApi, 'whether it uses Spotlight’s API');
-  const diffs = input.diffs;
-  const check = optionalStringAt(input.check, 'what checks its change');
-  const startingPoint = input.startingPoint;
-  const harnessSetup =
-    input.harnessSetup === undefined
-      ? undefined
-      : harnessSetupOf(input.harnessSetup);
-
-  return RunSpec.of({
-    ...(checkouts ? { checkouts } : {}),
-    command: commandOf(input.command),
-    briefing: stringAt(input.briefing, 'what the work is'),
-    handover: handoverOf(input.handover),
-    resume: parsedResume(input.resume),
-    ...(skills ? { skills } : {}),
-    ...(skillHomes ? { skillHomes } : {}),
-    ...(manifest ? { manifest } : {}),
-    ...(catalog ? { catalog } : {}),
-    ...(attachments ? { attachments } : {}),
-    ...(diffs === undefined
-      ? {}
-      : {
-          diffs: booleanAt(diffs, 'whether it reports the diff it leaves'),
-        }),
-    ...(check === undefined ? {} : { check }),
-    ...(startingPoint === undefined
-      ? {}
-      : {
-          startingPoint: booleanAt(
-            startingPoint,
-            'whether it reports where it started',
-          ),
-        }),
-    ...(harnessSetup ? { harnessSetup } : {}),
-    ...(settingFiles ? { settingFiles } : {}),
-    ...(injectedSecrets ? { injectedSecrets } : {}),
-    ...(spotlightApi ? { spotlightApi } : {}),
-  });
-};
-
-export const RunSpecContract = {
-  ordered(raw: unknown, command: RunCommand): OrderedSpec {
-    const input = objectAt(raw, 'the run');
-    const handover = input.handover as Json | undefined;
-    const resume = input.resume as Json | undefined;
-    const ignored = UNORDERABLE.filter((field) => input[field] !== undefined);
-
-    if (ignored.length > 0) {
-      throw new InvalidRunSpecError(
-        `must not ask for ${ignored.join(', ')}, which only Spotlight orders`,
-      );
-    }
-
-    const key = optionalStringAt(resume?.key, 'where to carry on');
-
-    return {
-      spec: read({
-        checkouts: input.checkouts,
-        command,
-        briefing: input.briefing ?? '',
-        handover: {
-          options: handover?.options ?? [],
-          noteLimit: handover?.noteLimit ?? 0,
-        },
-        resume: { sessionId: resume?.sessionId },
-      }),
-      key: key && key.trim() !== '' ? key.trim() : null,
-    };
-  },
-
-  checkoutFoldersIn(raw: unknown): readonly string[] {
-    return checkoutFoldersOf(
-      raw === null || raw === undefined
-        ? []
-        : listAt(raw, 'its checkouts', checkoutOf),
-    );
-  },
-
-  resumeOf(resume: {
-    readonly sessionId: { readonly value: string } | null;
-  }): RunResume {
-    return {
-      ...(resume.sessionId ? { sessionId: resume.sessionId.value } : {}),
-    };
-  },
-
-  received(raw: unknown): RunSpec {
-    return read(raw);
-  },
-
-  toWire(spec: RunSpec): RunSpecShape {
-    return spec.value;
-  },
-
-  from(raw: unknown): RunSpec {
-    try {
-      return read(raw);
-    } catch (error) {
-      if (error instanceof InvalidRunSpecError) {
-        throw new InconsistentStateError(
-          'run',
-          `has a spec that no longer reads: ${error.message}`,
-        );
-      }
-
-      throw error;
-    }
-  },
-};
+export interface RunSpecShape {
+  readonly checkouts?: readonly RunCheckoutShape[];
+  readonly command: RunCommandShape;
+  readonly briefing: string;
+  readonly handover: RunHandoverShape;
+  readonly resume: RunResumeShape;
+  readonly skills?: readonly SkillFileShape[];
+  readonly skillHomes?: readonly string[];
+  readonly manifest?: readonly ToolManifestShape[];
+  readonly catalog?: readonly string[];
+  readonly attachments?: readonly AttachmentShape[];
+  readonly diffs?: boolean;
+  readonly check?: string;
+  readonly startingPoint?: boolean;
+  readonly harnessSetup?: HarnessSetupShape;
+  readonly settingFiles?: readonly string[];
+  readonly injectedSecrets?: readonly string[];
+  readonly spotlightApi?: boolean;
+}

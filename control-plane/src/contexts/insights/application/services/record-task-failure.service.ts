@@ -46,6 +46,7 @@ export class RecordTaskFailure {
       this.recorder.record(this.failures, {
         owner: FactOwner.of(workspaceId, { teamId, taskId }),
         load: () => this.failures.of(taskId),
+        erased: (existing) => existing.erased(),
         fresh: () => TaskFailures.empty(taskId, workspaceId, teamId),
         change: (failures) => failures.raise(occurrence),
       }),

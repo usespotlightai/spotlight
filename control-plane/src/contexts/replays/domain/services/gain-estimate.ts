@@ -5,6 +5,10 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const DEFAULT_MIN_GAIN = 0.05;
 
+export const minGainUnder = (
+  threshold: { readonly minGain: number } | null,
+): number => threshold?.minGain ?? DEFAULT_MIN_GAIN;
+
 export const GAIN_SIGNIFICANCES = ['better', 'worse', 'within-noise'] as const;
 
 export type GainSignificance = (typeof GAIN_SIGNIFICANCES)[number];

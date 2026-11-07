@@ -1,13 +1,22 @@
-import type { RunOrdered } from '@runs/domain/aggregates/run.aggregate';
+import type {
+  RunClaimer,
+  RunOrdered,
+} from '@runs/domain/aggregates/run.aggregate';
 import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import {
   RunWorkspace,
   WorkspaceKey,
 } from '@runs/domain/value-objects/workspace-key.vo';
+import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-type Ordering = Pick<RunOrdered, 'requester' | 'policy' | 'workspace'>;
+type Ordering = Pick<RunOrdered, 'requester' | 'policy' | 'workspace'> & {
+  readonly now: Date;
+};
+
+export const ORDERED_AT = new Date('2026-01-01T00:00:00.000Z');
 
 const TEAM = TeamId.of('team_1');
 
@@ -58,6 +67,7 @@ export const orderedFor = {
         team,
       }),
       policy: TASK_POLICY,
+      now: ORDERED_AT,
       workspace: RunWorkspace.of({
         key: WorkspaceKey.of('work', `task-${taskId}`),
         rejoinable: true,
@@ -75,6 +85,7 @@ export const orderedFor = {
         team,
       }),
       policy: CHAT_POLICY,
+      now: ORDERED_AT,
       workspace: RunWorkspace.of({
         key: WorkspaceKey.of('work', `chat-${chatId}`),
         rejoinable: true,
@@ -92,6 +103,7 @@ export const orderedFor = {
         team: null,
       }),
       policy: SPEC_POLICY,
+      now: ORDERED_AT,
       workspace: key
         ? RunWorkspace.of({
             key: WorkspaceKey.of('workspace', key),
@@ -106,6 +118,7 @@ export const orderedFor = {
     return {
       requester: RunRequester.of({ owner: 'replays', kind, id, team }),
       policy: ISOLATED_POLICY,
+      now: ORDERED_AT,
       workspace: RunWorkspace.of({
         key: WorkspaceKey.of('replays', `${kind}-${id}`),
         rejoinable: false,
@@ -114,3 +127,8 @@ export const orderedFor = {
     };
   },
 };
+
+export const claimer = (runner: RunnerId, workspace = 'ws_1'): RunClaimer => ({
+  runner,
+  workspaceId: WorkspaceId.of(workspace),
+});

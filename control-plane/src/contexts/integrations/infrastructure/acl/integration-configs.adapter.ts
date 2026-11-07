@@ -8,6 +8,7 @@ import type {
   IntegrationResourcesPort,
 } from '@integrations/application/ports/integration-resources.port';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
+import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -36,7 +37,7 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
   ) {}
 
   async withId(id: string): Promise<IntegrationConfig | null> {
-    const record = await this.resources.withId(id);
+    const record = await this.resources.withId(IntegrationDefinitionId.of(id));
     const team = record && (await this.teams.find(record.teamId));
 
     return record && team ? configOf(team.key, record, this.reader) : null;

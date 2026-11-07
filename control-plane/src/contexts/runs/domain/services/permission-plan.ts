@@ -16,7 +16,7 @@ export const stricter = (
   b: PermissionDecision,
 ): boolean => STRICTNESS[a] > STRICTNESS[b];
 
-export interface KindPlan {
+interface KindPlan {
   readonly kind: PermissionKind;
   readonly otherwise: PermissionDecision;
   readonly bare: PermissionRuleParts | null;

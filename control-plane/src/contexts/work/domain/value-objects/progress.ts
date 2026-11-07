@@ -1,3 +1,5 @@
+import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
+
 export const PROGRESSES = ['queued', 'in-progress', 'stopping'] as const;
 
 export type Progress = (typeof PROGRESSES)[number];
@@ -17,3 +19,10 @@ export const progressOfCurrentRun = (
 
   return takenUp && current.resumable ? 'queued' : current.progress;
 };
+
+export const progressOfTaskRun = (
+  state: TaskRunState,
+  current: RunProgressReading | null,
+  takenUp: boolean,
+): Progress | null =>
+  state === 'superseded' ? null : progressOfCurrentRun(current, takenUp);

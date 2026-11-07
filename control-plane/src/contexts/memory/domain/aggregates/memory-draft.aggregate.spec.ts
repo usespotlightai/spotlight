@@ -624,8 +624,9 @@ describe('MemoryDraft', () => {
       Remembering.of({
         taskId: TASK,
         runId,
-        replay: false,
-        isSearch: false,
+        asOf: null,
+        isolated: false,
+        trial: false,
       }).proposalOf({
         id: MemoryId.of(id),
         remembered: {

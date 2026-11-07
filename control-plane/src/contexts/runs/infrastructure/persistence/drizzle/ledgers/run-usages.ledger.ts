@@ -1,17 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type {
-  RunUsage,
-  RunUsageReaderPort,
-} from '@runs/application/ports/run-usage-reader.port';
-import type {
   RunUsageWriterPort,
   UsageReadings,
 } from '@runs/application/ports/run-usage-writer.port';
 import type { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
-import { Money } from '@runs/domain/value-objects/money.vo';
+import { isJournalledAttempt } from '@runs/domain/value-objects/run-journalled-attempts';
 import type { AttemptReading } from '@runs/domain/value-objects/run-usage.vo';
-import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import { JournalBuilder } from '@runs/infrastructure/acp/journal-builder';
 import {
   run,
@@ -23,7 +18,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 export const readingOf = (
   journal: JournalBuilder,
@@ -41,9 +36,7 @@ export const readingOf = (
 });
 
 @Injectable()
-export class DrizzleRunUsages
-  implements RunUsageReaderPort, RunUsageWriterPort
-{
+export class DrizzleRunUsages implements RunUsageWriterPort {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -89,7 +82,10 @@ export class DrizzleRunUsages
         .map(([attempt, journal]) =>
           readingOf(
             journal,
-            attempt === found.attempt || found.suspended.includes(attempt),
+            isJournalledAttempt(attempt, {
+              attempt: found.attempt,
+              suspendedAttempts: found.suspended,
+            }),
           ),
         ),
     };
@@ -135,57 +131,5 @@ export class DrizzleRunUsages
         await this.events.dispatch([usageRecorded]);
       }
     });
-  }
-
-  async forRuns(runIds: readonly RunId[]): Promise<Map<string, RunUsage>> {
-    const ids = [...new Set(runIds.map((each) => each.value))];
-
-    if (ids.length === 0) {
-      return new Map();
-    }
-
-    const rows = await this.context.db
-      .select({
-        runId: runUsage.runId,
-        ms: runUsage.ms,
-        steps: runUsage.steps,
-        errors: runUsage.errors,
-        changedLines: runUsage.changedLines,
-        contextTokens: runUsage.contextTokens,
-        contextWindow: runUsage.contextWindow,
-        cost: runUsage.cost,
-        currency: runUsage.currency,
-        inputTokens: runUsage.inputTokens,
-        outputTokens: runUsage.outputTokens,
-        cacheReadTokens: runUsage.cacheReadTokens,
-        cacheWriteTokens: runUsage.cacheWriteTokens,
-      })
-      .from(runUsage)
-      .innerJoin(
-        run,
-        and(eq(run.id, runUsage.runId), eq(run.attempt, runUsage.attempt)),
-      )
-      .where(inArray(runUsage.runId, ids));
-
-    return new Map(
-      rows.map((each) => [
-        each.runId,
-        {
-          ms: each.ms,
-          steps: each.steps,
-          errors: each.errors,
-          changedLines: each.changedLines,
-          contextTokens: each.contextTokens,
-          contextWindow: each.contextWindow,
-          cost: Money.maybe(each.cost, each.currency),
-          tokens: Tokens.of({
-            input: each.inputTokens,
-            output: each.outputTokens,
-            cacheRead: each.cacheReadTokens,
-            cacheWrite: each.cacheWriteTokens,
-          }),
-        },
-      ]),
-    );
   }
 }

@@ -413,7 +413,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .select({
         id: replay.id,
         place:
-          sql<number>`row_number() over (partition by ${replay.setId}, ${replay.healthSampleGroup} order by ${replay.sampledAt} desc, ${replay.id} desc)`.as(
+          sql<number>`rank() over (partition by ${replay.setId}, ${replay.healthSampleGroup} order by ${replay.sampledAt} desc)`.as(
             'place',
           ),
       })
@@ -550,7 +550,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       baseline: aggregate.baseline,
       servesAsBaseline: aggregate.servesAsBaseline,
       takesPairings: aggregate.takesPairings,
-      healthSampleGroup: aggregate.healthSampleGroup,
+      healthSampleGroup: aggregate.healthSampleGroup?.value ?? null,
       sampledAt: aggregate.sampledAt,
       judges: aggregate.judges,
       checked: aggregate.checked,

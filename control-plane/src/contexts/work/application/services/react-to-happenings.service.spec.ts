@@ -21,10 +21,10 @@ import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
@@ -365,7 +365,7 @@ describe('ReactToHappenings', () => {
 
     expect(saved?.stationId).toEqual(StationId.of('station_2'));
     expect(saved?.notes.map((each) => each.kind)).toEqual(['message']);
-    expect(saved?.notes.map((each) => each.voice.by)).toEqual(['world']);
+    expect(saved?.notes.map((each) => each.voice.kind)).toEqual(['world']);
     expect(dispatched).toHaveLength(1);
   });
 

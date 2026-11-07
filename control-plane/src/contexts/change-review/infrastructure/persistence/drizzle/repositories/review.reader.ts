@@ -3,6 +3,7 @@ import type {
   ReviewReaderPort,
   ReviewView,
 } from '@change-review/application/ports/review-reader.port';
+import { isListedReview } from '@change-review/domain/aggregates/review.aggregate';
 import {
   review,
   reviewComment,
@@ -10,7 +11,7 @@ import {
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { and, asc, eq, ne } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleReviewReader implements ReviewReaderPort {
@@ -44,7 +45,7 @@ export class DrizzleReviewReader implements ReviewReaderPort {
   }
 
   async reviewsOf(taskId: TaskId): Promise<ReviewView[]> {
-    return this.context.db
+    const rows = await this.context.db
       .select({
         id: review.id,
         authorId: review.authorId,
@@ -58,9 +59,9 @@ export class DrizzleReviewReader implements ReviewReaderPort {
         failureDetail: review.failureDetail,
       })
       .from(review)
-      .where(
-        and(eq(review.taskId, taskId.value), ne(review.state, 'discarded')),
-      )
+      .where(eq(review.taskId, taskId.value))
       .orderBy(asc(review.submittedAt));
+
+    return rows.filter((each) => isListedReview(each.state));
   }
 }

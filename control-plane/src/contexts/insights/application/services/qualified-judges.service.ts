@@ -1,7 +1,7 @@
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import type { JudgeCalibration } from '@insights/domain/services/judge-calibration';
 import type { StationLocation } from '@insights/domain/services/station-ranking';
-import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
+import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 
 export interface StationJudgeCalibration
   extends StationLocation,
@@ -20,7 +20,7 @@ export class QualifiedJudges {
   ) {}
 
   async calibrations(
-    access: TeamAccess,
+    access: ViewedTeam,
     stations: readonly StationLocation[],
   ): Promise<JudgeCalibrations> {
     const shapes = await this.judges.calibrationsOf(

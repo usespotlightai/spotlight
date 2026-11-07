@@ -1,4 +1,4 @@
-import type { RunEventView } from '@runs/application/ports/run-stream.port';
+import type { RunJournalEntryView } from '@runs/application/ports/run-stream.port';
 import {
   type RedisPublisher,
   RedisRunStream,
@@ -60,7 +60,7 @@ const bus = () => {
   return { instance };
 };
 
-const event = (seq: number): RunEventView => ({
+const event = (seq: number): RunJournalEntryView => ({
   attempt: 1,
   seq,
   type: 'step',
@@ -72,7 +72,7 @@ describe('RedisRunStream', () => {
     const { instance } = bus();
     const a = instance();
     const b = instance();
-    const seen: RunEventView[] = [];
+    const seen: RunJournalEntryView[] = [];
 
     a.stream.subscribe('run_1', (view) => seen.push(view));
     await vi.waitFor(() => expect(a.listening.channels.size).toBe(1));
@@ -85,7 +85,7 @@ describe('RedisRunStream', () => {
   it('hands nothing to a watcher of another run', async () => {
     const { instance } = bus();
     const a = instance();
-    const seen: RunEventView[] = [];
+    const seen: RunJournalEntryView[] = [];
 
     a.stream.subscribe('run_1', (view) => seen.push(view));
     await vi.waitFor(() => expect(a.listening.channels.size).toBe(1));

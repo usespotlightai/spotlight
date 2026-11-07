@@ -1,10 +1,14 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
 export const RUN_TOKENS = Symbol('RUN_TOKENS');
 
 export interface RunTokenWanted {
-  readonly workspaceId: string;
-  readonly runId: string;
+  readonly workspaceId: WorkspaceId;
+  readonly runId: RunId;
   readonly attempt: number;
-  readonly issuedBy: string;
+  readonly issuedBy: UserId;
   readonly scopes: readonly string[];
   readonly expiresAt: Date;
 }
@@ -17,11 +21,11 @@ export interface IssuedRunToken {
 export interface RunTokensPort {
   issueFor(wanted: RunTokenWanted): Promise<IssuedRunToken>;
 
-  revoke(workspaceId: string, tokenId: string): Promise<void>;
+  revoke(workspaceId: WorkspaceId, tokenId: string): Promise<void>;
 
   revokeFor(
-    workspaceId: string,
-    runId: string,
+    workspaceId: WorkspaceId,
+    runId: RunId,
     attempt: number | null,
   ): Promise<void>;
 }

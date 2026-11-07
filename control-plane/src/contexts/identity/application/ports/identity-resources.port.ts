@@ -1,4 +1,5 @@
 import type { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
+import type { TokenScopeName } from '@identity/domain/value-objects/token-scope.vo';
 import type { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -28,7 +29,7 @@ export interface WorkspaceTokenRecord {
   readonly workspaceId: WorkspaceId;
   readonly name: string;
   readonly description: string;
-  readonly scopes: readonly string[];
+  readonly scopes: readonly TokenScopeName[];
   readonly issuedBy: string;
   readonly issuedAt: Date;
   readonly expiresAt: Date | null;
@@ -43,7 +44,7 @@ export interface OidcTrustRecord {
   readonly audience: string;
   readonly subject: string;
   readonly claims: Readonly<Record<string, string>>;
-  readonly scopes: readonly string[];
+  readonly scopes: readonly TokenScopeName[];
   readonly lifetimeMinutes: number;
   readonly description: string;
   readonly createdBy: string;

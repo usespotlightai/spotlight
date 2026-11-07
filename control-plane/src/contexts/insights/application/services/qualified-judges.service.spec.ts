@@ -1,12 +1,12 @@
 import { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
 import type { JudgeCalibrationShape } from '@insights/application/services/station-judge-reports.service';
-import { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
+import { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const ACCESS = TeamAccess.onTeam(TeamId.of('team_1'), {
+const ACCESS = ViewedTeam.onTeam(TeamId.of('team_1'), {
   workspaceId: WorkspaceId.of('workspace_1'),
   by: UserId.of('user_ada'),
 });

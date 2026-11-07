@@ -24,6 +24,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import type { Erased } from '@shared-kernel/domain/erased';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -205,7 +206,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
     return rows.map(toRecord);
   }
 
-  async remove(removed: RunRecord): Promise<void> {
+  async remove(removed: Erased<RunRecord>): Promise<void> {
     await this.context.inTransaction(async () => {
       const gone = await this.context.db
         .delete(runRecord)

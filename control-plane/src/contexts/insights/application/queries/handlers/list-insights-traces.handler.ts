@@ -17,8 +17,8 @@ import {
 import { traceVolumeOf } from '@insights/domain/services/trace-volume';
 import { MAX_TRACED_RUNS, tracesOf } from '@insights/domain/services/traces';
 import { unfinishedMatching } from '@insights/domain/services/unfinished-runs';
-import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 import { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
+import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -44,7 +44,7 @@ export class ListInsightsTracesHandler
       const range = TraceRange.of(query.range, this.clock.now());
       const filter = runFilterOf(runFilterInputOf(query.filter), range);
       const [unfinished, listed] = await Promise.all([
-        this.work.unfinishedRuns(access.teamId.value),
+        this.work.unfinishedRuns(access.teamId),
         this.listed(access, range, filter),
       ]);
       const matching = unfinishedMatching(unfinished, filter);
@@ -94,7 +94,7 @@ export class ListInsightsTracesHandler
     }
   }
 
-  private listed(access: TeamAccess, range: TraceRange, filter: RunFilter) {
+  private listed(access: ViewedTeam, range: TraceRange, filter: RunFilter) {
     return this.reader.runPage({
       window: windowOf(access, range),
       filter,

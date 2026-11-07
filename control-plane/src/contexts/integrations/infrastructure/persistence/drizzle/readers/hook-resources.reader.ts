@@ -2,6 +2,8 @@ import type {
   HookRecord,
   HookResourcesPort,
 } from '@integrations/application/ports/hook-resources.port';
+import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { writtenHookDocumentOf } from '@integrations/infrastructure/hooks/written-hook-document';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Injectable } from '@nestjs/common';
@@ -23,13 +25,16 @@ const recordOf = (row: Row): HookRecord => ({
 export class DrizzleHookResources implements HookResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  withId(id: string): Promise<HookRecord | null> {
-    return this.first(eq(hookDefinition.id, id));
+  withId(id: HookDefinitionId): Promise<HookRecord | null> {
+    return this.first(eq(hookDefinition.id, id.value));
   }
 
-  at(teamId: TeamId, key: string): Promise<HookRecord | null> {
+  at(teamId: TeamId, key: HookKey): Promise<HookRecord | null> {
     return this.first(
-      and(eq(hookDefinition.teamId, teamId.value), eq(hookDefinition.key, key)),
+      and(
+        eq(hookDefinition.teamId, teamId.value),
+        eq(hookDefinition.key, key.value),
+      ),
     );
   }
 

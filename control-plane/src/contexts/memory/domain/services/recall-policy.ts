@@ -5,13 +5,10 @@ export const MAX_RECALLED = 10;
 
 interface RecallingRun {
   readonly teamId: TeamId;
-  readonly replaysFrom: Date | null;
+  readonly asOf: Date | null;
 }
 
 export const recallableBy = (memory: Memory, run: RecallingRun): boolean =>
-  run.replaysFrom
-    ? memory.activeOn(run.teamId, run.replaysFrom)
-    : memory.isTeams(run.teamId);
+  run.asOf ? memory.activeOn(run.teamId, run.asOf) : memory.isTeams(run.teamId);
 
-export const recordsRecall = (run: RecallingRun): boolean =>
-  run.replaysFrom === null;
+export const recordsRecall = (run: RecallingRun): boolean => run.asOf === null;

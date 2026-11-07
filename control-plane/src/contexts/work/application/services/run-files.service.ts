@@ -1,13 +1,16 @@
 import type {
   RunFileFacts,
-  RunFilesPort,
+  RunFileSource,
 } from '@runs/application/ports/run-files.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 
-export class RunFiles implements RunFilesPort {
+export class RunFiles implements RunFileSource {
+  readonly owner = WorkRequesters.owner;
+
   constructor(private readonly files: FilesLoader) {}
 
   async uploadedBy(

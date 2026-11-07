@@ -1,5 +1,5 @@
 import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.error';
-import { RUN_WIRE_FIELDS } from '@runs/domain/value-objects/run-spec.vo';
+import { RUN_SPEC_FIELDS } from '@runs/domain/value-objects/run-spec.vo';
 import {
   isJsonObject,
   isJsonValue,
@@ -28,7 +28,7 @@ export class RunExtensions {
         );
       }
 
-      if ((RUN_WIRE_FIELDS as readonly string[]).includes(name)) {
+      if ((RUN_SPEC_FIELDS as readonly string[]).includes(name)) {
         throw new InvalidRunOrderError(
           `must not name an extension ${name}, a field of the run itself`,
         );

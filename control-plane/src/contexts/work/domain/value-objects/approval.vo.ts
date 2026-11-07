@@ -4,6 +4,7 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
+import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -45,20 +46,19 @@ export class Approval {
   static request(
     subject: ApprovalSubject,
     at: StationId,
-    because: string,
+    needed: ApprovalNeeded,
     intent: ApprovalIntent | null,
-    askedOf: UserId | null = null,
   ): Approval {
     return new Approval(
       subject,
       at,
-      because,
+      needed.because,
       'pending',
       null,
       false,
       null,
       intent,
-      askedOf,
+      needed.askedOf,
     );
   }
 

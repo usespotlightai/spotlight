@@ -9,6 +9,8 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 
+const CLAIM_WINDOW = 20;
+
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -25,14 +27,14 @@ export class ProcessDueDeliveries implements DeliveryWorkPort {
   ) {}
 
   async workOne(): Promise<boolean> {
-    const claimed = await this.deliveries.claimNext(this.clock.now());
+    const claimed = await this.claimNext();
 
     if (!claimed) {
       return false;
     }
 
     const ids = {
-      deliveryId: claimed.id,
+      deliveryId: claimed.id.value,
       integration: claimed.integration.value,
       workspaceId: claimed.to?.workspaceId.value,
       teamId: claimed.to?.teamId.value,
@@ -68,6 +70,30 @@ export class ProcessDueDeliveries implements DeliveryWorkPort {
     return worked;
   }
 
+  private async claimNext(): Promise<InboundDelivery | null> {
+    const now = this.clock.now();
+    const candidates = await this.deliveries.claimCandidates(now, CLAIM_WINDOW);
+
+    for (const candidate of candidates) {
+      if (!candidate.isClaimableAt(now)) {
+        continue;
+      }
+
+      try {
+        await this.deliveries.save(candidate.claimed(now));
+      } catch (error) {
+        if (error instanceof InboundDeliveryVersionConflictError) {
+          continue;
+        }
+        throw error;
+      }
+
+      return this.deliveries.current(candidate);
+    }
+
+    return null;
+  }
+
   private async read(
     claimed: InboundDelivery,
     ids: Readonly<Record<string, string | undefined>>,
@@ -75,9 +101,10 @@ export class ProcessDueDeliveries implements DeliveryWorkPort {
     const failure = await this.reading
       .execute(
         new ReadDeliveryCommand({
-          integration: claimed.integration.value,
+          integration: claimed.integration,
           to: claimed.to,
           id: claimed.id,
+          receivedAs: claimed.receivedAs,
           headers: claimed.headers,
           body: claimed.body,
           causeFiringId: claimed.causeFiringId,

@@ -1,7 +1,7 @@
 import { distinct } from '@shared-kernel/domain/distinct';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-export interface InjectedByEgress {
+interface InjectedByEgress {
   readonly env: Readonly<Record<string, string>>;
   readonly injectedSecrets: readonly SecretName[];
 }

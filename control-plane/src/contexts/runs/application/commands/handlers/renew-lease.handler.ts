@@ -1,4 +1,4 @@
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import type { RenewLeaseCommand } from '@runs/application/commands/runner.commands';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
@@ -18,7 +18,7 @@ export class RenewLeaseHandler
 {
   constructor(
     private readonly runs: RunRepository,
-    private readonly heartbeats: RunnerHeartbeatsPort,
+    private readonly claimants: RunnerClaimantsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -27,7 +27,7 @@ export class RenewLeaseHandler
       const renewing = RunnerId.of(command.runnerId);
       const at = this.clock.now();
 
-      if (!(await this.heartbeats.heartbeat(renewing, at))) {
+      if (!(await this.claimants.claimantOf(renewing, at))) {
         throw new UnknownRunnerError(command.runnerId);
       }
 

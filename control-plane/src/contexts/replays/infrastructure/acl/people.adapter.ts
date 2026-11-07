@@ -15,7 +15,7 @@ export class People implements PeoplePort {
     teamId: TeamId,
     principal: Principal,
   ): Promise<Membership | null> {
-    const permissions = await this.access.permissionsAsTeamReader(
+    const permissions = await this.access.permissionsAsTeamMember(
       teamId,
       principal,
     );

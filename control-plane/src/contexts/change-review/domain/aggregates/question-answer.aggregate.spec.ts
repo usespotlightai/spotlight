@@ -7,6 +7,7 @@ import {
   HunkId,
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -24,10 +25,12 @@ const given = (
 ) =>
   QuestionAnswer.given({
     id: QuestionAnswerId.of('answer-1'),
-    workspaceId: WorkspaceId.of('workspace-1'),
-    taskId: null,
-    teamId: null,
-    stackId: ChangeStackId.of('stack-1'),
+    stack: {
+      id: ChangeStackId.of('stack-1'),
+      workspaceId: WorkspaceId.of('workspace-1'),
+      taskId: TaskId.of('task-1'),
+      teamId: null,
+    },
     question: QUESTION,
     personId: UserId.of('user-1'),
     reply,

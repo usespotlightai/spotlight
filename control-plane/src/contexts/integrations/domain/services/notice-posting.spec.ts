@@ -1,4 +1,7 @@
-import { postsAgainWithoutUploads } from '@integrations/domain/services/notice-posting';
+import {
+  postsAgainWithoutUploads,
+  readinessFailureAfter,
+} from '@integrations/domain/services/notice-posting';
 import { describe, expect, it } from 'vitest';
 
 describe('postsAgainWithoutUploads', () => {
@@ -22,5 +25,14 @@ describe('postsAgainWithoutUploads', () => {
 
   it('does not post again a post that was sent', () => {
     expect(postsAgainWithoutUploads({ kind: 'sent' }, 2)).toBe(false);
+  });
+});
+
+describe('readinessFailureAfter', () => {
+  it('gives up at once on a refused check, else after the written attempts', () => {
+    expect(readinessFailureAfter(401, 1, 5)).toBe('refused');
+    expect(readinessFailureAfter(403, 1, 5)).toBe('refused');
+    expect(readinessFailureAfter(404, 1, 5)).toBe('check-again');
+    expect(readinessFailureAfter(500, 5, 5)).toBe('not-ready');
   });
 });

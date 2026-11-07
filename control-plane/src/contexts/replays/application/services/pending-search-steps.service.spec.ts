@@ -1,5 +1,5 @@
 import {
-  FakeWork,
+  FakeSuppliers,
   InMemoryReplays,
   stepsFor,
 } from '@replays/application/services/replays.fake-spec';
@@ -103,12 +103,12 @@ describe('PendingSearchSteps', () => {
     );
 
     now = new Date(NOW.getTime() + PENDING_STEP_LEASE_MS - 1);
-    await stepsFor(memory, new FakeWork(), clock).processDue();
+    await stepsFor(memory, new FakeSuppliers(), clock).processDue();
 
     expect(schedule().pendingSteps).toHaveLength(1);
 
     now = new Date(NOW.getTime() + PENDING_STEP_LEASE_MS);
-    await stepsFor(memory, new FakeWork(), clock).processDue();
+    await stepsFor(memory, new FakeSuppliers(), clock).processDue();
 
     expect(schedule()).toMatchObject({
       pendingSteps: [],
@@ -125,7 +125,7 @@ describe('PendingSearchSteps', () => {
     await memory.scheduleRepository.save(startedAt(SEARCH_ID, NOW));
 
     now = new Date(NOW.getTime() + PENDING_STEP_LEASE_MS);
-    await stepsFor(memory, new FakeWork(), clock).processDue();
+    await stepsFor(memory, new FakeSuppliers(), clock).processDue();
 
     expect(schedule().pendingSteps).toEqual([]);
     expect(schedule().lastStartedAt).toEqual(NOW);
@@ -149,7 +149,7 @@ describe('PendingSearchSteps', () => {
     );
 
     now = new Date(NOW.getTime() + PENDING_STEP_LEASE_MS);
-    await stepsFor(memory, new FakeWork(), clock).processDue();
+    await stepsFor(memory, new FakeSuppliers(), clock).processDue();
 
     expect(schedule().pendingSteps).toEqual([]);
     expect(schedule().requests?.counted).toEqual([

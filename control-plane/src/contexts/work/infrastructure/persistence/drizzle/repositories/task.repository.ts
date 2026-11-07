@@ -138,7 +138,7 @@ const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
   ConnectionAsk.of({
     teamId: TeamId.of(row.teamId),
     integration: IntegrationName.of(row.integration),
-    integrationName: row.integrationName,
+    providedBy: row.integrationName,
     personId: UserId.of(row.personId),
     met: row.met,
   });
@@ -146,7 +146,7 @@ const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
 const toConnectionAskRow = (ask: ConnectionAsk): ConnectionAskRow => ({
   teamId: ask.teamId.value,
   integration: ask.integration.value,
-  integrationName: ask.integrationName,
+  integrationName: ask.providedBy,
   personId: ask.personId.value,
   met: ask.met,
 });
@@ -160,7 +160,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
     body: TaskNoteBody.of(row.body),
     at: row.at,
     voice: Voice.of({
-      by: row.voice,
+      kind: row.voice,
       author: row.authorId,
       coAuthors: row.coAuthorIds,
       run: row.runId,
@@ -203,7 +203,7 @@ const toTask = (
       ? StationId.of(row.originStationId)
       : null,
     createdBy: row.createdById ? UserId.of(row.createdById) : null,
-    openedFrom: TaskOrigin.of(row.openedFrom),
+    openedFrom: TaskOrigin.decode(row.openedFrom),
     proposedIn:
       row.proposedInChatId !== null && row.proposedInPosition !== null
         ? ProposalOrigin.of({
@@ -271,7 +271,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         createdAt: added.createdAt,
         originStationId: added.originStationId?.value ?? null,
         createdById: added.createdBy?.value ?? null,
-        openedFrom: added.openedFrom.value,
+        openedFrom: added.openedFrom.encoded,
         proposedInChatId: added.proposedIn?.chatId.value ?? null,
         proposedInPosition: added.proposedIn?.position.value ?? null,
         assigneeId: added.assignee?.value ?? null,
@@ -279,6 +279,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         reviewing: added.reviewing,
         reviewFromOutside: added.fromOutside,
         finishedAt: added.finishedAt,
+        workspaceReleasedAt: added.workspaceRelease.releasedAt,
         revision: added.revision.value,
         isSetup: added.isSetup,
         setupOpen: added.setupOpen,
@@ -345,6 +346,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           reviewing: saved.reviewing,
           reviewFromOutside: saved.fromOutside,
           finishedAt: saved.finishedAt,
+          workspaceReleasedAt: saved.workspaceRelease.releasedAt,
           assigneeId: saved.assignee?.value ?? null,
           revision: saved.revision.value,
           isSetup: saved.isSetup,
@@ -696,7 +698,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           at: note.at,
           anchor: note.anchor?.parts ?? null,
           answeredAt: note.answeredAt,
-          voice: note.voice.by,
+          voice: note.voice.kind,
           authorId: note.voice.author?.value ?? null,
           coAuthorIds: note.voice.coAuthors.map((each) => each.value),
           runId: note.voice.run?.value ?? null,

@@ -29,7 +29,6 @@ const setUp = () => {
   const registration = {} as OAuth2ClientRegistration;
   const hooks = {
     withId: vi.fn(),
-    of: vi.fn(),
     ofTeam: vi.fn(async () => [hook, hook]),
     save: vi.fn(async () => {}),
   } satisfies HookDefinitionRepository;

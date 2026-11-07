@@ -84,7 +84,7 @@ const checkFor = (stack: ChangeStack) =>
     stackId: stack.id,
     runId: stack.runId,
     taskId: null,
-    teamId: null,
+    teamId: TeamId.of('team_1'),
     trial: false,
     workspaceId: stack.workspaceId,
     request: CheckRequest.of('npm test', null),

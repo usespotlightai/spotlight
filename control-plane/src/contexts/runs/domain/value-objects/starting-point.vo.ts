@@ -11,7 +11,7 @@ export interface ReportedStart {
   readonly checkouts: readonly StartedCheckout[];
 }
 
-export interface StartingPointParts {
+interface StartingPointParts {
   readonly archive: string | null;
   readonly checkouts: readonly StartedCheckoutParts[];
   readonly attempt: number;

@@ -1,4 +1,4 @@
-import { AGENT_STOPPED } from '@runs/application/contracts/run-journal.contract';
+import { AGENT_STOPPED } from '@runs/domain/value-objects/journal-entry-type';
 import { Money } from '@runs/domain/value-objects/money.vo';
 import { JournalBuilder } from '@runs/infrastructure/acp/journal-builder';
 import { describe, expect, it } from 'vitest';

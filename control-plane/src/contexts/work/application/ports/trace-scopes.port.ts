@@ -1,6 +1,11 @@
-import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
-
 export const TRACE_SCOPES = Symbol('TRACE_SCOPES');
+
+export interface TracedRequester {
+  readonly owner: string;
+  readonly kind: string;
+  readonly id: string;
+  readonly token: string | null;
+}
 
 export interface TraceScope {
   readonly stationId: string;
@@ -11,7 +16,7 @@ export interface TraceScope {
 export interface TraceScopeSource {
   readonly owner: string;
 
-  scopeOf(requester: RunRequesterContract): Promise<TraceScope | null>;
+  scopeOf(requester: TracedRequester): Promise<TraceScope | null>;
 }
 
 export interface TraceScopesPort {

@@ -63,7 +63,6 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import { SAVEPOINT } from '@shared-kernel/application/ports/savepoint.port';
 import { TELEMETRY } from '@shared-kernel/application/ports/telemetry.port';
 import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
@@ -147,7 +146,6 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     DrizzleContext,
     DrizzleReading,
     { provide: TRANSACTION, useExisting: DrizzleContext },
-    { provide: SAVEPOINT, useExisting: DrizzleContext },
     CauseCarrier,
     {
       provide: PayloadTypes,
@@ -199,7 +197,6 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     DrizzleContext,
     DrizzleReading,
     TRANSACTION,
-    SAVEPOINT,
     CauseCarrier,
     PayloadTypes,
     EventSubscribers,

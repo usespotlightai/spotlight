@@ -1,20 +1,21 @@
 import type { HookFailureCode } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 
 export type HookStepOutcome =
   | {
-      readonly name: string;
+      readonly name: HookStepName;
       readonly status: 'done';
       readonly output: unknown;
     }
   | {
-      readonly name: string;
+      readonly name: HookStepName;
       readonly status: 'failed';
       readonly code: HookFailureCode;
       readonly reason: string;
       readonly output: unknown;
     }
   | {
-      readonly name: string;
+      readonly name: HookStepName;
       readonly status: 'waiting';
       readonly call: string;
       readonly until: Date;

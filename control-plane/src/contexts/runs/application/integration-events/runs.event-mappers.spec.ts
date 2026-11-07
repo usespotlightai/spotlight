@@ -1,7 +1,7 @@
 import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
-import { RunCompleted } from '@runs/domain/events/run-completed.event';
+import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import { HandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
@@ -21,6 +21,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it } from 'vitest';
 
 const RECORDED_AT = new Date('2026-10-02T09:30:00.000Z');
+const ENDED_AT = new Date('2026-10-02T09:00:00.000Z');
 
 const published = (event: DomainEvent) =>
   RUNS_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
@@ -39,7 +40,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
   it('publishes the end of a task run, with its report, session and runner', () => {
     expect(
       published(
-        new RunCompleted(
+        new RunEnded(
           RUN,
           WORKSPACE,
           SUBJECT,
@@ -62,6 +63,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           false,
           true,
           true,
+          ENDED_AT,
         ),
       ),
     ).toEqual([
@@ -102,7 +104,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
         session: 'session_1',
         claimedBy: 'runner_1',
         expiredLeases: 0,
-        endedAt: RECORDED_AT.toISOString(),
+        endedAt: ENDED_AT.toISOString(),
       },
     ]);
   });
@@ -195,7 +197,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
 
     expect(
       published(
-        new RunCompleted(
+        new RunEnded(
           RUN,
           WORKSPACE,
           replay,
@@ -207,6 +209,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           true,
           true,
           true,
+          ENDED_AT,
         ),
       ),
     ).toEqual([
@@ -236,7 +239,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
         session: null,
         claimedBy: null,
         expiredLeases: 0,
-        endedAt: '2026-10-02T09:30:00.000Z',
+        endedAt: ENDED_AT.toISOString(),
       },
     ]);
     expect(
@@ -250,6 +253,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           false,
           'runner-lost',
           true,
+          ENDED_AT,
         ),
       ),
     ).toEqual([
@@ -274,6 +278,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           2,
           false,
           true,
+          ENDED_AT,
         ),
       ),
     ).toEqual([
@@ -293,6 +298,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           1,
           false,
           false,
+          ENDED_AT,
         ),
       ).map((each) => each.kind),
     ).toEqual(['runs.run-ended.v1']);

@@ -43,7 +43,7 @@ const posting = (
   now: NOW,
 });
 
-const UNREACHABLE = DeliveryFailure.of('github-error');
+const UNREACHABLE = DeliveryFailure.of('github-unreachable');
 
 const submit = (over: {
   verdict?: string;

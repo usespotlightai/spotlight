@@ -540,7 +540,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         .map((each) => each.connection.host),
     ).toEqual(
       all
-        .filter((each) => each.connection.isError)
+        .filter((each) => each.connection.error !== null)
         .map((each) => each.connection.host),
     );
     expect(

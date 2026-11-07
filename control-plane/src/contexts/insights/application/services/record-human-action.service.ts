@@ -11,7 +11,6 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface HumanActionReceived {
@@ -45,10 +44,10 @@ export class RecordHumanAction {
     const workspaceId = WorkspaceId.of(event.workspaceId);
     const taskId = TaskId.of(event.taskId);
     const run = event.afterRunId
-      ? await this.work.endedRun(event.afterRunId)
+      ? await this.work.endedRun(RunId.of(event.afterRunId))
       : null;
     const owner = FactOwner.of(workspaceId, {
-      teamId: run ? TeamId.of(run.teamId) : null,
+      teamId: run?.teamId ?? null,
       taskId,
     });
     const afterRunId = event.afterRunId ? RunId.of(event.afterRunId) : null;

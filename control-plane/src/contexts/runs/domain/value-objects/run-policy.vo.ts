@@ -1,8 +1,8 @@
 export const RUN_ASKS = ['requester', 'recorded'] as const;
 
-export type RunAsks = (typeof RUN_ASKS)[number];
+type RunAsks = (typeof RUN_ASKS)[number];
 
-export interface RunPolicyParts {
+interface RunPolicyParts {
   readonly holdsTurn: boolean;
   readonly gated: boolean;
   readonly actsBeyondItself: boolean;

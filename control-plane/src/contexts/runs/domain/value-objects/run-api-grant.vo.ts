@@ -1,7 +1,7 @@
 import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.error';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export interface IssuedApiGrant {
+interface IssuedApiGrant {
   readonly issuedBy: UserId;
   readonly scopes: readonly string[];
   readonly expiresAt: Date;

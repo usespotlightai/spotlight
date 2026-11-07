@@ -45,7 +45,7 @@ export class ExchangeWorkloadTokenHandler
         return null;
       }
 
-      const workload = await this.scope.within(trust.workspaceId.value, () =>
+      const workload = await this.scope.within(trust.workspaceId, () =>
         this.workloads.verify(command.workloadToken, {
           issuer: trust.workload.issuer.value,
           audience: trust.workload.audience.value,

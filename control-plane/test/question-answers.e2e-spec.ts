@@ -99,10 +99,7 @@ const question = ready.question(QuestionId.of('c1.l1.q1'));
 const answered = (id: string, personId: UserId, asked = question) =>
   QuestionAnswer.given({
     id: QuestionAnswerId.of(id),
-    workspaceId: ready.workspaceId,
-    taskId: ready.taskId,
-    teamId: ready.teamId,
-    stackId: ready.id,
+    stack: ready,
     question: asked,
     personId,
     reply: 'The bot.',

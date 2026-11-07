@@ -10,9 +10,13 @@ import type { CallFailureFact } from '@integrations/domain/value-objects/hook-fa
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
+import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -32,17 +36,17 @@ export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
 export interface Credentials {
   injectedFor(
     url: string,
-    secrets: readonly string[],
+    secrets: readonly SecretName[],
   ): Promise<InjectedSecrets>;
 
   standInsFor(
     url: string,
-    secrets: readonly string[],
+    secrets: readonly SecretName[],
   ): Promise<InjectedSecrets>;
 }
 
 export interface SigningSecrets {
-  named(secret: string): Promise<VerifyingSecret>;
+  named(secret: SecretName): Promise<VerifyingSecret>;
 }
 
 export interface ActiveConnection {
@@ -53,7 +57,7 @@ export interface ActiveConnection {
 }
 
 export interface CallAuth {
-  workspace(): Promise<string>;
+  workspace(): Promise<WorkspaceId>;
   readonly connection: ActiveConnection | null;
   readonly credentials: Credentials;
 }
@@ -135,13 +139,12 @@ export interface ResolvedTool {
   readonly integration: Integration;
   readonly provided: ProvidedTool;
   readonly declared: DeclaredTool;
-  readonly injectedSecrets: readonly string[];
+  readonly injectedSecrets: readonly SecretName[];
   defaultFor(input: string): unknown;
-  call(inputs: ToolCallInputs, callAuth: CallAuth): Promise<ToolOutput>;
   attempt(
     inputs: ToolCallInputs,
     callAuth: CallAuth,
-    withinMs: number,
+    withinMs: number | null,
   ): Promise<CallAttempt>;
 }
 
@@ -149,6 +152,8 @@ export interface IntegrationRuntimePort {
   integrations(
     definitions: readonly DefinedIntegration[],
   ): readonly Integration[];
+
+  offered(definitions: readonly DefinedIntegration[]): readonly OfferedTools[];
 
   poll(
     definitions: readonly DefinedIntegration[],
@@ -173,7 +178,7 @@ export interface IntegrationRuntimePort {
 
   tool(
     definitions: readonly DefinedIntegration[],
-    tool: string,
+    tool: ToolName,
     task: TaskView,
   ): Promise<ResolvedTool | null>;
 
@@ -181,6 +186,6 @@ export interface IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     owner: { readonly teamId: TeamId; readonly workspaceId: WorkspaceId },
     integration: IntegrationKey,
-    refreshToken: AccessToken,
+    refreshToken: RefreshToken,
   ): Promise<RefreshResult>;
 }

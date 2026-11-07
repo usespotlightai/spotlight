@@ -1,8 +1,5 @@
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
-import type {
-  RecordHostCallResponseCommand,
-  SentHostCallResponse,
-} from '@runs/application/commands/host-call.commands';
+import type { RecordHostCallResponseCommand } from '@runs/application/commands/host-call.commands';
 import type { RecordHostCallResponseDto } from '@runs/application/dto/host-call.dto';
 import { InvalidNetworkCallTransitionError } from '@runs/domain/exceptions/invalid-network-call-transition.error';
 import { NetworkCallVersionConflictError } from '@runs/domain/exceptions/network-call-version-conflict.error';
@@ -14,26 +11,6 @@ import { NetworkResponse } from '@runs/domain/value-objects/network-response.vo'
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-
-const texts = (raw: unknown): Record<string, string> =>
-  raw && typeof raw === 'object'
-    ? Object.fromEntries(
-        Object.entries(raw).filter(
-          (each): each is [string, string] => typeof each[1] === 'string',
-        ),
-      )
-    : {};
-
-const responseOf = (sent: SentHostCallResponse): NetworkResponse =>
-  NetworkResponse.of({
-    status: Number(sent.status),
-    headers: texts(sent.headers),
-    body: new Uint8Array(
-      Buffer.from(typeof sent.body === 'string' ? sent.body : '', 'base64'),
-    ),
-    ms: Number(sent.ms),
-    error: typeof sent.error === 'string' ? sent.error : null,
-  });
 
 export class RecordHostCallResponseHandler
   implements
@@ -63,10 +40,14 @@ export class RecordHostCallResponseHandler
         return { outcome: 'unknown' };
       }
 
-      const host = CallingHost.of(
-        typeof command.response.host === 'string' ? command.response.host : '',
-      );
-      const response = responseOf(command.response);
+      const host = CallingHost.of(command.response.host);
+      const response = NetworkResponse.of({
+        status: command.response.status,
+        headers: command.response.headers,
+        body: command.response.body,
+        ms: command.response.ms,
+        error: command.response.error,
+      });
 
       try {
         await this.calls.save(

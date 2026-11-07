@@ -7,7 +7,7 @@ import type { ProviderForDelivery } from '@integrations/application/services/pro
 import { CauseLinks } from '@integrations/domain/services/cause-links';
 import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import type { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
-import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -38,7 +38,7 @@ export class ReadDeliveryHandler
     {
       const stored = command.delivered;
       const provider = await this.providers.find({
-        integration: stored.integration,
+        integration: stored.integration.value,
         to: stored.to,
       });
 
@@ -52,6 +52,12 @@ export class ReadDeliveryHandler
         body: stored.body,
         raw: null,
       };
+
+      const unreceived = await this.reader.receive(provider, delivered);
+
+      if (unreceived) {
+        return unreceived;
+      }
 
       const reading = await this.reader.read(provider, delivered);
 
@@ -85,7 +91,7 @@ export class ReadDeliveryHandler
             workspaceId,
             stored.to?.teamId ?? null,
             news,
-            `delivery:${stored.integration}:${stored.to?.teamId.value ?? ''}:${stored.id}`,
+            stored.receivedAs,
           ),
       );
     }
@@ -97,8 +103,8 @@ export class ReadDeliveryHandler
   ): void {
     this.logger.info(
       {
-        deliveryId: stored.id,
-        integration: stored.integration,
+        deliveryId: stored.id.value,
+        integration: stored.integration.value,
         workspaceId: stored.to?.workspaceId.value,
         teamId: stored.to?.teamId.value,
         reason,
@@ -109,10 +115,10 @@ export class ReadDeliveryHandler
 
   private deliveryChain(
     fired: CausalChain | null,
-    integration: string,
+    integration: IntegrationKey,
   ): CausalChain {
     return fired
-      ? fired.append(CauseLinks.delivery(IntegrationKey.of(integration)))
+      ? fired.append(CauseLinks.delivery(integration))
       : CausalChain.none();
   }
 }

@@ -10,7 +10,7 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
-import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import { LeaseLostError } from '@work/domain/exceptions/lease-lost.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -32,7 +32,7 @@ const resolving = (options: { movedOn?: boolean } = {}) => {
   const stillOn = vi.fn(async () => {
     steps.push('still on');
     if (options.movedOn) {
-      throw new RunAttemptOverError(RUN.value, ATTEMPT.attempt);
+      throw new LeaseLostError(RUN.value, ATTEMPT.attempt);
     }
   });
   const calls: IntegrationToolCallsPort = {
@@ -51,7 +51,7 @@ const resolving = (options: { movedOn?: boolean } = {}) => {
       defaultFor: () => undefined,
       call: async () => {
         steps.push('called with its secrets injected');
-        return 'commented';
+        return { outcome: 'answered', output: 'commented' };
       },
     }),
   };
@@ -79,7 +79,10 @@ describe('IntegrationTools', () => {
       'runner_1',
     );
 
-    await expect(resolved?.call(ToolInputs.of({}))).resolves.toBe('commented');
+    await expect(resolved?.call(ToolInputs.of({}))).resolves.toEqual({
+      outcome: 'answered',
+      output: 'commented',
+    });
     expect(stillOn).toHaveBeenCalledWith(ATTEMPT, 'runner_1');
     expect(steps).toEqual(['still on', 'called with its secrets injected']);
   });
@@ -94,7 +97,7 @@ describe('IntegrationTools', () => {
     );
 
     await expect(resolved?.call(ToolInputs.of({}))).rejects.toThrow(
-      RunAttemptOverError,
+      LeaseLostError,
     );
     expect(steps).toEqual(['still on']);
   });

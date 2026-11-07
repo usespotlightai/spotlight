@@ -30,13 +30,11 @@ const retired = Memory.write({
 
 describe('recall policy', () => {
   it('lets a run recall any memory of its team by handle, a retired one too', () => {
-    expect(recallableBy(retired, { teamId: TEAM, replaysFrom: null })).toBe(
-      true,
-    );
+    expect(recallableBy(retired, { teamId: TEAM, asOf: null })).toBe(true);
     expect(
       recallableBy(retired, {
         teamId: TeamId.of('team_2'),
-        replaysFrom: null,
+        asOf: null,
       }),
     ).toBe(false);
   });
@@ -45,16 +43,14 @@ describe('recall policy', () => {
     expect(
       recallableBy(retired, {
         teamId: TEAM,
-        replaysFrom: new Date('2026-09-27T11:00:00.000Z'),
+        asOf: new Date('2026-09-27T11:00:00.000Z'),
       }),
     ).toBe(true);
-    expect(recallableBy(retired, { teamId: TEAM, replaysFrom: RETIRED })).toBe(
-      false,
-    );
+    expect(recallableBy(retired, { teamId: TEAM, asOf: RETIRED })).toBe(false);
   });
 
   it('records what a run recalls, but not what a replay recalls', () => {
-    expect(recordsRecall({ teamId: TEAM, replaysFrom: null })).toBe(true);
-    expect(recordsRecall({ teamId: TEAM, replaysFrom: APPROVED })).toBe(false);
+    expect(recordsRecall({ teamId: TEAM, asOf: null })).toBe(true);
+    expect(recordsRecall({ teamId: TEAM, asOf: APPROVED })).toBe(false);
   });
 });

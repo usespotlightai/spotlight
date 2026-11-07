@@ -1,8 +1,8 @@
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import { RecordRunImageHandler } from '@runs/application/commands/handlers/record-run-image.handler';
 import { RecordRunImageCommand } from '@runs/application/commands/runner.commands';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
@@ -30,7 +30,7 @@ const claimed = () =>
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
     }),
-  }).claim(RunnerId.of('runner_1'), NOW);
+  }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
 const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
   const save = vi.fn(async (_: Run) => {});
@@ -52,7 +52,7 @@ const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
       ),
       save,
     } as unknown as RunRepository,
-    { heartbeat: seen } satisfies RunnerHeartbeatsPort,
+    { claimantOf: seen } satisfies RunnerClaimantsPort,
     { now: () => NOW } as ClockPort,
   );
 

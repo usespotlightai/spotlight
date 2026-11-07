@@ -3,6 +3,7 @@ import { TaskOpeningRecorded } from '@insights/domain/events/task-opening-record
 import type { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import type { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
 import type { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -66,12 +67,12 @@ export class TaskHumanActions extends EventRecorder {
     return opened;
   }
 
-  erased(): TaskHumanActions {
+  erased(): Erased<TaskHumanActions> {
     const erased = this.with({});
 
     erased.record(new TaskHumanActionsErased(this.taskId, this.workspaceId));
 
-    return erased;
+    return erasedAs(erased);
   }
 
   asked(ask: InboxAsk): TaskHumanActions {

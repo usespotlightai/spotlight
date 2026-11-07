@@ -40,7 +40,6 @@ import type {
   InboxItemDto,
   InboxItemViewDto,
   InboxNoticeDto,
-  NoteDto,
 } from '@work/application/dto/inbox.dto';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type {
@@ -58,12 +57,9 @@ import {
   ListTaskJournalRunsQuery,
   ReadTaskJournalQuery,
 } from '@work/application/queries/read-task-journal.query';
+import { AnswerInboxItemRequestDto } from '@work/presentation/http/dto/inbox.request.dto';
 import {
-  AnswerInboxItemRequestDto,
   INBOX_PAGE_SCHEMA,
-  InboxApprovalResponseDto,
-  InboxAuthorResponseDto,
-  InboxConnectionResponseDto,
   type InboxEntryResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
@@ -72,7 +68,6 @@ import {
   InboxRequestResponseDto,
   InboxRunResponseDto,
   InboxStationResponseDto,
-  NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import {
   JournalledRunResponseDto,
@@ -82,36 +77,9 @@ import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { editsInput } from '@work/presentation/http/mappers/edits-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
+import { NoteHttpMapper } from '@work/presentation/http/mappers/note.http.mapper';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 import { ApiPageQuery, pageRequestOf } from '@work/presentation/http/paging';
-
-const noteResponse = (note: NoteDto): NoteResponseDto =>
-  new NoteResponseDto(
-    note.position,
-    note.kind,
-    note.form,
-    note.voice,
-    note.station,
-    note.stationColor,
-    note.stationPosition,
-    note.runId,
-    note.body,
-    note.attachments.map(AttachmentHttpMapper.toResponse),
-    note.at,
-    note.author
-      ? new InboxAuthorResponseDto(
-          note.author.id,
-          note.author.name,
-          note.author.image,
-        )
-      : null,
-    note.coAuthors.map(
-      (each) => new InboxAuthorResponseDto(each.id, each.name, each.image),
-    ),
-    note.approval ? new InboxApprovalResponseDto(note.approval) : null,
-    note.failure ? new InboxFailureResponseDto(note.failure) : null,
-    note.connection ? new InboxConnectionResponseDto(note.connection) : null,
-  );
 
 const taskItemFields = (
   item: InboxItemDto,
@@ -149,7 +117,7 @@ const taskItemFields = (
   inboxRequest: item.inboxRequest
     ? new InboxRequestResponseDto(item.inboxRequest)
     : null,
-  lastNote: item.lastNote && noteResponse(item.lastNote),
+  lastNote: item.lastNote && NoteHttpMapper.toResponse(item.lastNote),
 });
 
 const entryResponse = (entry: InboxEntryDto): InboxEntryResponseDto => {
@@ -245,7 +213,7 @@ export class InboxController {
 
     return new InboxItemViewResponseDto(
       taskItemFields(found),
-      found.notes.map(noteResponse),
+      found.notes.map(NoteHttpMapper.toResponse),
     );
   }
 

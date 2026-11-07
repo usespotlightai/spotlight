@@ -26,6 +26,7 @@ import type { RedeemCallSecretsDto } from '@runs/application/dto/host-call.dto';
 import { EgressSecretsResponseDto } from '@runs/presentation/http/dto/egress.response.dto';
 import { RedeemCallSecretsRequestDto } from '@runs/presentation/http/dto/host-call.request.dto';
 import { EgressSecretsHttpMapper } from '@runs/presentation/http/mappers/egress-secrets.http.mapper';
+import { textOf } from '@runs/presentation/http/mappers/host-call-response.http.mapper';
 
 const WRONG_SECRETS_TOKEN =
   'The token does not redeem the secrets of this call, or there is no such call. Use the secretsToken that the claim gave';
@@ -68,9 +69,9 @@ export class HostCallSecretsController {
     >(
       new RedeemCallSecretsCommand(
         id,
-        body?.host,
-        body?.token,
-        body?.recipient,
+        textOf(body?.host),
+        textOf(body?.token),
+        textOf(body?.recipient),
       ),
     );
 

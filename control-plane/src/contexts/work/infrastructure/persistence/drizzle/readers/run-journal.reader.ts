@@ -145,6 +145,7 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
 
     return {
       startedBy: UserId.of(found.startedById),
+      teamId,
       found: await read(runs),
     };
   }

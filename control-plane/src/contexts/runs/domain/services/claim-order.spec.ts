@@ -1,5 +1,5 @@
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { ClaimOrder } from '@runs/domain/services/claim-order';
 import type { Claimant } from '@runs/domain/value-objects/claimant';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
@@ -34,7 +34,7 @@ const waiting = (
   id: string,
   over: {
     priority?: number;
-    queuedAt?: string;
+    createdAt?: string;
     harness?: string;
     workspace?: string;
     placement?: string[];
@@ -54,7 +54,7 @@ const waiting = (
       resume: {},
     }),
     placement: RunnerPlacement.of(over.placement ?? []),
-    queuedAt: new Date(over.queuedAt ?? '2026-09-17T09:00:00.000Z'),
+    now: new Date(over.createdAt ?? '2026-09-17T09:00:00.000Z'),
   });
 
 const inOrder = (
@@ -79,22 +79,38 @@ describe('ClaimOrder', () => {
     ).toBe('further');
   });
 
-  it('among equals, hands out the one that has waited longest', () => {
+  it('among equals, hands out the one ordered first', () => {
     expect(
       next(
-        waiting('newer', { queuedAt: '2026-09-17T10:00:00.000Z' }),
-        waiting('older', { queuedAt: '2026-09-17T08:00:00.000Z' }),
+        waiting('newer', { createdAt: '2026-09-17T10:00:00.000Z' }),
+        waiting('older', { createdAt: '2026-09-17T08:00:00.000Z' }),
       ),
     ).toBe('older');
+  });
+
+  it('keeps the place of a run that went back on the queue', () => {
+    const lost = waiting('lost', { createdAt: '2026-09-17T08:00:00.000Z' })
+      .claim(claimer(BY.runner), NOW)
+      .expireLease(new Date(NOW.getTime() + 3_600_000));
+    const later = new Date(NOW.getTime() + 3_600_000);
+
+    expect(lost.queuedAt).toEqual(later);
+    expect(
+      inOrder(
+        [waiting('newer', { createdAt: '2026-09-17T10:00:00.000Z' }), lost],
+        BY,
+        later,
+      )[0]?.id.value,
+    ).toBe('lost');
   });
 
   it('hands out another waiting run while one requeued waits out its back-off', () => {
     const requeued = waiting('requeued', {
       priority: 3,
-      queuedAt: '2026-09-17T08:00:00.000Z',
+      createdAt: '2026-09-17T08:00:00.000Z',
     });
     const backingOff = requeued
-      .claim(BY.runner, NOW)
+      .claim(claimer(BY.runner), NOW)
       .requeue(BY.runner, NOW, 'connect ECONNREFUSED');
 
     expect(next(backingOff, waiting('other', { priority: 1 }))).toBe('other');
@@ -134,7 +150,9 @@ describe('ClaimOrder', () => {
   it('hands out nothing already claimed', () => {
     const taken = waiting('taken');
 
-    expect(inOrder([taken.claim(RunnerId.of('runner_2'), NOW)])).toEqual([]);
+    expect(
+      inOrder([taken.claim(claimer(RunnerId.of('runner_2')), NOW)]),
+    ).toEqual([]);
   });
 
   it('holds back a run while another run of its requester holds a lease', () => {
@@ -213,7 +231,7 @@ describe('ClaimOrder', () => {
       expect(ClaimOrder.forRequested(null, BY)).toBe('start');
       expect(
         ClaimOrder.forRequested(
-          waiting('taken').claim(RunnerId.of('runner_2'), NOW),
+          waiting('taken').claim(claimer(RunnerId.of('runner_2')), NOW),
           BY,
         ),
       ).toBe('start');

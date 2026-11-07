@@ -466,6 +466,7 @@ describe('the runs of a team', () => {
         },
         createdAt: at(minute),
         endedAt: at(minute),
+        exitCode: 0,
       })),
     );
     await db.insert(schema.dispatch).values(

@@ -15,15 +15,18 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RunCallAuth {
   readonly teamId: TeamId;
-  readonly workspaceId: string;
-  readonly runId: string;
+  readonly workspaceId: WorkspaceId;
+  readonly runId: RunId;
   readonly attempt: number;
-  readonly injectedSecrets: readonly string[];
+  readonly injectedSecrets: readonly SecretName[];
 }
 
 export type ConnectionFound =
@@ -50,7 +53,7 @@ export class CallAuthResolver {
       ? await this.connections.of(teamId, integration.key, owner)
       : null;
 
-    let found: Promise<string> | null = null;
+    let found: Promise<WorkspaceId> | null = null;
     const workspace = () => {
       found ??= this.workspaceOf(teamId).catch((error: unknown) => {
         found = null;
@@ -109,10 +112,10 @@ export class CallAuthResolver {
   ): Promise<CallAuth> {
     if (run.injectedSecrets.length > 0) {
       await this.injection.grant({
-        workspaceId: run.workspaceId,
-        runId: run.runId,
+        workspaceId: run.workspaceId.value,
+        runId: run.runId.value,
         attempt: run.attempt,
-        secrets: run.injectedSecrets,
+        secrets: run.injectedSecrets.map((each) => each.value),
       });
     }
 
@@ -140,7 +143,7 @@ export class CallAuthResolver {
     };
   }
 
-  private async workspaceOf(teamId: TeamId): Promise<string> {
+  private async workspaceOf(teamId: TeamId): Promise<WorkspaceId> {
     const team = await this.teams.find(teamId);
 
     if (!team) {
@@ -150,6 +153,6 @@ export class CallAuthResolver {
       );
     }
 
-    return team.workspaceId.value;
+    return team.workspaceId;
   }
 }

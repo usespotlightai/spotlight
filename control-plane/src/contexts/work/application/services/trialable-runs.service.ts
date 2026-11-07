@@ -5,7 +5,7 @@ import type {
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { UntrialableReasonCode } from '@work/application/contracts/untrialable-reason.contract';
+import { TrialabilityMapper } from '@work/application/mappers/trialability.mapper';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   TaskRunFacts,
@@ -16,34 +16,7 @@ import type {
   TrialableRunSummary,
   TrialableRunsPort,
 } from '@work/application/ports/trialable-runs.port';
-import {
-  type TrialArchive,
-  trialBlockOf,
-} from '@work/domain/services/trialability';
-import type { UntrialableReason } from '@work/domain/value-objects/untrialable-reason';
-
-const REASONS: Readonly<Record<UntrialableReason, UntrialableReasonCode>> = {
-  'unknown-run': 'unknown-run',
-  'not-a-task-run': 'not-a-task-run',
-  'task-gone': 'task-gone',
-  'still-running': 'still-running',
-  'no-starting-point': 'no-starting-point',
-  'no-briefing': 'no-briefing',
-  'archive-gone': 'archive-gone',
-  'attachments-gone': 'attachments-gone',
-  'answer-gone': 'answer-gone',
-  'repository-gone': 'repository-gone',
-  'not-at-the-station': 'not-at-the-station',
-  'candidate-unfit': 'candidate-unfit',
-  'cannot-start': 'cannot-start',
-};
-
-const archiveOf = (run: RunFacts): TrialArchive =>
-  run.startedFrom?.archiveId
-    ? run.startedFrom.archiveStored
-      ? 'stored'
-      : 'gone'
-    : 'none';
+import { trialBlockOf } from '@work/domain/services/trialability';
 
 const summaryOf = (
   runId: string,
@@ -59,7 +32,7 @@ const summaryOf = (
       stationId: ran ? StationId.of(ran.stationId) : null,
       ended: run.ended,
       startedFrom: run.startedFrom !== null,
-      archive: archiveOf(run),
+      archive: TrialabilityMapper.archiveOf(run),
       briefed: ran?.briefed ?? false,
       taskExists: ran?.taskExists ?? false,
     },
@@ -71,12 +44,13 @@ const summaryOf = (
     runId,
     taskId: placedRun?.taskId ?? null,
     stationId: placedRun?.stationId ?? null,
-    untrialableReason: block ? REASONS[block.reason] : null,
+    untrialableReason: block
+      ? TrialabilityMapper.reasonCode(block.reason)
+      : null,
     description: block?.description ?? null,
     title: placedRun?.title ?? null,
     state: placed?.state ?? null,
     endedAt: placed?.endedAt ?? null,
-    origin: placedRun?.origin ?? null,
   };
 };
 

@@ -1,6 +1,6 @@
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
-import { RunCompleted } from '@runs/domain/events/run-completed.event';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import { RunReservationDropped } from '@runs/domain/events/run-reservation-dropped.event';
@@ -53,7 +53,8 @@ const queued = () =>
     spec: aSpec('sh'),
   });
 
-const claimed = (by = runner(), when = noon) => queued().claim(by, when);
+const claimed = (by = runner(), when = noon) =>
+  queued().claim(claimer(by), when);
 
 const lostAndRequeued = (run: Run) =>
   run.expireLease(run.leaseExpiresAt as Date);
@@ -73,6 +74,9 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     attempt,
     reservation: null,
     provisioning: Provisioning.none(),
+    version: 0,
+    queuedAt: noon,
+    createdAt: noon,
   });
 
 describe('Run', () => {
@@ -158,23 +162,29 @@ describe('Run', () => {
     const started = claimed().startedIn(runner(), image, noon);
 
     expect(lostAndRequeued(started).startedAt).toBeNull();
-    expect(claimed().unclaimedBy(runner()).startedAt).toBeNull();
+    expect(claimed().unclaimedBy(runner(), noon).startedAt).toBeNull();
     expect(started.requeue(runner(), noon, 'no room').startedAt).toBeNull();
   });
 
   it('leaves the run it was claimed from on the queue', () => {
     const waiting = queued();
 
-    waiting.claim(runner(), noon);
+    waiting.claim(claimer(runner()), noon);
 
     expect(waiting.state).toBe('queued');
     expect(waiting.claimedBy).toBeNull();
   });
 
+  it('cannot be claimed by a runner of another workspace', () => {
+    expect(() => queued().claim(claimer(runner(), 'ws_other'), noon)).toThrow(
+      InvalidRunTransitionError,
+    );
+  });
+
   it('cannot be claimed twice', () => {
     const run = claimed();
 
-    expect(() => run.claim(runner('runner_2'), noon)).toThrow(
+    expect(() => run.claim(claimer(runner('runner_2')), noon)).toThrow(
       InvalidRunTransitionError,
     );
   });
@@ -213,9 +223,9 @@ describe('Run', () => {
     expect(ended.outcome?.stopped).toBe(true);
     expect(ended.outcome?.exitCode).toBe(-1);
     expect(ended.attempt).toBe(1);
-    expect(
-      ended.pullEvents().some((each) => each instanceof RunCompleted),
-    ).toBe(true);
+    expect(ended.pullEvents().some((each) => each instanceof RunEnded)).toBe(
+      true,
+    );
   });
 
   it('cannot expire its lease while the lease is still valid', () => {
@@ -249,6 +259,8 @@ describe('Run', () => {
       run.complete(
         runner('someone_else'),
         RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        noon,
       ),
     ).toThrow(InvalidRunTransitionError);
   });
@@ -257,6 +269,8 @@ describe('Run', () => {
     const ended = claimed().complete(
       runner(),
       RunOutcome.of({ exitCode: 0, failed: false }),
+      HandoverReport.none(),
+      noon,
     );
 
     expect(ended.state).toBe('completed');
@@ -270,6 +284,8 @@ describe('Run', () => {
     const ended = claimed().complete(
       runner(),
       RunOutcome.of({ exitCode: 2, failed: true, message: 'no push' }),
+      HandoverReport.none(),
+      noon,
     );
 
     expect(ended.state).toBe('failed');
@@ -280,17 +296,24 @@ describe('Run', () => {
     const ended = claimed().complete(
       runner(),
       RunOutcome.of({ exitCode: 0, failed: false }),
+      HandoverReport.none(),
+      noon,
     );
 
     expect(() =>
-      ended.complete(runner(), RunOutcome.of({ exitCode: 0, failed: false })),
+      ended.complete(
+        runner(),
+        RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        noon,
+      ),
     ).toThrow(InvalidRunTransitionError);
   });
 
   it('lets any runner claim a queued run nobody reserved', () => {
-    expect(queued().claim(runner('runner_9'), noon).claimedBy?.value).toBe(
-      'runner_9',
-    );
+    expect(
+      queued().claim(claimer(runner('runner_9')), noon).claimedBy?.value,
+    ).toBe('runner_9');
   });
 
   it('lets nobody but its runner act on it', () => {
@@ -312,7 +335,7 @@ describe('Run', () => {
     const leased = claimed();
     const first = leased.currentAttempt;
     const reclaimed = lostAndRequeued(leased).claim(
-      runner(),
+      claimer(runner()),
       at('2026-08-28T12:00:00.000Z'),
     );
 
@@ -539,18 +562,23 @@ describe('Run', () => {
 
     it('injects them for the runner that leases it', () => {
       expect(
-        injecting().claim(runner(), noon).injectedSecretsFor(runner()),
+        injecting().claim(claimer(runner()), noon).injectedSecretsFor(runner()),
       ).toEqual([SecretName.of('LINEAR_API_KEY')]);
     });
 
     it('injects nothing for another runner, while it waits, or once it has ended', () => {
-      const leased = injecting().claim(runner(), noon);
+      const leased = injecting().claim(claimer(runner()), noon);
 
       expect(leased.injectedSecretsFor(runner('runner_2'))).toEqual([]);
       expect(injecting().injectedSecretsFor(runner())).toEqual([]);
       expect(
         leased
-          .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
+          .complete(
+            runner(),
+            RunOutcome.of({ exitCode: 0, failed: false }),
+            HandoverReport.none(),
+            noon,
+          )
           .injectedSecretsFor(runner()),
       ).toEqual([]);
     });
@@ -563,7 +591,12 @@ describe('Run', () => {
       expect(queued().isLeasedBy(runner())).toBe(false);
       expect(
         leased
-          .complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }))
+          .complete(
+            runner(),
+            RunOutcome.of({ exitCode: 0, failed: false }),
+            HandoverReport.none(),
+            noon,
+          )
           .isLeasedBy(runner()),
       ).toBe(false);
     });
@@ -591,10 +624,10 @@ describe('Run', () => {
       expect(usingApi.provisionableAt(noon)).toBe(false);
       expect(usingApi.provisionableAt(noon, true)).toBe(true);
       expect(
-        usingApi.claim(runner(), noon).apiGrantFor(runner()),
+        usingApi.claim(claimer(runner()), noon).apiGrantFor(runner()),
       ).not.toBeNull();
       expect(
-        usingApi.claim(runner(), noon).apiGrantFor(runner('runner_2')),
+        usingApi.claim(claimer(runner()), noon).apiGrantFor(runner('runner_2')),
       ).toBeNull();
     });
 
@@ -627,6 +660,8 @@ describe('Run', () => {
       const ended = claimed().complete(
         runner(),
         RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        noon,
       );
 
       expect(ended.wasClaimedBy(runner())).toBe(true);
@@ -642,6 +677,8 @@ describe('Run', () => {
       const ended = leased.complete(
         runner(),
         RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        noon,
       );
 
       expect(
@@ -661,7 +698,14 @@ describe('Run', () => {
     ]);
 
     it('ends failed, saying why, so whoever handed it over learns of it', () => {
-      const refused = queued().refused(EXPIRED);
+      const refused = Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        ...orderedFor.spec(),
+        spec: aSpec('sh'),
+        refusal: [{ description: EXPIRED.message ?? '' }],
+      });
 
       expect(refused.state).toBe('failed');
       expect(refused.outcome?.message).toBe(
@@ -669,21 +713,16 @@ describe('Run', () => {
       );
 
       const [completed] = refused.pullEvents();
-      expect(completed).toBeInstanceOf(RunCompleted);
-      expect((completed as RunCompleted).claimedBy).toBeNull();
-    });
-
-    it('cannot be refused once a runner leases it', () => {
-      expect(() => claimed().refused(EXPIRED)).toThrow(
-        InvalidRunTransitionError,
-      );
+      expect(completed).toBeInstanceOf(RunEnded);
+      expect((completed as RunEnded).claimedBy).toBeNull();
+      expect(refused.endedAt).toEqual(refused.createdAt);
     });
   });
 
   describe('being unclaimed when its runner could not take it', () => {
     it('goes back on the queue as it was, counting neither an attempt nor a requeue', () => {
       const before = queued();
-      const unclaimed = claimed().unclaimedBy(runner());
+      const unclaimed = claimed().unclaimedBy(runner(), noon);
 
       expect(unclaimed.state).toBe('queued');
       expect(unclaimed.claimedBy).toBeNull();
@@ -695,7 +734,7 @@ describe('Run', () => {
     });
 
     it('ends as stopped, not back on the queue, when someone asked it to stop', () => {
-      const unclaimed = claimed().requestStop(noon).unclaimedBy(runner());
+      const unclaimed = claimed().requestStop(noon).unclaimedBy(runner(), noon);
 
       expect(unclaimed.hasEnded).toBe(true);
       expect(unclaimed.state).not.toBe('queued');
@@ -703,10 +742,10 @@ describe('Run', () => {
     });
 
     it('is unclaimed only by the runner that claimed it', () => {
-      expect(() => claimed().unclaimedBy(runner('runner_2'))).toThrow(
+      expect(() => claimed().unclaimedBy(runner('runner_2'), noon)).toThrow(
         InvalidRunTransitionError,
       );
-      expect(() => queued().unclaimedBy(runner())).toThrow(
+      expect(() => queued().unclaimedBy(runner(), noon)).toThrow(
         InvalidRunTransitionError,
       );
     });
@@ -718,7 +757,7 @@ describe('Run', () => {
         noon,
       );
 
-      expect(() => started.unclaimedBy(runner())).toThrow(
+      expect(() => started.unclaimedBy(runner(), noon)).toThrow(
         InvalidRunTransitionError,
       );
     });
@@ -745,9 +784,9 @@ describe('Run', () => {
       expect(back.provisionableAt(laterBy(4_999))).toBe(false);
       expect(back.claimableAt(laterBy(5_000))).toBe(true);
       expect(back.provisionableAt(laterBy(5_000))).toBe(true);
-      expect(back.claim(runner('runner_2'), laterBy(5_000)).state).toBe(
-        'claimed',
-      );
+      expect(
+        back.claim(claimer(runner('runner_2')), laterBy(5_000)).state,
+      ).toBe('claimed');
     });
 
     it('waits twice as long each time it is requeued', () => {
@@ -759,17 +798,32 @@ describe('Run', () => {
         waits.push(
           (run.requeueCount.claimableFrom?.getTime() ?? 0) - noon.getTime(),
         );
-        run = run.claim(runner(), noon);
+        run = run.claim(
+          claimer(runner()),
+          run.requeueCount.claimableFrom as Date,
+        );
       }
 
       expect(waits).toEqual([5_000, 10_000, 20_000, 40_000, 80_000]);
+    });
+
+    it('cannot be claimed while it waits out its back-off', () => {
+      const requeued = claimed().requeue(runner(), noon, DOWN);
+
+      expect(() => requeued.claim(claimer(runner()), noon)).toThrow(
+        InvalidRunTransitionError,
+      );
     });
 
     it('ends failed, saying its hooks could not be called, the sixth time it is requeued', () => {
       let run = claimed();
 
       for (let each = 0; each < 5; each++) {
-        run = run.requeue(runner(), noon, DOWN).claim(runner(), noon);
+        run = run.requeue(runner(), noon, DOWN);
+        run = run.claim(
+          claimer(runner()),
+          run.requeueCount.claimableFrom as Date,
+        );
       }
       run.pullEvents();
 
@@ -779,7 +833,7 @@ describe('Run', () => {
       expect(ended.outcome?.message).toBe(
         `Hooks did not answer after 6 tries. Last error: ${DOWN}`,
       );
-      expect(ended.pullEvents()[0]).toBeInstanceOf(RunCompleted);
+      expect(ended.pullEvents()[0]).toBeInstanceOf(RunEnded);
     });
 
     it('ends stopped, not queued, when a stop was requested while its hooks were called', () => {
@@ -792,14 +846,14 @@ describe('Run', () => {
       expect(ended.outcome?.stopped).toBe(true);
       expect(ended.claimedBy).toBeNull();
       const [completed] = ended.pullEvents();
-      expect(completed).toBeInstanceOf(RunCompleted);
-      expect((completed as RunCompleted).outcome.stopped).toBe(true);
+      expect(completed).toBeInstanceOf(RunEnded);
+      expect((completed as RunEnded).outcome.stopped).toBe(true);
     });
 
     it('starts counting afresh on a later attempt', () => {
       const back = claimed()
         .requeue(runner(), noon, DOWN)
-        .claim(runner(), laterBy(5_000));
+        .claim(claimer(runner()), laterBy(5_000));
 
       expect(lostAndRequeued(back).requeueCount.count).toBe(0);
     });
@@ -818,7 +872,7 @@ describe('Run', () => {
     const REASON = 'The hook core/freeze denied the start: deploys are frozen.';
 
     it('ends failed with the hook’s reason, worked by nobody', () => {
-      const denied = claimed().deniedStart(runner(), REASON);
+      const denied = claimed().deniedStart(runner(), REASON, noon);
 
       expect(denied.state).toBe('failed');
       expect(denied.outcome?.message).toBe(REASON);
@@ -826,19 +880,19 @@ describe('Run', () => {
       expect(denied.wasClaimedBy(runner())).toBe(false);
 
       const [completed] = denied.pullEvents();
-      expect(completed).toBeInstanceOf(RunCompleted);
-      expect((completed as RunCompleted).outcome.failed).toBe(true);
-      expect((completed as RunCompleted).claimedBy).toBeNull();
+      expect(completed).toBeInstanceOf(RunEnded);
+      expect((completed as RunEnded).outcome.failed).toBe(true);
+      expect((completed as RunEnded).claimedBy).toBeNull();
     });
 
     it('has its start denied only by the runner that claimed it', () => {
-      expect(() => claimed().deniedStart(runner('runner_2'), REASON)).toThrow(
-        InvalidRunTransitionError,
-      );
+      expect(() =>
+        claimed().deniedStart(runner('runner_2'), REASON, noon),
+      ).toThrow(InvalidRunTransitionError);
     });
 
     it('cannot have its start denied before a runner claims it', () => {
-      expect(() => queued().deniedStart(runner(), REASON)).toThrow(
+      expect(() => queued().deniedStart(runner(), REASON, noon)).toThrow(
         InvalidRunTransitionError,
       );
     });
@@ -846,8 +900,13 @@ describe('Run', () => {
 
   describe('being cancelled before a runner claims it', () => {
     it('ends a queued run as cancelled, since its task moved on without it', () => {
-      const cancelled = queued().cancelQueued('The task moved on.');
+      const { run: cancelled, was } = queued().cancel(
+        'The task moved on.',
+        noon,
+      );
 
+      expect(was).toBe('queued');
+      expect(cancelled.endedAt).toEqual(noon);
       expect(cancelled.state).toBe('cancelled');
       expect(cancelled.outcome?.failure?.code).toBe('cancelled');
       expect(cancelled.outcome?.cancelled).toBe(true);
@@ -858,10 +917,20 @@ describe('Run', () => {
       ]);
     });
 
-    it('does not cancel a run that is already being worked', () => {
-      expect(() => claimed().cancelQueued('The task moved on.')).toThrow(
-        InvalidRunTransitionError,
-      );
+    it('only requests a stop of a run that is already being worked', () => {
+      const { run, was } = claimed().cancel('The task moved on.', noon);
+
+      expect(was).toBe('claimed');
+      expect(run.state).toBe('claimed');
+      expect(run.stopRequested).toBe(true);
+    });
+
+    it('leaves a claimed run alone when cancelling only a queued one', () => {
+      const claimedRun = claimed();
+      const cancelled = claimedRun.cancelledIfQueued('Stopped.', noon);
+
+      expect(cancelled.outcome).toBe('claimed');
+      expect(cancelled.run).toBe(claimedRun);
     });
   });
 
@@ -885,6 +954,8 @@ describe('Run', () => {
       const ended = claimed().complete(
         runner(),
         RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        noon,
       );
       expect(() => ended.requestStop(noon)).toThrow(InvalidRunTransitionError);
     });
@@ -907,11 +978,12 @@ describe('Run', () => {
             handover: Handover.of({ next: 'Spec', note: 'ready' }),
             session: HarnessSession.of('session_1'),
           }),
+          noon,
         )
         .pullEvents();
 
-      expect(raised).toBeInstanceOf(RunCompleted);
-      const completed = raised as RunCompleted;
+      expect(raised).toBeInstanceOf(RunEnded);
+      const completed = raised as RunEnded;
       expect(completed.runId).toEqual(RunId.of('run_1'));
       expect(completed.outcome.failed).toBe(false);
       expect(completed.claimedBy).toEqual(runner());
@@ -924,6 +996,7 @@ describe('Run', () => {
         runner(),
         RunOutcome.of({ exitCode: 0, failed: false }),
         HandoverReport.of({ session: HarnessSession.of('session_1') }),
+        noon,
       );
 
       expect(ended.outcome).toEqual(
@@ -934,11 +1007,13 @@ describe('Run', () => {
     it('goes back on the queue when its host times it out, as for an expired lease, and is exhausted as timed out', () => {
       let run = queued();
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        run = run.claim(runner(), noon).timedOut(runner(), noon);
+        run = run.claim(claimer(runner()), noon).timedOut(runner(), noon);
         expect(run.state).toBe('queued');
       }
 
-      const timedOut = run.claim(runner(), noon).timedOut(runner(), noon);
+      const timedOut = run
+        .claim(claimer(runner()), noon)
+        .timedOut(runner(), noon);
       const events = timedOut.pullEvents();
       const exhausted = events.find(
         (each): each is RunExhausted => each instanceof RunExhausted,
@@ -948,7 +1023,9 @@ describe('Run', () => {
       expect(timedOut.outcome?.failure?.code).toBe('timed-out');
       expect(events.some((each) => each instanceof RunLeaseExpired)).toBe(true);
       expect(() =>
-        queued().claim(runner(), noon).timedOut(RunnerId.of('elsewhere'), noon),
+        queued()
+          .claim(claimer(runner()), noon)
+          .timedOut(RunnerId.of('elsewhere'), noon),
       ).toThrow();
     });
 
@@ -956,7 +1033,7 @@ describe('Run', () => {
       let run = queued();
       for (let attempt = 0; attempt < 3; attempt += 1) {
         run = run
-          .claim(runner(), noon)
+          .claim(claimer(runner()), noon)
           .expireLease(at('2026-08-23T12:05:00.000Z'));
       }
 
@@ -972,7 +1049,12 @@ describe('Run', () => {
     it('leaves the run it was completed from with nothing to announce', () => {
       const leased = claimed();
 
-      leased.complete(runner(), RunOutcome.of({ exitCode: 0, failed: false }));
+      leased.complete(
+        runner(),
+        RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        noon,
+      );
 
       expect(leased.pullEvents()).toHaveLength(0);
       expect(leased.state).toBe('claimed');
@@ -1013,13 +1095,16 @@ describe('Run', () => {
     });
 
     it('rejects another runner while the reservation is active', () => {
-      expect(() => reserved().claim(runner('runner_9'), later(1_000))).toThrow(
-        InvalidRunTransitionError,
-      );
+      expect(() =>
+        reserved().claim(claimer(runner('runner_9')), later(1_000)),
+      ).toThrow(InvalidRunTransitionError);
     });
 
     it('lets another runner take it once the reservation expires, releasing the runner reserved', () => {
-      const run = reserved().claim(runner('runner_9'), later(5 * 60_000));
+      const run = reserved().claim(
+        claimer(runner('runner_9')),
+        later(5 * 60_000),
+      );
 
       expect(run.claimedBy?.value).toBe('runner_9');
       expect(run.reservation).toBeNull();
@@ -1033,7 +1118,7 @@ describe('Run', () => {
     });
 
     it('is taken by the provisioned runner, dropping the reservation', () => {
-      const run = reserved().claim(runner('pooled_1'), later(1_000));
+      const run = reserved().claim(claimer(runner('pooled_1')), later(1_000));
 
       expect(run.state).toBe('claimed');
       expect(run.claimedBy?.value).toBe('pooled_1');
@@ -1062,24 +1147,12 @@ describe('Run', () => {
     });
 
     it('releases its provisioned runner when cancelled', () => {
-      const run = reserved().cancelQueued('The task moved on.');
+      const { run } = reserved().cancel('The task moved on.', noon);
 
       expect(run.reservation).toBeNull();
       expect(run.pullEvents().map((each) => each.kind)).toEqual([
         'run.reservation-dropped',
         'run.cancelled',
-      ]);
-    });
-
-    it('releases its provisioned runner when refused', () => {
-      const run = reserved().refused(
-        RunOutcome.refused([{ description: 'The plan expired.' }]),
-      );
-
-      expect(run.reservation).toBeNull();
-      expect(run.pullEvents().map((each) => each.kind)).toEqual([
-        'run.reservation-dropped',
-        'run.completed',
       ]);
     });
 
@@ -1147,13 +1220,16 @@ describe('Run', () => {
 
       const completed = run
         .pullEvents()
-        .filter((each) => each instanceof RunCompleted);
+        .filter((each) => each instanceof RunEnded);
       expect(completed).toHaveLength(1);
-      expect((completed[0] as RunCompleted).claimedBy).toBeNull();
+      expect((completed[0] as RunEnded).claimedBy).toBeNull();
     });
 
-    it('only releases the runner reserved for it while it still has tries left', () => {
-      expect(failedAgain(queued()).pullEvents()).toEqual([
+    it('records the failure and releases the runner reserved for it while it still has tries left', () => {
+      const events = failedAgain(queued()).pullEvents();
+
+      expect(events[0]?.kind).toBe('run.provision-failed');
+      expect(events.slice(1)).toEqual([
         new RunReservationDropped(
           RunId.of('run_1'),
           WorkspaceId.of('ws_1'),
@@ -1199,7 +1275,7 @@ describe('Run', () => {
 
     it('starts provisioning afresh when requeued', () => {
       const again = failedAgain(queued())
-        .claim(runner(), later(5_000))
+        .claim(claimer(runner()), later(5_000))
         .expireLease(later(10 * 60_000));
 
       expect(again.provisioning.attempts).toBe(0);
@@ -1251,7 +1327,7 @@ describe('Run', () => {
         placement: RunnerPlacement.anywhere().in(
           RunnerImage.of('ghcr.io/acme/widgets:main'),
         ),
-      }).claim(runner(), noon);
+      }).claim(claimer(runner()), noon);
 
       expect(inWidgets.startedIn(runner(), pinned, noon).ranIn).toBe(pinned);
       expect(() =>
@@ -1277,6 +1353,8 @@ describe('Run', () => {
       claimed().complete(
         runner(),
         RunOutcome.of({ exitCode: 1, failed: true }),
+        HandoverReport.none(),
+        noon,
       );
 
     it('ends failed, not superseded, when it exits badly while its task still has it as its current run', () => {
@@ -1369,14 +1447,14 @@ describe('Run', () => {
     });
 
     it('records that it asked a person only when its policy records asks', () => {
-      const leased = ordered(orderedFor.task()).claim(runner(), noon);
+      const leased = ordered(orderedFor.task()).claim(claimer(runner()), noon);
 
       expect(() => leased.askedAPersonBy(runner())).toThrow(
         InvalidRunTransitionError,
       );
       expect(
         ordered(orderedFor.isolated())
-          .claim(runner(), noon)
+          .claim(claimer(runner()), noon)
           .askedAPersonBy(runner()).askedAPerson,
       ).toBe(true);
     });

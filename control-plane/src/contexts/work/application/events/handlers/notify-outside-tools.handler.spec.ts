@@ -8,7 +8,7 @@ import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
-import type { OutboundTaskNotifierPort } from '@work/application/ports/outbound-task-notifier.port';
+import type { OutboundTaskNotifier } from '@work/application/services/outside-task-notices.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
@@ -76,7 +76,7 @@ const notifying = (
       holdingMark: async () => [],
       save,
     } as unknown as TaskRepository,
-    { notify } satisfies OutboundTaskNotifierPort,
+    { notify } satisfies OutboundTaskNotifier,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     { now: () => new Date('2026-09-17T10:00:00.000Z'), sleep: async () => {} },
   );

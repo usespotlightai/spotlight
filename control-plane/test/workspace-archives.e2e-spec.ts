@@ -15,6 +15,7 @@ import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
 import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
 import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { DrizzleArchiveReferenceLocks } from '@runs/infrastructure/persistence/drizzle/archive-reference-locks';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -52,7 +53,7 @@ beforeAll(async () => {
   archives = new DrizzleWorkspaceArchiveRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  references = new DrizzleArchiveReferences(db);
+  references = new DrizzleArchiveReferences(new DrizzleContext(db));
   holders = new ArchiveHolders();
   holders.register(new DrizzleWorkArchiveHolders(db));
 
@@ -110,6 +111,7 @@ const aTask = async (
     title: 'Archive the workspace',
     sessionId: state.sessionId === undefined ? 'session_1' : state.sessionId,
     finishedAt: state.finishedAt ?? null,
+    workspaceReleasedAt: state.finishedAt ?? null,
     updatedAt: state.updatedAt ?? ago(DAY),
   });
 
@@ -130,6 +132,8 @@ const aChat = async (
     title: 'Planning',
     harness: 'dev',
     sessionId,
+    workspaceReleasedAt: sessionId ? null : updatedAt,
+    createdAt: updatedAt,
     updatedAt,
   });
 
@@ -457,6 +461,7 @@ describe('storing workspace archives', () => {
     };
     const removal = new RemoveReleasedArchives(
       references,
+      new DrizzleArchiveReferenceLocks(new DrizzleContext(db)),
       holders,
       archives,
       store,

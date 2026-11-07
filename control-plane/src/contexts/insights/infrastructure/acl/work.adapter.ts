@@ -8,8 +8,19 @@ import type {
   WorkPort,
 } from '@insights/application/ports/work.port';
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
-import type { StationRunsPort } from '@work/application/ports/station-runs.port';
+import type {
+  EndedStationRun,
+  StationRunsPort,
+} from '@work/application/ports/station-runs.port';
 
 const configViewOf = (config: StationConfigShape): StationConfigView => ({
   prompt: config.prompt,
@@ -38,23 +49,26 @@ const configViewOf = (config: StationConfigShape): StationConfigView => ({
 });
 
 export class Work implements WorkPort {
-  constructor(private readonly stations: StationRunsPort) {}
+  constructor(
+    private readonly stations: StationRunsPort,
+    private readonly logger: LoggerPort,
+  ) {}
 
-  async endedRun(runId: string): Promise<EndedRun | null> {
-    const run = await this.stations.ended(runId);
+  async endedRun(runId: RunId): Promise<EndedRun | null> {
+    const run = await this.stations.ended(runId.value);
 
     if (!run) {
       return null;
     }
 
     return {
-      runId: run.runId,
-      workspaceId: run.workspaceId,
-      teamId: run.teamId,
-      lineId: run.lineId,
-      stationId: run.stationId,
-      taskId: run.taskId,
-      fingerprint: run.fingerprint,
+      runId: RunId.of(run.runId),
+      workspaceId: WorkspaceId.of(run.workspaceId),
+      teamId: TeamId.of(run.teamId),
+      lineId: LineId.of(run.lineId),
+      stationId: StationId.of(run.stationId),
+      taskId: TaskId.of(run.taskId),
+      fingerprint: this.fingerprintOf(run),
       visit: run.visit,
       harness: run.harness,
       model: run.model,
@@ -68,16 +82,37 @@ export class Work implements WorkPort {
     };
   }
 
-  async taskRunOf(runId: string): Promise<TaskRun | null> {
-    const run = await this.stations.taskRunOf(runId);
+  private fingerprintOf(run: EndedStationRun): ConfigFingerprint | null {
+    const fingerprint = ConfigFingerprint.readable(run.fingerprint);
+
+    if (run.fingerprint !== null && fingerprint === null) {
+      this.logger.warn(
+        {
+          runId: run.runId,
+          stationId: run.stationId,
+          fingerprint: run.fingerprint,
+        },
+        'Run ended with a malformed config fingerprint, recorded as no config',
+      );
+    }
+
+    return fingerprint;
+  }
+
+  async taskRunOf(runId: RunId): Promise<TaskRun | null> {
+    const run = await this.stations.taskRunOf(runId.value);
 
     return run
-      ? { runId: run.runId, taskId: run.taskId, teamId: run.teamId }
+      ? {
+          runId: RunId.of(run.runId),
+          taskId: TaskId.of(run.taskId),
+          teamId: TeamId.of(run.teamId),
+        }
       : null;
   }
 
-  async unfinishedRuns(teamId: string): Promise<readonly UnfinishedRun[]> {
-    return (await this.stations.unfinished(teamId)).map((run) => ({
+  async unfinishedRuns(teamId: TeamId): Promise<readonly UnfinishedRun[]> {
+    return (await this.stations.unfinished(teamId.value)).map((run) => ({
       runId: run.runId,
       taskId: run.taskId,
       lineId: run.lineId,

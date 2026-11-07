@@ -63,7 +63,7 @@ export class SandboxArchiveController {
   @ApiOperation({
     operationId: 'readSandboxArchive',
     summary:
-      'The archive a sandbox restores when it starts: the newest workspace its task or chat left',
+      'The archive a sandbox restores when it starts: the newest archive of its workspace key',
     description:
       'The bearer is the sandbox token from the sandbox’s first assignment.',
   })
@@ -107,7 +107,7 @@ export class SandboxArchiveController {
   @ApiCreatedResponse({ type: ArchiveGrantResponseDto })
   @ApiUnprocessableEntityResponse({
     description:
-      'Too large, not a SHA-256, a sandbox of no task or chat, or nowhere to store it',
+      'Too large, not a SHA-256, a sandbox with no workspace key, or nowhere to store it',
   })
   async grant(
     @Param('sandboxId') sandboxId: string,
@@ -142,7 +142,7 @@ export class SandboxArchiveController {
   @ApiOperation({
     operationId: 'completeSandboxArchive',
     summary:
-      'Say the archive is uploaded, so the next sandbox or run of this task or chat restores it',
+      'Say the archive is uploaded, so the next sandbox or run of this workspace key restores it',
   })
   @ApiNoContentResponse()
   @ApiConflictResponse({

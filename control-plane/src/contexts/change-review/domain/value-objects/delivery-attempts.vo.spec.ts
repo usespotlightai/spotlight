@@ -24,8 +24,8 @@ describe('DeliveryAttempts', () => {
     ).toBeNull();
   });
 
-  it('backs off on a GitHub error, and gives up on the sixth attempt', () => {
-    const failure = DeliveryFailure.of('github-error', 'Server Error');
+  it('backs off while GitHub cannot be reached, and gives up on the sixth attempt', () => {
+    const failure = DeliveryFailure.of('github-unreachable');
 
     expect(DeliveryAttempts.of(0).retryAfter(failure, NOW)).toEqual({
       at: later(30_000),

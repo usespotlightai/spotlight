@@ -83,7 +83,7 @@ describe('IntegrationSpecs', () => {
     });
 
     expect(
-      compiled.ok && compiled.integration.tools.map((each) => each.tool.value),
+      compiled.ok && compiled.offered.all.map((each) => each.value),
     ).toEqual(['petstore.find-pets']);
     expect(reading?.hash).toEqual(HASH);
     expect(reading?.readAt).toEqual(NOW);
@@ -112,8 +112,7 @@ describe('IntegrationSpecs', () => {
     expect(first.reader.read).not.toHaveBeenCalled();
     expect(again.reading?.hash).toEqual(HASH);
     expect(
-      again.compiled.ok &&
-        again.compiled.integration.tools.map((each) => each.tool.value),
+      again.compiled.ok && again.compiled.offered.all.map((each) => each.value),
     ).toEqual(['petstore.find-pets']);
 
     await first.specs.compiled({
@@ -159,7 +158,7 @@ describe('IntegrationSpecs', () => {
 
     expect(
       refreshed.compiled.ok &&
-        refreshed.compiled.integration.tools.map((each) => each.tool.value),
+        refreshed.compiled.offered.all.map((each) => each.value),
     ).toEqual(['petstore.find-pets']);
     expect(refreshed.reading?.hash).toEqual(HASH);
     expect(refreshed.reading?.problem).toBe(
@@ -195,7 +194,7 @@ describe('IntegrationSpecs', () => {
       current: null,
     });
 
-    expect(compiled.ok && compiled.integration.tools).toEqual([]);
+    expect(compiled.ok && compiled.offered.all).toEqual([]);
     expect(reading?.problem).toBe(
       'could not be read: petstore3.swagger.io answered 503',
     );

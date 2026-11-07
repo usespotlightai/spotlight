@@ -1,8 +1,5 @@
-import {
-  canonicalOrder,
-  type RunOrderContract,
-} from '@runs/application/contracts/run-order.contract';
-import { RunSpecContract } from '@runs/application/contracts/run-spec.contract';
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
+import { RunSpecMapper } from '@runs/application/mappers/run-spec.mapper';
 import type { ContentHashPort } from '@runs/application/ports/content-hash.port';
 import type {
   QueuedRunCancellation,
@@ -13,15 +10,16 @@ import type {
   RunsPort,
   StopRequest,
 } from '@runs/application/ports/runs.port';
+import { canonicalOrder } from '@runs/application/services/canonical-order';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.error';
+import { InvalidRunSpecError } from '@runs/domain/exceptions/invalid-run-spec.error';
 import { RunAlreadyExistsError } from '@runs/domain/exceptions/run-already-exists.error';
-import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
 import { RunExtensions } from '@runs/domain/value-objects/run-extensions.vo';
-import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
@@ -33,7 +31,6 @@ import {
   WorkspaceKey,
 } from '@runs/domain/value-objects/workspace-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -67,11 +64,7 @@ export class Runs implements RunsPort {
     }
 
     try {
-      await this.runs.add(
-        order.refusal
-          ? queued.refused(RunOutcome.refused(order.refusal))
-          : queued,
-      );
+      await this.runs.add(queued);
     } catch (error) {
       if (
         !(error instanceof RunAlreadyExistsError) ||
@@ -116,12 +109,16 @@ export class Runs implements RunsPort {
           order.placement.labelGroups,
           order.placement.image ? RunnerImage.of(order.placement.image) : null,
         ),
-        spec: RunSpecContract.received(order.spec),
+        spec: RunSpecMapper.received(order.spec),
         orderFingerprint: fingerprint,
-        queuedAt: this.clock.now(),
+        refusal: order.refusal,
+        now: this.clock.now(),
       });
     } catch (error) {
-      if (error instanceof DomainError && error.kind === 'invalid') {
+      if (
+        error instanceof InvalidRunOrderError ||
+        error instanceof InvalidRunSpecError
+      ) {
         return { outcome: 'refused', reason: error.message };
       }
 
@@ -135,11 +132,7 @@ export class Runs implements RunsPort {
   ): Promise<boolean> {
     const known = await this.runs.findById(id);
 
-    if (known && known.orderFingerprint !== fingerprint) {
-      throw new RunOrderConflictError(id.value);
-    }
-
-    return known !== null;
+    return known?.reordered(fingerprint) !== undefined;
   }
 
   async requestStop(runId: RunId): Promise<StopRequest> {
@@ -159,7 +152,7 @@ export class Runs implements RunsPort {
   }
 
   async keep(runId: RunId, attempt: number): Promise<void> {
-    await this.changed(runId, (run) => run.keep(attempt));
+    await this.changed(runId, (run) => run.keep(attempt, this.clock.now()));
   }
 
   async resume(
@@ -181,6 +174,15 @@ export class Runs implements RunsPort {
     runId: RunId,
     change: (run: Run) => Run,
   ): Promise<Run | null> {
+    const changed = await this.decided(runId, (run) => ({ run: change(run) }));
+
+    return changed?.run ?? null;
+  }
+
+  private async decided<T extends { readonly run: Run }>(
+    runId: RunId,
+    decide: (run: Run) => T,
+  ): Promise<T | null> {
     for (let attempt = 1; ; attempt++) {
       const run = await this.runs.findById(runId);
 
@@ -188,15 +190,15 @@ export class Runs implements RunsPort {
         return null;
       }
 
-      const next = change(run);
+      const decision = decide(run);
 
-      if (next === run) {
-        return run;
+      if (decision.run === run) {
+        return decision;
       }
 
       try {
-        await this.runs.save(next);
-        return next;
+        await this.runs.save(decision.run);
+        return decision;
       } catch (error) {
         if (
           !(error instanceof RunVersionConflictError) ||
@@ -208,44 +210,31 @@ export class Runs implements RunsPort {
     }
   }
 
-  async cancel(runId: RunId): Promise<RunCancellation> {
-    const run = await this.runs.findById(runId);
+  async cancel(runId: RunId, reason: string): Promise<RunCancellation> {
+    const cancelled = await this.decided(runId, (run) =>
+      run.cancel(reason, this.clock.now()),
+    );
 
-    if (!run) {
-      return { was: 'unknown', started: false };
-    }
-
-    await this.changed(runId, (current) => current.cancel(this.clock.now()));
-
-    return {
-      was: run.hasEnded
-        ? 'ended'
-        : (run.state as Exclude<RunCancellation['was'], 'ended' | 'unknown'>),
-      started: run.hasStarted,
-    };
+    return cancelled
+      ? { was: cancelled.was, started: cancelled.started }
+      : { was: 'unknown', started: false };
   }
 
   async cancelIfQueued(
     runId: RunId,
     reason: string,
   ): Promise<QueuedRunCancellation> {
-    const run = await this.runs.findById(runId);
+    const cancelled = await this.decided(runId, (run) =>
+      run.cancelledIfQueued(reason, this.clock.now()),
+    );
 
-    if (!run) {
+    if (!cancelled) {
       return { outcome: 'unknown' };
     }
 
-    if (run.hasEnded) {
-      return { outcome: 'ended' };
-    }
-
-    if (run.state !== 'queued') {
-      return { outcome: 'claimed' };
-    }
-
-    await this.runs.save(run.cancelQueued(reason));
-
-    return { outcome: 'cancelled', started: run.hasStarted };
+    return cancelled.outcome === 'cancelled'
+      ? { outcome: 'cancelled', started: cancelled.started }
+      : { outcome: cancelled.outcome };
   }
 
   async askedAPerson(lease: RunLease): Promise<void> {

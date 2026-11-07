@@ -4,6 +4,13 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const RUN_START_GATES = Symbol('RUN_START_GATES');
 
+export class StartGateUnavailableError extends Error {
+  constructor(readonly because: string) {
+    super(`The start gate could not answer: ${because}`);
+    this.name = 'StartGateUnavailableError';
+  }
+}
+
 export type StartDecision =
   | { readonly kind: 'allowed' }
   | { readonly kind: 'denied'; readonly reason: string }

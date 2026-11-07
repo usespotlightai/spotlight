@@ -11,6 +11,7 @@ import type { TaskFailuresRepository } from '@insights/domain/repositories/task-
 import type { TaskHumanActionsRepository } from '@insights/domain/repositories/task-human-actions.repository';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { Erased } from '@shared-kernel/domain/erased';
 
 const AT_ONCE = 200;
 
@@ -51,11 +52,21 @@ export class DeleteInsights {
   }
 
   judgings(scope: DeletionScope): Promise<void> {
-    return this.erase(scope, this.repositories.judgings);
+    return this.erase(
+      scope,
+      this.repositories.judgings,
+      () => null,
+      (judging) => judging.erased(),
+    );
   }
 
   scores(scope: DeletionScope): Promise<void> {
-    return this.erase(scope, this.repositories.scores);
+    return this.erase(
+      scope,
+      this.repositories.scores,
+      () => null,
+      (score) => score.erased(),
+    );
   }
 
   humanActions(scope: DeletionScope): Promise<void> {
@@ -70,7 +81,12 @@ export class DeleteInsights {
   }
 
   failures(scope: DeletionScope): Promise<void> {
-    return this.erase(scope, this.repositories.failures);
+    return this.erase(
+      scope,
+      this.repositories.failures,
+      () => null,
+      (failures) => failures.erased(),
+    );
   }
 
   changeShapes(scope: DeletionScope): Promise<void> {
@@ -92,8 +108,11 @@ export class DeleteInsights {
   }
 
   alertStates(scope: DeletionScope): Promise<void> {
-    return this.erase(scope, this.repositories.alertStates, (alertState) =>
-      alertState.erasing(scope),
+    return this.erase(
+      scope,
+      this.repositories.alertStates,
+      (alertState) => alertState.erasing(scope),
+      (alertState) => alertState.erased(),
     );
   }
 
@@ -104,8 +123,8 @@ export class DeleteInsights {
   private async erase<A>(
     scope: DeletionScope,
     aggregates: ErasedAggregates<A>,
-    erasing: (aggregate: A) => A | null = () => null,
-    removed: (aggregate: A) => A = (aggregate) => aggregate,
+    erasing: (aggregate: A) => A | null,
+    removed: (aggregate: A) => Erased<A>,
     deletedWith: (aggregate: A) => DeletionScope | null = () => null,
   ): Promise<void> {
     await this.transaction.inTransaction(() =>

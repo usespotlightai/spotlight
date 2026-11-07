@@ -1,3 +1,4 @@
+import { RunWorkspaceKeyConflictError } from '@runs/domain/exceptions/run-workspace-key-conflict.error';
 import { RequesterOwner } from '@runs/domain/value-objects/run-requester.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
@@ -32,6 +33,20 @@ export class WorkspaceKey {
     }
 
     return WorkspaceKey.of(raw.slice(0, at), raw.slice(at + 1));
+  }
+
+  static requestedBy(owner: string, requested: string): WorkspaceKey {
+    const at = requested.indexOf('/');
+
+    if (at < 0) {
+      return WorkspaceKey.of(owner, requested);
+    }
+
+    if (requested.slice(0, at) !== owner) {
+      throw new RunWorkspaceKeyConflictError(requested);
+    }
+
+    return WorkspaceKey.of(owner, requested.slice(at + 1));
   }
 
   get value(): string {

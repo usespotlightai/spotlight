@@ -1,10 +1,10 @@
-export { RunFacts } from '@runs/application/services/run-facts.service';
+export { runReadModelOver } from '@runs/application/services/run-read-model.fake-spec';
 export { Runs } from '@runs/application/services/runs.service';
 export { InMemoryArchives } from '@runs/application/services/workspace-archives.fake-spec';
 export { Run } from '@runs/domain/aggregates/run.aggregate';
-export { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+export { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 export { RunCancelled } from '@runs/domain/events/run-cancelled.event';
-export { RunCompleted } from '@runs/domain/events/run-completed.event';
+export { RunEnded } from '@runs/domain/events/run-ended.event';
 export { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 export { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 export type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -17,7 +17,7 @@ export { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 export { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 
 import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
-import type { RequestedRunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/requested-run-ended.integration-event';
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 
 export const publishedAs = <T>(
@@ -37,8 +37,7 @@ export const publishedAs = <T>(
 export const runEndedOf = (
   event: DomainEvent,
   at?: Date,
-): RequestedRunEndedIntegrationEvent =>
-  publishedAs<RequestedRunEndedIntegrationEvent>(event, at);
+): RunEndedIntegrationEvent => publishedAs<RunEndedIntegrationEvent>(event, at);
 export { CompleteRunHandler } from '@runs/application/commands/handlers/complete-run.handler';
 export { CompleteRunCommand } from '@runs/application/commands/runner.commands';
 export { Handover as RunHandover } from '@runs/domain/value-objects/handover.vo';

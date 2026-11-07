@@ -1,8 +1,8 @@
-import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
+  LinesPort,
   StationView,
-  WorkPort,
-} from '@replays/application/ports/work.port';
+} from '@replays/application/ports/lines.port';
+import type { PeoplePort } from '@replays/application/ports/people.port';
 import { TeamAccess } from '@replays/application/services/team-access';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -27,7 +27,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 export class ReplaysAccess {
   constructor(
     private readonly people: PeoplePort,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly searches: SearchRepository,
@@ -45,7 +45,7 @@ export class ReplaysAccess {
     lineId: string,
     stationId: string,
   ): Promise<StationView> {
-    const station = await this.work.station(
+    const station = await this.lines.station(
       LineId.of(lineId),
       StationId.of(stationId),
     );
@@ -62,7 +62,7 @@ export class ReplaysAccess {
     lineId: string,
     key: string,
   ): Promise<StationView> {
-    const station = await this.work.keyed(LineId.of(lineId), key);
+    const station = await this.lines.keyed(LineId.of(lineId), key);
 
     if (!station || !access.sees(station)) {
       throw new UnknownStationError(key);

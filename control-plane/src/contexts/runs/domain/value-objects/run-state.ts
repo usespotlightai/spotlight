@@ -63,20 +63,3 @@ export const progressOf = (run: Working): Progress | null => {
     ? 'in-progress'
     : null;
 };
-
-export const progressOfCurrentRun = (
-  current: Working | null,
-  takenUp: boolean,
-): Progress | null => {
-  if (current === null) {
-    return 'queued';
-  }
-  if (
-    takenUp &&
-    resumable(current.state, current.stopRequested, current.turn ?? null)
-  ) {
-    return 'queued';
-  }
-
-  return progressOf(current);
-};

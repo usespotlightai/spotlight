@@ -1,7 +1,7 @@
 import {
   orderedFor,
   RunCancelled,
-  RunCompleted,
+  RunEnded,
   RunExhausted,
   RunOutcome,
   runEndedOf,
@@ -19,7 +19,7 @@ import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -44,7 +44,7 @@ const dispatches: DispatchRepository = {
 const endings = () =>
   new DispatchRunEndings(dispatches, { now: () => NOW, sleep: async () => {} });
 
-const failed = new RunCompleted(
+const failed = new RunEnded(
   RUN,
   WORKSPACE,
   SUBJECT,
@@ -56,6 +56,7 @@ const failed = new RunCompleted(
   false,
   true,
   true,
+  NOW,
 );
 
 describe('DispatchRunEndings', () => {
@@ -71,7 +72,7 @@ describe('DispatchRunEndings', () => {
         stationId: StationId.of('station_1'),
       },
       configuredAs: null,
-      order: DispatchOrder.of({}),
+      order: runOrderOf(RUN),
       now: NOW,
     }).enqueuedAsRun();
     stored.pullEvents();
@@ -98,6 +99,7 @@ describe('DispatchRunEndings', () => {
           false,
           'runner-lost',
           true,
+          NOW,
         ),
       ),
     );
@@ -107,7 +109,9 @@ describe('DispatchRunEndings', () => {
 
     stored = null;
     await endings().onRunEnded(
-      runEndedOf(new RunCancelled(RUN, WORKSPACE, SUBJECT, 1, false, false)),
+      runEndedOf(
+        new RunCancelled(RUN, WORKSPACE, SUBJECT, 1, false, false, NOW),
+      ),
     );
 
     expect(saves).toHaveLength(1);

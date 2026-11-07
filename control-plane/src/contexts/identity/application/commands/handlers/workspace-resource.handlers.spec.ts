@@ -180,7 +180,7 @@ describe('UpdateWorkspaceHandler', () => {
 
     await update({ ...ACME, outboundHosts: ['api.example.com'] });
 
-    expect(forget).toHaveBeenCalledWith('ws_1');
+    expect(forget).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
   });
 
   it('points at the slug when a request moves it', async () => {

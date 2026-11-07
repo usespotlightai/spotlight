@@ -1,7 +1,9 @@
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
-import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
+import { ClientSecret } from '@integrations/domain/value-objects/client-secret.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -13,8 +15,10 @@ const SERVER = AuthorizationServer.of({
   token: 'https://mcp.example/token',
 });
 const WANTED = {
-  registrationEndpoint: 'https://mcp.example/register',
-  redirectUri: 'https://app.example/api/integrations/oauth/callback',
+  registrationEndpoint: OAuth2Endpoint.of('https://mcp.example/register'),
+  redirectUri: OAuth2Endpoint.of(
+    'https://app.example/api/integrations/oauth/callback',
+  ),
   server: SERVER,
 };
 
@@ -24,8 +28,8 @@ const registered = (secretExpiresAt: Date | null = null) =>
     teamId: TeamId.of('team_1'),
     integration: IntegrationKey.of('notion'),
     ...WANTED,
-    clientId: 'client-1',
-    clientSecret: AccessToken.of('secret-1'),
+    clientId: OAuth2ClientId.of('client-1'),
+    clientSecret: ClientSecret.of('secret-1'),
     secretExpiresAt,
     registeredAt: new Date('2026-09-01T00:00:00.000Z'),
   });
@@ -38,13 +42,21 @@ describe('OAuth2ClientRegistration', () => {
   it('does not fit once the callback moved or the endpoint changed', () => {
     expect(
       registered().fits(
-        { ...WANTED, redirectUri: 'https://elsewhere.example/callback' },
+        {
+          ...WANTED,
+          redirectUri: OAuth2Endpoint.of('https://elsewhere.example/callback'),
+        },
         NOW,
       ),
     ).toBe(false);
     expect(
       registered().fits(
-        { ...WANTED, registrationEndpoint: 'https://mcp.example/v2/register' },
+        {
+          ...WANTED,
+          registrationEndpoint: OAuth2Endpoint.of(
+            'https://mcp.example/v2/register',
+          ),
+        },
         NOW,
       ),
     ).toBe(false);
@@ -78,7 +90,7 @@ describe('OAuth2ClientRegistration', () => {
       teamId: TeamId.of('team_1'),
       integration: IntegrationKey.of('notion'),
       ...WANTED,
-      clientId: 'client-0',
+      clientId: OAuth2ClientId.of('client-0'),
       clientSecret: null,
       secretExpiresAt: null,
       registeredAt: new Date('2026-09-01T00:00:00.000Z'),
@@ -86,23 +98,8 @@ describe('OAuth2ClientRegistration', () => {
     });
     const replaced = stored.replaceWith(registered());
 
-    expect(replaced.clientId).toBe('client-1');
+    expect(replaced.clientId.value).toBe('client-1');
     expect(replaced.version).toBe(2);
-  });
-
-  it('rejects an answer without a client id', () => {
-    expect(() =>
-      OAuth2ClientRegistration.register({
-        workspaceId: WorkspaceId.of('ws_1'),
-        teamId: TeamId.of('team_1'),
-        integration: IntegrationKey.of('notion'),
-        ...WANTED,
-        clientId: ' ',
-        clientSecret: null,
-        secretExpiresAt: null,
-        registeredAt: new Date('2026-09-01T00:00:00.000Z'),
-      }),
-    ).toThrow();
   });
 
   it('never says its secret aloud', () => {

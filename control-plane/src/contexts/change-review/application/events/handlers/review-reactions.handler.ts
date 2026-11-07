@@ -1,6 +1,6 @@
 import type {
   ReviewDeliveriesPort,
-  ReviewDeliveryKind,
+  ReviewDeliverySubject,
 } from '@change-review/application/ports/review-deliveries.port';
 import type { IncludedCommentPosted } from '@change-review/domain/events/included-comment-posted.event';
 import type { IncludedCommentReturned } from '@change-review/domain/events/included-comment-returned.event';
@@ -10,6 +10,7 @@ import type { ReviewCommentReplied } from '@change-review/domain/events/review-c
 import type { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import type { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -24,12 +25,12 @@ export class ReviewReactions {
   ) {}
 
   async onSubmitted(event: ReviewSubmitted): Promise<void> {
-    await this.deliver(event, 'review', event.reviewId.value);
+    await this.deliver(event, { kind: 'review', subject: event.reviewId });
   }
 
   async onPosted(event: ReviewPosted): Promise<void> {
     for (const commentId of event.onFiles) {
-      await this.deliver(event, 'file', commentId.value);
+      await this.deliver(event, { kind: 'file', subject: commentId });
     }
   }
 
@@ -50,33 +51,34 @@ export class ReviewReactions {
   }
 
   async onReplied(event: ReviewCommentReplied): Promise<void> {
-    await this.deliver(event, 'reply', event.commentId.value);
+    await this.deliver(event, { kind: 'reply', subject: event.commentId });
   }
 
   async onEdited(event: ReviewCommentEdited): Promise<void> {
     if (event.onGitHub) {
-      await this.deliver(event, 'edit', event.commentId.value);
+      await this.deliver(event, { kind: 'edit', subject: event.commentId });
     }
   }
 
   async onDeleted(event: ReviewCommentDeleted): Promise<void> {
     if (event.onGitHub) {
-      await this.deliver(event, 'delete', event.commentId.value);
+      await this.deliver(event, {
+        kind: 'delete',
+        subject: event.commentId,
+      });
     }
   }
 
   private async deliver(
     on: { readonly workspaceId: WorkspaceId; readonly taskId: TaskId },
-    kind: ReviewDeliveryKind,
-    subjectId: string,
+    subject: ReviewDeliverySubject,
   ): Promise<void> {
     await this.deliveries.enqueue(
       {
-        id: this.ids.generate(),
+        id: ReviewDeliveryId.of(this.ids.generate()),
         workspaceId: on.workspaceId,
         taskId: on.taskId,
-        kind,
-        subjectId,
+        ...subject,
       },
       this.clock.now(),
     );

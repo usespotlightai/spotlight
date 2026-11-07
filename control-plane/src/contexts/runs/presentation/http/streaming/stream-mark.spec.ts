@@ -1,4 +1,4 @@
-import type { RunEventView } from '@runs/application/ports/run-stream.port';
+import type { RunJournalEntryView } from '@runs/application/ports/run-stream.port';
 import {
   cursorOf,
   eventIdOf,
@@ -6,7 +6,7 @@ import {
 } from '@runs/presentation/http/streaming/stream-mark';
 import { describe, expect, it } from 'vitest';
 
-const event = (attempt: number, seq: number): RunEventView => ({
+const event = (attempt: number, seq: number): RunJournalEntryView => ({
   attempt,
   seq,
   type: 'output',

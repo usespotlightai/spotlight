@@ -1,4 +1,4 @@
-import type { RunSummary } from '@replays/application/ports/work.port';
+import type { RunSummary } from '@replays/application/ports/trialable-runs.port';
 import {
   type ReplayedCandidatesSeen,
   replayedCandidatesView,
@@ -45,9 +45,7 @@ const ended = (original: number, at: string | null): RunSummary => ({
   unreplayableReason: null,
   reason: null,
   title: null,
-  state: 'completed',
   endedAt: at ? new Date(at) : null,
-  origin: null,
 });
 
 const seenIn = (

@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Res,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -23,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
+import { RecordsRunnerHeartbeat } from '@platform/http/decorators/runner-heartbeat.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 import {
   AppendRunJournalCommand,
@@ -59,6 +61,29 @@ const textAt = (raw: unknown, key: string): string => {
       : undefined;
 
   return typeof value === 'string' ? value : '';
+};
+
+const attemptIn = (body: RecordStartingPointRequestDto | undefined): number => {
+  if (typeof body?.attempt !== 'number') {
+    throw new UnprocessableEntityException('attempt must be a number');
+  }
+
+  return body.attempt;
+};
+
+const archiveIdIn = (
+  body: RecordStartingPointRequestDto | undefined,
+): string | null => {
+  const archiveId: unknown = body?.archiveId;
+
+  if (archiveId === null || archiveId === undefined) {
+    return null;
+  }
+  if (typeof archiveId !== 'string') {
+    throw new UnprocessableEntityException('archiveId must be text or null');
+  }
+
+  return archiveId;
 };
 
 const startedCheckoutOf = (raw: unknown) => ({
@@ -106,6 +131,7 @@ export class RunnerController {
   }
 
   @Post('runners/claim')
+  @RecordsRunnerHeartbeat()
   @ApiOperation({
     operationId: 'claimRun',
     summary: 'Long-poll for work, answering empty when the queue is',
@@ -133,6 +159,7 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/lease')
+  @RecordsRunnerHeartbeat()
   @ApiOperation({
     operationId: 'renewLease',
     summary: 'Say the run is still in progress',
@@ -143,7 +170,7 @@ export class RunnerController {
   @ApiOkResponse({ type: RenewLeaseResponseDto })
   @ApiNotFoundResponse({
     description:
-      'The run is no longer leased by this runner: it ended, was suspended, or its task cancelled it. The runner releases its sandbox.',
+      'The run is no longer leased by this runner: it ended, was suspended, or its requester cancelled it. The runner releases its sandbox.',
   })
   @ApiConflictResponse({
     description:
@@ -163,6 +190,7 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/change-stack-checks/:stackId/lease')
+  @RecordsRunnerHeartbeat()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'renewCheckLease',
@@ -176,8 +204,7 @@ export class RunnerController {
     name: 'recheck',
     required: false,
     type: Boolean,
-    description:
-      'true when the check is the recheck of a replay’s change, as its claim said',
+    description: 'true when the check is a repeat check, as its claim said',
   })
   @ApiOkResponse({ type: RenewCheckLeaseResponseDto })
   @ApiNotFoundResponse({
@@ -202,6 +229,7 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/image')
+  @RecordsRunnerHeartbeat()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'recordRunImage',
@@ -222,19 +250,20 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/starting-point')
+  @RecordsRunnerHeartbeat()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'recordStartingPoint',
     summary:
       'Say where the run started: the archive it restored and the commit each checkout was at',
     description:
-      'The runner reports this once the workspace is restored and its checkouts prepared, before the agent starts, and only for a run that works a task. A later attempt of the same run keeps where the first one started.',
+      'The runner reports this once the workspace is restored and its checkouts prepared, before the agent starts, and only for a run whose spec asks for its starting point. A later attempt of the same run keeps where the first one started.',
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: 'No such run' })
   @ApiConflictResponse({
     description:
-      'The run is not leased by this runner on that attempt, works no task, or already started from somewhere else',
+      'The run is not leased by this runner on that attempt, its spec asks for no starting point, or it already started from somewhere else',
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -249,12 +278,8 @@ export class RunnerController {
       new RecordStartingPointCommand(
         runId,
         runnerId,
-        typeof body?.attempt === 'number' ? body.attempt : Number.NaN,
-        typeof body?.archiveId === 'string'
-          ? body.archiveId
-          : body?.archiveId === null || body?.archiveId === undefined
-            ? null
-            : '',
+        attemptIn(body),
+        archiveIdIn(body),
         Array.isArray(body?.checkouts)
           ? body.checkouts.map((each: unknown) => startedCheckoutOf(each))
           : null,
@@ -288,7 +313,7 @@ export class RunnerController {
     operationId: 'completeRun',
     summary: 'Report how the agent’s turn ended',
     description:
-      'The run leaves its lease. When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run is suspended until they answer. The answer requeues it, and the sandbox that keeps its workspace takes it first.',
+      'The run leaves its lease. When the run hands over and its requester holds the turn, the run is suspended until the requester finishes, keeps or resumes it. A resume requeues it, and the sandbox that keeps its workspace takes it first.',
   })
   @ApiNoContentResponse({ description: 'Turn reported' })
   async complete(

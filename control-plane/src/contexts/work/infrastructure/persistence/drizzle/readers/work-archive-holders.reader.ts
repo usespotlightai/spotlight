@@ -10,6 +10,14 @@ import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.sche
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { inArray } from 'drizzle-orm';
 
+const heldOf = (row: {
+  readonly releasedAt: Date | null;
+  readonly createdAt: Date;
+}): HeldWorkspace => ({
+  released: row.releasedAt !== null,
+  changedAt: row.releasedAt ?? row.createdAt,
+});
+
 @Injectable()
 export class DrizzleWorkArchiveHolders implements ArchiveHolderSource {
   readonly owner = WorkRequesters.owner;
@@ -35,8 +43,8 @@ export class DrizzleWorkArchiveHolders implements ArchiveHolderSource {
         : await this.db
             .select({
               id: task.id,
-              finishedAt: task.finishedAt,
-              updatedAt: task.updatedAt,
+              releasedAt: task.workspaceReleasedAt,
+              createdAt: task.createdAt,
             })
             .from(task)
             .where(inArray(task.id, taskIds));
@@ -46,22 +54,16 @@ export class DrizzleWorkArchiveHolders implements ArchiveHolderSource {
         : await this.db
             .select({
               id: chat.id,
-              sessionId: chat.sessionId,
-              updatedAt: chat.updatedAt,
+              releasedAt: chat.workspaceReleasedAt,
+              createdAt: chat.createdAt,
             })
             .from(chat)
             .where(inArray(chat.id, chatIds));
     const taskHeld = new Map(
-      tasks.map((row): [string, HeldWorkspace] => [
-        row.id,
-        { released: row.finishedAt !== null, changedAt: row.updatedAt },
-      ]),
+      tasks.map((row): [string, HeldWorkspace] => [row.id, heldOf(row)]),
     );
     const chatHeld = new Map(
-      chats.map((row): [string, HeldWorkspace] => [
-        row.id,
-        { released: row.sessionId === null, changedAt: row.updatedAt },
-      ]),
+      chats.map((row): [string, HeldWorkspace] => [row.id, heldOf(row)]),
     );
 
     return new Map(

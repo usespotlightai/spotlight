@@ -1,6 +1,12 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import {
+  pullRequestMerged,
+  pullRequestOpening,
+  taskMoved,
+  usedTool,
+} from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import {
   HookMatch,
   pathPattern,
 } from '@integrations/domain/value-objects/hook-match.vo';
@@ -45,7 +51,7 @@ const refused = (
 describe('HookMatch', () => {
   it('matches anything when it names nothing', () => {
     expect(
-      HookMatch.anything(HookEvent.of('task.moved')).matches(TASK, {}),
+      HookMatch.anything(HookEvent.of('task.moved')).matches(TASK, taskMoved()),
     ).toBe(true);
   });
 
@@ -54,9 +60,9 @@ describe('HookMatch', () => {
       tools: [ToolName.of('grafana.search')],
     });
 
-    expect(match.matches(TASK, { tool: 'grafana.search' })).toBe(true);
-    expect(match.matches(TASK, { tool: 'grafana.dashboard' })).toBe(false);
-    expect(match.matches(TASK, {})).toBe(false);
+    expect(match.matches(TASK, usedTool('grafana.search'))).toBe(true);
+    expect(match.matches(TASK, usedTool('grafana.dashboard'))).toBe(false);
+    expect(match.matches(TASK, usedTool('shell'))).toBe(false);
   });
 
   it('names each tool once', () => {
@@ -69,36 +75,48 @@ describe('HookMatch', () => {
 
   it('matches the lines and stations of the task', () => {
     expect(
-      matching('task.moved', { lines: ['delivery'] }).matches(TASK, {}),
+      matching('task.moved', { lines: ['delivery'] }).matches(
+        TASK,
+        taskMoved(),
+      ),
     ).toBe(true);
     expect(
-      matching('task.moved', { lines: ['triage'] }).matches(TASK, {}),
+      matching('task.moved', { lines: ['triage'] }).matches(TASK, taskMoved()),
     ).toBe(false);
     expect(
       matching('task.moved', { stations: ['implementation'] }).matches(
         TASK,
-        {},
+        taskMoved(),
       ),
     ).toBe(true);
     expect(
-      matching('task.moved', { stations: ['review-code'] }).matches(TASK, {}),
+      matching('task.moved', { stations: ['review-code'] }).matches(
+        TASK,
+        taskMoved(),
+      ),
     ).toBe(false);
   });
 
   it('matches a repository of the task, or of the change for a change event', () => {
     expect(
-      matching('task.moved', { repositories: ['acme/web'] }).matches(TASK, {}),
+      matching('task.moved', { repositories: ['acme/web'] }).matches(
+        TASK,
+        taskMoved(),
+      ),
     ).toBe(true);
     expect(
-      matching('task.moved', { repositories: ['acme/ops'] }).matches(TASK, {}),
+      matching('task.moved', { repositories: ['acme/ops'] }).matches(
+        TASK,
+        taskMoved(),
+      ),
     ).toBe(false);
 
     const merged = matching('pull-request.merged', {
       repositories: ['acme/web'],
     });
 
-    expect(merged.matches(TASK, { repository: 'acme/web' })).toBe(true);
-    expect(merged.matches(TASK, { repository: 'acme/api' })).toBe(false);
+    expect(merged.matches(TASK, pullRequestMerged('acme/web'))).toBe(true);
+    expect(merged.matches(TASK, pullRequestMerged('acme/api'))).toBe(false);
   });
 
   it('matches changed paths by glob, and a folder by its prefix', () => {
@@ -107,12 +125,13 @@ describe('HookMatch', () => {
     });
 
     expect(
-      match.matches(TASK, {
-        changed: ['src/app.ts', 'db/migrations/0042_add.sql'],
-      }),
+      match.matches(
+        TASK,
+        pullRequestOpening(['src/app.ts', 'db/migrations/0042_add.sql']),
+      ),
     ).toBe(true);
-    expect(match.matches(TASK, { changed: ['src/app.ts'] })).toBe(false);
-    expect(match.matches(TASK, {})).toBe(false);
+    expect(match.matches(TASK, pullRequestOpening(['src/app.ts']))).toBe(false);
+    expect(match.matches(TASK, pullRequestOpening([]))).toBe(false);
   });
 
   it('refuses tools on an event about no tool, and paths on an event about no change', () => {

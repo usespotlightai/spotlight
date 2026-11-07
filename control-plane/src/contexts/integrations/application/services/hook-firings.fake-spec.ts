@@ -18,10 +18,15 @@ import {
   HookEvent,
   type HookEventName,
 } from '@integrations/domain/value-objects/hook-event.vo';
+import {
+  usedTool,
+  usingTool,
+} from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import type { HookFailureCode } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { type Mock, vi } from 'vitest';
 
@@ -29,7 +34,9 @@ export const NOW = new Date('2026-09-26T10:00:00.000Z');
 
 export const TASK = taskViewOf();
 
-export const EVENT = { tool: 'grafana.search', inputs: { query: 'cpu' } };
+export const EVENT = usedTool('grafana.search', { inputs: { query: 'cpu' } });
+
+export const USING = usingTool('grafana.search', { query: 'cpu' });
 
 export const later = (ms: number) => new Date(NOW.getTime() + ms);
 
@@ -49,13 +56,14 @@ export const hookNamed = (
     key: HookKey.of(key),
     teamId: TeamId.of('team_1'),
     blocks,
+    compiled: null,
     broken: null,
     written: Hook.of({
       key: HookKey.of(key),
       event,
       match: HookMatch.anything(event),
       steps: steps.map((name) => ({
-        name,
+        name: HookStepName.of(name),
         kind: 'request' as const,
         url: new URL('https://a.example.com'),
         headers: [],
@@ -78,12 +86,18 @@ export const brokenHook = (
   written: null,
 });
 
-export const done = (name: string, output: unknown = null): StepResult => ({
-  outcome: { name, status: 'done', output },
+const stepNamed = (name: HookStepName | string): HookStepName =>
+  typeof name === 'string' ? HookStepName.of(name) : name;
+
+export const done = (
+  name: HookStepName | string,
+  output: unknown = null,
+): StepResult => ({
+  outcome: { name: stepNamed(name), status: 'done', output },
   denyReason: null,
   trace: {
     hook: 'k',
-    step: name,
+    step: stepNamed(name).value,
     kind: 'request',
     target: 'https://a.example.com',
     request: {},
@@ -96,11 +110,17 @@ export const done = (name: string, output: unknown = null): StepResult => ({
 });
 
 export const failed = (
-  name: string,
+  name: HookStepName | string,
   reason = 'was answered 503',
   code: HookFailureCode = 'server-error',
 ): StepResult => ({
-  outcome: { name, status: 'failed', code, reason, output: null },
+  outcome: {
+    name: stepNamed(name),
+    status: 'failed',
+    code,
+    reason,
+    output: null,
+  },
   denyReason: null,
   trace: null,
 });
@@ -111,7 +131,7 @@ export const stateOf = (firing: HookFiring) => ({
   workspaceId: firing.workspaceId,
   teamId: firing.teamId,
   taskId: firing.taskId,
-  runId: firing.runId,
+  run: firing.run,
   stationKey: firing.stationKey,
   on: firing.on,
   occurrence: firing.occurrence,
@@ -135,33 +155,25 @@ export const firingsInMemory = (stored: HookFiring | null = null) => {
   const firings = {
     add: vi.fn(async (_firing: HookFiring) => true),
     withId: vi.fn(async (id: HookFiringId) => byId.get(id.value) ?? null),
-    claimNext: vi.fn(async (now: Date) => {
-      const due = [...byId.values()].find(
+    claimCandidates: vi.fn(async (now: Date) =>
+      [...byId.values()].filter(
         (each) =>
           each.progress.kind === 'pending' &&
           each.progress.dueAt.getTime() <= now.getTime(),
-      );
-
-      if (!due) {
-        return null;
-      }
-
-      byId.set(
-        due.id.value,
-        HookFiring.rehydrate({
-          ...stateOf(due.claimed(now)),
-          version: due.version + 1,
-        }),
-      );
-
-      return byId.get(due.id.value) ?? null;
-    }),
+      ),
+    ),
     save: vi.fn(async (firing: HookFiring) => {
       if (byId.get(firing.id.value)?.version !== firing.version) {
         throw new HookFiringVersionConflictError(firing.id.value);
       }
 
-      saved.push(firing);
+      const claiming =
+        firing.progress.kind === 'working' &&
+        byId.get(firing.id.value)?.progress.kind !== 'working';
+
+      if (!claiming) {
+        saved.push(firing);
+      }
       byId.set(
         firing.id.value,
         HookFiring.rehydrate({
@@ -205,8 +217,8 @@ export const stepsOf = (
   const take = vi.fn(async (request: StepRequest) => step(request));
   const traced = vi.fn(
     async (instance: HookEventInstance, stepResult: StepResult) => {
-      if (stepResult.trace && instance.task.runId) {
-        await calls.record(instance.task.runId.value, stepResult.trace);
+      if (stepResult.trace && instance.run) {
+        await calls.record(instance.run, stepResult.trace);
       }
     },
   );

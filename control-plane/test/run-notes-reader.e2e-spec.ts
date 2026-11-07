@@ -10,7 +10,7 @@ import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizz
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { endedAtFor } from './support/run-ended';
+import { endingFor } from './support/run-ended';
 import { runFactsOver, runJournalsOver } from './support/run-facts';
 import { aDispatch, aTurn, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -109,7 +109,7 @@ const taskOnLine = async (...names: string[]) => {
       harness: 'dev',
       ...requestedByTask(taskId, { teamId: 'team_1' }),
       state,
-      endedAt: endedAtFor(state),
+      ...endingFor(state),
       spec: {
         command: { executable: 'sh', args: [] },
         briefing: 'Fix the queue.',
@@ -360,7 +360,7 @@ describe('the progress of a run once a person answered it', () => {
     ]);
 
     return [forTask, forTeam, traced].map(
-      (runs) => runs.find((each) => each.id === runId)?.takenUpOnAnswer,
+      (runs) => runs.find((each) => each.id === runId)?.progress,
     );
   };
 
@@ -385,14 +385,14 @@ describe('the progress of a run once a person answered it', () => {
   it('takes up the current run in every run list once the answer is in', async () => {
     const { taskId, runId, older } = await paused('suspended', true);
 
-    expect(await listed(taskId, runId)).toEqual([true, true, true]);
-    expect(await listed(taskId, older)).toEqual([false, false, false]);
+    expect(await listed(taskId, runId)).toEqual(['queued', 'queued', 'queued']);
+    expect(await listed(taskId, older)).toEqual([null, null, null]);
   });
 
   it('takes up no run while the person still owes the answer', async () => {
     const { taskId, runId } = await paused('suspended', false);
 
-    expect(await listed(taskId, runId)).toEqual([false, false, false]);
+    expect(await listed(taskId, runId)).toEqual([null, null, null]);
   });
 
   it('says in the run notes that an answered run is queued again', async () => {

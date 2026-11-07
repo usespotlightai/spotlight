@@ -43,7 +43,7 @@ const deleting = (tasks: number) => {
   const save = vi.fn(async (_: Line) => {});
   const warn = vi.fn();
   const tally = async () =>
-    new Map(line.stations.map((each) => [each.id.value, tasks]));
+    line.stations.map((each) => ({ stationId: each.id, tasks }));
   const lines = {
     ofTeam: vi.fn(async () => [line]),
     save,
@@ -54,7 +54,7 @@ const deleting = (tasks: number) => {
       lines,
       {
         lockedTaskCountsAt: vi.fn(tally),
-        release: vi.fn(async () => 'released' as const),
+        release: vi.fn(async () => {}),
       } satisfies StationDeletionGuardPort,
       { generate: () => 'id' },
     ),

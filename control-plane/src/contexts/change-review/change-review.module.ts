@@ -11,6 +11,7 @@ import { contextBindings } from '@platform/bindings/context-bindings';
 import { RunnersModule } from '@runners/runners.module';
 import { CHECK_PROVISIONING } from '@runs/application/ports/check-provisioning.port';
 import { CHECK_WORK } from '@runs/application/ports/check-work.port';
+import { RunsModule } from '@runs/runs.module';
 import { CHECK_ACCESS } from '@work/application/ports/check-access.port';
 import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
 import { TASK_DECISIONS } from '@work/application/ports/task-decisions.port';
@@ -25,7 +26,13 @@ const BINDINGS = contextBindings([
 ]);
 
 @Module({
-  imports: [IdentityModule, GitHubModule, RunnersModule, WorkModule],
+  imports: [
+    IdentityModule,
+    GitHubModule,
+    RunnersModule,
+    RunsModule,
+    WorkModule,
+  ],
   controllers: [...CHANGE_REVIEW_CONTROLLERS],
   providers: [...CHANGE_REVIEW_PROVIDERS, ...BINDINGS.exposed],
   exports: [RUN_CHANGE_CHECKS, TRIAL_RECHECKS, ...BINDINGS.exposedTokens],

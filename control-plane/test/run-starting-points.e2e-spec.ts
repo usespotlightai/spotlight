@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
@@ -147,7 +148,10 @@ describe('a task run’s starting point', () => {
     const run = aTaskRun();
     await runs.add(run);
 
-    const claimed = (await runs.findById(run.id))?.claim(RUNNER, NOW) as Run;
+    const claimed = (await runs.findById(run.id))?.claim(
+      claimer(RUNNER),
+      NOW,
+    ) as Run;
     await runs.save(claimed);
 
     const archive = WorkspaceArchiveId.of(randomUUID());

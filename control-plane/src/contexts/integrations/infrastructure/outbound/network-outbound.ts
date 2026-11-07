@@ -1,4 +1,5 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import { isHostHeader } from '@integrations/domain/value-objects/action.vo';
 import type { RequestIR } from '@integrations/infrastructure/integrations/integration.compile';
 import {
   answeredWith,
@@ -46,7 +47,7 @@ export class NetworkOutbound {
 
     const sending = `sending a request to ${url.host} from the workspace’s network`;
 
-    if (Object.keys(headers).some((name) => name.toLowerCase() === 'host')) {
+    if (Object.keys(headers).some(isHostHeader)) {
       throw new UpstreamError(
         sending,
         'the action sets a Host header, so Spotlight didn’t queue it',
@@ -64,7 +65,7 @@ export class NetworkOutbound {
         headers,
         body: new TextEncoder().encode(plain.body ?? ''),
         timeoutMs,
-        secrets,
+        secrets: secrets.map((each) => each.value),
       },
       until,
     );

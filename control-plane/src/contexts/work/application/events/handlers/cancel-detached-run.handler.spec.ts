@@ -1,5 +1,6 @@
 import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
+  claimer,
   HandoverReport,
   orderedFor,
   Run,
@@ -37,7 +38,7 @@ const queued = () =>
     ...orderedFor.task('task_1', 0),
   });
 
-const claimed = () => queued().claim(RUNNER, NOW);
+const claimed = () => queued().claim(claimer(RUNNER), NOW);
 
 const suspended = () =>
   claimed().reportTurn(
@@ -98,7 +99,12 @@ describe('CancelDetachedRun', () => {
 
   it('leaves a run that has already ended', async () => {
     const { handler, save } = stopping(
-      claimed().complete(RUNNER, RunOutcome.of({ exitCode: 0, failed: false })),
+      claimed().complete(
+        RUNNER,
+        RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        NOW,
+      ),
     );
 
     await handler.on(detached);

@@ -2,7 +2,7 @@ import { AppendRunJournalHandler } from '@runs/application/commands/handlers/app
 import { AppendRunJournalCommand } from '@runs/application/commands/runner.commands';
 import type { JournalEntry } from '@runs/application/ports/run-journal.port';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
@@ -26,9 +26,9 @@ const leased = Run.enqueue({
     resume: {},
   }),
 })
-  .claim(RunnerId.of('runner_1'), NOW)
+  .claim(claimer(RunnerId.of('runner_1')), NOW)
   .expireLease(new Date(NOW.getTime() + 60_000))
-  .claim(RunnerId.of('runner_1'), NOW);
+  .claim(claimer(RunnerId.of('runner_1')), NOW);
 
 const journalling = () => {
   const appended: { attempt: RunAttempt; entries: readonly JournalEntry[] }[] =

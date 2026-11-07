@@ -12,9 +12,12 @@ import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,7 +49,7 @@ const connected = (token: string, owner: ConnectionOwner) =>
     integration: IntegrationKey.of('slack'),
     owner,
     accessToken: AccessToken.of(token),
-    refreshToken: AccessToken.of('xoxe-1'),
+    refreshToken: RefreshToken.of('xoxe-1'),
     expiresAt: null,
     scopes: [],
     linkedAccount: '@alice',
@@ -233,7 +236,7 @@ describe('CallAuthResolver', () => {
     expect(
       await injectedHeaders(
         callAuth.credentials.injectedFor('https://slack.com/api/x', [
-          'SLACK_BOT_TOKEN',
+          SecretName.of('SLACK_BOT_TOKEN'),
         ]),
       ),
     ).toEqual({ authorization: 'Bearer xoxb-1' });
@@ -259,7 +262,7 @@ describe('CallAuthResolver', () => {
 
     await expect(
       callAuth.credentials.injectedFor('https://slack.com/api/x', [
-        'SLACK_BOT_TOKEN',
+        SecretName.of('SLACK_BOT_TOKEN'),
       ]),
     ).rejects.toThrow(/which no workspace has/);
   });
@@ -270,15 +273,15 @@ describe('CallAuthResolver', () => {
     const callAuth = await resolver.forRun(
       {
         teamId: TEAM,
-        workspaceId: 'ws_1',
-        runId: 'run_1',
+        workspaceId: WorkspaceId.of('ws_1'),
+        runId: RunId.of('run_1'),
         attempt: 2,
-        injectedSecrets: ['SLACK_BOT_TOKEN'],
+        injectedSecrets: [SecretName.of('SLACK_BOT_TOKEN')],
       },
       null,
     );
     await callAuth.credentials.injectedFor('https://slack.com/api/x', [
-      'SLACK_BOT_TOKEN',
+      SecretName.of('SLACK_BOT_TOKEN'),
     ]);
 
     expect(grant).toHaveBeenCalledWith({
@@ -302,8 +305,8 @@ describe('CallAuthResolver', () => {
     await resolver.forRun(
       {
         teamId: TEAM,
-        workspaceId: 'ws_1',
-        runId: 'run_1',
+        workspaceId: WorkspaceId.of('ws_1'),
+        runId: RunId.of('run_1'),
         attempt: 1,
         injectedSecrets: [],
       },

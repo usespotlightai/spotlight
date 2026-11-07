@@ -12,6 +12,7 @@ import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -24,7 +25,7 @@ const waiting = (stack: string) =>
     stackId: ChangeStackId.of(stack),
     runId: RunId.of(`run_of_${stack}`),
     taskId: null,
-    teamId: null,
+    teamId: TeamId.of('team_1'),
     trial: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
@@ -65,7 +66,7 @@ describe('ExpireWaitingChecks', () => {
       stackId: ChangeStackId.of('stack_9'),
       runId: RunId.of('run_of_stack_9'),
       taskId: null,
-      teamId: null,
+      teamId: TeamId.of('team_1'),
       trial: false,
       workspaceId: WorkspaceId.of('ws_1'),
       request: CheckRequest.of('npm test', null),

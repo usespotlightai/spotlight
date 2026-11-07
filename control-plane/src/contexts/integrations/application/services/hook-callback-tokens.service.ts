@@ -46,6 +46,10 @@ export class HookCallbackTokens {
     );
 
     for (const callbackToken of expired) {
+      if (!callbackToken.isRemovableAt(now)) {
+        continue;
+      }
+
       try {
         await this.callbackTokens.remove(callbackToken);
       } catch (error) {

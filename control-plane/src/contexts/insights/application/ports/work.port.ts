@@ -1,15 +1,22 @@
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
+import type { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const WORK = Symbol('INSIGHTS_WORK');
 
 export interface EndedRun {
-  readonly runId: string;
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly lineId: string;
-  readonly stationId: string;
-  readonly taskId: string;
-  readonly fingerprint: string | null;
+  readonly runId: RunId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly lineId: LineId;
+  readonly stationId: StationId;
+  readonly taskId: TaskId;
+  readonly fingerprint: ConfigFingerprint | null;
   readonly visit: number;
   readonly harness: string;
   readonly model: string | null;
@@ -23,9 +30,9 @@ export interface EndedRun {
 }
 
 export interface TaskRun {
-  readonly runId: string;
-  readonly taskId: string;
-  readonly teamId: string;
+  readonly runId: RunId;
+  readonly taskId: TaskId;
+  readonly teamId: TeamId;
 }
 
 export interface ConfigPart {
@@ -92,11 +99,11 @@ export interface TracedWanted {
 }
 
 export interface WorkPort {
-  endedRun(runId: string): Promise<EndedRun | null>;
+  endedRun(runId: RunId): Promise<EndedRun | null>;
 
-  taskRunOf(runId: string): Promise<TaskRun | null>;
+  taskRunOf(runId: RunId): Promise<TaskRun | null>;
 
-  unfinishedRuns(teamId: string): Promise<readonly UnfinishedRun[]>;
+  unfinishedRuns(teamId: TeamId): Promise<readonly UnfinishedRun[]>;
 
   traced(wanted: TracedWanted): Promise<TracedWork>;
 

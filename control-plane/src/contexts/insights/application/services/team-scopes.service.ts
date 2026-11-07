@@ -1,18 +1,18 @@
 import type { TeamWindow } from '@insights/application/ports/insights-reader.port';
 import type { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
-import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
+import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface TeamScope {
-  readonly access: TeamAccess;
+  readonly access: ViewedTeam;
   readonly period: InsightsPeriod;
 }
 
 export const windowOf = (
-  access: TeamAccess,
+  access: ViewedTeam,
   window: { readonly from: Date; readonly to: Date },
 ): TeamWindow => ({
   workspaceId: access.workspaceId,

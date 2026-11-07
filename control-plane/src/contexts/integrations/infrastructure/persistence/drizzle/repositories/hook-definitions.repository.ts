@@ -10,6 +10,10 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  codeOf,
+  UNIQUE_VIOLATION,
+} from '@platform/persistence/drizzle/violations';
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import {
   CREDENTIAL_ENCRYPTION,
@@ -22,15 +26,6 @@ import {
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
-
-const UNIQUE_VIOLATION = '23505';
-
-const collided = (error: unknown): boolean =>
-  (
-    ((error as { cause?: unknown } | null)?.cause ?? error) as {
-      code?: string;
-    } | null
-  )?.code === UNIQUE_VIOLATION;
 
 export const secretLabel = (hookId: string): string =>
   `hook:${hookId}:signing-secret`;
@@ -52,6 +47,7 @@ const rehydrated = (row: Row): HookDefinition =>
     event: HookEvent.of(row.on),
     document: DefinitionDocument.of(row.definition),
     tools: row.tools.map((tool) => ToolName.of(tool)),
+    blocks: row.blocks,
     signing:
       row.signingSecretVersion === null
         ? null
@@ -71,17 +67,6 @@ export class DrizzleHookDefinitions implements HookDefinitionRepository {
 
   async withId(id: HookDefinitionId): Promise<HookDefinition | null> {
     const found = await this.first(eq(hookDefinition.id, id.value));
-
-    return found ? rehydrated(found) : null;
-  }
-
-  async of(teamId: TeamId, key: HookKey): Promise<HookDefinition | null> {
-    const found = await this.first(
-      and(
-        eq(hookDefinition.teamId, teamId.value),
-        eq(hookDefinition.key, key.value),
-      ),
-    );
 
     return found ? rehydrated(found) : null;
   }
@@ -127,6 +112,7 @@ export class DrizzleHookDefinitions implements HookDefinitionRepository {
       on: definition.event.name,
       definition: { ...definition.document.fields },
       tools: definition.tools.map((tool) => tool.value),
+      blocks: definition.blocks,
       ...(await this.encrypted(definition)),
     };
 
@@ -140,7 +126,7 @@ export class DrizzleHookDefinitions implements HookDefinitionRepository {
           ...written,
         });
       } catch (error) {
-        if (collided(error)) {
+        if (codeOf(error) === UNIQUE_VIOLATION) {
           throw new HookAlreadyExistsError(definition.key.value);
         }
 

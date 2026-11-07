@@ -14,6 +14,7 @@ import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -56,12 +57,12 @@ const hook = ({
     ),
     steps: [
       {
-        name: 'notify',
+        name: HookStepName.of('notify'),
         kind: 'call',
         tool: ToolName.of('slack.post-message'),
       },
       {
-        name: 'audit',
+        name: HookStepName.of('audit'),
         kind: 'request',
         url: new URL('https://audit.example.com'),
         headers: [],
@@ -109,6 +110,7 @@ const rehydrated = (version = 3) =>
     event: HookEvent.of('tool.used'),
     document: DefinitionDocument.of({ key: 'grafana-reads' }),
     tools: [ToolName.of('grafana.search'), ToolName.of('slack.post-message')],
+    blocks: false,
     signing: { version: 1 },
     version,
   });
@@ -298,22 +300,22 @@ describe('HookDefinition', () => {
     expect(() => deleted.delete(BY)).toThrow(InconsistentStateError);
   });
 
-  it('blocks on failure only where it was written to', () => {
-    const written = (document: Record<string, unknown>) =>
+  it('remembers whether its compiled hook blocks on failure', () => {
+    const written = (blocks: boolean) =>
       HookDefinition.rehydrate({
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
         key: HookKey.of('grafana-reads'),
         event: HookEvent.of('tool.using'),
-        document: DefinitionDocument.of(document),
+        document: DefinitionDocument.of({}),
         tools: [],
+        blocks,
         signing: null,
         version: 1,
       });
 
-    expect(written({ failure: 'block' }).blocks).toBe(true);
-    expect(written({ failure: 'continue' }).blocks).toBe(false);
-    expect(written({}).blocks).toBe(false);
+    expect(written(true).blocks).toBe(true);
+    expect(written(false).blocks).toBe(false);
   });
 });

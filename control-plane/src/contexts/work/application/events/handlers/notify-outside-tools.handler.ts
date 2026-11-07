@@ -4,13 +4,13 @@ import {
   bindableTaskEventOf,
   type NoticedTaskEvent,
 } from '@work/application/mappers/bindable-task-event.mapper';
-import type { OutboundTaskNotifierPort } from '@work/application/ports/outbound-task-notifier.port';
+import type { OutboundTaskNotifier } from '@work/application/services/outside-task-notices.service';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
 export class NotifyOutsideTools {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly notifier: OutboundTaskNotifierPort,
+    private readonly notifier: OutboundTaskNotifier,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}

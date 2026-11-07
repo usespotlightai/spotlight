@@ -1,5 +1,6 @@
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import type { RunUsageReaderPort } from '@runs/application/ports/run-usage-reader.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
@@ -181,7 +182,12 @@ const reading = ({
         stations,
         outcomesPort,
         usages,
-        new StationRunHistories(stations, usages, connectionsInMemory()),
+        new StationRunHistories(
+          stations,
+          usages,
+          connectionsInMemory(),
+          runJournalReadings(),
+        ),
       ).execute(
         new ReadRunnerHistoryQuery('run_0', 'runner_1', {
           station: 'implementation',

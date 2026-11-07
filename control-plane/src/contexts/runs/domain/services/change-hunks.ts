@@ -1,4 +1,4 @@
-export interface ChangeHunk {
+interface ChangeHunk {
   readonly id: string;
   readonly path: string;
   readonly index: number;

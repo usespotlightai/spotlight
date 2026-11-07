@@ -54,6 +54,14 @@ export class RunnerPlacement {
     ).in(image);
   }
 
+  static forStation(
+    station: RunnerPlacement | null,
+    line: RunnerPlacement,
+    image: RunnerImage | null,
+  ): RunnerPlacement {
+    return (station?.or(line) ?? line).in(image);
+  }
+
   static every(placements: readonly RunnerPlacement[]): RunnerPlacement {
     const labelGroups: LabelGroup[] = [];
 

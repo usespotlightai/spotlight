@@ -3,7 +3,6 @@ import type { StationDeletionGuardPort } from '@lines/application/ports/station-
 import type { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineAlreadyExistsError } from '@lines/domain/exceptions/line-already-exists.error';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
-import { StationNotEmptyError } from '@lines/domain/exceptions/station-not-empty.error';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
 import { keyTaken } from '@lines/domain/services/line-keys';
 import { rolesClaimedTwice } from '@lines/domain/services/line-roles';
@@ -12,6 +11,7 @@ import {
   reconcileLine,
 } from '@lines/domain/services/reconcile-line';
 import type { LinePlan } from '@lines/domain/value-objects/line-plan.vo';
+import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -64,9 +64,7 @@ export class ApplyLines {
     const reconciled = reconcileLine({
       existing: line,
       plan,
-      taskCounts: await this.guard.lockedTaskCountsAt(
-        line.stations.map((each) => each.id),
-      ),
+      taskCounts: await this.lockedTaskCounts(line),
       newId: () => this.ids.generate(),
       by,
     });
@@ -78,22 +76,24 @@ export class ApplyLines {
   }
 
   async delete(line: Line, by: ChangeActor): Promise<void> {
-    const stationIds = line.stations.map((each) => each.id);
-    const deleted = line.delete(
-      await this.guard.lockedTaskCountsAt(stationIds),
-      by,
-    );
+    const deleted = line.delete(await this.lockedTaskCounts(line), by);
 
-    await this.release(stationIds);
+    await this.release(line.stations.map((each) => each.id));
     await this.lines.save(deleted);
   }
 
+  private async lockedTaskCounts(line: Line): Promise<TaskCounts> {
+    return TaskCounts.of(
+      await this.guard.lockedTaskCountsAt(
+        { lineId: line.id, version: line.nextVersion },
+        line.stations.map((each) => each.id),
+      ),
+    );
+  }
+
   private async release(stationIds: readonly StationId[]): Promise<void> {
-    if (
-      stationIds.length > 0 &&
-      (await this.guard.release(stationIds)) === 'occupied'
-    ) {
-      throw new StationNotEmptyError(stationIds.map((each) => each.value));
+    if (stationIds.length > 0) {
+      await this.guard.release(stationIds);
     }
   }
 

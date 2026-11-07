@@ -42,9 +42,9 @@ export class PairJudgments implements PairJudgmentsPort {
     }
 
     const [run, other, reference] = await Promise.all([
-      this.evidence.of(order.runId.value),
-      this.evidence.of(order.otherRunId.value),
-      this.evidence.of(order.reference.value),
+      this.evidence.of(order.runId),
+      this.evidence.of(order.otherRunId),
+      this.evidence.of(order.reference),
     ]);
 
     if (!run || !other || !reference) {

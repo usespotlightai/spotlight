@@ -1,15 +1,14 @@
 import { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
-import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
 import { ResendInviteCommand } from '@identity/application/commands/resend-invite.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
 import type {
-  InviteOutcomeDto,
   InvitePreviewDto,
   JoinedWorkspaceDto,
   WorkspaceInviteDto,
 } from '@identity/application/dto/invite.dto';
 import { ListWorkspaceInvitesQuery } from '@identity/application/queries/list-workspace-invites.query';
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
+import { WorkspaceInviting } from '@identity/application/services/workspace-inviting.service';
 import { InviteToWorkspaceRequestDto } from '@identity/presentation/http/dto/invite.request.dto';
 import {
   InviteOutcomesResponseDto,
@@ -57,6 +56,7 @@ export class WorkspaceInviteController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    private readonly inviting: WorkspaceInviting,
   ) {}
 
   @Get()
@@ -108,18 +108,13 @@ export class WorkspaceInviteController {
     @Body() body: InviteToWorkspaceRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<InviteOutcomesResponseDto> {
-    const outcomes = await this.commandBus.execute<
-      InviteToWorkspaceCommand,
-      readonly InviteOutcomeDto[] | null
-    >(
-      new InviteToWorkspaceCommand(
-        slug,
-        listed(body.emails),
-        String(body.role ?? ''),
-        listed(body.teamIds),
-        user.id,
-      ),
-    );
+    const outcomes = await this.inviting.invite({
+      slug,
+      emails: listed(body.emails),
+      role: String(body.role ?? ''),
+      teamIds: listed(body.teamIds),
+      viewerId: user.id,
+    });
 
     if (!outcomes) {
       throw new NotFoundException();

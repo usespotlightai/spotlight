@@ -11,7 +11,7 @@ import {
   RecordEgressConnectionsHandler,
 } from '@runs/application/commands/handlers/record-egress-connections.handler';
 import type { EgressConnectionRecord } from '@runs/application/dto/egress-connections.dto';
-import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
+import type { RunConnectionLedgerPort } from '@runs/application/ports/run-connection-ledger.port';
 import type { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import type { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
@@ -36,7 +36,7 @@ const record = (
 const recording = () => {
   const recorded: { run: string; attempt: number; host: string }[] = [];
   const taken: RunConnection[] = [];
-  const connections: RunConnectionsPort = {
+  const connections: RunConnectionLedgerPort = {
     record: async (
       attempt: RunAttempt,
       connections: readonly RunConnection[],
@@ -50,8 +50,6 @@ const recording = () => {
         })),
       );
     },
-    of: async () => [],
-    errorsIn: async () => [],
     purgeBefore: async () => 0,
   };
   const handler = new RecordEgressConnectionsHandler(

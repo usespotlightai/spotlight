@@ -43,7 +43,7 @@ export class ConversationLoader {
     const item = ConversationId.parse(itemId);
     const task = await this.tasks.find(item.taskId);
 
-    if (!task?.assignedToThem(UserId.of(them))) {
+    if (!task?.showsConversationsTo(UserId.of(them))) {
       throw new UnknownTaskError(item.taskId.value);
     }
 

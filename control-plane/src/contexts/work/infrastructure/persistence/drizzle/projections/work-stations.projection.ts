@@ -32,7 +32,7 @@ export class DrizzleWorkStations implements WorkStationsPort {
       .onConflictDoUpdate({
         target: workLine.lineId,
         set: { lineVersion: sql`excluded.line_version` },
-        setWhere: sql`${workLine.lineVersion} < excluded.line_version`,
+        setWhere: sql`coalesce(${workLine.lineVersion}, -1) < excluded.line_version and coalesce(${workLine.savedVersion}, -1) <= excluded.line_version`,
       })
       .returning({ lineId: workLine.lineId });
 

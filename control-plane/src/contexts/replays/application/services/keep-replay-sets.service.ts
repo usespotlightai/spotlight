@@ -1,5 +1,5 @@
+import type { LinesPort } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
@@ -15,7 +15,7 @@ export class KeepReplaySets {
   constructor(
     private readonly sets: ReplaySetRepository,
     private readonly schedules: StationSearchScheduleRepository,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly people: PeoplePort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -37,7 +37,7 @@ export class KeepReplaySets {
       return;
     }
 
-    const station = await this.work.findStation(stationId);
+    const station = await this.lines.findStation(stationId);
 
     if (
       !station?.workspaceId.equals(workspaceId) ||

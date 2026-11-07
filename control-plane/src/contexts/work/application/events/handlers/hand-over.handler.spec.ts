@@ -1,14 +1,16 @@
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import {
+  claimer,
   HandoverReport,
   orderedFor,
   Run,
-  RunCompleted,
+  RunEnded,
   RunHandover,
   RunOutcome,
   RunSpec,
   runEndedOf,
 } from '@runs/application/ports/run-fixtures.fake-spec';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -27,9 +29,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import { lastWordsIn } from '@work/application/services/last-words';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { RunEndedFacts } from '@work/application/services/run-ending-reactions';
 import { RunRouting } from '@work/application/services/run-routing.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
@@ -129,18 +130,21 @@ const run = (
   const runner = RunnerId.of('runner_1');
 
   return queued()
-    .claim(runner, NOW)
+    .claim(claimer(runner), NOW)
     .complete(
       runner,
       RunOutcome.of({ exitCode: failed ? 1 : 0, failed }),
       report,
+      NOW,
     );
 };
 
 const stoppedRun = () => {
   const runner = RunnerId.of('runner_1');
 
-  return queued().claim(runner, NOW).complete(runner, RunOutcome.stopped(0));
+  return queued()
+    .claim(claimer(runner), NOW)
+    .complete(runner, RunOutcome.stopped(0), HandoverReport.none(), NOW);
 };
 
 const exhausted = () => {
@@ -148,7 +152,7 @@ const exhausted = () => {
   let ended = queued();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     ended.pullEvents();
-    ended = ended.claim(runner, NOW).expireLease(LATER);
+    ended = ended.claim(claimer(runner), NOW).expireLease(LATER);
   }
   return ended;
 };
@@ -160,8 +164,8 @@ const timedOut = () => {
     ended.pullEvents();
     ended =
       attempt < 2
-        ? ended.claim(runner, NOW).expireLease(LATER)
-        : ended.claim(runner, NOW).timedOut(runner, NOW);
+        ? ended.claim(claimer(runner), NOW).expireLease(LATER)
+        : ended.claim(claimer(runner), NOW).timedOut(runner, NOW);
   }
   return ended;
 };
@@ -209,26 +213,32 @@ const handOver = async (
     dispatch,
     clock,
   );
-  const handler = new HandOver(stored, lines(), routing, {
-    attemptsOfRun: async () => journals,
-  } as unknown as RunJournalReaderPort);
+  const handler = new HandOver(
+    stored,
+    lines(),
+    routing,
+    {
+      attemptsOfRun: async () => journals,
+    } as unknown as RunJournalReaderPort,
+    runJournalReadings(),
+  );
   const [raised] = ended.pullEvents();
 
   if (!raised) {
     throw new Error('the run announced nothing');
   }
 
-  if (raised instanceof RunCompleted && raised.outcome.handsOver) {
+  if (raised instanceof RunEnded && raised.outcome.handsOver) {
     return routedAsItsTurn(raised, stored, routing, journals);
   }
 
-  return raised instanceof RunCompleted
+  return raised instanceof RunEnded
     ? handler.onRunEnded(runEndedOf(raised))
     : handler.onRunEnded(runEndedOf(raised));
 };
 
 const routedAsItsTurn = async (
-  ended: RunCompleted,
+  ended: RunEnded,
   stored: TaskRepository,
   routing: RunRouting,
   journals: readonly RunJournal[],
@@ -248,7 +258,7 @@ const routedAsItsTurn = async (
     currentStation: task.stationId,
     lastWords: ended.handover
       ? null
-      : lastWordsIn(journals, task.lastPersonNoteAt),
+      : runJournalReadings().lastWordsIn(journals, task.lastPersonNoteAt),
   });
   const session = RunEndedFacts.session(runEndedOf(ended));
   const recorded = session
@@ -319,8 +329,13 @@ describe('HandOver', () => {
       ...orderedFor.task('task_1', 3),
       spec: aSpec(),
     })
-      .claim(runner, NOW)
-      .complete(runner, RunOutcome.of({ exitCode: 1, failed: true }));
+      .claim(claimer(runner), NOW)
+      .complete(
+        runner,
+        RunOutcome.of({ exitCode: 1, failed: true }),
+        HandoverReport.none(),
+        NOW,
+      );
 
     await expect(handOver(stale)).rejects.toThrow(InconsistentStateError);
 
@@ -384,8 +399,13 @@ describe('HandOver', () => {
   it('leaves a run with no task of its own alone', async () => {
     const runner = RunnerId.of('runner_1');
     const loose = queued(null)
-      .claim(runner, NOW)
-      .complete(runner, RunOutcome.of({ exitCode: 0, failed: false }));
+      .claim(claimer(runner), NOW)
+      .complete(
+        runner,
+        RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        NOW,
+      );
 
     await handOver(loose);
 

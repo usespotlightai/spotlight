@@ -1,3 +1,4 @@
+import { Credential } from '@secrets/application/contracts/credential.contract';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type {
@@ -118,7 +119,14 @@ export class SecretInjection implements SecretInjectionPort {
       injected.push(await injecting(secret));
     }
 
-    return InjectedSecrets.from(injected);
+    return InjectedSecrets.of(
+      injected.map((each) => ({
+        location: each.location,
+        name: each.name,
+        value: Credential.of(each.revealedValue()),
+        bare: Credential.of(each.revealedBare()),
+      })),
+    );
   }
 
   private async named(

@@ -1,7 +1,7 @@
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { DispatchOrderMapper } from '@work/application/mappers/dispatch-order.mapper';
+import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -30,7 +30,10 @@ export class EnqueueOrderedRun {
     }
 
     if (!(await this.stillHeld(dispatch))) {
-      await this.runs.cancel(dispatch.id);
+      await this.runs.cancel(
+        dispatch.id,
+        'Task moved on before a runner claimed the run.',
+      );
       await this.dispatches.save(dispatch.refusedFor('withdrawn'));
       return;
     }
@@ -42,7 +45,7 @@ export class EnqueueOrderedRun {
     }
 
     const enqueueing = await this.runs.enqueue(
-      DispatchOrderMapper.toRunOrder(order),
+      RunOrdersMapper.toRunOrder(order),
     );
 
     if (enqueueing.outcome === 'refused') {
@@ -65,7 +68,10 @@ export class EnqueueOrderedRun {
       return;
     }
 
-    await this.runs.cancel(runId);
+    await this.runs.cancel(
+      runId,
+      'Task moved on before a runner claimed the run.',
+    );
     await this.dispatches.save(
       dispatch.enqueuedAsRun().detached(this.clock.now()),
     );

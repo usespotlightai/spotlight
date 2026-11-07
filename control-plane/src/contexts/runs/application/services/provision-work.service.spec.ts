@@ -24,6 +24,7 @@ import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -62,12 +63,12 @@ const waiting = (
   });
 
 const aWaitingCheck = (
-  stackId: string,
+  checkId: string,
   placement: string[] = [],
   image: RunnerImage | null = null,
 ) => ({
-  stackId,
-  runId: `run_of_${stackId}`,
+  checkId: CheckWorkId.of(checkId),
+  runId: RunId.of(`run_of_${checkId}`),
   placement: RunnerPlacement.of(placement).in(image),
 });
 
@@ -149,7 +150,7 @@ const provisioning = (
     awaiting: vi.fn(async (_workspaceId: WorkspaceId, _at: Date, page) =>
       page.skip === 0 ? (waitingChecks.awaiting ?? []) : [],
     ),
-    reserve: vi.fn(async (_stackId: string, _runner: RunnerId, _pool, at) =>
+    reserve: vi.fn(async (_check: CheckWorkId, _runner: RunnerId, _pool, at) =>
       waitingChecks.reserves === false
         ? null
         : new Date(at.getTime() + 5 * 60_000),
@@ -159,11 +160,7 @@ const provisioning = (
     expired: vi.fn(async () => waitingChecks.expired ?? []),
   } satisfies CheckProvisioningPort;
   let generated = 0;
-  const failures = new ProvisionFailures(
-    runs,
-    { append: async () => {}, appendControlPlaneEntry: async () => -1_000_000 },
-    { publish: () => {}, subscribe: () => () => {} },
-  );
+  const failures = new ProvisionFailures(runs);
 
   return {
     provision,
@@ -251,8 +248,8 @@ describe('ProvisionWork', () => {
       {
         awaiting: [
           {
-            stackId: 'stack_1',
-            runId: 'run_9',
+            checkId: CheckWorkId.of('stack_1'),
+            runId: RunId.of('run_9'),
             placement: RunnerPlacement.of(['gpu']),
           },
         ],
@@ -265,7 +262,7 @@ describe('ProvisionWork', () => {
     await expect(provisioner.due()).rejects.toThrow();
 
     expect(checks.unreserve).toHaveBeenCalledWith(
-      'stack_1',
+      CheckWorkId.of('stack_1'),
       RunnerId.of('pooled_1'),
     );
     expect(checks.failed).not.toHaveBeenCalled();
@@ -513,8 +510,8 @@ describe('ProvisionWork', () => {
       {
         awaiting: [
           {
-            stackId: 'stack_1',
-            runId: 'run_9',
+            checkId: CheckWorkId.of('stack_1'),
+            runId: RunId.of('run_9'),
             placement: RunnerPlacement.of(['gpu']),
           },
         ],
@@ -698,7 +695,7 @@ describe('ProvisionWork', () => {
       await provisioner.due();
 
       expect(checks.reserve).toHaveBeenCalledWith(
-        'stack_1',
+        CheckWorkId.of('stack_1'),
         RunnerId.of('pooled_1'),
         PoolId.of('pool_burst'),
         NOON,
@@ -855,7 +852,7 @@ describe('ProvisionWork', () => {
       await provisioner.due();
 
       expect(checks.failed).toHaveBeenCalledWith(
-        'stack_1',
+        CheckWorkId.of('stack_1'),
         RunnerId.of('pooled_1'),
         ProvisionFailure.of('http-error', 'answered 503'),
         NOON,
@@ -888,7 +885,7 @@ describe('ProvisionWork', () => {
 
       expect(checks.failed).toHaveBeenCalledOnce();
       expect(checks.failed).toHaveBeenCalledWith(
-        'stack_1',
+        CheckWorkId.of('stack_1'),
         RunnerId.of('pooled_2'),
         ProvisionFailure.of(
           'unusable',
@@ -898,7 +895,7 @@ describe('ProvisionWork', () => {
       );
       expect(checks.unreserve).toHaveBeenCalledOnce();
       expect(checks.unreserve).toHaveBeenCalledWith(
-        'stack_1',
+        CheckWorkId.of('stack_1'),
         RunnerId.of('pooled_1'),
       );
     });
@@ -921,7 +918,7 @@ describe('ProvisionWork', () => {
       ]);
       expect(checks.unreserve).toHaveBeenCalledOnce();
       expect(checks.unreserve).toHaveBeenCalledWith(
-        'stack_1',
+        CheckWorkId.of('stack_1'),
         RunnerId.of('pooled_1'),
       );
       expect(checks.reserve.mock.calls.map(([, , pool]) => pool)).toEqual([
@@ -941,7 +938,7 @@ describe('ProvisionWork', () => {
         {
           expired: [
             {
-              stackId: 'stack_1',
+              checkId: CheckWorkId.of('stack_1'),
               runner: RunnerId.of('pooled_9'),
               until: LATER,
             },
@@ -952,7 +949,7 @@ describe('ProvisionWork', () => {
       await provisioner.due();
 
       expect(checks.failed).toHaveBeenCalledWith(
-        'stack_1',
+        CheckWorkId.of('stack_1'),
         RunnerId.of('pooled_9'),
         ProvisionFailure.expired(LATER),
         LATER,

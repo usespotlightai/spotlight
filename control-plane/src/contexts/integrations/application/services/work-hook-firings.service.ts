@@ -6,13 +6,17 @@ import type {
   HookRuntimePort,
   ListeningHook,
 } from '@integrations/application/ports/hook-runtime.port';
+import type { LoopNoticesPort } from '@integrations/application/ports/loop-notices.port';
 import type {
   TasksForHooksPort,
   TaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import { hookMatches } from '@integrations/application/services/hook-matching';
 import type { HookSteps } from '@integrations/application/services/hook-steps.service';
-import type { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
+import type {
+  HookFiring,
+  HookFiringSkip,
+} from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
@@ -25,6 +29,8 @@ import type { TaskNotesFromHooksPort } from '@work/application/ports/task-notes-
 interface LeasedFiring {
   firing: HookFiring;
 }
+
+const CLAIM_WINDOW = 20;
 
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -49,6 +55,7 @@ export class WorkHookFirings {
     private readonly history: HookFiringHistoryPort,
     private readonly tasks: TasksForHooksPort,
     private readonly notes: TaskNotesFromHooksPort,
+    private readonly loopNotices: LoopNoticesPort,
     private readonly pullRequests: PullRequestPort,
     private readonly clock: ClockPort,
     private readonly causation: CausationPort,
@@ -57,7 +64,7 @@ export class WorkHookFirings {
   ) {}
 
   async workOne(): Promise<boolean> {
-    const claimed = await this.firings.claimNext(this.clock.now());
+    const claimed = await this.claimNext();
 
     if (!claimed) {
       return false;
@@ -89,6 +96,30 @@ export class WorkHookFirings {
     });
 
     return true;
+  }
+
+  private async claimNext(): Promise<HookFiring | null> {
+    const now = this.clock.now();
+    const candidates = await this.firings.claimCandidates(now, CLAIM_WINDOW);
+
+    for (const candidate of candidates) {
+      if (!candidate.isClaimableAt(now)) {
+        continue;
+      }
+
+      try {
+        await this.firings.save(candidate.claimed(now));
+      } catch (error) {
+        if (error instanceof HookFiringVersionConflictError) {
+          continue;
+        }
+        throw error;
+      }
+
+      return this.firings.withId(candidate.id);
+    }
+
+    return null;
   }
 
   async processDue(limit = 50): Promise<number> {
@@ -124,42 +155,38 @@ export class WorkHookFirings {
     }
 
     const { firing } = leased;
+    const notice = await this.loopNotices.send({
+      taskId: firing.taskId,
+      stationKey: firing.stationKey,
+      hook,
+      loop,
+      receivedAs: `loop:${firing.id.value}`,
+    });
 
-    try {
-      const notice = await this.notes.failed({
-        taskId: firing.taskId.value,
-        stationKey: firing.stationKey.value,
-        hook,
-        code: loop.code,
-        reason: loop.reason,
-        receivedAs: `loop:${firing.id.value}`,
-      });
-
+    if (notice.kind === 'failed') {
       this.logger.warn(
-        { hook, task: firing.taskId.value, loop: loop.reason, notice },
-        'Stopped a hook that would loop',
-      );
-
-      await this.firings.save(
-        firing.markLoopNotified(this.clock.now(), notice !== 'reported'),
-      );
-    } catch (error) {
-      if (error instanceof HookFiringVersionConflictError) {
-        throw error;
-      }
-
-      this.logger.warn(
-        { err: error, hook, task: firing.taskId.value },
-        'Could not yet send the notice of a hook stopped for looping',
+        { hook, task: firing.taskId.value, reason: notice.failure.reason },
+        'Could not send the notice of a hook stopped for looping',
       );
       await this.firings.save(
-        firing.failedWith(
-          HookFailure.unavailable(because(error)),
-          this.clock.now(),
-          false,
-        ),
+        firing.failedWith(notice.failure, this.clock.now(), false),
       );
+      return;
     }
+
+    this.logger.warn(
+      {
+        hook,
+        task: firing.taskId.value,
+        loop: loop.reason,
+        notice: notice.onTask,
+      },
+      'Stopped a hook that would loop',
+    );
+
+    await this.firings.save(
+      firing.markLoopNotified(this.clock.now(), notice.onTask !== 'reported'),
+    );
   }
 
   private async saved(firing: HookFiring): Promise<HookFiring> {
@@ -180,10 +207,7 @@ export class WorkHookFirings {
     });
   }
 
-  private skipped(
-    firing: HookFiring,
-    reason: 'hook-deleted' | 'no-longer-matches',
-  ): void {
+  private skipped(firing: HookFiring, reason: HookFiringSkip): void {
     this.counted('skipped');
     this.logger.info(
       {
@@ -203,7 +227,7 @@ export class WorkHookFirings {
     const hook = await this.runtime.hook(firing.hookId);
 
     if (!hook) {
-      await this.firings.save(firing.worked(this.clock.now()));
+      await this.firings.save(firing.skipped('hook-deleted', this.clock.now()));
       this.skipped(firing, 'hook-deleted');
       return null;
     }
@@ -226,7 +250,9 @@ export class WorkHookFirings {
 
     if (!firing.matched) {
       if (!hookMatches(this.runtime, hook, instance)) {
-        await this.firings.save(firing.worked(this.clock.now()));
+        await this.firings.save(
+          firing.skipped('no-longer-matches', this.clock.now()),
+        );
         this.skipped(firing, 'no-longer-matches');
         return null;
       }
@@ -283,7 +309,7 @@ export class WorkHookFirings {
 
       if (outcome.status === 'failed') {
         return HookFailure.of(outcome.code, outcome.reason).atStep(
-          hook.key.value,
+          hook.key,
           next.name,
         );
       }
@@ -304,6 +330,7 @@ export class WorkHookFirings {
       occurrence: firing.occurrence,
       at: firing.firedAt,
       task,
+      run: firing.run,
       event: changes
         ? firing.eventWithChanges(
             await this.pullRequests.changedIn(

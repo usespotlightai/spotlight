@@ -5,6 +5,11 @@ import type {
   StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
+  LoopNotice,
+  LoopNoticeReport,
+  LoopNoticesPort,
+} from '@integrations/application/ports/loop-notices.port';
+import type {
   LinkedTaskView,
   TasksForHooksPort,
 } from '@integrations/application/ports/tasks-for-hooks.port';
@@ -28,11 +33,15 @@ import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregat
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import { pullRequestMerged } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import {
   HookFailure,
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -84,6 +93,28 @@ const setUp = (
     failed: vi.fn(async (_report: HookFailureReport) => notice),
     movedOn: vi.fn(async () => movedOn),
   } satisfies TaskNotesFromHooksPort;
+  const loopNotices = {
+    send: async (report: LoopNoticeReport): Promise<LoopNotice> => {
+      try {
+        return {
+          kind: 'sent',
+          onTask: await notes.failed({
+            taskId: report.taskId.value,
+            stationKey: report.stationKey.value,
+            hook: report.hook,
+            code: report.loop.code,
+            reason: report.loop.reason,
+            receivedAs: report.receivedAs,
+          }),
+        };
+      } catch (error) {
+        return {
+          kind: 'failed',
+          failure: HookFailure.unavailable(String(error)),
+        };
+      }
+    },
+  } satisfies LoopNoticesPort;
   const causation = causationInMemory();
   const changedIn = vi.fn(async () => ['db/migrations/1.sql']);
 
@@ -103,6 +134,7 @@ const setUp = (
       history,
       tasks,
       notes,
+      loopNotices,
       {
         open: vi.fn(),
         edit: vi.fn(),
@@ -143,10 +175,10 @@ const stored = (
         workspaceId: WorkspaceId.of('workspace_1'),
         teamId: TeamId.of('team_1'),
         taskId: TaskId.of('task_1'),
-        runId: RunId.of('run_1'),
+        run: HookRunAttempt.of(RunId.of('run_1'), 1),
         stationKey: StationKey.of('implementation'),
         on: 'tool.used',
-        occurrence: 'occurrence_1',
+        occurrence: HookOccurrenceKey.of('occurrence_1'),
         firedAt: NOW,
         event: EVENT,
         matched: true,
@@ -162,11 +194,7 @@ const MERGED = {
   hookId: HookDefinitionId.of('dba_id'),
   on: 'pull-request.merged' as const,
   matched: false,
-  event: {
-    url: 'https://github.com/acme/api/pull/7',
-    repository: 'acme/api',
-    mergeCommit: 'abc',
-  },
+  event: pullRequestMerged('acme/api'),
 };
 
 describe('WorkHookFirings.workOne', () => {
@@ -180,8 +208,8 @@ describe('WorkHookFirings.workOne', () => {
     await expect(hooked.workOne()).resolves.toBe(true);
     expect(last()?.progress).toEqual({ kind: 'done', at: NOW });
     expect(last()?.steps).toEqual([
-      expect.objectContaining({ name: 'a', status: 'done' }),
-      expect.objectContaining({ name: 'b', status: 'done' }),
+      expect.objectContaining({ name: HookStepName.of('a'), status: 'done' }),
+      expect.objectContaining({ name: HookStepName.of('b'), status: 'done' }),
     ]);
   });
 
@@ -201,7 +229,7 @@ describe('WorkHookFirings.workOne', () => {
       },
       {
         stored: stored({
-          steps: [{ name: 'a', status: 'done', output: null }],
+          steps: [{ name: HookStepName.of('a'), status: 'done', output: null }],
           attempts: 1,
         }),
       },
@@ -487,14 +515,15 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
       () => done('a'),
       { stored: stored({ cause: looped }) },
     );
-    vi.mocked(firings.save).mockRejectedValueOnce(
-      new HookFiringVersionConflictError('firing_1'),
-    );
+    const claim = firings.save.getMockImplementation();
+    firings.save
+      .mockImplementationOnce(async (firing: HookFiring) => claim?.(firing))
+      .mockRejectedValueOnce(new HookFiringVersionConflictError('firing_1'));
 
     await expect(hooked.workOne()).resolves.toBe(true);
 
     expect(notes.failed).not.toHaveBeenCalled();
-    expect(firings.save).toHaveBeenCalledTimes(1);
+    expect(firings.save).toHaveBeenCalledTimes(2);
   });
 
   it('never reports a loop for a merged pull request its hook does not match after all', async () => {
@@ -507,7 +536,7 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
     await hooked.workOne();
 
     expect(notes.failed).not.toHaveBeenCalled();
-    expect(last()?.progress.kind).toBe('done');
+    expect(last()?.progress).toMatchObject({ because: 'no-longer-matches' });
   });
 
   it('stores a stop it could not yet report, to report it again later', async () => {
@@ -563,7 +592,7 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
       {
         stored: stored({
           cause: looped,
-          steps: [{ name: 'a', status: 'done', output: null }],
+          steps: [{ name: HookStepName.of('a'), status: 'done', output: null }],
         }),
         repeats: 9,
       },
@@ -592,7 +621,7 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
       [hookNamed('audit', ['a'])],
       () => ({
         outcome: {
-          name: 'a',
+          name: HookStepName.of('a'),
           status: 'waiting',
           call: 'call_1',
           until: new Date('2026-09-26T10:05:00.000Z'),
@@ -608,14 +637,17 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
     expect(last()?.progress).toEqual({ kind: 'pending', dueAt: later(2_000) });
     expect(last()?.attempts).toBe(0);
     expect(last()?.steps).toEqual([
-      expect.objectContaining({ name: 'a', status: 'waiting' }),
+      expect.objectContaining({
+        name: HookStepName.of('a'),
+        status: 'waiting',
+      }),
     ]);
   });
 
   it('resumes the step it was waiting on', async () => {
     const resumed: unknown[] = [];
     const waiting = {
-      name: 'a',
+      name: HookStepName.of('a'),
       status: 'waiting' as const,
       call: 'call_1',
       until: new Date('2026-09-26T10:05:00.000Z'),
@@ -666,7 +698,7 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
     await hooked.workOne();
 
     expect(take).not.toHaveBeenCalled();
-    expect(last()?.progress.kind).toBe('done');
+    expect(last()?.progress).toMatchObject({ because: 'no-longer-matches' });
   });
 
   it('keeps steps done under their names when the hook changes between attempts', async () => {
@@ -674,14 +706,14 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
     const { hooked } = setUp(
       [hookNamed('audit', ['first', 'added', 'second'])],
       (each) => {
-        requested.push(each.step);
+        requested.push(each.step.value);
         return done(each.step);
       },
       {
         stored: stored({
           steps: [
-            { name: 'first', status: 'done', output: null },
-            { name: 'second', status: 'done', output: null },
+            { name: HookStepName.of('first'), status: 'done', output: null },
+            { name: HookStepName.of('second'), status: 'done', output: null },
           ],
         }),
       },
@@ -697,14 +729,15 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
     const { hooked, firings, last } = setUp(
       [hookNamed('audit', ['a', 'b'])],
       (each) => {
-        requested.push(each.step);
+        requested.push(each.step.value);
         return done(each.step);
       },
       { stored: stored() },
     );
-    vi.mocked(firings.save).mockRejectedValueOnce(
-      new HookFiringVersionConflictError('firing_1'),
-    );
+    const claim = firings.save.getMockImplementation();
+    firings.save
+      .mockImplementationOnce(async (firing: HookFiring) => claim?.(firing))
+      .mockRejectedValueOnce(new HookFiringVersionConflictError('firing_1'));
 
     await expect(hooked.workOne()).resolves.toBe(true);
 
@@ -719,7 +752,11 @@ describe('WorkHookFirings.workOne, guarding against loops', () => {
 
     await hooked.workOne();
 
-    expect(last()?.progress.kind).toBe('done');
+    expect(last()?.progress).toEqual({
+      kind: 'skipped',
+      at: NOW,
+      because: 'hook-deleted',
+    });
   });
 });
 

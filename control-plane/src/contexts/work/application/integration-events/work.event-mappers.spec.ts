@@ -1,6 +1,7 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -44,7 +45,7 @@ const published = (event: DomainEvent) =>
 
 const dispatchEnded = (
   outcome: DispatchOutcome,
-  failure: string | null = null,
+  failure: RunFailureCode | null = null,
   stopped = false,
 ) =>
   new DispatchEnded(
@@ -52,7 +53,13 @@ const dispatchEnded = (
     WORKSPACE,
     TASK,
     StationId.of('station_1'),
-    DispatchEnding.of({ endedAt: RECORDED_AT, outcome, failure, stopped }),
+    DispatchEnding.of({
+      endedAt: RECORDED_AT,
+      outcome,
+      failure,
+      stopped,
+      askedAPerson: false,
+    }),
   );
 
 const TASK = TaskId.of('task_1');
@@ -272,7 +279,7 @@ describe('WORK_EVENT_MAPPERS', () => {
   it('says which station a dispatched run worked at, which failure ended it and whether a person stopped it', () => {
     expect(published(dispatchEnded('completed', null, true))).toEqual([
       {
-        kind: 'work.run-ended.v1',
+        kind: 'work.dispatch-ended.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',
@@ -293,7 +300,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       published(new DispatchSuperseded(RUN, WORKSPACE, TASK, RECORDED_AT)),
     ).toEqual([
       {
-        kind: 'work.run-superseded.v1',
+        kind: 'work.dispatch-superseded.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',
@@ -369,7 +376,7 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.run-briefed.v1',
+        kind: 'work.dispatch-briefed.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',

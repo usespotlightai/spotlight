@@ -24,9 +24,6 @@ const TAKEN = [
   InvalidNetworkCallTransitionError,
 ];
 
-const textOf = (value: unknown): string =>
-  typeof value === 'string' ? value : '';
-
 export class RedeemCallSecretsHandler
   implements CommandHandlerPort<RedeemCallSecretsCommand, RedeemCallSecretsDto>
 {
@@ -41,7 +38,7 @@ export class RedeemCallSecretsHandler
     command: RedeemCallSecretsCommand,
   ): Promise<RedeemCallSecretsDto> {
     try {
-      const token = textOf(command.token);
+      const token = command.token;
 
       if (token === '') {
         return { outcome: 'unauthorized' };
@@ -57,7 +54,7 @@ export class RedeemCallSecretsHandler
 
       try {
         redeemed = call.redeemSecrets(
-          CallingHost.of(textOf(command.host)),
+          CallingHost.of(command.host),
           TokenHash.of(this.tokens.hash(token)),
           this.clock.now(),
         );
@@ -69,7 +66,7 @@ export class RedeemCallSecretsHandler
         workspaceId: call.workspaceId.value,
         callId: call.id.value,
         secrets: call.secrets.map((each) => each.value),
-        recipient: textOf(command.recipient),
+        recipient: command.recipient,
       });
 
       try {

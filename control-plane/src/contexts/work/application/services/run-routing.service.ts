@@ -1,8 +1,8 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import type { NewNote, Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
 import { routeAfterRun } from '@work/domain/services/route-after-run';

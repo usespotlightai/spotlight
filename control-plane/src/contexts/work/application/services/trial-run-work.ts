@@ -1,8 +1,9 @@
-import type { LeasedRun } from '@runs/application/ports/run-leases.port';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { GitService } from '@work/application/ports/git-gateway.port';
+import type { GitService } from '@work/application/dto/git-call.dto';
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
 import type {
   Cleared,
@@ -11,6 +12,7 @@ import type {
   RunWork,
 } from '@work/application/services/run-work';
 import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
+import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import {
@@ -23,7 +25,7 @@ const NO_TOOLS =
 
 export class TrialRunWork implements RunWork {
   constructor(
-    private readonly run: LeasedRun,
+    private readonly run: LeasedRunFacts,
     private readonly briefed: BriefedTask | null,
     private readonly repositories: readonly TrialRepository[],
     private readonly asking: RunsPort,
@@ -58,8 +60,8 @@ export class TrialRunWork implements RunWork {
     return trialRepositoryNamed(this.repositories, name);
   }
 
-  async toolContext(): Promise<ToolContext> {
-    throw new NotAllowedForIsolatedRunError('use a tool');
+  async toolContext(tool: Tool): Promise<ToolContext> {
+    throw new ToolNotEnabledError(tool.value);
   }
 
   async clearFor(): Promise<Cleared> {

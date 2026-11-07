@@ -1,5 +1,6 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid-repository.error';
@@ -62,26 +63,6 @@ const uniqueTools = (tools: readonly ToolName[]): ToolName[] =>
     (tool, index) => tools.findIndex((each) => each.equals(tool)) === index,
   );
 
-const textOf = (value: unknown): string | null =>
-  typeof value === 'string' ? value : null;
-
-const repositoryOf = (value: unknown): Repository | null => {
-  const text = textOf(value);
-
-  if (text === null) {
-    return null;
-  }
-
-  try {
-    return Repository.of(text);
-  } catch (error) {
-    if (error instanceof InvalidRepositoryError) {
-      return null;
-    }
-    throw error;
-  }
-};
-
 const readEach = <T>(
   field: 'lines' | 'stations' | 'repositories',
   written: readonly string[],
@@ -101,11 +82,6 @@ const readEach = <T>(
       throw error;
     }
   });
-
-const textsOf = (value: unknown): readonly string[] | null =>
-  Array.isArray(value) && value.every((each) => typeof each === 'string')
-    ? value
-    : null;
 
 const guarded = (fields: HookMatchFields, event: HookEvent): void => {
   if (fields.tools.length > 0 && !event.aboutTool) {
@@ -214,10 +190,7 @@ export class HookMatch {
     return this.fields.paths;
   }
 
-  matches(
-    task: MatchedTask,
-    event: Readonly<Record<string, unknown>>,
-  ): boolean {
+  matches(task: MatchedTask, event: HookEventFacts): boolean {
     return (
       this.matchesTool(event) &&
       this.within(this.fields.lines, task.line) &&
@@ -255,22 +228,20 @@ export class HookMatch {
     return listed.length === 0 || listed.some((each) => each.equals(value));
   }
 
-  private matchesTool(event: Readonly<Record<string, unknown>>): boolean {
+  private matchesTool(event: HookEventFacts): boolean {
     if (this.fields.tools.length === 0) {
       return true;
     }
 
-    const tool = textOf(event.tool);
+    const { tool } = event;
 
     return (
-      tool !== null && this.fields.tools.some((each) => each.value === tool)
+      tool !== null &&
+      this.fields.tools.some((each) => each.value === tool.value)
     );
   }
 
-  private matchesRepository(
-    task: MatchedTask,
-    event: Readonly<Record<string, unknown>>,
-  ): boolean {
+  private matchesRepository(task: MatchedTask, event: HookEventFacts): boolean {
     const listed = this.fields.repositories;
 
     if (listed.length === 0) {
@@ -278,7 +249,7 @@ export class HookMatch {
     }
 
     if (this.event.aboutChanges) {
-      const repository = repositoryOf(event.repository);
+      const { repository } = event;
 
       return (
         repository !== null && listed.some((each) => each.equals(repository))
@@ -290,12 +261,12 @@ export class HookMatch {
     );
   }
 
-  private matchesPaths(event: Readonly<Record<string, unknown>>): boolean {
+  private matchesPaths(event: HookEventFacts): boolean {
     if (this.patterns.length === 0) {
       return true;
     }
 
-    const changed = textsOf(event.changed);
+    const { changed } = event;
 
     return (
       changed?.some((path) =>

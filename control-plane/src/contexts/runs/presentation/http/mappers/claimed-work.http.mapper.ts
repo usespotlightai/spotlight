@@ -6,6 +6,14 @@ import {
   ClaimedWorkResponseDto,
 } from '@runs/presentation/http/dto/runner.response.dto';
 
+type ClaimedRun = Extract<ClaimedWorkDto, { kind: 'run' }>['run'];
+
+const wireSpecOf = (run: ClaimedRun): Readonly<Record<string, unknown>> => ({
+  ...run.extensions,
+  ...run.spec,
+  resume: { key: run.workspaceKey ?? '', ...run.spec.resume },
+});
+
 export const ClaimedWorkHttpMapper = {
   toResponse(claimed: ClaimedWorkDto): ClaimedWorkResponseDto {
     if (claimed.kind === 'run') {
@@ -15,7 +23,7 @@ export const ClaimedWorkHttpMapper = {
           claimed.run.id,
           claimed.run.harness,
           claimed.run.attempt,
-          claimed.run.spec,
+          wireSpecOf(claimed.run),
         ),
         null,
       );
@@ -27,9 +35,9 @@ export const ClaimedWorkHttpMapper = {
       'check',
       null,
       new ClaimedCheckResponseDto(
-        check.stackId,
-        check.recheck,
-        check.runId,
+        check.checkId.value,
+        check.repeat,
+        check.runId.value,
         check.repository,
         check.base,
         check.setup,

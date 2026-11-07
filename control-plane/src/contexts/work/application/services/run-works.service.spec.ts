@@ -1,8 +1,9 @@
 import type {
-  LeasedRun,
+  LeasedRunFacts,
   RunLeasesPort,
 } from '@runs/application/ports/run-leases.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -22,7 +23,7 @@ import type { DispatchRepository } from '@work/domain/repositories/dispatch.repo
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { trialOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -46,7 +47,7 @@ const message = (position: number, body: string, files: Attachment[] = []) => ({
 
 const aTrial = (): Dispatch =>
   Dispatch.trialOrdered({
-    order: DispatchOrder.of({}),
+    order: trialOrderOf(RUN),
     id: RUN,
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: null,
@@ -56,7 +57,7 @@ const aTrial = (): Dispatch =>
       taskId: TASK,
       stationId: BUILD,
       asOf: NOW,
-      repositories: [{ path: 'api', repository: 'acme/api' }],
+      repositories: [{ path: 'api', repository: Repository.of('acme/api') }],
       followUp: null,
     },
     configuredAs: StationConfig.rehydrate(
@@ -93,7 +94,7 @@ const works = (over: {
               runId: RUN,
               workspaceId: WorkspaceId.of('ws_1'),
               policy: { actsBeyondItself: true },
-            } as unknown as LeasedRun),
+            } as unknown as LeasedRunFacts),
     } as unknown as RunLeasesPort,
     {} as RunsPort,
     { find: async () => over.task ?? null } as unknown as TaskRepository,
@@ -110,10 +111,8 @@ describe('RunWorks, handing a runner the messages sent to its run', () => {
     const pending = await works({
       dispatches: dispatchesOf(aTaskDispatch(RUN, TASK, BUILD)),
       task: {
-        hasCurrentRun: () => true,
-        unacknowledged: [
-          message(2, 'Use the staging queue.', [SCREENSHOT]),
-        ] as never,
+        pendingFor: () =>
+          [message(2, 'Use the staging queue.', [SCREENSHOT])] as never,
       },
     }).pendingFor('run_1', 'runner_1');
 
@@ -131,8 +130,7 @@ describe('RunWorks, handing a runner the messages sent to its run', () => {
       await works({
         dispatches: dispatchesOf(aTaskDispatch(RUN, TASK, BUILD)),
         task: {
-          hasCurrentRun: () => false,
-          unacknowledged: [message(2, 'Use the staging queue.')] as never,
+          pendingFor: () => [],
         },
       }).pendingFor('run_1', 'runner_1'),
     ).toEqual([]);
@@ -142,7 +140,9 @@ describe('RunWorks, handing a runner the messages sent to its run', () => {
     expect(
       await works({
         dispatches: dispatchesOf(aChatDispatch(RUN, ChatId.of('chat_1'))),
-        chat: { unacknowledged: [message(1, 'And the retries?')] as never },
+        chat: {
+          pendingFor: () => [message(1, 'And the retries?')] as never,
+        },
       }).pendingFor('run_1', 'runner_1'),
     ).toEqual([{ position: 1, body: 'And the retries?', attachments: [] }]);
   });

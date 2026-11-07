@@ -10,10 +10,7 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  PROJECT_LINE_STATIONS,
-  type ProjectLineStations,
-} from '@work/application/events/handlers/project-line-stations.handler';
+import { type ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import type { ProjectedLine } from '@work/application/ports/work-stations.port';
 
 const projectedLineOf = (
@@ -39,7 +36,7 @@ export const workStationSubscribers = (
   projecting: ProjectLineStations,
 ): readonly DomainEventSubscriber[] => [
   subscribing<LineChangedIntegrationEvent>(
-    PROJECT_LINE_STATIONS,
+    'work.project-stations-of-changed-line',
     [LINE_CHANGED],
     (event) => projecting.lineChanged(projectedLineOf(event)),
   ),

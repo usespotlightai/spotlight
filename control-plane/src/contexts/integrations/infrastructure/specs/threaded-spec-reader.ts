@@ -137,7 +137,7 @@ export class ThreadedSpecReader implements SpecReaderPort {
     const url = spec.url ?? '';
     const injection = {
       apiHost: hostOf(spec.kind === 'graphql' ? url : spec.baseUrl),
-      secrets: spec.injectedSecrets.map((each) => each.value),
+      secrets: spec.injectedSecrets,
       connection: connection?.value ?? null,
       credentials: callAuth.credentials,
     };

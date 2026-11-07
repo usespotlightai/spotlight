@@ -15,7 +15,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { basicPasswordIn, bearerIn } from '@platform/http/bearer';
-import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
+import {
+  ALLOW_ANONYMOUS,
+  READS_SESSION_IF_ANY,
+} from '@platform/http/decorators/allow-anonymous.decorator';
 import { ALLOW_BASIC_CREDENTIALS } from '@platform/http/decorators/allow-basic-credentials.decorator';
 import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import {
@@ -50,11 +53,23 @@ export class AuthenticatedGuard implements CanActivate {
         context.getClass(),
       ]) === true;
 
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+
+    if (marked(ALLOW_ANONYMOUS) && marked(READS_SESSION_IF_ANY)) {
+      const user = await this.sessions.read(request.headers);
+
+      if (user) {
+        request[REQUEST_USER] = user;
+        request[REQUEST_PRINCIPAL] = PersonPrincipal.of(UserId.of(user.id));
+      }
+
+      return true;
+    }
+
     if (marked(ALLOW_ANONYMOUS) || marked(RUNNER_ONLY)) {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const { authorization } = request.headers;
     const presented = typeof authorization === 'string' ? authorization : '';
     const bearer =

@@ -1,12 +1,12 @@
 import type { HostCredentials } from '@runners/application/ports/runner-authenticator.port';
 
 export interface SentHostCallResponse {
-  readonly host: unknown;
-  readonly status: unknown;
-  readonly headers: unknown;
-  readonly body: unknown;
-  readonly ms: unknown;
-  readonly error: unknown;
+  readonly host: string;
+  readonly status: number;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body: Uint8Array;
+  readonly ms: number;
+  readonly error: string | null;
 }
 
 export class ClaimHostCallCommand {
@@ -27,8 +27,8 @@ export class RecordHostCallResponseCommand {
 export class RedeemCallSecretsCommand {
   constructor(
     readonly callId: string,
-    readonly host: unknown,
-    readonly token: unknown,
-    readonly recipient: unknown,
+    readonly host: string,
+    readonly token: string,
+    readonly recipient: string,
   ) {}
 }

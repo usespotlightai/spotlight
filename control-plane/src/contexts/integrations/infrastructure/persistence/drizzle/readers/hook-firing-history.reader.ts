@@ -29,7 +29,7 @@ export class DrizzleHookFiringHistory implements HookFiringHistoryPort {
               lt(hookFiring.id, before.id.value),
             ),
           ),
-          sql`${hookFiring.link}->>'key' = ${repeats.linkKey}`,
+          sql`${hookFiring.link}->>'key' = ${repeats.link.key}`,
         ),
       );
 

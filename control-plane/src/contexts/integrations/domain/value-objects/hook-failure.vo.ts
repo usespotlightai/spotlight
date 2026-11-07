@@ -1,4 +1,10 @@
+import {
+  isServerError,
+  isThrottling,
+} from '@integrations/domain/services/call-transience';
 import { DELIVERING } from '@integrations/domain/services/delivery-retry';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 export const HOOK_FAILURES = {
@@ -32,10 +38,6 @@ export type CallFailureFact =
   | { readonly kind: 'over-outbound-limit'; readonly perSecond: number }
   | { readonly kind: 'unknown'; readonly reason: string };
 
-const THROTTLING = new Set([408, 425, 429]);
-
-const SERVER_ERROR = 500;
-
 export class HookFailure {
   private constructor(
     readonly code: HookFailureCode,
@@ -47,12 +49,12 @@ export class HookFailure {
   }
 
   static answered(status: number, reason: string): HookFailure {
-    if (THROTTLING.has(status)) {
+    if (isThrottling(status)) {
       return HookFailure.of('throttled', reason);
     }
 
     return HookFailure.of(
-      status >= SERVER_ERROR ? 'server-error' : 'rejected',
+      isServerError(status) ? 'server-error' : 'rejected',
       reason,
     );
   }
@@ -131,15 +133,18 @@ export class HookFailure {
       return HookFailure.overOutboundLimit(fact.perSecond);
     }
 
-    if (fact.kind === 'unknown' || !fact.transient) {
+    if (fact.kind === 'unknown') {
       return HookFailure.of('tool-failed', fact.reason);
     }
 
-    if (fact.status === null) {
-      return HookFailure.of('unreachable', fact.reason);
+    if (fact.status !== null) {
+      return HookFailure.answered(fact.status, fact.reason);
     }
 
-    return HookFailure.answered(fact.status, fact.reason);
+    return HookFailure.of(
+      fact.transient ? 'unreachable' : 'tool-failed',
+      fact.reason,
+    );
   }
 
   static errored(reason: string): HookFailure {
@@ -154,10 +159,10 @@ export class HookFailure {
     return this.retry.nextAttemptAt(attempts, now);
   }
 
-  atStep(hook: string, step: string): HookFailure {
+  atStep(hook: HookKey, step: HookStepName): HookFailure {
     return HookFailure.of(
       this.code,
-      `Hook ${hook} failed at step ${step}. Reason: ${this.reason}`,
+      `Hook ${hook.value} failed at step ${step.value}. Reason: ${this.reason}`,
     );
   }
 

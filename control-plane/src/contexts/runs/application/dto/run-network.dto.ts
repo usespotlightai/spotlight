@@ -3,7 +3,7 @@ import type {
   ConnectionError,
   ConnectionOutcome,
   ConnectionReason,
-} from '@runs/domain/value-objects/run-connection.vo';
+} from '@runs/application/ports/run-connections.port';
 
 interface RunConnectionDto {
   readonly host: string;

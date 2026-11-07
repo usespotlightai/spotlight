@@ -13,6 +13,7 @@ import {
 } from '@runs/application/ports/run-journals.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type {
   EndedRunRow,
   KeyedStation,
@@ -24,7 +25,6 @@ import type {
   TracedWanted,
   UnfinishedRunRow,
 } from '@work/application/ports/station-run-reader.port';
-import { taskRunStateOf } from '@work/domain/value-objects/task-run-state';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import {
@@ -112,7 +112,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       taskId: row.taskId,
       earlier: earlier.flatMap((each) => {
         const was = facts.get(each.runId);
-        return was ? [taskRunStateOf(was.state, each.superseded)] : [];
+        return was ? [RunReadingMapper.state(was.state, each.superseded)] : [];
       }),
       harness: run.harness.value,
       reviewing: briefedTask?.reviewing ?? null,
@@ -156,8 +156,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
             {
               ...row,
               harness: run.harness.value,
-              state: run.state,
-              stopRequested: run.stopRequested,
+              progress: RunReadingMapper.progress(run.progress),
               startedAt: run.startedAt,
             },
           ]
@@ -276,7 +275,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         ? [
             {
               ...row,
-              state: taskRunStateOf(run.state, superseded),
+              state: RunReadingMapper.state(run.state, superseded),
               attempt: run.attempt,
               harness: run.harness.value,
               endedAt: run.endedAt,

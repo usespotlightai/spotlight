@@ -53,7 +53,11 @@ export const toStackCheck = (row: Row): StackCheck =>
     outcome: row.outcome && {
       status: row.outcome.status,
       skip: row.outcome.skip
-        ? parseStoredSkip(row.outcome.skip.code, row.outcome.skip.detail)
+        ? parseStoredSkip(
+            row.outcome.skip.code,
+            row.outcome.skip.detail,
+            row.outcome.skip.attempts ?? null,
+          )
         : null,
       whole: row.outcome.whole && checkedStepOf(row.outcome.whole),
       layers: row.outcome.layers.map(checkedStepOf),

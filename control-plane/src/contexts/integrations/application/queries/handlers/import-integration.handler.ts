@@ -35,7 +35,7 @@ export class ImportIntegrationHandler
           )
         : undefined;
       const record = team
-        ? await this.resources.at(team.id, address.integration.value)
+        ? await this.resources.at(team.id, address.integration)
         : null;
 
       return record ? this.views.of(record) : null;

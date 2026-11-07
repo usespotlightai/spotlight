@@ -1,12 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import {
-  EGRESS_CHECKED,
-  type EgressEnforcement,
-} from '@runs/application/contracts/run-journal.contract';
+import type { EgressEnforcement } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
-import type { RunEventView } from '@runs/application/ports/run-stream.port';
+import type { RunJournalEntryView } from '@runs/application/ports/run-stream.port';
+import { EGRESS_CHECKED } from '@runs/domain/value-objects/journal-entry-type';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import { enforcementOf } from '@runs/infrastructure/journal/egress-enforcement';
 import { runJournalEntry } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
@@ -16,9 +14,9 @@ import { and, asc, desc, eq, gt, lte } from 'drizzle-orm';
 const MAX_CONTROL_PLANE_ENTRIES = 200;
 
 const inPlace = (
-  events: readonly RunEventView[],
-  event: RunEventView,
-): RunEventView[] => {
+  events: readonly RunJournalEntryView[],
+  event: RunJournalEntryView,
+): RunJournalEntryView[] => {
   const at = events.findIndex((each) => each.at > event.at);
 
   return at === -1
@@ -33,7 +31,7 @@ const viewOf = (row: {
   at: Date;
   message: string | null;
   data: string | null;
-}): RunEventView => ({
+}): RunJournalEntryView => ({
   attempt: row.attempt,
   seq: row.seq,
   type: row.type,
@@ -46,12 +44,12 @@ const viewOf = (row: {
 export class DrizzleRunJournalEntryReader implements RunJournalEntryReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async eventsSince(
+  async entriesSince(
     runId: RunId,
     attempt: number,
     afterSeq: number,
     max: number,
-  ): Promise<RunEventView[]> {
+  ): Promise<RunJournalEntryView[]> {
     const columns = {
       attempt: runJournalEntry.attempt,
       seq: runJournalEntry.seq,

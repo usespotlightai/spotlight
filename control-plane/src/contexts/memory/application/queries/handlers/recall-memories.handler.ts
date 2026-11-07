@@ -32,7 +32,7 @@ export class RecallMemoriesHandler
           run.teamId,
           words,
           MAX_RECALLED,
-          run.replaysFrom,
+          run.asOf,
         ),
       );
     } catch (error) {

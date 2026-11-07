@@ -2,6 +2,7 @@ import { HoldStartingPoints } from '@runs/application/services/hold-starting-poi
 import { StartingPointHold } from '@runs/domain/aggregates/starting-point-hold.aggregate';
 import type { StartingPointHoldRepository } from '@runs/domain/repositories/starting-point-hold.repository';
 import { HoldHolder } from '@runs/domain/value-objects/hold-holder.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -20,7 +21,14 @@ const holds: StartingPointHoldRepository = {
 };
 
 const holding = () =>
-  new HoldStartingPoints(holds, { inTransaction: (work) => work() });
+  new HoldStartingPoints(
+    holds,
+    { inTransaction: (work) => work() },
+    {
+      referencing: (_workspace, work) => work(),
+      removing: (_workspace, work) => work(),
+    },
+  );
 
 describe('HoldStartingPoints', () => {
   beforeEach(() => {
@@ -47,6 +55,7 @@ describe('HoldStartingPoints', () => {
     stored = StartingPointHold.take(
       HoldHolder.of('replay-set:set_1'),
       WorkspaceId.of('ws_1'),
+      [RunId.of('run_1')],
     );
 
     await holding().hold('replay-set:set_1', 'ws_1', []);
@@ -58,6 +67,7 @@ describe('HoldStartingPoints', () => {
     stored = StartingPointHold.take(
       HoldHolder.of('replay-set:set_1'),
       WorkspaceId.of('ws_1'),
+      [RunId.of('run_1')],
     );
 
     await holding().hold('replay-set:set_1', 'ws_1', ['run_2']);
@@ -72,6 +82,7 @@ describe('HoldStartingPoints', () => {
     stored = StartingPointHold.take(
       HoldHolder.of('replay-set:set_1'),
       WorkspaceId.of('ws_1'),
+      [RunId.of('run_1')],
     );
     await holding().release('replay-set:set_1');
     expect(saved[0]?.isReleased).toBe(true);

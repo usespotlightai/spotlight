@@ -26,6 +26,7 @@ export interface StationJudgeView {
   readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly passThreshold: number;
+  readonly rubricVersion: string;
   readonly sample: number;
   readonly minAgreement: number;
 }

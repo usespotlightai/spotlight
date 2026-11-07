@@ -1,7 +1,7 @@
 import type {
+  RunnerClaimant,
   RunnerClaims,
-  RunnerHeartbeat,
-} from '@runners/application/ports/runner-heartbeats.port';
+} from '@runners/application/ports/runner-claimants.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import { ClaimRunHandler } from '@runs/application/commands/handlers/claim-run.handler';
@@ -17,11 +17,12 @@ import { LongPoll } from '@runs/application/services/long-poll';
 import type { ProvisionFailures } from '@runs/application/services/provision-failures.service';
 import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -49,7 +50,7 @@ const waiting = (harness = 'claude-code') =>
     spec,
   });
 
-const queued = () => waiting().claim(RunnerId.of('runner_1'), NOW);
+const queued = () => waiting().claim(claimer(RunnerId.of('runner_1')), NOW);
 
 const reservedForPooled = (harness = 'claude-code') =>
   waiting(harness).reservedFor(
@@ -59,9 +60,9 @@ const reservedForPooled = (harness = 'claude-code') =>
   );
 
 const aCheck: ClaimedCheck = {
-  stackId: 'stack_1',
-  recheck: false,
-  runId: 'run_1',
+  checkId: CheckWorkId.of('stack_1'),
+  repeat: false,
+  runId: RunId.of('run_1'),
   repository: 'widgets',
   base: '0123456789abcdef0123456789abcdef01234567',
   setup: 'npm ci',
@@ -74,7 +75,7 @@ const aCheck: ClaimedCheck = {
 const seenAs = (
   claims: RunnerClaims = 'reserved',
   harnesses = [HarnessId.of('claude-code')],
-): RunnerHeartbeat => ({
+): RunnerClaimant => ({
   workspaceId: WorkspaceId.of('ws_1'),
   harnesses,
   offer: RunnerOffer.of(['runner-1']),
@@ -85,7 +86,7 @@ const claiming = (
   claimNext = vi.fn(async (): Promise<Run | null> => queued()),
   claimCheck = vi.fn(async (): Promise<ClaimedCheck | null> => null),
   over: {
-    seen?: RunnerHeartbeat | null;
+    seen?: RunnerClaimant | null;
     reservedFor?: Run | null;
     reservedCheck?: ClaimedCheck | null;
     starts?: RunStart;
@@ -135,7 +136,7 @@ const claiming = (
     runs,
     { next: claimNext } as unknown as RunClaims,
     {
-      heartbeat: vi.fn(async () =>
+      claimantOf: vi.fn(async () =>
         over.seen === undefined ? seenAs() : over.seen,
       ),
     },
@@ -177,8 +178,9 @@ describe('ClaimRunHandler', () => {
       command: { executable: 'claude-agent-acp', args: ['--acp'] },
       briefing: 'work out what the request wants',
       handover: { options: ['Spec'], noteLimit: 4_000 },
-      resume: { key: 'work/task-task_1' },
+      resume: {},
     });
+    expect(runOf(claimed)?.workspaceKey).toBe('work/task-task_1');
   });
 
   it('only looks for work in the runner’s own workspace', async () => {
@@ -305,7 +307,7 @@ describe('ClaimRunHandler', () => {
         handler.execute(new ClaimRunCommand('runner_1')),
       ).rejects.toThrow('runner_1 is spent');
       expect(handler.unclaim).toHaveBeenCalledWith(
-        'stack_1',
+        CheckWorkId.of('stack_1'),
         false,
         RunnerId.of('runner_1'),
         NOW,

@@ -2,7 +2,7 @@ import type {
   CheckSideDto,
   ReplayCheckDto,
 } from '@replays/application/dto/replay-checks.dto';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { TrialableRunsPort } from '@replays/application/ports/trialable-runs.port';
 import type { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import {
   gainView,
@@ -39,7 +39,7 @@ export class ReadReplayCheckHandler
 {
   constructor(
     private readonly access: ReplaysAccess,
-    private readonly work: WorkPort,
+    private readonly trialableRuns: TrialableRunsPort,
     private readonly checks: ReplayCheckRepository,
     private readonly evaluations: CheckEvaluations,
   ) {}
@@ -56,7 +56,7 @@ export class ReadReplayCheckHandler
       const { evaluation, replay, baseline } = await this.evaluations.of(check);
       const titles = new Map(
         (
-          await this.work.runSummaries(
+          await this.trialableRuns.runSummaries(
             check.workspaceId,
             replay?.originals ?? [],
           )

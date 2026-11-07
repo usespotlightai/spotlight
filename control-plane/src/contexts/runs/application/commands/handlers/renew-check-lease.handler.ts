@@ -1,4 +1,4 @@
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import type { RenewCheckLeaseCommand } from '@runs/application/commands/runner.commands';
 import type {
   CheckLeaseRenewal,
@@ -8,6 +8,7 @@ import { UnknownRunnerError } from '@runs/domain/exceptions/unknown-runner.error
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -16,7 +17,7 @@ export class RenewCheckLeaseHandler
 {
   constructor(
     private readonly checks: CheckWorkPort,
-    private readonly heartbeats: RunnerHeartbeatsPort,
+    private readonly claimants: RunnerClaimantsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -25,14 +26,14 @@ export class RenewCheckLeaseHandler
       const renewing = RunnerId.of(command.runnerId);
       const at = this.clock.now();
 
-      if (!(await this.heartbeats.heartbeat(renewing, at))) {
+      if (!(await this.claimants.claimantOf(renewing, at))) {
         throw new UnknownRunnerError(command.runnerId);
       }
 
       return await this.checks.renewLease(
         RunId.of(command.runId),
-        command.stackId,
-        command.recheck,
+        CheckWorkId.of(command.checkId),
+        command.repeat,
         renewing,
         at,
       );

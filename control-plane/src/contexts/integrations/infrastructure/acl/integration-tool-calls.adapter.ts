@@ -1,16 +1,42 @@
 import type {
   ResolveToolForRun,
   RunTool,
+  RunToolCall,
 } from '@integrations/application/services/resolve-tool-for-run.service';
+import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
 import { ToolDeclarationMapper } from '@integrations/infrastructure/acl/tool-declaration.mapper';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type {
   IntegrationTool,
   IntegrationToolCallsPort,
   RunAttemptDto,
+  ToolCallFailureDto,
+  ToolCallResultDto,
 } from '@work/application/ports/integration-tool-calls.port';
+
+const failureOf = (fact: CallFailureFact): ToolCallFailureDto => {
+  switch (fact.kind) {
+    case 'blocked':
+      return { blocked: true, reason: fact.reason };
+    case 'over-outbound-limit':
+      return {
+        blocked: false,
+        reason: `calling a service: this workspace sends more than ${fact.perSecond} requests each second to other services`,
+      };
+    case 'upstream':
+    case 'unknown':
+      return { blocked: false, reason: fact.reason };
+  }
+};
+
+const resultOf = (call: RunToolCall): ToolCallResultDto =>
+  call.kind === 'answered'
+    ? { outcome: 'answered', output: call.output }
+    : { outcome: 'failed', failure: failureOf(call.fact) };
 
 const toolOf = (found: RunTool): IntegrationTool => ({
   declared: ToolDeclarationMapper.toDeclaration(found.declared),
@@ -37,7 +63,7 @@ const toolOf = (found: RunTool): IntegrationTool => ({
       }
     : null,
   defaultFor: (input) => found.defaultFor(input),
-  call: (inputs) => found.call(inputs),
+  call: async (inputs) => resultOf(await found.call(inputs)),
 });
 
 export class IntegrationToolCalls implements IntegrationToolCallsPort {
@@ -49,12 +75,15 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     run: RunAttemptDto,
     requester: string | null,
   ): Promise<IntegrationTool | null> {
-    const found = await this.tools.resolve(
-      tool,
-      IntegrationTaskViewMapper.toView(task),
-      run,
-      requester ? UserId.of(requester) : null,
-    );
+    const named = ToolName.parsed(tool);
+    const found = named
+      ? await this.tools.resolve(
+          named,
+          IntegrationTaskViewMapper.toView(task),
+          { runId: RunId.of(run.runId), attempt: run.attempt },
+          requester ? UserId.of(requester) : null,
+        )
+      : null;
 
     return found ? toolOf(found) : null;
   }

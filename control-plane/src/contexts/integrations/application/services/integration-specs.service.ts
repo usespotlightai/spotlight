@@ -38,7 +38,7 @@ export class IntegrationSpecs {
     current: SpecFetchResult | null;
     refreshingSpec?: boolean;
   }): Promise<IntegrationWithSpec> {
-    const first = this.compiler.compile(input.definition);
+    const first = this.compiler.compile(input.definition, null);
 
     if (!first.ok || !first.spec) {
       return { compiled: first, reading: null };

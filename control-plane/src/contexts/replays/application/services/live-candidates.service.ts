@@ -1,5 +1,5 @@
 import type { PeoplePort } from '@replays/application/ports/people.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
@@ -14,7 +14,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 export class LiveCandidates {
   constructor(
     private readonly people: PeoplePort,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly candidates: CandidateRepository,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -32,7 +32,7 @@ export class LiveCandidates {
 
   async snapshotOf(set: ReplaySet): Promise<Candidate> {
     const { lineId, stationId } = set.station;
-    const config = await this.work.live(lineId, stationId);
+    const config = await this.configs.live(lineId, stationId);
 
     if (!config) {
       throw new UnknownStationError(stationId.value);

@@ -1,8 +1,9 @@
 import { ConfigRepositoryError } from '@replays/application/errors/config-repository.error';
 import type { ConfigRepositoryPort } from '@replays/application/ports/config-repository.port';
+import type { LinesPort } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { StationSourceEditorPort } from '@replays/application/ports/station-source-editor.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { TrialableRunsPort } from '@replays/application/ports/trialable-runs.port';
 import {
   ConfigPullRequestBody,
   type ConfigPullRequestFacts,
@@ -66,7 +67,8 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     private readonly searches: SearchRepository,
     private readonly candidates: CandidateRepository,
     private readonly replays: ReplayRepository,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
+    private readonly trialableRuns: TrialableRunsPort,
     private readonly people: PeoplePort,
     private readonly configs: ConfigRepositoryPort,
     private readonly editor: StationSourceEditorPort,
@@ -156,7 +158,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const { repository: named, path } = pullRequest;
     const [search, station, teamKey] = await Promise.all([
       this.searches.find(pullRequest.searchId),
-      this.work.station(
+      this.lines.station(
         pullRequest.station.lineId,
         pullRequest.station.stationId,
       ),
@@ -370,7 +372,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
   ): Promise<ConfigPullRequestFacts['tasks']> {
     const titles = new Map(
       (
-        await this.work.runSummaries(search.workspaceId, [
+        await this.trialableRuns.runSummaries(search.workspaceId, [
           ...search.split.searchedRuns,
           ...search.split.heldOutRuns,
         ])

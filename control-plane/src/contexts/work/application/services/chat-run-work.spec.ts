@@ -1,4 +1,4 @@
-import type { LeasedRun } from '@runs/application/ports/run-leases.port';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -28,7 +28,7 @@ const chat = Chat.start({
 });
 
 const work = new ChatRunWork(
-  {} as LeasedRun,
+  {} as LeasedRunFacts,
   chat,
   {} as unknown as ChatRepository,
 );

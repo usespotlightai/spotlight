@@ -2,6 +2,8 @@ import type { HooksListening } from '@integrations/application/services/hooks-li
 import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import type { RunBeforeHooks } from '@integrations/application/services/run-before-hooks.service';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
+import { runStarting } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -64,15 +66,13 @@ describe('LifecycleHooks', () => {
     expect(toolUsed).toHaveBeenCalledWith(
       expect.objectContaining({ taskId: TaskId.of('task_1') }),
       {
+        on: 'tool.used',
         tool: Tool.of('github.comment'),
-        event: {
-          tool: 'github.comment',
-          inputs: {},
-          output: null,
-          failed: false,
-        },
+        inputs: {},
+        output: null,
+        failed: false,
       },
-      'call_1',
+      HookOccurrenceKey.of('call_1'),
     );
   });
 
@@ -96,8 +96,7 @@ describe('LifecycleHooks', () => {
         taskId: TaskId.of('task_1'),
         runId: RunId.of('run_1'),
       }),
-      'run.starting',
-      {},
+      runStarting(),
       null,
     );
   });

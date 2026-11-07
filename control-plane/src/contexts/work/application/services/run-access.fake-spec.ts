@@ -5,10 +5,12 @@ export const WORKSPACE = WorkspaceId.of('ws_1');
 
 export const runAccessWhere = (sees: boolean): RunAccess =>
   new RunAccess(
-    { of: async () => [] },
     { find: async () => null } as never,
-    { mayView: async () => sees } as never,
-    { find: async () => null, inWorkspace: async () => [] },
+    {
+      seesWorkspace: async () => sees,
+      seesWorkspaceOfTeam: async () => false,
+      opensChat: async () => false,
+    } as never,
   );
 
 export const inWorkspace = <T>(found: T) => ({ workspaceId: WORKSPACE, found });

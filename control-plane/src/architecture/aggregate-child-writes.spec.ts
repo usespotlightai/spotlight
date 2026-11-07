@@ -10,6 +10,8 @@ import { ratchetProblems } from './known-violations';
 const PATH = 'contexts/work/infrastructure/persistence/drizzle/fixture.ts';
 const TASK_SCHEMA =
   '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+const TOOL_USE_SCHEMA =
+  '@work/infrastructure/persistence/drizzle/schemas/tool-use.schema';
 
 const writesIn = (source: string): string[] =>
   childWritesIn({
@@ -34,6 +36,17 @@ describe('aggregate child writes', () => {
     ).toEqual([
       'writes task_mark outside the repository of task',
       'writes task_note outside the repository of task',
+    ]);
+  });
+
+  it('finds a declared ledger written outside its declared writers', () => {
+    expect(
+      writesIn(`import { toolUse } from '${TOOL_USE_SCHEMA}';
+        db.insert(toolUse).values(row);
+        db.execute(sql\`delete from run_usage where run_id = \${id}\`);`),
+    ).toEqual([
+      'writes tool_use outside its declared writers',
+      'writes run_usage outside its declared writers',
     ]);
   });
 

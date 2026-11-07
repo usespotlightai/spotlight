@@ -21,6 +21,7 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -30,7 +31,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 const authorizing = (allowed: boolean, member = true) =>
   ({
-    viewableBy: vi.fn(),
     mayView: vi.fn(),
     inWorkspace: vi.fn(),
     inWorkspaceOfTeam: vi.fn(async () =>
@@ -47,7 +47,7 @@ const authorizing = (allowed: boolean, member = true) =>
     permissionsIn: vi.fn(),
     permissionsInSlug: vi.fn(),
     permissionsInWorkspaceOfTeam: vi.fn(),
-    permissionsAsTeamReader: vi.fn(),
+    permissionsAsTeamMember: vi.fn(),
     mayPlan: vi.fn(),
   }) satisfies WorkspaceAccessPort;
 
@@ -95,7 +95,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
         { clientFor } as unknown as OAuth2ClientResolution,
         {
           within: async (workspace, work) => {
-            scoped.push(workspace);
+            scoped.push(workspace.value);
             return work();
           },
           withinFresh: async (_workspace, work) => work(),
@@ -122,9 +122,9 @@ describe('BeginOAuth2ConnectionHandler', () => {
     expect(await handler.execute(command())).toBe(STARTED);
     expect(begin).toHaveBeenCalledWith(
       {
-        teamId: 'team_1',
-        integration: 'slack',
-        by: 'user_1',
+        teamId: TeamId.of('team_1'),
+        integration: IntegrationKey.of('slack'),
+        by: UserId.of('user_1'),
         owner: 'team',
         returnTo: null,
       },
@@ -199,9 +199,9 @@ describe('BeginOAuth2ConnectionHandler', () => {
 
 describe('FinishOAuth2ConnectionHandler', () => {
   const authorized: OAuth2Authorized = {
-    teamId: 'team_1',
-    integration: 'slack',
-    by: 'user_1',
+    teamId: TeamId.of('team_1'),
+    integration: IntegrationKey.of('slack'),
+    by: UserId.of('user_1'),
     owner: 'team',
     returnTo: null,
     tokens: OAuthTokens.of({ accessToken: 'xoxb-1', linkedAccount: 'Acme' }),
@@ -273,7 +273,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       state: 'the-state',
       code: 'the-code',
       nonce: 'n-1',
-      viewerId: 'user_1',
+      viewerId: UserId.of('user_1'),
     });
     const connection = save.mock.calls[0]?.[0];
     expect(connection?.teamId.value).toBe('team_1');
@@ -294,7 +294,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       integration: IntegrationKey.of('slack'),
       owner: ConnectionOwner.team(),
       accessToken: AccessToken.of('xoxb-old'),
-      refreshToken: AccessToken.of('xoxe-old'),
+      refreshToken: RefreshToken.of('xoxe-old'),
       expiresAt: null,
       scopes: [],
       linkedAccount: 'Acme',
@@ -346,8 +346,8 @@ describe('FinishOAuth2ConnectionHandler', () => {
 
     expect(save.mock.calls[0]?.[0]?.owner.personId?.value).toBe('user_1');
     expect(landingFor).toHaveBeenCalledWith(
-      'team_1',
-      'slack',
+      TeamId.of('team_1'),
+      IntegrationKey.of('slack'),
       '/w/acme/inbox/task_1',
     );
   });

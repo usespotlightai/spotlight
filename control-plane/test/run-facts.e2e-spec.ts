@@ -34,6 +34,7 @@ import { seenOf } from '@insights/pull-requests.fake-spec';
 import type { Env } from '@platform/config/env.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
+import type { Erased } from '@shared-kernel/domain/erased';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -167,7 +168,7 @@ const elsewhere = () => {
   return { context, ...projectedInsights(context) };
 };
 
-const erased = async <A extends { erased(): A }>(
+const erased = async <A extends { erased(): Erased<A> }>(
   aggregates: ScopedRemoval<A>,
   scope: DeletionScope,
 ): Promise<void> => {

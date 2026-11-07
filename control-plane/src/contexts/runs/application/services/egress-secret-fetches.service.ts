@@ -11,6 +11,7 @@ import type { RunSecretFetchesPort } from '@secrets/application/ports/run-secret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const SPOTLIGHT_API = 'spotlight-api';
 
@@ -89,7 +90,10 @@ export class EgressSecretFetches {
         attempt: leased.attempt.number,
       });
       if (issued) {
-        await this.runTokens.revoke(authorized.workspaceId, issued.tokenId);
+        await this.runTokens.revoke(
+          WorkspaceId.of(authorized.workspaceId),
+          issued.tokenId,
+        );
       }
       return nothingInjected;
     }
@@ -148,17 +152,13 @@ export class EgressSecretFetches {
       return null;
     }
 
-    await this.runTokens.revokeFor(
-      run.workspaceId.value,
-      run.id.value,
-      attempt.number,
-    );
+    await this.runTokens.revokeFor(run.workspaceId, run.id, attempt.number);
     const grant = run.apiGrant.issuedAt(this.clock.now());
     const token = await this.runTokens.issueFor({
-      workspaceId: run.workspaceId.value,
-      runId: run.id.value,
+      workspaceId: run.workspaceId,
+      runId: run.id,
       attempt: attempt.number,
-      issuedBy: grant.issuedBy.value,
+      issuedBy: grant.issuedBy,
       scopes: [...grant.scopes],
       expiresAt: grant.expiresAt,
     });

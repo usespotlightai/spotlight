@@ -16,8 +16,7 @@ import type { HappeningPayload } from '@work/domain/value-objects/happening-payl
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
 import {
-  type ReviewRequest,
-  reviewRequested,
+  ReviewRequest,
   reviewTrigger,
 } from '@work/domain/value-objects/review-request.vo';
 
@@ -45,7 +44,7 @@ const reviewOf = (
     return null;
   }
 
-  return reviewRequested({
+  return ReviewRequest.of({
     trigger: reviewTrigger(review.trigger),
     label: review.label?.trim() || null,
     pullRequest: PullRequestUrl.of(review.pullRequest),

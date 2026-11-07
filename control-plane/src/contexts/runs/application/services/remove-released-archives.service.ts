@@ -1,3 +1,4 @@
+import type { ArchiveReferenceLocksPort } from '@runs/application/ports/archive-reference-locks.port';
 import type {
   ArchiveCursor,
   ArchiveDue,
@@ -34,6 +35,7 @@ export class RemoveReleasedArchives {
 
   constructor(
     private readonly references: ArchiveReferencesPort,
+    private readonly locks: ArchiveReferenceLocksPort,
     private readonly holders: ArchiveHolders,
     private readonly archives: WorkspaceArchiveRepository,
     private readonly store: WorkspaceArchiveStorePort,
@@ -57,23 +59,46 @@ export class RemoveReleasedArchives {
     );
 
     for (const each of page.due) {
-      const facts = factsOf(each, holders);
-
       try {
-        const archive = await this.archives.find(each.id);
+        const removed = await this.removed(each, holders, now);
 
-        if (!archive?.removableAt(now, facts)) {
-          continue;
+        if (removed) {
+          await this.removeStored(removed);
         }
-
-        await this.archives.save(archive.remove(now, facts));
-        await this.removeStored(archive);
       } catch (error) {
         if (!(error instanceof WorkspaceArchiveVersionConflictError)) {
           this.logger.error({ err: error, archive: each.id.value }, this.name);
         }
       }
     }
+  }
+
+  private async removed(
+    due: ArchiveDue,
+    holders: ReadonlyMap<string, HolderState | null>,
+    now: Date,
+  ): Promise<WorkspaceArchive | null> {
+    const found = await this.archives.find(due.id);
+
+    if (!found) {
+      return null;
+    }
+
+    return this.locks.removing(found.workspaceId, async () => {
+      const [archive, references] = await Promise.all([
+        this.archives.find(due.id),
+        this.references.of(due.id),
+      ]);
+      const facts = references && factsOf(references, holders);
+
+      if (!archive || !facts || !archive.removableAt(now, facts)) {
+        return null;
+      }
+
+      await this.archives.save(archive.remove(now, facts));
+
+      return archive;
+    });
   }
 
   private async removeStored(archive: WorkspaceArchive): Promise<void> {

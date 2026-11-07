@@ -32,6 +32,7 @@ import { HappeningName } from '@integrations/domain/value-objects/happening-name
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
 import { OperationFilter } from '@integrations/domain/value-objects/operation-filter.vo';
 import { Poll } from '@integrations/domain/value-objects/poll.vo';
@@ -106,7 +107,7 @@ export type AuthIR =
       readonly secret: string;
       readonly header: string | null;
     }
-  | { readonly kind: 'secrets'; readonly secrets: readonly string[] }
+  | { readonly kind: 'secrets'; readonly secrets: readonly SecretName[] }
   | { readonly kind: 'oauth2' }
   | {
       readonly kind: 'asymmetric';
@@ -292,6 +293,8 @@ export type Compiled =
       readonly ok: true;
       readonly readable: ReadableIntegration;
       readonly definition: IntegrationFile;
+      readonly offered: OfferedTools;
+      readonly generated: readonly ProvidedTool[];
       readonly skipped: readonly string[];
       readonly warnings: readonly ConfigurationProblem[];
       readonly places: ReadonlyMap<string, Place>;
@@ -602,7 +605,7 @@ class Compiler {
         ),
       ];
 
-      return { kind: 'secrets', secrets };
+      return { kind: 'secrets', secrets: secrets.map(SecretName.of) };
     }
 
     if (auth.asymmetric) {
@@ -912,10 +915,7 @@ const apiSpecOf = (written: SpecFile, auth: AuthIR | null): ApiSpec => {
     document,
     baseUrl: written.kind === 'openapi' ? (written.file.baseUrl ?? null) : null,
     depth: written.kind === 'graphql' ? (written.file.depth ?? null) : null,
-    injectedSecrets:
-      auth?.kind === 'secrets'
-        ? auth.secrets.map((each) => SecretName.of(each))
-        : [],
+    injectedSecrets: auth?.kind === 'secrets' ? auth.secrets : [],
     connected: auth?.kind === 'oauth2',
     fingerprint: fingerprintOf(written),
   });
@@ -1377,8 +1377,12 @@ export const compileIntegration = (
       actsAs: connection?.actsAs,
       apiSpecs: apiSpecsOf(file),
       credentials: compiler.secrets.map((name) => SecretName.of(name)),
-      tools: [...providedTools.filter(isPresent), ...(generation?.tools ?? [])],
+      writtenTools: providedTools.filter(isPresent),
     });
+    const offered = OfferedTools.generatedFor(
+      integration,
+      generation?.tools ?? [],
+    );
 
     return {
       ok: true,
@@ -1394,6 +1398,8 @@ export const compileIntegration = (
         tools,
       },
       definition: file,
+      offered,
+      generated: generation?.tools ?? [],
       skipped: generation?.skipped ?? [],
       warnings: compiler.warnings,
       places: compiler.places,
@@ -1500,7 +1506,7 @@ export class IntegrationCompiler implements IntegrationCompilerPort {
 
   compile(
     raw: unknown,
-    specOperations: SpecOperations | null = null,
+    specOperations: SpecOperations | null,
   ): ParsedIntegration {
     const compiled = compileIntegration(raw, this.expressions, specOperations);
 
@@ -1508,6 +1514,7 @@ export class IntegrationCompiler implements IntegrationCompilerPort {
       ? {
           ok: true,
           integration: compiled.readable.integration,
+          offered: compiled.offered,
           document: DefinitionDocument.of(compiled.definition),
           spec: compiled.readable.apiSpec?.spec ?? null,
           skipped: compiled.skipped,

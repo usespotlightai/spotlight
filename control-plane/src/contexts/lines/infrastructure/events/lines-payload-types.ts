@@ -23,6 +23,7 @@ import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { StationRoutes } from '@lines/domain/value-objects/station-routes.vo';
+import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
 
 export const LINES_PAYLOAD_TYPES = [
   LineCreated,
@@ -48,4 +49,5 @@ export const LINES_PAYLOAD_TYPES = [
   StationDescription,
   StationJudge,
   StationRoutes,
+  TaskCounts,
 ] as const;

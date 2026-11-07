@@ -1,4 +1,7 @@
 import type { NotifyChannel } from '@integrations/application/services/notify-channel.service';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BindableChatEvent } from '@work/application/contracts/bindable-chat-events.contract';
 import type {
   ChannelNoticeDto,
@@ -11,8 +14,8 @@ export class ChannelNotices implements ChannelNoticesPort {
   notify(notice: ChannelNoticeDto, event: BindableChatEvent): Promise<void> {
     return this.notices.notify(
       {
-        workspaceId: notice.workspaceId,
-        teamId: notice.teamId,
+        workspaceId: WorkspaceId.of(notice.workspaceId),
+        teamId: TeamId.of(notice.teamId),
         marks: Object.fromEntries(
           notice.marks.map((each) => [each.kind, each.value]),
         ),
@@ -24,7 +27,7 @@ export class ChannelNotices implements ChannelNoticesPort {
           station: each.station,
         })),
         chatId: notice.chatId,
-        taskId: notice.taskId,
+        taskId: notice.taskId === null ? null : TaskId.of(notice.taskId),
       },
       event,
     );

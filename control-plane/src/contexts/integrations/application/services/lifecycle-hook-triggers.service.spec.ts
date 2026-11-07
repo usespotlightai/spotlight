@@ -6,8 +6,15 @@ import type {
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import type { QueueHookFirings } from '@integrations/application/services/queue-hook-firings.service';
+import {
+  runEnded,
+  taskMoved,
+} from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import type { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
@@ -31,7 +38,7 @@ const setUp = (task: LinkedTaskView | null = TASK) => {
           on: each.on,
           occurrence: each.key,
           change: each.change,
-          event: each.payload,
+          event: each.facts,
           matchedAfterChanges: each.matchedAfterChanges,
         }
       : null;
@@ -54,18 +61,21 @@ describe('LifecycleHookTriggers', () => {
   it('tells each use of a tool apart, so using one often is never read as a loop', async () => {
     const { triggers, occurred } = setUp();
     const used = {
+      on: 'tool.used' as const,
       tool: Tool.of('github.comment'),
-      event: { tool: 'github.comment' },
+      inputs: {},
+      output: null,
+      failed: false,
     };
 
-    await triggers.toolUsed(TASK, used, 'call_1');
-    await triggers.toolUsed(TASK, used, 'call_2');
+    await triggers.toolUsed(TASK, used, HookOccurrenceKey.of('call_1'));
+    await triggers.toolUsed(TASK, used, HookOccurrenceKey.of('call_2'));
 
     expect(occurred(0)?.change).not.toBe(occurred(1)?.change);
     expect(occurred(0)?.change).toContain('github.comment');
     expect(occurred(0)).toMatchObject({
       on: 'tool.used',
-      occurrence: 'call_1',
+      occurrence: HookOccurrenceKey.of('call_1'),
     });
   });
 
@@ -84,8 +94,8 @@ describe('LifecycleHookTriggers', () => {
     );
     expect(occurred()).toMatchObject({
       on: 'run.ended',
-      occurrence: 'run-ended:run_1',
-      event: { outcome: 'handed-over' },
+      occurrence: HookOccurrenceKey.of('run-ended:run_1'),
+      event: runEnded('handed-over'),
     });
   });
 
@@ -117,7 +127,7 @@ describe('LifecycleHookTriggers', () => {
     expect(occurred()).toMatchObject({
       on: 'task.moved',
       change: 'triage → build',
-      event: { from: 'triage', to: 'build' },
+      event: taskMoved('triage', 'build'),
     });
   });
 
@@ -146,11 +156,13 @@ describe('LifecycleHookTriggers', () => {
     expect(occurred()).toMatchObject({
       on: 'pull-request.merged',
       matchedAfterChanges: true,
-      event: {
-        url: PULL_REQUEST,
-        repository: 'acme/api',
+      event: HookEventFacts.of({
+        on: 'pull-request.merged',
+        pullRequest: PullRequestUrl.of(PULL_REQUEST),
+        repository: Repository.of('acme/api'),
         mergeCommit: 'abc',
-      },
+        changed: null,
+      }),
     });
   });
 });

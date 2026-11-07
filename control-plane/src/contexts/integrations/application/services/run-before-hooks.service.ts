@@ -4,13 +4,16 @@ import type {
   ListeningHook,
   StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
+import type { RunAttemptsPort } from '@integrations/application/ports/run-attempts.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import { hookMatches } from '@integrations/application/services/hook-matching';
 import type { HookSteps } from '@integrations/application/services/hook-steps.service';
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
-import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -22,7 +25,7 @@ const reasonOf = (outcome: HookStepOutcome): string =>
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const errored = (name: string, error: unknown): StepResult => {
+const errored = (name: HookStepName, error: unknown): StepResult => {
   const failure = HookFailure.errored(because(error));
 
   return {
@@ -45,19 +48,21 @@ export class RunBeforeHooks {
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
+    private readonly attempts: RunAttemptsPort,
   ) {}
 
   async decide(
     task: TaskView,
-    on: HookEventName,
-    event: Readonly<Record<string, unknown>>,
+    event: HookEventFacts,
     until: Date | null = null,
   ): Promise<HookDecision> {
+    const { on } = event;
     const instance: HookEventInstance = {
       on,
-      occurrence: this.ids.generate(),
+      occurrence: HookOccurrenceKey.of(this.ids.generate()),
       at: this.clock.now(),
       task,
+      run: task.runId ? await this.attempts.currentOf(task.runId) : null,
       event,
       firing: null,
     };
@@ -129,7 +134,7 @@ export class RunBeforeHooks {
 
       if (failedBecause !== null && stepResult.denyReason === null) {
         this.logger.warn(
-          { hook: hook.key.value, step, reason: failedBecause },
+          { hook: hook.key.value, step: step.value, reason: failedBecause },
           'A hook before an event failed',
         );
       }

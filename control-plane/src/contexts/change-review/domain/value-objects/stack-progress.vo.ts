@@ -4,6 +4,9 @@ export const CHANGE_STACK_STATES = ['generating', 'ready', 'failed'] as const;
 
 export type ChangeStackState = (typeof CHANGE_STACK_STATES)[number];
 
+export const isShownForTask = (state: ChangeStackState): boolean =>
+  state !== 'failed';
+
 export const STACK_FAILURES = [
   'not-generated',
   'too-large',

@@ -46,9 +46,9 @@ import { SeenPullRequest } from '@insights/domain/value-objects/seen-pull-reques
 import { StationPass } from '@insights/domain/value-objects/station-pass.vo';
 import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
 import { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
-import { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 import { Tombstones } from '@insights/domain/value-objects/tombstones.vo';
 import { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
+import { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 export const INSIGHTS_PAYLOAD_TYPES = [
   TraceRange,
   FactOwner,
@@ -60,7 +60,7 @@ export const INSIGHTS_PAYLOAD_TYPES = [
   TaskHumanAction,
   RunAgentConfig,
   TaskOpening,
-  TeamAccess,
+  ViewedTeam,
   HumanAction,
   RunUsage,
   RunEnd,

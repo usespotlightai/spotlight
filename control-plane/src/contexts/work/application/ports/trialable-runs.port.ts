@@ -14,14 +14,12 @@ export interface TrialableRunSummary extends Trialability {
   readonly title: string | null;
   readonly state: string | null;
   readonly endedAt: Date | null;
-  readonly origin: string | null;
 }
 
 export interface RecentTrialableRun extends Trialability {
   readonly title: string;
   readonly state: string;
   readonly endedAt: Date;
-  readonly origin: string | null;
 }
 
 export interface TrialableRunsPort {

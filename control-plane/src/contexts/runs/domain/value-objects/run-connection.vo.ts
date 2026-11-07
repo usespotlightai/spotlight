@@ -21,9 +21,9 @@ export const CONNECTION_REASONS = [
 
 export type ConnectionReason = (typeof CONNECTION_REASONS)[number];
 
-export const STOPPED_OUTCOMES = ['blocked', 'failed'] as const;
+const STOPPED_OUTCOMES = ['blocked', 'failed'] as const;
 
-export const AUTH_FAILED_STATUSES = [401, 403] as const;
+const AUTH_FAILED_STATUSES = [401, 403] as const;
 
 export const SERVER_ERROR = 500;
 

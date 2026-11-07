@@ -52,8 +52,9 @@ export class Work implements WorkPort {
         workspaceId: leased.workspaceId,
         teamId: leased.teamId,
         taskId: leased.taskId,
-        replaysFrom: leased.asOf,
-        isSearch: leased.isolated && !leased.trial,
+        asOf: leased.asOf,
+        isolated: leased.isolated,
+        trial: leased.trial,
         lineId: leased.lineId === null ? null : LineId.of(leased.lineId),
         stationId:
           leased.stationId === null ? null : StationId.of(leased.stationId),

@@ -2,7 +2,10 @@ import type {
   LineCompilerPort,
   ParsedLine,
 } from '@lines/application/ports/line-compiler.port';
-import { LINES, lineAt } from '@lines/application/rendering/line-problems';
+import {
+  LINE_DEFINITIONS,
+  lineAt,
+} from '@lines/application/rendering/line-problems';
 import { InvalidConfigSourceError } from '@lines/domain/exceptions/invalid-config-source.error';
 import { InvalidLinePlanError } from '@lines/domain/exceptions/invalid-line-plan.error';
 import { InvalidReplayCheckPolicyError } from '@lines/domain/exceptions/invalid-replay-check-policy.error';
@@ -73,10 +76,12 @@ const addressOf = (input: unknown): string => {
       : null;
 
   try {
-    return typeof key === 'string' ? lineAt(LineKey.of(key).value) : LINES;
+    return typeof key === 'string'
+      ? lineAt(LineKey.of(key).value)
+      : LINE_DEFINITIONS;
   } catch (error) {
     refusalOf(error);
-    return LINES;
+    return LINE_DEFINITIONS;
   }
 };
 

@@ -1,5 +1,5 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';

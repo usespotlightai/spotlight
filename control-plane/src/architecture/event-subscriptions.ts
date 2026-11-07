@@ -187,7 +187,18 @@ const registrationViolations = (
     const unresolved =
       kinds.size === 0 && !sanctioned
         ? ['hears no kind the check can resolve']
-        : [];
+        : ts.isArrayLiteralExpression(heard)
+          ? heard.elements
+              .filter((element) => {
+                const each = heardIn(element, file);
+
+                return each.kinds.size === 0 && !each.sanctioned;
+              })
+              .map(
+                (element) =>
+                  `hears ${element.getText()}, which the check cannot resolve`,
+              )
+          : [];
 
     return [...named, ...owned, ...unresolved].map((problem) => ({
       key: `${file.path}: ${name} ${problem}`,
@@ -196,9 +207,29 @@ const registrationViolations = (
   });
 };
 
+const SUBSCRIBER_MEMBERS = ['name', 'kinds', 'handle'];
+
+const handBuiltSubscribers = (file: SourceFile): Violation[] =>
+  descendants(file.tree, ts.isObjectLiteralExpression)
+    .filter((literal) =>
+      SUBSCRIBER_MEMBERS.every((member) =>
+        literal.properties.some(
+          (property) =>
+            property.name !== undefined &&
+            ts.isIdentifier(property.name) &&
+            property.name.text === member,
+        ),
+      ),
+    )
+    .map((literal) => ({
+      key: `${file.path}: builds a subscriber without subscribing or projecting`,
+      at: at(file, literal),
+    }));
+
 export const eventSubscriptionsIn = (file: SourceFile): Violation[] => [
   ...registrationViolations(file, 'subscribing'),
   ...registrationViolations(file, 'projecting'),
+  ...handBuiltSubscribers(file),
 ];
 
 export const eventSubscriptionViolations = (): Violation[] =>

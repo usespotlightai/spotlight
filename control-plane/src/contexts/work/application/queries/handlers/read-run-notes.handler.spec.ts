@@ -1,4 +1,4 @@
-import type { RunUsage } from '@runs/application/ports/run-usage-reader.port';
+import type { RunUsageFacts } from '@runs/application/ports/run-usage-reader.port';
 import type {
   RunNotesSummary,
   RunReaderPort,
@@ -31,7 +31,7 @@ const notes: RunNotesSummary = {
   notes: [],
 };
 
-const usage: RunUsage = {
+const usage: RunUsageFacts = {
   ms: 60_000,
   steps: 12,
   errors: 0,
@@ -44,7 +44,7 @@ const usage: RunUsage = {
 
 const reading = (
   found: RunNotesSummary | null,
-  usages: ReadonlyMap<string, RunUsage>,
+  usages: ReadonlyMap<string, RunUsageFacts>,
 ) =>
   new ReadRunNotesHandler(
     {

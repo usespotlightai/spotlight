@@ -19,7 +19,7 @@ export class DrizzleTaskPlacements implements TaskPlacementsPort {
       .select({ id: task.id, rank: task.rank })
       .from(task)
       .where(eq(task.stationId, stationId.value))
-      .orderBy(asc(task.rank));
+      .orderBy(asc(task.rank), asc(task.id));
 
     return rows.map((row) => ({
       id: TaskId.of(row.id),

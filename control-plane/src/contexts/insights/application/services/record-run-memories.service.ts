@@ -10,7 +10,6 @@ import {
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RunMemoriesReceived {
@@ -38,8 +37,8 @@ export class RecordRunMemories {
 
     const workspaceId = WorkspaceId.of(event.workspaceId);
     const taskId = TaskId.of(event.taskId);
-    const run = await this.work.endedRun(event.runId);
-    const teamId = run ? TeamId.of(run.teamId) : null;
+    const run = await this.work.endedRun(RunId.of(event.runId));
+    const teamId = run?.teamId ?? null;
 
     const runId = RunId.of(event.runId);
 

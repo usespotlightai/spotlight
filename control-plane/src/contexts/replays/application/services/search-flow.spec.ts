@@ -17,10 +17,11 @@ import { NoticeSearchResults } from '@replays/application/services/notice-search
 import { RecordSearchProgress } from '@replays/application/services/record-search-progress.service';
 import {
   CLOCK,
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
+  liveFrom,
   peopleWho,
   QUIET,
   refreshingFor,
@@ -84,12 +85,16 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 
 const HASH = { sha256 };
 
 const healthsFor = () =>
-  new SetHealths(work, memory.replayRepository, memory.candidateRepository);
+  new SetHealths(
+    suppliers.configs,
+    memory.replayRepository,
+    memory.candidateRepository,
+  );
 
 interface BudgetTerms {
   readonly iterations: number;
@@ -113,8 +118,8 @@ const SEED_BLOCK = { key: 'build', name: 'Build', kind: 'work' };
 
 const starting = () =>
   new StartSearch(
-    snapshotsFor(memory, work),
-    stepsFor(memory, work, CLOCK),
+    snapshotsFor(memory, suppliers),
+    stepsFor(memory, suppliers, CLOCK),
     memory.setRepository,
     memory.searchRepository,
     memory.scheduleRepository,
@@ -210,8 +215,8 @@ const iterating = () =>
     memory.candidateRepository,
     memory.replayRepository,
     healthsFor(),
-    work,
-    work,
+    suppliers.lines,
+    suppliers.dispatch,
     IDS,
     CLOCK,
     TRANSACTION,
@@ -228,10 +233,20 @@ const holdingOut = () =>
   );
 
 const cancelling = () =>
-  new CancelSearch(memory.replayRepository, work, CLOCK, TRANSACTION);
+  new CancelSearch(
+    memory.replayRepository,
+    suppliers.dispatch,
+    CLOCK,
+    TRANSACTION,
+  );
 
 const deleting = () =>
-  new DeleteSearches(memory.searchRepository, work, CLOCK, TRANSACTION);
+  new DeleteSearches(
+    memory.searchRepository,
+    suppliers.dispatch,
+    CLOCK,
+    TRANSACTION,
+  );
 
 const delivered = async (): Promise<void> => {
   for (
@@ -257,7 +272,7 @@ let noticed: SearchNotice[];
 
 let advised: StationNotice[];
 
-const findings = () => new SearchFindings(work);
+const findings = () => new SearchFindings(suppliers.trialableRuns);
 
 const noticing = () =>
   new NoticeSearchResults(
@@ -267,7 +282,7 @@ const noticing = () =>
     memory.replayRepository,
     healthsFor(),
     findings(),
-    work,
+    suppliers.lines,
     {
       notify: async (notice) => {
         noticed.push(notice);
@@ -281,14 +296,14 @@ const noticing = () =>
 const turnedOff = () =>
   new TurnOffSearches(
     memory.searchRepository,
-    work,
+    suppliers.configs,
     TRANSACTION,
     CLOCK,
   ).lineChanged(STATION.lineId);
 
 const recording = () =>
   new RecordFailureCauseHandler(
-    work,
+    suppliers.dispatch,
     memory.searchRepository,
     CLOCK,
     TRANSACTION,
@@ -314,11 +329,12 @@ const cause = (
 const proposing = () =>
   new ProposeSearchCandidateHandler(
     peopleWho(true),
-    work,
-    work,
+    suppliers.lines,
+    suppliers.configs,
+    suppliers.dispatch,
     memory.searchRepository,
     memory.candidateRepository,
-    snapshotsFor(memory, work),
+    snapshotsFor(memory, suppliers),
     IDS,
     CLOCK,
     TRANSACTION,
@@ -370,7 +386,7 @@ const activeRun = (): string => {
     throw new Error('the search has no active run');
   }
 
-  work.leasedSearchRuns.set(run.value, {
+  suppliers.dispatch.leasedSearchRuns.set(run.value, {
     searchId: theSearch().id,
     iteration: theSearch().iterationOf(run)?.number ?? 0,
   });
@@ -390,6 +406,7 @@ const runEnds = async (
     outcome,
     asked: false,
     started: outcome !== 'cancelled',
+    endedAt: CLOCK.now(),
   });
   await delivered();
   if (spent) {
@@ -402,7 +419,7 @@ const advancing = () =>
   new AdvanceSearches(
     memory.searchRepository,
     memory.replayRepository,
-    work,
+    suppliers.dispatch,
     iterating(),
     holdingOut(),
     progress(),
@@ -429,8 +446,8 @@ beforeEach(async () => {
   advised = [];
   memory = new InMemoryReplays();
   memory.startsPlannedReplays = true;
-  work = new FakeWork();
-  work.live = async () => ({
+  suppliers = new FakeSuppliers();
+  suppliers.configs.live = async () => ({
     lineKey: 'delivery',
     block: StationBlock.of(SEED_BLOCK),
     fingerprint: LIVE_FINGERPRINT,
@@ -449,7 +466,7 @@ describe('a search’s iterations', () => {
     await seeded();
 
     const search = theSearch();
-    const [order] = work.searchesDispatched;
+    const [order] = suppliers.dispatch.searchesDispatched;
 
     expect(search.current).toBe('searching');
     expect(search.iterations[0]?.current).toBe('running');
@@ -476,7 +493,7 @@ describe('a search’s iterations', () => {
 
     expect(theSearch().stopReason).toBe('turned-off');
     expect(memory.replays.get(started.seedReplayId)?.current).toBe('stopped');
-    expect(work.searchesDispatched).toHaveLength(0);
+    expect(suppliers.dispatch.searchesDispatched).toHaveLength(0);
   });
 
   it('stops as station-gone, never running its agent, when its station left its line before its seed ended', async () => {
@@ -487,7 +504,7 @@ describe('a search’s iterations', () => {
     }
 
     await delivered();
-    work.station = async () => null;
+    suppliers.lines.station = async () => null;
     await replayed(started.seedReplayId, () => true, 0.5);
 
     expect(theSearch().current).toBe('stopped');
@@ -495,12 +512,12 @@ describe('a search’s iterations', () => {
     expect(theSearch().iterations.map((each) => each.current)).not.toContain(
       'failed',
     );
-    expect(work.searchesDispatched).toHaveLength(0);
+    expect(suppliers.dispatch.searchesDispatched).toHaveLength(0);
   });
 
   it('stops as station-gone, counting no failed iteration, when its station left its line while its agent run was being queued', async () => {
-    work.dispatchSearch = async () => {
-      work.station = async () => null;
+    suppliers.dispatch.dispatchSearch = async () => {
+      suppliers.lines.station = async () => null;
 
       return {
         queued: false,
@@ -518,7 +535,7 @@ describe('a search’s iterations', () => {
   });
 
   it('counts an iteration that could not start as failed, and stalls after two without looking into why when only one iteration is left', async () => {
-    work.searchProblem = 'no runner can start claude-code';
+    suppliers.dispatch.searchProblem = 'no runner can start claude-code';
 
     await seeded({ ...BUDGET, iterations: 3 });
 
@@ -547,19 +564,19 @@ describe('a search’s iterations', () => {
   });
 
   it('retries an iteration whose dispatch failed, from the sweeper', async () => {
-    const dispatch = work.dispatchSearch;
-    work.dispatchSearch = async () => {
+    const dispatch = suppliers.dispatch.dispatchSearch;
+    suppliers.dispatch.dispatchSearch = async () => {
       throw new Error('the database went away');
     };
 
     await expect(seeded()).rejects.toThrow('the database went away');
     expect(theSearch().iterations[0]?.current).toBe('wanted');
 
-    work.dispatchSearch = dispatch;
+    suppliers.dispatch.dispatchSearch = dispatch;
     await advancing().processDue();
 
     expect(theSearch().iterations[0]?.current).toBe('running');
-    expect(work.searchesDispatched).toHaveLength(1);
+    expect(suppliers.dispatch.searchesDispatched).toHaveLength(1);
   });
 });
 
@@ -591,7 +608,7 @@ describe('a stalled search looking into why', () => {
   };
 
   it('briefs its agent with the searched tasks the best config still fails, takes one cause each, never for a held-out task, and ends stalled with the causes, advising the team once on them', async () => {
-    work.runSummaries = async (_workspace, runs) =>
+    suppliers.trialableRuns.runSummaries = async (_workspace, runs) =>
       runs.map((runId) => ({
         runId,
         taskId: null,
@@ -614,7 +631,10 @@ describe('a stalled search looking into why', () => {
 
     const run = activeRun();
     const reflection = theSearch().iterationOf(RunId.of(run));
-    const order = work.searchesDispatched[work.searchesDispatched.length - 1];
+    const order =
+      suppliers.dispatch.searchesDispatched[
+        suppliers.dispatch.searchesDispatched.length - 1
+      ];
 
     expect(reflection?.kind).toBe('reflect');
     expect(reflection?.reflectedOn.map((each) => each.taskId)).toEqual([
@@ -715,7 +735,9 @@ describe('a stalled search looking into why', () => {
 
     const set = [...memory.sets.values()][0];
 
-    await refreshingFor(memory, work).refreshBefore(set?.id as ReplaySetId);
+    await refreshingFor(memory, suppliers).refreshBefore(
+      set?.id as ReplaySetId,
+    );
 
     const refreshed = [...memory.sets.values()][0];
 
@@ -753,7 +775,9 @@ describe('a stalled search looking into why', () => {
       'propose',
     ]);
     expect(
-      work.searchesDispatched[work.searchesDispatched.length - 1]?.briefing,
+      suppliers.dispatch.searchesDispatched[
+        suppliers.dispatch.searchesDispatched.length - 1
+      ]?.briefing,
     ).toContain('Suggested: Run the migrations first.');
     expect(noticed).toEqual([]);
   });
@@ -764,7 +788,7 @@ describe('a stalled search looking into why', () => {
     expect(theSearch().stopReason).toBe('stalled');
     expect(theSearch().iterations[2]?.current).toBe('ended');
     expect(theSearch().iterations[2]?.result).toBe('no-failures');
-    expect(work.searchesDispatched).toHaveLength(2);
+    expect(suppliers.dispatch.searchesDispatched).toHaveLength(2);
     expect(noticed).toEqual([]);
     expect(await findings().findingsOf(theSearch())).toEqual([
       'Two iterations in a row found nothing better. The best config already passes every searched task.',
@@ -861,12 +885,12 @@ describe('a search running its course', () => {
 
     await runEnds(first);
 
-    expect(work.searchesDispatched).toHaveLength(1);
+    expect(suppliers.dispatch.searchesDispatched).toHaveLength(1);
 
     await replayed(strong.replayId, () => true, 0.25);
     await replayed(weak.replayId, (original) => original.endsWith('_9'));
 
-    expect(work.searchesDispatched).toHaveLength(2);
+    expect(suppliers.dispatch.searchesDispatched).toHaveLength(2);
 
     const second = activeRun();
 
@@ -909,7 +933,7 @@ describe('a search running its course', () => {
     await delivered();
 
     expect(theSearch().stopReason).toBe('turned-off');
-    expect(work.cancelledSearchRuns).toEqual([run]);
+    expect(suppliers.dispatch.cancelledSearchRuns).toEqual([run]);
     expect(
       proposed.outcome === 'proposed' &&
         memory.replays.get(proposed.replayId)?.current,
@@ -961,9 +985,9 @@ describe('SearchVisibilities', () => {
   });
 
   it('hands a search run each replay’s verdict and what to improve, never the judge’s reasons or the checks that failed', async () => {
-    const live = await work.live();
+    const live = await liveFrom(suppliers.configs)();
     const RUBRIC_PHRASE = 'drain the queue without dropping a job';
-    work.live = async () => ({
+    suppliers.configs.live = async () => ({
       ...live,
       scoring: CandidateScoring.of({
         checksChanges: true,
@@ -1090,7 +1114,7 @@ describe('DeleteSearches', () => {
 
     expect(deleted?.runToCancel?.value).toBe(run);
     await deleting().cancelRunOf(deleted as SearchDeleted);
-    expect(work.cancelledSearchRuns).toEqual([run]);
+    expect(suppliers.dispatch.cancelledSearchRuns).toEqual([run]);
   });
 
   it('ends the search of a set whose station left its line', async () => {
@@ -1110,7 +1134,7 @@ describe('RecordSearchProgress', () => {
     await runEnds(first, 'completed', null);
 
     expect(theSearch().activeRun).toBeNull();
-    expect(work.searchesDispatched).toHaveLength(1);
+    expect(suppliers.dispatch.searchesDispatched).toHaveLength(1);
 
     const before = theSearch().spent;
 
@@ -1120,7 +1144,7 @@ describe('RecordSearchProgress', () => {
     expect(
       theSearch().spent.equals(before.plus(theSearch().ceilingSplit.agentRun)),
     ).toBe(true);
-    expect(work.searchesDispatched).toHaveLength(2);
+    expect(suppliers.dispatch.searchesDispatched).toHaveLength(2);
 
     const second = activeRun();
     const charged = theSearch().spent;
@@ -1160,7 +1184,7 @@ describe('AdvanceSearches', () => {
       replayedAs(replay as never, () => 'completed', 0.5),
     );
     memory.events.splice(0);
-    work.runStatuses.set(first, {
+    suppliers.dispatch.runStatuses.set(first, {
       run: theSearch().activeRun as never,
       phase: 'ended',
       failed: false,
@@ -1180,7 +1204,7 @@ describe('AdvanceSearches', () => {
 
     const second = theSearch().activeRun;
 
-    work.runStatuses.set(second?.value ?? '', {
+    suppliers.dispatch.runStatuses.set(second?.value ?? '', {
       run: second as never,
       phase: 'queued',
       failed: true,
@@ -1189,18 +1213,18 @@ describe('AdvanceSearches', () => {
       endedAt: null,
     });
 
-    work.unclaimed = { outcome: 'claimed' };
+    suppliers.dispatch.unclaimed = { outcome: 'claimed' };
 
     await advancing().processDue();
 
     expect(theSearch().iterations[1]?.current).toBe('running');
     expect(theSearch().iterations[1]?.agentSpent).toBeNull();
 
-    work.unclaimed = { outcome: 'cancelled', started: true };
+    suppliers.dispatch.unclaimed = { outcome: 'cancelled', started: true };
 
     await advancing().processDue();
 
-    expect(work.cancelledUnclaimed).toEqual([second?.value]);
+    expect(suppliers.dispatch.cancelledUnclaimed).toEqual([second?.value]);
     expect(theSearch().iterations[1]?.current).toBe('failed');
     expect(theSearch().iterations[1]?.agentSpent).toBeNull();
     expect(theSearch().awaitingAgentSpend.map((each) => each.number)).toEqual([
@@ -1212,7 +1236,7 @@ describe('AdvanceSearches', () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const first = activeRun();
 
-    work.runStatuses.set(first, {
+    suppliers.dispatch.runStatuses.set(first, {
       run: theSearch().activeRun as never,
       phase: 'queued',
       failed: true,
@@ -1223,7 +1247,7 @@ describe('AdvanceSearches', () => {
 
     await advancing().processDue();
 
-    expect(work.cancelledUnclaimed).toEqual([first]);
+    expect(suppliers.dispatch.cancelledUnclaimed).toEqual([first]);
     expect(theSearch().iterations[0]?.current).toBe('failed');
     expect(theSearch().iterations[0]?.agentSpent?.unpriced).toBe(0);
     expect(theSearch().iterations).toHaveLength(2);

@@ -89,7 +89,10 @@ describe('BuiltInTools', () => {
     ).toBeUndefined();
     await expect(
       resolved?.call(ToolInputs.of({ title: 'Fix the queue' })),
-    ).resolves.toEqual({ task: 'task_1', title: 'Fix the queue' });
+    ).resolves.toEqual({
+      outcome: 'answered',
+      output: { task: 'task_1', title: 'Fix the queue' },
+    });
   });
 
   it('resolves a tool only for the kind of work it is made for', () => {

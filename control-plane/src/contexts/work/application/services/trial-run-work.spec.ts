@@ -1,18 +1,19 @@
-import type {
-  RunRepository,
-  WorkspaceArchiveRepository,
-} from '@runs/application/ports/run-fixtures.fake-spec';
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
+  claimer,
   Run,
-  RunFacts,
   Runs,
+  runReadModelOver,
 } from '@runs/application/ports/run-fixtures.fake-spec';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { aRunFor } from '@work/application/services/run-works.fake-spec';
 import { TrialRunWork } from '@work/application/services/trial-run-work';
 import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
+import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { describe, expect, it } from 'vitest';
@@ -39,7 +40,7 @@ const briefed = BriefedTask.of({
 });
 
 const replay = () =>
-  aRunFor(RunId.of('run_2'), 'dev', 'trial').claim(RUNNER, NOW);
+  aRunFor(RunId.of('run_2'), 'dev', 'trial').claim(claimer(RUNNER), NOW);
 
 const working = async () => {
   const saved: Run[] = [];
@@ -56,12 +57,12 @@ const working = async () => {
     },
   } as unknown as RunRepository;
   const work = new TrialRunWork(
-    await new RunFacts(
-      { findById: async () => replayed } as unknown as RunRepository,
-      { find: async () => null } as unknown as WorkspaceArchiveRepository,
-    ).leaseOf(replayed.id, RUNNER),
+    await runReadModelOver({ findById: async () => replayed }).leaseOf(
+      replayed.id,
+      RUNNER,
+    ),
     briefed,
-    [{ path: 'api', repository: 'acme/api' }],
+    [{ path: 'api', repository: Repository.of('acme/api') }],
     new Runs(
       runs,
       { sha256: (text) => text },
@@ -100,8 +101,8 @@ describe('the work of a trial', () => {
   it('uses no tool', async () => {
     const { work } = await working();
 
-    await expect(work.toolContext()).rejects.toThrow(
-      NotAllowedForIsolatedRunError,
+    await expect(work.toolContext(Tool.of('linear.comment'))).rejects.toThrow(
+      ToolNotEnabledError,
     );
     expect((await work.clearFor()).kind).toBe('dismissed');
   });

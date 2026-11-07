@@ -143,7 +143,7 @@ describe('a line that drops a station', () => {
       context.inTransaction(() =>
         new DrizzleStationDeletionGuard(context).release([reviewId]),
       ),
-    ).resolves.toBe('occupied');
+    ).rejects.toThrow();
     await expect(tasks.find(task.id)).resolves.not.toBeNull();
   });
 
@@ -152,10 +152,13 @@ describe('a line that drops a station', () => {
     await tasks.add(added(whole, reviewId));
 
     const tally = await context.inTransaction(() =>
-      new DrizzleStationDeletionGuard(context).lockedTaskCountsAt([reviewId]),
+      new DrizzleStationDeletionGuard(context).lockedTaskCountsAt(
+        { lineId: whole.id, version: 1 },
+        [reviewId],
+      ),
     );
 
-    expect(tally.get(reviewId.value)).toBe(1);
+    expect(tally).toEqual([{ stationId: reviewId, tasks: 1 }]);
   });
 
   it('rejects a task at a station that is released', async () => {
@@ -165,7 +168,7 @@ describe('a line that drops a station', () => {
       context.inTransaction(() =>
         new DrizzleStationDeletionGuard(context).release([reviewId]),
       ),
-    ).resolves.toBe('released');
+    ).resolves.toBeUndefined();
     await expect(tasks.add(added(whole, reviewId))).rejects.toBeInstanceOf(
       StationNotKnownYetError,
     );
@@ -227,6 +230,28 @@ describe('the stations Work knows of a line', () => {
     await stations.project(projected(lineId, 0, [station]));
 
     expect(await known(lineId)).toEqual([]);
+  });
+
+  it('keeps a station out that a change saved before the line was first followed released', async () => {
+    const stations = new DrizzleWorkStations(context);
+    const guard = new DrizzleStationDeletionGuard(context);
+    const lineId = LineId.of(randomUUID());
+    const [kept, dropped] = [randomUUID(), randomUUID()].map(StationId.of) as [
+      StationId,
+      StationId,
+    ];
+
+    await context.inTransaction(async () => {
+      await guard.lockedTaskCountsAt({ lineId, version: 1 }, [kept, dropped]);
+      await guard.release([dropped]);
+    });
+    await stations.project(projected(lineId, 0, [kept, dropped]));
+
+    expect(await known(lineId)).toEqual([]);
+
+    await stations.project(projected(lineId, 1, [kept]));
+
+    expect(await known(lineId)).toEqual([kept.value]);
   });
 });
 

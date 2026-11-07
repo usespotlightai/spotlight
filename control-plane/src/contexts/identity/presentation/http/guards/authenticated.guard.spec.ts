@@ -6,9 +6,13 @@ import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token
 import { AuthenticatedGuard } from '@identity/presentation/http/guards/authenticated.guard';
 import { type ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
+import {
+  ALLOW_ANONYMOUS,
+  READS_SESSION_IF_ANY,
+} from '@platform/http/decorators/allow-anonymous.decorator';
 import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { REQUEST_PRINCIPAL } from '@platform/http/decorators/current-principal.decorator';
+import { REQUEST_USER } from '@platform/http/decorators/current-user.decorator';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -28,6 +32,7 @@ const TOKEN = IssuedTokenGrant.principal({
 function setup(
   options: {
     anonymous?: boolean;
+    readsSession?: boolean;
     allowsTokens?: boolean;
     session?: boolean;
     bearer?: string;
@@ -39,6 +44,7 @@ function setup(
   vi.spyOn(reflector, 'getAllAndOverride').mockImplementation(
     (marker) =>
       (marker === ALLOW_ANONYMOUS && options.anonymous) ||
+      (marker === READS_SESSION_IF_ANY && options.readsSession) ||
       (marker === ALLOW_WORKSPACE_TOKENS && options.allowsTokens) ||
       false,
   );
@@ -100,6 +106,22 @@ describe('AuthenticatedGuard', () => {
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
     expect(read).not.toHaveBeenCalled();
+  });
+
+  it('accepts an anonymous route that reads the session, as the person signed in or as nobody', async () => {
+    const signedIn = setup({
+      anonymous: true,
+      readsSession: true,
+      session: true,
+    });
+    const nobody = setup({ anonymous: true, readsSession: true });
+
+    await expect(signedIn.guard.canActivate(signedIn.context)).resolves.toBe(
+      true,
+    );
+    await expect(nobody.guard.canActivate(nobody.context)).resolves.toBe(true);
+    expect(signedIn.request[REQUEST_USER]).toEqual(USER);
+    expect(nobody.request[REQUEST_USER]).toBeUndefined();
   });
 
   it('accepts a workspace token where the route allows tokens, as that token', async () => {

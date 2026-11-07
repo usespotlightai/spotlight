@@ -270,35 +270,24 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
     return rows.map(toCall);
   }
 
-  async claimNext(
+  async nextWaiting(
     workspaceId: WorkspaceId,
-    by: CallingHost,
     now: Date,
-    secretsToken: TokenHash,
   ): Promise<NetworkCall | null> {
-    return this.context.inTransaction(async () => {
-      const [row] = await this.context.db
-        .select()
-        .from(networkCall)
-        .where(
-          and(
-            eq(networkCall.workspaceId, workspaceId.value),
-            eq(networkCall.state, 'waiting'),
-            gt(networkCall.expiresAt, now),
-          ),
-        )
-        .orderBy(asc(networkCall.queuedAt))
-        .limit(1)
-        .for('update', { skipLocked: true });
+    const [row] = await this.context.db
+      .select()
+      .from(networkCall)
+      .where(
+        and(
+          eq(networkCall.workspaceId, workspaceId.value),
+          eq(networkCall.state, 'waiting'),
+          gt(networkCall.expiresAt, now),
+        ),
+      )
+      .orderBy(asc(networkCall.queuedAt))
+      .limit(1)
+      .for('update', { skipLocked: true });
 
-      if (!row) {
-        return null;
-      }
-
-      const claimed = toCall(row).claimedBy(by, now, secretsToken);
-      await this.save(claimed);
-
-      return claimed;
-    });
+    return row ? toCall(row) : null;
   }
 }

@@ -7,9 +7,9 @@ export class TeamStanding {
 
   static of(input: {
     readonly seesTeam: boolean;
-    readonly readsTeam: boolean;
+    readonly actsOnTeam: boolean;
   }): TeamStanding {
-    if (input.readsTeam) {
+    if (input.actsOnTeam) {
       return new TeamStanding('team');
     }
 

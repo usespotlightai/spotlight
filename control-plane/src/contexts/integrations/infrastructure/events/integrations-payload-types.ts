@@ -28,17 +28,26 @@ import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo'
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
+import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
 import { OperationFilter } from '@integrations/domain/value-objects/operation-filter.vo';
 import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo';
@@ -80,7 +89,9 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   HookAddress,
   HookDefinitionId,
   HookEvent,
+  HookEventFacts,
   HookFiringId,
+  HookRunAttempt,
   HookKey,
   HookMatch,
   HookOccurrence,
@@ -102,10 +113,17 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   SpecRefreshDetail,
   IntegrationKey,
   Integration,
+  OfferedTools,
   SpecFetchResult,
   ToolBacking,
   ToolInputs,
   ToolName,
+  OAuth2ClientId,
+  OAuth2Endpoint,
+  OAuthScope,
+  HookStepName,
+  HookOccurrenceKey,
+  InboundDeliveryId,
   ToolUses,
   Webhook,
   HookCreated,

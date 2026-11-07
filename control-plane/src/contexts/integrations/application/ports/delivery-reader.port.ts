@@ -12,6 +12,11 @@ export type DeliveryReading =
   | { readonly kind: 'failed'; readonly failure: DeliveryFailure };
 
 export interface DeliveryReaderPort {
+  receive(
+    provider: WebhookProviderPort,
+    delivered: Delivered,
+  ): Promise<DeliveryFailure | null>;
+
   read(
     provider: WebhookProviderPort,
     delivered: Delivered,

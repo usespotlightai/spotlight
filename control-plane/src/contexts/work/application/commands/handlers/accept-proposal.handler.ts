@@ -21,7 +21,11 @@ export class AcceptProposalHandler
 
   async execute(command: AcceptProposalCommand): Promise<void> {
     try {
-      const chat = await this.loader.inTeam(command.teamId, command.chatId);
+      const chat = await this.loader.openedBy(
+        command.teamId,
+        command.chatId,
+        command.acceptedBy,
+      );
       const acceptedBy = UserId.of(command.acceptedBy);
       const accepted = chat.accept(
         MessagePosition.of(command.position),

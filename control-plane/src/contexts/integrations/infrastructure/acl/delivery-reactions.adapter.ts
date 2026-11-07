@@ -12,7 +12,7 @@ export class WorkDeliveryReactions implements DeliveryReactionsPort {
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
     happenings: readonly Happened[],
-    receivedAs: string,
+    receivedAs: string | null,
   ): Promise<DeliveryFailure | null> {
     const reaction = await this.reactions.react(
       workspaceId,

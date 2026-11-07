@@ -8,14 +8,17 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TaskNotesFromHooksPort } from '@work/application/ports/task-notes-from-hooks.port';
 
-export type NotedByCallback = 'noted' | 'rejected' | 'empty';
+export type NotedByCallback =
+  | 'noted'
+  | 'rejected'
+  | { readonly invalid: string };
 
-const noteIn = (body: string): CallbackNote | null => {
+const noteIn = (body: string): CallbackNote | { readonly invalid: string } => {
   try {
     return CallbackNote.of(body);
   } catch (error) {
     if (error instanceof InvalidCallbackNoteError) {
-      return null;
+      return { invalid: error.message };
     }
 
     throw error;
@@ -36,8 +39,8 @@ export class NoteByCallbackHandler
     try {
       const note = noteIn(command.body);
 
-      if (!note) {
-        return 'empty';
+      if ('invalid' in note) {
+        return note;
       }
 
       const callbackToken = await this.callbackTokens.findByToken(

@@ -416,7 +416,7 @@ describe('healthSamplesOf', () => {
   ) => ({
     id: { value: id },
     setId: { value: setId },
-    healthSampleGroup: group,
+    healthSampleGroup: group === null ? null : { value: group },
     sampledAt: later(sampledAt),
     startedAt: later(sampledAt - 1),
   });

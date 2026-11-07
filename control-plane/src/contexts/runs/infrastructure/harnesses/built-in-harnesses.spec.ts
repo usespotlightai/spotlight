@@ -14,22 +14,22 @@ const entry = (id: string) => known.catalogue().find((each) => each.id === id);
 
 describe('the harnesses Spotlight knows', () => {
   it('finds one by the name it is known under', () => {
-    expect(known.named(claude)?.name.value).toBe('Claude Code');
+    expect(entry('claude-code')?.name).toBe('Claude Code');
   });
 
   it('knows nothing of a harness it was never taught', () => {
-    expect(known.named(HarnessId.of('nothing-of-the-sort'))).toBeNull();
+    expect(entry('nothing-of-the-sort')).toBeUndefined();
     expect(known.commandFor(HarnessId.of('nothing'), null_())).toBeNull();
   });
 
   it('has no two harnesses under one name', () => {
-    const named = known.all().map((harness) => harness.id.value);
+    const named = known.catalogue().map((harness) => harness.id);
 
     expect(new Set(named).size).toBe(named.length);
   });
 
   it('knows Cursor as well as Claude Code', () => {
-    expect(known.named(cursor)?.name.value).toBe('Cursor CLI');
+    expect(entry('cursor')?.name).toBe('Cursor CLI');
   });
 
   it('says what to look for on a machine', () => {
@@ -51,12 +51,10 @@ describe('the harnesses Spotlight knows', () => {
   });
 
   it('tells Claude Code its model and effort through the environment', () => {
-    const started = known
-      .commandFor(claude, {
-        model: HarnessModel.of('claude-opus-4-8'),
-        effort: Effort.of('high'),
-      })
-      ?.started();
+    const started = known.commandFor(claude, {
+      model: HarnessModel.of('claude-opus-4-8'),
+      effort: Effort.of('high'),
+    });
 
     expect(started?.env?.ANTHROPIC_MODEL).toBe('claude-opus-4-8');
     expect(started?.env?.CLAUDE_CODE_EFFORT_LEVEL).toBe('high');
@@ -64,39 +62,36 @@ describe('the harnesses Spotlight knows', () => {
   });
 
   it('folds Cursor’s effort into the model it is given', () => {
-    const started = known
-      .commandFor(cursor, {
-        model: HarnessModel.of('gpt-5'),
-        effort: Effort.of('high'),
-      })
-      ?.started();
+    const started = known.commandFor(cursor, {
+      model: HarnessModel.of('gpt-5'),
+      effort: Effort.of('high'),
+    });
 
     expect(started?.executable).toBe('cursor-agent');
     expect(started?.args).toEqual(['acp', '--model', 'gpt-5[effort=high]']);
   });
 
   it('leaves Cursor’s effort off when no model is chosen', () => {
-    const started = known
-      .commandFor(cursor, { model: null, effort: Effort.of('high') })
-      ?.started();
+    const started = known.commandFor(cursor, {
+      model: null,
+      effort: Effort.of('high'),
+    });
 
     expect(started?.args).toEqual(['acp']);
   });
 
   it('imposes nothing when neither model nor effort is chosen', () => {
-    const started = known.commandFor(claude, null_())?.started();
+    const started = known.commandFor(claude, null_());
 
     expect(started?.env?.ANTHROPIC_MODEL).toBeUndefined();
     expect(started?.env?.CLAUDE_CODE_EFFORT_LEVEL).toBeUndefined();
   });
 
   it('tells OpenCode its model in its config and its effort as a session option it may refuse', () => {
-    const started = known
-      .commandFor(opencode, {
-        model: HarnessModel.of('anthropic/claude-sonnet-4-5'),
-        effort: Effort.of('high'),
-      })
-      ?.started();
+    const started = known.commandFor(opencode, {
+      model: HarnessModel.of('anthropic/claude-sonnet-4-5'),
+      effort: Effort.of('high'),
+    });
 
     expect(started?.executable).toBe('opencode');
     expect(started?.args).toEqual(['acp']);
@@ -111,7 +106,7 @@ describe('the harnesses Spotlight knows', () => {
   });
 
   it('keeps OpenCode’s sessions in the run’s state and never shares them', () => {
-    const started = known.commandFor(opencode, null_())?.started();
+    const started = known.commandFor(opencode, null_());
 
     expect(started?.env?.OPENCODE_DB).toBe(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner

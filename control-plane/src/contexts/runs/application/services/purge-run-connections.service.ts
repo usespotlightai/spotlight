@@ -1,4 +1,4 @@
-import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
+import type { RunConnectionLedgerPort } from '@runs/application/ports/run-connection-ledger.port';
 import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
@@ -6,7 +6,7 @@ const PURGE_BATCH = 5_000;
 
 export class PurgeRunConnections {
   constructor(
-    private readonly connections: RunConnectionsPort,
+    private readonly connections: RunConnectionLedgerPort,
     private readonly clock: ClockPort,
   ) {}
 

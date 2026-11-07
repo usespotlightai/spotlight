@@ -24,6 +24,7 @@ export const hookDefinition = pgTable(
     on: text('on').notNull(),
     definition: jsonb('definition').$type<Record<string, unknown>>().notNull(),
     tools: jsonb('tools').$type<string[]>().notNull(),
+    blocks: boolean('blocks').notNull(),
     signingSecret: text('signing_secret'),
     signingSecretVersion: integer('signing_secret_version'),
     version: integer('version').notNull().default(1),
@@ -49,6 +50,7 @@ export const hookFiring = pgTable(
     teamId: text('team_id').notNull(),
     taskId: text('task_id').notNull(),
     runId: text('run_id'),
+    runAttempt: integer('run_attempt'),
     stationKey: text('station_key').notNull(),
     on: text('on').notNull(),
     occurrence: text('occurrence').notNull(),
@@ -63,12 +65,21 @@ export const hookFiring = pgTable(
     claimedAt: timestamptz('claimed_at'),
     failure: text('failure'),
     failed: text('failed'),
+    skipped: text('skipped'),
     firedAt: timestamptz('fired_at').notNull(),
     handledAt: timestamptz('handled_at'),
     version: integer('version').notNull().default(1),
   },
   (table) => [
     check('hook_firing_attempts_not_negative', sql`${table.attempts} >= 0`),
+    check(
+      'hook_firing_skip_reason',
+      sql`(${table.state} = 'skipped') = (${table.skipped} is not null)`,
+    ),
+    check(
+      'hook_firing_whole_run',
+      sql`num_nonnulls(${table.runId}, ${table.runAttempt}) in (0, 2)`,
+    ),
     unique().on(table.hookId, table.occurrence),
     index('hook_firing_state_idx').on(table.state, table.dueAt),
     index('hook_firing_repeats_idx').on(

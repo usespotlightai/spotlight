@@ -7,7 +7,7 @@ const unseen = () => new UnknownTaskError('task-1');
 
 describe('TeamStanding', () => {
   describe('someone the team rule admits: a member, a workspace admin or a token with the scope', () => {
-    const standing = TeamStanding.of({ seesTeam: true, readsTeam: true });
+    const standing = TeamStanding.of({ seesTeam: true, actsOnTeam: true });
 
     it('sees the team’s tasks', () => {
       expect(standing.seesTasks).toBe(true);
@@ -20,7 +20,7 @@ describe('TeamStanding', () => {
   });
 
   describe('a workspace member outside the team', () => {
-    const standing = TeamStanding.of({ seesTeam: true, readsTeam: false });
+    const standing = TeamStanding.of({ seesTeam: true, actsOnTeam: false });
 
     it('sees the team’s tasks', () => {
       expect(standing.seesTasks).toBe(true);
@@ -35,7 +35,7 @@ describe('TeamStanding', () => {
   });
 
   describe('someone outside the workspace', () => {
-    const standing = TeamStanding.of({ seesTeam: false, readsTeam: false });
+    const standing = TeamStanding.of({ seesTeam: false, actsOnTeam: false });
 
     it('neither sees nor acts on the team’s tasks', () => {
       expect(standing.seesTasks).toBe(false);
@@ -51,13 +51,13 @@ describe('TeamStanding', () => {
 
   it('is equal by its reach', () => {
     expect(
-      TeamStanding.of({ seesTeam: true, readsTeam: false }).equals(
-        TeamStanding.of({ seesTeam: true, readsTeam: false }),
+      TeamStanding.of({ seesTeam: true, actsOnTeam: false }).equals(
+        TeamStanding.of({ seesTeam: true, actsOnTeam: false }),
       ),
     ).toBe(true);
     expect(
-      TeamStanding.of({ seesTeam: true, readsTeam: true }).equals(
-        TeamStanding.of({ seesTeam: true, readsTeam: false }),
+      TeamStanding.of({ seesTeam: true, actsOnTeam: true }).equals(
+        TeamStanding.of({ seesTeam: true, actsOnTeam: false }),
       ),
     ).toBe(false);
   });

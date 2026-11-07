@@ -4,11 +4,11 @@ import {
   redactInjected,
   redactInjectedIn,
 } from '@integrations/infrastructure/outbound/secret-injection';
-import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { injectedSecretsOf } from '@secrets/application/contracts/injected-secrets.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 describe('secret injection', () => {
-  const headerSecret = InjectedSecrets.of([
+  const headerSecret = injectedSecretsOf([
     {
       location: 'header',
       name: 'authorization',
@@ -17,7 +17,7 @@ describe('secret injection', () => {
     },
   ]);
 
-  const keyed = InjectedSecrets.of([
+  const keyed = injectedSecretsOf([
     { location: 'query', name: 'key', value: 'AIza/1+2 3', bare: 'AIza/1+2 3' },
   ]);
 
@@ -67,7 +67,7 @@ describe('secret injection', () => {
   });
 
   it('takes the secret out of text that contains it escaped for JSON', () => {
-    const quoted = InjectedSecrets.of([
+    const quoted = injectedSecretsOf([
       { location: 'query', name: 'key', value: 'k/"1"', bare: 'k/"1"' },
     ]);
 

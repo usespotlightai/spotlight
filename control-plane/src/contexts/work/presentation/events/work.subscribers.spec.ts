@@ -1,5 +1,5 @@
 import { orderedFor } from '@runs/application/ports/run-fixtures.fake-spec';
-import { REQUESTED_RUN_SUSPENDED } from '@shared-kernel/application/integration-events/requested-run-suspended.integration-event';
+import { RUN_SUSPENDED } from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -64,7 +64,7 @@ describe('workSubscribers', () => {
     );
 
     await taking?.handle({
-      kind: REQUESTED_RUN_SUSPENDED,
+      kind: RUN_SUSPENDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
       requester: orderedFor.task('task_1', 0).requester.parts,

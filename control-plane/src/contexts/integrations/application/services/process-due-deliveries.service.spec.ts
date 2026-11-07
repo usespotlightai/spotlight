@@ -6,6 +6,7 @@ import type { InboundDeliveryRepository } from '@integrations/domain/repositorie
 import { DELIVERING } from '@integrations/domain/services/delivery-retry';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -19,7 +20,7 @@ const waiting = (id: string, attempts = 0): InboundDelivery => {
     {
       integration: IntegrationKey.of('github'),
       to: null,
-      id,
+      id: InboundDeliveryId.of(id),
       headers: {},
       body: {},
       causeFiringId: null,
@@ -60,25 +61,41 @@ const working = (
     error: vi.fn(),
   };
 
+  const claimed = new Map<string, InboundDelivery>();
+
   const deliveries = {
     add: vi.fn(async () => true),
-    claimNext: vi.fn(
-      async (now: Date) => pending.shift()?.claimed(now) ?? null,
+    claimCandidates: vi.fn(async (_now: Date, _max: number) => [...pending]),
+    current: vi.fn(
+      async (delivery: InboundDelivery) =>
+        claimed.get(delivery.id.value) ?? null,
     ),
+    addressedTo: vi.fn(async () => []),
+    finishedBefore: vi.fn(async () => []),
+    remove: vi.fn(async () => {}),
     save: vi.fn(async (delivery: InboundDelivery) => {
-      if (reclaimedMeanwhile) {
-        throw new InboundDeliveryVersionConflictError(delivery.id);
-      }
-
       const { progress } = delivery;
 
+      if (progress.kind === 'working') {
+        pending.splice(
+          pending.findIndex((each) => each.id.equals(delivery.id)),
+          1,
+        );
+        claimed.set(delivery.id.value, delivery);
+        return;
+      }
+
+      if (reclaimedMeanwhile) {
+        throw new InboundDeliveryVersionConflictError(delivery.id.value);
+      }
+
       if (progress.kind === 'done') {
-        done.push(delivery.id);
+        done.push(delivery.id.value);
       } else if (progress.kind === 'failed') {
-        failed.push({ id: delivery.id, because: delivery.failure });
+        failed.push({ id: delivery.id.value, because: delivery.failure });
       } else if (progress.kind === 'pending') {
         retried.push({
-          id: delivery.id,
+          id: delivery.id.value,
           because: delivery.failure,
           at: progress.dueAt,
         });
@@ -150,7 +167,10 @@ describe('ProcessDueDeliveries', () => {
 
     await service.workOne();
 
-    expect(deliveries.claimNext).toHaveBeenCalledWith(NOW);
+    expect(deliveries.claimCandidates).toHaveBeenCalledWith(
+      NOW,
+      expect.any(Number),
+    );
   });
 
   it('puts a delivery that would not be read back to wait, and says why', async () => {
@@ -257,7 +277,7 @@ describe('ProcessDueDeliveries', () => {
       {
         integration: IntegrationKey.of('github'),
         to: null,
-        id: 'd_1',
+        id: InboundDeliveryId.of('d_1'),
         headers: {},
         body: {},
         causeFiringId: HookFiringId.of('firing_1'),

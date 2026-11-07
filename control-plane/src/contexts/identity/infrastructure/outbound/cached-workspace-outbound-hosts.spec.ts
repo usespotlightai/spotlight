@@ -1,4 +1,5 @@
 import { CachedWorkspaceOutboundHosts } from '@identity/infrastructure/outbound/cached-workspace-outbound-hosts';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const profile = (outboundHosts: string[]) => ({
@@ -17,11 +18,17 @@ describe('CachedWorkspaceOutboundHosts', () => {
       .mockResolvedValueOnce(profile(['*.acme.io']));
     const hosts = new CachedWorkspaceOutboundHosts({ profileOf }, () => now);
 
-    expect((await hosts.of('ws_1')).entries).toEqual(['api.example.com']);
+    expect((await hosts.of(WorkspaceId.of('ws_1'))).entries).toEqual([
+      'api.example.com',
+    ]);
     now = 29_999;
-    expect((await hosts.of('ws_1')).entries).toEqual(['api.example.com']);
+    expect((await hosts.of(WorkspaceId.of('ws_1'))).entries).toEqual([
+      'api.example.com',
+    ]);
     now = 30_000;
-    expect((await hosts.of('ws_1')).entries).toEqual(['*.acme.io']);
+    expect((await hosts.of(WorkspaceId.of('ws_1'))).entries).toEqual([
+      '*.acme.io',
+    ]);
     expect(profileOf).toHaveBeenCalledTimes(2);
   });
 
@@ -32,10 +39,14 @@ describe('CachedWorkspaceOutboundHosts', () => {
       .mockResolvedValueOnce(profile(['hooks.example.com']));
     const hosts = new CachedWorkspaceOutboundHosts({ profileOf }, () => 0);
 
-    await hosts.of('ws_1');
+    await hosts.of(WorkspaceId.of('ws_1'));
 
-    expect((await hosts.fresh('ws_1')).entries).toEqual(['hooks.example.com']);
-    expect((await hosts.of('ws_1')).entries).toEqual(['hooks.example.com']);
+    expect((await hosts.fresh(WorkspaceId.of('ws_1'))).entries).toEqual([
+      'hooks.example.com',
+    ]);
+    expect((await hosts.of(WorkspaceId.of('ws_1'))).entries).toEqual([
+      'hooks.example.com',
+    ]);
     expect(profileOf).toHaveBeenCalledTimes(2);
   });
 
@@ -44,7 +55,7 @@ describe('CachedWorkspaceOutboundHosts', () => {
       profileOf: async () => null,
     });
 
-    await expect(hosts.of('ws_gone')).rejects.toThrow(
+    await expect(hosts.of(WorkspaceId.of('ws_gone'))).rejects.toThrow(
       'workspace ws_gone does not exist',
     );
   });
@@ -56,10 +67,12 @@ describe('CachedWorkspaceOutboundHosts', () => {
       .mockResolvedValueOnce(profile(['hooks.example.com']));
     const hosts = new CachedWorkspaceOutboundHosts({ profileOf }, () => 0);
 
-    await hosts.of('ws_1');
-    hosts.forget('ws_1');
+    await hosts.of(WorkspaceId.of('ws_1'));
+    hosts.forget(WorkspaceId.of('ws_1'));
 
-    expect((await hosts.of('ws_1')).entries).toEqual(['hooks.example.com']);
+    expect((await hosts.of(WorkspaceId.of('ws_1'))).entries).toEqual([
+      'hooks.example.com',
+    ]);
   });
 
   it('reads again after a failed read', async () => {
@@ -69,7 +82,11 @@ describe('CachedWorkspaceOutboundHosts', () => {
       .mockResolvedValueOnce(profile([]));
     const hosts = new CachedWorkspaceOutboundHosts({ profileOf });
 
-    await expect(hosts.of('ws_1')).rejects.toThrow('connection lost');
-    await expect(hosts.of('ws_1')).resolves.toMatchObject({ entries: [] });
+    await expect(hosts.of(WorkspaceId.of('ws_1'))).rejects.toThrow(
+      'connection lost',
+    );
+    await expect(hosts.of(WorkspaceId.of('ws_1'))).resolves.toMatchObject({
+      entries: [],
+    });
   });
 });

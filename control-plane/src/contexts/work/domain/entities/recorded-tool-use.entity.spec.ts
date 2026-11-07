@@ -21,16 +21,17 @@ const used = (task: TaskId | null) =>
   });
 
 describe('RecordedToolUse', () => {
-  it('raises that the tool was used on the run’s task, once the use is first recorded', () => {
+  it('raises once that the tool was used on the run’s task', () => {
     const use = used(TaskId.of('task_1'));
+    const [raised, ...more] = use?.pullEvents() ?? [];
 
-    expect(use?.recordedFirst(true)).toMatchObject({
+    expect(raised).toMatchObject({
       kind: 'tool.used',
       useId: 'use_1',
       failed: false,
     });
-    expect(use?.recordedFirst(true)?.taskId.value).toBe('task_1');
-    expect(use?.recordedFirst(false)).toBeNull();
+    expect(more).toEqual([]);
+    expect(use?.pullEvents()).toEqual([]);
   });
 
   it('is no fact for a run that works no task', () => {

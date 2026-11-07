@@ -70,7 +70,10 @@ import {
   DEFINED_INTEGRATIONS,
   type DefinedIntegrationsPort,
 } from '@integrations/application/ports/defined-integrations.port';
-import { DELIVERY_REACTIONS } from '@integrations/application/ports/delivery-reactions.port';
+import {
+  DELIVERY_REACTIONS,
+  type DeliveryReactionsPort,
+} from '@integrations/application/ports/delivery-reactions.port';
 import { DELIVERY_READER } from '@integrations/application/ports/delivery-reader.port';
 import {
   DELIVERY_WORK,
@@ -78,6 +81,10 @@ import {
 } from '@integrations/application/ports/delivery-work.port';
 import { EXPRESSION_CHECKS } from '@integrations/application/ports/expression-checks.port';
 import { HOOK_FIRING_HISTORY } from '@integrations/application/ports/hook-firing-history.port';
+import {
+  HOOK_TOOLS,
+  type HookToolsPort,
+} from '@integrations/application/ports/hook-tools.port';
 import {
   INBOX_LINKS,
   type InboxLinksPort,
@@ -156,7 +163,9 @@ import { CallAuthResolver } from '@integrations/application/services/call-auth-r
 import { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
 import { EnabledTools } from '@integrations/application/services/enabled-tools.service';
+import { InboundDeliveryRetention } from '@integrations/application/services/inbound-delivery-retention.service';
 import { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
+import { IntegrationCursors } from '@integrations/application/services/integration-cursors.service';
 import { IntegrationSpecs } from '@integrations/application/services/integration-specs.service';
 import { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { IntegrationsUsingSecret } from '@integrations/application/services/integrations-using-secret.service';
@@ -238,6 +247,7 @@ import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import { TeamIntegrationReadings } from '@integrations/infrastructure/integrations/team-integration-readings';
+import { WebInboxLinks } from '@integrations/infrastructure/links/web-inbox-links';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { NetworkOutbound } from '@integrations/infrastructure/outbound/network-outbound';
@@ -269,7 +279,6 @@ import { SpecFetch } from '@integrations/infrastructure/specs/spec-fetch';
 import { SpecReaders } from '@integrations/infrastructure/specs/spec-readers';
 import { ThreadedSpecReader } from '@integrations/infrastructure/specs/threaded-spec-reader';
 import { TimerWait } from '@integrations/infrastructure/timing/timer-wait';
-import { WebInboxLinks } from '@integrations/infrastructure/web-inbox-links';
 import { GitHubWebhookProvider } from '@integrations/infrastructure/webhooks/github.webhook-provider';
 import { ProviderDeliveryReader } from '@integrations/infrastructure/webhooks/provider-delivery-reader';
 import { integrationsSubscribers } from '@integrations/presentation/events/integrations.subscribers';
@@ -360,6 +369,10 @@ import {
   NOTE_FILES,
   type NoteFilesPort,
 } from '@work/application/ports/note-files.port';
+import {
+  TASK_LINKS,
+  type TaskLinksPort,
+} from '@work/application/ports/task-links.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 
@@ -413,6 +426,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       RefreshIntegrationSpecHandler,
       InferOutputSchemas,
       CONNECTION_ASKS,
+      POLL_CURSORS,
+      SCHEDULE_CURSORS,
+      InboundDeliveryRetention,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -427,6 +443,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       refreshingSpec: RefreshIntegrationSpecHandler,
       inferring: InferOutputSchemas,
       connectionAsks: ConnectionAsksPort,
+      polls: PollCursorRepository,
+      schedules: ScheduleCursorRepository,
+      deliveries: InboundDeliveryRetention,
     ) => {
       types.register('integrations', INTEGRATIONS_PAYLOAD_TYPES);
       subscribers.register(
@@ -443,6 +462,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
           refreshingSpec,
           inferring,
           connectionAsks,
+          new IntegrationCursors(polls, schedules),
+          deliveries,
         ),
       );
       return true;
@@ -640,11 +661,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: EnabledTools,
-    inject: [ENABLED_AT_STATIONS, HOOK_DEFINITIONS],
-    useFactory: (
-      enabledAt: EnabledAtStationsPort,
-      hooks: HookDefinitionRepository,
-    ) => new EnabledTools(enabledAt, hooks),
+    inject: [ENABLED_AT_STATIONS, HOOK_TOOLS],
+    useFactory: (enabledAt: EnabledAtStationsPort, hooks: HookToolsPort) =>
+      new EnabledTools(enabledAt, hooks),
   },
 
   { provide: TOOL_DECLARATIONS, useExisting: IntegrationReader },
@@ -704,9 +723,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INBOX_LINKS,
-    inject: [WORKSPACE_READER, ENV],
-    useFactory: (workspaces: WorkspaceReaderPort, env: Env) =>
-      new WebInboxLinks(workspaces, publicUrlOf(env)),
+    inject: [WORKSPACE_READER, TASK_LINKS, ENV],
+    useFactory: (
+      workspaces: WorkspaceReaderPort,
+      taskLinks: TaskLinksPort,
+      env: Env,
+    ) => new WebInboxLinks(workspaces, taskLinks, publicUrlOf(env)),
   },
 
   {
@@ -727,13 +749,23 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       new ProcessDueDeliveries(deliveries, reacting, clock, logger, telemetry),
   },
 
+  {
+    provide: InboundDeliveryRetention,
+    inject: [INBOUND_DELIVERIES, CLOCK],
+    useFactory: (deliveries: InboundDeliveryRepository, clock: ClockPort) =>
+      new InboundDeliveryRetention(deliveries, clock),
+  },
+
   { provide: DELIVERY_WORK, useExisting: ProcessDueDeliveries },
 
   {
     provide: DeliveryWorker,
-    inject: [DELIVERY_WORK, LOGGER],
-    useFactory: (work: DeliveryWorkPort, logger: LoggerPort) =>
-      new DeliveryWorker(work, logger),
+    inject: [DELIVERY_WORK, InboundDeliveryRetention, LOGGER],
+    useFactory: (
+      work: DeliveryWorkPort,
+      retention: InboundDeliveryRetention,
+      logger: LoggerPort,
+    ) => new DeliveryWorker(work, retention, logger),
   },
 
   {
@@ -764,7 +796,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       TEAM_DIRECTORY,
       CallAuthResolver,
       POLL_CURSORS,
-      HAPPENING_REACTIONS,
+      DELIVERY_REACTIONS,
       CLOCK,
       LOGGER,
     ],
@@ -774,7 +806,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       teams: TeamDirectoryPort,
       callAuthResolver: CallAuthResolver,
       cursors: PollCursorRepository,
-      reactions: HappeningReactionsPort,
+      reactions: DeliveryReactionsPort,
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
@@ -1137,6 +1169,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       SECRET_INJECTION,
       OUTBOUND_LIMITS,
       WORKSPACE_OUTBOUND_SCOPE,
+      CLOCK,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -1146,6 +1179,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       injection: SecretInjectionPort,
       limits: OutboundLimitsPort,
       scope: WorkspaceOutboundScopePort,
+      clock: ClockPort,
     ) =>
       new ConfiguredWebhookProviders(
         defined,
@@ -1155,6 +1189,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         injection,
         limits,
         scope,
+        clock,
       ),
   },
 
@@ -1259,6 +1294,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       PERSON_READER,
       DEFINED_INTEGRATIONS,
       PERSON_TOOL_RULES,
+      INTEGRATION_RUNTIME,
     ],
   ),
 

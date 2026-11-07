@@ -14,7 +14,7 @@ import type { RunNetworkDto } from '@runs/application/dto/run-network.dto';
 import { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.query';
 import { RunNetworkResponseDto } from '@runs/presentation/http/dto/run-network.response.dto';
 
-@ApiTags('tasks')
+@ApiTags('runs')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @ApiParam({
   name: 'teamId',
@@ -33,15 +33,18 @@ export class RunNetworkController {
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiOkResponse({ type: RunNetworkResponseDto })
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
+  @ApiNotFoundResponse({
+    description: 'No such run of this team for this caller',
+  })
   async network(
+    @Param('teamId') teamId: string,
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunNetworkResponseDto> {
     const found = await this.queryBus.execute<
       ReadRunNetworkQuery,
       RunNetworkDto | null
-    >(new ReadRunNetworkQuery(runId, user.id));
+    >(new ReadRunNetworkQuery(teamId, runId, user.id));
 
     if (!found) {
       throw new NotFoundException();

@@ -41,7 +41,7 @@ export class ClaimedCheckResponseDto {
 
   @ApiProperty({
     description:
-      'It checks a replay’s change a second time; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found',
+      'It is a repeat check; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found',
   })
   readonly recheck: boolean;
 
@@ -176,8 +176,8 @@ export class RenewCheckLeaseResponseDto {
   @ApiProperty({
     example: false,
     description:
-      'Whether the runner should stop checking: the check was deleted ' +
-      'with its task, ended, or waited too long to be recorded',
+      'Whether the runner should stop checking: the check was deleted, ' +
+      'ended, or waited too long to be recorded',
   })
   readonly stop: boolean;
 

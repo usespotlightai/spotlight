@@ -15,7 +15,6 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
-import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -442,16 +441,15 @@ describe('a catalog call (e2e)', () => {
           resume: {},
           catalog: ['catalog.web-search@1.1.0'],
         }),
-      }).refused(
-        RunOutcome.refused([
+        refusal: [
           DeniedCatalogItem.of({
             id: 'catalog.web-search@1.1.0',
             reason: 'expired',
             because:
               'Catalog item catalog.web-search@1.1.0 requires the Team plan. The workspace’s Team plan has expired. Expired at: 2026-09-01T00:00:00.000Z',
           }),
-        ]),
-      ),
+        ],
+      }),
     );
 
     const stored = await runs.findById(id);

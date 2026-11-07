@@ -86,7 +86,7 @@ const runtimeFor = (...hosts: string[]) => {
       compiled(TRACKER),
       WorkspaceId.of('ws_1'),
       signingFor(),
-      () => 1_700_000_000_000,
+      { now: () => new Date(1_700_000_000_000), sleep: async () => {} },
       jwks,
       outbound,
       credentialsFor(),

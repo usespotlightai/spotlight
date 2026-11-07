@@ -10,7 +10,7 @@ import {
   withoutExtension,
 } from './source-index';
 
-const PORT = /^contexts\/([^/]+)\/application\/ports\//;
+const PORT = /^contexts\/([^/]+)\/application\/(?:ports|contracts)\//;
 
 const tokenOf = (
   identifier: ts.Expression,
@@ -76,6 +76,27 @@ const providersOf = (
   return providers;
 };
 
+const injectedIn = (file: SourceFile): ts.Expression[] => [
+  ...descendants(file.tree, ts.isObjectLiteralExpression).flatMap((literal) => {
+    const injected = propertyNamed(literal, 'inject');
+    const existing = propertyNamed(literal, 'useExisting');
+
+    return [
+      ...(injected && ts.isArrayLiteralExpression(injected)
+        ? injected.elements
+        : []),
+      ...(existing ? [existing] : []),
+    ];
+  }),
+  ...descendants(file.tree, ts.isDecorator).flatMap((decorator) =>
+    ts.isCallExpression(decorator.expression) &&
+    ts.isIdentifier(decorator.expression.expression) &&
+    decorator.expression.expression.text === 'Inject'
+      ? decorator.expression.arguments.slice(0, 1)
+      : [],
+  ),
+];
+
 export const portBindingViolations = (): Violation[] => {
   const files = sourceFiles('contexts');
   const providers = providersOf(files);
@@ -84,32 +105,20 @@ export const portBindingViolations = (): Violation[] => {
     const consumer = contextOf(file.path) as string;
     const upstream = reachableFrom(consumer);
 
-    return descendants(file.tree, ts.isObjectLiteralExpression).flatMap(
-      (literal) => {
-        const injected = propertyNamed(literal, 'inject');
+    return injectedIn(file).flatMap((element) => {
+      const token = tokenOf(element, file);
+      const declarer = token ? PORT.exec(token)?.[1] : undefined;
 
-        if (!injected || !ts.isArrayLiteralExpression(injected)) {
-          return [];
-        }
+      if (!token || !declarer || declarer === consumer) {
+        return [];
+      }
 
-        return injected.elements.flatMap((element) => {
-          const token = tokenOf(element, file);
-          const declarer = token ? PORT.exec(token)?.[1] : undefined;
-
-          if (!token || !declarer || declarer === consumer) {
-            return [];
-          }
-
-          return [...(providers.get(token) ?? [])]
-            .filter(
-              (provider) => provider !== consumer && !upstream.has(provider),
-            )
-            .map((provider) => ({
-              key: `${file.path}: ${consumer} injects ${token.split('#')[1]} of ${declarer}, bound by ${provider}, which is not upstream`,
-              at: file.path,
-            }));
-        });
-      },
-    );
+      return [...(providers.get(token) ?? [])]
+        .filter((provider) => provider !== consumer && !upstream.has(provider))
+        .map((provider) => ({
+          key: `${file.path}: ${consumer} injects ${token.split('#')[1]} of ${declarer}, bound by ${provider}, which is not upstream`,
+          at: file.path,
+        }));
+    });
   });
 };

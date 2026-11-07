@@ -14,7 +14,9 @@ const TEXT: Readonly<Record<DeliveryFailureCode, string>> = {
   'never-on-github': 'The comment was never posted to GitHub.',
   'not-recorded':
     'Spotlight couldn’t save the comment that it posted to GitHub.',
-  'github-error': UNREACHABLE,
+  'github-unreachable': UNREACHABLE,
+  'github-rejected': 'GitHub refused it.',
+  unexpected: 'Spotlight couldn’t send it to GitHub.',
 };
 
 export const deliveryFailureText = (
@@ -24,7 +26,7 @@ export const deliveryFailureText = (
     return null;
   }
 
-  return failure.code === 'github-error'
-    ? (failure.detail ?? UNREACHABLE)
+  return failure.code === 'github-rejected'
+    ? (failure.detail ?? TEXT[failure.code])
     : TEXT[failure.code];
 };

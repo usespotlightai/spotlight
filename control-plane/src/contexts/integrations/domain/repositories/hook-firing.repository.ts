@@ -8,8 +8,7 @@ export interface HookFiringRepository {
 
   withId(id: HookFiringId): Promise<HookFiring | null>;
 
-  // Must be atomic: two workers must never have a lease on the same firing.
-  claimNext(now: Date): Promise<HookFiring | null>;
+  claimCandidates(now: Date, max: number): Promise<readonly HookFiring[]>;
 
   save(firing: HookFiring): Promise<void>;
 

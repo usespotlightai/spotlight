@@ -15,10 +15,9 @@ import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
-import type { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
+import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import type { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
-import { Invitees } from '@identity/domain/value-objects/invitees.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -45,10 +44,7 @@ interface Offered {
 
 export class InviteToWorkspaceHandler
   implements
-    CommandHandlerPort<
-      InviteToWorkspaceCommand,
-      readonly InviteOutcomeDto[] | null
-    >
+    CommandHandlerPort<InviteToWorkspaceCommand, InviteOutcomeDto | null>
 {
   constructor(
     private readonly administration: WorkspaceAdministration,
@@ -63,9 +59,9 @@ export class InviteToWorkspaceHandler
 
   async execute(
     command: InviteToWorkspaceCommand,
-  ): Promise<readonly InviteOutcomeDto[] | null> {
+  ): Promise<InviteOutcomeDto | null> {
     try {
-      const invitees = Invitees.of(command.emails);
+      const email = EmailAddress.of(command.email);
       const administered = await this.administration.administeredBy(
         command.slug,
         PersonPrincipal.of(UserId.of(command.viewerId)),
@@ -93,24 +89,17 @@ export class InviteToWorkspaceHandler
         teams: workspaceTeams.filter((team) => spec.joins(team.id)),
         by: sender,
       };
-      const outcomes: InviteOutcomeDto[] = [];
 
-      for (const email of invitees.addresses) {
-        outcomes.push(
-          await this.invited(
-            {
-              workspace,
-              email,
-              holder: await this.members.byEmail(workspace.id, email.value),
-              spec,
-              by,
-            },
-            into,
-          ),
-        );
-      }
-
-      return outcomes;
+      return await this.invited(
+        {
+          workspace,
+          email,
+          holder: await this.members.byEmail(workspace.id, email.value),
+          spec,
+          by,
+        },
+        into,
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }

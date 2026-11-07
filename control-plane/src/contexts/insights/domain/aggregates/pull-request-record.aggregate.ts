@@ -12,6 +12,7 @@ import {
   SeenPullRequest,
   type SeenPullRequestFields,
 } from '@insights/domain/value-objects/seen-pull-request.vo';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -252,7 +253,7 @@ export class PullRequestRecord extends EventRecorder {
     }
   }
 
-  erased(): PullRequestRecord {
+  erased(): Erased<PullRequestRecord> {
     const erased = this.with({});
 
     erased.record(
@@ -263,7 +264,7 @@ export class PullRequestRecord extends EventRecorder {
       ),
     );
 
-    return erased;
+    return erasedAs(erased);
   }
 
   private withoutTask(taskId: TaskId): PullRequestRecord | null {

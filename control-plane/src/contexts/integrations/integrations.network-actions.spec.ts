@@ -4,6 +4,7 @@ import { noFiles } from '@integrations/application/ports/notice-file-reader.fake
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { SpotlightCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -20,13 +21,16 @@ import {
   discoveringNothing,
 } from '@integrations/integrations.mcp.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
+import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type {
   NetworkCallState,
   NetworkCallsPort,
   NetworkRequest,
 } from '@runs/application/ports/network-calls.port';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -69,8 +73,8 @@ const TASK: TaskView = {
   title: 'Drain the queue',
   url: null,
   pullRequest: null,
-  line: 'delivery',
-  station: 'Implementation',
+  line: LineKey.of('delivery'),
+  station: StationName.of('Implementation'),
   stationKey: StationKey.of('implementation'),
   marks: {},
   repositories: [],
@@ -138,22 +142,21 @@ const sending = (
     noFiles,
   );
   const callAuth: CallAuth = {
-    workspace: async () => 'ws_1',
+    workspace: async () => WorkspaceId.of('ws_1'),
     connection: null,
-    credentials: new SpotlightCredentials(
-      secrets.injection,
-      async () => 'ws_1',
+    credentials: new SpotlightCredentials(secrets.injection, async () =>
+      WorkspaceId.of('ws_1'),
     ),
   };
 
   const call = async (text: string) => {
     const resolved = await runtime.tool(
       [defined(over.file ?? AUDIT)],
-      'audit.record',
+      ToolName.of('audit.record'),
       TASK,
     );
 
-    return resolved?.call({ text }, callAuth);
+    return resolved && answerOf(resolved.attempt({ text }, callAuth, null));
   };
 
   return { call, calls, queued, secrets, run, within, take };

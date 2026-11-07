@@ -85,12 +85,12 @@ describe('storing review comments', () => {
 
     await comments.save(
       (stored as ReviewComment).notPosted(
-        DeliveryFailure.of('github-error', 'Validation Failed'),
+        DeliveryFailure.of('github-rejected', 'Validation Failed'),
       ),
     );
 
     expect((await comments.find(reply.id))?.failure).toEqual(
-      DeliveryFailure.of('github-error', 'Validation Failed'),
+      DeliveryFailure.of('github-rejected', 'Validation Failed'),
     );
   });
 

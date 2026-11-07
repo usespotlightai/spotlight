@@ -1,10 +1,11 @@
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
 import { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import {
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
+  liveFrom,
   QUIET,
   refreshingFor,
   snapshotsFor,
@@ -55,7 +56,7 @@ const CHECKED = CandidateScoring.of({
 });
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let pullRequests: InMemoryConfigPullRequests;
 let now: Date;
 let policy: SearchPolicy;
@@ -85,18 +86,22 @@ const auto = () =>
     memory.setRepository,
     memory.searchRepository,
     pullRequests,
-    refreshingFor(memory, work),
+    refreshingFor(memory, suppliers),
     new CheckSearchReadiness(
       memory.setRepository,
-      new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-      work,
+      new SetHealths(
+        suppliers.configs,
+        memory.replayRepository,
+        memory.candidateRepository,
+      ),
+      suppliers.dispatch,
       { sha256 },
       IDS,
       clock,
     ),
     new StartSearch(
-      snapshotsFor(memory, work),
-      stepsFor(memory, work, clock),
+      snapshotsFor(memory, suppliers),
+      stepsFor(memory, suppliers, clock),
       memory.setRepository,
       memory.searchRepository,
       memory.scheduleRepository,
@@ -106,7 +111,7 @@ const auto = () =>
       clock,
       TRANSACTION,
     ),
-    work,
+    suppliers.configs,
     clock,
     TRANSACTION,
     QUIET,
@@ -144,12 +149,12 @@ const skips = () =>
 beforeEach(async () => {
   memory = new InMemoryReplays();
   memory.startsPlannedReplays = true;
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   pullRequests = new InMemoryConfigPullRequests();
   now = NOW;
   policy = policyOf();
   scoring = CHECKED;
-  work.live = async () => ({
+  suppliers.configs.live = async () => ({
     lineKey: 'delivery',
     block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
     fingerprint: LIVE_FINGERPRINT,
@@ -288,7 +293,10 @@ describe('AutoSearches', () => {
 
     memory.sets.clear();
     await memory.setRepository.add(aSet(10));
-    work.invalidAgent = { field: 'harness', reason: 'is unknown' };
+    suppliers.dispatch.invalidAgent = {
+      field: 'harness',
+      reason: 'is unknown',
+    };
     now = new Date(NOW.getTime() + DAY);
     await auto().processDue();
 
@@ -411,11 +419,11 @@ describe('AutoSearches', () => {
   });
 
   it('leaves a schedule that changed while Spotlight looked at it due, and does not overwrite it', async () => {
-    const live = work.live;
+    const live = liveFrom(suppliers.configs);
 
-    work.live = async () => {
+    suppliers.configs.live = async () => {
       await memory.scheduleRepository.save(schedule().alerted(now));
-      work.live = live;
+      suppliers.configs.live = live;
       return live();
     };
     scoring = UNSCORED;

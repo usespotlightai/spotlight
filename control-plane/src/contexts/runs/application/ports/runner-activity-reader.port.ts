@@ -7,7 +7,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const RUNNER_ACTIVITY_READER = Symbol('RUNNER_ACTIVITY_READER');
 
-export interface LeasedRun {
+export interface RunnerActivityRow {
   readonly runnerId: string;
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
@@ -18,5 +18,5 @@ export interface LeasedRun {
 }
 
 export interface RunnerActivityReaderPort {
-  leasedIn(workspaceId: WorkspaceId): Promise<readonly LeasedRun[]>;
+  leasedIn(workspaceId: WorkspaceId): Promise<readonly RunnerActivityRow[]>;
 }

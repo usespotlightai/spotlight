@@ -1,9 +1,11 @@
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
-import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
+import { ClientSecret } from '@integrations/domain/value-objects/client-secret.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { oauth2ClientRegistration } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Credential } from '@secrets/application/contracts/credential.contract';
@@ -45,12 +47,12 @@ export class DrizzleOAuth2ClientRegistrations
 
   async save(registration: OAuth2ClientRegistration): Promise<void> {
     const written = {
-      registrationEndpoint: registration.registrationEndpoint,
-      redirectUri: registration.redirectUri,
+      registrationEndpoint: registration.registrationEndpoint.value,
+      redirectUri: registration.redirectUri.value,
       issuer: registration.server?.issuer ?? null,
       authorizeEndpoint: registration.server?.authorize ?? null,
       tokenEndpoint: registration.server?.token ?? null,
-      clientId: registration.clientId,
+      clientId: registration.clientId.value,
       clientSecret: registration.clientSecret
         ? await this.encryption.encrypt(
             registration.workspaceId.value,
@@ -134,8 +136,8 @@ export class DrizzleOAuth2ClientRegistrations
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
       integration: IntegrationKey.of(row.integration),
-      registrationEndpoint: row.registrationEndpoint,
-      redirectUri: row.redirectUri,
+      registrationEndpoint: OAuth2Endpoint.of(row.registrationEndpoint),
+      redirectUri: OAuth2Endpoint.of(row.redirectUri),
       server:
         row.issuer && row.authorizeEndpoint && row.tokenEndpoint
           ? AuthorizationServer.of({
@@ -144,9 +146,9 @@ export class DrizzleOAuth2ClientRegistrations
               token: row.tokenEndpoint,
             })
           : null,
-      clientId: row.clientId,
+      clientId: OAuth2ClientId.of(row.clientId),
       clientSecret: row.clientSecret
-        ? AccessToken.of(
+        ? ClientSecret.of(
             (
               await this.encryption.decrypt(
                 row.workspaceId,

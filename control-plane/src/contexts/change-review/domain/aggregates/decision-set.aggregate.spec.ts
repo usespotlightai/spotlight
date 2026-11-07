@@ -230,7 +230,7 @@ describe('a decision set, generated', () => {
 
     const [recorded] = generated.pullEvents();
     expect(recorded).toMatchObject({
-      kind: 'decisions.recorded',
+      kind: 'decision-set.recorded',
       recorded: 1,
       dropped: 3,
     });
@@ -424,7 +424,7 @@ describe('a decision set, disputed', () => {
     expect(disputed.decisions[0]?.disputes).toEqual([]);
     expect(disputed.pullEvents()).toContainEqual(
       expect.objectContaining({
-        kind: 'decisions.disputed',
+        kind: 'decision-set.disputed',
         decisionId: second?.id,
         path: FilePath.of('src/uploads.ts'),
       }),

@@ -32,7 +32,7 @@ const fieldOf = (parsed: ParsedProfile, note: HarnessNote): FieldPath => {
   }
 };
 
-export class HarnessReviewOfWork implements HarnessReviewPort {
+export class HarnessReviewOfRuns implements HarnessReviewPort {
   constructor(private readonly harnesses: HarnessProfileReviewPort) {}
 
   review(parsed: ParsedProfile): HarnessReview {

@@ -154,7 +154,7 @@ export class TeamWorkAccess {
     viewerId: string,
   ): Promise<TeamStanding> {
     return TeamStanding.of({
-      readsTeam: await this.people.readsTeam(
+      actsForTeam: await this.people.actsForTeam(
         TeamId.of(teamId),
         UserId.of(viewerId),
       ),

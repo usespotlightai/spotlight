@@ -23,10 +23,7 @@ export class GradingTermsOf {
 
     return gradingTermsOf(
       scores,
-      currentJudgeOf(
-        location,
-        await this.judges.judgeAt(location.stationId.value),
-      ),
+      currentJudgeOf(location, await this.judges.judgeAt(location.stationId)),
       (await this.judgings.of(run.runId))?.rubric ?? null,
     );
   }

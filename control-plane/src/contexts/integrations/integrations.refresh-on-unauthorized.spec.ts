@@ -20,11 +20,13 @@ import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-po
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
-import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { ClientSecret } from '@integrations/domain/value-objects/client-secret.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { OAuth2ClientId } from '@integrations/domain/value-objects/oauth2-client-id.vo';
+import { OAuth2Endpoint } from '@integrations/domain/value-objects/oauth2-endpoint.vo';
 import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
 import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -54,6 +56,7 @@ import {
   personRulesFrom,
 } from '@integrations/integrations.policies.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
+import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -337,11 +340,13 @@ const settingUp = ({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TEAM,
       integration: LINEAR,
-      registrationEndpoint: 'https://linear.app/oauth/register',
-      redirectUri: CALLBACK,
+      registrationEndpoint: OAuth2Endpoint.of(
+        'https://linear.app/oauth/register',
+      ),
+      redirectUri: OAuth2Endpoint.of(CALLBACK),
       server: null,
-      clientId: 'dcr-client',
-      clientSecret: AccessToken.of('dcr-secret'),
+      clientId: OAuth2ClientId.of('dcr-client'),
+      clientSecret: ClientSecret.of('dcr-secret'),
       secretExpiresAt: null,
       registeredAt: new Date('2026-09-01T00:00:00.000Z'),
       version: 1,
@@ -432,13 +437,13 @@ const settingUp = ({
     authorized: linked.authorized.bind(linked),
     begin: async (input: OAuth2LinkInput) => {
       const registration = await linked.registrationFor(
-        TeamId.of(input.teamId),
-        IntegrationKey.of(input.integration),
+        input.teamId,
+        input.integration,
       );
       const client = registration
         ? await clients.clientFor(
-            TeamId.of(input.teamId),
-            IntegrationKey.of(input.integration),
+            input.teamId,
+            input.integration,
             registration.endpoint,
             registration.server,
           )
@@ -479,7 +484,7 @@ const settingUp = ({
       ALICE.value,
     )) as IntegrationTool;
 
-    return resolved.call({ id: 'ENG-12' });
+    return answerOf(resolved.call({ id: 'ENG-12' }));
   };
 
   const comment = async (body = 'Fixed.') => {
@@ -490,7 +495,7 @@ const settingUp = ({
       ALICE.value,
     )) as IntegrationTool;
 
-    return resolved.call({ body });
+    return answerOf(resolved.call({ body }));
   };
 
   return {
@@ -677,9 +682,9 @@ describe('OAuth that recovers from a token the service does not accept', () => {
       registered: false,
     });
     const linkInput = {
-      teamId: 'team_1',
-      integration: 'linear',
-      by: ALICE.value,
+      teamId: TeamId.of('team_1'),
+      integration: IntegrationKey.of('linear'),
+      by: ALICE,
       owner: 'person' as const,
       returnTo: null,
     };
@@ -692,7 +697,7 @@ describe('OAuth that recovers from a token the service does not accept', () => {
 
     expect(linear.registrations).toBe(1);
     expect(linear.tokenCalls).toBe(1);
-    expect(registrations.stored?.clientId).toBe('dcr-client');
+    expect(registrations.stored?.clientId.value).toBe('dcr-client');
   });
 
   it('never registers a client while it refreshes', async () => {
@@ -710,9 +715,9 @@ describe('OAuth that recovers from a token the service does not accept', () => {
     const { linear, linking } = settingUp();
 
     const started = await linking.begin({
-      teamId: 'team_1',
-      integration: 'linear',
-      by: ALICE.value,
+      teamId: TeamId.of('team_1'),
+      integration: IntegrationKey.of('linear'),
+      by: ALICE,
       owner: 'person',
       returnTo: '/w/acme/inbox/task_1',
     });
@@ -726,7 +731,7 @@ describe('OAuth that recovers from a token the service does not accept', () => {
       state: url.searchParams.get('state') ?? '',
       code: 'the-code',
       nonce: started?.nonce ?? null,
-      viewerId: ALICE.value,
+      viewerId: ALICE,
     });
 
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');

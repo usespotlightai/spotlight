@@ -103,7 +103,7 @@ import {
   type TerraformStateRepository,
 } from '@configuration/domain/repositories/terraform-state.repository';
 import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills.adapter';
-import { HarnessReviewOfWork } from '@configuration/infrastructure/acl/harness-review.adapter';
+import { HarnessReviewOfRuns } from '@configuration/infrastructure/acl/harness-review.adapter';
 import { StationProfiles } from '@configuration/infrastructure/acl/station-profiles.adapter';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
 import { WorkspaceSecrets } from '@configuration/infrastructure/acl/workspace-secrets.adapter';
@@ -184,10 +184,8 @@ import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
-import {
-  BUILT_IN_SKILL_KEYS,
-  BUILT_IN_SKILLS,
-} from '@work/application/ports/built-in-skills.port';
+import { BUILT_IN_SKILL_KEY_LIST } from '@shared-kernel/domain/built-in-skills';
+import { BUILT_IN_SKILLS } from '@work/application/ports/built-in-skills.port';
 import { STATION_PROFILES } from '@work/application/ports/station-profiles.port';
 import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 
@@ -208,9 +206,12 @@ export const CONFIGURATION_CONTROLLERS: readonly Type[] = [
 const adapters: Provider[] = [
   {
     provide: BUILT_IN_SKILLS,
-    inject: [BUILT_IN_SKILL_KEYS],
-    useFactory: (keys: readonly string[]) =>
-      new BuiltInSkills(new BuiltInSkillFiles(keys)),
+    useFactory: () =>
+      new BuiltInSkills(
+        new BuiltInSkillFiles(
+          BUILT_IN_SKILL_KEY_LIST.map((each) => each.value),
+        ),
+      ),
   },
   {
     provide: SECRET_NAMES,
@@ -244,7 +245,7 @@ const adapters: Provider[] = [
     provide: HARNESS_REVIEW,
     inject: [HARNESS_PROFILE_REVIEW],
     useFactory: (harnesses: HarnessProfileReviewPort) =>
-      new HarnessReviewOfWork(harnesses),
+      new HarnessReviewOfRuns(harnesses),
   },
   {
     provide: HARNESS_PROFILE_COMPILER,

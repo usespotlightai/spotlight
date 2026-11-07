@@ -19,31 +19,23 @@ export class DrizzleToolUses implements ToolUsesPort {
 
   async record(use: RecordedToolUse): Promise<void> {
     await this.context.inTransaction(async () => {
-      const inserted = await this.context.db
-        .insert(toolUse)
-        .values({
-          useId: use.useId,
-          runId: use.runId.value,
-          attempt: use.attempt,
-          tool: use.tool.value,
-          inputs: use.inputs.values,
-          output: use.output.json,
-          failed: use.failed,
-          actingAs: use.actingAs
-            ? {
-                personId: use.actingAs.personId?.value ?? null,
-                linkedAccount: use.actingAs.linkedAccount,
-              }
-            : null,
-          at: use.at,
-        })
-        .onConflictDoNothing()
-        .returning({ useId: toolUse.useId });
-      const used = use.recordedFirst(inserted.length > 0);
-
-      if (used) {
-        await this.events.dispatch([used]);
-      }
+      await this.context.db.insert(toolUse).values({
+        useId: use.useId,
+        runId: use.runId.value,
+        attempt: use.attempt,
+        tool: use.tool.value,
+        inputs: use.inputs.values,
+        output: use.output.json,
+        failed: use.failed,
+        actingAs: use.actingAs
+          ? {
+              personId: use.actingAs.personId?.value ?? null,
+              linkedAccount: use.actingAs.linkedAccount,
+            }
+          : null,
+        at: use.at,
+      });
+      await this.events.dispatch(use.pullEvents());
     });
   }
 

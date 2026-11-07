@@ -1,3 +1,4 @@
+import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import type { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import type { Opening } from '@integrations/domain/value-objects/opening.vo';
@@ -6,7 +7,6 @@ import {
   type RaisedMark,
   type RaisedOpening,
 } from '@integrations/domain/value-objects/raised-happening.vo';
-import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class DeclaredHappening {
   private constructor(
@@ -32,14 +32,14 @@ export class DeclaredHappening {
     const summary = input.summary.trim();
 
     if (label.length === 0) {
-      throw new InvalidIdentifierError(
+      throw new InvalidIntegrationPartError(
         'happening label',
         'is what a person picking one of these will read',
       );
     }
 
     if (summary.length === 0) {
-      throw new InvalidIdentifierError(
+      throw new InvalidIntegrationPartError(
         'happening summary',
         'is how this reads in a note when it arrives',
       );
@@ -49,7 +49,7 @@ export class DeclaredHappening {
     const findsByBranch = input.findsByBranch ?? false;
 
     if (finds.length === 0 && !findsByBranch) {
-      throw new InvalidIdentifierError(
+      throw new InvalidIntegrationPartError(
         'happening',
         'needs a branch or a mark. Without one, no task can be found from it',
       );

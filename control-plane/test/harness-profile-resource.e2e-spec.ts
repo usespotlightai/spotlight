@@ -233,8 +233,10 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     const stored = await app
       .get<StationProfilesPort>(STATION_PROFILES)
       .named(TeamId.of(teamId), 'careful');
-    const profile = stored ? ReadyProfileMapper.toReady(stored) : null;
     const launch = app.get<HarnessLaunchPort>(HARNESS_LAUNCH);
+    const profile = stored
+      ? ReadyProfileMapper.toReady(launch.readyProfile(stored))
+      : null;
     const on = (harness: string) =>
       launch.preparedFor(HarnessId.of(harness), {
         model: null,
@@ -373,7 +375,11 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       const stored = await app
         .get<StationProfilesPort>(STATION_PROFILES)
         .named(TeamId.of(teamId), 'careful');
-      const ready = stored ? ReadyProfileMapper.toReady(stored) : null;
+      const ready = stored
+        ? ReadyProfileMapper.toReady(
+            app.get<HarnessLaunchPort>(HARNESS_LAUNCH).readyProfile(stored),
+          )
+        : null;
       expect(ready?.injectedSecrets.map((each) => each.value)).toEqual([
         'LINEAR_API_KEY',
       ]);

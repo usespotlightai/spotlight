@@ -29,6 +29,7 @@ import type {
   PairVerdict,
   Unpaired,
 } from '@replays/domain/value-objects/entry-pairing.vo';
+import { HealthSampleGroup } from '@replays/domain/value-objects/health-sample-group.vo';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -434,18 +435,14 @@ export class Replay extends EventRecorder {
     );
   }
 
-  get healthSampleGroup(): string | null {
+  get healthSampleGroup(): HealthSampleGroup | null {
     if (!this.isHealthSample) {
       return null;
     }
 
     const { liveCandidate, calibration, repeats } = this.state;
 
-    return [
-      liveCandidate ? 'live' : 'other',
-      calibration ? 'calibration' : 'plain',
-      repeats,
-    ].join(':');
+    return HealthSampleGroup.of({ live: liveCandidate, calibration, repeats });
   }
 
   get sampledAt(): Date {
@@ -1006,7 +1003,9 @@ export class Replay extends EventRecorder {
       stoppedAt: at,
     });
 
-    stopped.record(new ReplayStopped(this.id, this.workspaceId, toCancel));
+    stopped.record(
+      new ReplayStopped(this.id, this.workspaceId, this.teamId, toCancel),
+    );
     if (this.isDispatching) {
       stopped.record(this.endedAs('stopped'));
     }
@@ -1029,7 +1028,9 @@ export class Replay extends EventRecorder {
     deleted.inheritEvents(this);
 
     if (toCancel.length > 0) {
-      deleted.record(new ReplayStopped(this.id, this.workspaceId, toCancel));
+      deleted.record(
+        new ReplayStopped(this.id, this.workspaceId, this.teamId, toCancel),
+      );
     }
     if (this.isDispatching) {
       deleted.record(this.endedAs('deleted'));

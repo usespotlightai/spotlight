@@ -1,5 +1,6 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { NoStackOwnerError } from '@change-review/domain/exceptions/no-stack-owner.error';
 import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import type { HunkLink } from '@change-review/domain/services/diff-facts';
@@ -144,7 +145,7 @@ describe('ChangeStack', () => {
 
       expect(kindsOf(ready)).toEqual([
         'change-stack.completed',
-        'change-stack.trial-completed',
+        'change-stack.trial-settled',
       ]);
     });
 
@@ -156,7 +157,7 @@ describe('ChangeStack', () => {
       stack.pullEvents();
 
       expect(kindsOf(stack.deadLetter(LATER))).toEqual([
-        'change-stack.trial-completed',
+        'change-stack.trial-settled',
       ]);
     });
 
@@ -222,8 +223,8 @@ describe('ChangeStack', () => {
       expect([ofTeam.taskId, ofTeam.teamId?.value]).toEqual([null, 'team_1']);
     });
 
-    it('is refused without a task or a team, since nothing could remove it', () => {
-      expect(() => owned(null, null)).toThrow(InconsistentStateError);
+    it('is refused without a task or a team, since nobody could review it', () => {
+      expect(() => owned(null, null)).toThrow(NoStackOwnerError);
     });
   });
 

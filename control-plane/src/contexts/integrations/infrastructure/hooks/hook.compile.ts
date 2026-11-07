@@ -16,6 +16,7 @@ import {
 } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   type HookFile,
@@ -349,9 +350,13 @@ export const checkedAgainst = (
 
 const domainStep = (step: HookStepFile): HookStep =>
   step.call !== undefined
-    ? { name: step.name, kind: 'call', tool: ToolName.of(step.call) }
+    ? {
+        name: HookStepName.of(step.name),
+        kind: 'call',
+        tool: ToolName.of(step.call),
+      }
     : {
-        name: step.name,
+        name: HookStepName.of(step.name),
         kind: 'request',
         url: staticUrl(step.request?.url ?? ''),
         headers: Object.keys(step.request?.headers ?? {}),

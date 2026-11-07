@@ -1,7 +1,7 @@
 import type {
+  LinesPort,
   StationView,
-  WorkPort,
-} from '@replays/application/ports/work.port';
+} from '@replays/application/ports/lines.port';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
@@ -33,7 +33,7 @@ export class PickSearchCandidates {
     private readonly candidates: CandidateRepository,
     private readonly schedules: StationSearchScheduleRepository,
     private readonly healths: SetHealths,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -52,8 +52,10 @@ export class PickSearchCandidates {
 
     const standard = await this.healths.standardAt(seen.station);
     const stationGone =
-      (await this.work.station(seen.station.lineId, seen.station.stationId)) ===
-      null;
+      (await this.lines.station(
+        seen.station.lineId,
+        seen.station.stationId,
+      )) === null;
 
     await this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(event.searchId);
@@ -115,7 +117,7 @@ export class PickSearchCandidates {
       return;
     }
 
-    const station = await this.work.station(
+    const station = await this.lines.station(
       search.station.lineId,
       search.station.stationId,
     );

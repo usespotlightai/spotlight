@@ -12,13 +12,12 @@ import {
   SET_UP,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
-import type {
-  LogFields,
-  LoggerPort,
-} from '@shared-kernel/application/ports/logger.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
@@ -29,12 +28,12 @@ const at = (hour: number) =>
   new Date(`2026-09-30T${String(hour).padStart(2, '0')}:00:00.000Z`);
 
 const endedRun = (runId: string, change: Partial<EndedRun> = {}): EndedRun => ({
-  runId,
-  workspaceId: 'ws_1',
-  teamId: 'team_1',
-  lineId: 'line_1',
-  stationId: 'station_1',
-  taskId: 'task_1',
+  runId: RunId.of(runId),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
+  taskId: TaskId.of('task_1'),
   fingerprint: FIRST_CONFIG,
   visit: 1,
   ...SET_UP,
@@ -43,15 +42,6 @@ const endedRun = (runId: string, change: Partial<EndedRun> = {}): EndedRun => ({
 });
 
 const recording = (runs: readonly EndedRun[]) => {
-  const warned: { fields: LogFields; message: string }[] = [];
-  const logger: LoggerPort = {
-    debug: () => {},
-    info: () => {},
-    warn: (fields, message) => {
-      warned.push({ fields, message });
-    },
-    error: () => {},
-  };
   const records = new RunRecordsInMemory();
   const deletions = deletionsInMemory();
   const work: WorkPort = {
@@ -59,20 +49,18 @@ const recording = (runs: readonly EndedRun[]) => {
     traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
     taskRunOf: async () => null,
     endedRun: async (runId) =>
-      runs.find((each) => each.runId === runId) ?? null,
+      runs.find((each) => each.runId.equals(runId)) ?? null,
     configsInOrder: async () => [],
   };
 
   return {
     records,
     deletions,
-    warned,
     service: new RecordRunEnding(
       work,
       records,
       new FactRecorder(deletions),
       inTransaction,
-      logger,
     ),
     superseding: new RecordSupersededRun(
       records,
@@ -89,7 +77,6 @@ const recording = (runs: readonly EndedRun[]) => {
         records,
         new FactRecorder(deletions),
         inTransaction,
-        logger,
       ).ended({
         runId,
         taskId: 'task_1',
@@ -116,39 +103,6 @@ describe('recording that a run ended', () => {
     expect(record?.end?.location.taskId.value).toBe('task_1');
     expect(record?.end?.endedAt).toEqual(at(10));
     expect(record?.end?.visit).toBe(1);
-  });
-
-  it('takes a config Work did not fingerprint as a SHA-256 for no config, and warns of it', async () => {
-    const recorder = recording([
-      endedRun('run_unfingerprinted', { fingerprint: 'not-a-sha-256' }),
-    ]);
-
-    await recorder.ended('run_unfingerprinted');
-
-    expect(
-      (await recorder.stored('run_unfingerprinted'))?.end?.fingerprint,
-    ).toBe(null);
-    expect(recorder.warned).toEqual([
-      {
-        fields: {
-          runId: 'run_unfingerprinted',
-          stationId: 'station_1',
-          fingerprint: 'not-a-sha-256',
-        },
-        message:
-          'Run ended with a malformed config fingerprint, recorded as no config',
-      },
-    ]);
-  });
-
-  it('warns of nothing when a run ended with no config', async () => {
-    const recorder = recording([
-      endedRun('run_unconfigured', { fingerprint: null }),
-    ]);
-
-    await recorder.ended('run_unconfigured');
-
-    expect(recorder.warned).toEqual([]);
   });
 
   it('records that it ended waiting on a person', async () => {

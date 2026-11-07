@@ -20,14 +20,16 @@ import {
   ConnectionChoice,
 } from '@integrations/domain/services/connection-choice';
 import type { ConnectionMissing } from '@integrations/domain/value-objects/connection-missing.vo';
+import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export interface RunAttempt {
-  readonly runId: string;
+  readonly runId: RunId;
   readonly attempt: number;
 }
 
@@ -37,8 +39,12 @@ export interface RunTool {
   readonly missing: ConnectionMissing | null;
   readonly personRule: PersonToolRuleRecord | null;
   defaultFor(input: string): unknown;
-  call(inputs: ToolCallInputs): Promise<ToolOutput>;
+  call(inputs: ToolCallInputs): Promise<RunToolCall>;
 }
+
+export type RunToolCall =
+  | { readonly kind: 'answered'; readonly output: ToolOutput }
+  | { readonly kind: 'failed'; readonly fact: CallFailureFact };
 
 export class ResolveToolForRun {
   constructor(
@@ -55,7 +61,7 @@ export class ResolveToolForRun {
   ) {}
 
   async resolve(
-    tool: string,
+    tool: ToolName,
     task: UnlinkedTaskView,
     run: RunAttempt,
     requester: UserId | null,
@@ -64,12 +70,8 @@ export class ResolveToolForRun {
     const definitions = await this.defined.ofTeam(teamId);
     const resolved = await this.runtime.tool(definitions, tool, {
       ...task,
-      runId: RunId.of(run.runId),
-      url: await this.links.task(
-        task.workspaceId.value,
-        task.teamId.value,
-        task.taskId.value,
-      ),
+      runId: run.runId,
+      url: await this.links.task(task.workspaceId, task.teamId, task.taskId),
     });
 
     if (!resolved) {
@@ -92,7 +94,7 @@ export class ResolveToolForRun {
         call: async () => {
           throw new InconsistentStateError(
             'integration tool',
-            `${tool} was called without the connection it acts with`,
+            `${tool.value} was called without the connection it acts with`,
           );
         },
       };
@@ -114,25 +116,37 @@ export class ResolveToolForRun {
       missing: null,
       defaultFor: (input) => resolved.defaultFor(input),
       call: async (inputs) => {
-        const answer = await resolved.call(
+        const answer = await resolved.attempt(
           inputs,
           await this.callAuthResolver.forRun(
             {
               teamId,
-              workspaceId: task.workspaceId.value,
+              workspaceId: task.workspaceId,
               runId: run.runId,
               attempt: run.attempt,
               injectedSecrets: resolved.injectedSecrets,
             },
             found.connection,
           ),
+          null,
         );
 
+        if (answer.kind === 'timed-out') {
+          throw new InconsistentStateError(
+            'integration tool',
+            `${tool.value} timed out on a call without a deadline`,
+          );
+        }
+
+        if (answer.kind === 'failed') {
+          return answer;
+        }
+
         this.recording
-          .execute(new RecordToolOutputCommand(teamId, tool, answer))
+          .execute(new RecordToolOutputCommand(teamId, tool, answer.output))
           .catch((error: unknown) =>
             this.logger.debug(
-              { tool, err: error },
+              { tool: tool.value, err: error },
               'Could not record what a tool answered',
             ),
           );

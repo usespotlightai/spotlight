@@ -15,16 +15,16 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StartChatCommand } from '@work/application/commands/chat.commands';
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
-import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import { admittedSetupFolder } from '@work/domain/services/setup-chat-admission';
+import { SetupAdmission } from '@work/domain/services/setup-admission';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
@@ -74,46 +74,44 @@ export class StartChatHandler
           )
         : null;
 
-      const setup = asked
-        ? asked.withCi(
-            await this.ci.setUp(workspaceId, startedBy, asked.repository),
-          )
+      const attachments = await this.files.handedOver(
+        workspaceId,
+        command.attachments,
+      );
+      const traces = await this.traces.shared(command.traces);
+      const targetStation = command.targetStation
+        ? await this.targetStationOf(command.targetStation)
         : null;
-
-      const started = await this.transaction.inTransaction(async () => {
-        const attachments = await this.files.handedOver(
-          workspaceId,
-          command.attachments,
-        );
-        const traces = await this.traces.shared(command.traces);
-        const targetStation = command.targetStation
-          ? await this.targetStationOf(command.targetStation)
-          : null;
-
-        const chat = Chat.start({
-          workspaceId,
-          teamId,
-          lines: await this.lines.ofTeam(teamId),
-          startedBy,
-          harness,
-          model: command.model === null ? null : HarnessModel.of(command.model),
-          effort: command.effort === null ? null : Effort.of(command.effort),
-          repositories: command.repositories.map((each) => Repository.of(each)),
-          body: ChatMessageBody.fromInput(
-            command.body,
-            attachments,
-            traces,
-            targetStation,
-          ),
+      const chat = Chat.start({
+        workspaceId,
+        teamId,
+        lines: await this.lines.ofTeam(teamId),
+        startedBy,
+        harness,
+        model: command.model === null ? null : HarnessModel.of(command.model),
+        effort: command.effort === null ? null : Effort.of(command.effort),
+        repositories: command.repositories.map((each) => Repository.of(each)),
+        body: ChatMessageBody.fromInput(
+          command.body,
           attachments,
           traces,
-          targetStation: targetStation,
-          setup,
-          now: this.clock.now(),
-          newId: () => this.ids.generate(),
-        });
+          targetStation,
+        ),
+        attachments,
+        traces,
+        targetStation,
+        setup: asked,
+        now: this.clock.now(),
+        newId: () => this.ids.generate(),
+      });
+      const withCi = asked
+        ? chat.ciSetUp(
+            await this.ci.setUp(workspaceId, startedBy, asked.repository),
+          )
+        : chat;
 
-        const taken = await this.dispatch.takenUp(chat);
+      const started = await this.transaction.inTransaction(async () => {
+        const taken = await this.dispatch.takenUp(withCi);
         await this.chats.add(taken);
         await this.files.takenIn(workspaceId, attachments);
 
@@ -138,9 +136,9 @@ export class StartChatHandler
         this.runners.hasEgressCapableRunner(workspaceId),
       ]);
 
-    return admittedSetupFolder(folder, {
+    return SetupAdmission.admitted(folder, {
       requesterIsAdmin,
-      folderReachable,
+      codeReachable: folderReachable,
       egressAvailable,
     });
   }

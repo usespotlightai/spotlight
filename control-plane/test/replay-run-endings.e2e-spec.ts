@@ -12,6 +12,7 @@ import {
   replaysSubscribers,
 } from '@replays/presentation/events/replays.subscribers';
 import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
+import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -44,6 +45,7 @@ const replayRun = (id = 'run_1') =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
     priority: RunPriority.of(-1),
+    now: NOW,
     requester: RunRequester.of({
       owner: 'replays',
       kind: 'replay',
@@ -134,7 +136,7 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
     let run = replayRun();
     for (let attempt = 0; attempt < 3; attempt += 1) {
       run = run
-        .claim(RUNNER, NOW)
+        .claim(claimer(RUNNER), NOW)
         .expireLease(new Date(NOW.getTime() + (attempt + 1) * 600_000));
     }
 
@@ -152,10 +154,12 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
 
   it('leaves unscored a replay run that failed before its agent received it', async () => {
     const run = replayRun()
-      .claim(RUNNER, NOW)
+      .claim(claimer(RUNNER), NOW)
       .complete(
         RUNNER,
         RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
+        HandoverReport.none(),
+        NOW,
       );
 
     const ended = await receivedBy(run.pullEvents());
@@ -166,8 +170,13 @@ describe('how a replay run’s ending becomes its score, from Work’s events to
 
   it('fails a replay run whose agent failed', async () => {
     const run = replayRun()
-      .claim(RUNNER, NOW)
-      .complete(RUNNER, RunOutcome.of({ exitCode: 1, failed: true }));
+      .claim(claimer(RUNNER), NOW)
+      .complete(
+        RUNNER,
+        RunOutcome.of({ exitCode: 1, failed: true }),
+        HandoverReport.none(),
+        NOW,
+      );
 
     const ended = await receivedBy(run.pullEvents());
 
@@ -200,7 +209,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
         .confirm(RunId.of(runId), FINGERPRINT, NOW),
     );
 
-    const ended = end(replayRun(runId).claim(RUNNER, NOW));
+    const ended = end(replayRun(runId).claim(claimer(RUNNER), NOW));
     const subscribers = replaysSubscribers({
       ending: app.get(RecordReplayRunEnding),
     } as unknown as ReplaysReactions);
@@ -231,7 +240,12 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
   it('stores a run whose agent failed as failed', async () => {
     expect(
       await storedAfter((run) =>
-        run.complete(RUNNER, RunOutcome.of({ exitCode: 1, failed: true })),
+        run.complete(
+          RUNNER,
+          RunOutcome.of({ exitCode: 1, failed: true }),
+          HandoverReport.none(),
+          NOW,
+        ),
       ),
     ).toEqual({ succeeded: false, reasons: [['run-failed', 'exited']] });
   });
@@ -246,6 +260,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
             handover: Handover.of({ next: 'build' }),
             session: null,
           }),
+          NOW,
         ),
       ),
     ).toEqual({ succeeded: false, reasons: [['asked-a-person', null]] });
@@ -257,6 +272,8 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
         run.complete(
           RUNNER,
           RunOutcome.of({ exitCode: -1, failed: true, setupFailed: true }),
+          HandoverReport.none(),
+          NOW,
         ),
       ),
     ).toEqual({ succeeded: null, reasons: [['run-failed', 'unprepared']] });
@@ -267,7 +284,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
       (lose: (run: Run, at: Date) => Run) => (run: Run) => {
         let lost = lose(run, NOW);
         for (let attempt = 1; attempt < 3; attempt += 1) {
-          lost = lose(lost.claim(RUNNER, NOW), NOW);
+          lost = lose(lost.claim(claimer(RUNNER), NOW), NOW);
         }
         return lost;
       };

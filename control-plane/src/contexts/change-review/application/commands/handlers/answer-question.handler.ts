@@ -92,10 +92,7 @@ export class AnswerQuestionHandler
             await this.answers.add(
               QuestionAnswer.given({
                 id: QuestionAnswerId.of(this.ids.generate()),
-                workspaceId: stack.workspaceId,
-                taskId: stack.taskId,
-                teamId: stack.teamId,
-                stackId: stack.id,
+                stack,
                 question,
                 personId,
                 reply,

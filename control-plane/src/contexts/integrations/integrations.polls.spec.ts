@@ -7,6 +7,7 @@ import type { Credentials } from '@integrations/application/ports/integration-ru
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { ProcessDuePolls } from '@integrations/application/services/process-due-polls.service';
+import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery-reactions.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -35,6 +36,7 @@ import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
@@ -132,7 +134,7 @@ const polling = (
     } as unknown as TeamDirectoryPort,
     callAuthFor(injection),
     cursors,
-    { react } as HappeningReactionsPort,
+    new WorkDeliveryReactions({ react } as HappeningReactionsPort),
     { now: () => NOW } as ClockPort,
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
@@ -261,7 +263,7 @@ describe('ProcessDuePolls', () => {
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
     await credentials.injectedFor('https://api.linear.app/issues', [
-      'LINEAR_TOKEN',
+      SecretName.of('LINEAR_TOKEN'),
     ]);
 
     expect(forSpotlight).toHaveBeenCalledWith({

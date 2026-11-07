@@ -54,7 +54,7 @@ export interface WorkspaceReaderPort {
   // Not viewer-scoped. Use it only for webhook callers with a verified signature.
   identifyTeam(slug: string, teamKey: string): Promise<IdentifiedTeam | null>;
 
-  findTeamForMember(
+  findTeamForViewer(
     teamId: TeamId,
     userId: UserId,
   ): Promise<{

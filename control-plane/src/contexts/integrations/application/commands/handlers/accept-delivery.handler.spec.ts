@@ -53,12 +53,16 @@ const accepting = (
       const first = !taken.some(
         (each) =>
           each.integration.equals(delivery.integration) &&
-          each.id === delivery.id,
+          each.id.equals(delivery.id),
       );
       taken.push(delivery);
       return first;
     }),
-    claimNext: vi.fn(async () => null),
+    claimCandidates: vi.fn(async () => []),
+    current: vi.fn(async () => null),
+    addressedTo: vi.fn(async () => []),
+    finishedBefore: vi.fn(async () => []),
+    remove: vi.fn(async () => {}),
     save: vi.fn(async () => {}),
   } satisfies InboundDeliveryRepository;
   const logger = {
@@ -124,7 +128,7 @@ describe('AcceptDeliveryHandler', () => {
     expect(taken).toHaveLength(1);
     expect(taken[0]?.integration.value).toBe('github');
     expect(taken[0]?.to).toBeNull();
-    expect(taken[0]?.id).toBe('d_1');
+    expect(taken[0]?.id.value).toBe('d_1');
     expect(taken[0]?.headers).toEqual({ 'x-delivery': 'd_1' });
     expect(taken[0]?.body).toEqual({ action: 'closed' });
     expect(taken[0]?.causeFiringId?.value).toBe('firing_1');

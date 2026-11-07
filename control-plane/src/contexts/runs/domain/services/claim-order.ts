@@ -5,6 +5,12 @@ import type {
 } from '@runs/domain/value-objects/claimant';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 
+export interface ClaimCursor {
+  readonly priority: number;
+  readonly createdAt: Date;
+  readonly id: string;
+}
+
 export interface QueuedRuns {
   readonly waiting: readonly Run[];
   readonly leasedRequesters: readonly RunRequester[];
@@ -55,15 +61,25 @@ const forRequested = (
       ? 'run-of-its-key'
       : 'start';
 
-const queuedTime = (run: Run): number => run.queuedAt?.getTime() ?? 0;
-
 const sooner = (a: Run, b: Run): number =>
   b.priority.value - a.priority.value ||
-  queuedTime(a) - queuedTime(b) ||
+  a.createdAt.getTime() - b.createdAt.getTime() ||
   (a.id.value < b.id.value ? -1 : a.id.value > b.id.value ? 1 : 0);
 
 export const ClaimOrder = {
   fits,
+
+  cursorAfter(page: readonly Run[]): ClaimCursor | null {
+    const last = page[page.length - 1];
+
+    return last
+      ? {
+          priority: last.priority.value,
+          createdAt: last.createdAt,
+          id: last.id.value,
+        }
+      : null;
+  },
 
   forRequested,
 

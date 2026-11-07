@@ -82,8 +82,8 @@ export class TaskNoteBody {
     return TaskNoteBody.of(`Moved to ${station.value}.`);
   }
 
-  static connected(integrationName: string): TaskNoteBody {
-    return TaskNoteBody.of(`Connected ${integrationName}.`);
+  static connected(providedBy: string): TaskNoteBody {
+    return TaskNoteBody.of(`Connected ${providedBy}.`);
   }
 
   equals(other: TaskNoteBody): boolean {

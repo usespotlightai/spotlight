@@ -31,8 +31,9 @@ const leasedRun = (replay: boolean): LeasedRun => ({
   lineId: LineId.of('line_1'),
   stationId: StationId.of('station_1'),
   repositories: [],
-  replaysFrom: replay ? NOW : null,
-  isSearch: false,
+  asOf: replay ? NOW : null,
+  isolated: false,
+  trial: false,
 });
 
 const stored = (id: string, teamId: TeamId) =>

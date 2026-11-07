@@ -9,14 +9,15 @@ export interface LeasedAttempt {
   readonly attempt: number;
 }
 
-export interface LeasedRun extends RunFacts {
+export interface LeasedRunFacts extends RunFacts {
   readonly claimedBy: RunnerId;
   readonly manifest: readonly string[];
   readonly pins: readonly string[];
 }
 
 export interface RunLeasesPort {
-  leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRun | null>;
-  leaseOf(runId: RunId, runner: RunnerId): Promise<LeasedRun>;
+  leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRunFacts | null>;
+  leaseOf(runId: RunId, runner: RunnerId): Promise<LeasedRunFacts>;
   isStillOn(runId: RunId, attempt: number, runner: RunnerId): Promise<boolean>;
+  claimedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
 }

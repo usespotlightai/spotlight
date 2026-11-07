@@ -1,5 +1,8 @@
 import type { UnlinkedTaskView } from '@integrations/application/ports/tasks-for-hooks.port';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -12,9 +15,10 @@ export const IntegrationTaskViewMapper = {
       workspaceId: WorkspaceId.of(task.workspaceId),
       teamId: TeamId.of(task.teamId),
       title: task.title,
-      pullRequest: task.pullRequest,
-      line: task.line,
-      station: task.station,
+      pullRequest:
+        task.pullRequest === null ? null : PullRequestUrl.of(task.pullRequest),
+      line: LineKey.of(task.line),
+      station: StationName.of(task.station),
       stationKey: StationKey.of(task.stationKey),
       marks: task.marks,
       repositories: [],

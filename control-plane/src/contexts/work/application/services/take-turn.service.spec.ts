@@ -1,19 +1,21 @@
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import { runFilesFrom } from '@runs/application/ports/run-files.fake-spec';
 import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
   CompleteRunCommand,
   CompleteRunHandler,
+  claimer,
   HandoverReport,
-  InMemoryArchives,
   orderedFor,
   Run,
-  RunFacts,
   RunOutcome,
   RunSpec,
   Runs,
   RunVersionConflictError,
+  runReadModelOver,
 } from '@runs/application/ports/run-fixtures.fake-spec';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -49,7 +51,7 @@ import type { DispatchRepository } from '@work/domain/repositories/dispatch.repo
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import {
   lineMapOf,
   routesOf,
@@ -77,7 +79,7 @@ const leased = () =>
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
     }),
-  }).claim(RunnerId.of('runner_1'), NOW);
+  }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
 const TASK_VIEW = { taskId: 'task_1', runId: 'run_1' } as TaskViewDto;
 
@@ -190,7 +192,7 @@ const dispatched = () =>
       stationId: StationId.of('station_1'),
     },
     configuredAs: null,
-    order: DispatchOrder.of({}),
+    order: runOrderOf(RUN),
     now: NOW,
   }).enqueuedAsRun();
 
@@ -237,7 +239,7 @@ const turning = (over: Turning = {}) => {
     },
   } as unknown as TaskRepository;
   const facade = new Runs(store, new Sha256ContentHash(), clock);
-  const facts = new RunFacts(store, new InMemoryArchives());
+  const facts = runReadModelOver(store);
   const dispatches: DispatchRepository = {
     find: async () => dispatched(),
     add: async () => undefined,
@@ -267,6 +269,7 @@ const turning = (over: Turning = {}) => {
       { runIdFor: async () => RunId.of('run_2') },
       clock,
     ),
+    runJournalReadings(),
   );
   const completing = new CompleteRunHandler(
     store,
@@ -274,7 +277,7 @@ const turning = (over: Turning = {}) => {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
     clock,
-    new RunFiles(files),
+    runFilesFrom(new RunFiles(files)),
   );
 
   return {

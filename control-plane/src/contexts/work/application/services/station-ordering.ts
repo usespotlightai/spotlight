@@ -1,8 +1,4 @@
-import {
-  RunSpecContract,
-  type RunSpecShape,
-  TRACE_PARENT_VAR,
-} from '@runs/application/contracts/run-spec.contract';
+import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type {
   HarnessLaunchPort,
   PreparedHarness,
@@ -11,15 +7,17 @@ import type {
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
+import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
+import { RunSpecPartsMapper } from '@work/application/mappers/run-spec-parts.mapper';
 import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
+import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import { Attached } from '@work/application/rendering/attached';
 import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import { skillsForTools } from '@work/domain/services/enabled-for-run';
-import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import {
   type OrderedAt,
   orderAt,
@@ -27,7 +25,6 @@ import {
 } from '@work/domain/services/run-order';
 import { RunReadying } from '@work/domain/services/run-readying';
 import { stationConfigOf } from '@work/domain/services/station-config-of';
-import { runCheckoutsOf } from '@work/domain/services/task-checkouts';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -56,14 +53,14 @@ const laidOut = (
   { order, prepared, home, folders }: Ordered,
   laid: Laid,
 ): RunSpecShape => ({
-  checkouts: runCheckoutsOf(order.checkouts),
-  command: prepared.command.started({ [TRACE_PARENT_VAR]: laid.naming }),
+  checkouts: RunCheckoutsMapper.toRun(order.checkouts),
+  command: RunSpecPartsMapper.traced(prepared.command, laid.naming),
   briefing: laid.briefing,
   handover: {
     options: order.options.map((each) => each.word),
     noteLimit: order.noteLimit,
   },
-  resume: RunSpecContract.resumeOf(order.resume),
+  resume: RunSpecPartsMapper.resume(order.resume),
   skills: skillFilesOf(folders, home),
   skillHomes: laid.skillHomes,
   attachments: Attached.shapes(laid.attachments),
@@ -75,7 +72,7 @@ const laidOut = (
 
 export class StationOrdering {
   constructor(
-    private readonly harnesses: HarnessCatalog,
+    private readonly harnesses: HarnessCataloguePort,
     private readonly launch: HarnessLaunchPort,
     private readonly builtInSkills: BuiltInSkillsPort,
     private readonly teamSkills: StationSkills,
@@ -108,7 +105,7 @@ export class StationOrdering {
     const order = orderAt({
       at,
       line,
-      harnesses: this.harnesses,
+      harnesses: this.harnesses.current(),
       ready: ready.map(ReadySkillMapper.toReady),
       profiles: await this.profilesAt(line, station),
       denied:
@@ -157,7 +154,9 @@ export class StationOrdering {
       ? await this.profiles.named(line.teamId, station.profile.value)
       : null;
 
-    return shape ? [ReadyProfileMapper.toReady(shape)] : [];
+    return shape
+      ? [ReadyProfileMapper.toReady(this.launch.readyProfile(shape))]
+      : [];
   }
 
   prepared(order: RunOrder): PreparedHarness | null {

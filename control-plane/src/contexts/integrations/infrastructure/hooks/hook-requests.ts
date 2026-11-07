@@ -22,6 +22,7 @@ import type {
   NetworkResponse,
 } from '@runs/application/ports/network-calls.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -171,7 +172,7 @@ export class HookRequests implements HookRequestsPort {
     }
 
     try {
-      return await this.scope.within(workspace, () =>
+      return await this.scope.within(WorkspaceId.of(workspace), () =>
         this.sentFromHere(request, headers, started),
       );
     } catch (error) {
@@ -239,7 +240,11 @@ export class HookRequests implements HookRequestsPort {
     at: Date,
   ): Promise<Record<string, string> | HookFailure> {
     const { hook, instance } = request;
-    const id = messageId(hook.id.value, instance.occurrence, request.step);
+    const id = messageId(
+      hook.id.value,
+      instance.occurrence.value,
+      request.step.value,
+    );
     const timestamp = Math.floor(at.getTime() / 1000);
     const signed: Record<string, string> = {
       ...request.headers,
@@ -254,7 +259,7 @@ export class HookRequests implements HookRequestsPort {
     };
 
     if (request.signing?.kind === 'hmac') {
-      const secret = await this.secrets.signingSecretOf(hook.id.value);
+      const secret = await this.secrets.signingSecretOf(hook.id);
 
       if (!secret) {
         return HookFailure.withoutSigningSecret();
@@ -276,7 +281,7 @@ export class HookRequests implements HookRequestsPort {
       signed.authorization = `Bearer ${await this.tokens.signed({
         audience: request.signing.audience,
         subject: `hook:${instance.task.workspaceId.value}/${hook.teamId.value}/${hook.key.value}`,
-        occurrence: instance.occurrence,
+        occurrence: instance.occurrence.value,
         message: id,
         bodyDigest: createHash('sha256')
           .update(request.body)
@@ -405,7 +410,7 @@ export class HookRequests implements HookRequestsPort {
       denyReason: reply.denyReason,
       trace: {
         hook: request.hook.key.value,
-        step: request.step,
+        step: request.step.value,
         kind: 'request',
         target: request.url,
         request: { headers: shown, body: storedBody(request.body) },
@@ -434,7 +439,7 @@ export class HookRequests implements HookRequestsPort {
       denyReason: null,
       trace: {
         hook: request.hook.key.value,
-        step: request.step,
+        step: request.step.value,
         kind: 'request',
         target: request.url,
         request: { body: storedBody(request.body) },

@@ -1,5 +1,5 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { DispatchOrderMapper } from '@work/application/mappers/dispatch-order.mapper';
+import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import type { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
@@ -45,7 +45,7 @@ export class OrderChatRun {
       ordered
         ? Dispatch.ordered({
             ...ordering,
-            order: DispatchOrderMapper.toDispatchOrder(ordered.order),
+            order: RunOrdersMapper.toDispatchOrder(ordered.order),
           })
         : Dispatch.unorderable(ordering),
     );

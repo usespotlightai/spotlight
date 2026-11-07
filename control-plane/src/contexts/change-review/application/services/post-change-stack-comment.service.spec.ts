@@ -92,7 +92,7 @@ const posting = (
 
         return {
           id: stack.id.value,
-          runId: stack.runId.value,
+          runId: stack.runId,
           repository: stack.repository?.value ?? null,
           state: stack.state,
           cohorts: stack.cohorts,
@@ -128,7 +128,6 @@ const posting = (
           checkouts: 1,
         };
       },
-      wasClaimedBy: async () => true,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => {

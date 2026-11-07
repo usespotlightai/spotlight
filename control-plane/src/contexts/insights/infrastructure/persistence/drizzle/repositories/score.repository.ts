@@ -19,6 +19,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import type { Erased } from '@shared-kernel/domain/erased';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { and, eq } from 'drizzle-orm';
@@ -154,7 +155,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
     return rows.map(toScore);
   }
 
-  async remove(removed: Score): Promise<void> {
+  async remove(removed: Erased<Score>): Promise<void> {
     const gone = await this.context.db
       .delete(score)
       .where(

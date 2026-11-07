@@ -1,23 +1,27 @@
 import type { SearchVisibilities } from '@replays/application/queries/search-visibilities';
-import { isSearchRequester } from '@replays/application/services/search-run-dispatch.service';
-import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
+import {
+  REPLAYS_OWNER,
+  ReplaysRequester,
+} from '@replays/domain/value-objects/replays-requester.vo';
 import type {
+  TracedRequester,
   TraceScope,
   TraceScopeSource,
 } from '@work/application/ports/trace-scopes.port';
 
 export class ReplaysTraceScopes implements TraceScopeSource {
-  readonly owner = 'replays';
+  readonly owner = REPLAYS_OWNER;
 
   constructor(private readonly visibilities: SearchVisibilities) {}
 
-  async scopeOf(requester: RunRequesterContract): Promise<TraceScope | null> {
-    if (!isSearchRequester(requester)) {
+  async scopeOf(requester: TracedRequester): Promise<TraceScope | null> {
+    const search = ReplaysRequester.decode(requester)?.searchIteration;
+
+    if (!search) {
       return null;
     }
 
-    const scope = await this.visibilities.scopeOf(SearchId.of(requester.id));
+    const scope = await this.visibilities.scopeOf(search.searchId);
 
     return (
       scope && {

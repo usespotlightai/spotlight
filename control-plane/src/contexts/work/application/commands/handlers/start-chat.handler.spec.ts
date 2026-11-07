@@ -8,9 +8,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { StartChatCommand } from '@work/application/commands/chat.commands';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
-import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';
@@ -146,6 +146,30 @@ describe('StartChatHandler', () => {
       'A setup chat needs egress',
     );
     expect(added).toEqual([]);
+  });
+
+  it('sets up no CI when the chat itself is refused', async () => {
+    const { handler, added, setUp } = starting();
+
+    await expect(
+      handler.execute(
+        new StartChatCommand(
+          'team_1',
+          'user_1',
+          'claude-code',
+          null,
+          null,
+          [],
+          '   ',
+          [],
+          [],
+          null,
+          { repository: 'acme/infra', folder: 'spotlight' },
+        ),
+      ),
+    ).rejects.toBeDefined();
+    expect(setUp).not.toHaveBeenCalled();
+    expect(added).toHaveLength(0);
   });
 
   it('sets up no CI for a chat that is not a setup chat', async () => {

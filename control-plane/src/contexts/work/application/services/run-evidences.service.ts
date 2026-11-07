@@ -1,12 +1,11 @@
 import type { JournalStep } from '@runs/application/contracts/run-journal.contract';
-import { RunReading } from '@runs/application/contracts/run-reading.contract';
 import type {
   RunFacts,
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
-  EvidencedHunk,
   EvidencedRun,
   EvidencedStep,
   RunEvidencePort,
@@ -40,42 +39,13 @@ const evidenced = (step: JournalStep, index: number): EvidencedStep => ({
   output: clippedOrNone(step.output),
 });
 
-const hunksIn = (
-  steps: readonly JournalStep[],
-  checkouts: readonly string[],
-): EvidencedHunk[] => {
-  const order: string[] = [];
-  const first = new Map<string, string>();
-  const last = new Map<string, string>();
-
-  for (const step of steps) {
-    const change = step.change;
-
-    if (!change?.path) {
-      continue;
-    }
-    if (!first.has(change.path)) {
-      first.set(change.path, change.before);
-      order.push(change.path);
-    }
-    last.set(change.path, change.after);
-  }
-
-  return order.flatMap((path) =>
-    RunReading.hunksOf(
-      RunReading.workspacePath(path, checkouts) ?? path,
-      first.get(path) ?? '',
-      last.get(path) ?? '',
-    ),
-  );
-};
-
 export class RunEvidences implements RunEvidencePort {
   constructor(
     private readonly runs: RunFactsPort,
     private readonly tasks: TaskRepository,
     private readonly journals: RunJournalReaderPort,
     private readonly dispatches: DispatchRepository,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
   async hasTask(runId: string): Promise<boolean> {
@@ -101,7 +71,7 @@ export class RunEvidences implements RunEvidencePort {
       runId: run.runId.value,
       ...task,
       steps: steps.map(evidenced),
-      hunks: hunksIn(steps, run.checkouts),
+      hunks: this.readings.hunksIn(steps, run.checkouts),
     };
   }
 

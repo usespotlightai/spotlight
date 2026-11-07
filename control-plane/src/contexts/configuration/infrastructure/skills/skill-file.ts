@@ -9,11 +9,8 @@ import {
   Skill,
   type SkillSecret,
 } from '@configuration/domain/value-objects/skill.vo';
+import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import { splitFrontmatter } from '@platform/markdown/frontmatter';
-import {
-  SKILL_FILE,
-  SKILL_FOLDER_LIMITS,
-} from '@runs/application/contracts/run-spec.contract';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { parse as parseYaml } from 'yaml';
@@ -80,7 +77,7 @@ const readSkill = (
   if (!matched) {
     throw new InvalidSkillError(
       key.value,
-      `needs a name and description between --- lines at the top of ${SKILL_FILE}`,
+      `needs a name and description between --- lines at the top of ${SKILL_MAIN_FILE}`,
     );
   }
 
@@ -106,7 +103,6 @@ const readSkill = (
     folder: {
       files: files.length,
       characters: files.reduce((sum, each) => sum + each.text.length, 0),
-      limits: SKILL_FOLDER_LIMITS,
     },
     description: typeof description === 'string' ? description : '',
     instructions: matched.body,
@@ -123,10 +119,13 @@ export const readSkillFolder = (
   origin: SkillOrigin,
 ): ReadSkillFolder => {
   const key = DefinedSkillKey.of(folder);
-  const main = files.find((each) => each.path === SKILL_FILE);
+  const main = files.find((each) => each.path === SKILL_MAIN_FILE);
 
   if (!main) {
-    throw new InvalidSkillError(folder, `has no ${SKILL_FILE} in ${folder}`);
+    throw new InvalidSkillError(
+      folder,
+      `has no ${SKILL_MAIN_FILE} in ${folder}`,
+    );
   }
 
   return { skill: readSkill(key, main.text, origin, files), files };

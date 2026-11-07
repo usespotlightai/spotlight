@@ -24,7 +24,7 @@ const imageSupported = (image: SQLWrapper, offer: RunnerOffer): SQL => {
     : sql`${image} = ${running.image.value}`;
 };
 
-// This is RunnerPlacement.matches in SQL, so that a claim stays one statement.
+// Keep in step with RunnerPlacement.matches.
 export const placementMatches = (
   labelGroups: SQLWrapper,
   image: SQLWrapper,

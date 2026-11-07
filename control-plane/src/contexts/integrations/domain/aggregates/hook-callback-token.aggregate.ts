@@ -91,6 +91,10 @@ export class HookCallbackToken {
     return now.getTime() < this.issued.expiresAt.getTime();
   }
 
+  isRemovableAt(now: Date): boolean {
+    return !this.isValidAt(now);
+  }
+
   coversTaskIn(workspaceId: WorkspaceId): boolean {
     return this.issued.workspaceId.equals(workspaceId);
   }

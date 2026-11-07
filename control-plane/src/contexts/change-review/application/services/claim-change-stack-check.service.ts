@@ -12,6 +12,7 @@ import type {
   ClaimedCheck,
 } from '@runs/application/ports/check-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -98,14 +99,14 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
   }
 
   async unclaim(
-    stackId: string,
+    check: CheckWorkId,
     recheck: boolean,
     runner: RunnerId,
     now: Date,
   ): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       const existing = await this.checks.find(
-        StackCheckId.of(ChangeStackId.of(stackId), recheck),
+        StackCheckId.of(ChangeStackId.of(check.value), recheck),
       );
 
       if (!existing?.beingCheckedBy(runner, now)) {
@@ -127,25 +128,25 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
   }
 
   async isLeasedBy(
-    stackId: string,
+    check: CheckWorkId,
     runner: RunnerId,
     now: Date,
   ): Promise<boolean> {
-    return (await this.checks.ofStack(ChangeStackId.of(stackId))).some(
-      (check) => check.beingCheckedBy(runner, now),
+    return (await this.checks.ofStack(ChangeStackId.of(check.value))).some(
+      (each) => each.beingCheckedBy(runner, now),
     );
   }
 
   async renewLease(
     runId: RunId,
-    stackId: string,
+    work: CheckWorkId,
     recheck: boolean,
     runner: RunnerId,
     now: Date,
   ): Promise<CheckLeaseRenewal> {
     for (let attempt = 1; ; attempt++) {
       const check = await this.checks.find(
-        StackCheckId.of(ChangeStackId.of(stackId), recheck),
+        StackCheckId.of(ChangeStackId.of(work.value), recheck),
       );
 
       if (!check?.beingCheckedBy(runner, now) || !check.checkableAt(now)) {
@@ -153,7 +154,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
       }
       if (!check.runId.equals(runId)) {
         throw new UnknownChangeStackError(
-          `Run ${runId.value} has no change stack ${stackId}.`,
+          `Run ${runId.value} has no change stack ${work.value}.`,
         );
       }
 
@@ -187,9 +188,9 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     await this.checks.save(claimed);
 
     return {
-      stackId: stack.id.value,
-      recheck: claimed.recheck,
-      runId: stack.runId.value,
+      checkId: CheckWorkId.of(stack.id.value),
+      repeat: claimed.recheck,
+      runId: stack.runId,
       repository: stack.repository?.value ?? null,
       base: stack.base?.value ?? null,
       setup: claimed.request.setup,

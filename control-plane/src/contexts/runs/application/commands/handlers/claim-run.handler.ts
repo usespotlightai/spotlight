@@ -1,4 +1,4 @@
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import type { ClaimRunCommand } from '@runs/application/commands/runner.commands';
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
@@ -24,7 +24,7 @@ export class ClaimRunHandler
   constructor(
     private readonly runs: RunRepository,
     private readonly claims: RunClaims,
-    private readonly heartbeats: RunnerHeartbeatsPort,
+    private readonly claimants: RunnerClaimantsPort,
     private readonly clock: ClockPort,
     private readonly checks: CheckWorkPort,
     private readonly taken: ClaimsTaken,
@@ -38,24 +38,24 @@ export class ClaimRunHandler
     try {
       const runnerId = RunnerId.of(command.runnerId);
 
-      const heartbeat = await this.heartbeats.heartbeat(
+      const registered = await this.claimants.claimantOf(
         runnerId,
         this.clock.now(),
       );
-      if (!heartbeat) {
+      if (!registered) {
         throw new UnknownRunnerError(command.runnerId);
       }
 
-      if (heartbeat.claims === 'nothing') {
+      if (registered.claims === 'nothing') {
         return null;
       }
 
       const claimant: Claimant = {
         runner: runnerId,
-        workspaceId: heartbeat.workspaceId,
-        harnesses: heartbeat.harnesses,
-        offer: heartbeat.offer,
-        claims: heartbeat.claims,
+        workspaceId: registered.workspaceId,
+        harnesses: registered.harnesses,
+        offer: registered.offer,
+        claims: registered.claims,
       };
 
       return await this.reserved(claimant);

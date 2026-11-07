@@ -1,7 +1,9 @@
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
+import type { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
+import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
+import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
-import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -15,35 +17,21 @@ export interface TrialRequest {
   readonly workspaceId: WorkspaceId;
   readonly lineId: LineId;
   readonly stationId: StationId;
-  readonly block: unknown;
-  readonly repositories: unknown;
+  readonly block: StationBlock;
+  readonly line: PlannedLine | null;
   readonly answer: OracleAnswer | null;
 }
 
-export type TrialOrder = Omit<
-  RunOrderContract,
-  'requester' | 'policy' | 'workspace' | 'extensions' | 'apiGrant' | 'tags'
->;
-
-export interface TrialCheckout {
-  readonly path: string;
-  readonly repository: string;
-  readonly commit: string;
+export interface OrderedTrial {
+  readonly fingerprint: StationFingerprint | null;
+  readonly movesOnAfter: MovesOnWords;
 }
 
 export type TrialOrdering =
-  | {
-      readonly ordered: true;
-      readonly order: TrialOrder;
-      readonly team: string;
-      readonly fingerprint: StationFingerprint | null;
-      readonly checkouts: readonly TrialCheckout[];
-      readonly movesOnAfter: readonly string[];
-    }
+  | { readonly ordered: true; readonly trial: OrderedTrial }
   | {
       readonly ordered: false;
       readonly unreplayableReason: UnreplayableReason;
-      readonly reason: string;
     };
 
 export interface StationTrialsPort {

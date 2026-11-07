@@ -3,8 +3,9 @@ import { ChangeStackBecameReady } from '@change-review/domain/events/change-stac
 import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import { ChangeStackRedrafted } from '@change-review/domain/events/change-stack-redrafted.event';
 import { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-stack-redrafting-ended.event';
-import { TrialStackCompleted } from '@change-review/domain/events/trial-stack-completed.event';
+import { TrialStackSettled } from '@change-review/domain/events/trial-stack-settled.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { NoStackOwnerError } from '@change-review/domain/exceptions/no-stack-owner.error';
 import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
@@ -17,6 +18,7 @@ import {
   redraftRequestOf,
 } from '@change-review/domain/services/redraft-request';
 import { changeLayerCount } from '@change-review/domain/services/stack-checks';
+import { assertOneOwner } from '@change-review/domain/services/stack-owner';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import { actsOutsideSpotlight } from '@change-review/domain/services/trial-isolation';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -126,25 +128,6 @@ const assertComplete = (
   }
 };
 
-const assertOneOwner = (stack: {
-  taskId: TaskId | null;
-  teamId: TeamId | null;
-  trial: boolean;
-}): void => {
-  if (stack.trial && stack.taskId) {
-    throw new InconsistentStateError(
-      'change stack',
-      'is a trial’s, yet belongs to a task',
-    );
-  }
-  if ((stack.taskId === null) === (stack.teamId === null)) {
-    throw new InconsistentStateError(
-      'change stack',
-      'must belong to either a task or, without a task, to a team',
-    );
-  }
-};
-
 export class ChangeStack
   extends EventRecorder
   implements HasPendingJob<ChangeStack>
@@ -195,7 +178,10 @@ export class ChangeStack
       teamId: input.taskId ? null : input.teamOfRun,
       trial: input.trial,
     };
-    assertOneOwner(owner);
+    if (!owner.taskId && !owner.teamId) {
+      throw new NoStackOwnerError();
+    }
+    assertOneOwner('change stack', owner);
 
     return new ChangeStack(
       input.id,
@@ -238,7 +224,7 @@ export class ChangeStack
     version: number;
   }): ChangeStack {
     assertComplete(input.progress, input.diff, input.cohorts);
-    assertOneOwner(input);
+    assertOneOwner('change stack', input);
 
     return new ChangeStack(
       input.id,
@@ -467,7 +453,7 @@ export class ChangeStack
 
     completed.record(new ChangeStackCompleted(this.id, this.runId, this.trial));
     completed.recordReady(now);
-    completed.recordTrialCompleted();
+    completed.recordTrialSettled();
     return completed;
   }
 
@@ -475,11 +461,9 @@ export class ChangeStack
     return arranged(this.diff, this.facts, DraftedStack.cohorts(cohorts));
   }
 
-  private recordTrialCompleted(): void {
+  private recordTrialSettled(): void {
     if (this.trial) {
-      this.record(
-        new TrialStackCompleted(this.id, this.runId, this.workspaceId),
-      );
+      this.record(new TrialStackSettled(this.id, this.runId, this.workspaceId));
     }
   }
 
@@ -512,7 +496,7 @@ export class ChangeStack
       job: PendingJob.fresh(),
     });
 
-    failed.recordTrialCompleted();
+    failed.recordTrialSettled();
 
     return failed;
   }

@@ -1,3 +1,5 @@
+import type { ExportableResourceDto } from '@configuration/application/dto/exportable-configuration.dto';
+
 export const TERRAFORM_PROVIDER = 'spotlight';
 
 export const terraformTypeOf = (kind: string): string =>
@@ -25,3 +27,36 @@ export const judgeRubricFileOf = (
   lineKey: string,
   stationKey: string,
 ): string => `judges/${teamKey}/${lineKey}/${stationKey}.md`;
+
+export const TERRAFORM_FILE = 'terraform.tf';
+
+export const IMPORTS_FILE = 'imports.tf';
+
+export const VARIABLES_FILE = 'variables.tf';
+
+export const terraformFileOf = (resource: ExportableResourceDto): string => {
+  switch (resource.kind) {
+    case 'workspace':
+    case 'oidc-trust':
+      return 'workspace.tf';
+    case 'secret':
+      return 'secrets.tf';
+    case 'runner-trust':
+    case 'egress':
+    case 'runner-pool':
+    case 'workspace-runners':
+      return 'runners.tf';
+    case 'team':
+      return `team-${resource.key}.tf`;
+    case 'line':
+      return `line-${resource.teamKey}-${resource.key}.tf`;
+    case 'integration':
+      return `integration-${resource.teamKey}-${resource.integration}.tf`;
+    case 'skill':
+      return `skills-${resource.teamKey}.tf`;
+    case 'hook':
+      return `hooks-${resource.teamKey}.tf`;
+    case 'harness-profile':
+      return `profiles-${resource.teamKey}.tf`;
+  }
+};

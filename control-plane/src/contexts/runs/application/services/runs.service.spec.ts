@@ -1,8 +1,10 @@
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { Runs } from '@runs/application/services/runs.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
+import { claimer } from '@runs/domain/aggregates/run.fake-spec';
 import { RunAlreadyExistsError } from '@runs/domain/exceptions/run-already-exists.error';
 import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
+import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -194,12 +196,12 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     const { runs, stored } = inMemory();
     await runs.enqueue(ORDER);
 
-    expect(await runs.cancel(RunId.of('run_1'))).toEqual({
+    expect(await runs.cancel(RunId.of('run_1'), 'Moved on.')).toEqual({
       was: 'queued',
       started: false,
     });
     expect(stored.get('run_1')?.state).toBe('cancelled');
-    expect(await runs.cancel(RunId.of('run_9'))).toEqual({
+    expect(await runs.cancel(RunId.of('run_9'), 'Moved on.')).toEqual({
       was: 'unknown',
       started: false,
     });
@@ -210,7 +212,7 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     await runs.enqueue(ORDER);
     stored.set(
       'run_1',
-      (stored.get('run_1') as Run).claim(RunnerId.of('runner_1'), NOW),
+      (stored.get('run_1') as Run).claim(claimer(RunnerId.of('runner_1')), NOW),
     );
 
     expect(await runs.cancelIfQueued(RunId.of('run_1'), 'Too late.')).toEqual({
@@ -224,11 +226,60 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     await runs.enqueue(ORDER);
     stored.set(
       'run_1',
-      (stored.get('run_1') as Run).claim(RunnerId.of('runner_1'), NOW),
+      (stored.get('run_1') as Run).claim(claimer(RunnerId.of('runner_1')), NOW),
     );
 
     await runs.requestStop(RunId.of('run_1'));
 
     expect(stored.get('run_1')?.stopRequestedAt).toEqual(NOW);
+  });
+
+  it('answers from the cancel that saved when a runner claims the run first', async () => {
+    const { runs, stored } = inMemory();
+    await runs.enqueue(ORDER);
+    const queued = stored.get('run_1') as Run;
+    const claimed = queued.claim(claimer(RunnerId.of('runner_1')), NOW);
+    let reads = 0;
+    const racing = new Runs(
+      {
+        findById: async () => (reads++ === 0 ? queued : claimed),
+        save: async (run: Run) => {
+          if (run.state === 'cancelled') {
+            throw new RunVersionConflictError(run.id.value);
+          }
+          stored.set(run.id.value, run);
+        },
+      } as unknown as RunRepository,
+      { sha256: (text) => text },
+      { now: () => NOW, sleep: async () => {} },
+    );
+
+    expect(await racing.cancel(RunId.of('run_1'), 'Moved on.')).toEqual({
+      was: 'claimed',
+      started: false,
+    });
+    expect(stored.get('run_1')?.stopRequested).toBe(true);
+  });
+
+  it('answers claimed when a runner claims a run cancelled only while queued', async () => {
+    const { runs, stored } = inMemory();
+    await runs.enqueue(ORDER);
+    const queued = stored.get('run_1') as Run;
+    const claimed = queued.claim(claimer(RunnerId.of('runner_1')), NOW);
+    let reads = 0;
+    const racing = new Runs(
+      {
+        findById: async () => (reads++ === 0 ? queued : claimed),
+        save: async (run: Run) => {
+          throw new RunVersionConflictError(run.id.value);
+        },
+      } as unknown as RunRepository,
+      { sha256: (text) => text },
+      { now: () => NOW, sleep: async () => {} },
+    );
+
+    expect(await racing.cancelIfQueued(RunId.of('run_1'), 'Stopped.')).toEqual({
+      outcome: 'claimed',
+    });
   });
 });

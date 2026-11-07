@@ -93,7 +93,7 @@ const reconciling = (options: { task?: Task; state?: SetupState } = {}) => {
   } as unknown as TaskRepository;
 
   const setup = {
-    of: vi.fn(async () => ({ state: options.state ?? done, chat: null })),
+    stateFor: vi.fn(async () => options.state ?? done),
   } as unknown as SetupStatus;
 
   const lines = {
@@ -212,7 +212,7 @@ describe('ReconcileSetup', () => {
 
     await service.wherever();
 
-    expect(setup.of).toHaveBeenCalledWith(WORKSPACE, TEAM);
+    expect(setup.stateFor).toHaveBeenCalledWith(WORKSPACE, TEAM);
   });
 
   it('goes through the lists of one workspace alone', async () => {

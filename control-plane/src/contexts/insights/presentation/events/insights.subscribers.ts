@@ -40,6 +40,14 @@ import {
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import {
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import {
+  DISPATCH_SUPERSEDED,
+  type DispatchSupersededIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
+import {
   LINE_CHANGED,
   type LineChangedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/line-changed.integration-event';
@@ -63,14 +71,6 @@ import {
   PULL_REQUEST_UPDATED,
   type PullRequestUpdatedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
-import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
-import {
-  RUN_SUPERSEDED,
-  type RunSupersededIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-superseded.integration-event';
 import {
   RUN_USAGE_RECORDED,
   type RunUsageRecordedIntegrationEvent,
@@ -236,14 +236,14 @@ const deletionSubscriber = (
 export const insightsSubscribers = (
   handlers: InsightsHandlers,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'insights.record-ended-run',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) => handlers.ending.ended(runEndedOf(event)),
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'insights.judge-ended-run',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) => handlers.judging.runEnded(runEndedOf(event)),
   ),
   subscribing<RunJudged>(
@@ -283,9 +283,9 @@ export const insightsSubscribers = (
     (event) => handlers.watching.lineChanged(event),
     { callsOut: true },
   ),
-  subscribing<RunSupersededIntegrationEvent>(
+  subscribing<DispatchSupersededIntegrationEvent>(
     'insights.record-superseded-run',
-    [RUN_SUPERSEDED],
+    [DISPATCH_SUPERSEDED],
     (event) =>
       handlers.superseding.superseded(
         RunId.of(event.runId),

@@ -15,11 +15,11 @@ import {
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
 import { NOTICE_FORMS } from '@work/domain/value-objects/notice-form';
 import type { Progress } from '@work/domain/value-objects/progress';
-import { VOICES } from '@work/domain/value-objects/voice.vo';
+import { VOICE_KINDS } from '@work/domain/value-objects/voice.vo';
 
 export const NOTE_KINDS = TASK_NOTE_KINDS;
 export const NOTE_FORMS = TASK_NOTE_FORMS;
-export const NOTE_VOICES = VOICES;
+export const NOTE_VOICES = VOICE_KINDS;
 export const INBOX_APPROVAL_STATUSES = APPROVAL_STATUSES;
 export const APPROVAL_SUBJECTS = APPROVAL_SUBJECT_KINDS;
 export const INBOX_REQUEST_DTO_FORMS = INBOX_REQUEST_FORMS;

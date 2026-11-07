@@ -1,9 +1,9 @@
 import type { RunEnded } from '@insights/application/services/record-run-ending.service';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import type {
-  RunEndedIntegrationEvent,
-  RunEnding as RunEndedOutcome,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+  DispatchEndedIntegrationEvent,
+  DispatchOutcomePublished as RunEndedOutcome,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 
 const ENDING_OF: Readonly<Record<RunEndedOutcome, RunEnding>> = {
   completed: 'completed',
@@ -13,7 +13,7 @@ const ENDING_OF: Readonly<Record<RunEndedOutcome, RunEnding>> = {
 };
 
 export const endingOf = (
-  event: Pick<RunEndedIntegrationEvent, 'outcome' | 'stopped' | 'failure'>,
+  event: Pick<DispatchEndedIntegrationEvent, 'outcome' | 'stopped' | 'failure'>,
 ): RunEnding | null => {
   const outcome: RunEnding | undefined = ENDING_OF[event.outcome];
 
@@ -30,7 +30,7 @@ export const endingOf = (
   return outcome;
 };
 
-export const runEndedOf = (event: RunEndedIntegrationEvent): RunEnded => ({
+export const runEndedOf = (event: DispatchEndedIntegrationEvent): RunEnded => ({
   runId: event.runId,
   taskId: event.taskId,
   stationId: event.stationId,

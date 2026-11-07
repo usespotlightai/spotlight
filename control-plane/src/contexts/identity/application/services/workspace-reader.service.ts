@@ -62,7 +62,7 @@ export class WorkspaceReader implements WorkspaceReaderPort {
       : null;
   }
 
-  async findTeamForMember(
+  async findTeamForViewer(
     teamId: TeamId,
     userId: UserId,
   ): Promise<{

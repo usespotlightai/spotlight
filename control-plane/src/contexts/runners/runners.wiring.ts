@@ -93,6 +93,7 @@ import {
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_DEFINITIONS } from '@runners/application/ports/runner-definitions.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
+import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
 import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
 import { RUNNER_IDENTITY } from '@runners/application/ports/runner-identity.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
@@ -146,6 +147,7 @@ import { RunnerAuthenticator } from '@runners/application/services/runner-authen
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
 import { RunnerDependents } from '@runners/application/services/runner-dependents.service';
 import { RunnerEgress } from '@runners/application/services/runner-egress.service';
+import { RunnerClaimants } from '@runners/application/services/runner-claimants.service';
 import { RunnerHeartbeats } from '@runners/application/services/runner-heartbeats.service';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import { RunnerTokens } from '@runners/application/services/runner-tokens.service';
@@ -473,6 +475,12 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     inject: [DrizzleRunnerRepository],
     useFactory: (runners: DrizzleRunnerRepository) =>
       new RunnerHeartbeats(runners),
+  },
+  {
+    provide: RUNNER_CLAIMANTS,
+    inject: [DrizzleRunnerRepository],
+    useFactory: (runners: DrizzleRunnerRepository) =>
+      new RunnerClaimants(runners),
   },
   {
     provide: RunnerAuthenticator,

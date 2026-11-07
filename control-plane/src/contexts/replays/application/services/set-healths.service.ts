@@ -1,9 +1,9 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
+import { minGainUnder } from '@replays/domain/services/gain-estimate';
 import {
   HEALTH_SAMPLES_PER_GROUP,
   healthSamplesOf,
@@ -30,16 +30,16 @@ interface AtStation {
 
 export class SetHealths {
   constructor(
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
   ) {}
 
   async standardAt(station: AtStation): Promise<LiveStandard> {
-    const live = await this.work.live(station.lineId, station.stationId);
+    const live = await this.configs.live(station.lineId, station.stationId);
 
     return {
-      minGain: live?.threshold?.minGain ?? DEFAULT_MIN_GAIN,
+      minGain: minGainUnder(live?.threshold ?? null),
       threshold: live?.threshold ?? null,
       fingerprint: live?.fingerprint ?? null,
     };

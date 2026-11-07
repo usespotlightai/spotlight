@@ -1,3 +1,11 @@
+export const TURN_USAGE = 'usage';
+
+export const TOOL_REFUSED = 'tool.refused';
+
+export const EGRESS_CHECKED = 'egress.checked';
+
+export const AGENT_STOPPED = 'agent.stopped';
+
 export const PROVISION_FAILED = 'provision.failed';
 
 export const HOOK_CALLED = 'hook.called';

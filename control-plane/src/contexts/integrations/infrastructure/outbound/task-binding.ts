@@ -13,9 +13,9 @@ export const taskBinding = (
 } => ({
   title: task.title,
   url: task.url,
-  pullRequest: task.pullRequest,
-  line: task.line,
-  station: task.station,
+  pullRequest: task.pullRequest?.value ?? null,
+  line: task.line.value,
+  station: task.station.value,
   stationKey: task.stationKey.value,
   marks: task.marks,
 });

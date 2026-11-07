@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { WORK, type WorkPort } from '@replays/application/ports/work.port';
+import {
+  TRIALABLE_RUNS as REPLAYS_TRIALABLE_RUNS,
+  type TrialableRunsPort as ReplaysTrialableRunsPort,
+} from '@replays/application/ports/trialable-runs.port';
 import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
 import { DrizzleStationSearchScheduleRepository } from '@replays/infrastructure/persistence/drizzle/repositories/station-search-schedule.repository';
 import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -39,8 +42,8 @@ export const runEnded = async (
     throw new Error(`No subscriber is called ${KEEP_SET_SUBSCRIBER}.`);
   }
 
-  const ended: RunEndedIntegrationEvent = {
-    kind: RUN_ENDED,
+  const ended: DispatchEndedIntegrationEvent = {
+    kind: DISPATCH_ENDED,
     runId,
     workspaceId: at.workspaceId,
     taskId: randomUUID(),
@@ -85,10 +88,12 @@ const excludedIn = (app: INestApplication): Map<string, Set<string>> => {
   }
 
   const stations = new Map<string, Set<string>>();
-  const work = app.get<WorkPort>(WORK);
-  const recentAt = work.recentAt.bind(work);
+  const trialableRuns = app.get<ReplaysTrialableRunsPort>(
+    REPLAYS_TRIALABLE_RUNS,
+  );
+  const recentAt = trialableRuns.recentAt.bind(trialableRuns);
 
-  work.recentAt = async (workspaceId, stationId, max) => {
+  trialableRuns.recentAt = async (workspaceId, stationId, max) => {
     const left = stations.get(stationId.value);
     const recent = await recentAt(workspaceId, stationId, max);
 
@@ -108,8 +113,10 @@ export const keptSet = async (
 
   stations.delete(at.stationId);
 
-  const work = app.get<WorkPort>(WORK);
-  const atStation = await work.recentAt(
+  const trialableRuns = app.get<ReplaysTrialableRunsPort>(
+    REPLAYS_TRIALABLE_RUNS,
+  );
+  const atStation = await trialableRuns.recentAt(
     WorkspaceId.of(at.workspaceId),
     StationId.of(at.stationId),
     MOST_RECENT,
@@ -136,7 +143,7 @@ export const keptSet = async (
       throw new Error(`Station ${at.stationId} has no kept replay set.`);
     }
 
-    const recent = await work.recentAt(
+    const recent = await trialableRuns.recentAt(
       locked.workspaceId,
       StationId.of(at.stationId),
       MOST_RECENT,

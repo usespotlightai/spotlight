@@ -1,3 +1,5 @@
+import type { RunRequesterPublished } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+
 export const RUN_USAGE_RECORDED = 'runs.run-usage-recorded.v1';
 
 type ServerCallsPublished = {
@@ -12,13 +14,7 @@ export type RunUsageRecordedIntegrationEvent = {
   readonly kind: typeof RUN_USAGE_RECORDED;
   readonly runId: string;
   readonly workspaceId: string;
-  readonly requester: {
-    readonly owner: string;
-    readonly kind: string;
-    readonly id: string;
-    readonly token: string | null;
-    readonly team: string | null;
-  };
+  readonly requester: RunRequesterPublished;
   readonly listed: boolean;
   readonly ms: number | null;
   readonly steps: number;

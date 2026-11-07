@@ -1,6 +1,7 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
+import { replayAskedAPerson } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import type { ReplayRunClaimRepository } from '@replays/domain/repositories/replay-run-claim.repository';
+import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
 import { reviewOf } from '@replays/domain/value-objects/change-checks.vo';
 import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
@@ -16,12 +17,13 @@ export interface ReplayRunEnded {
   readonly askedAPerson: boolean;
   readonly handsOver: boolean;
   readonly next: string | null;
+  readonly endedAt: Date;
 }
 
 export class RecordReplayRunEnding {
   constructor(
     private readonly replays: ReplayRepository,
-    private readonly claims: ReplayRunClaimRepository,
+    private readonly decisions: ReplayRunDecisionRepository,
     private readonly changes: ChangeReviewPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
@@ -29,11 +31,7 @@ export class RecordReplayRunEnding {
 
   async ended(event: ReplayRunEnded): Promise<void> {
     const run = RunId.of(event.runId);
-    const claim = await this.claims.find(run);
-    const asked =
-      event.askedAPerson ||
-      (claim?.askedAPersonAfter(event.handsOver, event.next) ??
-        event.handsOver);
+    const asked = replayAskedAPerson(event, await this.decisions.find(run));
 
     return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
@@ -52,7 +50,7 @@ export class RecordReplayRunEnding {
             stopped: event.stopped,
             asked,
             next: event.next,
-            at: now,
+            at: event.endedAt,
           }),
         )
         .recordReview(run, ...reviewOf(await this.changes.stacksOf(run)), now);

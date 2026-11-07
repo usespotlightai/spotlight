@@ -1,7 +1,7 @@
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import {
-  type RunEnded,
   RunEndedFacts,
   type RunEndingReactions,
 } from '@work/application/services/run-ending-reactions';
@@ -16,7 +16,7 @@ export class ChatOutcomes implements RunEndingReactions {
     private readonly dispatch: ChatDispatching,
   ) {}
 
-  async onRunEnded(event: RunEnded): Promise<void> {
+  async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
     if (event.ending === 'cancelled') {
       return;
     }

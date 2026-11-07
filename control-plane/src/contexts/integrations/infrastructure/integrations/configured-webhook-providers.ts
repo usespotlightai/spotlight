@@ -15,6 +15,7 @@ import type { JwksResolver } from '@integrations/infrastructure/integrations/jwk
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
 export class ConfiguredWebhookProviders
   implements ConfiguredWebhookProvidersPort
@@ -27,6 +28,7 @@ export class ConfiguredWebhookProviders
     private readonly injection: SecretInjectionPort,
     private readonly limits: OutboundLimitsPort,
     private readonly scope: WorkspaceOutboundScopePort,
+    private readonly clock: ClockPort,
   ) {}
 
   async find(team: OfTeam, key: string): Promise<WebhookProviderPort | null> {
@@ -40,7 +42,7 @@ export class ConfiguredWebhookProviders
     const built: WebhookProviderPort[] = [];
     const credentials = new SpotlightCredentials(
       this.injection,
-      async () => team.workspaceId.value,
+      async () => team.workspaceId,
     );
     const signing = new SpotlightSigningSecrets(
       this.injection,
@@ -53,7 +55,7 @@ export class ConfiguredWebhookProviders
           readable,
           team.workspaceId,
           signing,
-          undefined,
+          this.clock,
           this.jwks,
           this.outbound,
           credentials,

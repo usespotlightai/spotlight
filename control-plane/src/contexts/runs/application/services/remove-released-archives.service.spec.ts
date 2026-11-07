@@ -58,8 +58,22 @@ const setUp = async (
   await archives.add(aCompletedArchive({ id: 'gone' }));
   await archives.add(aCompletedArchive({ id: 'owned' }));
 
+  const seen = new Map<string, ArchiveDue>();
   const service = new RemoveReleasedArchives(
-    { due },
+    {
+      due: async (...args) => {
+        const page = await due(...args);
+        for (const each of page.due) {
+          seen.set(each.id.value, each);
+        }
+        return page;
+      },
+      of: async (id) => seen.get(id.value) ?? null,
+    },
+    {
+      referencing: (_workspace, work) => work(),
+      removing: (_workspace, work) => work(),
+    },
     holders,
     archives,
     store,

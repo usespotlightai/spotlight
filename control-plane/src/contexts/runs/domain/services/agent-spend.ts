@@ -1,6 +1,6 @@
 import type { Money } from '@runs/domain/value-objects/money.vo';
 
-export interface AgentSpend {
+interface AgentSpend {
   readonly spentCosts: readonly Money[];
   readonly unpricedCalls: number;
 }

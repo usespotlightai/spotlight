@@ -3,8 +3,12 @@ import type {
   ReviewDeliveriesPort,
   ReviewDelivery,
   ReviewDeliveryKind,
+  ReviewDeliverySubject,
 } from '@change-review/application/ports/review-deliveries.port';
 import type { DeliveryRetry } from '@change-review/domain/value-objects/delivery-attempts.vo';
+import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
+import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
+import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { reviewDelivery } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -13,27 +17,30 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, lte, sql } from 'drizzle-orm';
 
-const subjectColumns = (kind: ReviewDeliveryKind, subjectId: string) =>
-  kind === 'review'
-    ? { reviewId: subjectId, commentId: null }
-    : { reviewId: null, commentId: subjectId };
+const subjectColumns = (delivery: ReviewDeliverySubject) =>
+  delivery.kind === 'review'
+    ? { reviewId: delivery.subject.value, commentId: null }
+    : { reviewId: null, commentId: delivery.subject.value };
 
 const subjectOf = (row: {
+  readonly kind: ReviewDeliveryKind;
   readonly reviewId: string | null;
   readonly commentId: string | null;
-}): string => {
-  const subject = row.reviewId ?? row.commentId;
-
-  if (subject === null) {
-    throw new InconsistentStateError('review delivery', 'has no subject');
+}): ReviewDeliverySubject => {
+  if (row.kind === 'review' && row.reviewId !== null) {
+    return { kind: row.kind, subject: ReviewId.of(row.reviewId) };
   }
 
-  return subject;
+  if (row.kind !== 'review' && row.commentId !== null) {
+    return { kind: row.kind, subject: ReviewCommentId.of(row.commentId) };
+  }
+
+  throw new InconsistentStateError('review delivery', 'has no subject');
 };
 
 const leasedBy = (delivery: LeasedReviewDelivery) =>
   and(
-    eq(reviewDelivery.id, delivery.id),
+    eq(reviewDelivery.id, delivery.id.value),
     eq(reviewDelivery.state, 'pending'),
     eq(reviewDelivery.dueAt, delivery.leaseUntil),
   );
@@ -44,11 +51,11 @@ export class DrizzleReviewDeliveries implements ReviewDeliveriesPort {
 
   async enqueue(delivery: ReviewDelivery, dueAt: Date): Promise<void> {
     await this.context.db.insert(reviewDelivery).values({
-      id: delivery.id,
+      id: delivery.id.value,
       workspaceId: delivery.workspaceId.value,
       taskId: delivery.taskId.value,
       kind: delivery.kind,
-      ...subjectColumns(delivery.kind, delivery.subjectId),
+      ...subjectColumns(delivery),
       dueAt,
     });
   }
@@ -83,15 +90,22 @@ export class DrizzleReviewDeliveries implements ReviewDeliveriesPort {
 
     return found
       ? {
-          id: found.id,
+          id: ReviewDeliveryId.of(found.id),
           workspaceId: WorkspaceId.of(found.workspaceId),
           taskId: TaskId.of(found.taskId),
-          kind: found.kind,
-          subjectId: subjectOf(found),
+          ...subjectOf(found),
           attempts: found.attempts,
           leaseUntil,
+          sendingSince: found.sendingSince,
         }
       : null;
+  }
+
+  async sending(delivery: LeasedReviewDelivery, at: Date): Promise<void> {
+    await this.context.db
+      .update(reviewDelivery)
+      .set({ sendingSince: at })
+      .where(leasedBy(delivery));
   }
 
   async delivered(delivery: LeasedReviewDelivery): Promise<void> {
@@ -109,6 +123,7 @@ export class DrizzleReviewDeliveries implements ReviewDeliveriesPort {
       .update(reviewDelivery)
       .set({
         dueAt: retry.at,
+        sendingSince: null,
         attempts: retry.counted
           ? sql`${reviewDelivery.attempts} + 1`
           : reviewDelivery.attempts,

@@ -10,7 +10,9 @@ export interface RunFileFacts {
   readonly size: number;
 }
 
-export interface RunFilesPort {
+export interface RunFileSource {
+  readonly owner: string;
+
   uploadedBy(
     runId: RunId,
     workspaceId: WorkspaceId,
@@ -18,4 +20,8 @@ export interface RunFilesPort {
   ): Promise<readonly RunFileFacts[]>;
 
   take(workspaceId: WorkspaceId, files: readonly RunFileFacts[]): Promise<void>;
+}
+
+export interface RunFilesPort {
+  register(source: RunFileSource): void;
 }

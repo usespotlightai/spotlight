@@ -20,7 +20,7 @@ export class ReadChatJournalHandler
 
   async execute(query: ReadChatJournalQuery): Promise<RunJournalDto[] | null> {
     try {
-      const entries = this.access.shownOfChat(
+      const entries = await this.access.shownOfChat(
         await this.journals.ofChatRun(
           TeamId.of(query.teamId),
           ChatId.of(query.chatId),

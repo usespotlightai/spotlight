@@ -7,12 +7,13 @@ import type {
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { runCheckoutsFor } from '@work/domain/services/task-checkouts';
+import { checkoutsOf } from '@work/domain/services/task-checkouts';
 import { TurnWait } from '@work/domain/services/turn-wait';
 
 const MINUTE_MS = 60_000;
@@ -84,7 +85,7 @@ export class Turns {
         run.runId,
         run.attempt,
         'answered',
-        line ? runCheckoutsFor(task, line) : [],
+        RunCheckoutsMapper.toRun(line ? checkoutsOf(task, line) : []),
       );
     }
   }
@@ -99,7 +100,10 @@ export class Turns {
         subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
 
       if (!task?.hasCurrentRun(turn.runId)) {
-        await this.runs.cancel(turn.runId);
+        await this.runs.cancel(
+          turn.runId,
+          'Task moved on before a runner claimed the run.',
+        );
       }
     }
   }

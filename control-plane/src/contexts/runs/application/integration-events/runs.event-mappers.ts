@@ -1,18 +1,18 @@
 import type { RunCancelled } from '@runs/domain/events/run-cancelled.event';
-import type { RunCompleted } from '@runs/domain/events/run-completed.event';
+import type { RunEnded } from '@runs/domain/events/run-ended.event';
 import type { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import type { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import type { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import {
-  REQUESTED_RUN_ENDED,
-  type RequestedRunEndedIntegrationEvent,
-  type RequestedRunEnding,
-  type RequestedRunOutcome,
-} from '@shared-kernel/application/integration-events/requested-run-ended.integration-event';
+  RUN_ENDED,
+  type RunEndedIntegrationEvent,
+  type RunEndingPublished,
+  type RunOutcomePublished,
+} from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {
-  REQUESTED_RUN_SUSPENDED,
-  type RequestedRunSuspendedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/requested-run-suspended.integration-event';
+  RUN_SUSPENDED,
+  type RunSuspendedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import {
   RUN_USAGE_RECORDED,
   type RunUsageRecordedIntegrationEvent,
@@ -20,15 +20,15 @@ import {
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 interface Ending {
-  readonly ending: RequestedRunEnding;
-  readonly outcome: RequestedRunOutcome;
+  readonly ending: RunEndingPublished;
+  readonly outcome: RunOutcomePublished;
   readonly failure: string | null;
   readonly exitCode: number | null;
   readonly message: string | null;
   readonly stopped: boolean;
   readonly handsOver: boolean;
   readonly reported: boolean;
-  readonly report: RequestedRunEndedIntegrationEvent['report'];
+  readonly report: RunEndedIntegrationEvent['report'];
   readonly session: string | null;
   readonly claimedBy: string | null;
   readonly expiredLeases: number;
@@ -47,11 +47,10 @@ const NOT_REPORTED = {
 } as const;
 
 const requestedRunEnded = (
-  event: RunCompleted | RunExhausted | RunCancelled,
-  at: Date,
+  event: RunEnded | RunExhausted | RunCancelled,
   ending: Ending,
-): RequestedRunEndedIntegrationEvent => ({
-  kind: REQUESTED_RUN_ENDED,
+): RunEndedIntegrationEvent => ({
+  kind: RUN_ENDED,
   runId: event.runId.value,
   workspaceId: event.workspaceId.value,
   requester: event.requester.parts,
@@ -70,12 +69,12 @@ const requestedRunEnded = (
   session: ending.session,
   claimedBy: ending.claimedBy,
   expiredLeases: ending.expiredLeases,
-  endedAt: at.toISOString(),
+  endedAt: event.endedAt.toISOString(),
 });
 
 export const RUNS_EVENT_MAPPERS = [
-  mapping<RunCompleted>('run.completed', (event, at) =>
-    requestedRunEnded(event, at, {
+  mapping<RunEnded>('run.ended', (event) =>
+    requestedRunEnded(event, {
       ending: 'completed',
       outcome: event.outcome.failed ? 'failed' : 'completed',
       failure: event.outcome.failure?.code ?? null,
@@ -101,8 +100,8 @@ export const RUNS_EVENT_MAPPERS = [
       expiredLeases: 0,
     }),
   ),
-  mapping<RunExhausted>('run.exhausted', (event, at) =>
-    requestedRunEnded(event, at, {
+  mapping<RunExhausted>('run.exhausted', (event) =>
+    requestedRunEnded(event, {
       ...NOT_REPORTED,
       ending: 'exhausted',
       outcome: 'exhausted',
@@ -110,8 +109,8 @@ export const RUNS_EVENT_MAPPERS = [
       expiredLeases: event.expiredLeases,
     }),
   ),
-  mapping<RunCancelled>('run.cancelled', (event, at) =>
-    requestedRunEnded(event, at, {
+  mapping<RunCancelled>('run.cancelled', (event) =>
+    requestedRunEnded(event, {
       ...NOT_REPORTED,
       ending: 'cancelled',
       outcome: 'cancelled',
@@ -120,8 +119,8 @@ export const RUNS_EVENT_MAPPERS = [
   ),
   mapping<RunSuspended>(
     'run.suspended',
-    (event): RequestedRunSuspendedIntegrationEvent => ({
-      kind: REQUESTED_RUN_SUSPENDED,
+    (event): RunSuspendedIntegrationEvent => ({
+      kind: RUN_SUSPENDED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
       requester: event.requester.parts,

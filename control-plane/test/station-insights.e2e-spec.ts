@@ -29,6 +29,7 @@ import { RunOutcomes } from '@insights/application/services/run-outcomes.service
 import { WatchStations } from '@insights/application/services/watch-stations.service';
 import { RunRecordVersionConflictError } from '@insights/domain/exceptions/run-record-version-conflict.error';
 import type { ConfigIntervalBound } from '@insights/domain/services/config-intervals';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { DrizzleChats } from '@insights/infrastructure/persistence/drizzle/ledgers/chats.ledger';
@@ -46,16 +47,16 @@ import { factOf, lastConfigRunsFrom } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import { DISPATCH_ENDED } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import { PULL_REQUEST_UPDATED } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
-import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { RUN_USAGE_RECORDED } from '@shared-kernel/application/integration-events/run-usage-recorded.integration-event';
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
-import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -71,8 +72,8 @@ import { projectedInsights } from './support/insights-facts';
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const WORKSPACE = 'ws_1';
-const SONNET = 'a'.repeat(64);
-const OPUS = 'b'.repeat(64);
+const SONNET = ConfigFingerprint.of('a'.repeat(64));
+const OPUS = ConfigFingerprint.of('b'.repeat(64));
 const PULL = 'https://github.com/acme/api/pull/12';
 
 const at = (hour: number) =>
@@ -98,24 +99,17 @@ const configOf = (fingerprint: string, model: string): ConfigInOrder => ({
 
 const ended = new Map<string, EndedRun>();
 
-const QUIET: LoggerPort = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-};
-
 const endedRun = (
   runId: string,
   change: Partial<EndedRun> & { endedAt: Date },
 ): EndedRun => {
   const run: EndedRun = {
-    runId,
-    workspaceId: WORKSPACE,
-    teamId: 'team_1',
-    lineId: 'line_1',
-    stationId: 'station_1',
-    taskId: 'task_1',
+    runId: RunId.of(runId),
+    workspaceId: WorkspaceId.of(WORKSPACE),
+    teamId: TeamId.of('team_1'),
+    lineId: LineId.of('line_1'),
+    stationId: StationId.of('station_1'),
+    taskId: TaskId.of('task_1'),
     fingerprint: SONNET,
     visit: 1,
     harness: 'claude-code',
@@ -133,9 +127,9 @@ const endedRun = (
 };
 
 const work: WorkPort = {
-  endedRun: async (runId) => ended.get(runId) ?? null,
+  endedRun: async (runId) => ended.get(runId.value) ?? null,
   taskRunOf: async (runId) => {
-    const run = ended.get(runId);
+    const run = ended.get(runId.value);
 
     return run ? { runId, taskId: run.taskId, teamId: run.teamId } : null;
   },
@@ -189,7 +183,7 @@ const runEnded = async (
   const taskId = ended.get(runId)?.taskId ?? 'task_1';
 
   await deliver('insights.record-ended-run', {
-    kind: RUN_ENDED,
+    kind: DISPATCH_ENDED,
     runId,
     workspaceId: WORKSPACE,
     taskId,
@@ -256,7 +250,7 @@ beforeAll(async () => {
   deletions = new DrizzleDeletions(context);
   recorder = new FactRecorder(deletions);
   subscribers = insightsSubscribers({
-    ending: new RecordRunEnding(work, records, recorder, context, QUIET),
+    ending: new RecordRunEnding(work, records, recorder, context),
     superseding: new RecordSupersededRun(records, recorder, context),
     checking: new RecordChangeChecks(records, recorder, context),
     acting: new RecordHumanAction(work, records, recorder, context),
@@ -483,7 +477,7 @@ describe('how a station’s runs turned out', () => {
       startedAt: at(11),
       endedAt: at(12),
       fingerprint: OPUS,
-      taskId: 'task_2',
+      taskId: TaskId.of('task_2'),
     });
     await runEnded('run_3', { stopped: true });
     endedRun('run_cancelled', {
@@ -832,15 +826,14 @@ describe('the config runs a station’s runs make', () => {
       configIntervals,
       new FactRecorder(deletions),
       context,
-      QUIET,
     );
 
     for (const run of runs) {
       endedRun(run.runId, {
-        stationId,
-        teamId,
-        taskId: `task_${teamId}_${stationId}`,
-        fingerprint: run.fingerprint,
+        stationId: StationId.of(stationId),
+        teamId: TeamId.of(teamId),
+        taskId: TaskId.of(`task_${teamId}_${stationId}`),
+        fingerprint: ConfigFingerprint.readable(run.fingerprint),
         startedAt: run.startedAt,
         endedAt: run.endedAt,
       });

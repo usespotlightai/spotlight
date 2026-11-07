@@ -1,10 +1,9 @@
 import type { CompleteWorkspaceArchiveCommand } from '@runs/application/commands/workspace-archive.commands';
-import type { WorkspaceArchiveStorePort } from '@runs/application/ports/workspace-archive-store.port';
+import type { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@runs/domain/repositories/workspace-archive.repository';
 import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -15,8 +14,7 @@ export class CompleteWorkspaceArchiveHandler
   constructor(
     private readonly runs: RunRepository,
     private readonly archives: WorkspaceArchiveRepository,
-    private readonly store: WorkspaceArchiveStorePort,
-    private readonly clock: ClockPort,
+    private readonly grants: ArchiveGrants,
   ) {}
 
   async execute(command: CompleteWorkspaceArchiveCommand): Promise<boolean> {
@@ -30,13 +28,7 @@ export class CompleteWorkspaceArchiveHandler
         return false;
       }
 
-      if (archive.isCompleted) {
-        return true;
-      }
-
-      const stored = await this.store.stored(archive);
-
-      await this.archives.save(archive.complete(stored, this.clock.now()));
+      await this.grants.complete(archive);
 
       return true;
     } catch (error) {

@@ -4,7 +4,7 @@ import type {
 } from '@replays/application/contracts/station-change-tests.contract';
 import { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import {
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
@@ -55,7 +55,7 @@ const CHECKED = CandidateScoring.of({
 });
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let pullRequests: InMemoryConfigPullRequests;
 let now: Date;
 let policy: SearchPolicy;
@@ -87,31 +87,32 @@ const joinOf = (request: string) => ({
 
 const tests = () => {
   const healths = new SetHealths(
-    work,
+    suppliers.configs,
     memory.replayRepository,
     memory.candidateRepository,
   );
 
   return new StationChangeTests(
-    work,
+    suppliers.lines,
+    suppliers.configs,
     peopleWho(true),
     memory.scheduleRepository,
     memory.setRepository,
     memory.searchRepository,
     memory.candidateRepository,
     pullRequests,
-    refreshingFor(memory, work),
+    refreshingFor(memory, suppliers),
     new CheckSearchReadiness(
       memory.setRepository,
       healths,
-      work,
+      suppliers.dispatch,
       { sha256: (text: string) => text },
       IDS,
       clock,
     ),
     new StartSearch(
-      snapshotsFor(memory, work),
-      stepsFor(memory, work, clock),
+      snapshotsFor(memory, suppliers),
+      stepsFor(memory, suppliers, clock),
       memory.setRepository,
       memory.searchRepository,
       memory.scheduleRepository,
@@ -121,8 +122,8 @@ const tests = () => {
       clock,
       TRANSACTION,
     ),
-    snapshotsFor(memory, work),
-    stepsFor(memory, work, clock),
+    snapshotsFor(memory, suppliers),
+    stepsFor(memory, suppliers, clock),
     IDS,
     clock,
     TRANSACTION,
@@ -135,8 +136,8 @@ const asked = (
   tests().request({
     workspaceId: STATION.workspaceId,
     teamId: STATION.teamId,
-    lineId: STATION.lineId.value,
-    stationId: STATION.stationId.value,
+    lineId: STATION.lineId,
+    stationId: STATION.stationId,
     requester: UserId.of('user_asking'),
     mode: 'test',
     name: 'shorter-prompt',
@@ -165,12 +166,12 @@ const withSet = async (set: ReplaySet) => {
 beforeEach(async () => {
   memory = new InMemoryReplays();
   memory.startsPlannedReplays = true;
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   pullRequests = new InMemoryConfigPullRequests();
   now = NOW;
   policy = policyOf();
   scoring = CHECKED;
-  work.live = async () => ({
+  suppliers.configs.live = async () => ({
     lineKey: 'delivery',
     block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
     fingerprint: LIVE_FINGERPRINT,
@@ -195,7 +196,10 @@ beforeEach(async () => {
 
 describe('StationChangeTests', () => {
   it('starts a one-iteration test with no search agent, asked for by the person', async () => {
-    work.invalidAgent = { field: 'harness', reason: 'is unknown' };
+    suppliers.dispatch.invalidAgent = {
+      field: 'harness',
+      reason: 'is unknown',
+    };
 
     expect(await asked()).toMatchObject({
       outcome: 'started',
@@ -214,7 +218,10 @@ describe('StationChangeTests', () => {
   });
 
   it('refuses a search with no agent, but not a test', async () => {
-    work.invalidAgent = { field: 'harness', reason: 'is unknown' };
+    suppliers.dispatch.invalidAgent = {
+      field: 'harness',
+      reason: 'is unknown',
+    };
 
     expect(await asked({ mode: 'search' })).toMatchObject({
       outcome: 'refused',

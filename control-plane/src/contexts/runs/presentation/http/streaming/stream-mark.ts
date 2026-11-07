@@ -1,4 +1,4 @@
-import type { RunEventView } from '@runs/application/ports/run-stream.port';
+import type { RunJournalEntryView } from '@runs/application/ports/run-stream.port';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 
 const counted = (raw: string | undefined): number | null => {
@@ -22,7 +22,7 @@ export const cursorOf = (
   return at === attempt ? { attempt, seq } : { attempt, seq: 0 };
 };
 
-export const eventIdOf = (event: RunEventView): string | undefined =>
+export const eventIdOf = (event: RunJournalEntryView): string | undefined =>
   JournalSeq.isControlPlane(event.seq)
     ? undefined
     : `${event.attempt}:${event.seq}`;
@@ -37,7 +37,7 @@ export class StreamMark {
     this.sent = from.seq;
   }
 
-  accepts(event: RunEventView): boolean {
+  accepts(event: RunJournalEntryView): boolean {
     if (event.attempt < this.attempt) {
       return false;
     }

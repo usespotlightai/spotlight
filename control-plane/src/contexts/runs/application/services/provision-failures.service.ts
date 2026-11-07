@@ -1,9 +1,6 @@
-import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
-import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
-import { PROVISION_FAILED } from '@runs/domain/value-objects/journal-entry-type';
 import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -11,11 +8,7 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 const ATTEMPTS = 3;
 
 export class ProvisionFailures {
-  constructor(
-    private readonly runs: RunRepository,
-    private readonly journal: RunJournalPort,
-    private readonly stream: RunStreamPort,
-  ) {}
+  constructor(private readonly runs: RunRepository) {}
 
   async failed(
     runId: RunId,
@@ -23,29 +16,9 @@ export class ProvisionFailures {
     failure: ProvisionFailure,
     at: Date,
   ): Promise<Run | null> {
-    const failed = await this.revised(runId, (run) =>
+    return this.revised(runId, (run) =>
       run.provisionFailed(runner, failure, at),
     );
-
-    if (!failed) {
-      return null;
-    }
-
-    const entry = {
-      type: PROVISION_FAILED,
-      message: `Provisioning failed · ${failure.kind}`,
-      data: Buffer.from(failure.detail, 'utf8').toString('base64'),
-    };
-
-    const seq = await this.journal.appendControlPlaneEntry(
-      failed.currentAttempt,
-      { ...entry, at },
-    );
-    this.stream.publish(failed.id.value, [
-      { ...entry, seq, attempt: failed.attempt, at: at.toISOString() },
-    ]);
-
-    return failed;
   }
 
   async unreserved(runId: RunId, runner: RunnerId): Promise<void> {

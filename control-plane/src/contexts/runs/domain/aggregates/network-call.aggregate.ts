@@ -62,6 +62,11 @@ const LEAST_TIMEOUT_MS = 1_000;
 const cancelledMessage = (id: string): string =>
   `Network call ${id} was cancelled. The hook stopped waiting for it.`;
 
+export type NetworkCallView =
+  | { readonly kind: 'answered'; readonly response: NetworkResponse }
+  | { readonly kind: 'waiting' }
+  | { readonly kind: 'expired'; readonly claimed: boolean };
+
 export class NetworkCall extends EventRecorder {
   private constructor(
     private readonly state: State,
@@ -190,6 +195,28 @@ export class NetworkCall extends EventRecorder {
         this.state.expiresAt.getTime() - now.getTime(),
       ),
     );
+  }
+
+  viewAt(now: Date): NetworkCallView {
+    const { progress } = this.state;
+
+    if (progress.kind === 'answered') {
+      return { kind: 'answered', response: progress.response };
+    }
+
+    const state = this.stateAt(now);
+
+    if (state === 'waiting' || state === 'claimed') {
+      return { kind: 'waiting' };
+    }
+
+    return {
+      kind: 'expired',
+      claimed:
+        progress.kind === 'claimed' ||
+        ((progress.kind === 'expired' || progress.kind === 'cancelled') &&
+          progress.claimed),
+    };
   }
 
   stateAt(now: Date): NetworkCallState {

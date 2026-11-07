@@ -35,8 +35,8 @@ import { describe, expect, it } from 'vitest';
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
 const JUDGE: StationJudge = {
-  teamId: 'team_1',
-  lineId: 'line_1',
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
   rubric: 'Did the run retry uploads?',
   rubricVersion: RUBRIC_VERSION,
   claims: [],
@@ -84,8 +84,8 @@ const JUDGES: ReadonlyMap<string, StationJudge> = new Map([
   ['station_1', JUDGE],
   ['station_2', { ...JUDGE, minAgreement: 0.9 }],
   ['station_4', { ...JUDGE, rubric: 'scores: stars\nHow well?' }],
-  ['station_5', { ...JUDGE, teamId: 'team_2' }],
-  ['station_6', { ...JUDGE, lineId: 'line_2' }],
+  ['station_5', { ...JUDGE, teamId: TeamId.of('team_2') }],
+  ['station_6', { ...JUDGE, lineId: LineId.of('line_2') }],
 ]);
 
 const STATIONS = [
@@ -103,12 +103,12 @@ const judgedAcross = async () => {
   const taskPullRequests = new PullRequestRecordsInMemory();
   const requested: string[] = [];
   const judges: StationJudgesPort = {
-    judgeAt: async (stationId) => JUDGES.get(stationId) ?? null,
+    judgeAt: async (stationId) => JUDGES.get(stationId.value) ?? null,
     judgesOnTeam: async (teamId) => {
-      requested.push(teamId);
+      requested.push(teamId.value);
 
       return new Map(
-        [...JUDGES].filter(([, judge]) => judge.teamId === teamId),
+        [...JUDGES].filter(([, judge]) => judge.teamId.equals(teamId)),
       );
     },
   };
@@ -167,9 +167,11 @@ const oneByOne = async (
   fixture: Awaited<ReturnType<typeof judgedAcross>>,
   station: { lineId: string; stationId: string },
 ) => {
-  const found = await fixture.judges.judgeAt(station.stationId);
+  const found = await fixture.judges.judgeAt(StationId.of(station.stationId));
   const judge =
-    found && found.teamId === 'team_1' && found.lineId === station.lineId
+    found &&
+    found.teamId.value === 'team_1' &&
+    found.lineId.value === station.lineId
       ? found
       : null;
   const rubric =
@@ -289,7 +291,7 @@ describe('StationJudgeReports', () => {
 
   it('knows no judge of a station on another team', async () => {
     const { judge, calibration } = await (
-      await reporting({ ...JUDGE, teamId: 'team_2' })
+      await reporting({ ...JUDGE, teamId: TeamId.of('team_2') })
     ).at(STATION);
 
     expect(judge).toBeNull();

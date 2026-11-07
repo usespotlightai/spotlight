@@ -1,4 +1,3 @@
-import { RunProgressContract } from '@runs/application/contracts/run-progress.contract';
 import type {
   TaskRunDto,
   TeamRunDto,
@@ -7,26 +6,6 @@ import type {
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
-import {
-  type Progress,
-  progressOfCurrentRun,
-} from '@work/domain/value-objects/progress';
-import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
-
-const progressOfTaskRun = (
-  run: {
-    readonly state: TaskRunState;
-    readonly stopRequested: boolean;
-    readonly turn?: 'pending' | 'kept' | null;
-  },
-  takenUp: boolean,
-): Progress | null =>
-  run.state === 'superseded'
-    ? null
-    : progressOfCurrentRun(
-        RunProgressContract.reading({ ...run, state: run.state }),
-        takenUp,
-      );
 
 export const TaskRunMapper = {
   summaryToDto(summary: TaskRunSummary): TaskRunDto {
@@ -44,7 +23,7 @@ export const TaskRunMapper = {
         state: summary.review.state,
         conversationId: summary.review.conversationId,
       },
-      progress: progressOfTaskRun(summary, summary.takenUpOnAnswer),
+      progress: summary.progress,
     };
   },
 

@@ -1,13 +1,13 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
-import type { RunViewersPort } from '@runs/application/ports/run-viewers.port';
 import type {
-  LeasedRun,
   RunnerActivityReaderPort,
+  RunnerActivityRow,
 } from '@runs/application/ports/runner-activity-reader.port';
 import { ListRunnerActivityHandler } from '@runs/application/queries/handlers/list-runner-activity.handler';
 import { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
+import type { RunViewing } from '@runs/application/services/run-viewing.service';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -28,7 +28,7 @@ const leasedRun = (
   runId: string,
   requester: { owner: string; kind: string; id: string },
   teamId: string | null,
-): LeasedRun => ({
+): RunnerActivityRow => ({
   runnerId: `runner_of_${runId}`,
   runId: RunId.of(runId),
   workspaceId: WORKSPACE,
@@ -60,9 +60,8 @@ const listing = (member: boolean) => {
       ]),
   });
   const viewers = {
-    watchedBy: vi.fn(),
     readableAmong: vi.fn(async () => new Set(['run_7'])),
-  } satisfies RunViewersPort;
+  } as unknown as RunViewing;
 
   const handler = new ListRunnerActivityHandler(
     {

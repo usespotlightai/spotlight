@@ -25,13 +25,14 @@ export class InMemoryInferredOutputSchemas
 
   async ofTools(
     teamId: TeamId,
-    tools: readonly string[],
+    tools: readonly ToolName[],
   ): Promise<ReadonlyMap<string, JsonObject>> {
     return new Map(
       [...this.stored.values()]
         .filter(
           (each) =>
-            each.teamId.equals(teamId) && tools.includes(each.tool.value),
+            each.teamId.equals(teamId) &&
+            tools.some((tool) => tool.equals(each.tool)),
         )
         .map((each) => [each.tool.value, each.shape.schema]),
     );

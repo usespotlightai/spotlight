@@ -99,7 +99,7 @@ describe('ChangeStackComment', () => {
       stackId: stack.id,
       runId: stack.runId,
       taskId: null,
-      teamId: null,
+      teamId: TeamId.of('team_1'),
       trial: false,
       workspaceId: stack.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
@@ -128,7 +128,7 @@ describe('ChangeStackComment', () => {
         check: {
           command: check.request.command,
           status: check.statusAt(NOW),
-          skip: check.skippedAt(NOW),
+          skip: null,
           wholeFailed: check.wholeFailed,
           whole: check.outcome?.whole ?? null,
           layers: check.outcome?.layers ?? [],

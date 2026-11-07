@@ -1,14 +1,14 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 
 const PERSON = 'person';
 
-const PASSED = 'station';
+const INTEGRATION = 'integration:';
 
 type Origin =
   | { readonly kind: 'person' }
-  | { readonly kind: 'integration'; readonly integration: IntegrationName }
-  | { readonly kind: 'passed' };
+  | { readonly kind: 'integration'; readonly integration: IntegrationName };
 
 export class TaskOrigin {
   private constructor(private readonly origin: Origin) {}
@@ -24,25 +24,28 @@ export class TaskOrigin {
     });
   }
 
-  static passed(): TaskOrigin {
-    return new TaskOrigin({ kind: 'passed' });
-  }
-
-  static of(raw: string): TaskOrigin {
-    return raw === PERSON
-      ? TaskOrigin.person()
-      : new TaskOrigin({
-          kind: 'integration',
-          integration: IntegrationName.of(raw),
-        });
-  }
-
-  get value(): string {
-    if (this.origin.kind === 'integration') {
-      return this.origin.integration.value;
+  static decode(encoded: string): TaskOrigin {
+    if (encoded === PERSON) {
+      return TaskOrigin.person();
     }
 
-    return this.origin.kind === 'person' ? PERSON : PASSED;
+    if (!encoded.startsWith(INTEGRATION)) {
+      throw new InconsistentStateError(
+        'task origin',
+        `is neither a person nor an integration: "${encoded}"`,
+      );
+    }
+
+    return new TaskOrigin({
+      kind: 'integration',
+      integration: IntegrationName.of(encoded.slice(INTEGRATION.length)),
+    });
+  }
+
+  get encoded(): string {
+    return this.origin.kind === 'integration'
+      ? `${INTEGRATION}${this.origin.integration.value}`
+      : PERSON;
   }
 
   get integration(): IntegrationName | null {
@@ -50,6 +53,6 @@ export class TaskOrigin {
   }
 
   equals(other: TaskOrigin): boolean {
-    return this.origin.kind === other.origin.kind && this.value === other.value;
+    return this.encoded === other.encoded;
   }
 }

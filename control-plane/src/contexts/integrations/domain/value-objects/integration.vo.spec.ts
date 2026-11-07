@@ -3,7 +3,6 @@ import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { Binding } from '@integrations/domain/value-objects/binding.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
-import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
@@ -12,7 +11,6 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
-import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -77,44 +75,6 @@ describe('Integration', () => {
     ).toBe(false);
   });
 
-  describe('toolSource', () => {
-    const COMMENT = ToolName.of('linear.comment');
-    const SEARCH = ToolName.of('linear.search');
-    const HASH = ContentHash.of('a'.repeat(64));
-    const written = Integration.of({
-      key: LINEAR,
-      actions: DefinedActions.of([actionNamed('post')]),
-      apiSpecs: ['openapi'],
-      tools: [
-        ProvidedTool.of({
-          integration: LINEAR,
-          name: 'comment',
-          description: 'Comment on an issue.',
-          backing: ToolBacking.action('post'),
-        }),
-      ],
-    });
-
-    it('finds nothing for a tool the definition does not list', () => {
-      expect(written.toolSource(COMMENT, [], HASH).kind).toBe('none');
-    });
-
-    it('finds a hand-written tool', () => {
-      expect(written.toolSource(COMMENT, [COMMENT], HASH)).toEqual({
-        kind: 'written',
-        tool: written.tools[0],
-      });
-    });
-
-    it('generates a listed tool from the fetched spec', () => {
-      expect(written.toolSource(SEARCH, [SEARCH], HASH)).toEqual({
-        kind: 'generated',
-        from: HASH,
-      });
-      expect(written.toolSource(SEARCH, [SEARCH], null).kind).toBe('none');
-    });
-  });
-
   it('allows one that raises no happenings', () => {
     expect(integration([]).declares).toHaveLength(0);
   });
@@ -159,7 +119,7 @@ describe('Integration', () => {
     expect(() =>
       Integration.of({
         key: LINEAR,
-        tools: [
+        writtenTools: [
           ProvidedTool.of({
             integration: LINEAR,
             name: 'comment',
@@ -172,7 +132,7 @@ describe('Integration', () => {
   });
 
   it('is the same integration as another with the same name', () => {
-    expect(integration().equals(integration())).toBe(true);
+    expect(integration().sameKeyAs(integration())).toBe(true);
   });
 });
 

@@ -3,6 +3,10 @@ import type { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-ar
 import type { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+export const WORKSPACE_ARCHIVE_REPOSITORY = Symbol(
+  'WORKSPACE_ARCHIVE_REPOSITORY',
+);
+
 export interface WorkspaceArchiveRepository {
   add(archive: WorkspaceArchive): Promise<void>;
 

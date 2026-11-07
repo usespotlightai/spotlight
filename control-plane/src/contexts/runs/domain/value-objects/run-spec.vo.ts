@@ -4,9 +4,6 @@ import type { JsonObject } from '@shared-kernel/domain/json-value';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
-// Do not send a host address to a runner. Name each remote as Spotlight serves it.
-export const REMOTE_VIA_GIT_PROXY = 'spotlight:repository';
-
 export interface RunCheckout {
   readonly remote: string;
   readonly path?: string;
@@ -105,7 +102,7 @@ export interface RunSpecParts {
   readonly spotlightApi?: boolean;
 }
 
-export const RUN_WIRE_FIELDS = [
+export const RUN_SPEC_FIELDS = [
   'checkouts',
   'command',
   'briefing',

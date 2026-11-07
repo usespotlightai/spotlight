@@ -14,7 +14,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { TaskNotesFromHooks } from '@work/application/services/task-notes-from-hooks.service';
 import { TaskViews } from '@work/application/services/task-views.service';

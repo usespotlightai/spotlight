@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { RunFacts } from '@runs/application/services/run-facts.service';
+import type { RunReadModel } from '@runs/application/services/run-read-model.service';
 import type { RunState } from '@runs/domain/value-objects/run-state';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -18,7 +18,7 @@ import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzl
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { endedAtFor } from './support/run-ended';
+import { endingFor } from './support/run-ended';
 import { runFactsOver } from './support/run-facts';
 import { requestedByChat, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
@@ -27,7 +27,7 @@ import { insertStations } from './support/stations';
 let database: TestDatabase;
 let db: DrizzleDatabase;
 let chats: DrizzleChatRepository;
-let leases: RunFacts;
+let leases: RunReadModel;
 let traced: DrizzleTracedTaskReader;
 
 beforeAll(async () => {
@@ -76,7 +76,7 @@ const chatRun = async (state: RunState) => {
     workspaceId: 'ws_1',
     harness: 'dev',
     state,
-    endedAt: endedAtFor(state),
+    ...endingFor(state),
     claimedBy: state === 'claimed' ? RUNNER : null,
     leaseExpiresAt: state === 'claimed' ? new Date(Date.now() + 60_000) : null,
     spec: {

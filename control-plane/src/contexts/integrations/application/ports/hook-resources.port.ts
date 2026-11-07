@@ -2,6 +2,8 @@ import type {
   HookOnFailure,
   HookRequestOrigin,
 } from '@integrations/domain/value-objects/hook.vo';
+import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const HOOK_RESOURCES = Symbol('HOOK_RESOURCES');
@@ -53,9 +55,9 @@ export interface HookRecord {
 }
 
 export interface HookResourcesPort {
-  withId(id: string): Promise<HookRecord | null>;
+  withId(id: HookDefinitionId): Promise<HookRecord | null>;
 
-  at(teamId: TeamId, key: string): Promise<HookRecord | null>;
+  at(teamId: TeamId, key: HookKey): Promise<HookRecord | null>;
 
   ofTeam(teamId: TeamId): Promise<readonly HookRecord[]>;
 }

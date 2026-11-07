@@ -15,8 +15,15 @@ export class StartingPointHold {
     readonly isReleased: boolean,
   ) {}
 
-  static take(holder: HoldHolder, workspaceId: WorkspaceId): StartingPointHold {
-    return new StartingPointHold(holder, workspaceId, [], 0, false);
+  static take(
+    holder: HoldHolder,
+    workspaceId: WorkspaceId,
+    runs: readonly RunId[],
+  ): StartingPointHold {
+    return new StartingPointHold(holder, workspaceId, [], 0, false).holding(
+      runs,
+      workspaceId,
+    );
   }
 
   static rehydrate(input: {
@@ -25,6 +32,12 @@ export class StartingPointHold {
     runs: readonly RunId[];
     version: number;
   }): StartingPointHold {
+    if (!Number.isInteger(input.version) || input.version < 0) {
+      throw new InconsistentStateError(
+        'starting point hold',
+        `${input.holder} has version ${input.version}`,
+      );
+    }
     if (input.runs.length === 0 || input.runs.length > MAX_HELD_RUNS) {
       throw new InconsistentStateError(
         'starting point hold',

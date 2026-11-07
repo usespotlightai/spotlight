@@ -9,6 +9,7 @@ import type {
   FinalReading,
 } from '@insights/domain/value-objects/alert-rule.vo';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -248,5 +249,9 @@ export class StationAlertState extends EventRecorder {
     next.inheritEvents(this);
 
     return next;
+  }
+
+  erased(): Erased<StationAlertState> {
+    return erasedAs(this);
   }
 }

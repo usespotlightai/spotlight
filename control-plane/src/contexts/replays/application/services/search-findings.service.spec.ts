@@ -1,4 +1,4 @@
-import { FakeWork } from '@replays/application/services/replays.fake-spec';
+import { FakeSuppliers } from '@replays/application/services/replays.fake-spec';
 import { SearchFindings } from '@replays/application/services/search-findings.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import {
@@ -53,7 +53,7 @@ const searchOf = (
     workspaceId: WorkspaceId.of('ws_1'),
   }) as unknown as Search;
 
-const findings = () => new SearchFindings(new FakeWork());
+const findings = () => new SearchFindings(new FakeSuppliers().trialableRuns);
 
 describe('SearchFindings', () => {
   it('says a search stalled with no budget left to look into why', async () => {

@@ -1,11 +1,11 @@
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import type {
-  RunUsage,
+  RunUsageFacts,
   RunUsageReaderPort,
 } from '@runs/application/ports/run-usage-reader.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type {
   HistoryUsage,
   WrittenHistoryRun,
@@ -21,10 +21,10 @@ import type {
   StationRunReaderPort,
   StationRunRow,
 } from '@work/application/ports/station-run-reader.port';
-import { fileChangesOf } from '@work/application/read-models/file-changes-of';
-import { connectionsOf, traceOf } from '@work/application/read-models/trace-of';
 
-export const historyUsageOf = (usage: RunUsage | null): HistoryUsage | null =>
+export const historyUsageOf = (
+  usage: RunUsageFacts | null,
+): HistoryUsage | null =>
   usage && {
     ms: usage.ms,
     steps: usage.steps,
@@ -39,6 +39,7 @@ export class StationRunHistories implements StationHistoryPort {
     private readonly stations: StationRunReaderPort,
     private readonly usages: RunUsageReaderPort,
     private readonly connections: RunConnectionsPort,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
   async configsNamed(
@@ -96,21 +97,31 @@ export class StationRunHistories implements StationHistoryPort {
         harness: each.harness,
         startedAt: each.startedAt.toISOString(),
         endedAt: each.endedAt.toISOString(),
-        changes: journal ? fileChangesOf(journal) : [],
+        changes: journal
+          ? this.readings.fileChangesOf(journal).map((change) => ({
+              path: change.path,
+              before: change.before,
+              after: change.after,
+              omitted: change.omitted,
+            }))
+          : [],
         trace: TaskTraceMapper.toDto(
-          traceOf([
-            {
-              id: RunId.of(each.runId),
-              station: StationName.maybe(station),
-              harness: each.harness,
-              state: each.state,
-              attempt: each.attempt,
-              startedAt: each.startedAt,
-              endedAt: each.endedAt,
-              journal,
-              connections: connectionsOf(errors, each.runId, each.attempt),
-            },
-          ]),
+          this.readings.traceOf(
+            [
+              {
+                id: each.runId,
+                station: station ? { name: station } : null,
+                harness: each.harness,
+                failed: each.state === 'failed',
+                attempt: each.attempt,
+                startedAt: each.startedAt,
+                updatedAt: each.endedAt,
+                endedAt: each.endedAt,
+              },
+            ],
+            journal ? [journal] : [],
+            errors,
+          ),
         ),
       };
     });

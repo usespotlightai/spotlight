@@ -48,7 +48,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
 
     this.bucket = clients.bucket;
     this.store = clients.store;
-    this.runners = clients.runners;
+    this.runners = clients.machineSigner;
   }
 
   async grantUpload(archive: WorkspaceArchive): Promise<ArchiveUpload> {

@@ -33,7 +33,7 @@ export const questionAnswer = pgTable(
     feedback: text('feedback'),
     usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
     answeredAt: timestamptz('answered_at').notNull(),
-    version: integer('version').notNull().default(0),
+    version: integer('version').notNull(),
   },
   (table) => [
     uniqueIndex('question_answer_person_idx').on(

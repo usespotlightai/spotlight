@@ -6,6 +6,8 @@ import { generatedTools } from '@integrations/domain/services/generated-tools';
 import type { ActsAsKind } from '@integrations/domain/value-objects/acts-as.vo';
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -50,6 +52,16 @@ export interface FoundTool {
 
 const MAX_COMPILED = 500;
 
+const offeredBy = (
+  integration: Integration,
+  defined: DefinedIntegration,
+): OfferedTools =>
+  OfferedTools.listed(
+    integration,
+    ToolName.parsedAll(defined.tools),
+    defined.generatedFrom ? ContentHash.of(defined.generatedFrom) : null,
+  );
+
 export class IntegrationReader implements ToolDeclarationsPort {
   readonly #compiled = new Map<string, Compiled>();
 
@@ -79,9 +91,7 @@ export class IntegrationReader implements ToolDeclarationsPort {
               apiSpec && defined?.reading
                 ? {
                     kind: apiSpec.spec.kind,
-                    tools: integration.generatedToolCount(
-                      ToolName.parsedAll(defined.tools),
-                    ),
+                    tools: offeredBy(integration, defined).generatedCount,
                     readAt: defined.reading.readAt,
                     problem: defined.reading.problem,
                   }
@@ -114,6 +124,16 @@ export class IntegrationReader implements ToolDeclarationsPort {
     return { integrations, problems };
   }
 
+  offered(definitions: readonly DefinedIntegration[]): readonly OfferedTools[] {
+    return definitions.flatMap((defined) => {
+      const compiled = this.compiledOf(defined);
+
+      return compiled.ok
+        ? [offeredBy(compiled.readable.integration, defined)]
+        : [];
+    });
+  }
+
   async providedTool(
     definitions: readonly DefinedIntegration[],
     tool: string,
@@ -129,11 +149,7 @@ export class IntegrationReader implements ToolDeclarationsPort {
     }
 
     const readable = compiled.readable;
-    const source = readable.integration.toolSource(
-      named,
-      ToolName.parsedAll(defined.tools),
-      defined.generatedFrom ? ContentHash.of(defined.generatedFrom) : null,
-    );
+    const source = offeredBy(readable.integration, defined).sourceOf(named);
 
     if (source.kind === 'written') {
       return { readable, tool: source.tool, operation: null };

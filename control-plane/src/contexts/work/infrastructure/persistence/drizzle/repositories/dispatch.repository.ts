@@ -5,6 +5,11 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import {
+  isRunFailureCode,
+  type RunFailureCode,
+} from '@shared-kernel/domain/value-objects/run-failure-code';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -44,10 +49,28 @@ const subjectColumns = (subject: DispatchSubject) => {
         taskId: subject.taskId.value,
         stationId: subject.stationId.value,
         asOf: subject.asOf,
-        trialRepositories: [...subject.repositories],
+        trialRepositories: subject.repositories.map((each) => ({
+          path: each.path,
+          repository: each.repository.value,
+        })),
         followUp: subject.followUp,
       };
   }
+};
+
+const failureOf = (failure: string | null): RunFailureCode | null => {
+  if (failure === null) {
+    return null;
+  }
+
+  if (!isRunFailureCode(failure)) {
+    throw new InconsistentStateError(
+      'dispatch',
+      `ended with an unknown failure ${failure}`,
+    );
+  }
+
+  return failure;
 };
 
 const changing = (saved: Dispatch) => ({
@@ -59,6 +82,7 @@ const changing = (saved: Dispatch) => ({
   outcome: saved.ending?.outcome ?? null,
   failure: saved.ending?.failure ?? null,
   stopped: saved.ending?.stopped ?? false,
+  askedAPerson: saved.ending?.askedAPerson ?? false,
   superseded: saved.superseded,
 });
 
@@ -94,7 +118,10 @@ const subjectOf = (row: Row): DispatchSubject => {
         taskId: TaskId.of(required(row.taskId, row, 'task')),
         stationId: StationId.of(required(row.stationId, row, 'station')),
         asOf: row.asOf,
-        repositories: row.trialRepositories ?? [],
+        repositories: (row.trialRepositories ?? []).map((each) => ({
+          path: each.path,
+          repository: Repository.of(each.repository),
+        })),
         followUp: row.followUp,
       };
   }
@@ -117,7 +144,13 @@ export const toDispatch = (row: Row): Dispatch =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: row.teamId ? TeamId.of(row.teamId) : null,
     subject: subjectOf(row),
-    order: row.order ? DispatchOrder.of(row.order) : null,
+    order: row.order
+      ? DispatchOrder.of({
+          kind: DispatchOrder.kindFor(row.kind),
+          runId: RunId.of(row.id),
+          snapshot: row.order,
+        })
+      : null,
     briefedTask: row.briefedTask
       ? BriefedTask.rehydrate(row.briefedTask)
       : null,
@@ -133,8 +166,9 @@ export const toDispatch = (row: Row): Dispatch =>
         ? DispatchEnding.of({
             endedAt: row.endedAt,
             outcome: row.outcome,
-            failure: row.failure,
+            failure: failureOf(row.failure),
             stopped: row.stopped,
+            askedAPerson: row.askedAPerson,
           })
         : null,
     superseded: row.superseded,

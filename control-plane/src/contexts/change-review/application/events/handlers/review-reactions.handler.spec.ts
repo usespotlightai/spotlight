@@ -63,7 +63,10 @@ describe('ReviewReactions', () => {
     );
 
     expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'file', subjectId: 'comment_1' }),
+      expect.objectContaining({
+        kind: 'file',
+        subject: ReviewCommentId.of('comment_1'),
+      }),
       NOW,
     );
   });
@@ -76,7 +79,10 @@ describe('ReviewReactions', () => {
     );
 
     expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'review', subjectId: 'review_1' }),
+      expect.objectContaining({
+        kind: 'review',
+        subject: ReviewId.of('review_1'),
+      }),
       NOW,
     );
   });

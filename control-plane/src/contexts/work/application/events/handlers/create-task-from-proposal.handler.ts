@@ -1,7 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { ProposalAcceptances } from '@work/application/ports/proposal-acceptances.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { CreateTask } from '@work/application/services/create-task';
@@ -12,6 +11,12 @@ import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-alr
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Placement } from '@work/domain/services/placement';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
+
+export interface ProposalAcceptances {
+  onProposalAccepted(event: ProposalAccepted): Promise<void>;
+
+  onTaskOpened(event: TaskOpened): Promise<void>;
+}
 
 export class CreateTaskFromProposal implements ProposalAcceptances {
   constructor(

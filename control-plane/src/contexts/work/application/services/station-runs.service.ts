@@ -1,4 +1,3 @@
-import { RunProgressContract } from '@runs/application/contracts/run-progress.contract';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
@@ -69,9 +68,7 @@ export class StationRuns implements StationRunsPort {
   async unfinished(teamId: string): Promise<readonly UnfinishedStationRun[]> {
     const rows = await this.reader.unfinishedOfTeam(TeamId.of(teamId));
 
-    return rows.flatMap(({ config, state, stopRequested, ...run }) => {
-      const progress = RunProgressContract.of({ state, stopRequested });
-
+    return rows.flatMap(({ config, progress, ...run }) => {
       return progress
         ? [
             {

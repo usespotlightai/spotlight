@@ -1,9 +1,10 @@
 import {
   CLOCK,
   FakeInsights,
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryReplays,
+  liveFrom,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
@@ -22,7 +23,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let insights: FakeInsights;
 
 const LIVE = candidateOf('live');
@@ -32,8 +33,8 @@ const oracles = () =>
     memory.setRepository,
     memory.replayRepository,
     memory.candidateRepository,
-    work,
-    work,
+    suppliers.configs,
+    suppliers.dispatch,
     insights,
     IDS,
     CLOCK,
@@ -77,7 +78,7 @@ const oracleReplays = () =>
 
 beforeEach(async () => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   insights = new FakeInsights();
   await memory.setRepository.add(aSet(4));
   await memory.candidateRepository.add(LIVE);
@@ -110,9 +111,9 @@ describe('StartOracleReplay', () => {
 
   it('starts nothing when the live config moves on while it is starting', async () => {
     insights.accepted.add('original_0');
-    const live = work.live;
+    const live = liveFrom(suppliers.configs);
     let calls = 0;
-    work.live = async () => {
+    suppliers.configs.live = async () => {
       calls += 1;
       return calls === 1
         ? live()
@@ -129,7 +130,7 @@ describe('StartOracleReplay', () => {
     insights.accepted.add('original_0');
     insights.accepted.add('original_1');
     insights.sentBack.add('original_2');
-    work.unanswerable.add('original_1');
+    suppliers.dispatch.unanswerable.add('original_1');
 
     await oracles().baselineEnded(
       await finishedLive({
@@ -183,14 +184,14 @@ describe('StartOracleReplay', () => {
 
     memory.replays.clear();
     const whole = await finishedLive();
-    const live = work.live;
-    work.live = async () => ({
+    const live = liveFrom(suppliers.configs);
+    suppliers.configs.live = async () => ({
       ...(await live()),
       fingerprint: LIVE_FINGERPRINT,
     });
     await oracles().baselineEnded(whole);
 
-    work.live = live;
+    suppliers.configs.live = live;
     insights.accepted.clear();
     await oracles().baselineEnded(whole);
 

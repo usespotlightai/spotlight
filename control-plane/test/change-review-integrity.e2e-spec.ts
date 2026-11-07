@@ -230,10 +230,7 @@ describe('deleting the change review of a task', () => {
     await answers.add(
       QuestionAnswer.given({
         id: QuestionAnswerId.of('answer_deleted'),
-        workspaceId: WORKSPACE,
-        taskId: TASK,
-        teamId: null,
-        stackId: stack.id,
+        stack,
         question: stack.question(QuestionId.of('c1.l1.q1')),
         personId: ADA,
         reply: null,
@@ -339,10 +336,7 @@ describe('deleting the team that owned a trial’s change', () => {
     await answers.add(
       QuestionAnswer.given({
         id: QuestionAnswerId.of('answer_of_team'),
-        workspaceId: WORKSPACE,
-        taskId: null,
-        teamId: stack.teamId,
-        stackId: stack.id,
+        stack,
         question: stack.question(QuestionId.of('c1.l1.q1')),
         personId: ADA,
         reply: null,

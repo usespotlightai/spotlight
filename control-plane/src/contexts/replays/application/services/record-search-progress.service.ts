@@ -24,6 +24,7 @@ export interface SearchRunEnded {
   readonly outcome: RunResult;
   readonly asked: boolean;
   readonly started: boolean;
+  readonly endedAt: Date;
 }
 
 export class RecordSearchProgress {
@@ -70,7 +71,7 @@ export class RecordSearchProgress {
         fresh.recordRunEnd(
           run,
           searchRunEnding(event),
-          this.clock.now(),
+          event.endedAt,
           this.runIds,
         ),
       );

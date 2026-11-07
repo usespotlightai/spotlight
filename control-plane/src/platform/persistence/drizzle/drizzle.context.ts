@@ -2,7 +2,6 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
 interface AsyncLocal {
@@ -11,7 +10,7 @@ interface AsyncLocal {
 }
 
 @Injectable()
-export class DrizzleContext implements TransactionPort, SavepointPort {
+export class DrizzleContext implements TransactionPort {
   private readonly asyncLocal = new AsyncLocalStorage<AsyncLocal>();
 
   constructor(@Inject(DRIZZLE) private readonly root: DrizzleDatabase) {}

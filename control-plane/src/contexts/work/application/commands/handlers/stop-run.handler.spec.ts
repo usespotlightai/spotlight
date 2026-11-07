@@ -1,5 +1,6 @@
 import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
+  claimer,
   HandoverReport,
   orderedFor,
   Run,
@@ -25,7 +26,7 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -45,7 +46,7 @@ const claimedRun = () =>
     harness: HarnessId.of('claude-code'),
     spec,
     ...orderedFor.task('task_1', 0),
-  }).claim(RunnerId.of('runner_1'), NOW);
+  }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
 const taskAssignedTo = (userId: string) =>
   ({
@@ -64,7 +65,7 @@ const dispatched = Dispatch.ordered({
     stationId: StationId.of('station_1'),
   },
   configuredAs: null,
-  order: DispatchOrder.of({}),
+  order: runOrderOf(RunId.of('run_1')),
   now: NOW,
 }).enqueuedAsRun();
 
@@ -136,7 +137,7 @@ describe('StopRunHandler', () => {
           HandoverReport.none(),
           NOW,
         )
-        .keep(1),
+        .keep(1, NOW),
       taskAssignedTo('user_1'),
     );
 
@@ -174,6 +175,8 @@ describe('StopRunHandler', () => {
     const ended = claimedRun().complete(
       RunnerId.of('runner_1'),
       RunOutcome.of({ exitCode: 0, failed: false }),
+      HandoverReport.none(),
+      NOW,
     );
     const { handler, save } = stopping(ended, taskAssignedTo('user_1'));
 

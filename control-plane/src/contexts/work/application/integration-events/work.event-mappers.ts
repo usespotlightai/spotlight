@@ -3,6 +3,18 @@ import {
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import {
+  DISPATCH_BRIEFED,
+  type DispatchBriefedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
+import {
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import {
+  DISPATCH_SUPERSEDED,
+  type DispatchSupersededIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
+import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
@@ -10,18 +22,6 @@ import {
   PULL_REQUEST_REVIEW_TAKEN,
   type PullRequestReviewTakenIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
-import {
-  RUN_BRIEFED,
-  type RunBriefedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-briefed.integration-event';
-import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
-import {
-  RUN_SUPERSEDED,
-  type RunSupersededIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-superseded.integration-event';
 import {
   TASK_ACTED_ON,
   type TaskActedOnIntegrationEvent,
@@ -73,8 +73,8 @@ import type { TaskPassed } from '@work/domain/events/task-passed.event';
 export const WORK_EVENT_MAPPERS = [
   mapping<DispatchBriefed>(
     'dispatch.briefed',
-    (event): RunBriefedIntegrationEvent => ({
-      kind: RUN_BRIEFED,
+    (event): DispatchBriefedIntegrationEvent => ({
+      kind: DISPATCH_BRIEFED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
       taskId: event.taskId?.value ?? null,
@@ -145,8 +145,8 @@ export const WORK_EVENT_MAPPERS = [
   ),
   mapping<DispatchEnded>(
     'dispatch.ended',
-    (event): RunEndedIntegrationEvent => ({
-      kind: RUN_ENDED,
+    (event): DispatchEndedIntegrationEvent => ({
+      kind: DISPATCH_ENDED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
       taskId: event.taskId?.value ?? null,
@@ -154,13 +154,13 @@ export const WORK_EVENT_MAPPERS = [
       outcome: event.ending.outcome,
       failure: event.ending.failure,
       stopped: event.ending.stopped,
-      asked: false,
+      asked: event.ending.askedAPerson,
     }),
   ),
   mapping<DispatchSuperseded>(
     'dispatch.superseded',
-    (event): RunSupersededIntegrationEvent => ({
-      kind: RUN_SUPERSEDED,
+    (event): DispatchSupersededIntegrationEvent => ({
+      kind: DISPATCH_SUPERSEDED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
       taskId: event.taskId.value,

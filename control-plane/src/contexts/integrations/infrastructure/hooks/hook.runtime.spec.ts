@@ -5,9 +5,16 @@ import type { HookDefinitionRepository } from '@integrations/domain/repositories
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import { usedTool } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
+import type {
+  DrizzleHookDefinitionsReader,
+  StoredHookDefinition,
+} from '@integrations/infrastructure/persistence/drizzle/readers/hook-definitions.reader';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -29,7 +36,10 @@ const DOCUMENT = {
       // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
       with: { channel: 'C1', text: 'Searched ${{ event.inputs.query }}' },
     },
-    { name: 'audit', request: { url: 'https://audit.example.com/' } },
+    {
+      name: 'audit',
+      request: { url: 'https://audit.example.com/' },
+    },
     {
       name: 'labelled',
       request: {
@@ -54,40 +64,36 @@ const DOCUMENT = {
 
 const INSTANCE: HookEventInstance = {
   on: 'tool.used',
-  occurrence: 'occurrence_1',
+  occurrence: HookOccurrenceKey.of('occurrence_1'),
   firing: null,
+  run: null,
   at: NOW,
-  event: {
-    tool: 'grafana.search',
-    inputs: { query: 'cpu' },
-    output: null,
-    failed: false,
-  },
+  event: usedTool('grafana.search', { inputs: { query: 'cpu' } }),
   task: taskViewOf({ title: 'Look at CPU' }),
 };
 
 const setUp = (document: Record<string, unknown> = DOCUMENT) => {
-  const definition = HookDefinition.rehydrate({
+  const definition: StoredHookDefinition = {
     id: HookDefinitionId.of('hook_1'),
-    workspaceId: WorkspaceId.of('workspace_1'),
-    teamId: TEAM,
     key: HookKey.of('grafana-reads'),
-    event: HookEvent.of('tool.used'),
-    document: DefinitionDocument.of(document),
-    tools: [ToolName.of('grafana.search'), ToolName.of('slack.post-message')],
-    signing: { version: 1 },
+    teamId: TEAM,
+    document,
+    blocks: document.failure === 'block',
     version: 1,
-  });
+  };
   const hooks = {
+    listening: vi.fn(async (_team: TeamId, on: string) =>
+      on === 'tool.used' ? [definition] : [],
+    ),
     withId: vi.fn(async () => definition),
-    of: vi.fn(),
-    ofTeam: vi.fn(async () => [definition]),
-    save: vi.fn(),
-  } satisfies HookDefinitionRepository;
+  };
 
   return {
     hooks,
-    hooked: new CompiledHookRuntime(hooks, new CelExpressionEngine()),
+    hooked: new CompiledHookRuntime(
+      hooks as unknown as DrizzleHookDefinitionsReader,
+      new CelExpressionEngine(),
+    ),
   };
 };
 
@@ -107,7 +113,7 @@ describe('CompiledHookRuntime', () => {
 
     expect(hook.id).toEqual(HookDefinitionId.of('hook_1'));
     expect(hook.key).toEqual(HookKey.of('grafana-reads'));
-    expect(hook.written?.steps.map((step) => step.name)).toEqual([
+    expect(hook.written?.steps.map((step) => step.name.value)).toEqual([
       'notify',
       'audit',
       'labelled',
@@ -134,7 +140,7 @@ describe('CompiledHookRuntime', () => {
     expect(
       hooked.whenHolds(hook, {
         ...INSTANCE,
-        event: { ...INSTANCE.event, inputs: { query: 'memory' } },
+        event: usedTool('grafana.search', { inputs: { query: 'memory' } }),
       }),
     ).toBe(false);
   });
@@ -150,10 +156,15 @@ describe('CompiledHookRuntime', () => {
     const { hooked } = setUp();
 
     expect(
-      hooked.written(await listened(hooked), 'notify', INSTANCE, []),
+      hooked.written(
+        await listened(hooked),
+        HookStepName.of('notify'),
+        INSTANCE,
+        [],
+      ),
     ).toEqual({
       kind: 'call',
-      name: 'notify',
+      name: HookStepName.of('notify'),
       tool: ToolName.of('slack.post-message'),
       with: { channel: 'C1', text: 'Searched cpu' },
     });
@@ -164,7 +175,7 @@ describe('CompiledHookRuntime', () => {
 
     const written = hooked.written(
       await listened(hooked),
-      'audit',
+      HookStepName.of('audit'),
       INSTANCE,
       [],
     );
@@ -188,9 +199,9 @@ describe('CompiledHookRuntime', () => {
 
     const written = hooked.written(
       await listened(hooked),
-      'labelled',
+      HookStepName.of('labelled'),
       INSTANCE,
-      [{ name: 'notify', status: 'done', output: null }],
+      [{ name: HookStepName.of('notify'), status: 'done', output: null }],
     );
 
     expect(written).toMatchObject({
@@ -207,10 +218,15 @@ describe('CompiledHookRuntime', () => {
     const { hooked } = setUp();
 
     expect(
-      hooked.written(await listened(hooked), 'unwritten', INSTANCE, []),
+      hooked.written(
+        await listened(hooked),
+        HookStepName.of('unwritten'),
+        INSTANCE,
+        [],
+      ),
     ).toMatchObject({
       kind: 'unwritable',
-      name: 'unwritten',
+      name: HookStepName.of('unwritten'),
       failure: {
         code: 'unwritable',
         reason: expect.stringMatching(/^could not be written: /),
@@ -222,7 +238,12 @@ describe('CompiledHookRuntime', () => {
     const { hooked } = setUp();
 
     expect(
-      hooked.written(await listened(hooked), 'gone', INSTANCE, []),
+      hooked.written(
+        await listened(hooked),
+        HookStepName.of('gone'),
+        INSTANCE,
+        [],
+      ),
     ).toMatchObject({
       kind: 'unwritable',
       failure: { code: 'broken', reason: 'is no longer a step of the hook' },
@@ -241,7 +262,9 @@ describe('CompiledHookRuntime', () => {
     expect(hook.written).toBeNull();
     expect(hook.blocks).toBe(true);
     expect(hooked.whenHolds(hook, INSTANCE)).toBe(false);
-    expect(hooked.written(hook, 'notify', INSTANCE, [])).toMatchObject({
+    expect(
+      hooked.written(hook, HookStepName.of('notify'), INSTANCE, []),
+    ).toMatchObject({
       kind: 'unwritable',
       failure: { code: 'broken' },
     });

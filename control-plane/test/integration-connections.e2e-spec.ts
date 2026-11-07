@@ -126,7 +126,7 @@ describe('integration connections stored per owner', () => {
         await new DrizzleIntegrationConnectionRoster(
           new DrizzleContext(db),
         ).ofTeam(teamId)
-      ).map((each) => [each.personId, each.linkedAccount]),
+      ).map((each) => [each.personId.value, each.linkedAccount]),
     ).toEqual([['user_alice', '@alice']]);
   });
 

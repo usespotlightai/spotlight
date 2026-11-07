@@ -4,6 +4,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
@@ -20,6 +21,18 @@ import { EnqueueRunCommand } from '@runs/application/commands/runner.commands';
 import type { EnqueuedRunDto } from '@runs/application/dto/run.dto';
 import { EnqueueRunRequestDto } from '@runs/presentation/http/dto/runner.request.dto';
 import { EnqueuedRunResponseDto } from '@runs/presentation/http/dto/runner.response.dto';
+
+const specIn = (
+  body: EnqueueRunRequestDto | undefined,
+): Readonly<Record<string, unknown>> => {
+  const spec: unknown = body?.spec;
+
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+    throw new UnprocessableEntityException('spec must be an object');
+  }
+
+  return spec as Readonly<Record<string, unknown>>;
+};
 
 @ApiTags('runs')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -43,7 +56,7 @@ export class RunController {
     const queued = await this.commandBus.execute<
       EnqueueRunCommand,
       EnqueuedRunDto | null
-    >(new EnqueueRunCommand(slug, user.id, body.harness, body.spec));
+    >(new EnqueueRunCommand(slug, user.id, body.harness, specIn(body)));
 
     if (!queued) {
       throw new NotFoundException();

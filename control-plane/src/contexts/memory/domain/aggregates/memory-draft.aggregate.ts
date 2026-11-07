@@ -13,6 +13,7 @@ import type { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id
 import { MemoryDrafting } from '@memory/domain/value-objects/memory-drafting.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
@@ -432,5 +433,9 @@ export class MemoryDraft
     next.inheritEvents(this);
 
     return next;
+  }
+
+  erased(): Erased<MemoryDraft> {
+    return erasedAs(this);
   }
 }

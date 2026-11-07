@@ -1,13 +1,9 @@
-import type { Money } from '@runs/domain/value-objects/money.vo';
-import type { StepKind } from '@runs/domain/value-objects/step-kind';
+export type StepKind = 'message' | 'thought' | 'tool' | 'planned' | 'hook';
 
-export const TURN_USAGE = 'usage';
-
-export const TOOL_REFUSED = 'tool.refused';
-
-export const EGRESS_CHECKED = 'egress.checked';
-
-export const AGENT_STOPPED = 'agent.stopped';
+export interface SpentCost {
+  readonly amount: number;
+  readonly currency: string;
+}
 
 export type EgressEnforcement = 'enforced' | 'not-enforced';
 
@@ -39,7 +35,7 @@ export interface JournalStep {
 export interface RunSpent {
   readonly used: number;
   readonly size: number;
-  readonly cost: Money | null;
+  readonly cost: SpentCost | null;
 }
 
 export interface RunMarks {
@@ -86,4 +82,19 @@ export interface RunChanges {
 export interface JournalledRun {
   readonly runId: string;
   readonly createdAt: Date;
+}
+
+export interface FileChange {
+  readonly path: string;
+  readonly before: string;
+  readonly after: string;
+  readonly omitted: boolean;
+}
+
+export interface ChangeHunk {
+  readonly id: string;
+  readonly path: string;
+  readonly index: number;
+  readonly header: string;
+  readonly lines: readonly string[];
 }

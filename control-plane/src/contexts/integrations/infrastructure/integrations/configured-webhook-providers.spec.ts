@@ -72,6 +72,7 @@ const configured = (
       injection,
       unlimited,
       unscoped,
+      { now: () => new Date(), sleep: async () => {} },
     ),
   };
 };

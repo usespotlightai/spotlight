@@ -49,7 +49,7 @@ describe('bindableTaskEventOf', () => {
         workspace,
         TeamId.of('team_1'),
         station,
-        TaskFailure.fromRun('exhausted'),
+        TaskFailure.fromRun('timed-out'),
         null,
         new Date(),
       ),

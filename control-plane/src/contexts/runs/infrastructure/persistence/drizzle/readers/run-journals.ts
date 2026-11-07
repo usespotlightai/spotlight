@@ -5,12 +5,12 @@ import type {
   RunChanges,
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
-import { RunSpecContract } from '@runs/application/contracts/run-spec.contract';
 import type { RunJournalsPort } from '@runs/application/ports/run-journals.port';
 import { isJournalledAttempt } from '@runs/domain/value-objects/run-journalled-attempts';
 import { ChangedPaths } from '@runs/infrastructure/acp/changed-paths';
 import { JournalBuilder } from '@runs/infrastructure/acp/journal-builder';
 import { Reported } from '@runs/infrastructure/otel/reported';
+import { RunSpecPersistence } from '@runs/infrastructure/persistence/drizzle/run-spec.persistence';
 import {
   run,
   runJournalEntry,
@@ -117,7 +117,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
       checkouts.set(
         row.runId,
         checkouts.get(row.runId) ??
-          RunSpecContract.checkoutFoldersIn(row.checkouts),
+          RunSpecPersistence.checkoutFoldersIn(row.checkouts),
       );
     }
 

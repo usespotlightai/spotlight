@@ -4,6 +4,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class RecheckTrialChanges implements TrialRechecksPort {
@@ -13,14 +14,14 @@ export class RecheckTrialChanges implements TrialRechecksPort {
     private readonly clock: ClockPort,
   ) {}
 
-  async recheckable(runId: RunId): Promise<readonly string[]> {
+  async recheckable(runId: RunId): Promise<readonly CheckWorkId[]> {
     return (await this.checks.ofRun(runId))
       .filter((each) => each.recheckable)
-      .map((each) => each.stackId.value);
+      .map((each) => CheckWorkId.of(each.stackId.value));
   }
 
-  recheck(runId: RunId, stackId: string): Promise<void> {
-    const stack = ChangeStackId.of(stackId);
+  recheck(runId: RunId, check: CheckWorkId): Promise<void> {
+    const stack = ChangeStackId.of(check.value);
 
     return this.transaction.inTransaction(async () => {
       const first = await this.checks.find(StackCheckId.first(stack));

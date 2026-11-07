@@ -2,9 +2,9 @@ import type { RoleClaimedTwice } from '@lines/domain/services/line-roles';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
-export const LINES = 'lines';
+export const LINE_DEFINITIONS = 'lines';
 
-export const lineAt = (key: string): string => `${LINES}/${key}`;
+export const lineAt = (key: string): string => `${LINE_DEFINITIONS}/${key}`;
 
 export const LineProblems = {
   roleClaimedTwice(claim: RoleClaimedTwice): ConfigurationProblem {

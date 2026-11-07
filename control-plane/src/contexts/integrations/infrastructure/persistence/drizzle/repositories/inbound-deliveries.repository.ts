@@ -6,6 +6,7 @@ import {
 import { InboundDeliveryVersionConflictError } from '@integrations/domain/exceptions/inbound-delivery-version-conflict.error';
 import type { InboundDeliveryRepository } from '@integrations/domain/repositories/inbound-delivery.repository';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { inboundDelivery } from '@integrations/infrastructure/persistence/drizzle/schemas/delivery.schema';
 import { Injectable } from '@nestjs/common';
@@ -13,7 +14,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, isNull, lt, lte, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, lte } from 'drizzle-orm';
 
 type Row = typeof inboundDelivery.$inferSelect;
 
@@ -54,7 +55,7 @@ const toDelivery = (row: Row): InboundDelivery =>
             teamKey: row.teamKey,
           }
         : null,
-    id: row.id,
+    id: InboundDeliveryId.of(row.id),
     headers: row.headers as DeliveryHeaders,
     body: row.body,
     causeFiringId:
@@ -105,7 +106,7 @@ export class DrizzleInboundDeliveries implements InboundDeliveryRepository {
         workspaceId: delivery.to?.workspaceId.value ?? null,
         teamId: delivery.to?.teamId.value ?? null,
         teamKey: delivery.to?.teamKey ?? null,
-        id: delivery.id,
+        id: delivery.id.value,
         headers: delivery.headers,
         body: delivery.body ?? {},
         causeFiringId: delivery.causeFiringId?.value ?? null,
@@ -119,38 +120,33 @@ export class DrizzleInboundDeliveries implements InboundDeliveryRepository {
     return written.length > 0;
   }
 
-  async claimNext(now: Date): Promise<InboundDelivery | null> {
-    return this.context.inTransaction(async () => {
-      const [row] = await this.context.db
-        .select()
-        .from(inboundDelivery)
-        .where(
-          or(
-            and(
-              eq(inboundDelivery.state, 'pending'),
-              lte(inboundDelivery.dueAt, now),
-            ),
-            and(
-              eq(inboundDelivery.state, 'working'),
-              lt(
-                inboundDelivery.claimedAt,
-                InboundDelivery.leaseExpiredBefore(now),
-              ),
-            ),
-          ),
-        )
-        .orderBy(asc(inboundDelivery.dueAt), asc(inboundDelivery.receivedAt))
-        .limit(1)
-        .for('update', { skipLocked: true });
+  async claimCandidates(
+    now: Date,
+    max: number,
+  ): Promise<readonly InboundDelivery[]> {
+    const rows = await this.context.db
+      .select()
+      .from(inboundDelivery)
+      .where(
+        and(
+          inArray(inboundDelivery.state, ['pending', 'working']),
+          lte(inboundDelivery.dueAt, now),
+        ),
+      )
+      .orderBy(asc(inboundDelivery.dueAt), asc(inboundDelivery.receivedAt))
+      .limit(max);
 
-      if (!row) {
-        return null;
-      }
+    return rows.map(toDelivery);
+  }
 
-      await this.save(toDelivery(row).claimed(now));
+  async current(delivery: InboundDelivery): Promise<InboundDelivery | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(inboundDelivery)
+      .where(this.keyOf(delivery))
+      .limit(1);
 
-      return this.withSeq(row.seq);
-    });
+    return row ? toDelivery(row) : null;
   }
 
   async save(delivery: InboundDelivery): Promise<void> {
@@ -159,28 +155,71 @@ export class DrizzleInboundDeliveries implements InboundDeliveryRepository {
       .set({ ...columnsOf(delivery), version: delivery.version + 1 })
       .where(
         and(
-          eq(inboundDelivery.integration, delivery.integration.value),
-          eq(inboundDelivery.id, delivery.id),
-          delivery.to
-            ? eq(inboundDelivery.teamId, delivery.to.teamId.value)
-            : isNull(inboundDelivery.teamId),
+          this.keyOf(delivery),
           eq(inboundDelivery.version, delivery.version),
         ),
       )
       .returning({ id: inboundDelivery.id });
 
     if (written.length === 0) {
-      throw new InboundDeliveryVersionConflictError(delivery.id);
+      throw new InboundDeliveryVersionConflictError(delivery.id.value);
     }
   }
 
-  private async withSeq(seq: number): Promise<InboundDelivery | null> {
-    const [row] = await this.context.db
+  async addressedTo(
+    teamId: TeamId,
+    max: number,
+  ): Promise<readonly InboundDelivery[]> {
+    const rows = await this.context.db
       .select()
       .from(inboundDelivery)
-      .where(eq(inboundDelivery.seq, seq))
-      .limit(1);
+      .where(eq(inboundDelivery.teamId, teamId.value))
+      .limit(max);
 
-    return row ? toDelivery(row) : null;
+    return rows.map(toDelivery);
+  }
+
+  async finishedBefore(
+    at: Date,
+    max: number,
+  ): Promise<readonly InboundDelivery[]> {
+    const rows = await this.context.db
+      .select()
+      .from(inboundDelivery)
+      .where(
+        and(
+          inArray(inboundDelivery.state, ['done', 'failed']),
+          lt(inboundDelivery.handledAt, at),
+        ),
+      )
+      .limit(max);
+
+    return rows.map(toDelivery);
+  }
+
+  async remove(delivery: InboundDelivery): Promise<void> {
+    const removed = await this.context.db
+      .delete(inboundDelivery)
+      .where(
+        and(
+          this.keyOf(delivery),
+          eq(inboundDelivery.version, delivery.version),
+        ),
+      )
+      .returning({ id: inboundDelivery.id });
+
+    if (removed.length === 0) {
+      throw new InboundDeliveryVersionConflictError(delivery.id.value);
+    }
+  }
+
+  private keyOf(delivery: InboundDelivery) {
+    return and(
+      eq(inboundDelivery.integration, delivery.integration.value),
+      eq(inboundDelivery.id, delivery.id.value),
+      delivery.to
+        ? eq(inboundDelivery.teamId, delivery.to.teamId.value)
+        : isNull(inboundDelivery.teamId),
+    );
   }
 }

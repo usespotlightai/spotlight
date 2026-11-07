@@ -10,9 +10,9 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -134,8 +134,8 @@ beforeAll(async () => {
       }),
     );
 
-    const ended: RunEndedIntegrationEvent = {
-      kind: RUN_ENDED,
+    const ended: DispatchEndedIntegrationEvent = {
+      kind: DISPATCH_ENDED,
       runId: runId.value,
       workspaceId: team.workspaceId.value,
       taskId: taskId.value,

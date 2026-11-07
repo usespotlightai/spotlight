@@ -8,7 +8,7 @@ import type {
   ReplayedStationDto,
   ReplaySetHealthDto,
 } from '@replays/application/dto/replayed-candidates.dto';
-import type { RunSummary } from '@replays/application/ports/work.port';
+import type { RunSummary } from '@replays/application/ports/trialable-runs.port';
 import { candidatePullRequestView } from '@replays/application/queries/views/config-pull-request-views';
 import {
   gainView,

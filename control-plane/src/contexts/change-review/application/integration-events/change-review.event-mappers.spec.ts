@@ -1,7 +1,7 @@
 import { CHANGE_REVIEW_EVENT_MAPPERS } from '@change-review/application/integration-events/change-review.event-mappers';
 import { ChangeStackBecameReady } from '@change-review/domain/events/change-stack-became-ready.event';
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
-import { TrialStackCompleted } from '@change-review/domain/events/trial-stack-completed.event';
+import { TrialStackSettled } from '@change-review/domain/events/trial-stack-settled.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -121,7 +121,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
   });
 
   it('publishes that a trial’s stack completed, so its trial can take it up', () => {
-    const completed = new TrialStackCompleted(
+    const completed = new TrialStackSettled(
       ChangeStackId.of('stack_1'),
       RunId.of('replay_1'),
       WorkspaceId.of('ws_1'),

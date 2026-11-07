@@ -1,14 +1,14 @@
-import type { JsonObject } from '@shared-kernel/domain/json-value';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import type { TrialFollowUp } from '@work/domain/value-objects/trial-follow-up';
 
 export interface TrialRepository {
   readonly path: string;
-  readonly repository: string;
+  readonly repository: Repository;
 }
 
 export type DispatchSubject =
@@ -26,7 +26,7 @@ export type DispatchSubject =
       readonly stationId: StationId;
       readonly asOf: Date | null;
       readonly repositories: readonly TrialRepository[];
-      readonly followUp: JsonObject | null;
+      readonly followUp: TrialFollowUp | null;
     };
 
 export type DispatchKind = DispatchSubject['kind'];
@@ -44,5 +44,5 @@ export const trialRepositoryNamed = (
 ): Repository | null => {
   const found = repositories.find((each) => each.path === name);
 
-  return found ? Repository.of(found.repository) : null;
+  return found?.repository ?? null;
 };

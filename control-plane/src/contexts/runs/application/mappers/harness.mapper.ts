@@ -3,6 +3,7 @@ import type {
   HarnessModelDto,
 } from '@runs/application/dto/harness.dto';
 import type { HarnessCatalogueEntry } from '@runs/application/ports/harness-launch.port';
+import { InvalidHarnessModelError } from '@shared-kernel/domain/exceptions/invalid-harness-model.error';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 
 const toDto = (
@@ -29,8 +30,11 @@ const toDto = (
 const parsed = (id: string): HarnessModel | null => {
   try {
     return HarnessModel.of(id);
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof InvalidHarnessModelError) {
+      return null;
+    }
+    throw error;
   }
 };
 

@@ -39,11 +39,11 @@ export class SetPersonToolRuleHandler
       const integration = IntegrationKey.of(command.integration);
       const tool = ToolName.of(command.tool);
       const rule = PersonToolRule.of(command.rule);
-      const offering = this.runtime
-        .integrations(await this.defined.ofTeam(teamId))
-        .find((each) => each.key.equals(integration));
+      const offered = this.runtime
+        .offered(await this.defined.ofTeam(teamId))
+        .find((each) => each.integration.key.equals(integration));
 
-      if (!offering?.takesPersonRuleFor(tool)) {
+      if (!offered?.takesPersonRuleFor(tool)) {
         return false;
       }
 

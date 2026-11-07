@@ -2,6 +2,7 @@ import ts from 'typescript';
 import { AGGREGATE_TABLE_NAMES } from './aggregate-versions';
 import {
   SNAPSHOT_FOREIGN_KEYS,
+  SNAPSHOT_TABLE_NAMES,
   SNAPSHOT_VERSIONED_TABLES,
 } from './drizzle-snapshot';
 import { tableBindingsOf } from './drizzle-tables';
@@ -15,11 +16,105 @@ import {
   withoutExtension,
 } from './source-index';
 
-export const STANDALONE_TABLES: ReadonlySet<string> = new Set([
-  'memory_use',
-  'oidc_trust_usage',
-  'secret_value',
-  'signup_survey',
+export const TABLE_WRITERS: Readonly<Record<string, readonly string[]>> = {
+  catalog_call: [
+    'contexts/catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger.ts',
+  ],
+  chat_record: [
+    'contexts/insights/infrastructure/persistence/drizzle/ledgers/chats.ledger.ts',
+  ],
+  configuration_change: [
+    'contexts/identity/infrastructure/persistence/drizzle/configuration-audit.ts',
+  ],
+  deleted_task: [
+    'contexts/insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger.ts',
+  ],
+  deleted_team: [
+    'contexts/insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger.ts',
+  ],
+  deleted_workspace: [
+    'contexts/insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger.ts',
+  ],
+  event_delivery: [
+    'platform/events/event-delivery.ts',
+    'platform/events/event-outbox.ts',
+  ],
+  event_outbox: ['platform/events/event-outbox.ts'],
+  idempotent_create: ['platform/idempotency/drizzle-idempotent-creates.ts'],
+  memory_use: [
+    'contexts/memory/infrastructure/persistence/drizzle/repositories/memory-uses.ledger.ts',
+  ],
+  oauth2_spent_nonce: [
+    'contexts/integrations/infrastructure/persistence/drizzle/ledgers/oauth2-spent-nonces.ledger.ts',
+  ],
+  oidc_trust_usage: [
+    'contexts/identity/infrastructure/persistence/drizzle/oidc-trust-usage.ts',
+  ],
+  processed_event: [
+    'contexts/work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger.ts',
+  ],
+  pull_request_fact: [
+    'contexts/insights/infrastructure/persistence/drizzle/projections/pull-request-facts.projection.ts',
+  ],
+  review_delivery: [
+    'contexts/change-review/infrastructure/persistence/drizzle/repositories/review-deliveries.repository.ts',
+  ],
+  run_connection: [
+    'contexts/runs/infrastructure/persistence/drizzle/ledgers/run-connections.ledger.ts',
+  ],
+  run_fact: [
+    'contexts/insights/infrastructure/persistence/drizzle/projections/run-facts.projection.ts',
+  ],
+  run_journal_entry: [
+    'contexts/runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger.ts',
+  ],
+  run_usage: [
+    'contexts/runs/infrastructure/persistence/drizzle/ledgers/run-usages.ledger.ts',
+  ],
+  secret_data_key: ['contexts/secrets/infrastructure/crypto/workspace-keys.ts'],
+  secret_value: [
+    'contexts/secrets/infrastructure/sources/built-in-secret.store.ts',
+  ],
+  signup_survey: [
+    'contexts/identity/infrastructure/persistence/drizzle/signup-surveys.ts',
+  ],
+  task_draft_state: [
+    'contexts/work/infrastructure/collab/drizzle-task-draft-states.ts',
+  ],
+  task_pull_request_fact: [
+    'contexts/insights/infrastructure/persistence/drizzle/projections/run-facts.projection.ts',
+  ],
+  team_welcome: [
+    'contexts/work/infrastructure/persistence/drizzle/ledgers/team-welcomes.ledger.ts',
+  ],
+  tool_use: [
+    'contexts/work/infrastructure/persistence/drizzle/ledgers/tool-uses.ledger.ts',
+  ],
+  used_token: [
+    'contexts/runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger.ts',
+  ],
+  verification_send: [
+    'contexts/identity/infrastructure/persistence/drizzle/ledgers/verification-send.ledger.ts',
+  ],
+  work_line: [
+    'contexts/work/infrastructure/persistence/drizzle/projections/work-stations.projection.ts',
+    'contexts/work/infrastructure/persistence/drizzle/station-deletion.guard.ts',
+  ],
+  work_station: [
+    'contexts/work/infrastructure/persistence/drizzle/projections/work-stations.projection.ts',
+    'contexts/work/infrastructure/persistence/drizzle/station-deletion.guard.ts',
+  ],
+  workspace_plan: [
+    'contexts/catalog/infrastructure/persistence/drizzle/workspace-plan-deletion.ts',
+  ],
+};
+
+export const LIBRARY_TABLES: ReadonlySet<string> = new Set([
+  'account',
+  'device_code',
+  'session',
+  'user',
+  'verification',
 ]);
 
 const isAggregateTable = (name: string): boolean =>
@@ -47,9 +142,7 @@ export const CHILD_TABLE_ROOTS: ReadonlyMap<
   ReadonlySet<string>
 > = new Map(
   [...new Set(SNAPSHOT_FOREIGN_KEYS.map((key) => key.tableFrom))]
-    .filter(
-      (table) => !isAggregateTable(table) && !STANDALONE_TABLES.has(table),
-    )
+    .filter((table) => !isAggregateTable(table) && !(table in TABLE_WRITERS))
     .map((table) => [table, rootsOf(table)] as const)
     .filter(([, roots]) => roots.size > 0),
 );
@@ -124,7 +217,29 @@ const childWritesOf = (
 ): Violation[] => {
   const written = tablesWrittenIn(file);
 
-  return [...written].flatMap((table) => {
+  return [...written].flatMap((table): Violation[] => {
+    const writers = TABLE_WRITERS[table];
+
+    if (writers) {
+      return writers.includes(file.path)
+        ? []
+        : [
+            {
+              key: `${file.path}: writes ${table} outside its declared writers`,
+              at: file.path,
+            },
+          ];
+    }
+
+    if (LIBRARY_TABLES.has(table)) {
+      return [
+        {
+          key: `${file.path}: writes ${table}, which its library owns`,
+          at: file.path,
+        },
+      ];
+    }
+
     const roots = CHILD_TABLE_ROOTS.get(table);
 
     if (!roots || rootWriter(file, roots)) {
@@ -139,6 +254,33 @@ const childWritesOf = (
     ];
   });
 };
+
+const unclassifiedTables = (): Violation[] =>
+  SNAPSHOT_TABLE_NAMES.filter(
+    (table) =>
+      !isAggregateTable(table) &&
+      !CHILD_TABLE_ROOTS.has(table) &&
+      !(table in TABLE_WRITERS) &&
+      !LIBRARY_TABLES.has(table),
+  ).map((table) => ({
+    key: `${table}: unversioned table with no aggregate root, declared writer or library owner`,
+    at: table,
+  }));
+
+const staleWriters = (files: readonly SourceFile[]): Violation[] =>
+  Object.entries(TABLE_WRITERS).flatMap(([table, writers]) =>
+    writers
+      .filter(
+        (path) =>
+          !files.some(
+            (file) => file.path === path && tablesWrittenIn(file).has(table),
+          ),
+      )
+      .map((path) => ({
+        key: `${table}: declared writer ${path} does not write it`,
+        at: path,
+      })),
+  );
 
 const writesARoot = (file: SourceFile, roots: ReadonlySet<string>): boolean => {
   const written = tablesWrittenIn(file);
@@ -174,5 +316,9 @@ export const aggregateChildWriteViolations = (): Violation[] => {
     );
   };
 
-  return files.flatMap((file) => childWritesOf(file, rootWriter));
+  return [
+    ...files.flatMap((file) => childWritesOf(file, rootWriter)),
+    ...unclassifiedTables(),
+    ...staleWriters(files),
+  ];
 };

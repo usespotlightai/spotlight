@@ -42,7 +42,7 @@ export class DrizzleIntegrationConnectionRoster
         ? [
             {
               integration: row.integration,
-              personId: personId.value,
+              personId,
               linkedAccount: row.linkedAccount,
               connectedAt: row.connectedAt,
             },

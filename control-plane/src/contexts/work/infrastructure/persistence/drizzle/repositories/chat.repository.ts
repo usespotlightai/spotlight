@@ -234,6 +234,7 @@ export class DrizzleChatRepository implements ChatRepository {
       setup: setupRow(added.setup),
       currentRunId: added.currentRunId?.value ?? null,
       sessionId: added.sessionId?.value ?? null,
+      workspaceReleasedAt: added.workspaceRelease.releasedAt,
       runnerId: added.runnerId?.value ?? null,
       createdAt: added.createdAt,
     });
@@ -283,6 +284,7 @@ export class DrizzleChatRepository implements ChatRepository {
         effort: saved.effort?.value ?? null,
         currentRunId: saved.currentRunId?.value ?? null,
         sessionId: saved.sessionId?.value ?? null,
+        workspaceReleasedAt: saved.workspaceRelease.releasedAt,
         runnerId: saved.runnerId?.value ?? null,
       })
       .where(and(eq(chat.id, saved.id.value), eq(chat.version, saved.version)))

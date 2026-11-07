@@ -67,7 +67,7 @@ export class WorkJudgings implements PendingJobsPort {
   }
 
   private async judged(judging: Judging): Promise<Judging> {
-    const run = await this.evidence.of(judging.runId.value);
+    const run = await this.evidence.of(judging.runId);
 
     if (!run) {
       return judging.failed(JudgingFailure.of('no-evidence', this.clock.now()));

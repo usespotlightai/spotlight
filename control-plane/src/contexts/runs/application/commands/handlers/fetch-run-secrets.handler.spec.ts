@@ -15,8 +15,9 @@ import { FetchRunSecretsHandler } from '@runs/application/commands/handlers/fetc
 import { FetchSharedRunSecretsHandler } from '@runs/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
@@ -26,6 +27,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -73,7 +75,7 @@ const leasedRun = (
       injectedSecrets: over.injectedSecrets ?? ['LINEAR_API_KEY', 'GONE'],
       ...(over.spotlightApi ? { spotlightApi: true } : {}),
     }),
-  }).claim(RunnerId.of(by), NOW);
+  }).claim(claimer(RunnerId.of(by), workspace), NOW);
 
 const leaseExpiredRun = () => {
   const leased = leasedRun();
@@ -228,7 +230,7 @@ describe('FetchRunSecretsHandler', () => {
   });
 
   it('fetches for the attempt that leases the run, once it is leased again', async () => {
-    const again = leaseExpiredRun().claim(RunnerId.of(RUNNER), NOW);
+    const again = leaseExpiredRun().claim(claimer(RunnerId.of(RUNNER)), NOW);
     const { handler, fetches } = fetching(LEASED_RUN, again);
 
     await expect(
@@ -243,9 +245,14 @@ describe('FetchRunSecretsHandler', () => {
     const ended = leasedRun().complete(
       RunnerId.of(RUNNER),
       RunOutcome.of({ exitCode: 0, failed: false }),
+      HandoverReport.none(),
+      NOW,
     );
     const expired = leaseExpiredRun();
-    const reclaimed = leaseExpiredRun().claim(RunnerId.of(RUNNER), NOW);
+    const reclaimed = leaseExpiredRun().claim(
+      claimer(RunnerId.of(RUNNER)),
+      NOW,
+    );
 
     for (const after of [ended, expired, reclaimed]) {
       const { handler, fetches, lost } = fetching(
@@ -285,10 +292,10 @@ describe('FetchRunSecretsHandler', () => {
     });
     expect(issued).toEqual([
       {
-        workspaceId: 'ws_1',
-        runId: 'run_1',
+        workspaceId: WorkspaceId.of('ws_1'),
+        runId: RunId.of('run_1'),
         attempt: 1,
-        issuedBy: 'user_1',
+        issuedBy: UserId.of('user_1'),
         scopes: ['plan'],
         expiresAt: new Date('2026-09-25T13:00:00.000Z'),
       },

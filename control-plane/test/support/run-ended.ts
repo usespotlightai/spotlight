@@ -9,6 +9,21 @@ import * as schema from './schema';
 export const endedAtFor = (state: RunState, at = new Date()): Date | null =>
   (TERMINAL_RUN_STATES as readonly RunState[]).includes(state) ? at : null;
 
+export const endingFor = (state: RunState, at = new Date()) => ({
+  endedAt: endedAtFor(state, at),
+  ...(state === 'completed' || state === 'suspended'
+    ? { exitCode: 0 }
+    : state === 'failed'
+      ? { exitCode: 1, failure: 'exited' as const, message: 'It exited.' }
+      : state === 'cancelled'
+        ? {
+            exitCode: -1,
+            failure: 'cancelled' as const,
+            message: 'It was cancelled.',
+          }
+        : {}),
+});
+
 export const aRunOf = async (
   db: DrizzleDatabase,
   run: {
@@ -26,7 +41,7 @@ export const aRunOf = async (
     harness: 'dev',
     ...(run.taskId ? requestedByTask(run.taskId) : requestedBySpec(run.id)),
     state,
-    endedAt: endedAtFor(state),
+    ...endingFor(state),
     spec: {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'do the thing',

@@ -1,4 +1,3 @@
-import type { SessionReaderPort } from '@identity/application/ports/session-reader.port';
 import type { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import type { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import {
@@ -48,12 +47,9 @@ const controlling = (viewer: AuthenticatedUser | null = ADMIN) => {
   return {
     controller: new OAuth2ConnectionController(
       { execute } as unknown as CommandBus,
-      {
-        read: async () => viewer,
-        readBearer: async () => null,
-      } satisfies SessionReaderPort,
       new OAuth2NonceCookie(true),
     ),
+    viewer,
     execute,
   };
 };
@@ -85,10 +81,10 @@ describe('OAuth2ConnectionController', () => {
   });
 
   it('finishes with the cookie nonce and the signed-in person, clearing the cookie', async () => {
-    const { controller, execute } = controlling();
+    const { controller, execute, viewer } = controlling();
     const { response, redirect, clearCookie } = answering();
 
-    await controller.callback('s', 'c', withCookie('n-1'), response);
+    await controller.callback('s', 'c', withCookie('n-1'), response, viewer);
 
     const finish = execute.mock.calls[0]?.[0] as FinishOAuth2ConnectionCommand;
     expect(finish.nonce).toBe('n-1');
@@ -101,20 +97,20 @@ describe('OAuth2ConnectionController', () => {
   });
 
   it('rejects a browser that brought no nonce cookie', async () => {
-    const { controller, execute } = controlling();
+    const { controller, execute, viewer } = controlling();
     const { response, redirect } = answering();
 
-    await controller.callback('s', 'c', { headers: {} }, response);
+    await controller.callback('s', 'c', { headers: {} }, response, viewer);
 
     expect(execute).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
   it('rejects a browser with no session', async () => {
-    const { controller, execute } = controlling(null);
+    const { controller, execute, viewer } = controlling(null);
     const { response, redirect } = answering();
 
-    await controller.callback('s', 'c', withCookie('n-1'), response);
+    await controller.callback('s', 'c', withCookie('n-1'), response, viewer);
 
     expect(execute).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);

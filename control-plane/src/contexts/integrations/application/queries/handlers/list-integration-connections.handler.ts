@@ -3,6 +3,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { IntegrationConnectionsDto } from '@integrations/application/dto/integration-connections.dto';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationConnectionRosterPort } from '@integrations/application/ports/integration-connection-roster.port';
+import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { PersonToolRulesPort } from '@integrations/application/ports/person-tool-rules.port';
 import type { ListIntegrationConnectionsQuery } from '@integrations/application/queries/list-integration-connections.query';
 import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
@@ -24,6 +25,7 @@ export class ListIntegrationConnectionsHandler
     private readonly people: PersonReaderPort,
     private readonly defined: DefinedIntegrationsPort,
     private readonly rules: PersonToolRulesPort,
+    private readonly runtime: IntegrationRuntimePort,
   ) {}
 
   async execute(
@@ -46,37 +48,43 @@ export class ListIntegrationConnectionsHandler
         this.defined.ofTeam(teamId),
         this.rules.ofPerson(teamId, viewer),
       ]);
+      const offered = this.runtime.offered(defined);
       const mine = connected
-        .filter((each) => each.personId === query.viewerId)
-        .map(({ integration, linkedAccount, connectedAt }) => ({
-          integration,
-          linkedAccount,
-          connectedAt,
-          tools: (
-            defined.find((each) => each.integration === integration)?.tools ??
-            []
-          ).map((tool) => ({
-            tool,
-            rule: (rules.get(tool) ?? PersonToolRule.allowed()).name,
-          })),
-        }));
+        .filter((each) => each.personId.equals(viewer))
+        .map(({ integration, linkedAccount, connectedAt }) => {
+          const tools = offered.find(
+            (each) => each.integration.key.value === integration,
+          );
+
+          return {
+            integration,
+            linkedAccount,
+            connectedAt,
+            tools: (tools?.all ?? [])
+              .filter((tool) => tools?.takesPersonRuleFor(tool))
+              .map((tool) => ({
+                tool: tool.value,
+                rule: (rules.get(tool.value) ?? PersonToolRule.allowed()).name,
+              })),
+          };
+        });
 
       if (!membership.isAdmin) {
         return { mine, people: null };
       }
 
-      const named = await this.people.findMany(
-        [...new Set(connected.map((each) => each.personId))].map((id) =>
-          UserId.of(id),
-        ),
-      );
+      const named = await this.people.findMany([
+        ...new Map(
+          connected.map((each) => [each.personId.value, each.personId]),
+        ).values(),
+      ]);
 
       return {
         mine,
         people: connected.map((each) => ({
           integration: each.integration,
-          personId: each.personId,
-          name: named.get(each.personId)?.name ?? '',
+          personId: each.personId.value,
+          name: named.get(each.personId.value)?.name ?? '',
           linkedAccount: each.linkedAccount,
           connectedAt: each.connectedAt,
         })),

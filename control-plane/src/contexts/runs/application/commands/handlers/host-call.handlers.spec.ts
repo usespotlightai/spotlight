@@ -14,6 +14,7 @@ import {
   type SentHostCallResponse,
 } from '@runs/application/commands/host-call.commands';
 import { LongPoll } from '@runs/application/services/long-poll';
+import type { NetworkCallClaims } from '@runs/application/services/network-call-claims.service';
 import { NetworkCall } from '@runs/domain/aggregates/network-call.aggregate';
 import { NetworkCallVersionConflictError } from '@runs/domain/exceptions/network-call-version-conflict.error';
 import type { NetworkCallRepository } from '@runs/domain/repositories/network-call.repository';
@@ -125,7 +126,7 @@ const hosting = (
     claim: new ClaimHostCallHandler(
       authenticator,
       runners,
-      calls as unknown as NetworkCallRepository,
+      { next: calls.claimNext } as unknown as NetworkCallClaims,
       clock,
       new LongPoll(clock),
       tokens,
@@ -156,10 +157,10 @@ const issuing = (): TokenIssuer => ({
 const RESPONSE: SentHostCallResponse = {
   host: HOST,
   status: 200,
-  headers: { 'content-type': 'application/json', ignored: 7 },
-  body: Buffer.from('{"deny":"not today"}').toString('base64'),
+  headers: { 'content-type': 'application/json' },
+  body: new Uint8Array(Buffer.from('{"deny":"not today"}')),
   ms: 84,
-  error: undefined,
+  error: null,
 };
 
 describe('ClaimHostCallHandler', () => {
@@ -303,8 +304,8 @@ describe('AnswerHostCallHandler', () => {
       new RecordHostCallResponseCommand(POOL, 'call_1', {
         host: HOST,
         status: 0,
-        headers: undefined,
-        body: undefined,
+        headers: {},
+        body: new Uint8Array(),
         ms: 10_000,
         error: 'timed out after 10s',
       }),
@@ -410,7 +411,7 @@ describe('AnswerHostCallHandler', () => {
       response.execute(
         new RecordHostCallResponseCommand(POOL, 'call_1', {
           ...RESPONSE,
-          status: 'teapot',
+          status: Number.NaN,
         }),
       ),
     ).rejects.toMatchObject({ kind: 'invalid' });
@@ -434,7 +435,7 @@ describe('AnswerHostCallHandler', () => {
 describe('RedeemCallSecretsHandler', () => {
   const RECIPIENT = Buffer.alloc(32, 7).toString('base64');
 
-  const redeeming = (over: { host?: unknown; token?: unknown } = {}) =>
+  const redeeming = (over: { host?: string; token?: string } = {}) =>
     new RedeemCallSecretsCommand(
       'call_1',
       over.host ?? HOST,
@@ -493,7 +494,7 @@ describe('RedeemCallSecretsHandler', () => {
 
     for (const command of [
       redeeming({ token: 'stolen' }),
-      redeeming({ token: 7 }),
+      redeeming({ token: '' }),
       redeeming({ host: '' }),
     ]) {
       expect(await redeem.execute(command)).toEqual({

@@ -3,10 +3,22 @@ import type { StateLockId } from '@configuration/domain/value-objects/state-lock
 
 export type LockAsWritten = Readonly<Record<string, unknown>>;
 
+const LOCK_OPERATIONS = [
+  'OperationTypeInvalid',
+  'OperationTypeRefresh',
+  'OperationTypePlan',
+  'OperationTypeApply',
+] as const;
+
+export type LockOperation = (typeof LOCK_OPERATIONS)[number];
+
+export const lockOperationOf = (written: unknown): LockOperation | null =>
+  LOCK_OPERATIONS.find((each) => each === written) ?? null;
+
 export class StateLock {
   private constructor(
     readonly id: StateLockId,
-    readonly operation: string | null,
+    readonly operation: LockOperation | null,
     readonly asWritten: LockAsWritten,
     readonly lockedBy: PrincipalRef,
     readonly lockedAt: Date,
@@ -14,7 +26,7 @@ export class StateLock {
 
   static of(input: {
     id: StateLockId;
-    operation: string | null;
+    operation: LockOperation | null;
     asWritten: LockAsWritten;
     lockedBy: PrincipalRef;
     lockedAt: Date;

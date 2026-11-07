@@ -1,13 +1,16 @@
 import type { ProposeSearchCandidateCommand } from '@replays/application/commands/propose-search-candidate.command';
 import type { SearchCandidateProposed } from '@replays/application/dto/replay-outcomes.dto';
-import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
+  LinesPort,
   StationView,
-  ValidatedCandidate,
-  WorkPort,
-} from '@replays/application/ports/work.port';
+} from '@replays/application/ports/lines.port';
+import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
+import type {
+  StationConfigs,
+  ValidatedCandidate,
+} from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { SearchRunNotActiveError } from '@replays/domain/exceptions/search-run-not-active.error';
@@ -42,7 +45,8 @@ export class ProposeSearchCandidateHandler
 {
   constructor(
     private readonly people: PeoplePort,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
+    private readonly configs: StationConfigs,
     private readonly searchRuns: SearchRunDispatching,
     private readonly searches: SearchRepository,
     private readonly candidates: CandidateRepository,
@@ -74,10 +78,10 @@ export class ProposeSearchCandidateHandler
       }
 
       const { lineId, stationId } = seen.station;
-      const station = await this.work.station(lineId, stationId);
+      const station = await this.lines.station(lineId, stationId);
       const teamKey = await this.people.teamKey(seen.teamId);
       const [seed] = await this.candidates.findMany([seen.seed.candidateId]);
-      const validated = await this.work.validate(
+      const validated = await this.configs.validate(
         lineId,
         stationId,
         command.station,

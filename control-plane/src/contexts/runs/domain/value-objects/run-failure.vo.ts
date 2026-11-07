@@ -28,7 +28,7 @@ export const RUN_FAILURES = {
   cancelled: Retry.never(),
 } as const satisfies Record<RunEndFailureCode, Retry>;
 
-export type RunEndFailureCode = Exclude<RunFailureCode, 'superseded'>;
+type RunEndFailureCode = Exclude<RunFailureCode, 'superseded'>;
 
 const isRunEndFailureCode = (code: string): code is RunEndFailureCode =>
   isRunFailureCode(code) && code in RUN_FAILURES;

@@ -1,11 +1,12 @@
 import { CompleteRunHandler } from '@runs/application/commands/handlers/complete-run.handler';
 import { CompleteRunCommand } from '@runs/application/commands/runner.commands';
+import { runFilesFrom } from '@runs/application/ports/run-files.fake-spec';
 import type {
   RunFileFacts,
-  RunFilesPort,
+  RunFileSource,
 } from '@runs/application/ports/run-files.port';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -33,13 +34,14 @@ const leased = () =>
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
     }),
-  }).claim(RunnerId.of('runner_1'), NOW);
+  }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
-const attaching = () => {
+const attaching = (owner = 'work') => {
   const asked: [string, readonly string[]][] = [];
   const taken: [string, readonly string[]][] = [];
 
   return {
+    owner,
     asked,
     taken,
     uploadedBy: async (
@@ -57,7 +59,7 @@ const attaching = () => {
     },
     take: async (workspaceId: WorkspaceId, files: readonly RunFileFacts[]) =>
       void taken.push([workspaceId.value, files.map((each) => each.id)]),
-  } as unknown as RunFilesPort & {
+  } as RunFileSource & {
     asked: [string, readonly string[]][];
     taken: [string, readonly string[]][];
   };
@@ -65,7 +67,7 @@ const attaching = () => {
 
 const completing = (
   save: (run: Run) => Promise<void>,
-  stored: { run?: () => Run; files?: RunFilesPort } = {},
+  stored: { run?: () => Run; files?: RunFileSource } = {},
 ) =>
   new CompleteRunHandler(
     {
@@ -76,11 +78,7 @@ const completing = (
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
     { now: () => NOW, sleep: async () => {} },
-    stored.files ??
-      ({
-        uploadedBy: async () => [],
-        take: async () => {},
-      } as unknown as RunFilesPort),
+    stored.files ? runFilesFrom(stored.files) : runFilesFrom(),
   );
 
 const chatRun = () =>
@@ -95,7 +93,7 @@ const chatRun = () =>
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
     }),
-  }).claim(RunnerId.of('runner_1'), NOW);
+  }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
 describe('CompleteRunHandler', () => {
   const reviewing = new CompleteRunCommand(
@@ -147,6 +145,20 @@ describe('CompleteRunHandler', () => {
     );
 
     expect(files.taken).toEqual([['ws_1', ['file_light']]]);
+  });
+
+  it('hands over no files for a requester that serves none', async () => {
+    const saved: Run[] = [];
+    const files = attaching('replays');
+
+    await completing(async (run) => void saved.push(run), { files }).execute(
+      reviewing,
+    );
+
+    expect(files.asked).toEqual([]);
+    expect(
+      saved[0]?.turnAt(1)?.report.handover?.attachments.map((each) => each.id),
+    ).toEqual([]);
   });
 
   it('takes no files from a turn that failed, and ends it at once', async () => {
@@ -218,9 +230,9 @@ describe('CompleteRunHandler', () => {
     const lastAttempt = () =>
       leased()
         .timedOut(RUNNER, NOW)
-        .claim(RUNNER, NOW)
+        .claim(claimer(RUNNER), NOW)
         .timedOut(RUNNER, NOW)
-        .claim(RUNNER, NOW);
+        .claim(claimer(RUNNER), NOW);
 
     it('goes back on the queue, as a run whose lease expired does', async () => {
       const saved: Run[] = [];

@@ -8,8 +8,6 @@ import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 interface ServerCallsReceived {
@@ -50,7 +48,7 @@ export class RecordRunUsageSummary {
 
   async usageRecorded(event: RunUsageReceived): Promise<void> {
     const taskRun = event.listed
-      ? await this.work.taskRunOf(event.runId)
+      ? await this.work.taskRunOf(RunId.of(event.runId))
       : null;
 
     if (!taskRun) {
@@ -83,8 +81,8 @@ export class RecordRunUsageSummary {
     });
 
     const workspaceId = WorkspaceId.of(event.workspaceId);
-    const taskId = TaskId.of(taskRun.taskId);
-    const teamId = TeamId.of(taskRun.teamId);
+    const taskId = taskRun.taskId;
+    const teamId = taskRun.teamId;
     const runId = RunId.of(event.runId);
 
     await this.transaction.inTransaction(() =>

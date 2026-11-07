@@ -50,13 +50,13 @@ export const changeStack = pgTable(
     runId: text('run_id').notNull(),
     taskId: text('task_id'),
     teamId: text('team_id'),
-    trial: boolean('trial').notNull().default(false),
+    trial: boolean('trial').notNull(),
     workspaceId: text('workspace_id').notNull(),
     repository: text('repository'),
     baseCommit: text('base_commit'),
     state: changeStackState('state').$type<ChangeStackState>().notNull(),
     files: jsonb('files').$type<StoredFile[]>().notNull(),
-    cohorts: jsonb('cohorts').$type<StoredCohort[]>().notNull().default([]),
+    cohorts: jsonb('cohorts').$type<StoredCohort[]>().notNull(),
     failure: changeStackFailure('failure').$type<StackFailure>(),
     startedAt: timestamptz('started_at').notNull(),
     completedAt: timestamptz('completed_at'),
@@ -65,15 +65,14 @@ export const changeStack = pgTable(
     checkSetup: text('check_setup'),
     checkPlacement: jsonb('check_placement')
       .$type<readonly (readonly string[])[]>()
-      .notNull()
-      .default([]),
+      .notNull(),
     checkPlacementImage: text('check_placement_image'),
-    redrafting: boolean('redrafting').notNull().default(false),
-    pendingJob: boolean('pending_job').notNull().default(false),
+    redrafting: boolean('redrafting').notNull(),
+    pendingJob: boolean('pending_job').notNull(),
     usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
-    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobAttempts: integer('job_attempts').notNull(),
     jobDueAt: timestamptz('job_due_at'),
-    version: integer('version').notNull().default(0),
+    version: integer('version').notNull(),
   },
   (table) => [
     check(

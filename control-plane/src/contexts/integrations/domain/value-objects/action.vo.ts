@@ -18,6 +18,9 @@ export interface ActionProblem {
   readonly because: string;
 }
 
+export const isHostHeader = (name: string): boolean =>
+  name.toLowerCase() === 'host';
+
 const at = (...segments: string[]) => FieldPath.of(segments);
 
 const fromSpotlightProblems = (fields: ActionFields): ActionProblem[] =>
@@ -50,13 +53,11 @@ const fromNetworkProblems = (fields: ActionFields): ActionProblem[] => [
         },
       ]
     : []),
-  ...fields.headers
-    .filter((name) => name.toLowerCase() === 'host')
-    .map((name) => ({
-      at: at('request', 'headers', name),
-      because:
-        'is a Host header. Egress sends an action from the network to the host its URL names. Please remove the Host header',
-    })),
+  ...fields.headers.filter(isHostHeader).map((name) => ({
+    at: at('request', 'headers', name),
+    because:
+      'is a Host header. Egress sends an action from the network to the host its URL names. Please remove the Host header',
+  })),
   ...(fields.auth.secrets && /^http:/i.test(fields.url)
     ? [
         {

@@ -7,5 +7,9 @@ export const SCHEDULE_CURSORS = Symbol('SCHEDULE_CURSORS');
 export interface ScheduleCursorRepository {
   of(teamId: TeamId, integration: IntegrationKey): Promise<ScheduleCursor>;
 
+  ofTeam(teamId: TeamId): Promise<readonly ScheduleCursor[]>;
+
   save(cursor: ScheduleCursor): Promise<void>;
+
+  remove(cursor: ScheduleCursor): Promise<void>;
 }

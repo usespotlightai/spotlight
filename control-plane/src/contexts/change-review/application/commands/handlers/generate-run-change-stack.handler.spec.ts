@@ -6,6 +6,7 @@ import {
   type CheckingPlan,
   CheckRequest,
 } from '@change-review/domain/value-objects/check-request.vo';
+import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
@@ -39,7 +40,6 @@ const generating = (
       isolated: over.trial === true,
       checkouts: 1,
     }),
-    wasClaimedBy: async () => over.claimed !== false,
     teamOfRun: async () => TeamId.of('team_1'),
     reasoning: async () => null,
     task: async () => null,
@@ -47,9 +47,13 @@ const generating = (
   } satisfies WorkPort;
 
   return {
-    handler: new GenerateRunChangeStackHandler(work, {
-      begin,
-    } as unknown as GenerateChangeStack),
+    handler: new GenerateRunChangeStackHandler(
+      work,
+      {
+        claimedBy: async () => over.claimed !== false,
+      } as unknown as RunLeasesPort,
+      { begin } as unknown as GenerateChangeStack,
+    ),
     begin,
   };
 };

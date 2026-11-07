@@ -7,7 +7,6 @@ import {
   brokenHook,
   clock,
   done,
-  EVENT,
   failed,
   hookNamed,
   logger,
@@ -15,9 +14,15 @@ import {
   runtimeOf,
   stepsOf,
   TASK,
+  USING,
 } from '@integrations/application/services/hook-firings.fake-spec';
 import { RunBeforeHooks } from '@integrations/application/services/run-before-hooks.service';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
+import { runStarting } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const ALLOWED = HookDecision.allowed();
@@ -42,6 +47,9 @@ const setUp = (
       { generate: () => `id_${++ids}` },
       clock,
       logger(),
+      {
+        currentOf: async (runId: RunId) => HookRunAttempt.of(runId, 2),
+      },
     ),
   };
 };
@@ -52,11 +60,9 @@ describe('RunBeforeHooks', () => {
       done(request.step),
     );
 
-    await expect(before.decide(TASK, 'tool.using', EVENT)).resolves.toEqual(
-      ALLOWED,
-    );
+    await expect(before.decide(TASK, USING)).resolves.toEqual(ALLOWED);
     expect(calls.record).toHaveBeenCalledWith(
-      'run_1',
+      HookRunAttempt.of(RunId.of('run_1'), 2),
       expect.objectContaining({ step: 'tell' }),
     );
   });
@@ -67,7 +73,7 @@ describe('RunBeforeHooks', () => {
       denyReason: 'the migration drops a column in use',
     }));
 
-    await expect(before.decide(TASK, 'tool.using', EVENT)).resolves.toEqual(
+    await expect(before.decide(TASK, USING)).resolves.toEqual(
       HookDecision.denied(
         'Hook dba denied the event. Reason: the migration drops a column in use',
       ),
@@ -81,7 +87,7 @@ describe('RunBeforeHooks', () => {
         failed('check', 'could not reach https://dba.example.com: timed out'),
     );
 
-    await expect(before.decide(TASK, 'tool.using', EVENT)).resolves.toEqual(
+    await expect(before.decide(TASK, USING)).resolves.toEqual(
       HookDecision.denied(
         'Hook dba failed at step check and blocks on failure. Reason: could not reach https://dba.example.com: timed out',
       ),
@@ -98,16 +104,14 @@ describe('RunBeforeHooks', () => {
     );
     const continuing = setUp([hookNamed('audit', ['check'])], throwing);
 
-    await expect(
-      blocking.before.decide(TASK, 'tool.using', EVENT),
-    ).resolves.toEqual(
+    await expect(blocking.before.decide(TASK, USING)).resolves.toEqual(
       HookDecision.denied(
         'Hook dba failed at step check and blocks on failure. Reason: the callback token could not be issued',
       ),
     );
-    await expect(
-      continuing.before.decide(TASK, 'tool.using', EVENT),
-    ).resolves.toEqual(ALLOWED);
+    await expect(continuing.before.decide(TASK, USING)).resolves.toEqual(
+      ALLOWED,
+    );
   });
 
   it('shares one minute across every hook before an event when no deadline is given', async () => {
@@ -120,7 +124,7 @@ describe('RunBeforeHooks', () => {
       },
     );
 
-    await before.decide(TASK, 'tool.using', EVENT);
+    await before.decide(TASK, USING);
 
     expect(deadlines).toEqual([new Date(NOW.getTime() + 30_000)]);
   });
@@ -129,16 +133,14 @@ describe('RunBeforeHooks', () => {
     const blocking = setUp([brokenHook('dba', true)], () => done('check'));
     const continuing = setUp([brokenHook('dba', false)], () => done('check'));
 
-    await expect(
-      blocking.before.decide(TASK, 'tool.using', EVENT),
-    ).resolves.toEqual(
+    await expect(blocking.before.decide(TASK, USING)).resolves.toEqual(
       HookDecision.denied(
         'Hook dba is broken and blocks on failure. Reason: when No such key: gone',
       ),
     );
-    await expect(
-      continuing.before.decide(TASK, 'tool.using', EVENT),
-    ).resolves.toEqual(ALLOWED);
+    await expect(continuing.before.decide(TASK, USING)).resolves.toEqual(
+      ALLOWED,
+    );
     expect(continuing.take).not.toHaveBeenCalled();
   });
 
@@ -153,7 +155,7 @@ describe('RunBeforeHooks', () => {
     );
     const until = new Date(NOW.getTime() + 3_000);
 
-    await before.decide(TASK, 'run.starting', {}, until);
+    await before.decide(TASK, runStarting(), until);
 
     expect(deadlines).toEqual([until]);
   });
@@ -164,9 +166,7 @@ describe('RunBeforeHooks', () => {
       () => failed('first'),
     );
 
-    await expect(before.decide(TASK, 'tool.using', EVENT)).resolves.toEqual(
-      ALLOWED,
-    );
+    await expect(before.decide(TASK, USING)).resolves.toEqual(ALLOWED);
     expect(take).toHaveBeenCalledTimes(1);
   });
 
@@ -177,7 +177,7 @@ describe('RunBeforeHooks', () => {
       () => false,
     );
 
-    await before.decide(TASK, 'tool.using', EVENT);
+    await before.decide(TASK, USING);
 
     expect(take).not.toHaveBeenCalled();
   });
@@ -189,7 +189,7 @@ describe('RunBeforeHooks', () => {
       return done(request.step, 'out');
     });
 
-    await before.decide(TASK, 'tool.using', EVENT);
+    await before.decide(TASK, USING);
 
     expect(seen).toEqual([0, 1]);
   });
@@ -201,12 +201,16 @@ describe('RunBeforeHooks', () => {
       return done('a');
     });
 
-    await before.decide(TASK, 'tool.using', EVENT);
+    await before.decide(TASK, USING);
 
     expect(requests[0]).toMatchObject({
       waitMode: 'wait',
       resuming: null,
-      instance: { occurrence: 'id_1', firing: null, event: EVENT },
+      instance: {
+        occurrence: HookOccurrenceKey.of('id_1'),
+        firing: null,
+        event: USING,
+      },
     });
   });
 });

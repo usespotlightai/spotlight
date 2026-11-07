@@ -6,6 +6,7 @@ import {
 } from '@runs/application/commands/workspace-archive.commands';
 import { StoredWorkspaceArchiveHandler } from '@runs/application/queries/handlers/stored-workspace-archive.handler';
 import { StoredWorkspaceArchiveQuery } from '@runs/application/queries/stored-workspace-archive.query';
+import { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import {
   aLeasedRun,
   holding,
@@ -34,23 +35,22 @@ const setUp = (...runs: Run[]) => {
   let issued = 0;
   const ids = { generate: () => `archive_${++issued}` };
   const clock = { now: () => GRANTED_AT, sleep: async () => {} };
+  const grants = new ArchiveGrants(
+    archives,
+    store,
+    holding('work'),
+    ids,
+    clock,
+  );
 
   return {
     archives,
     store,
-    grant: new GrantWorkspaceArchiveHandler(
-      runRepository,
-      archives,
-      store,
-      holding('work'),
-      ids,
-      clock,
-    ),
+    grant: new GrantWorkspaceArchiveHandler(runRepository, grants),
     complete: new CompleteWorkspaceArchiveHandler(
       runRepository,
       archives,
-      store,
-      clock,
+      grants,
     ),
     read: new StoredWorkspaceArchiveHandler(runRepository, archives, store),
   };

@@ -31,6 +31,7 @@ import {
 import { returnPathOf } from '@integrations/infrastructure/integrations/return-to';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const NONCE_BYTES = 32;
 
@@ -78,9 +79,9 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     input: OAuth2LinkInput,
     client: OAuth2Client,
   ): Promise<OAuth2Start | null> {
-    const teamId = TeamId.of(input.teamId);
-
-    return this.onBehalfOf(teamId, () => this.begun(teamId, input, client));
+    return this.onBehalfOf(input.teamId, () =>
+      this.begun(input.teamId, input, client),
+    );
   }
 
   private oauth2Of(teamId: TeamId, integration: string) {
@@ -98,7 +99,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     input: OAuth2LinkInput,
     client: OAuth2Client,
   ): Promise<OAuth2Start | null> {
-    const oauth2 = await this.oauth2Of(teamId, input.integration);
+    const oauth2 = await this.oauth2Of(teamId, input.integration.value);
 
     if (!oauth2) {
       return null;
@@ -106,9 +107,9 @@ export class OAuth2Linking implements OAuth2LinkingPort {
 
     const nonce = randomBytes(NONCE_BYTES).toString('base64url');
     const signed = this.state.sign({
-      teamId: input.teamId,
-      integration: input.integration,
-      by: input.by,
+      teamId: input.teamId.value,
+      integration: input.integration.value,
+      by: input.by.value,
       owner: input.owner,
       returnTo: returnPathOf(input.returnTo),
       nonce,
@@ -140,7 +141,7 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       !intent ||
       !returned.nonce ||
       !sameNonce(returned.nonce, intent.nonce) ||
-      returned.viewerId !== intent.by
+      returned.viewerId?.value !== intent.by
     ) {
       return null;
     }
@@ -199,9 +200,9 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     }
 
     return {
-      teamId: intent.teamId,
-      integration: intent.integration,
-      by: intent.by,
+      teamId,
+      integration: IntegrationKey.of(intent.integration),
+      by: UserId.of(intent.by),
       owner: intent.owner,
       returnTo: intent.returnTo,
       tokens,
@@ -214,27 +215,27 @@ export class OAuth2Linking implements OAuth2LinkingPort {
   ): Promise<T | null> {
     const team = await this.teams.find(teamId);
 
-    return team ? this.scope.within(team.workspaceId.value, work) : null;
+    return team ? this.scope.within(team.workspaceId, work) : null;
   }
 
   async landingFor(
-    teamId: string,
-    integration: string,
+    teamId: TeamId,
+    integration: IntegrationKey,
     returnTo: string | null,
   ): Promise<string> {
     const landing = returnPathOf(returnTo);
 
     if (landing) {
-      return `${this.base}${landing}?connected=${encodeURIComponent(integration)}`;
+      return `${this.base}${landing}?connected=${encodeURIComponent(integration.value)}`;
     }
 
-    const team = await this.teams.find(TeamId.of(teamId));
+    const team = await this.teams.find(teamId);
     const slug = team ? await this.workspaces.slugOf(team.workspaceId) : null;
 
     const where = slug
-      ? `${this.base}/w/${slug}/settings/team/${teamId}/integrations`
+      ? `${this.base}/w/${slug}/settings/team/${teamId.value}/integrations`
       : `${this.base}`;
 
-    return `${where}?connected=${encodeURIComponent(integration)}`;
+    return `${where}?connected=${encodeURIComponent(integration.value)}`;
   }
 }

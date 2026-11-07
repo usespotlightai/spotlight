@@ -4,6 +4,7 @@ import type { ConnectionOwnerKind } from '@integrations/domain/value-objects/con
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const OAUTH2_LINKING = Symbol('OAUTH2_LINKING');
 
@@ -17,13 +18,13 @@ export interface OAuth2Returned {
   readonly state: string;
   readonly code: string;
   readonly nonce: string | null;
-  readonly viewerId: string | null;
+  readonly viewerId: UserId | null;
 }
 
 export interface OAuth2LinkInput {
-  readonly teamId: string;
-  readonly integration: string;
-  readonly by: string;
+  readonly teamId: TeamId;
+  readonly integration: IntegrationKey;
+  readonly by: UserId;
   readonly owner: ConnectionOwnerKind;
   readonly returnTo: string | null;
 }
@@ -51,8 +52,8 @@ export interface OAuth2LinkingPort {
   authorized(returned: OAuth2Returned): Promise<OAuth2Authorized | null>;
 
   landingFor(
-    teamId: string,
-    integration: string,
+    teamId: TeamId,
+    integration: IntegrationKey,
     returnTo: string | null,
   ): Promise<string>;
 }

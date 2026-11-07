@@ -15,7 +15,11 @@ export class StopChatHandler
 
   async execute(command: StopChatCommand): Promise<void> {
     try {
-      const chat = await this.chats.inTeam(command.teamId, command.chatId);
+      const chat = await this.chats.openedBy(
+        command.teamId,
+        command.chatId,
+        command.stoppedBy,
+      );
 
       await this.runs.requestStop(
         chat.stoppableBy(UserId.of(command.stoppedBy)),

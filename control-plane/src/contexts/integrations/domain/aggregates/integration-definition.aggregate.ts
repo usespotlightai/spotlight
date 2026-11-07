@@ -10,6 +10,7 @@ import type { DefinitionDocument } from '@integrations/domain/value-objects/defi
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import { SpecRefreshDetail } from '@integrations/domain/value-objects/spec-refresh-detail.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -38,6 +39,7 @@ interface State extends Props {
 
 interface Compiled {
   readonly integration: Integration;
+  readonly offered: OfferedTools;
   readonly document: DefinitionDocument;
   readonly spec: ApiSpec | null;
 }
@@ -60,7 +62,7 @@ const guardRead = (
   reading: SpecFetchResult | null,
 ): void => {
   const integration = compiled.integration.key.value;
-  const generatedFrom = compiled.integration.generatedFrom;
+  const generatedFrom = compiled.offered.generatedFrom;
 
   if (!compiled.spec) {
     if (reading || generatedFrom) {
@@ -89,7 +91,7 @@ const guardRead = (
 };
 
 const providedBy = (compiled: Compiled): readonly ToolName[] =>
-  compiled.integration.tools.map((each) => each.tool);
+  compiled.offered.all;
 
 const without = (
   tools: readonly ToolName[],
@@ -189,7 +191,7 @@ export class IntegrationDefinition extends EventRecorder {
 
     const tools = providedBy(compiled);
 
-    this.guardUnused(enabled, without(this.tools, tools));
+    this.refuseSeenToolUses(enabled, without(this.tools, tools));
 
     const updated = this.with({
       document: compiled.document,
@@ -214,12 +216,7 @@ export class IntegrationDefinition extends EventRecorder {
   changesSpec(reading: SpecFetchResult): boolean {
     const current = this.state.reading;
 
-    return (
-      !current ||
-      current.fingerprint !== reading.fingerprint ||
-      (current.hash?.value ?? null) !== (reading.hash?.value ?? null) ||
-      current.problem !== reading.problem
-    );
+    return !current || !current.sameReadingAs(reading);
   }
 
   refreshSpec(
@@ -295,7 +292,7 @@ export class IntegrationDefinition extends EventRecorder {
 
   delete(enabled: ToolUses, by: ChangeActor): IntegrationDefinition {
     this.guardLive();
-    this.guardUnused(enabled, this.tools);
+    this.refuseSeenToolUses(enabled, this.tools);
 
     const deleted = this.with({ deleted: true });
 
@@ -389,7 +386,10 @@ export class IntegrationDefinition extends EventRecorder {
     }
   }
 
-  private guardUnused(enabled: ToolUses, removed: readonly ToolName[]): void {
+  private refuseSeenToolUses(
+    enabled: ToolUses,
+    removed: readonly ToolName[],
+  ): void {
     const orphaned = enabled.ofAny(removed);
 
     if (!orphaned.isEmpty) {

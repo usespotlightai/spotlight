@@ -1,5 +1,4 @@
-import { readyProfile } from '@runs/domain/value-objects/ready-profile';
-import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
+import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 export type PermissionDecisionShape = 'allow' | 'ask' | 'deny';
@@ -54,6 +53,3 @@ export interface ReadyProfileShape extends Omit<HarnessProfileShape, 'key'> {
   readonly key: ProfileKey;
   readonly injectedSecrets: readonly SecretName[];
 }
-
-export const readyProfileOf = (shape: HarnessProfileShape): ReadyProfileShape =>
-  readyProfile(ProfileKey.of(shape.key), shape);

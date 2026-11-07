@@ -137,7 +137,7 @@ const waiting = () => {
     stackId: ready.id,
     runId: ready.runId,
     taskId: null,
-    teamId: null,
+    teamId: TeamId.of('team_1'),
     trial: false,
     workspaceId: ready.workspaceId,
     request: CheckRequest.of('npx tsc --noEmit', null),
@@ -179,7 +179,7 @@ const rehydrated = ({
     id: StackCheckId.of(ChangeStackId.of('stack-1'), recheck),
     runId: RunId.of('run-1'),
     taskId: null,
-    teamId: null,
+    teamId: TeamId.of('team_1'),
     trial: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     request: CheckRequest.of('npx tsc --noEmit', null),
@@ -489,7 +489,7 @@ describe('StackCheck', () => {
         stackId: ChangeStackId.of('stack-1'),
         runId: RunId.of('run-1'),
         taskId: null,
-        teamId: null,
+        teamId: TeamId.of('team_1'),
         trial: false,
         workspaceId: WorkspaceId.of('workspace-1'),
         request: CheckRequest.of(
@@ -774,25 +774,30 @@ describe('StackCheck', () => {
 
   describe('storing why it was skipped', () => {
     it('takes back a skip no runner could have reported', () => {
-      expect(parseStoredSkip('provision-failed', '5 attempts')).toEqual({
+      expect(
+        parseStoredSkip('provision-failed', 'http-error: answered 503', 5),
+      ).toEqual({
         code: 'provision-failed',
-        detail: '5 attempts',
+        detail: 'http-error: answered 503',
+        attempts: 5,
       });
     });
 
     it('takes back a skip for a check nobody claimed in time', () => {
-      expect(parseStoredSkip('queue-timeout', null)).toEqual({
+      expect(parseStoredSkip('queue-timeout', null, null)).toEqual({
         code: 'queue-timeout',
         detail: null,
       });
     });
 
     it('takes back a reported skip as a runner reported it', () => {
-      expect(parseStoredSkip('workspace-failed', '  disk full  ')).toEqual({
+      expect(
+        parseStoredSkip('workspace-failed', '  disk full  ', null),
+      ).toEqual({
         code: 'workspace-failed',
         detail: 'disk full',
       });
-      expect(() => parseStoredSkip('made-up', null)).toThrow(
+      expect(() => parseStoredSkip('made-up', null, null)).toThrow(
         InvalidStackCheckError,
       );
     });
@@ -806,7 +811,8 @@ describe('StackCheck', () => {
     it('says how many attempts failed and what the last one was', () => {
       expect(provisionFailed(HTTP_ERROR, 5)).toEqual({
         code: 'provision-failed',
-        detail: 'Attempts: 5\nLast failure: http-error: answered 503',
+        detail: 'http-error: answered 503',
+        attempts: 5,
       });
     });
   });
@@ -963,7 +969,8 @@ describe('StackCheck', () => {
       expect(skipped.status).toBe('skipped');
       expect(skipped.skippedAt(LATER)).toEqual({
         code: 'provision-failed',
-        detail: 'Attempts: 5\nLast failure: http-error: answered 503',
+        detail: 'http-error: answered 503',
+        attempts: 5,
       });
       expect(kinds(skipped)).toEqual([
         'stack-check.reservation-dropped',
@@ -1014,7 +1021,8 @@ describe('StackCheck', () => {
     it('comes back skipped as provision-failed', () => {
       const skip = parseStoredSkip(
         'provision-failed',
-        'Attempts: 5\nLast failure: http-error: answered 503',
+        'http-error: answered 503',
+        5,
       );
       const check = rehydrated({
         status: 'skipped',
@@ -1144,7 +1152,7 @@ describe('StackCheck, rechecked', () => {
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
-      teamId: null,
+      teamId: TeamId.of('team_1'),
       trial: true,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),

@@ -25,7 +25,7 @@ export class HarnessResponseDto {
 
   @ApiProperty({
     example: 'claude-sonnet-5',
-    description: 'Which model a station runs on where it names none of its own',
+    description: 'Which model a run uses where its order names none of its own',
   })
   readonly defaultModel: string;
 

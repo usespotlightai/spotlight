@@ -27,7 +27,6 @@ import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.err
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import { ChatAccess } from '@work/domain/services/chat-access';
 import { chatPlacement } from '@work/domain/services/chat-placement';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -37,6 +36,7 @@ import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
+import type { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -48,6 +48,7 @@ import type { TargetStation } from '@work/domain/value-objects/target-station.vo
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
+import { WorkspaceRelease } from '@work/domain/value-objects/workspace-release.vo';
 
 export interface NumberedProposal {
   readonly number: number;
@@ -182,6 +183,25 @@ export class Chat extends EventRecorder {
       throw new InconsistentStateError('chat', 'has a gap in its messages');
     }
 
+    if (input.version < 0) {
+      throw new InconsistentStateError('chat', 'has a negative version');
+    }
+
+    if (
+      Chat.distinct(input.repositories).length !== input.repositories.length
+    ) {
+      throw new InconsistentStateError('chat', 'names a repository twice');
+    }
+
+    const setUpIn = input.setup?.repository ?? null;
+
+    if (setUpIn && !input.repositories.some((each) => each.equals(setUpIn))) {
+      throw new InconsistentStateError(
+        'chat',
+        'sets up a repository it does not work in',
+      );
+    }
+
     return new Chat(
       input.id,
       input.workspaceId,
@@ -248,14 +268,18 @@ export class Chat extends EventRecorder {
     return this.messages.filter((message) => message.unacknowledged);
   }
 
+  pendingFor(runId: RunId): readonly ChatMessage[] {
+    return this.hasCurrentRun(runId) ? this.unacknowledged : [];
+  }
+
   toolRefusal(declared: DeclaredTool): ChatRefusal | null {
     return declared.approval
       ? { kind: 'approval-needs-a-task', tool: declared.tool }
       : null;
   }
 
-  connectionAskRefusal(integrationName: string): ChatRefusal {
-    return { kind: 'connection-needs-a-task', integrationName };
+  connectionAskRefusal(providedBy: string): ChatRefusal {
+    return { kind: 'connection-needs-a-task', providedBy };
   }
 
   get allAttachments(): readonly Attachment[] {
@@ -356,6 +380,20 @@ export class Chat extends EventRecorder {
     }
 
     return setup;
+  }
+
+  ciSetUp(ci: CiSetup): Chat {
+    if (!this.setup) {
+      throw new NotASetupChatError(this.id.value);
+    }
+
+    if (this.setup.ci) {
+      throw new InvalidChatTransitionError(
+        `Chat ${this.id.value} has set up CI already.`,
+      );
+    }
+
+    return this.with({ setup: this.setup.withCi(ci) });
   }
 
   openSetup(runId: RunId, pullRequest: PullRequestUrl, at: Date): Chat {
@@ -607,8 +645,14 @@ export class Chat extends EventRecorder {
     }
   }
 
+  get workspaceRelease(): WorkspaceRelease {
+    return this.sessionId
+      ? WorkspaceRelease.held()
+      : WorkspaceRelease.since(this.createdAt);
+  }
+
   isStartedBy(by: UserId): boolean {
-    return ChatAccess.readableBy(this.startedBy, by);
+    return this.startedBy.equals(by);
   }
 
   private assertStarter(by: UserId): void {

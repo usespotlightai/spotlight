@@ -7,8 +7,7 @@ import {
 import type { TaskChangeShapeRepository } from '@insights/domain/repositories/task-change-shape.repository';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface ChangeShaped {
@@ -27,19 +26,21 @@ export class RecordChangeShape {
   ) {}
 
   async shaped(shaped: ChangeShaped): Promise<void> {
-    const run = shaped.taskId ? await this.work.endedRun(shaped.runId) : null;
+    const run = shaped.taskId
+      ? await this.work.endedRun(RunId.of(shaped.runId))
+      : null;
 
     if (
       !run ||
-      run.workspaceId !== shaped.workspaceId ||
-      run.taskId !== shaped.taskId
+      run.workspaceId.value !== shaped.workspaceId ||
+      run.taskId.value !== shaped.taskId
     ) {
       return;
     }
 
-    const taskId = TaskId.of(run.taskId);
+    const taskId = run.taskId;
     const workspaceId = WorkspaceId.of(shaped.workspaceId);
-    const teamId = TeamId.of(run.teamId);
+    const teamId = run.teamId;
 
     await this.transaction.inTransaction(() =>
       this.recorder.record(this.shapes, {

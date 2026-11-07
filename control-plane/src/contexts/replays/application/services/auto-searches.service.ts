@@ -1,8 +1,8 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
 import type { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import type { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { resultPendingAt } from '@replays/application/services/result-pending';
 import type { StartSearch } from '@replays/application/services/start-search.service';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { MonthlyCeilingReachedError } from '@replays/domain/exceptions/monthly-ceiling-reached.error';
@@ -47,7 +47,7 @@ export class AutoSearches implements PendingJobsPort {
     private readonly refreshing: RefreshReplaySets,
     private readonly readiness: CheckSearchReadiness,
     private readonly starting: StartSearch,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
     private readonly logger: LoggerPort,
@@ -96,7 +96,7 @@ export class AutoSearches implements PendingJobsPort {
     }
 
     const { lineId, stationId } = set.station;
-    const live = await this.work.live(lineId, stationId);
+    const live = await this.configs.live(lineId, stationId);
     const policy = live?.search ?? null;
     const verdict = dueVerdict({
       policy,

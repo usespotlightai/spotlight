@@ -1,6 +1,7 @@
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
+  claimer,
   HandoverReport,
   orderedFor,
   Run,
@@ -41,7 +42,7 @@ const suspended = () =>
       resume: {},
     }),
   })
-    .claim(RUNNER, NOW)
+    .claim(claimer(RUNNER), NOW)
     .reportTurn(
       RUNNER,
       RunOutcome.of({ exitCode: 0, failed: false }),
@@ -87,11 +88,11 @@ describe('TakeUpAnsweredRun', () => {
 
     expect(current().state).toBe('queued');
     expect(current().attempt).toBe(2);
-    expect(current().keep(1)).toBe(current());
+    expect(current().keep(1, NOW)).toBe(current());
   });
 
   it('resumes a kept turn on an answer that was to no turn, as before', async () => {
-    const { handler, current } = takingUp(suspended().keep(1));
+    const { handler, current } = takingUp(suspended().keep(1, NOW));
 
     await handler.on(answered(null));
 
@@ -108,7 +109,7 @@ describe('TakeUpAnsweredRun', () => {
   });
 
   it('resumes nothing for an answer to an older turn (R7c)', async () => {
-    const run = suspended().keep(1).resumed(1, 'answered', [], NOW);
+    const run = suspended().keep(1, NOW).resumed(1, 'answered', [], NOW);
     const { handler, current } = takingUp(run);
 
     await handler.on(answered(AwaitedTurn.of(RUN, 1)));
@@ -117,7 +118,7 @@ describe('TakeUpAnsweredRun', () => {
   });
 
   it('leaves the run alone while its task does not take it up', async () => {
-    const run = suspended().keep(1);
+    const run = suspended().keep(1, NOW);
     const { handler, current } = takingUp(run, false);
 
     await handler.on(answered(AwaitedTurn.of(RUN, 1)));

@@ -11,8 +11,7 @@ import type { OnboardingQuery } from '@work/application/queries/onboarding.query
 import { shownFor } from '@work/application/rendering/setup-steps';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';
-import { ChatAccess } from '@work/domain/services/chat-access';
-import { mayStartSetup } from '@work/domain/services/setup-list';
+import { SetupAdmission } from '@work/domain/services/setup-admission';
 import {
   type Provisioning,
   provisioningOf,
@@ -59,13 +58,16 @@ export class OnboardingHandler
       return {
         provisioning: PROVISIONING_NAME[provisioning],
         steps: shownFor(setup.state),
-        canSetUp: mayStartSetup(setup.state, setup.hasEgressCapableRunner),
+        canSetUp: SetupAdmission.readyIn({
+          codeReachable: setup.state.connectedToGitHub,
+          egressAvailable: setup.hasEgressCapableRunner,
+        }),
         viewerIsAdmin,
         setupChat: chat && {
-          id: ChatAccess.readableBy(
-            UserId.of(chat.startedById),
+          id: (await this.access.opensChat(
+            { startedBy: UserId.of(chat.startedById), teamId },
             UserId.of(query.viewerId),
-          )
+          ))
             ? chat.id
             : null,
           repository: chat.repository,

@@ -1,8 +1,8 @@
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import { RenewLeaseHandler } from '@runs/application/commands/handlers/renew-lease.handler';
 import { RenewLeaseCommand } from '@runs/application/commands/runner.commands';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
@@ -29,7 +29,7 @@ const working = () =>
       handover: { options: [], noteLimit: 0 },
       resume: {},
     }),
-  }).claim(RUNNER, NOW);
+  }).claim(claimer(RUNNER), NOW);
 
 const renewing = (reads: Run[], conflictsFirst = false) => {
   const saved: Run[] = [];
@@ -47,7 +47,7 @@ const renewing = (reads: Run[], conflictsFirst = false) => {
         saved.push(run);
       },
     } as unknown as RunRepository,
-    { heartbeat: async () => true } as unknown as RunnerHeartbeatsPort,
+    { claimantOf: async () => true } as unknown as RunnerClaimantsPort,
     { now: () => NOW, sleep: async () => {} },
   );
 

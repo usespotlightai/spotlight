@@ -15,9 +15,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';

@@ -14,7 +14,6 @@ import {
   checkoutsOf,
   repositoriesForTask,
   repositoryForTaskNamed,
-  runCheckoutsFor,
 } from '@work/domain/services/task-checkouts';
 import {
   lineMapOf,
@@ -125,27 +124,30 @@ describe('the repositories a task works on', () => {
     ).toBeNull();
   });
 
-  it('are sent to a runner through Spotlight’s git proxy, never by a host address', () => {
+  it('check out the task branch, or the reviewed head with its commits to diff', () => {
     const task = added();
     const review = reviewing('https://github.com/acme/api/pull/42');
 
-    expect(runCheckoutsFor(task, LINE)).toEqual([
+    expect(checkoutsOf(task, LINE)).toEqual([
       {
-        remote: 'spotlight:repository',
-        path: 'api',
-        branch: task.branch.value,
+        repository: API,
+        branch: task.branch,
+        ref: null,
+        diffOf: 'worktree',
         setup: 'npm ci',
       },
       {
-        remote: 'spotlight:repository',
-        path: 'web',
-        branch: task.branch.value,
+        repository: WEB,
+        branch: task.branch,
+        ref: null,
+        diffOf: 'worktree',
+        setup: null,
       },
     ]);
-    expect(runCheckoutsFor(review, LINE)).toEqual([
+    expect(checkoutsOf(review, LINE)).toEqual([
       {
-        remote: 'spotlight:repository',
-        path: 'api',
+        repository: API,
+        branch: null,
         ref: 'refs/pull/42/head',
         diffOf: 'commits',
         setup: 'npm ci',

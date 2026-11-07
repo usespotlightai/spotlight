@@ -32,6 +32,7 @@ import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -193,7 +194,7 @@ describe('RunSchedules', () => {
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
     await credentials.injectedFor('https://api.linear.app/digest', [
-      'LINEAR_TOKEN',
+      SecretName.of('LINEAR_TOKEN'),
     ]);
 
     expect(forSpotlight).toHaveBeenCalledWith({

@@ -3,7 +3,6 @@ import type {
   SkillParseResult,
 } from '@configuration/application/ports/skill-compiler.port';
 import { SKILLS } from '@configuration/application/rendering/skill-problems';
-import { SkillMainFileMissingError } from '@configuration/domain/exceptions/skill-main-file-missing.error';
 import { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
 import type { Skill } from '@configuration/domain/value-objects/skill.vo';
 import {
@@ -12,7 +11,6 @@ import {
 } from '@configuration/domain/value-objects/skill-files.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { madeBy, problemsIn } from '@platform/definitions/definition-schema';
-import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
 import { z } from 'zod';
 
 const filePath = z.string().superRefine((path, context) => {
@@ -48,9 +46,7 @@ export class SkillCompiler implements SkillCompilerPort {
   }
 
   skillIn(key: DefinedSkillKey, files: SkillFiles): Skill {
-    if (!(SKILL_FILE in files.fields)) {
-      throw new SkillMainFileMissingError(key.value, SKILL_FILE);
-    }
+    files.guardMainFileOf(key);
 
     return readSkillFolder(key.value, files.entries, 'defined').skill;
   }

@@ -397,6 +397,30 @@ describe('StationSearchSchedule', () => {
     ).toBe(withdrawn);
   });
 
+  it('keeps a task a later step also searched when an earlier step is withdrawn', () => {
+    const first = { ...automatic(), searched: tasks('a'), inSet: tasks('a') };
+    const second = { ...automatic(), searched: tasks('a'), inSet: tasks('a') };
+    const startOf = (searchId: SearchId) => ({
+      kind: 'start' as const,
+      searchId,
+      request: null,
+    });
+    const both = created()
+      .started({ ...first, at: NOW, cooldownMilliseconds: 10 })
+      .started({ ...second, at: later(20), cooldownMilliseconds: 10 });
+
+    const firstGone = both.stepWithdrawn(startOf(first.searchId));
+    expect(firstGone.searchedTasks).toEqual(tasks('a'));
+    expect(
+      firstGone.stepWithdrawn(startOf(second.searchId)).searchedTasks,
+    ).toEqual([]);
+
+    const secondConfirmed = both.stepConfirmed(startOf(second.searchId));
+    expect(
+      secondConfirmed.stepWithdrawn(startOf(first.searchId)).searchedTasks,
+    ).toEqual(tasks('a'));
+  });
+
   it('knows since when its oldest step is pending, and forgets a confirmed one', () => {
     const pending = created()
       .requested(join('a', later(5)))

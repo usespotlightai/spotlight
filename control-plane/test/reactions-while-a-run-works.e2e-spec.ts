@@ -7,7 +7,9 @@ import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { CompleteRunCommand } from '@runs/application/commands/runner.commands';
+import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { ClaimOrder } from '@runs/domain/services/claim-order';
+import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
@@ -154,7 +156,7 @@ const merged = (task: Task) =>
   happens(task, 'github.pull_request.merged', 'The pull request was merged.');
 
 const claimed = async (runId: RunId) => {
-  await runs.save((await runOf(runId)).claim(RUNNER, new Date()));
+  await runs.save((await runOf(runId)).claim(claimer(RUNNER), new Date()));
 };
 
 const endedPassingTo = async (runId: RunId, next: string) => {
@@ -575,7 +577,12 @@ describe('a reply to an interrupted working run (e2e)', () => {
     expect(await awaitingProvision()).not.toContain(next.value);
 
     await runs.save(
-      (await runOf(runId)).complete(RUNNER, RunOutcome.stopped(0)),
+      (await runOf(runId)).complete(
+        RUNNER,
+        RunOutcome.stopped(0),
+        HandoverReport.none(),
+        new Date(),
+      ),
     );
 
     expect(await awaitingProvision()).toContain(next.value);

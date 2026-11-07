@@ -12,6 +12,7 @@ import {
 } from '@runs/application/commands/workspace-archive.commands';
 import { StoredSandboxArchiveHandler } from '@runs/application/queries/handlers/stored-sandbox-archive.handler';
 import { StoredSandboxArchiveQuery } from '@runs/application/queries/stored-workspace-archive.query';
+import { ArchiveGrants } from '@runs/application/services/archive-grants.service';
 import { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
 import {
   aLeasedRun,
@@ -46,33 +47,21 @@ const setUp = (
   let issued = 0;
   const ids = { generate: () => `archive_${++issued}` };
   const clock = { now: () => GRANTED_AT, sleep: async () => {} };
+  const grants = new ArchiveGrants(
+    archives,
+    store,
+    holding('work'),
+    ids,
+    clock,
+  );
 
   return {
     archives,
     store,
-    grant: new GrantSandboxArchiveHandler(
-      sandboxes,
-      archives,
-      store,
-      holding('work'),
-      ids,
-      clock,
-    ),
-    complete: new CompleteSandboxArchiveHandler(
-      sandboxes,
-      archives,
-      store,
-      clock,
-    ),
+    grant: new GrantSandboxArchiveHandler(sandboxes, grants),
+    complete: new CompleteSandboxArchiveHandler(sandboxes, archives, grants),
     read: new StoredSandboxArchiveHandler(sandboxes, archives, store),
-    grantForRun: new GrantWorkspaceArchiveHandler(
-      runsOf(aLeasedRun()),
-      archives,
-      store,
-      holding('work'),
-      ids,
-      clock,
-    ),
+    grantForRun: new GrantWorkspaceArchiveHandler(runsOf(aLeasedRun()), grants),
   };
 };
 

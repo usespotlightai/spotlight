@@ -1,7 +1,7 @@
 import type {
+  LinesPort,
   StationView,
-  WorkPort,
-} from '@replays/application/ports/work.port';
+} from '@replays/application/ports/lines.port';
 import { ReflectionBriefing } from '@replays/application/rendering/reflection-briefing';
 import { SearchBriefing } from '@replays/application/rendering/search-briefing';
 import type {
@@ -48,7 +48,7 @@ export class DispatchSearchIteration {
     private readonly candidates: CandidateRepository,
     private readonly replays: ReplayRepository,
     private readonly healths: SetHealths,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly searchRuns: SearchRunDispatching,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -139,7 +139,7 @@ export class DispatchSearchIteration {
   }
 
   private stationOf(search: Search): Promise<StationView | null> {
-    return this.work.station(search.station.lineId, search.station.stationId);
+    return this.lines.station(search.station.lineId, search.station.stationId);
   }
 
   private async briefingFor(

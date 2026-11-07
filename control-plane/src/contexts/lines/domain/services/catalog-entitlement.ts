@@ -1,13 +1,15 @@
 import type { LinePlan } from '@lines/domain/value-objects/line-plan.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
+import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 
-export type CataloguedField = 'tools' | 'skills';
-
-export interface CataloguedItem {
-  readonly id: string;
-  readonly field: CataloguedField;
-  readonly at: FieldPath;
-}
+export type CataloguedItem =
+  | { readonly field: 'tools'; readonly item: Tool; readonly at: FieldPath }
+  | {
+      readonly field: 'skills';
+      readonly item: SkillKey;
+      readonly at: FieldPath;
+    };
 
 export interface Entitlement {
   readonly skills: readonly {
@@ -23,30 +25,30 @@ export interface DeniedItem {
 }
 
 export const cataloguedIn = (plan: LinePlan): CataloguedItem[] =>
-  plan.stations.flatMap((station, at) => {
-    const catalogued = {
-      tools: station.tools
-        .filter((each) => each.origin === 'catalog')
-        .map((each) => each.value),
-      skills: station.skills
-        .filter((each) => each.catalogued)
-        .map((each) => each.value),
-    };
-
-    return (['tools', 'skills'] as const).flatMap((field) =>
-      [...station[field]].flatMap((each, index) =>
-        catalogued[field].includes(each.value)
-          ? [
-              {
-                id: each.value,
-                field,
-                at: FieldPath.of(['stations', at, field, index]),
-              },
-            ]
-          : [],
-      ),
-    );
-  });
+  plan.stations.flatMap((station, at): CataloguedItem[] => [
+    ...station.tools.flatMap((item, index) =>
+      item.origin === 'catalog'
+        ? [
+            {
+              field: 'tools' as const,
+              item,
+              at: FieldPath.of(['stations', at, 'tools', index]),
+            },
+          ]
+        : [],
+    ),
+    ...station.skills.flatMap((item, index) =>
+      item.catalogued
+        ? [
+            {
+              field: 'skills' as const,
+              item,
+              at: FieldPath.of(['stations', at, 'skills', index]),
+            },
+          ]
+        : [],
+    ),
+  ]);
 
 export const deniedIn = (
   items: readonly CataloguedItem[],
@@ -61,6 +63,6 @@ export const deniedIn = (
     ];
 
     return items
-      .filter((each) => denied.includes(each.id))
+      .filter((each) => denied.includes(each.item.value))
       .map((item) => ({ item, because: denial.because }));
   });

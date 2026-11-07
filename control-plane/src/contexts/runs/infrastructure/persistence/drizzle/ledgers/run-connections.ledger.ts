@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type { RunConnectionLedgerPort } from '@runs/application/ports/run-connection-ledger.port';
 import type {
   ConnectionOfRun,
   RecordedConnection,
+  RunConnectionContract,
   RunConnectionsPort,
 } from '@runs/application/ports/run-connections.port';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
@@ -22,8 +24,23 @@ import {
 
 export const MAX_ERRORS_PER_RUN = 500;
 
+const contractOf = (connection: RunConnection): RunConnectionContract => ({
+  host: connection.host,
+  port: connection.port,
+  bytesOut: connection.bytesOut,
+  bytesIn: connection.bytesIn,
+  ms: connection.ms,
+  outcome: connection.outcome,
+  status: connection.status,
+  reason: connection.reason,
+  error: connection.error,
+  at: connection.at,
+});
+
 @Injectable()
-export class DrizzleRunConnections implements RunConnectionsPort {
+export class DrizzleRunConnections
+  implements RunConnectionsPort, RunConnectionLedgerPort
+{
   constructor(private readonly context: DrizzleContext) {}
 
   async record(
@@ -61,7 +78,7 @@ export class DrizzleRunConnections implements RunConnectionsPort {
 
     return rows.map((row) => ({
       attempt: row.attempt,
-      connection: RunConnection.of(row),
+      connection: contractOf(RunConnection.of(row)),
     }));
   }
 
@@ -100,7 +117,7 @@ export class DrizzleRunConnections implements RunConnectionsPort {
     return rows.map((row) => ({
       runId: row.runId,
       attempt: row.attempt,
-      connection: RunConnection.of(row),
+      connection: contractOf(RunConnection.of(row)),
     }));
   }
 

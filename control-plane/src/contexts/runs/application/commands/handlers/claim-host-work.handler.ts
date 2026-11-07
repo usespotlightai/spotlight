@@ -1,8 +1,8 @@
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type {
-  RunnerHeartbeat,
-  RunnerHeartbeatsPort,
-} from '@runners/application/ports/runner-heartbeats.port';
+  RunnerClaimant,
+  RunnerClaimantsPort,
+} from '@runners/application/ports/runner-claimants.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type {
   SandboxesPort,
@@ -36,13 +36,13 @@ const CLAIM_WINDOW_MS = 60_000;
 
 const claimantOf = (
   runner: RunnerId,
-  heartbeat: RunnerHeartbeat,
+  registered: RunnerClaimant,
   sandbox: SandboxRouting,
 ): Claimant => ({
   runner,
-  workspaceId: heartbeat.workspaceId,
-  harnesses: heartbeat.harnesses,
-  offer: heartbeat.offer,
+  workspaceId: registered.workspaceId,
+  harnesses: registered.harnesses,
+  offer: registered.offer,
   claims: 'any',
   sandbox,
 });
@@ -63,7 +63,7 @@ export class ClaimHostWorkHandler
   constructor(
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly runners: RunnersPort,
-    private readonly heartbeats: RunnerHeartbeatsPort,
+    private readonly claimants: RunnerClaimantsPort,
     private readonly runs: RunRepository,
     private readonly claims: RunClaims,
     private readonly checks: CheckWorkPort,
@@ -171,16 +171,19 @@ export class ClaimHostWorkHandler
     host: string,
     until: Date,
   ): Promise<Claimed | null> {
-    const heartbeat = await this.heartbeats.heartbeat(runner, this.clock.now());
+    const registered = await this.claimants.claimantOf(
+      runner,
+      this.clock.now(),
+    );
 
-    if (!heartbeat) {
+    if (!registered) {
       return null;
     }
 
     const found = await this.polls.polled<Claimed | 'requeued'>(async () => {
       const requested = await this.claimedForRequested(
         runner,
-        heartbeat,
+        registered,
         host,
         until,
       );
@@ -190,11 +193,11 @@ export class ClaimHostWorkHandler
       }
 
       const held = await this.sandboxes.liveKeysIn(
-        heartbeat.workspaceId.value,
+        registered.workspaceId.value,
         this.clock.now(),
       );
       const run = await this.startedRun(
-        claimantOf(runner, heartbeat, {
+        claimantOf(runner, registered, {
           avoiding: held.map((each) => WorkspaceKey.parse(each)),
         }),
         host,
@@ -206,9 +209,9 @@ export class ClaimHostWorkHandler
       }
 
       const check = await this.checks.claimNext(
-        heartbeat.workspaceId,
+        registered.workspaceId,
         runner,
-        heartbeat.offer,
+        registered.offer,
         this.clock.now(),
       );
 
@@ -276,16 +279,16 @@ export class ClaimHostWorkHandler
 
   private async claimedForRequested(
     runner: RunnerId,
-    heartbeat: RunnerHeartbeat,
+    registered: RunnerClaimant,
     host: string,
     until: Date,
   ): Promise<Claimed | 'requeued' | null> {
     for (const requested of await this.sandboxes.requestedIn(
-      heartbeat.workspaceId.value,
+      registered.workspaceId.value,
     )) {
       const key = WorkspaceKey.parse(requested.key);
-      const newest = await this.runs.newestWithKey(heartbeat.workspaceId, key);
-      const claim = ClaimOrder.forRequested(newest, heartbeat);
+      const newest = await this.runs.newestWithKey(registered.workspaceId, key);
+      const claim = ClaimOrder.forRequested(newest, registered);
 
       if (claim === 'skip') {
         continue;
@@ -293,7 +296,7 @@ export class ClaimHostWorkHandler
 
       if (claim === 'run-of-its-key') {
         const run = await this.startedRun(
-          claimantOf(runner, heartbeat, { into: key }),
+          claimantOf(runner, registered, { into: key }),
           host,
           until,
         );
@@ -323,18 +326,21 @@ export class ClaimHostWorkHandler
     into: SandboxTakingRuns,
     until: Date,
   ): Promise<Claimed | null> {
-    const heartbeat = await this.heartbeats.heartbeat(runner, this.clock.now());
+    const registered = await this.claimants.claimantOf(
+      runner,
+      this.clock.now(),
+    );
 
-    if (!heartbeat || heartbeat.workspaceId.value !== into.workspaceId) {
+    if (!registered || registered.workspaceId.value !== into.workspaceId) {
       return null;
     }
 
-    const claimant = claimantOf(runner, heartbeat, {
+    const claimant = claimantOf(runner, registered, {
       into: WorkspaceKey.parse(into.key),
     });
 
     const queued = await this.runs.queuedWithKey(
-      heartbeat.workspaceId,
+      registered.workspaceId,
       WorkspaceKey.parse(into.key),
     );
 

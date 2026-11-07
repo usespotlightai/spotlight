@@ -5,13 +5,15 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { activeTraceparent } from '@platform/telemetry/trace-context';
-import { RunSpecContract } from '@runs/application/contracts/run-spec.contract';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.error';
 import { RunAlreadyExistsError } from '@runs/domain/exceptions/run-already-exists.error';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
-import type { QueuedRuns } from '@runs/domain/services/claim-order';
+import type {
+  ClaimCursor,
+  QueuedRuns,
+} from '@runs/domain/services/claim-order';
 import type {
   Claimant,
   SandboxRouting,
@@ -27,20 +29,10 @@ import { RunFailure } from '@runs/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
-import {
-  type RequesterOwner,
-  RunRequester,
-} from '@runs/domain/value-objects/run-requester.vo';
-import {
-  LEASED_RUN_STATES,
-  type RunState,
-  TERMINAL_RUN_STATES,
-} from '@runs/domain/value-objects/run-state';
+import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
+import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
-import {
-  RunTurn,
-  type RunTurnState,
-} from '@runs/domain/value-objects/run-turn.vo';
+import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
 import {
@@ -48,6 +40,7 @@ import {
   WorkspaceKey,
 } from '@runs/domain/value-objects/workspace-key.vo';
 import { placementMatches } from '@runs/infrastructure/persistence/drizzle/placement-matches';
+import { RunSpecPersistence } from '@runs/infrastructure/persistence/drizzle/run-spec.persistence';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -130,7 +123,7 @@ export class DrizzleRunRepository implements RunRepository {
           ...orderedOf(added),
           orderFingerprint: added.orderFingerprint,
           state: added.state,
-          spec: added.spec.value,
+          spec: RunSpecPersistence.toRow(added.spec),
           injectsSecrets: added.injectsSecrets,
           exitCode: added.outcome?.exitCode ?? null,
           message: added.outcome?.message ?? null,
@@ -138,9 +131,10 @@ export class DrizzleRunRepository implements RunRepository {
           stopped: added.outcome?.stopped ?? false,
           placement: added.placement.labelGroups,
           placementImage: added.placement.image?.value ?? null,
-          endedAt: endedAtFor(added.state, sql`now()`),
+          endedAt: added.endedAt,
           askedAPerson: added.askedAPerson,
-          ...(added.queuedAt ? { queuedAt: added.queuedAt } : {}),
+          queuedAt: added.queuedAt,
+          createdAt: added.createdAt,
           traceparent: activeTraceparent(),
           ...startOf(added),
           ...reservationOf(added),
@@ -157,7 +151,7 @@ export class DrizzleRunRepository implements RunRepository {
   async claimCandidates(
     by: Claimant,
     now: Date,
-    max: number,
+    page: { readonly max: number; readonly after: ClaimCursor | null },
   ): Promise<QueuedRuns> {
     if (by.harnesses.length === 0) {
       return { waiting: [], leasedRequesters: [] };
@@ -185,19 +179,31 @@ export class DrizzleRunRepository implements RunRepository {
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
           placementMatches(run.placement, run.placementImage, by.offer),
           routedBy(by.sandbox),
+          page.after ? claimedAfter(page.after) : undefined,
         ),
       )
-      .orderBy(desc(run.priority), asc(run.queuedAt), asc(run.id))
-      .limit(max);
+      .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
+      .limit(page.max);
 
     return this.queuedRunsOf(rows.map(toRun));
   }
 
   private async queuedRunsOf(waiting: readonly Run[]): Promise<QueuedRuns> {
-    const exclusive = waiting.filter((each) => each.policy.exclusive);
+    return {
+      waiting,
+      leasedRequesters: await this.leasedAmong(
+        waiting
+          .filter((each) => each.policy.exclusive)
+          .map((each) => each.requester),
+      ),
+    };
+  }
 
-    if (exclusive.length === 0) {
-      return { waiting, leasedRequesters: [] };
+  async leasedAmong(
+    requesters: readonly RunRequester[],
+  ): Promise<readonly RunRequester[]> {
+    if (requesters.length === 0) {
+      return [];
     }
 
     const leased = await this.context.db
@@ -212,23 +218,20 @@ export class DrizzleRunRepository implements RunRepository {
           eq(run.exclusive, true),
           inArray(run.state, [...LEASED_RUN_STATES]),
           inArray(run.requesterId, [
-            ...new Set(exclusive.map((each) => each.requester.id)),
+            ...new Set(requesters.map((each) => each.id)),
           ]),
         ),
       );
 
-    return {
-      waiting,
-      leasedRequesters: leased.map((row) =>
-        RunRequester.of({
-          owner: row.requesterOwner,
-          kind: row.requesterKind,
-          id: row.requesterId,
-          token: null,
-          team: null,
-        }),
-      ),
-    };
+    return leased.map((row) =>
+      RunRequester.of({
+        owner: row.requesterOwner,
+        kind: row.requesterKind,
+        id: row.requesterId,
+        token: null,
+        team: null,
+      }),
+    );
   }
 
   private selected() {
@@ -273,18 +276,6 @@ export class DrizzleRunRepository implements RunRepository {
     return row ? toRun(row) : null;
   }
 
-  async findByIds(ids: readonly RunId[]): Promise<readonly Run[]> {
-    const wanted = [...new Set(ids.map((each) => each.value))];
-
-    if (wanted.length === 0) {
-      return [];
-    }
-
-    const rows = await this.selected().where(inArray(run.id, wanted));
-
-    return rows.map(toRun);
-  }
-
   async save(saved: Run): Promise<void> {
     await this.context.inTransaction(async () => {
       await this.stored(saved);
@@ -308,20 +299,13 @@ export class DrizzleRunRepository implements RunRepository {
         stopped: saved.outcome?.stopped ?? false,
         ranIn: saved.ranIn?.value ?? null,
         startedAt: saved.startedAt,
-        endedAt: endedAtFor(
-          saved.state,
-          saved.endedAt ?? sql`coalesce(${run.endedAt}, now())`,
-        ),
-        spec: saved.spec.value,
+        endedAt: saved.endedAt,
+        spec: RunSpecPersistence.toRow(saved.spec),
         injectsSecrets: saved.injectsSecrets,
         suspendedAttempts: [...saved.suspendedAttempts],
         askedAPerson: saved.askedAPerson,
         ...turnOf(saved),
-        ...(saved.state === 'queued'
-          ? {
-              queuedAt: sql`case when ${run.state} = 'queued' then ${run.queuedAt} else now() end`,
-            }
-          : {}),
+        queuedAt: saved.queuedAt,
         ...startOf(saved),
         ...reservationOf(saved),
       })
@@ -340,36 +324,6 @@ export class DrizzleRunRepository implements RunRepository {
         lte(run.leaseExpiresAt, now),
       ),
     );
-
-    return rows.map(toRun);
-  }
-
-  async turnsSuspendedBefore(
-    owner: RequesterOwner,
-    turn: RunTurnState,
-    before: Date,
-    after: { readonly suspendedAt: Date; readonly id: RunId } | null,
-    max: number,
-  ): Promise<readonly Run[]> {
-    const rows = await this.selected()
-      .where(
-        and(
-          eq(run.turn, turn),
-          eq(run.requesterOwner, owner.value),
-          lt(run.suspendedAt, before),
-          after
-            ? or(
-                gt(run.suspendedAt, after.suspendedAt),
-                and(
-                  eq(run.suspendedAt, after.suspendedAt),
-                  gt(run.id, after.id.value),
-                ),
-              )
-            : undefined,
-        ),
-      )
-      .orderBy(asc(run.suspendedAt), asc(run.id))
-      .limit(max);
 
     return rows.map(toRun);
   }
@@ -407,7 +361,7 @@ export class DrizzleRunRepository implements RunRepository {
           routedBy({ avoiding: page.avoiding }),
         ),
       )
-      .orderBy(desc(run.priority), asc(run.queuedAt), asc(run.id))
+      .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
       .limit(page.max)
       .offset(page.skip);
 
@@ -610,10 +564,19 @@ const turnFrom = (row: Row): RunTurn | null => {
   });
 };
 
-const endedAtFor = (state: RunState, ended: SQL | Date) =>
-  (TERMINAL_RUN_STATES as readonly RunState[]).includes(state) ? ended : null;
+const claimedAfter = (after: ClaimCursor) =>
+  or(
+    lt(run.priority, after.priority),
+    and(
+      eq(run.priority, after.priority),
+      or(
+        gt(run.createdAt, after.createdAt),
+        and(eq(run.createdAt, after.createdAt), gt(run.id, after.id)),
+      ),
+    ),
+  );
 
-const toRun = ({ run: row }: Selected): Run =>
+export const toRun = ({ run: row }: Selected): Run =>
   Run.rehydrate({
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
@@ -641,7 +604,7 @@ const toRun = ({ run: row }: Selected): Run =>
     extensions: storedAs(row.id, () => RunExtensions.of(row.extensions)),
     tags: storedAs(row.id, () => RunTags.of(row.tags)),
     apiGrant: apiGrantFrom(row),
-    spec: RunSpecContract.from(row.spec),
+    spec: RunSpecPersistence.fromRow(row.spec),
     placement: RunnerPlacement.ofLabelGroups(
       row.placement,
       row.placementImage ? RunnerImage.of(row.placementImage) : null,
@@ -676,4 +639,5 @@ const toRun = ({ run: row }: Selected): Run =>
     turn: turnFrom(row),
     endedAt: row.endedAt,
     queuedAt: row.queuedAt,
+    createdAt: row.createdAt,
   });

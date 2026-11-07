@@ -122,6 +122,7 @@ import { WorkDecisionSets } from '@change-review/application/services/work-decis
 import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { CheckRunners } from '@change-review/infrastructure/acl/check-runners.adapter';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
+import { GitHubReviewPosting } from '@change-review/infrastructure/acl/review-posting.adapter';
 import { Work } from '@change-review/infrastructure/acl/work.adapter';
 import { Workspaces } from '@change-review/infrastructure/acl/workspaces.adapter';
 import { ChatCompletionsAnswerGrader } from '@change-review/infrastructure/answers/chat-completions-answer.grader';
@@ -198,6 +199,7 @@ import {
 } from '@runners/application/ports/runners.port';
 import { CHECK_PROVISIONING } from '@runs/application/ports/check-provisioning.port';
 import { CHECK_WORK } from '@runs/application/ports/check-work.port';
+import { RUN_LEASES } from '@runs/application/ports/run-leases.port';
 import {
   CLOCK,
   type ClockPort,
@@ -724,7 +726,7 @@ const services: Provider[] = [
         work,
         connections,
         people,
-        github,
+        new GitHubReviewPosting(github),
         clock,
         logger,
         reports,
@@ -805,7 +807,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(
     GenerateRunChangeStackCommand,
     GenerateRunChangeStackHandler,
-    [WORK, GenerateChangeStack],
+    [WORK, RUN_LEASES, GenerateChangeStack],
   ),
 
   ...bindCommandHandler(

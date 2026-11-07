@@ -1,4 +1,4 @@
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import { RenewCheckLeaseHandler } from '@runs/application/commands/handlers/renew-check-lease.handler';
 import { RenewCheckLeaseCommand } from '@runs/application/commands/runner.commands';
 import type {
@@ -6,6 +6,7 @@ import type {
   CheckWorkPort,
 } from '@runs/application/ports/check-work.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -37,7 +38,7 @@ const renewing = (
 
   const handler = new RenewCheckLeaseHandler(
     { renewLease } as unknown as CheckWorkPort,
-    { heartbeat: seen } satisfies RunnerHeartbeatsPort,
+    { claimantOf: seen } satisfies RunnerClaimantsPort,
     { now: () => NOW } as ClockPort,
   );
 
@@ -55,7 +56,7 @@ describe('RenewCheckLeaseHandler', () => {
     expect(seen).toHaveBeenCalledWith(RunnerId.of('runner_1'), NOW);
     expect(renewLease).toHaveBeenCalledWith(
       RunId.of('run_1'),
-      'stack_1',
+      CheckWorkId.of('stack_1'),
       false,
       RunnerId.of('runner_1'),
       NOW,

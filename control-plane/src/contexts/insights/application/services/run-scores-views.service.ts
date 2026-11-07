@@ -17,7 +17,7 @@ import type { Citation } from '@insights/domain/value-objects/citation.vo';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import type { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
-import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
+import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -91,7 +91,7 @@ export class RunScoresViews {
     private readonly terms: GradingTermsOf,
   ) {}
 
-  async onTeam(access: TeamAccess, runId: string): Promise<RunOnTeam> {
+  async onTeam(access: ViewedTeam, runId: string): Promise<RunOnTeam> {
     const [fact] = await this.facts.ofRuns([RunId.of(runId)]);
 
     if (!fact || !access.covers(fact.workspaceId, fact.end.location.teamId)) {
@@ -101,7 +101,7 @@ export class RunScoresViews {
     return { runId: fact.runId, workspaceId: fact.workspaceId, end: fact.end };
   }
 
-  async of(access: TeamAccess, run: RunOnTeam): Promise<RunScoresDto> {
+  async of(access: ViewedTeam, run: RunOnTeam): Promise<RunScoresDto> {
     const scores = await this.facts.scoresOfRuns([run.runId]);
     const { rubricVersion, calibration } = await this.reports.calibrationAt({
       workspaceId: access.workspaceId,

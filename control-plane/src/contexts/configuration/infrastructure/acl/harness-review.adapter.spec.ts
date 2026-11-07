@@ -1,5 +1,5 @@
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
-import { HarnessReviewOfWork } from '@configuration/infrastructure/acl/harness-review.adapter';
+import { HarnessReviewOfRuns } from '@configuration/infrastructure/acl/harness-review.adapter';
 import type { HarnessNote } from '@runs/application/contracts/harness-profile.contract';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { describe, expect, it } from 'vitest';
@@ -18,11 +18,11 @@ const PARSED = {
 };
 
 const reviewing = (warnings: readonly HarnessNote[]) =>
-  new HarnessReviewOfWork({
+  new HarnessReviewOfRuns({
     review: () => ({ problems: [], warnings }),
   }).review(PARSED).warnings;
 
-describe('what Work says of a harness profile, in Configuration’s fields', () => {
+describe('what Runs says of a harness profile, in Configuration’s fields', () => {
   it('addresses a rule where the profile wrote it', () => {
     const [noted] = reviewing([
       {

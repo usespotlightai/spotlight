@@ -34,12 +34,12 @@ const mayConnect = (
 const takesConnection = async (
   defined: DefinedIntegrationsPort,
   runtime: IntegrationRuntimePort,
-  teamId: string,
+  teamId: TeamId,
   integration: IntegrationKey,
   owner: ConnectionOwner,
 ): Promise<boolean> =>
   runtime
-    .integrations(await defined.ofTeam(TeamId.of(teamId)))
+    .integrations(await defined.ofTeam(teamId))
     .find((each) => each.key.equals(integration))
     ?.takesConnectionFrom(owner) ?? false;
 
@@ -61,14 +61,13 @@ export class BeginOAuth2ConnectionHandler
   ): Promise<OAuth2Start | null> {
     try {
       const viewer = UserId.of(command.viewerId);
+      const teamId = TeamId.of(command.teamId);
+      const integration = IntegrationKey.of(command.integration);
       const owner = ConnectionOwner.actingAs(
         ActsAs.chosen(command.actsAs),
         viewer,
       );
-      const membership = await this.access.inWorkspaceOfTeam(
-        TeamId.of(command.teamId),
-        viewer,
-      );
+      const membership = await this.access.inWorkspaceOfTeam(teamId, viewer);
 
       if (!mayConnect(membership, owner, viewer)) {
         return null;
@@ -78,18 +77,15 @@ export class BeginOAuth2ConnectionHandler
         !(await takesConnection(
           this.defined,
           this.runtime,
-          command.teamId,
-          IntegrationKey.of(command.integration),
+          teamId,
+          integration,
           owner,
         ))
       ) {
         return null;
       }
 
-      const teamId = TeamId.of(command.teamId);
-      const integration = IntegrationKey.of(command.integration);
-
-      return await this.scope.within(membership.workspaceId.value, async () => {
+      return await this.scope.within(membership.workspaceId, async () => {
         const registration = await this.linking.registrationFor(
           teamId,
           integration,
@@ -106,9 +102,9 @@ export class BeginOAuth2ConnectionHandler
         return client
           ? this.linking.begin(
               {
-                teamId: command.teamId,
-                integration: command.integration,
-                by: command.viewerId,
+                teamId,
+                integration,
+                by: viewer,
                 owner: owner.kind,
                 returnTo: command.returnTo,
               },
@@ -143,28 +139,24 @@ export class FinishOAuth2ConnectionHandler
         state: command.state,
         code: command.code,
         nonce: command.nonce,
-        viewerId: command.viewerId,
+        viewerId:
+          command.viewerId === null ? null : UserId.of(command.viewerId),
       });
 
       if (!authorized) {
         return null;
       }
 
-      const by = UserId.of(authorized.by);
+      const { by, teamId, integration } = authorized;
       const owner = ConnectionOwner.ofKind(authorized.owner, by);
-      const membership = await this.access.inWorkspaceOfTeam(
-        TeamId.of(authorized.teamId),
-        by,
-      );
-      const teamId = TeamId.of(authorized.teamId);
-      const integration = IntegrationKey.of(authorized.integration);
+      const membership = await this.access.inWorkspaceOfTeam(teamId, by);
 
       if (
         !mayConnect(membership, owner, by) ||
         !(await takesConnection(
           this.defined,
           this.runtime,
-          authorized.teamId,
+          teamId,
           integration,
           owner,
         ))
@@ -191,8 +183,8 @@ export class FinishOAuth2ConnectionHandler
       });
 
       return await this.linking.landingFor(
-        authorized.teamId,
-        authorized.integration,
+        teamId,
+        integration,
         authorized.returnTo,
       );
     } catch (error) {

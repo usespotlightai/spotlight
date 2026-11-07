@@ -35,7 +35,7 @@ const granteeOf = (row: Row): ArchiveGrantee => {
   );
 };
 
-const toArchive = (row: Row): WorkspaceArchive =>
+export const toArchive = (row: Row): WorkspaceArchive =>
   WorkspaceArchive.rehydrate({
     id: WorkspaceArchiveId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),

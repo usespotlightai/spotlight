@@ -65,8 +65,9 @@ export class RememberHandler
       const remembering = Remembering.of({
         taskId: run.taskId,
         runId: run.id,
-        replay: run.replaysFrom !== null,
-        isSearch: run.isSearch,
+        asOf: run.asOf,
+        isolated: run.isolated,
+        trial: run.trial,
       });
 
       const [task, runContext, steps, supersedes] = await Promise.all([

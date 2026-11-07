@@ -28,7 +28,7 @@ export const HEALTH_SAMPLES_PER_GROUP = 3;
 export interface HealthSampled {
   readonly id: { readonly value: string };
   readonly setId: { readonly value: string };
-  readonly healthSampleGroup: string | null;
+  readonly healthSampleGroup: { readonly value: string } | null;
   readonly sampledAt: Date;
   readonly startedAt: Date;
 }
@@ -50,7 +50,7 @@ export const healthSamplesOf = <T extends HealthSampled>(
     const group = each.healthSampleGroup;
 
     if (group !== null) {
-      const key = `${each.setId.value}|${group}`;
+      const key = `${each.setId.value}|${group.value}`;
 
       groups.set(key, [...(groups.get(key) ?? []), each]);
     }

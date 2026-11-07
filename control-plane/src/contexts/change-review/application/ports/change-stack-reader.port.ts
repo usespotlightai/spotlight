@@ -12,7 +12,7 @@ export const CHANGE_STACK_READER = Symbol('CHANGE_STACK_READER');
 
 export interface ChangeStackSummary {
   readonly id: string;
-  readonly runId: string;
+  readonly runId: RunId;
   readonly repository: string | null;
   readonly state: ChangeStackDto['state'];
   readonly cohorts: readonly OutlinedCohortDto[];

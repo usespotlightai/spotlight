@@ -5,6 +5,7 @@ import { StackCheckReservationDropped } from '@change-review/domain/events/stack
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
+import { assertOneOwner } from '@change-review/domain/services/stack-owner';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
@@ -89,6 +90,8 @@ export class StackCheck extends EventRecorder {
     entries: readonly CheckEntry[];
     now: Date;
   }): StackCheck {
+    assertOneOwner('change stack check', input);
+
     return new StackCheck(
       StackCheckId.first(input.stackId),
       input.runId,
@@ -145,6 +148,8 @@ export class StackCheck extends EventRecorder {
     provisioning: Provisioning;
     version: number;
   }): StackCheck {
+    assertOneOwner('change stack check', input);
+
     const stored = input.outcome?.status ?? null;
 
     if (stored !== OUTCOME_OF[input.status]) {

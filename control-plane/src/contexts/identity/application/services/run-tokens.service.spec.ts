@@ -7,6 +7,9 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-10-11T09:00:00.000Z');
@@ -41,10 +44,10 @@ const using = () => {
 };
 
 const WANTED = {
-  workspaceId: 'ws_1',
-  runId: 'run_1',
+  workspaceId: WorkspaceId.of('ws_1'),
+  runId: RunId.of('run_1'),
   attempt: 2,
-  issuedBy: 'user_1',
+  issuedBy: UserId.of('user_1'),
   scopes: ['plan'],
   expiresAt: HOUR_LATER,
 };
@@ -69,7 +72,7 @@ describe('RunTokens', () => {
     const { service, saved } = using();
 
     await service.issueFor(WANTED);
-    await service.revokeFor('ws_1', 'run_1', null);
+    await service.revokeFor(WorkspaceId.of('ws_1'), RunId.of('run_1'), null);
 
     expect(saved).toHaveLength(1);
     expect(saved[0]?.isRevoked).toBe(true);
@@ -87,7 +90,7 @@ describe('RunTokens', () => {
     );
 
     await expect(
-      service.revokeFor('ws_1', 'run_1', null),
+      service.revokeFor(WorkspaceId.of('ws_1'), RunId.of('run_1'), null),
     ).resolves.toBeUndefined();
   });
 
@@ -95,10 +98,10 @@ describe('RunTokens', () => {
     const { service, saved } = using();
 
     await service.issueFor(WANTED);
-    await service.revoke('ws_2', 'Token_1');
+    await service.revoke(WorkspaceId.of('ws_2'), 'Token_1');
     expect(saved).toHaveLength(0);
 
-    await service.revoke('ws_1', 'Token_1');
+    await service.revoke(WorkspaceId.of('ws_1'), 'Token_1');
     expect(saved[0]?.isRevoked).toBe(true);
   });
 });

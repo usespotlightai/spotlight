@@ -14,7 +14,7 @@ const runs = (...ids: string[]) => ids.map((each) => RunId.of(each));
 const WS = WorkspaceId.of('ws_1');
 
 const taken = () =>
-  StartingPointHold.take(HoldHolder.of('replay-set:set_1'), WS);
+  StartingPointHold.take(HoldHolder.of('replay-set:set_1'), WS, runs('run_0'));
 
 describe('StartingPointHold', () => {
   it('holds exactly the runs it is given, once each', () => {

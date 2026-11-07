@@ -10,6 +10,7 @@ import type {
   WrittenHookStep,
 } from '@integrations/application/ports/hook-resources.port';
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
+import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -53,7 +54,7 @@ export class HookConfigs implements HookConfigsPort {
   ) {}
 
   async withId(id: string): Promise<HookConfig | null> {
-    const record = await this.resources.withId(id);
+    const record = await this.resources.withId(HookDefinitionId.of(id));
     const team = record && (await this.teams.find(record.teamId));
 
     return record && team ? configOf(team.key, record) : null;

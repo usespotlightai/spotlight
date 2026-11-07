@@ -1,7 +1,13 @@
+export interface FileChangeDto {
+  readonly path: string;
+  readonly before: string;
+  readonly after: string;
+  readonly omitted: boolean;
+}
+
 import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { RunResultShape } from '@work/application/ports/run-results.port';
-import type { FileChange } from '@work/application/read-models/file-changes-of';
 
 export interface HistoryUsage {
   readonly ms: number | null;
@@ -27,7 +33,7 @@ export interface HistoryRunDto {
   readonly startedAt: string;
   readonly endedAt: string;
   readonly outcome: HistoryOutcome | null;
-  readonly changes: readonly FileChange[];
+  readonly changes: readonly FileChangeDto[];
   readonly trace: TaskTraceDto;
 }
 
@@ -41,7 +47,7 @@ export interface WrittenHistoryRun {
   readonly harness: string;
   readonly startedAt: string;
   readonly endedAt: string;
-  readonly changes: readonly FileChange[];
+  readonly changes: readonly FileChangeDto[];
   readonly trace: TaskTraceDto;
 }
 

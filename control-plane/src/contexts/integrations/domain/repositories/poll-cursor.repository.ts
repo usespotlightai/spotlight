@@ -7,5 +7,9 @@ export const POLL_CURSORS = Symbol('POLL_CURSORS');
 export interface PollCursorRepository {
   of(teamId: TeamId, integration: IntegrationKey): Promise<PollCursor>;
 
+  ofTeam(teamId: TeamId): Promise<readonly PollCursor[]>;
+
   save(cursor: PollCursor): Promise<void>;
+
+  remove(cursor: PollCursor): Promise<void>;
 }

@@ -14,7 +14,7 @@ export const TeamAccess = {
       : workspace.permissionsFor(principal);
   },
 
-  readsTeam(team: Team, workspace: Workspace, principal: Principal): boolean {
+  actsOnTeam(team: Team, workspace: Workspace, principal: Principal): boolean {
     const permissions = TeamAccess.permissionsInWorkspaceOf(
       team,
       workspace,

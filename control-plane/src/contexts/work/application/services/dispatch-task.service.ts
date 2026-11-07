@@ -1,16 +1,16 @@
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
+import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
+import type { SavepointPort } from '@work/application/ports/savepoint.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import {
   NOTHING_REMEMBERED,
   type TeamMemoriesPort,
@@ -30,18 +30,21 @@ import type { TouchedFiles } from '@work/application/services/touched-files';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { describedTools } from '@work/domain/services/enabled-for-run';
-import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+
+export interface TaskDispatching {
+  runIdFor(input: { task: Task; line: LineMap }): Promise<RunId | null>;
+}
 
 export class DispatchTask implements TaskDispatching {
   private readonly ordering: StationOrdering;
 
   constructor(
     private readonly ids: IdGeneratorPort,
-    private readonly harnesses: HarnessCatalog,
+    private readonly harnesses: HarnessCataloguePort,
     private readonly launch: HarnessLaunchPort,
     private readonly tracing: TraceParentPort,
     builtInSkills: BuiltInSkillsPort,
@@ -79,7 +82,7 @@ export class DispatchTask implements TaskDispatching {
     const order = orderFor({
       task,
       line,
-      harnesses: this.harnesses,
+      harnesses: this.harnesses.current(),
       ready: ready.map(ReadySkillMapper.toReady),
       profiles: await this.ordering.profilesAt(line, station ?? null),
     });

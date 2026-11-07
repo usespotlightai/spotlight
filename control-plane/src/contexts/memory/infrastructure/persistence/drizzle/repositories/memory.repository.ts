@@ -19,6 +19,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import type { Erased } from '@shared-kernel/domain/erased';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -168,7 +169,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     });
   }
 
-  async remove(removed: Memory): Promise<void> {
+  async remove(removed: Erased<Memory>): Promise<void> {
     const gone = await this.context.db
       .delete(memory)
       .where(

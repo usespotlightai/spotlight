@@ -7,18 +7,21 @@ import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo'
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import { JudgingsInMemory, RUBRIC_VERSION } from '@insights/judging.fake-spec';
 import { FIRST_CONFIG, inTransaction, SET_UP } from '@insights/runs.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const ENDED: EndedRun = {
-  runId: 'run_1',
-  workspaceId: 'ws_1',
-  teamId: 'team_1',
-  lineId: 'line_1',
-  stationId: 'station_1',
-  taskId: 'task_1',
+  runId: RunId.of('run_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
+  taskId: TaskId.of('task_1'),
   fingerprint: FIRST_CONFIG,
   visit: 1,
   ...SET_UP,
@@ -63,8 +66,8 @@ const requesting = (
         change.judged === false
           ? null
           : {
-              teamId: 'team_1',
-              lineId: 'line_1',
+              teamId: TeamId.of('team_1'),
+              lineId: LineId.of('line_1'),
               rubric: change.rubric ?? 'Did the run retry uploads?',
               rubricVersion: RUBRIC_VERSION,
               claims: [],

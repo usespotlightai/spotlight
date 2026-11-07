@@ -16,7 +16,7 @@ export const workAccessSeeing = (
     readonly onTeam?: (teamId: TeamId, viewer: UserId) => boolean;
   } = {},
 ): WorkAccess => {
-  const readsTeam = (teamId: TeamId, viewer: UserId): boolean =>
+  const actsOnTeam = (teamId: TeamId, viewer: UserId): boolean =>
     sees(teamId, viewer) && (over.onTeam?.(teamId, viewer) ?? true);
 
   const seenTeam = async (
@@ -37,13 +37,20 @@ export const workAccessSeeing = (
     seenTeam,
     seesTeam: async (teamId: TeamId, viewer: UserId) =>
       (await seenTeam(teamId, viewer)) !== null,
-    readsTeam: async (teamId: TeamId, viewer: UserId) =>
-      readsTeam(teamId, viewer),
+    actsOnTeam: async (teamId: TeamId, viewer: UserId) =>
+      actsOnTeam(teamId, viewer),
     standingOn: async (teamId: TeamId, viewer: UserId) =>
       TeamStanding.of({
         seesTeam: sees(teamId, viewer),
-        readsTeam: readsTeam(teamId, viewer),
+        actsOnTeam: actsOnTeam(teamId, viewer),
       }),
+    seesWorkspace: async () => true,
+    seesWorkspaceOfTeam: async () => true,
+    memberWorkspaceAt: async () => WorkspaceId.of('ws_1'),
+    opensChat: async (
+      chat: { readonly startedBy: UserId; readonly teamId: TeamId },
+      viewer: UserId,
+    ) => chat.startedBy.equals(viewer) && sees(chat.teamId, viewer),
     isAdminOf: async () => over.admin ?? false,
     membersOf: async () => TeamMembers.of(over.members ?? []),
     inboxOf: async () => null,

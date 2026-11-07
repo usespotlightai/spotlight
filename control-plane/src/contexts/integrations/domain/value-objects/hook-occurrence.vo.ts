@@ -2,51 +2,52 @@ import {
   HookEvent,
   type HookEventName,
 } from '@integrations/domain/value-objects/hook-event.vo';
+import {
+  HookEventFacts,
+  type ToolUsedFields,
+} from '@integrations/domain/value-objects/hook-event-facts.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
-
-type HookEventPayload = Readonly<Record<string, unknown>>;
 
 export class HookOccurrence {
   private constructor(
     readonly event: HookEvent,
-    readonly key: string,
+    readonly key: HookOccurrenceKey,
     readonly change: string,
-    readonly payload: HookEventPayload,
+    readonly facts: HookEventFacts,
   ) {}
 
   static toolUsed(
-    tool: Tool,
-    occurrence: string,
-    payload: HookEventPayload,
+    used: ToolUsedFields,
+    occurrence: HookOccurrenceKey,
   ): HookOccurrence {
     return new HookOccurrence(
       HookEvent.of('tool.used'),
       occurrence,
-      `${tool.value} ${occurrence}`,
-      payload,
+      `${used.tool.value} ${occurrence.value}`,
+      HookEventFacts.of(used),
     );
   }
 
   static runEnded(run: RunId, outcome: string): HookOccurrence {
     return new HookOccurrence(
       HookEvent.of('run.ended'),
-      `run-ended:${run.value}`,
+      HookOccurrenceKey.of(`run-ended:${run.value}`),
       outcome,
-      { outcome },
+      HookEventFacts.of({ on: 'run.ended', outcome }),
     );
   }
 
   static taskOpened(task: TaskId, station: StationKey): HookOccurrence {
     return new HookOccurrence(
       HookEvent.of('task.opened'),
-      `task-opened:${task.value}`,
+      HookOccurrenceKey.of(`task-opened:${task.value}`),
       station.value,
-      {},
+      HookEventFacts.of({ on: 'task.opened' }),
     );
   }
 
@@ -56,9 +57,9 @@ export class HookOccurrence {
   ): HookOccurrence {
     return new HookOccurrence(
       HookEvent.of('task.moved'),
-      `task-moved:${task.value}:${move.at}`,
+      HookOccurrenceKey.of(`task-moved:${task.value}:${move.at}`),
       `${move.from} → ${move.to}`,
-      { from: move.from, to: move.to },
+      HookEventFacts.of({ on: 'task.moved', from: move.from, to: move.to }),
     );
   }
 
@@ -69,9 +70,15 @@ export class HookOccurrence {
   ): HookOccurrence {
     return new HookOccurrence(
       HookEvent.of('pull-request.merged'),
-      `pull-request-merged:${pullRequest.value}`,
+      HookOccurrenceKey.of(`pull-request-merged:${pullRequest.value}`),
       pullRequest.value,
-      { url: pullRequest.value, repository: repository.value, mergeCommit },
+      HookEventFacts.of({
+        on: 'pull-request.merged',
+        pullRequest,
+        repository,
+        mergeCommit,
+        changed: null,
+      }),
     );
   }
 

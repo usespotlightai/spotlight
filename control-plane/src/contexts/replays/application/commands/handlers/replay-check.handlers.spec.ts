@@ -9,10 +9,11 @@ import {
   ACTOR,
   accessFor,
   CLOCK,
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryChecks,
   InMemoryReplays,
+  liveFrom,
   PERSON,
   peopleWho,
   QUIET,
@@ -97,7 +98,7 @@ const threshold = (maxRegressions: number) =>
   });
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let checks: InMemoryChecks;
 let validated: { block: unknown; line: unknown }[];
 
@@ -142,16 +143,16 @@ const start = async (
   line?: unknown,
 ): Promise<ReplayCheckStartedOutcome> => {
   const outcome = await new StartReplayCheckHandler(
-    accessFor(memory, work, mayPlan),
+    accessFor(memory, suppliers, mayPlan),
     peopleWho(mayPlan),
-    work,
-    snapshotsFor(memory, work),
+    suppliers.configs,
+    snapshotsFor(memory, suppliers),
     new StartCheckReplays(
       checks,
       memory.replayRepository,
       memory.candidateRepository,
       memory.setRepository,
-      snapshotsFor(memory, work),
+      snapshotsFor(memory, suppliers),
       IDS,
       CLOCK,
       TRANSACTION,
@@ -189,7 +190,7 @@ const start = async (
         memory.replayRepository,
         memory.candidateRepository,
         memory.setRepository,
-        snapshotsFor(memory, work),
+        snapshotsFor(memory, suppliers),
         IDS,
         CLOCK,
         TRANSACTION,
@@ -202,8 +203,8 @@ const start = async (
 
 const read = (id: string, mayPlan: boolean | null = false) =>
   new ReadReplayCheckHandler(
-    accessFor(memory, work, mayPlan),
-    work,
+    accessFor(memory, suppliers, mayPlan),
+    suppliers.trialableRuns,
     checks,
     evaluations(),
   ).execute(new ReadReplayCheckQuery('team_1', id, PERSON));
@@ -250,11 +251,11 @@ const finished = async (replayId: ReplayId, succeeds = true) => {
 
 beforeEach(() => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   checks = new InMemoryChecks(memory.events);
   validated = [];
-  work.threshold = threshold(1);
-  work.live = async () => ({
+  suppliers.lines.threshold = threshold(1);
+  suppliers.configs.live = async () => ({
     lineKey: 'delivery',
     block: StationBlock.of({
       key: 'build',
@@ -267,11 +268,11 @@ beforeEach(() => {
     fingerprint: LIVE_FINGERPRINT,
     scoring: CHECKED,
     hashes: LIVE_HASHES,
-    threshold: work.threshold,
+    threshold: suppliers.lines.threshold,
     search: null,
     agent: null,
   });
-  work.validate = async (_line, _station, block, line) => {
+  suppliers.configs.validate = async (_line, _station, block, line) => {
     validated.push({ block, line: line?.value ?? null });
     return {
       ok: true,
@@ -365,7 +366,7 @@ describe('StartReplayCheckHandler', () => {
     expect(second).not.toBe(first);
     expect(checkOf(second).attempt).toBe(2);
 
-    work.threshold = threshold(3);
+    suppliers.lines.threshold = threshold(3);
     const third = idOf(await start());
     expect(checkOf(third).attempt).toBe(3);
 
@@ -397,7 +398,7 @@ describe('StartReplayCheckHandler', () => {
   it('never points two checks at a baseline that will not exist: the second waits for the first one’s, and both compare against it', async () => {
     keptAtStation();
     const one = idOf(await start());
-    work.validate = async (_line, _station, block) => ({
+    suppliers.configs.validate = async (_line, _station, block) => ({
       ok: true,
       fingerprint: PLANNED,
       hashes: StationHashes.of({
@@ -432,7 +433,7 @@ describe('StartReplayCheckHandler', () => {
   it('wants a new baseline when the set’s baseline replayed a live config that has since changed', async () => {
     const set = keptAtStation();
     const stale = memory.candidates.size;
-    const old = await snapshotsFor(memory, work).taken(set);
+    const old = await snapshotsFor(memory, suppliers).taken(set);
     const staleLive = Replay.start({
       id: ReplayId.of('replay_stale'),
       set: set.snapshot,
@@ -467,10 +468,10 @@ describe('StartReplayCheckHandler', () => {
 
   it('rejects a line with no replay_check, and a station with no replay set yet', async () => {
     keptAtStation();
-    work.threshold = null;
+    suppliers.lines.threshold = null;
     expect(await errorOf(start())).toBe('conflict');
 
-    work.threshold = threshold(0);
+    suppliers.lines.threshold = threshold(0);
     memory.sets.clear();
     expect(await errorOf(start())).toBe('conflict');
     expect(checks.stored.size).toBe(0);
@@ -483,14 +484,17 @@ describe('StartReplayCheckHandler', () => {
       at: FieldPath.of(['station', 'effort']),
       reason: 'is low, medium, high, xhigh or max',
     });
-    work.validate = async () => ({ ok: false, problems: [problem] });
+    suppliers.configs.validate = async () => ({
+      ok: false,
+      problems: [problem],
+    });
 
     expect(await start()).toEqual({ outcome: 'invalid', problems: [problem] });
   });
 
   it('says there is nothing to replay when the plan changes nothing about how the station runs', async () => {
     keptAtStation();
-    work.validate = async (_line, _station, block) => ({
+    suppliers.configs.validate = async (_line, _station, block) => ({
       ok: true,
       fingerprint: LIVE_FINGERPRINT,
       hashes: LIVE_HASHES,
@@ -522,8 +526,8 @@ describe('EnsureCheckBaselines', () => {
       evaluations(),
       memory.setRepository,
       memory.replayRepository,
-      work,
-      snapshotsFor(memory, work),
+      suppliers.configs,
+      snapshotsFor(memory, suppliers),
       IDS,
       CLOCK,
       TRANSACTION,
@@ -553,8 +557,8 @@ describe('EnsureCheckBaselines', () => {
   it('gives up on a baseline once the live config has moved on before one came, leaving the check undecided', async () => {
     keptAtStation();
     const id = idOf(await start());
-    const live = await work.live();
-    work.live = async () => ({
+    const live = await liveFrom(suppliers.configs)();
+    suppliers.configs.live = async () => ({
       ...live,
       hashes: StationHashes.of({
         behaviour: '7'.repeat(64),

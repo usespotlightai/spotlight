@@ -3,20 +3,21 @@ import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/wor
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class WorkspaceOutboundScope implements WorkspaceOutboundScopePort {
   constructor(private readonly hosts: WorkspaceOutboundHostsPort) {}
 
-  within<T>(workspaceId: string, work: () => Promise<T>): Promise<T> {
+  within<T>(workspaceId: WorkspaceId, work: () => Promise<T>): Promise<T> {
     return this.scoped(workspaceId, () => this.hosts.of(workspaceId), work);
   }
 
-  withinFresh<T>(workspaceId: string, work: () => Promise<T>): Promise<T> {
+  withinFresh<T>(workspaceId: WorkspaceId, work: () => Promise<T>): Promise<T> {
     return this.scoped(workspaceId, () => this.hosts.fresh(workspaceId), work);
   }
 
   private async scoped<T>(
-    workspaceId: string,
+    workspaceId: WorkspaceId,
     read: () => Promise<HostAllowList>,
     work: () => Promise<T>,
   ): Promise<T> {
@@ -26,7 +27,7 @@ export class WorkspaceOutboundScope implements WorkspaceOutboundScopePort {
       hosts = await read();
     } catch (error) {
       throw new OutboundHostsUnreadError(
-        workspaceId,
+        workspaceId.value,
         error instanceof Error ? error.message : String(error),
       );
     }

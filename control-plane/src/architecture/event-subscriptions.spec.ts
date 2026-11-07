@@ -29,6 +29,17 @@ describe('event subscriptions', () => {
     ).toEqual([]);
   });
 
+  it('finds a subscriber built by hand and a kind it cannot resolve', () => {
+    expect(
+      problemsIn(`import { subscribing } from '${SUBSCRIBER}';
+        subscribing('memory.a', ['memory.used', dynamicKind()], handle);
+        const custom = { name: 'memory.b', kinds: ['memory.used'], handle };`),
+    ).toEqual([
+      'memory.a hears dynamicKind(), which the check cannot resolve',
+      'builds a subscriber without subscribing or projecting',
+    ]);
+  });
+
   it('finds another context domain event heard by its kind', () => {
     expect(
       problemsIn(`import { subscribing } from '${SUBSCRIBER}';

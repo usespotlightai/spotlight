@@ -24,6 +24,8 @@ export interface ArchivesDue {
 }
 
 export interface ArchiveReferencesPort {
+  of(id: WorkspaceArchiveId): Promise<ArchiveDue | null>;
+
   due(
     cutoffs: ArchiveRemovalCutoffs,
     after: ArchiveCursor | null,

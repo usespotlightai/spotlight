@@ -1,7 +1,7 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
-import { NotAllowedInReplayError } from '@memory/domain/exceptions/not-allowed-in-replay.error';
-import { NotAllowedInSearchError } from '@memory/domain/exceptions/not-allowed-in-search.error';
+import { NotAllowedAsOfPastTimeError } from '@memory/domain/exceptions/not-allowed-as-of-past-time.error';
+import { NotAllowedInIsolatedRunError } from '@memory/domain/exceptions/not-allowed-in-isolated-run.error';
 import {
   type Remembered,
   type RememberedAt,
@@ -77,8 +77,9 @@ const proposed = (
   Remembering.of({
     taskId: TaskId.of('task_1'),
     runId: RunId.of('run_1'),
-    replay: false,
-    isSearch: false,
+    asOf: null,
+    isolated: false,
+    trial: false,
   }).proposalOf({
     id: MemoryId.of('memory_1'),
     remembered: remembered(change),
@@ -92,32 +93,35 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
       Remembering.of({
         taskId: null,
         runId: RunId.of('run_1'),
-        replay: false,
-        isSearch: false,
+        asOf: null,
+        isolated: false,
+        trial: false,
       }),
     ).toThrow(/only from a task's run/);
   });
 
-  it('is never for a replay, which leaves nothing behind', () => {
+  it('is never for a run set at a past time, which leaves nothing behind', () => {
     expect(() =>
       Remembering.of({
         taskId: null,
         runId: RunId.of('run_1'),
-        replay: true,
-        isSearch: false,
+        asOf: new Date('2026-09-20T00:00:00.000Z'),
+        isolated: false,
+        trial: false,
       }),
-    ).toThrow(NotAllowedInReplayError);
+    ).toThrow(NotAllowedAsOfPastTimeError);
   });
 
-  it('is never for a search, which what the team remembers stays out of', () => {
+  it('is never for a run isolated from the team', () => {
     expect(() =>
       Remembering.of({
         taskId: null,
         runId: RunId.of('run_1'),
-        replay: false,
-        isSearch: true,
+        asOf: null,
+        isolated: true,
+        trial: false,
       }),
-    ).toThrow(NotAllowedInSearchError);
+    ).toThrow(NotAllowedInIsolatedRunError);
   });
 
   it('cites the step the agent remembered it from, as the run’s own', () => {

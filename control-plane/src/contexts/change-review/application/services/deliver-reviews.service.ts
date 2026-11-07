@@ -1,9 +1,11 @@
+import { ReviewPostingFailedError } from '@change-review/application/errors/review-posting-failed.error';
 import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type {
   LeasedReviewDelivery,
   ReviewDeliveriesPort,
 } from '@change-review/application/ports/review-deliveries.port';
 import type { ReviewDeliveryWorkPort } from '@change-review/application/ports/review-delivery-work.port';
+import type { ReviewPostingPort } from '@change-review/application/ports/review-posting.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
@@ -19,7 +21,6 @@ import { ReviewCommentId } from '@change-review/domain/value-objects/review-comm
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import {
   type OnPullRequest,
-  type PullRequestReviewsPort,
   SPOTLIGHT_ACTOR,
 } from '@github/application/ports/pull-request-reviews.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
@@ -55,12 +56,9 @@ class DeliveryFailed extends Error {
 }
 
 const failureOf = (error: unknown): DeliveryFailure =>
-  error instanceof DeliveryFailed
+  error instanceof DeliveryFailed || error instanceof ReviewPostingFailedError
     ? error.failure
-    : DeliveryFailure.of(
-        'github-error',
-        error instanceof Error ? error.message : null,
-      );
+    : DeliveryFailure.of('unexpected');
 
 export class DeliverReviews implements ReviewDeliveryWorkPort {
   constructor(
@@ -70,7 +68,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
     private readonly work: WorkPort,
     private readonly connections: WorkspaceConnectionsPort,
     private readonly people: PeoplePort,
-    private readonly github: PullRequestReviewsPort,
+    private readonly github: ReviewPostingPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
     private readonly reports: ErrorReportsPort,
@@ -158,7 +156,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
     failure: DeliveryFailure,
   ): Promise<void> {
     if (delivery.kind === 'review') {
-      const review = await this.reviews.find(ReviewId.of(delivery.subjectId));
+      const review = await this.reviews.find(delivery.subject);
 
       if (review) {
         await this.reviews.save(review.failedToPost(failure));
@@ -166,7 +164,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    const id = ReviewCommentId.of(delivery.subjectId);
+    const id = delivery.subject;
 
     if (delivery.kind === 'reply' || delivery.kind === 'file') {
       await this.saveWithRetry(id, (comment) => comment.notPosted(failure));
@@ -208,9 +206,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    const comment = await this.comments.find(
-      ReviewCommentId.of(delivery.subjectId),
-    );
+    const comment = await this.comments.find(delivery.subject);
 
     if (!comment) {
       throw new SubjectGone();
@@ -222,12 +218,12 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
     const target = await on(comment.author);
 
     if (delivery.kind === 'reply') {
-      await this.postReply(comment, target);
+      await this.postReply(delivery, comment, target);
       return;
     }
 
     if (delivery.kind === 'file') {
-      await this.postOnFile(comment, target);
+      await this.postOnFile(delivery, comment, target);
       return;
     }
 
@@ -251,10 +247,10 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
   }
 
   private async postReview(
-    delivery: LeasedReviewDelivery,
+    delivery: Extract<LeasedReviewDelivery, { kind: 'review' }>,
     on: (author: ReviewAuthor) => Promise<OnPullRequest>,
   ): Promise<void> {
-    const review = await this.reviews.find(ReviewId.of(delivery.subjectId));
+    const review = await this.reviews.find(delivery.subject);
 
     if (!review) {
       throw new SubjectGone();
@@ -273,37 +269,62 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    const submitted = await this.github.submit({
-      ...(await on(review.author)),
-      event: review.verdict,
-      body: review.body,
-      comments: plan.onLines.flatMap((comment) =>
-        comment.anchor.lines
-          ? [
-              {
-                path: comment.anchor.path.value,
-                side: comment.anchor.lines.side,
-                line: comment.anchor.lines.line,
-                startLine: comment.anchor.lines.startLine,
-                body: comment.sentBody ?? comment.body,
-              },
-            ]
-          : [],
-      ),
-    });
-
-    await this.reviews.save(
-      review.postedAs({
-        githubId: submitted.githubId,
-        verdictOnGitHub: submitted.postedAs,
-        comments,
-        onLinesOnGitHub: submitted.comments,
-        now: this.clock.now(),
+    const author = await on(review.author);
+    const submitted = await this.sent(delivery, () =>
+      this.github.submit({
+        ...author,
+        event: review.verdict,
+        body: review.body,
+        comments: plan.onLines.flatMap((comment) =>
+          comment.anchor.lines
+            ? [
+                {
+                  path: comment.anchor.path.value,
+                  side: comment.anchor.lines.side,
+                  line: comment.anchor.lines.line,
+                  startLine: comment.anchor.lines.startLine,
+                  body: comment.sentBody ?? comment.body,
+                },
+              ]
+            : [],
+        ),
       }),
     );
+
+    try {
+      await this.reviews.save(
+        review.postedAs({
+          githubId: submitted.githubId,
+          verdictOnGitHub: submitted.postedAs,
+          comments,
+          onLinesOnGitHub: submitted.comments,
+          now: this.clock.now(),
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        { deliveryId: delivery.id, err: error },
+        'Recording a review posted to GitHub',
+      );
+      throw new DeliveryFailed('not-recorded');
+    }
+  }
+
+  private async sent<T>(
+    delivery: LeasedReviewDelivery,
+    post: () => Promise<T>,
+  ): Promise<T> {
+    if (delivery.sendingSince) {
+      throw new DeliveryFailed('not-recorded');
+    }
+
+    await this.deliveries.sending(delivery, this.clock.now());
+
+    return post();
   }
 
   private async postReply(
+    delivery: LeasedReviewDelivery,
     reply: ReviewComment,
     target: OnPullRequest,
   ): Promise<void> {
@@ -332,16 +353,19 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       throw new DeliveryFailed('parent-never-on-github');
     }
 
-    const posted = await this.github.reply({
-      ...target,
-      to: thread.id,
-      body: reply.sentBody ?? reply.body,
-    });
+    const posted = await this.sent(delivery, () =>
+      this.github.reply({
+        ...target,
+        to: thread.id,
+        body: reply.sentBody ?? reply.body,
+      }),
+    );
 
     await this.saveWithRetry(reply.id, (latest) => latest.postedAs(posted));
   }
 
   private async postOnFile(
+    delivery: LeasedReviewDelivery,
     comment: ReviewComment,
     target: OnPullRequest,
   ): Promise<void> {
@@ -353,11 +377,13 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    const posted = await this.github.commentOnFile({
-      ...target,
-      path: comment.anchor.path.value,
-      body: comment.sentBody ?? comment.body,
-    });
+    const posted = await this.sent(delivery, () =>
+      this.github.commentOnFile({
+        ...target,
+        path: comment.anchor.path.value,
+        body: comment.sentBody ?? comment.body,
+      }),
+    );
 
     await this.saveWithRetry(comment.id, (latest) => latest.postedAs(posted));
   }

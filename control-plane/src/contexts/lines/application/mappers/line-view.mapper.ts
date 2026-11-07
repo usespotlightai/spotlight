@@ -3,6 +3,7 @@ import type {
   SearchPolicyView,
   StationView,
 } from '@lines/application/contracts/line-view.contract';
+import type { ContentHashPort } from '@lines/application/ports/content-hash.port';
 import type { Line } from '@lines/domain/aggregates/line.aggregate';
 import type { Station } from '@lines/domain/entities/station.entity';
 import type { SearchPolicy } from '@lines/domain/value-objects/search-policy.vo';
@@ -24,7 +25,11 @@ const searchOf = (policy: SearchPolicy | null): SearchPolicyView | null =>
     objective: policy.objective,
   };
 
-const stationOf = (line: Line, station: Station): StationView => ({
+const stationOf = (
+  line: Line,
+  station: Station,
+  hash: ContentHashPort,
+): StationView => ({
   id: station.id.value,
   key: station.key.value,
   name: station.name.value,
@@ -48,6 +53,7 @@ const stationOf = (line: Line, station: Station): StationView => ({
     rubric: station.judge.rubric,
     claims: [...station.judge.claims],
     passThreshold: station.judge.passThreshold,
+    rubricVersion: station.judge.rubricVersion((text) => hash.sha256(text)),
     sample: station.judge.sample,
     minAgreement: station.judge.minAgreement,
   },
@@ -65,7 +71,7 @@ const stationOf = (line: Line, station: Station): StationView => ({
 });
 
 export const LineViewMapper = {
-  of(line: Line): LineView {
+  of(line: Line, hash: ContentHashPort): LineView {
     return {
       id: line.id.value,
       workspaceId: line.workspaceId.value,
@@ -104,7 +110,7 @@ export const LineViewMapper = {
         from: each.from?.value ?? null,
         to: each.to.value,
       })),
-      stations: line.stations.map((each) => stationOf(line, each)),
+      stations: line.stations.map((each) => stationOf(line, each, hash)),
     };
   },
 };

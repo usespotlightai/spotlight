@@ -1,4 +1,4 @@
-export interface RunEventView {
+export interface RunJournalEntryView {
   readonly attempt: number;
   readonly seq: number;
   readonly type: string;
@@ -10,7 +10,10 @@ export interface RunEventView {
 export const RUN_STREAM = Symbol('RUN_STREAM');
 
 export interface RunStreamPort {
-  publish(runId: string, events: readonly RunEventView[]): void;
+  publish(runId: string, events: readonly RunJournalEntryView[]): void;
 
-  subscribe(runId: string, listener: (event: RunEventView) => void): () => void;
+  subscribe(
+    runId: string,
+    listener: (event: RunJournalEntryView) => void,
+  ): () => void;
 }

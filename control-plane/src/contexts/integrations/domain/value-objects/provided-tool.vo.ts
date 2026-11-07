@@ -109,7 +109,7 @@ export class ProvidedTool {
     return ToolName.of(`${this.integration.value}.${this.name}`);
   }
 
-  equals(other: ProvidedTool): boolean {
+  sameToolAs(other: ProvidedTool): boolean {
     return this.tool.equals(other.tool);
   }
 }

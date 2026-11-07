@@ -108,11 +108,7 @@ export interface ChatReaderPort {
     page: PageRequest,
   ): Promise<Page<ChatSummary>>;
 
-  read(
-    teamId: TeamId,
-    chatId: ChatId,
-    viewerId: UserId,
-  ): Promise<ChatView | null>;
+  read(teamId: TeamId, chatId: ChatId): Promise<ChatView | null>;
 
   setupChatsOf(teamId: TeamId): Promise<readonly SetupChatView[]>;
 }

@@ -32,11 +32,12 @@ describe('runsSubscribers', () => {
         2,
         false,
         false,
+        new Date('2026-09-27T09:00:00.000Z'),
       ),
     );
 
     expect(ending?.kinds).toEqual([
-      'run.completed',
+      'run.ended',
       'run.exhausted',
       'run.cancelled',
     ]);
@@ -109,6 +110,7 @@ describe('runsSubscribers', () => {
         2,
         false,
         false,
+        new Date('2026-09-27T09:00:00.000Z'),
       ),
     );
     await named('runs.revoke-tokens-of-ended-attempt')?.handle(
@@ -123,7 +125,7 @@ describe('runsSubscribers', () => {
     );
 
     expect(named('runs.revoke-tokens-of-ended-run')?.kinds).toEqual([
-      'run.completed',
+      'run.ended',
       'run.exhausted',
       'run.cancelled',
     ]);
@@ -132,8 +134,8 @@ describe('runsSubscribers', () => {
       'run.suspended',
     ]);
     expect(revokeFor.mock.calls).toEqual([
-      ['ws_1', 'run_1', null],
-      ['ws_1', 'run_1', 3],
+      [WorkspaceId.of('ws_1'), RunId.of('run_1'), null],
+      [WorkspaceId.of('ws_1'), RunId.of('run_1'), 3],
     ]);
     expect(named('runs.revoke-tokens-of-ended-run')?.callsOut).toBe(true);
     expect(named('runs.revoke-tokens-of-ended-attempt')?.callsOut).toBe(true);
@@ -203,11 +205,12 @@ describe('runsSubscribers', () => {
         2,
         false,
         false,
+        new Date('2026-09-27T09:00:00.000Z'),
       ),
     );
 
     expect(ended?.kinds).toEqual([
-      'run.completed',
+      'run.ended',
       'run.exhausted',
       'run.cancelled',
     ]);

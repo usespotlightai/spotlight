@@ -1,4 +1,4 @@
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import type { RecordRunImageCommand } from '@runs/application/commands/runner.commands';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import { UnknownRunnerError } from '@runs/domain/exceptions/unknown-runner.error';
@@ -15,7 +15,7 @@ export class RecordRunImageHandler
 {
   constructor(
     private readonly runs: RunRepository,
-    private readonly heartbeats: RunnerHeartbeatsPort,
+    private readonly claimants: RunnerClaimantsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -23,7 +23,7 @@ export class RecordRunImageHandler
     try {
       const runner = RunnerId.of(command.runnerId);
 
-      if (!(await this.heartbeats.heartbeat(runner, this.clock.now()))) {
+      if (!(await this.claimants.claimantOf(runner, this.clock.now()))) {
         throw new UnknownRunnerError(command.runnerId);
       }
 

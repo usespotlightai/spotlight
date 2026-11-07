@@ -1,6 +1,6 @@
 import { RunLeases } from '@runs/application/services/run-leases.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -26,7 +26,7 @@ const claimedBy = (id: string, runner: string, at = NOON) =>
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
     }),
-  }).claim(RunnerId.of(runner), at);
+  }).claim(claimer(RunnerId.of(runner)), at);
 
 const leasing = (stored: Run[], conflicting: string[] = []) => {
   const saved: Run[] = [];

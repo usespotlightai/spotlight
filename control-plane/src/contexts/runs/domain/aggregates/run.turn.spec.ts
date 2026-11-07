@@ -1,6 +1,6 @@
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
-import { RunCompleted } from '@runs/domain/events/run-completed.event';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
@@ -42,11 +42,11 @@ const claimed = (ordering = orderedFor.task('task_1', 0)) =>
       handover: { options: [], noteLimit: 0 },
       resume: {},
     }),
-  }).claim(RUNNER, NOW);
+  }).claim(claimer(RUNNER), NOW);
 
 const pending = () => claimed().reportTurn(RUNNER, CLEAN, ASKED, NOW);
 
-const kept = () => pending().keep(1);
+const kept = () => pending().keep(1, NOW);
 
 const events = (run: Run) => [...run.pullEvents()];
 
@@ -100,8 +100,8 @@ describe('the turn of a run that holds it', () => {
       const [ended] = events(failed);
 
       expect(failed.state).toBe('failed');
-      expect(ended).toBeInstanceOf(RunCompleted);
-      expect((ended as RunCompleted).reported).toBe(true);
+      expect(ended).toBeInstanceOf(RunEnded);
+      expect((ended as RunEnded).reported).toBe(true);
       expect(
         claimed().reportTurn(RUNNER, RunOutcome.stopped(130), ASKED, NOW).state,
       ).toBe('completed');
@@ -142,7 +142,7 @@ describe('the turn of a run that holds it', () => {
     it('waits for the person, marking the pause at the time it handed over', () => {
       const pendingRun = pending();
       pendingRun.pullEvents();
-      const run = pendingRun.keep(1);
+      const run = pendingRun.keep(1, NOW);
 
       expect(run.turnAt(1)?.state).toBe('kept');
       expect(events(run)).toEqual([
@@ -153,12 +153,12 @@ describe('the turn of a run that holds it', () => {
     it('is kept once, and never for another attempt', () => {
       const run = kept();
 
-      expect(run.keep(1)).toBe(run);
-      expect(pending().keep(2).turnAt(1)?.state).toBe('pending');
+      expect(run.keep(1, NOW)).toBe(run);
+      expect(pending().keep(2, NOW).turnAt(1)?.state).toBe('pending');
     });
 
     it('ends stopped when a stop came in while its requester decided', () => {
-      const run = pending().requestStop(later(1_000)).keep(1);
+      const run = pending().requestStop(later(1_000)).keep(1, NOW);
 
       expect(run.state).toBe('completed');
       expect(run.outcome?.stopped).toBe(true);
@@ -210,7 +210,7 @@ describe('the turn of a run that holds it', () => {
       const run = kept().resumed(1, 'answered', [], later(1_000));
 
       expect(run.resumed(1, 'answered', [], later(2_000))).toBe(run);
-      expect(run.keep(1)).toBe(run);
+      expect(run.keep(1, NOW)).toBe(run);
       expect(run.finished(1)).toBe(run);
     });
 
@@ -225,7 +225,7 @@ describe('the turn of a run that holds it', () => {
     it('is claimed by a runner on its new attempt', () => {
       const run = kept()
         .resumed(1, 'answered', [], NOW)
-        .claim(OTHER, later(120_000));
+        .claim(claimer(OTHER), later(120_000));
 
       expect(run.journalFor(OTHER)).toEqual(RunAttempt.of(RUN, 2));
     });
@@ -244,13 +244,13 @@ describe('the turn of a run that holds it', () => {
 
       for (let times = 0; times < 2; times++) {
         run = run
-          .claim(RUNNER, NOW)
+          .claim(claimer(RUNNER), NOW)
           .reportTurn(RUNNER, CLEAN, ASKED, NOW)
-          .keep(run.attempt)
+          .keep(run.attempt, NOW)
           .resumed(null, 'answered', [], NOW);
       }
 
-      const lost = run.claim(RUNNER, NOW);
+      const lost = run.claim(claimer(RUNNER), NOW);
 
       expect(lost.expireLease(lost.leaseExpiresAt as Date).state).toBe(
         'queued',
@@ -270,7 +270,7 @@ describe('the turn of a run that holds it', () => {
       expect(run.endedAt).toEqual(NOW);
       expect(run.turn).toBeNull();
       expect(ended).toEqual(
-        new RunCompleted(
+        new RunEnded(
           RUN,
           WORKSPACE,
           orderedFor.task('task_1', 0).requester,
@@ -282,6 +282,7 @@ describe('the turn of a run that holds it', () => {
           false,
           false,
           false,
+          NOW,
         ),
       );
     });
@@ -317,19 +318,22 @@ describe('the turn of a run that holds it', () => {
 
       expect(run.state).toBe('completed');
       expect(run.outcome?.stopped).toBe(true);
-      expect(events(run).pop()).toBeInstanceOf(RunCompleted);
+      expect(events(run).pop()).toBeInstanceOf(RunEnded);
     });
   });
 
   describe('cancelled by its task', () => {
     it('ends as its turn ended, pending or kept', () => {
       for (const suspended of [pending(), kept()]) {
-        const ended = suspended.cancel(NOW);
+        const { run: ended, was } = suspended.cancel('Task moved on.', NOW);
+
+        expect(was).toBe('suspended');
+        expect(ended.endedAt).toEqual(NOW);
 
         expect(ended.state).toBe('completed');
         expect(ended.outcome).toEqual(CLEAN);
         expect(ended.turn).toBeNull();
-        expect(events(ended).pop()).toBeInstanceOf(RunCompleted);
+        expect(events(ended).pop()).toBeInstanceOf(RunEnded);
       }
     });
   });
@@ -339,7 +343,7 @@ describe('the turn of a run that holds it', () => {
 
     for (let lost = 0; lost < 3; lost++) {
       run.pullEvents();
-      const reclaimed = run.claim(RUNNER, NOW);
+      const reclaimed = run.claim(claimer(RUNNER), NOW);
       run = reclaimed.expireLease(reclaimed.leaseExpiresAt as Date);
     }
 

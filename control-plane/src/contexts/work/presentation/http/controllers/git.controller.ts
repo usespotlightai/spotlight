@@ -1,9 +1,7 @@
-import type { GitAnswer } from '@github/application/ports/repository-git.port';
 import {
   BadRequestException,
   Controller,
   Get,
-  Inject,
   NotFoundException,
   Param,
   Post,
@@ -11,15 +9,16 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { CommandBus } from '@nestjs/cqrs';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CarryGitCallCommand } from '@work/application/commands/carry-git-call.command';
 import {
-  GIT_GATEWAY,
   GIT_SERVICES,
-  type GitGatewayPort,
+  type GitAnswerDto,
   type GitService,
-} from '@work/application/ports/git-gateway.port';
+} from '@work/application/dto/git-call.dto';
 
 const isService = (value: string): value is GitService =>
   GIT_SERVICES.includes(value as GitService);
@@ -39,7 +38,7 @@ interface Outgoing {
 @Controller('git/:runId/:repo')
 @RunnerOnly()
 export class GitController {
-  constructor(@Inject(GIT_GATEWAY) private readonly gateway: GitGatewayPort) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
   @Get('info/refs')
   async advertise(
@@ -55,7 +54,7 @@ export class GitController {
     }
 
     await this.answer(
-      await this.gateway.carry(runId, runnerId, repo, service, {
+      await this.carried(runId, runnerId, repo, service, {
         method: 'GET',
         path: '/info/refs',
         search: `?service=${service}`,
@@ -80,7 +79,7 @@ export class GitController {
     }
 
     await this.answer(
-      await this.gateway.carry(runId, runnerId, repo, service, {
+      await this.carried(runId, runnerId, repo, service, {
         method: 'POST',
         path: `/${service}`,
         search: '',
@@ -91,8 +90,20 @@ export class GitController {
     );
   }
 
+  private carried(
+    runId: string,
+    runnerId: string,
+    repo: string,
+    service: GitService,
+    call: CarryGitCallCommand['call'],
+  ): Promise<GitAnswerDto | null> {
+    return this.commandBus.execute(
+      new CarryGitCallCommand(runId, runnerId, repo, service, call),
+    );
+  }
+
   private async answer(
-    answered: GitAnswer | null,
+    answered: GitAnswerDto | null,
     response: Outgoing,
   ): Promise<void> {
     if (!answered) {

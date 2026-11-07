@@ -1,11 +1,42 @@
-import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
-import type { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
-
 export const RUN_CONNECTIONS = Symbol('RUN_CONNECTIONS');
+
+export type ConnectionOutcome =
+  | 'passthrough'
+  | 'injected'
+  | 'blocked'
+  | 'failed';
+
+export type ConnectionReason =
+  | 'not-allowed'
+  | 'private-address'
+  | 'not-bound'
+  | 'no-such-host'
+  | 'timed-out'
+  | 'tls-failed'
+  | 'unreachable';
+
+export type ConnectionError =
+  | 'blocked'
+  | 'failed'
+  | 'auth-failed'
+  | 'server-error';
+
+export interface RunConnectionContract {
+  readonly host: string;
+  readonly port: number;
+  readonly bytesOut: number;
+  readonly bytesIn: number;
+  readonly ms: number;
+  readonly outcome: ConnectionOutcome;
+  readonly status: number | null;
+  readonly reason: ConnectionReason | null;
+  readonly error: ConnectionError | null;
+  readonly at: Date;
+}
 
 export interface RecordedConnection {
   readonly attempt: number;
-  readonly connection: RunConnection;
+  readonly connection: RunConnectionContract;
 }
 
 export interface ConnectionOfRun extends RecordedConnection {
@@ -13,14 +44,7 @@ export interface ConnectionOfRun extends RecordedConnection {
 }
 
 export interface RunConnectionsPort {
-  record(
-    attempt: RunAttempt,
-    connections: readonly RunConnection[],
-  ): Promise<void>;
-
   of(runId: string): Promise<readonly RecordedConnection[]>;
 
   errorsIn(runIds: readonly string[]): Promise<readonly ConnectionOfRun[]>;
-
-  purgeBefore(before: Date, max: number): Promise<number>;
 }

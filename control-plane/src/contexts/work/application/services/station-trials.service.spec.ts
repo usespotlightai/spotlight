@@ -1,5 +1,6 @@
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
+import { readyProfiles } from '@runs/application/ports/harness-launch.fake-spec';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type {
   RunFacts,
@@ -24,6 +25,7 @@ import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
 import type { NamedMemory } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
 import type { TrialOrdering } from '@work/application/ports/station-trials.port';
@@ -39,12 +41,12 @@ import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
+import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import {
   lineMapOf,
   repositoryOf,
@@ -64,8 +66,8 @@ const API = 'a'.repeat(40);
 
 const DEV = { id: HarnessId.of('dev') };
 
-const harnesses: HarnessCatalog = {
-  knows: (id: HarnessId) => id.equals(DEV.id),
+const harnesses: HarnessCataloguePort = {
+  current: () => HarnessCatalogue.of([DEV.id]),
 };
 
 const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
@@ -74,7 +76,7 @@ const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
         executable: 'dev-agent',
         args: ['--acp'],
         env: chosen.model ? { DEV_MODEL: chosen.model.value } : {},
-      })
+      }).started()
     : null;
 
 const launch: HarnessLaunchPort = {
@@ -83,6 +85,7 @@ const launch: HarnessLaunchPort = {
   settingFiles: () => ['claude/settings.json'],
   defaultHarness: () => DEV.id,
   commandFor,
+  ...readyProfiles,
   preparedFor: (id, chosen) => {
     const command = commandFor(id, chosen);
 
@@ -203,7 +206,7 @@ const ORIGINAL_DISPATCH = Dispatch.ordered({
   configuredAs: null,
   briefedTask: BRIEFED,
   briefedMemories: ORIGINAL_MEMORIES,
-  order: DispatchOrder.of({}),
+  order: runOrderOf(ORIGINAL),
   now: NOW,
 }).enqueuedAsRun();
 
@@ -413,7 +416,7 @@ describe('StationTrials', () => {
       kind: 'trial',
       basedOn: ORIGINAL,
       asOf: NOW,
-      repositories: [{ path: 'api', repository: 'acme/api' }],
+      repositories: [{ path: 'api', repository: Repository.of('acme/api') }],
     });
     expect(trials[0]?.configuredAs?.fingerprint).toBe(trial.fingerprint);
   });

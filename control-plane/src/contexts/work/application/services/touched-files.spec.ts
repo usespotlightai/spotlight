@@ -1,5 +1,6 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
 import type { RunChanges } from '@runs/application/contracts/run-journal.contract';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -39,6 +40,7 @@ const touching = (input: {
       now: () => new Date(),
       sleep: input.sleep ?? (() => new Promise(() => {})),
     },
+    runJournalReadings(),
   );
   const task = {
     id: TaskId.of('task_1'),

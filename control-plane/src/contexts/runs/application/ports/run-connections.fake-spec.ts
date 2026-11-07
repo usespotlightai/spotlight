@@ -6,11 +6,9 @@ import type {
 export const connectionsInMemory = (
   recorded: readonly ConnectionOfRun[] = [],
 ): RunConnectionsPort => ({
-  record: async () => {},
   of: async (runId) => recorded.filter((each) => each.runId === runId),
   errorsIn: async (runIds) =>
     recorded.filter(
-      (each) => runIds.includes(each.runId) && each.connection.isError,
+      (each) => runIds.includes(each.runId) && each.connection.error !== null,
     ),
-  purgeBefore: async () => 0,
 });

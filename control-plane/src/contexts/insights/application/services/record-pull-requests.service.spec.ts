@@ -27,6 +27,7 @@ import {
   WORKSPACE,
 } from '@insights/runs.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -69,10 +70,10 @@ const shaping = (repositories: Repositories) =>
   );
 
 const ENDED = {
-  runId: 'run_1',
-  workspaceId: WORKSPACE.value,
-  teamId: TEAM.value,
-  taskId: TASK.value,
+  runId: RunId.of('run_1'),
+  workspaceId: WORKSPACE,
+  teamId: TEAM,
+  taskId: TASK,
 } as EndedRun;
 
 const work = { endedRun: async () => ENDED } as unknown as WorkPort;

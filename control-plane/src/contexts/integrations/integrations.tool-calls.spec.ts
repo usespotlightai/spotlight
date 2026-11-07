@@ -44,6 +44,7 @@ import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
+import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import {
   scopedTo,
@@ -195,7 +196,7 @@ const using = (
       marked,
     )) as IntegrationTool;
 
-    return resolved.call(inputs);
+    return answerOf(resolved.call(inputs));
   };
 
   return { resolving, run, comment, schemas, tools };
@@ -310,7 +311,7 @@ describe('IntegrationToolCalls', () => {
           null,
         )) as IntegrationTool;
 
-        return resolved.call({ issue: 'ENG-12', body: 'Fixed.' });
+        return answerOf(resolved.call({ issue: 'ENG-12', body: 'Fixed.' }));
       };
 
       return { comment, fetch, ...secrets };
@@ -358,7 +359,7 @@ describe('IntegrationToolCalls', () => {
       });
 
       await expect(comment()).rejects.toMatchObject({
-        kind: 'not-allowed',
+        failure: { blocked: true },
       });
       expect(fetch).not.toHaveBeenCalled();
     });
@@ -461,7 +462,9 @@ describe('IntegrationToolCalls', () => {
       capture: {},
     });
 
-    await expect(comment({ body: 'x' })).rejects.toThrow(UpstreamError);
+    await expect(comment({ body: 'x' })).rejects.toMatchObject({
+      failure: { blocked: false },
+    });
     await expect(comment({ body: 'x' })).rejects.toThrow(
       /the integration answered 400: .*Entity not found/,
     );
@@ -655,7 +658,7 @@ graphql:
       const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
 
       await expect(
-        resolved.call({ body: { name: 'doggie' } }),
+        answerOf(resolved.call({ body: { name: 'doggie' } })),
       ).resolves.toEqual({
         id: 10,
         name: 'doggie',
@@ -683,7 +686,9 @@ graphql:
       );
       const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
 
-      await expect(resolved.call({ body: { name: 'doggie' } })).rejects.toThrow(
+      await expect(
+        answerOf(resolved.call({ body: { name: 'doggie' } })),
+      ).rejects.toThrow(
         "Outbound call to petstore3.swagger.io blocked. Host is not on the workspace's allowed list.",
       );
       expect(fetch).not.toHaveBeenCalled();
@@ -698,7 +703,7 @@ graphql:
       );
       const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
 
-      await resolved.call({ body: { name: 'doggie' } });
+      await answerOf(resolved.call({ body: { name: 'doggie' } }));
 
       expect(fetch).toHaveBeenCalledOnce();
     });
@@ -715,7 +720,7 @@ graphql:
         'linear.issue',
       )) as IntegrationTool;
 
-      await expect(resolved.call({ id: 'i1' })).resolves.toEqual({
+      await expect(answerOf(resolved.call({ id: 'i1' }))).resolves.toEqual({
         id: 'i1',
         title: 'Broken',
       });
@@ -734,7 +739,7 @@ graphql:
         'linear.issue',
       )) as IntegrationTool;
 
-      await expect(failing.call({ id: 'nope' })).rejects.toThrow(
+      await expect(answerOf(failing.call({ id: 'nope' }))).rejects.toThrow(
         /the integration answered 200: .*Entity not found/,
       );
     });

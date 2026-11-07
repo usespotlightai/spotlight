@@ -16,5 +16,6 @@ export class RunExhausted implements DomainEvent {
     readonly asked: boolean,
     readonly failure: RunFailureCode | null,
     readonly started: boolean,
+    readonly endedAt: Date,
   ) {}
 }

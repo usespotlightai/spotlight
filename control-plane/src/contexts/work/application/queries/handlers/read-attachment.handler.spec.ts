@@ -1,4 +1,3 @@
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type {
   AttachmentHolder,
   AttachmentReaderPort,
@@ -6,13 +5,12 @@ import type {
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { ReadAttachmentHandler } from '@work/application/queries/handlers/read-attachment.handler';
 import { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const reading = (holder: AttachmentHolder) =>
   new ReadAttachmentHandler(
-    {
-      findForMember: vi.fn(async () => ({ id: 'ws_1' })),
-    } as unknown as WorkspaceReaderPort,
+    workAccessSeeing(() => true),
     {
       find: vi.fn(async () => ({
         id: 'attachment_1',
@@ -41,7 +39,11 @@ describe('ReadAttachmentHandler', () => {
   });
 
   it('links a chat’s attachment only for the person who started the chat', async () => {
-    const chat = { kind: 'chat', startedById: 'user_1' } as const;
+    const chat = {
+      kind: 'chat',
+      startedById: 'user_1',
+      teamId: 'team_1',
+    } as const;
 
     expect(await read(chat, 'user_1')).toBe(
       'https://files.example/attachment_1',

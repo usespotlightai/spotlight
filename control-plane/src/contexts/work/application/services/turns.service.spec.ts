@@ -158,7 +158,7 @@ describe('Turns', () => {
     await kept.turns.cancelAbandoned(NOW);
     await held.turns.cancelAbandoned(NOW);
 
-    expect(kept.cancel).toHaveBeenCalledWith(RUN);
+    expect(kept.cancel).toHaveBeenCalledWith(RUN, expect.any(String));
     expect(held.cancel).not.toHaveBeenCalled();
   });
 });

@@ -1,11 +1,12 @@
-import type {
-  RunStartGate,
-  StartDecision,
-  StartingRun,
+import {
+  type RunStartGate,
+  type StartDecision,
+  StartGateUnavailableError,
+  type StartingRun,
 } from '@runs/application/ports/run-start-gates.port';
 import { ClaimGate } from '@runs/application/services/claim-gate.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
@@ -31,7 +32,7 @@ const claimed = (ordering = orderedFor.task('task_1', 0)) =>
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
     }),
-  }).claim(RUNNER, NOW);
+  }).claim(claimer(RUNNER), NOW);
 
 type BeforeHookEvent = { readonly on: string };
 
@@ -122,7 +123,7 @@ const starting = (
         new TaskGate(of, {
           before: async (_task, event, until) => {
             if (over.unreachable) {
-              throw new Error('connect ECONNREFUSED');
+              throw new StartGateUnavailableError('connect ECONNREFUSED');
             }
             hookCalls.push(event);
             untils.push(until);
@@ -216,6 +217,21 @@ describe('ClaimGate', () => {
     expect(current().attempt).toBe(1);
     expect(current().claimedBy).toBeNull();
     expect(logged).toHaveLength(1);
+  });
+
+  it('lets a defect in a start gate surface rather than requeue the run', async () => {
+    const { hooks, current } = starting({ ungated: true });
+    hooks.register({
+      owner: 'work',
+      mayStart: async () => {
+        throw new TypeError('not a function');
+      },
+    });
+
+    await expect(hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).rejects.toThrow(
+      TypeError,
+    );
+    expect(current().state).toBe('claimed');
   });
 
   it('requeues a gated run, and says so, when no start gate answers for its owner', async () => {

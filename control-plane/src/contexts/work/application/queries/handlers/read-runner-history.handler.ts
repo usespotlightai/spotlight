@@ -1,10 +1,12 @@
 import type {
-  RunUsage,
+  RunUsageFacts,
   RunUsageReaderPort,
 } from '@runs/application/ports/run-usage-reader.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type {
   HistoryOutcome,
   HistoryRunDto,
@@ -29,7 +31,7 @@ import {
   historyUsageOf,
   type StationRunHistories,
 } from '@work/application/services/station-run-histories.service';
-import type { HistoryAccess } from '@work/domain/services/history-access';
+import type { HistoryAccess } from '@work/domain/value-objects/history-access.vo';
 
 const sinceOf = (written: string | null): Date | null => {
   if (!written) {
@@ -43,7 +45,7 @@ const sinceOf = (written: string | null): Date | null => {
 
 const withUsage = (
   outcome: RunResultShape | null,
-  usage: RunUsage | null,
+  usage: RunUsageFacts | null,
 ): HistoryOutcome | null =>
   outcome && { ...outcome, usage: historyUsageOf(usage) };
 
@@ -76,7 +78,7 @@ export class ReadRunnerHistoryHandler
           wanted.station,
           wanted.line,
         )
-      ).filter((each) => access.seesRunAt(each.stationId));
+      ).filter((each) => access.seesRunAt(StationId.of(each.stationId)));
       const [only] = keyed;
 
       if (!only) {
@@ -97,9 +99,9 @@ export class ReadRunnerHistoryHandler
           since: sinceOf(wanted.since),
           until: access.asOf,
           max: wanted.outcome ? HISTORY_RUNS.matched : last,
-          excluding: access.hiddenTaskIds,
+          excluding: access.hiddenTaskIds.map((each) => each.value),
         })
-      ).filter((each) => !access.hides(each));
+      ).filter((each) => !access.hides(TaskId.of(each.taskId)));
       const outcomes = await this.outcomes.of(
         ended.map((each) => each.runId),
         access.asOf,
@@ -152,8 +154,13 @@ export class ReadRunnerHistoryHandler
     runs: readonly StationRunRow[],
   ): Promise<readonly StationRunRow[]> {
     return (
-      await this.stations.endedAmong(stationId, access.shownBeyond(runs))
-    ).filter((each) => !access.hides(each));
+      await this.stations.endedAmong(
+        stationId,
+        access
+          .shownBeyond(runs.map((each) => RunId.of(each.runId)))
+          .map((each) => each.value),
+      )
+    ).filter((each) => !access.hides(TaskId.of(each.taskId)));
   }
 
   private async withOutcomes(

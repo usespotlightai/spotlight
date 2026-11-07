@@ -7,6 +7,7 @@ import type {
   RunFacts,
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -141,6 +142,7 @@ const lookingUp = (seen: Seen) => {
       ofRun: async () => seen.journal ?? null,
       changesOfTask: async () => seen.changesOfTask ?? [],
     } as unknown as RunJournalReaderPort,
+    runJournalReadings(),
   );
 };
 
@@ -371,6 +373,7 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
             edited('/tmp/scratch.ts'),
           ]),
       } as unknown as RunJournalReaderPort,
+      runJournalReadings(),
     ).changedBy(RUN);
 
     expect(changed?.map((each) => [each.repository.value, each.path])).toEqual([

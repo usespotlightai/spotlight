@@ -19,6 +19,7 @@ import type { RunnerConfigurationPort } from '@runners/application/ports/runner-
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -89,7 +90,7 @@ export class ResourceConfigurationHandler
       case 'team':
         return this.teamWorkspaceOf({ teamId: TeamId.of(id) });
       case 'line':
-        return this.teamWorkspaceOf(await this.lines.withId(id));
+        return this.teamWorkspaceOf(await this.lines.withId(LineId.of(id)));
       case 'skill':
         return this.teamWorkspaceOf(
           await this.skills.withId(SkillDefinitionId.of(id)),

@@ -9,6 +9,7 @@ import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -713,7 +714,7 @@ actions:
     ).toEqual(['DEMO_TOKEN']);
     expect(request(ACTION)?.auth).toEqual({
       kind: 'secrets',
-      secrets: ['DEMO_TOKEN'],
+      secrets: [SecretName.of('DEMO_TOKEN')],
     });
   });
 
@@ -806,7 +807,7 @@ tools:
   it('offers each as a tool named for the integration, with what it takes', () => {
     const compiled = read(PROVIDING);
     const provided = compiled.ok
-      ? compiled.readable.integration.tools.find(
+      ? compiled.readable.integration.writtenTools.find(
           (each) => each.tool.value === 'linear.comment',
         )
       : undefined;
@@ -836,9 +837,8 @@ tools:
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.providedTool(
-          ToolName.of('linear.comment'),
-        )?.backing.action,
+        compiled.readable.integration.writtenTool(ToolName.of('linear.comment'))
+          ?.backing.action,
     ).toBe('comment');
     expect(tool?.output).not.toBeNull();
     expect(tool?.inputs[0]?.default?.parts).toHaveLength(1);
@@ -866,9 +866,8 @@ tools:
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.providedTool(
-          ToolName.of('linear.comment'),
-        )?.approval,
+        compiled.readable.integration.writtenTool(ToolName.of('linear.comment'))
+          ?.approval,
     ).toBeNull();
   });
 
@@ -883,9 +882,8 @@ tools:
     expect(compiled.ok && compiled.warnings).toEqual([]);
     expect(
       compiled.ok &&
-        compiled.readable.integration.providedTool(
-          ToolName.of('linear.comment'),
-        )?.approval?.because,
+        compiled.readable.integration.writtenTool(ToolName.of('linear.comment'))
+          ?.approval?.because,
     ).toBe('It posts publicly, under the team’s name.');
   });
 
@@ -1012,6 +1010,7 @@ describe('IntegrationCompiler', () => {
   it('hands back the integration with the definition it was compiled from', () => {
     const compiled = new IntegrationCompiler(expressions).compile(
       parseYaml(WHOLE),
+      null,
     );
 
     expect(compiled.ok && compiled.integration.key.value).toBe('linear');
@@ -1022,7 +1021,10 @@ describe('IntegrationCompiler', () => {
 
   it('says what is wrong with one that will not compile', () => {
     expect(
-      new IntegrationCompiler(expressions).compile({ integration: 'linear' }),
+      new IntegrationCompiler(expressions).compile(
+        { integration: 'linear' },
+        null,
+      ),
     ).toMatchObject({ ok: false, problems: [{ path: 'integrations/linear' }] });
   });
 });
@@ -1084,6 +1086,7 @@ openapi:
   it('names the spec it provides tools from, and what it injects to fetch it', () => {
     const compiled = new IntegrationCompiler(expressions).compile(
       parseYaml(PETSTORE),
+      null,
     );
 
     expect(compiled.ok && compiled.spec).toMatchObject({
@@ -1097,13 +1100,14 @@ openapi:
     expect(
       compiled.ok && compiled.integration.credentials.map((each) => each.value),
     ).toEqual(['PETSTORE_KEY']);
-    expect(compiled.ok && compiled.integration.tools).toEqual([]);
+    expect(compiled.ok && compiled.offered.all).toEqual([]);
   });
 
   it('fingerprints where a spec is fetched from, but not what is provided from it', () => {
     const fingerprint = (text: string) => {
       const compiled = new IntegrationCompiler(expressions).compile(
         parseYaml(text),
+        null,
       );
 
       return compiled.ok ? compiled.spec?.fingerprint : null;
@@ -1125,7 +1129,7 @@ openapi:
 
     expect(
       compiled.ok &&
-        compiled.readable.integration.tools.map((each) => [
+        compiled.generated.map((each) => [
           each.tool.value,
           each.approval?.because ?? null,
         ]),
@@ -1136,9 +1140,7 @@ openapi:
     ]);
     expect(
       compiled.ok &&
-        compiled.readable.integration.tools.map(
-          (each) => each.backing.spec?.operation,
-        ),
+        compiled.generated.map((each) => each.backing.spec?.operation),
     ).toEqual(['find-pet', 'add-pet', 'delete-pet']);
   });
 
@@ -1170,7 +1172,7 @@ tools:
     description: Remove the pet this task is about.
 `);
     const provided = compiled.ok
-      ? compiled.readable.integration.providedTool(
+      ? compiled.readable.integration.writtenTool(
           ToolName.of('petstore.delete-pet'),
         )
       : null;
@@ -1178,9 +1180,7 @@ tools:
     expect(provided?.backing.action).toBe('remove');
     expect(
       compiled.ok &&
-        compiled.readable.integration.tools.filter(
-          (each) => each.name === 'delete-pet',
-        ),
+        compiled.offered.all.filter((each) => each.name === 'delete-pet'),
     ).toHaveLength(1);
   });
 
@@ -1207,7 +1207,7 @@ tools:
 `,
     );
     const inputs = compiled.ok
-      ? compiled.readable.integration.providedTool(
+      ? compiled.readable.integration.writtenTool(
           ToolName.of('petstore.search'),
         )?.inputs
       : [];
@@ -1345,6 +1345,7 @@ mcp:
   it('names the server it lists tools from, connected through its own connection', () => {
     const compiled = new IntegrationCompiler(expressions).compile(
       parseYaml(TRACKER),
+      null,
     );
 
     expect(compiled.ok && compiled.spec).toMatchObject({
@@ -1364,8 +1365,8 @@ mcp:
     );
     const approval = (name: string) =>
       compiled.ok
-        ? compiled.readable.integration.providedTool(
-            ToolName.of(`tracker.${name}`),
+        ? compiled.generated.find((each) =>
+            each.tool.equals(ToolName.of(`tracker.${name}`)),
           )?.approval?.because
         : undefined;
 

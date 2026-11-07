@@ -66,16 +66,13 @@ export const reviewComment = pgTable(
     githubId: bigint('github_id', { mode: 'number' }),
     githubUrl: text('github_url'),
     sentBody: text('sent_body'),
-    editPending: boolean('edit_pending').notNull().default(false),
-    pendingOwnEdits: jsonb('pending_own_edits')
-      .$type<string[]>()
-      .notNull()
-      .default([]),
+    editPending: boolean('edit_pending').notNull(),
+    pendingOwnEdits: jsonb('pending_own_edits').$type<string[]>().notNull(),
     createdAt: timestamptz('created_at').notNull(),
     editedAt: timestamptz('edited_at'),
     failureCode: deliveryFailureCode('failure_code'),
     failureDetail: text('failure_detail'),
-    version: integer('version').notNull().default(0),
+    version: integer('version').notNull(),
   },
   (table) => [
     index('review_comment_reply_to_idx').on(table.replyToId),
@@ -110,7 +107,7 @@ export const review = pgTable(
     postedAt: timestamptz('posted_at'),
     failureCode: deliveryFailureCode('failure_code'),
     failureDetail: text('failure_detail'),
-    version: integer('version').notNull().default(0),
+    version: integer('version').notNull(),
   },
   (table) => [
     unique('review_workspace_id_id_key').on(table.workspaceId, table.id),
@@ -157,6 +154,7 @@ export const reviewDelivery = pgTable(
     state: reviewDeliveryState('state').notNull().default('pending'),
     attempts: integer('attempts').notNull().default(0),
     dueAt: timestamptz('due_at').notNull(),
+    sendingSince: timestamptz('sending_since'),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [

@@ -1,40 +1,24 @@
+import type { OrderedTrial } from '@replays/application/ports/station-trials.port';
+import type { SearchRunFact } from '@replays/domain/services/search-reconciliation';
+import type { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
-import type {
-  RunOrderContract,
-  RunRequesterContract,
-} from '@runs/application/contracts/run-order.contract';
-import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const RUNS = Symbol('REPLAYS_RUNS');
 
 export type RunEnqueueing =
-  | { readonly enqueued: true }
-  | { readonly enqueued: false; readonly reason: string };
+  | { readonly outcome: 'enqueued' }
+  | { readonly outcome: 'refused'; readonly reason: string }
+  | { readonly outcome: 'harness-unavailable' };
 
 export type QueuedRunCancellation =
   | { readonly outcome: 'cancelled'; readonly started: boolean }
   | { readonly outcome: 'claimed' | 'ended' | 'unknown' };
 
-export const RUN_STATES = [
-  'queued',
-  'claimed',
-  'suspended',
-  'completed',
-  'failed',
-  'cancelled',
-] as const;
-
-export type RunState = (typeof RUN_STATES)[number];
-
-export interface RunStatus {
-  readonly run: RunId;
-  readonly requester: RunRequesterContract;
-  readonly state: RunState;
-  readonly askedAPerson: boolean;
-  readonly started: boolean;
-  readonly queuedAt: Date;
-  readonly endedAt: Date | null;
+export interface RunStatus extends SearchRunFact {
+  readonly requester: ReplaysRequester | null;
 }
 
 export interface AgentProblem {
@@ -42,22 +26,36 @@ export interface AgentProblem {
   readonly reason: string;
 }
 
-export interface RunsPort {
-  enqueue(order: RunOrderContract): Promise<RunEnqueueing>;
+export interface ReplayTrialRun {
+  readonly run: RunId;
+  readonly trial: OrderedTrial;
+}
 
-  cancel(run: RunId): Promise<{ readonly known: boolean }>;
+export interface SearchAgentRun {
+  readonly run: RunId;
+  readonly requester: ReplaysRequester;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly agent: SearchAgent;
+  readonly briefing: string;
+  readonly placement: {
+    readonly labelGroups: readonly (readonly string[])[];
+    readonly image: string | null;
+  };
+}
+
+export interface RunsPort {
+  enqueueTrial(run: ReplayTrialRun): Promise<RunEnqueueing>;
+
+  enqueueSearch(run: SearchAgentRun): Promise<RunEnqueueing>;
+
+  cancel(run: RunId, reason: string): Promise<{ readonly known: boolean }>;
 
   cancelIfQueued(run: RunId, reason: string): Promise<QueuedRunCancellation>;
 
   statuses(runs: readonly RunId[]): Promise<readonly RunStatus[]>;
 
-  leasedBy(run: RunId, runnerId: string): Promise<RunRequesterContract | null>;
+  leasedBy(run: RunId, runnerId: string): Promise<ReplaysRequester | null>;
 
   agentProblem(agent: SearchAgent): AgentProblem | null;
-
-  commandFor(
-    agent: SearchAgent,
-    requester: RunRequesterContract,
-    run: RunId,
-  ): RunSpecShape['command'] | null;
 }

@@ -10,6 +10,7 @@ import type {
   ProvisionCall,
   ProvisionCallsPort,
 } from '@runners/application/ports/provision-calls.port';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -69,7 +70,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
   ) {}
 
   call(call: ProvisionCall): Promise<ProvisionAnswer> {
-    return this.settings.scope.within(call.workspaceId, () =>
+    return this.settings.scope.within(WorkspaceId.of(call.workspaceId), () =>
       this.callInScope(call),
     );
   }

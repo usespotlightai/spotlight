@@ -1,13 +1,15 @@
 import type { RecordRunUsage } from '@runs/application/events/handlers/record-run-usage.handler';
 import type { PauseMarks } from '@runs/application/services/pause-marks.service';
+import type { ProvisionFailureMarks } from '@runs/application/services/provision-failure-marks.service';
 import type { RunCredentials } from '@runs/application/services/run-credentials.service';
 import type { RunnerLeases } from '@runs/application/services/runner-leases.service';
 import type { SandboxLeases } from '@runs/application/services/sandbox-leases.service';
 import type { RunCancelled } from '@runs/domain/events/run-cancelled.event';
-import type { RunCompleted } from '@runs/domain/events/run-completed.event';
+import type { RunEnded } from '@runs/domain/events/run-ended.event';
 import type { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import type { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import type { RunPaused } from '@runs/domain/events/run-paused.event';
+import type { RunProvisionFailed } from '@runs/domain/events/run-provision-failed.event';
 import type { RunReservationDropped } from '@runs/domain/events/run-reservation-dropped.event';
 import type { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import {
@@ -15,11 +17,11 @@ import {
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 
-const ENDED = ['run.completed', 'run.exhausted', 'run.cancelled'];
+const ENDED = ['run.ended', 'run.exhausted', 'run.cancelled'];
 
 const LEFT = ['run.lease-expired', 'run.suspended'];
 
-type Ended = RunCompleted | RunExhausted | RunCancelled;
+type Ended = RunEnded | RunExhausted | RunCancelled;
 
 type Left = RunLeaseExpired | RunSuspended;
 
@@ -28,6 +30,7 @@ export const runsSubscribers = (reactions: {
   runners: RunnerLeases;
   sandboxes: SandboxLeases;
   pauseMarks: PauseMarks;
+  provisionFailures: ProvisionFailureMarks;
   usages: RecordRunUsage;
 }): readonly DomainEventSubscriber[] => [
   subscribing<Ended>('runs.end-secret-grants-of-ended-run', ENDED, (event) =>
@@ -65,15 +68,20 @@ export const runsSubscribers = (reactions: {
     ['run.paused'],
     (event) => reactions.pauseMarks.onRunPaused(event),
   ),
+  subscribing<RunProvisionFailed>(
+    'runs.journal-when-provisioning-failed',
+    ['run.provision-failed'],
+    (event) => reactions.provisionFailures.onProvisionFailed(event),
+  ),
   subscribing<RunReservationDropped>(
     'runs.release-reserved-runner',
     ['run.reservation-dropped'],
     (event) => reactions.runners.reservationDropped(event.runner.value),
   ),
-  subscribing<RunCompleted>(
+  subscribing<RunEnded>(
     'runs.record-run-usage.completed',
-    ['run.completed'],
-    (event) => reactions.usages.onRunCompleted(event),
+    ['run.ended'],
+    (event) => reactions.usages.onRunEnded(event),
   ),
   subscribing<RunExhausted>(
     'runs.record-run-usage.exhausted',

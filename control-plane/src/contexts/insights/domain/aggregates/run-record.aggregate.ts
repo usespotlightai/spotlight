@@ -24,6 +24,7 @@ import {
 import type { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import type { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import type { StationPass } from '@insights/domain/value-objects/station-pass.vo';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -182,12 +183,12 @@ export class RunRecord extends EventRecorder {
       : null;
   }
 
-  erased(): RunRecord {
+  erased(): Erased<RunRecord> {
     const erased = this.with({});
 
     erased.record(new RunRecordErased(this.runId, this.workspaceId));
 
-    return erased;
+    return erasedAs(erased);
   }
 
   recordEnd(end: RunEnd): RunRecord {

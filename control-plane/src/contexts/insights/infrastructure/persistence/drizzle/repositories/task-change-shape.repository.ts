@@ -10,6 +10,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import type { Erased } from '@shared-kernel/domain/erased';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -99,7 +100,7 @@ export class DrizzleTaskChangeShapeRepository
     });
   }
 
-  remove(removed: TaskChangeShape): Promise<void> {
+  remove(removed: Erased<TaskChangeShape>): Promise<void> {
     return this.context.inTransaction(async () => {
       const gone = await this.context.db
         .delete(taskChangeShape)

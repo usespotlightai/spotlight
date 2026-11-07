@@ -1,19 +1,21 @@
 import type { RefreshIntegrationSpecHandler } from '@integrations/application/commands/handlers/refresh-integration-spec.handler';
 import { RefreshIntegrationSpecCommand } from '@integrations/application/commands/refresh-integration-spec.command';
 import type { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
+import type { InboundDeliveryRetention } from '@integrations/application/services/inbound-delivery-retention.service';
 import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
+import type { IntegrationCursors } from '@integrations/application/services/integration-cursors.service';
 import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import type { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
 import type { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
 import type { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import {
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
-import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {
   TASK_MOVED,
   type TaskMovedIntegrationEvent,
@@ -40,6 +42,8 @@ export const integrationsSubscribers = (
   refreshingSpec: RefreshIntegrationSpecHandler,
   inferring: InferOutputSchemas,
   connectionAsks: ConnectionAsksPort,
+  cursors: IntegrationCursors,
+  deliveries: InboundDeliveryRetention,
 ): readonly DomainEventSubscriber[] => [
   subscribing<TeamDeletedIntegrationEvent>(
     'integrations.delete-integrations-of-deleted-team',
@@ -85,6 +89,36 @@ export const integrationsSubscribers = (
     (event) => deleting.removePersonToolPolicies(TeamId.of(event.teamId)),
     { callsOut: true },
   ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'integrations.remove-poll-cursors-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => cursors.removePollCursorsOfTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'integrations.remove-schedule-cursors-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => cursors.removeScheduleCursorsOfTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'integrations.remove-inbound-deliveries-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => deliveries.removeAddressedTo(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<IntegrationDeleted>(
+    'integrations.remove-poll-cursor-of-a-deleted-integration',
+    ['integration.deleted'],
+    (event) => cursors.removePollCursorOf(event.teamId, event.integration),
+    { callsOut: true },
+  ),
+  subscribing<IntegrationDeleted>(
+    'integrations.remove-schedule-cursor-of-a-deleted-integration',
+    ['integration.deleted'],
+    (event) => cursors.removeScheduleCursorOf(event.teamId, event.integration),
+    { callsOut: true },
+  ),
   subscribing<IntegrationConnected>(
     'integrations.refresh-spec-when-an-integration-connected',
     ['integration.connected'],
@@ -121,9 +155,9 @@ export const integrationsSubscribers = (
     (event) => inferring.forget(event.teamId, event.integration),
     { callsOut: true },
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'integrations.fire-hooks-when-a-run-ended',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) => hookTriggers.runEnded(event),
     { callsOut: true },
   ),

@@ -3,8 +3,8 @@ import type { JsonObject } from '@shared-kernel/domain/json-value';
 import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
 import { DISPATCH_REFUSALS } from '@work/domain/value-objects/dispatch-refusal';
-import type { TrialRepository } from '@work/domain/value-objects/dispatch-subject.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
+import { TRIAL_FOLLOW_UPS } from '@work/domain/value-objects/trial-follow-up';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -17,6 +17,11 @@ import {
   text,
 } from 'drizzle-orm/pg-core';
 
+interface TrialRepositoryRow {
+  readonly path: string;
+  readonly repository: string;
+}
+
 export const dispatchKind = pgEnum('dispatch_kind', ['task', 'chat', 'trial']);
 
 export const dispatchOutcome = pgEnum('dispatch_outcome', [
@@ -27,6 +32,8 @@ export const dispatchOutcome = pgEnum('dispatch_outcome', [
 ]);
 
 export const dispatchRefusal = pgEnum('dispatch_refusal', DISPATCH_REFUSALS);
+
+export const dispatchFollowUp = pgEnum('dispatch_follow_up', TRIAL_FOLLOW_UPS);
 
 export const dispatch = pgTable(
   'dispatch',
@@ -42,8 +49,8 @@ export const dispatch = pgTable(
     basedOnRunId: text('based_on_run_id'),
     asOf: timestamptz('as_of'),
     trialRepositories:
-      jsonb('trial_repositories').$type<readonly TrialRepository[]>(),
-    followUp: jsonb('follow_up').$type<JsonObject>(),
+      jsonb('trial_repositories').$type<readonly TrialRepositoryRow[]>(),
+    followUp: dispatchFollowUp('follow_up'),
     order: jsonb('order').$type<JsonObject>(),
     briefedTask: jsonb('briefed_task').$type<BriefedTaskParts>(),
     briefing: text('briefing'),
@@ -61,6 +68,7 @@ export const dispatch = pgTable(
     outcome: dispatchOutcome('outcome'),
     failure: text('failure'),
     stopped: boolean('stopped').notNull().default(false),
+    askedAPerson: boolean('asked_a_person').notNull().default(false),
     superseded: boolean('superseded').notNull().default(false),
     version: integer('version').notNull().default(0),
   },

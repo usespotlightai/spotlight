@@ -1,7 +1,9 @@
 import { InvalidInboundDeliveryTransitionError } from '@integrations/domain/exceptions/invalid-inbound-delivery-transition.error';
+import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import { DELIVERING } from '@integrations/domain/services/delivery-retry';
 import type { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import type { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -36,7 +38,7 @@ export const INBOUND_DELIVERY_STATES = [
 interface Received {
   readonly integration: IntegrationKey;
   readonly to: DeliveryAddressee | null;
-  readonly id: string;
+  readonly id: InboundDeliveryId;
   readonly headers: DeliveryHeaders;
   readonly body: unknown;
   readonly causeFiringId: HookFiringId | null;
@@ -52,17 +54,12 @@ interface State extends Received {
 
 const LEASE_MS = 10 * 60 * 1000;
 
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
 export class InboundDelivery {
   private constructor(private readonly state: State) {}
 
   static receive(input: Received, now: Date): InboundDelivery {
-    if (input.id.trim() === '') {
-      throw new InconsistentStateError(
-        'inbound delivery',
-        `from ${input.integration.value} names no delivery id`,
-      );
-    }
-
     return new InboundDelivery({
       ...input,
       headers: deepFrozen(structuredClone(input.headers)),
@@ -92,7 +89,7 @@ export class InboundDelivery {
     if (state.progress.kind === 'failed' && state.failure === null) {
       throw new InconsistentStateError(
         'inbound delivery',
-        `failed for no reason (${state.id})`,
+        `failed for no reason (${state.id.value})`,
       );
     }
 
@@ -103,6 +100,10 @@ export class InboundDelivery {
     return new Date(now.getTime() - LEASE_MS);
   }
 
+  static retentionCutoff(now: Date): Date {
+    return new Date(now.getTime() - RETENTION_MS);
+  }
+
   get integration(): IntegrationKey {
     return this.state.integration;
   }
@@ -111,8 +112,14 @@ export class InboundDelivery {
     return this.state.to;
   }
 
-  get id(): string {
+  get id(): InboundDeliveryId {
     return this.state.id;
+  }
+
+  get receivedAs(): string {
+    const { integration, to, id } = this.state;
+
+    return `delivery:${integration.value}:${to?.teamId.value ?? ''}:${id}`;
   }
 
   get headers(): DeliveryHeaders {
@@ -155,16 +162,24 @@ export class InboundDelivery {
     return this.state.progress.kind === 'failed';
   }
 
-  claimed(now: Date): InboundDelivery {
+  isClaimableAt(now: Date): boolean {
     const { progress } = this.state;
-    const due =
-      progress.kind === 'pending' && progress.dueAt.getTime() <= now.getTime();
-    const leaseExpired =
+
+    if (progress.kind === 'pending') {
+      return progress.dueAt.getTime() <= now.getTime();
+    }
+
+    return (
       progress.kind === 'working' &&
       progress.claimedAt.getTime() <
-        InboundDelivery.leaseExpiredBefore(now).getTime();
+        InboundDelivery.leaseExpiredBefore(now).getTime()
+    );
+  }
 
-    if (!due && !leaseExpired) {
+  claimed(now: Date): InboundDelivery {
+    const { progress } = this.state;
+
+    if (!this.isClaimableAt(now)) {
       throw new InvalidInboundDeliveryTransitionError(
         progress.kind === 'working'
           ? 'is still claimed'
@@ -199,6 +214,15 @@ export class InboundDelivery {
       attempts,
       failure: failure.reason,
     });
+  }
+
+  isPastRetention(now: Date): boolean {
+    const { progress } = this.state;
+
+    return (
+      (progress.kind === 'done' || progress.kind === 'failed') &&
+      progress.at.getTime() + RETENTION_MS <= now.getTime()
+    );
   }
 
   private guardWorking(doing: string): void {

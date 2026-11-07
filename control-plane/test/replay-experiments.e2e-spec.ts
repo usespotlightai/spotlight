@@ -4,7 +4,10 @@ import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { WORK, type WorkPort } from '@replays/application/ports/work.port';
+import {
+  TRIALABLE_RUNS as REPLAYS_TRIALABLE_RUNS,
+  type TrialableRunsPort as ReplaysTrialableRunsPort,
+} from '@replays/application/ports/trialable-runs.port';
 import { healthView } from '@replays/application/queries/views/replay-views';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
@@ -543,7 +546,7 @@ describe('a replay set', () => {
     await db.delete(schema.task).where(eq(schema.task.id, original.taskId));
 
     const [summary] = await app
-      .get<WorkPort>(WORK)
+      .get<ReplaysTrialableRunsPort>(REPLAYS_TRIALABLE_RUNS)
       .runSummaries(team.workspaceId, [RunId.of(original.runId)]);
 
     expect(summary?.unreplayableReason).toBe('task-gone');

@@ -16,13 +16,13 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ReceivedHappening } from '@work/application/mappers/happened.mapper';
 import type { ChannelNoticesPort } from '@work/application/ports/channel-notices.port';
-import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import {
   type ChannelAnswer,
   ChannelChats,
 } from '@work/application/services/channel-chats.service';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';

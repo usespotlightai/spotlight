@@ -1,6 +1,7 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export class SpecFetchResult {
   private constructor(
@@ -72,12 +73,26 @@ export class SpecFetchResult {
     problem: string | null;
     skipped: readonly string[];
   }): SpecFetchResult {
+    if (input.problem !== null && input.problem.trim() === '') {
+      throw new InconsistentStateError(
+        'spec fetch',
+        'stores a failed fetch that says nothing about why',
+      );
+    }
+
+    if (!input.hash && input.problem === null) {
+      throw new InconsistentStateError(
+        'spec fetch',
+        'stores a fetch that neither read a spec nor failed',
+      );
+    }
+
     return new SpecFetchResult(
       input.fingerprint,
       input.hash,
       input.readAt,
       input.problem,
-      input.skipped,
+      [...new Set(input.skipped)],
     );
   }
 
@@ -120,6 +135,14 @@ export class SpecFetchResult {
 
   spareReadingFor(spec: ApiSpec): boolean {
     return this.documentKeptFor(spec) !== null && this.problem === null;
+  }
+
+  sameReadingAs(other: SpecFetchResult): boolean {
+    return (
+      this.fingerprint === other.fingerprint &&
+      (this.hash?.value ?? null) === (other.hash?.value ?? null) &&
+      this.problem === other.problem
+    );
   }
 
   withSkipped(skipped: readonly string[]): SpecFetchResult {

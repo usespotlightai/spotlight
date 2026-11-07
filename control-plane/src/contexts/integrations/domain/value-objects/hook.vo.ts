@@ -2,12 +2,14 @@ import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.e
 import type { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type {
   HookMatch,
   MatchedTask,
 } from '@integrations/domain/value-objects/hook-match.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -19,9 +21,13 @@ export type HookOnFailure = (typeof HOOK_ON_FAILURES)[number];
 export type HookSigning = 'hmac' | 'oidc';
 
 export type HookStep =
-  | { readonly name: string; readonly kind: 'call'; readonly tool: ToolName }
   | {
-      readonly name: string;
+      readonly name: HookStepName;
+      readonly kind: 'call';
+      readonly tool: ToolName;
+    }
+  | {
+      readonly name: HookStepName;
       readonly kind: 'request';
       readonly url: URL | null;
       readonly headers: readonly string[];
@@ -53,8 +59,6 @@ const DEFAULTS = {
   readonly from: HookRequestOrigin;
 };
 
-const STEP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
 const SET_BY_SPOTLIGHT =
   /^(webhook-|spotlight-|authorization$|content-type$|host$)/i;
 
@@ -79,13 +83,6 @@ const uniqueNames = (tools: readonly ToolName[]): ToolName[] =>
   );
 
 const guardStep = (step: HookStep, index: number): void => {
-  if (!STEP_NAME.test(step.name)) {
-    throw new InvalidHookError(
-      at('steps', index, 'name'),
-      'must be lowercase words joined by dashes, as in notify',
-    );
-  }
-
   if (
     step.kind === 'request' &&
     step.url &&
@@ -119,14 +116,14 @@ const guardSteps = (fields: HookFields): void => {
   fields.steps.forEach((step, index) => {
     guardStep(step, index);
 
-    if (seen.has(step.name)) {
+    if (seen.has(step.name.value)) {
       throw new InvalidHookError(
         at('steps', index, 'name'),
-        `repeats the name ${step.name}`,
+        `repeats the name ${step.name.value}`,
       );
     }
 
-    seen.add(step.name);
+    seen.add(step.name.value);
   });
 
   if (
@@ -223,22 +220,19 @@ export class Hook {
     return this.fields.match;
   }
 
-  matches(
-    task: MatchedTask,
-    event: Readonly<Record<string, unknown>>,
-  ): boolean {
+  matches(task: MatchedTask, event: HookEventFacts): boolean {
     return this.fields.match.matches(task, event);
   }
 
   startFailure(
-    step: string,
+    step: HookStepName,
     at: {
       readonly deadline: Date;
       readonly now: Date;
       readonly resuming: boolean;
     },
   ): HookFailure | null {
-    if (!this.fields.steps.some((each) => each.name === step)) {
+    if (!this.fields.steps.some((each) => each.name.equals(step))) {
       return HookFailure.noLongerAStep();
     }
 
@@ -288,10 +282,10 @@ export class Hook {
     return null;
   }
 
-  requestDenial(step: string, url: URL): HookFailure | null {
+  requestDenial(step: HookStepName, url: URL): HookFailure | null {
     const fromNetwork = this.fields.steps.some(
       (each) =>
-        each.name === step && each.kind === 'request' && each.fromNetwork,
+        each.name.equals(step) && each.kind === 'request' && each.fromNetwork,
     );
 
     return sendsInTheClear(url, fromNetwork)
@@ -302,7 +296,7 @@ export class Hook {
       : null;
   }
 
-  decisionOn(step: string, ended: StepEnded): HookDecision | null {
+  decisionOn(step: HookStepName, ended: StepEnded): HookDecision | null {
     const hook = this.fields.key.value;
 
     if (ended.denyReason !== null) {
@@ -317,7 +311,7 @@ export class Hook {
 
     return this.blocks
       ? HookDecision.denied(
-          `Hook ${hook} failed at step ${step} and blocks on failure. Reason: ${ended.failedBecause}`,
+          `Hook ${hook} failed at step ${step.value} and blocks on failure. Reason: ${ended.failedBecause}`,
         )
       : HookDecision.allowed();
   }

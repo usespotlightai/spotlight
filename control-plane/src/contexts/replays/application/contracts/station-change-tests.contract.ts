@@ -2,17 +2,20 @@ import type {
   RequestRefusal,
   SetSkipReason,
 } from '@replays/domain/services/search-schedule';
+import type { StationChangeTestMode } from '@replays/domain/services/station-change-test';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export type StationChangeTestMode = 'test' | 'search';
+export type { StationChangeTestMode };
 
 export interface StationChangeTestRequest {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly lineId: string;
-  readonly stationId: string;
+  readonly lineId: LineId;
+  readonly stationId: StationId;
   readonly requester: UserId;
   readonly mode: StationChangeTestMode;
   readonly name: string;

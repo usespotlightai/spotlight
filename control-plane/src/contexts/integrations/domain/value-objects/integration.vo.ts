@@ -3,7 +3,6 @@ import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import type { Binding } from '@integrations/domain/value-objects/binding.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
-import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
@@ -15,11 +14,6 @@ import type { Webhook } from '@integrations/domain/value-objects/webhook.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 export type ConnectionKind = 'oauth2' | 'secrets';
-
-export type ToolSource =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'written'; readonly tool: ProvidedTool }
-  | { readonly kind: 'generated'; readonly from: ContentHash };
 
 export interface IntegrationParts {
   readonly webhook: boolean;
@@ -63,7 +57,7 @@ export class Integration {
     readonly credentials: readonly SecretName[],
     readonly requiresConnection: boolean,
     readonly actsAs: ActsAs,
-    readonly tools: readonly ProvidedTool[],
+    readonly writtenTools: readonly ProvidedTool[],
     readonly apiSpec: ApiSpecKind | null,
   ) {}
 
@@ -79,7 +73,7 @@ export class Integration {
     connectsOver?: ConnectionKind | null;
     actsAs?: ActsAs;
     apiSpecs?: readonly ApiSpecKind[];
-    tools?: readonly ProvidedTool[];
+    writtenTools?: readonly ProvidedTool[];
   }): Integration {
     const key = input.key;
     const webhook = input.webhook ?? null;
@@ -99,9 +93,16 @@ export class Integration {
       );
     }
 
-    const tools = input.tools ?? [];
+    const tools = input.writtenTools ?? [];
 
     for (const provided of tools) {
+      if (provided.backing.spec) {
+        throw new InvalidIntegrationError(
+          key.value,
+          `writes tool ${provided.tool.value} from an API spec operation`,
+        );
+      }
+
       if (!provided.integration.equals(key)) {
         throw new InvalidIntegrationError(
           key.value,
@@ -116,19 +117,6 @@ export class Integration {
       throw new InvalidIntegrationError(
         key.value,
         'offers a tool more than once',
-      );
-    }
-
-    const read = new Set(
-      tools.flatMap((each) =>
-        each.backing.spec ? [each.backing.spec.hash.value] : [],
-      ),
-    );
-
-    if (read.size > 1) {
-      throw new InvalidIntegrationError(
-        key.value,
-        'provides tools from two fetches of its spec',
       );
     }
 
@@ -213,12 +201,6 @@ export class Integration {
     return this.bindings.some((each) => each.isFor(event));
   }
 
-  get generatedFrom(): ContentHash | null {
-    return (
-      this.tools.find((each) => each.backing.spec)?.backing.spec?.hash ?? null
-    );
-  }
-
   usesSecret(secret: SecretName): boolean {
     return this.credentials.some((each) => each.equals(secret));
   }
@@ -229,39 +211,11 @@ export class Integration {
     );
   }
 
-  generatedToolCount(provided: readonly ToolName[]): number {
-    return provided.filter((each) => this.providedTool(each) === null).length;
+  writtenTool(tool: ToolName): ProvidedTool | null {
+    return this.writtenTools.find((each) => each.tool.equals(tool)) ?? null;
   }
 
-  takesPersonRuleFor(tool: ToolName): boolean {
-    return this.actsAs.byRequester && this.providedTool(tool) !== null;
-  }
-
-  providedTool(tool: ToolName): ProvidedTool | null {
-    return this.tools.find((each) => each.tool.equals(tool)) ?? null;
-  }
-
-  toolSource(
-    tool: ToolName,
-    listed: readonly ToolName[],
-    generatedFrom: ContentHash | null,
-  ): ToolSource {
-    if (!listed.some((each) => each.equals(tool))) {
-      return { kind: 'none' };
-    }
-
-    const written = this.providedTool(tool);
-
-    if (written) {
-      return { kind: 'written', tool: written };
-    }
-
-    return generatedFrom && this.apiSpec
-      ? { kind: 'generated', from: generatedFrom }
-      : { kind: 'none' };
-  }
-
-  equals(other: Integration): boolean {
+  sameKeyAs(other: Integration): boolean {
     return this.key.equals(other.key);
   }
 }

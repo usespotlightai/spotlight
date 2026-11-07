@@ -1,8 +1,9 @@
 import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
-import { RunCompleted } from '@runs/domain/events/run-completed.event';
+import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
+import { RunProvisionFailed } from '@runs/domain/events/run-provision-failed.event';
 import { RunReservationDropped } from '@runs/domain/events/run-reservation-dropped.event';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
@@ -14,9 +15,7 @@ import { CallingHost } from '@runs/domain/value-objects/calling-host.vo';
 import { HandedOverFile as RunHandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
 import { Handover as RunHandover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
-import { Harness } from '@runs/domain/value-objects/harness.vo';
 import { HarnessCommand } from '@runs/domain/value-objects/harness-command.vo';
-import { HarnessName } from '@runs/domain/value-objects/harness-name.vo';
 import { HarnessSession as RunHarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { Money } from '@runs/domain/value-objects/money.vo';
 import { NetworkCallId } from '@runs/domain/value-objects/network-call-id.vo';
@@ -24,7 +23,6 @@ import { NetworkRequest } from '@runs/domain/value-objects/network-request.vo';
 import { NetworkResponse } from '@runs/domain/value-objects/network-response.vo';
 import { RequeueCount } from '@runs/domain/value-objects/requeue-count.vo';
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
-import { Resume as RunResume } from '@runs/domain/value-objects/resume.vo';
 import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
@@ -55,7 +53,6 @@ export const RUNS_PAYLOAD_TYPES = [
   RunHandedOverFile,
   RunHandover,
   RunHarnessSession,
-  RunResume,
   RunsPriority,
   ArchiveDigest,
   ArchiveGrantee,
@@ -64,9 +61,7 @@ export const RUNS_PAYLOAD_TYPES = [
   CallingHost,
   RequeueCount,
   HandoverReport,
-  Harness,
   HarnessCommand,
-  HarnessName,
   Money,
   Tokens,
   ToolUse,
@@ -94,10 +89,11 @@ export const RUNS_PAYLOAD_TYPES = [
   RunTurn,
   RequesterOwner,
   RunRequester,
-  RunCompleted,
+  RunEnded,
   RunUsageRecorded,
   RunLeaseExpired,
   RunSuspended,
   RunPaused,
+  RunProvisionFailed,
   RunReservationDropped,
 ] as const;

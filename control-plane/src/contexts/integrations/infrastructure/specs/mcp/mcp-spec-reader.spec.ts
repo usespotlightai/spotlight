@@ -7,6 +7,7 @@ import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions'
 import { McpSpecReader } from '@integrations/infrastructure/specs/mcp/mcp-spec-reader';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const SPEC = ApiSpec.of({
@@ -17,7 +18,7 @@ const SPEC = ApiSpec.of({
 });
 
 const CALL_AUTH: CallAuth = {
-  workspace: async () => 'ws_1',
+  workspace: async () => WorkspaceId.of('ws_1'),
   connection: {
     token: AccessToken.of('the-token'),
     owner: ConnectionOwner.team(),

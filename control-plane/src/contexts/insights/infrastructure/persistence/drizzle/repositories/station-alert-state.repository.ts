@@ -16,6 +16,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import type { Erased } from '@shared-kernel/domain/erased';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -137,7 +138,7 @@ export class DrizzleStationAlertStateRepository
     return row ? this.of(StationId.of(row.stationId)) : null;
   }
 
-  async remove(removed: StationAlertState): Promise<void> {
+  async remove(removed: Erased<StationAlertState>): Promise<void> {
     const gone = await this.context.db
       .delete(stationAlertState)
       .where(

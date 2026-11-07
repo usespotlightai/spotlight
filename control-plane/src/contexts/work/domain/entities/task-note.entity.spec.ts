@@ -63,10 +63,10 @@ describe('TaskNote', () => {
 
   it('carries a failure, approval or connection only in the form that holds it', () => {
     expect(() =>
-      aNote({ form: 'words', failure: TaskFailure.fromRun('exhausted') }),
+      aNote({ form: 'words', failure: TaskFailure.fromRun('exited') }),
     ).toThrow(InconsistentStateError);
     expect(
-      aNote({ form: 'failure', failure: TaskFailure.fromRun('exhausted') })
+      aNote({ form: 'failure', failure: TaskFailure.fromRun('exited') })
         .failure,
     ).not.toBeNull();
   });

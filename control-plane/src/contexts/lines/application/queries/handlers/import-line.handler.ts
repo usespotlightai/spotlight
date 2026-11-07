@@ -6,6 +6,7 @@ import type { ImportLineQuery } from '@lines/application/queries/import-line.que
 import type { LineViews } from '@lines/application/services/line-views.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -36,7 +37,7 @@ export class ImportLineHandler
         return null;
       }
 
-      const record = await this.resources.at(team.id, address.key);
+      const record = await this.resources.at(team.id, LineKey.of(address.key));
 
       return record ? this.views.of(record) : null;
     } catch (error) {

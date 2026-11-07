@@ -1,4 +1,4 @@
-export interface AttemptsOfRun {
+interface AttemptsOfRun {
   readonly attempt: number;
   readonly suspendedAttempts: readonly number[];
 }

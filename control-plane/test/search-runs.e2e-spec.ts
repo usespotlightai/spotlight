@@ -5,6 +5,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { SearchRunDispatch } from '@replays/application/services/search-run-dispatch.service';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { RunViewing } from '@runs/application/services/run-viewing.service';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -15,7 +16,6 @@ import {
   type TraceScope,
   type TraceScopesPort,
 } from '@work/application/ports/trace-scopes.port';
-import { RunAccess } from '@work/application/services/run-access.service';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -602,7 +602,7 @@ describe('a search run ending', () => {
       },
     ]);
 
-    for (const kind of ['work.run-ended.v1', 'work.run-briefed.v1']) {
+    for (const kind of ['work.dispatch-ended.v1', 'work.dispatch-briefed.v1']) {
       expect(await published(kind, runId)).toEqual([]);
     }
     expect(
@@ -657,7 +657,7 @@ describe('a search run ending', () => {
       async () =>
         (await published('runs.run-ended.v1', queued.id)).length === 1,
     );
-    expect(await published('work.run-ended.v1', queued.id)).toEqual([]);
+    expect(await published('work.dispatch-ended.v1', queued.id)).toEqual([]);
   });
 
   it('takes a run queued before as queued when it is asked again', async () => {
@@ -675,7 +675,7 @@ describe('who may watch a search run', () => {
 
     await dispatched(queued);
 
-    const runs = app.get(RunAccess);
+    const runs = app.get(RunViewing);
 
     expect(await runs.watchedBy(RunId.of(queued.id), team.owner)).toBeNull();
     expect(

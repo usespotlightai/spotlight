@@ -1,16 +1,11 @@
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import {
-  type RunEnded,
-  RunEndedFacts,
-} from '@work/application/services/run-ending-reactions';
+import { RunEndedFacts } from '@work/application/services/run-ending-reactions';
 import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
 import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
-import {
-  DispatchEnding,
-  type DispatchEndingParts,
-} from '@work/domain/value-objects/dispatch-ending.vo';
+import type { DispatchEnding } from '@work/domain/value-objects/dispatch-ending.vo';
 
 export class DispatchRunEndings {
   constructor(
@@ -18,12 +13,8 @@ export class DispatchRunEndings {
     private readonly clock: ClockPort,
   ) {}
 
-  onRunEnded(event: RunEnded): Promise<void> {
-    return this.ended(RunEndedFacts.runId(event), {
-      outcome: event.outcome,
-      failure: event.failure,
-      stopped: event.stopped,
-    });
+  onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
+    return this.ended(RunEndedFacts.runId(event), RunEndedFacts.ending(event));
   }
 
   onTaskRunDetached(event: TaskRunDetached): Promise<void> {
@@ -36,21 +27,14 @@ export class DispatchRunEndings {
     }
   }
 
-  private async ended(
-    runId: RunId,
-    ending: Omit<DispatchEndingParts, 'endedAt'>,
-  ): Promise<void> {
+  private async ended(runId: RunId, ending: DispatchEnding): Promise<void> {
     const dispatch = await this.dispatches.find(runId);
 
     if (!dispatch || dispatch.ending) {
       return;
     }
 
-    await this.dispatches.save(
-      dispatch.ended(
-        DispatchEnding.of({ ...ending, endedAt: this.clock.now() }),
-      ),
-    );
+    await this.dispatches.save(dispatch.ended(ending));
   }
 
   private async detached(runId: RunId): Promise<void> {

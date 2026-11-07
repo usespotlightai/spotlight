@@ -1,5 +1,7 @@
+import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidAnswerError } from '@change-review/domain/exceptions/invalid-answer.error';
 import { QuestionAlreadyAnsweredError } from '@change-review/domain/exceptions/question-already-answered.error';
+import { assertOneOwner } from '@change-review/domain/services/stack-owner';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import type { LayerQuestion } from '@change-review/domain/value-objects/stack-cohort.vo';
@@ -96,10 +98,7 @@ export class QuestionAnswer extends EventRecorder {
 
   static given(input: {
     id: QuestionAnswerId;
-    workspaceId: WorkspaceId;
-    taskId: TaskId | null;
-    teamId: TeamId | null;
-    stackId: ChangeStackId;
+    stack: Pick<ChangeStack, 'id' | 'workspaceId' | 'taskId' | 'teamId'>;
     question: LayerQuestion;
     personId: UserId;
     reply: string | null;
@@ -107,13 +106,16 @@ export class QuestionAnswer extends EventRecorder {
     now: Date;
   }): QuestionAnswer {
     const { reply, verdict, feedback } = gradedReply(input.reply, input.graded);
+    const { stack } = input;
+
+    assertOneOwner('question answer', stack);
 
     return new QuestionAnswer(
       input.id,
-      input.workspaceId,
-      input.taskId,
-      input.teamId,
-      input.stackId,
+      stack.workspaceId,
+      stack.taskId,
+      stack.teamId,
+      stack.id,
       input.question.id,
       input.personId,
       input.question.question,
@@ -144,6 +146,8 @@ export class QuestionAnswer extends EventRecorder {
     answeredAt: Date;
     version: number;
   }): QuestionAnswer {
+    assertOneOwner('question answer', input);
+
     if (input.reply === null && input.verdict !== 'missed') {
       throw new InconsistentStateError(
         'question answer',

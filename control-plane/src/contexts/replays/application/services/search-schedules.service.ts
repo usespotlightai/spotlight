@@ -1,4 +1,4 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import type { ConfigPullRequestClosed } from '@replays/domain/events/config-pull-request-closed.event';
 import type { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-request-merged.event';
 import type { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
@@ -13,7 +13,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 export class SearchSchedules {
   constructor(
     private readonly schedules: StationSearchScheduleRepository,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -72,7 +72,7 @@ export class SearchSchedules {
     const now = this.clock.now();
 
     for (const each of await this.schedules.ofLine(lineId)) {
-      const live = await this.work.live(lineId, each.stationId);
+      const live = await this.configs.live(lineId, each.stationId);
 
       await this.transaction.inTransaction(async () => {
         const locked = await this.schedules.locked(each.stationId);

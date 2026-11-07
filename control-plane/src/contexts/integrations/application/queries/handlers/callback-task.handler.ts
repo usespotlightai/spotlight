@@ -32,12 +32,12 @@ export class CallbackTaskHandler
         id: task.taskId.value,
         title: task.title,
         url: task.url,
-        line: task.line,
-        station: task.station,
+        line: task.line.value,
+        station: task.station.value,
         stationKey: task.stationKey.value,
         marks: task.marks,
-        repositories: task.repositories,
-        pullRequest: task.pullRequest,
+        repositories: task.repositories.map((each) => each.value),
+        pullRequest: task.pullRequest?.value ?? null,
         hook: callbackToken.hook.value,
       };
     } catch (error) {

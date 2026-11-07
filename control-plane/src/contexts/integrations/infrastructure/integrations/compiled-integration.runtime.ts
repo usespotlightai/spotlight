@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
 import { OutboundLimitReachedError } from '@integrations/application/errors/outbound-limit-reached.error';
 import { DeclaredToolMapper } from '@integrations/application/mappers/declared-tool.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
@@ -19,10 +20,17 @@ import type { NoticeFileReaderPort } from '@integrations/application/ports/notic
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
-import { postsAgainWithoutUploads } from '@integrations/domain/services/notice-posting';
+import { answersTransiently } from '@integrations/domain/services/call-transience';
+import {
+  postsAgainWithoutUploads,
+  readinessFailureAfter,
+} from '@integrations/domain/services/notice-posting';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
+import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { attempted } from '@integrations/infrastructure/integrations/call-attempts';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type {
@@ -66,7 +74,7 @@ import { evaluateText, value } from '@platform/expressions/readings';
 import { type Sleep, sleeping } from '@platform/time/sleep';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
 
 const MAX_OUTPUT_CHARS = 500;
@@ -91,6 +99,7 @@ const upstreamErrorUsing = (
     `using ${tool}`,
     `the integration answered ${status}: ${asJson(response ?? null).slice(0, MAX_OUTPUT_CHARS)}`,
     status,
+    answersTransiently(status),
   );
 
 const fieldOf = (value: unknown, field: string): unknown =>
@@ -108,8 +117,6 @@ const dataOf = (response: unknown, field: string): unknown =>
   fieldOf(fieldOf(response, 'data'), field) ?? null;
 
 const UNAUTHORIZED = 401;
-
-const FORBIDDEN = 403;
 
 const READY_EVERY_MS = 1_000;
 
@@ -146,6 +153,10 @@ const failedUsing = (tool: string, server: string, error: unknown): Error =>
     ? new ToolAskedMidCallError(tool)
     : mcpFailureOf(`using ${tool}`, server, error);
 
+type CallableTool = Omit<ResolvedTool, 'attempt'> & {
+  call(inputs: ToolCallInputs, callAuth: CallAuth): Promise<ToolOutput>;
+};
+
 export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   readonly #read = new WeakMap<
     readonly DefinedIntegration[],
@@ -170,6 +181,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
   ): readonly Integration[] {
     return this.readable(definitions).map((each) => each.integration);
+  }
+
+  offered(definitions: readonly DefinedIntegration[]): readonly OfferedTools[] {
+    return this.reader.offered(definitions);
   }
 
   async poll(
@@ -287,7 +302,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     }
 
     if (!target.channel && 'task' in payload) {
-      const routed = binding.routes.get(payload.task.line);
+      const routed = binding.routes.get(payload.task.line.value);
       if (routed) {
         target.channel = routed;
       }
@@ -484,14 +499,20 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         return null;
       }
 
-      if (checked.status === UNAUTHORIZED || checked.status === FORBIDDEN) {
+      const failure = readinessFailureAfter(
+        checked.status,
+        attempt,
+        ready.attempts,
+      );
+
+      if (failure === 'refused') {
         return {
           status: checked.status,
           output: `the check of the file ${String(name)} was refused: ${checked.output}`,
         };
       }
 
-      if (attempt >= ready.attempts) {
+      if (failure === 'not-ready') {
         return {
           status: checked.status,
           output: `the file ${String(name)} was not ready after ${ready.attempts} attempts: ${checked.output}`,
@@ -504,9 +525,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
   async tool(
     definitions: readonly DefinedIntegration[],
-    tool: string,
+    named: ToolName,
     task: TaskView,
   ): Promise<ResolvedTool | null> {
+    const tool = named.value;
     const provided = await this.reader.providedTool(definitions, tool);
 
     if (!provided) {
@@ -519,21 +541,24 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         ? this.served(provided, tool, task)
         : this.generated(provided, tool);
 
-    return resolved && { ...resolved, attempt: this.attempting(resolved) };
-  }
+    if (!resolved) {
+      return null;
+    }
 
-  private attempting(
-    resolved: Omit<ResolvedTool, 'attempt'>,
-  ): ResolvedTool['attempt'] {
-    return (inputs, callAuth, withinMs) =>
-      attempted(() => resolved.call(inputs, callAuth), withinMs);
+    const { call, ...described } = resolved;
+
+    return {
+      ...described,
+      attempt: (inputs, callAuth, withinMs) =>
+        attempted(() => call(inputs, callAuth), withinMs),
+    };
   }
 
   private written(
     { readable, tool: provided }: FoundTool,
     tool: string,
     task: TaskView,
-  ): Omit<ResolvedTool, 'attempt'> | null {
+  ): CallableTool | null {
     const compiled = readable.tools.get(provided.name);
     const action = provided.backing.action
       ? readable.actions.get(provided.backing.action)
@@ -585,7 +610,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private generated(
     { readable, tool: provided, operation }: FoundTool,
     tool: string,
-  ): Omit<ResolvedTool, 'attempt'> | null {
+  ): CallableTool | null {
     const auth = readable.apiSpec?.auth ?? null;
 
     if (!operation) {
@@ -643,7 +668,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     { readable, tool: provided, operation }: FoundTool,
     tool: string,
     task: TaskView,
-  ): Omit<ResolvedTool, 'attempt'> | null {
+  ): CallableTool | null {
     const apiSpec = readable.apiSpec;
     const call = operation?.call;
 
@@ -697,9 +722,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     owner: { readonly teamId: TeamId; readonly workspaceId: WorkspaceId },
     integration: IntegrationKey,
-    refreshToken: AccessToken,
+    refreshToken: RefreshToken,
   ): Promise<RefreshResult> {
-    return this.scope.within(owner.workspaceId.value, () =>
+    return this.scope.within(owner.workspaceId, () =>
       this.refreshInScope(definitions, owner.teamId, integration, refreshToken),
     );
   }
@@ -708,7 +733,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     teamId: TeamId,
     integration: IntegrationKey,
-    refreshToken: AccessToken,
+    refreshToken: RefreshToken,
   ): Promise<RefreshResult> {
     const written = this.find(definitions, integration)?.connection?.oauth2;
     const oauth2 = written ? await this.discovery.endpoints(written) : null;
@@ -767,7 +792,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         request,
         bindings,
         callAuth.credentials,
-        workspace,
+        workspace.value,
         timeoutMs,
       ),
       bindings,
@@ -817,10 +842,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     return this.scope.within(await this.limited(callAuth), work);
   }
 
-  private async limited(callAuth: CallAuth): Promise<string> {
+  private async limited(callAuth: CallAuth): Promise<WorkspaceId> {
     const workspace = await callAuth.workspace();
 
-    if (!(await this.limits.take(workspace))) {
+    if (!(await this.limits.take(workspace.value))) {
       throw new OutboundLimitReachedError(this.limits.perSecond);
     }
 

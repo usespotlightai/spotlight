@@ -11,6 +11,7 @@ import {
   type ScoreSource,
 } from '@insights/domain/value-objects/score-source';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -278,5 +279,9 @@ export class Score extends EventRecorder {
       new ScoreRecorded(this.id, this.runId, this.location, 'person'),
     );
     return regraded;
+  }
+
+  erased(): Erased<Score> {
+    return erasedAs(this);
   }
 }

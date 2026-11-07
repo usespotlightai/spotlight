@@ -9,7 +9,6 @@ import {
 } from '@work/domain/entities/task-note.entity';
 import {
   configuredBy,
-  mayStartSetup,
   openSetupList,
   SETUP_STEPS,
   type SetupState,
@@ -168,18 +167,6 @@ describe('an open setup list', () => {
 });
 
 describe('starting and finishing setup', () => {
-  const state = (connectedToGitHub: boolean) => ({
-    connectedToGitHub,
-    hasHarness: true,
-    configured: false,
-  });
-
-  it('may start once GitHub is connected and a runner can reach out through egress', () => {
-    expect(mayStartSetup(state(true), true)).toBe(true);
-    expect(mayStartSetup(state(false), true)).toBe(false);
-    expect(mayStartSetup(state(true), false)).toBe(false);
-  });
-
   it('is configured once its setup chat opened a pull request', () => {
     expect(
       configuredBy({ pullRequest: 'https://x/1', startedAt: new Date(0) }),

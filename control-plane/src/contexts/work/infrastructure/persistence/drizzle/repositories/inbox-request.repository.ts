@@ -1,13 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
-import {
-  DOMAIN_EVENT_DISPATCHER,
-  type DomainEventDispatcher,
-} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,11 +42,7 @@ const toInboxRequest = (row: Row, reads: readonly ReadRow[]): InboxRequest =>
 
 @Injectable()
 export class DrizzleInboxRequestRepository implements InboxRequestRepository {
-  constructor(
-    private readonly context: DrizzleContext,
-    @Inject(DOMAIN_EVENT_DISPATCHER)
-    private readonly events: DomainEventDispatcher,
-  ) {}
+  constructor(private readonly context: DrizzleContext) {}
 
   async add(added: InboxRequest): Promise<void> {
     await this.context.inTransaction(async () => {
@@ -78,7 +70,6 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
       }
 
       await this.savesReads(added);
-      await this.events.dispatch(added.pullEvents());
     });
   }
 
@@ -115,7 +106,6 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
         ),
       );
       await this.savesReads(saved);
-      await this.events.dispatch(saved.pullEvents());
     });
   }
 

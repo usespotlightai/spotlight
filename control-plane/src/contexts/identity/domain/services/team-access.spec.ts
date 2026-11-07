@@ -61,7 +61,7 @@ const tokenOf = (scopes: readonly string[], workspace = 'ws_1') =>
   });
 
 const allows = (principal: PersonPrincipal | TokenPrincipal, of = PLATFORM) =>
-  TeamAccess.readsTeam(of, ACME, principal);
+  TeamAccess.actsOnTeam(of, ACME, principal);
 
 const inWorkspace = (
   principal: PersonPrincipal | TokenPrincipal,

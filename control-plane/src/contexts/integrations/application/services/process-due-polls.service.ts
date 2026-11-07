@@ -3,6 +3,7 @@ import type {
   DefinedIntegration,
   DefinedIntegrationsPort,
 } from '@integrations/application/ports/defined-integrations.port';
+import type { DeliveryReactionsPort } from '@integrations/application/ports/delivery-reactions.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { PollCursor } from '@integrations/domain/aggregates/poll-cursor.aggregate';
@@ -14,7 +15,6 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
 
 const SKIPPED_FOR_MS = 10 * 60_000;
 
@@ -27,7 +27,7 @@ export class ProcessDuePolls {
     private readonly teams: TeamDirectoryPort,
     private readonly callAuthResolver: CallAuthResolver,
     private readonly cursors: PollCursorRepository,
-    private readonly reactions: HappeningReactionsPort,
+    private readonly reactions: DeliveryReactionsPort,
     private readonly clock: ClockPort,
     private readonly log: LoggerPort,
   ) {}
@@ -108,22 +108,20 @@ export class ProcessDuePolls {
         return;
       }
 
-      const reaction = await this.reactions.react(
+      const failure = await this.reactions.react(
         team.workspaceId,
         teamId,
         polled.happenings,
-        polled.cursor === null
-          ? null
-          : `poll:${integrationKey}:${teamId.value}:${held.cursor ?? ''}`,
+        held.happeningsKeyFor(polled.cursor),
       );
 
-      if (reaction.kind === 'failed') {
+      if (failure) {
         this.log.warn(
           {
             team: teamId.value,
             integration: integrationKey,
-            transient: reaction.transient,
-            error: reaction.reason,
+            transient: failure.transient,
+            error: failure.reason,
           },
           'Work could not react to what a poll found',
         );

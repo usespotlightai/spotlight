@@ -128,6 +128,10 @@ export class StationJudge {
     });
   }
 
+  rubricVersion(sha256: (text: string) => string): string {
+    return sha256(this.criteria);
+  }
+
   equals(other: StationJudge): boolean {
     return (
       this.criteria === other.criteria &&

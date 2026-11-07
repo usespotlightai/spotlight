@@ -4,8 +4,10 @@ import { RefreshClaimedError } from '@integrations/domain/exceptions/refresh-cla
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -38,11 +40,11 @@ const rehydrated = (
     integration: SLACK,
     owner: ConnectionOwner.team(),
     accessToken: AccessToken.of('xoxb-old'),
-    refreshToken: AccessToken.maybe(
+    refreshToken: RefreshToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
     ),
     expiresAt: over.expiresAt ?? null,
-    scopes: ['chat:write'],
+    scopes: [OAuthScope.of('chat:write')],
     linkedAccount: 'Acme',
     refreshFailedAt: over.refreshFailedAt ?? null,
     refreshClaim: null,
@@ -271,8 +273,8 @@ describe('IntegrationConnection', () => {
   });
 
   it('applies a refresh only to the refresh token it was made from', () => {
-    expect(rehydrated().refreshesWith(AccessToken.of('xoxe-old'))).toBe(true);
-    expect(rehydrated().refreshesWith(AccessToken.of('xoxe-other'))).toBe(
+    expect(rehydrated().refreshesWith(RefreshToken.of('xoxe-old'))).toBe(true);
+    expect(rehydrated().refreshesWith(RefreshToken.of('xoxe-other'))).toBe(
       false,
     );
   });

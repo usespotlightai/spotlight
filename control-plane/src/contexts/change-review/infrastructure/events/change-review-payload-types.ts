@@ -15,7 +15,7 @@ import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.e
 import { StackCheckLayersFailed } from '@change-review/domain/events/stack-check-layers-failed.event';
 import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
-import { TrialStackCompleted } from '@change-review/domain/events/trial-stack-completed.event';
+import { TrialStackSettled } from '@change-review/domain/events/trial-stack-settled.event';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
@@ -37,6 +37,7 @@ import { RepositoryName } from '@change-review/domain/value-objects/repository-n
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
+import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
@@ -54,13 +55,14 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   QuestionAnswerId,
   ReviewCommentId,
   ReviewId,
+  ReviewDeliveryId,
   ReviewAuthor,
   CheckRequest,
   StackFacts,
   StackProgress,
   StackCheckId,
   StackChecked,
-  TrialStackCompleted,
+  TrialStackSettled,
   ChangeStackRedrafted,
   ChangeStackRedraftingEnded,
   ChangeStackCompleted,

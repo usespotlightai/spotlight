@@ -3,7 +3,7 @@ import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import { HookTraces } from '@runs/application/services/hook-traces.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
@@ -28,10 +28,11 @@ const onSecondAttempt = () =>
       resume: {},
     }),
   })
-    .claim(RunnerId.of('runner_1'), NOW)
+    .claim(claimer(RunnerId.of('runner_1')), NOW)
     .expireLease(new Date(NOW.getTime() + 60_000));
 
 const CALL: HookCallTrace = {
+  attempt: 2,
   hook: 'core/grafana-reads',
   step: 'notify',
   kind: 'call',
@@ -64,7 +65,7 @@ const decoded = (data: string | undefined) =>
   JSON.parse(Buffer.from(data ?? '', 'base64').toString('utf8'));
 
 describe('HookTraces', () => {
-  it('journals a hook’s call as a control-plane entry on the run’s current attempt', async () => {
+  it('journals a hook’s call as a control-plane entry', async () => {
     const { traces, appendControlPlaneEntry } = tracing();
 
     await traces.record('run_1', CALL);
@@ -103,6 +104,25 @@ describe('HookTraces', () => {
     expect(publish).toHaveBeenNthCalledWith(2, 'run_1', [
       expect.objectContaining({ seq: -1_000_001 }),
     ]);
+  });
+
+  it('journals a call into the attempt the hook fired for', async () => {
+    const { traces, appendControlPlaneEntry } = tracing();
+
+    await traces.record('run_1', { ...CALL, attempt: 1 });
+
+    expect(appendControlPlaneEntry).toHaveBeenCalledWith(
+      RunAttempt.of(RunId.of('run_1'), 1),
+      expect.anything(),
+    );
+  });
+
+  it('journals nothing for an attempt the run has not made', async () => {
+    const { traces, appendControlPlaneEntry } = tracing();
+
+    await traces.record('run_1', { ...CALL, attempt: 3 });
+
+    expect(appendControlPlaneEntry).not.toHaveBeenCalled();
   });
 
   it('journals nothing for a run that is gone', async () => {

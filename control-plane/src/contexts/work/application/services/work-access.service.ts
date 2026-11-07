@@ -9,6 +9,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxScope } from '@work/application/ports/inbox-reader.port';
+import { ChatAccess } from '@work/domain/services/chat-access';
 import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 
@@ -28,16 +29,16 @@ export class WorkAccess {
   ) {}
 
   seenTeam(teamId: TeamId, viewer: UserId): Promise<SeenTeam | null> {
-    return this.workspaces.findTeamForMember(teamId, viewer);
+    return this.workspaces.findTeamForViewer(teamId, viewer);
   }
 
   async seesTeam(teamId: TeamId, viewer: UserId): Promise<boolean> {
     return (await this.seenTeam(teamId, viewer)) !== null;
   }
 
-  async readsTeam(teamId: TeamId, viewer: UserId): Promise<boolean> {
+  async actsOnTeam(teamId: TeamId, viewer: UserId): Promise<boolean> {
     return (
-      (await this.access.permissionsAsTeamReader(
+      (await this.access.permissionsAsTeamMember(
         teamId,
         PersonPrincipal.of(viewer),
       )) !== null
@@ -45,12 +46,40 @@ export class WorkAccess {
   }
 
   async standingOn(teamId: TeamId, viewer: UserId): Promise<TeamStanding> {
-    const readsTeam = await this.readsTeam(teamId, viewer);
+    const actsOnTeam = await this.actsOnTeam(teamId, viewer);
 
     return TeamStanding.of({
-      readsTeam,
-      seesTeam: readsTeam || (await this.seesTeam(teamId, viewer)),
+      actsOnTeam,
+      seesTeam: actsOnTeam || (await this.seesTeam(teamId, viewer)),
     });
+  }
+
+  seesWorkspace(workspaceId: WorkspaceId, viewer: UserId): Promise<boolean> {
+    return this.access.mayView(viewer, workspaceId);
+  }
+
+  async seesWorkspaceOfTeam(teamId: TeamId, viewer: UserId): Promise<boolean> {
+    const team = await this.teams.find(teamId);
+
+    return team !== null && this.seesWorkspace(team.workspaceId, viewer);
+  }
+
+  async memberWorkspaceAt(
+    slug: string,
+    viewer: UserId,
+  ): Promise<WorkspaceId | null> {
+    return (await this.access.inWorkspace(slug, viewer))?.workspaceId ?? null;
+  }
+
+  async opensChat(
+    chat: { readonly startedBy: UserId; readonly teamId: TeamId },
+    viewer: UserId,
+  ): Promise<boolean> {
+    return ChatAccess.opensTo(
+      chat.startedBy,
+      viewer,
+      await this.standingOn(chat.teamId, viewer),
+    );
   }
 
   async isAdminOf(workspaceId: WorkspaceId, viewer: UserId): Promise<boolean> {
@@ -79,7 +108,7 @@ export class WorkAccess {
       (await this.teams.inWorkspace(workspaceId)).map(async ({ id }) => ({
         id: id.value,
         seen: await this.seesTeam(id, viewer),
-        read: await this.readsTeam(id, viewer),
+        read: await this.actsOnTeam(id, viewer),
       })),
     );
 

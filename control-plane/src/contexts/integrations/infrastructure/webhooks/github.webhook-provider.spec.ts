@@ -317,9 +317,10 @@ describe('GitHubWebhookProvider', () => {
     expect(await providerOver([]).provider.read(DELIVERED)).toEqual([]);
   });
 
-  it('hands GitHub the delivery before reading what happened', async () => {
+  it('hands GitHub the delivery as a step of its own, apart from reading it', async () => {
     const { provider, github, order } = providerOver([MERGED]);
 
+    await provider.received(DELIVERED);
     await provider.read(DELIVERED);
 
     expect(github.receive).toHaveBeenCalledWith(DELIVERED);

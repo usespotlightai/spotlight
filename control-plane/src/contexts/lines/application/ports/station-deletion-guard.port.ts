@@ -1,13 +1,21 @@
+import type { StationTaskCount } from '@lines/domain/value-objects/stranded-station';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+
+export type { StationTaskCount };
 
 export const STATION_DELETION_GUARD = Symbol('STATION_DELETION_GUARD');
 
-export type StationRelease = 'released' | 'occupied';
+export interface LineSave {
+  readonly lineId: LineId;
+  readonly version: number;
+}
 
 export interface StationDeletionGuardPort {
   lockedTaskCountsAt(
+    save: LineSave,
     stationIds: readonly StationId[],
-  ): Promise<ReadonlyMap<string, number>>;
+  ): Promise<readonly StationTaskCount[]>;
 
-  release(stationIds: readonly StationId[]): Promise<StationRelease>;
+  release(stationIds: readonly StationId[]): Promise<void>;
 }

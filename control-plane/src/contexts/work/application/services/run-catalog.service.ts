@@ -1,6 +1,6 @@
 import type { CatalogRequest } from '@catalog/application/contracts/catalog.contract';
 import type { CatalogPort } from '@catalog/application/ports/catalog.port';
-import type { LeasedRun } from '@runs/application/ports/run-leases.port';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
@@ -59,7 +59,7 @@ export class RunCatalog {
 
   async resolve(
     tool: Tool,
-    run: LeasedRun,
+    run: LeasedRunFacts,
     context: ToolContext,
   ): Promise<ResolvedTool | null> {
     const pinned =
@@ -104,7 +104,7 @@ export class RunCatalog {
               );
             }
 
-            return answer.output;
+            return { outcome: 'answered', output: answer.output };
           },
         }
       : null;

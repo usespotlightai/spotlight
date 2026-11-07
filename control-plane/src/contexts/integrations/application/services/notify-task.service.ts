@@ -8,21 +8,11 @@ import type {
   TaskView,
   UnlinkedTaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
+import { askText } from '@integrations/application/rendering/task-notice-text';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { BindableTaskEvent } from '@work/application/contracts/bindable-task-events.contract';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
-
-const waiting = (station: string, link: string | null): string => {
-  const where = station ? ` at ${station}` : '';
-
-  return `A task${where} is waiting on you.${link ? ` ${link}` : ''}`;
-};
-
-const decidedAt = (link: string | null): string =>
-  link
-    ? `Approve or reject it in Spotlight: ${link}`
-    : 'Approve or reject it in your Spotlight inbox.';
 
 export class NotifyTask {
   constructor(
@@ -49,11 +39,7 @@ export class NotifyTask {
 
     const view: TaskView = {
       ...task,
-      url: await this.links.task(
-        task.workspaceId.value,
-        task.teamId.value,
-        task.taskId.value,
-      ),
+      url: await this.links.task(task.workspaceId, task.teamId, task.taskId),
     };
     const payload: TaskPayload = { task: view, ask: await this.asking(view) };
     const addedMarks: TaskMark[] = [];
@@ -97,21 +83,25 @@ export class NotifyTask {
   }
 
   private async asking(task: TaskView): Promise<TaskPayload['ask']> {
-    const { station, waiting: open } = task;
+    const { waiting: open } = task;
+    const station = task.station.value;
 
     if (!open) {
       return { body: '', link: null, station, attachments: [] };
     }
 
     const link = await this.links.conversation(
-      task.workspaceId.value,
+      task.workspaceId,
       open.conversationId,
     );
 
-    const body = open.body || waiting(station, link);
-
     return {
-      body: open.awaitsApproval ? `${body}\n\n${decidedAt(link)}` : body,
+      body: askText({
+        written: open.body,
+        station,
+        link,
+        awaitsApproval: open.awaitsApproval,
+      }),
       link,
       station,
       attachments: open.attachments,

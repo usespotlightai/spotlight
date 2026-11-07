@@ -100,6 +100,7 @@ export interface CheckedStepDto {
 export interface StackSkipDto {
   readonly code: SkipCode;
   readonly detail: string | null;
+  readonly attempts: number | null;
 }
 
 export interface StackCheckDto {

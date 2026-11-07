@@ -14,6 +14,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
+import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
 import {
@@ -238,7 +239,7 @@ describe('ReactionFor.happened', () => {
           ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
         ),
         StationId.of('station_2'),
-        'It posts publicly.',
+        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
         null,
       ),
     });

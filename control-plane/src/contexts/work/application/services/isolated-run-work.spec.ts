@@ -1,24 +1,27 @@
-import type {
-  RunRepository,
-  WorkspaceArchiveRepository,
-} from '@runs/application/ports/run-fixtures.fake-spec';
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
+  claimer,
   Run,
-  RunFacts,
   Runs,
+  runReadModelOver,
 } from '@runs/application/ports/run-fixtures.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { IsolatedRunWork } from '@work/application/services/isolated-run-work';
 import { aRunFor } from '@work/application/services/run-works.fake-spec';
 import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
+import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-02T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
 
 const search = () =>
-  aRunFor(RunId.of('run_9'), 'claude-code', 'search').claim(RUNNER, NOW);
+  aRunFor(RunId.of('run_9'), 'claude-code', 'search').claim(
+    claimer(RUNNER),
+    NOW,
+  );
 
 const working = async (leasedNow: (run: Run) => Run = (run) => run) => {
   const saved: Run[] = [];
@@ -35,10 +38,10 @@ const working = async (leasedNow: (run: Run) => Run = (run) => run) => {
     },
   } as unknown as RunRepository;
   const work = new IsolatedRunWork(
-    await new RunFacts(
-      { findById: async () => searched } as unknown as RunRepository,
-      { find: async () => null } as unknown as WorkspaceArchiveRepository,
-    ).leaseOf(searched.id, RUNNER),
+    await runReadModelOver({ findById: async () => searched }).leaseOf(
+      searched.id,
+      RUNNER,
+    ),
     new Runs(
       runs,
       { sha256: (text) => text },
@@ -65,8 +68,8 @@ describe('the work of a run that acts on nothing beyond itself', () => {
   it('uses no tool', async () => {
     const { work } = await working();
 
-    await expect(work.toolContext()).rejects.toThrow(
-      NotAllowedForIsolatedRunError,
+    await expect(work.toolContext(Tool.of('linear.comment'))).rejects.toThrow(
+      ToolNotEnabledError,
     );
     expect((await work.clearFor()).kind).toBe('dismissed');
   });
@@ -88,7 +91,7 @@ describe('the work of a run that acts on nothing beyond itself', () => {
     const { work, saved } = await working((run) =>
       run
         .expireLease(run.leaseExpiresAt as Date)
-        .claim(RunnerId.of('runner_2'), NOW),
+        .claim(claimer(RunnerId.of('runner_2')), NOW),
     );
 
     await expect(work.clearPermission()).rejects.toThrow();

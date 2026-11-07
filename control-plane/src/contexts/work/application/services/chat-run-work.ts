@@ -1,7 +1,7 @@
-import type { LeasedRun } from '@runs/application/ports/run-leases.port';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { GitService } from '@work/application/ports/git-gateway.port';
+import type { GitService } from '@work/application/dto/git-call.dto';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import { ChatRefused } from '@work/application/rendering/chat-refused';
@@ -19,7 +19,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 
 export class ChatRunWork implements RunWork {
   constructor(
-    private readonly run: LeasedRun,
+    private readonly run: LeasedRunFacts,
     private readonly chat: Chat,
     private readonly chats: ChatRepository,
   ) {}

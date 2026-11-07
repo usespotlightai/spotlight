@@ -137,7 +137,7 @@ export class RunnerMemoryController {
   @ApiCreatedResponse({ type: ProposedMemoryResponseDto })
   @ApiConflictResponse({
     description:
-      'The run is a replay or a search, which remembers nothing for the team',
+      'The run is isolated from the team or set at a past time, and remembers nothing for the team',
   })
   @ApiUnprocessableEntityResponse({
     description:

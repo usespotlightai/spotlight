@@ -13,6 +13,7 @@ import {
 } from '@runs/application/queries/handlers/active-runs.handler';
 import type { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const checker = (
@@ -24,7 +25,8 @@ const checker = (
     sharedEgress(authorized),
     leasing(leased) as unknown as EgressSecretFetches,
     {
-      isLeasedBy: async (stackId: string) => checksLeased.includes(stackId),
+      isLeasedBy: async (checkId: CheckWorkId) =>
+        checksLeased.includes(checkId.value),
     } as unknown as CheckWorkPort,
     { now: () => NOW } as ClockPort,
   );

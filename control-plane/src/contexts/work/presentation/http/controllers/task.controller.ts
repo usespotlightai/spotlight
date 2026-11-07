@@ -60,25 +60,18 @@ import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.quer
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
 import { AssignTaskRequestDto } from '@work/presentation/http/dto/assign-task.request.dto';
-import {
-  InboxApprovalResponseDto,
-  InboxAuthorResponseDto,
-  InboxConnectionResponseDto,
-  InboxFailureResponseDto,
-  NoteResponseDto,
-} from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
 import {
   TaskPageResponseDto,
   TaskResponseDto,
 } from '@work/presentation/http/dto/task.response.dto';
+import { SendMessageRequestDto } from '@work/presentation/http/dto/task-run.request.dto';
 import {
   LatestRunResponseDto,
   RunNotesResponseDto,
   RunSpendResponseDto,
   RunStationResponseDto,
-  SendMessageRequestDto,
   TaskRunResponseDto,
   TeamRunPageResponseDto,
   TeamRunResponseDto,
@@ -87,6 +80,7 @@ import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.res
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
+import { NoteHttpMapper } from '@work/presentation/http/mappers/note.http.mapper';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
@@ -305,38 +299,7 @@ export class TaskController {
         found.latestRun.state,
         found.latestRun.progress,
       ),
-      found.notes.map(
-        (note) =>
-          new NoteResponseDto(
-            note.position,
-            note.kind,
-            note.form,
-            note.voice,
-            note.station,
-            note.stationColor,
-            note.stationPosition,
-            note.runId,
-            note.body,
-            note.attachments.map(AttachmentHttpMapper.toResponse),
-            note.at,
-            note.author
-              ? new InboxAuthorResponseDto(
-                  note.author.id,
-                  note.author.name,
-                  note.author.image,
-                )
-              : null,
-            note.coAuthors.map(
-              (each) =>
-                new InboxAuthorResponseDto(each.id, each.name, each.image),
-            ),
-            note.approval ? new InboxApprovalResponseDto(note.approval) : null,
-            note.failure ? new InboxFailureResponseDto(note.failure) : null,
-            note.connection
-              ? new InboxConnectionResponseDto(note.connection)
-              : null,
-          ),
-      ),
+      found.notes.map(NoteHttpMapper.toResponse),
       found.spend
         ? new RunSpendResponseDto(
             found.spend.cost,

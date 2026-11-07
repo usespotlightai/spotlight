@@ -1,5 +1,5 @@
 import type {
-  RunEventView,
+  RunJournalEntryView,
   RunStreamPort,
 } from '@runs/application/ports/run-stream.port';
 import { InMemoryRunStream } from '@runs/infrastructure/streaming/in-memory-run-stream';
@@ -33,13 +33,13 @@ export class RedisRunStream implements RunStreamPort {
       if (channel.startsWith(CHANNEL)) {
         this.local.publish(
           channel.slice(CHANNEL.length),
-          JSON.parse(message) as RunEventView[],
+          JSON.parse(message) as RunJournalEntryView[],
         );
       }
     });
   }
 
-  publish(runId: string, events: readonly RunEventView[]): void {
+  publish(runId: string, events: readonly RunJournalEntryView[]): void {
     if (events.length === 0) {
       return;
     }
@@ -53,7 +53,7 @@ export class RedisRunStream implements RunStreamPort {
 
   subscribe(
     runId: string,
-    listener: (event: RunEventView) => void,
+    listener: (event: RunJournalEntryView) => void,
   ): () => void {
     const unsubscribe = this.local.subscribe(runId, listener);
     const watchers = (this.watched.get(runId) ?? 0) + 1;

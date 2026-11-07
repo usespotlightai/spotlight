@@ -5,6 +5,7 @@ import type { ReadLineQuery } from '@lines/application/queries/read-line.query';
 import type { LineViews } from '@lines/application/services/line-views.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
 export class ReadLineHandler
   implements QueryHandlerPort<ReadLineQuery, LineResourceDto | null>
@@ -17,7 +18,7 @@ export class ReadLineHandler
 
   async execute(query: ReadLineQuery): Promise<LineResourceDto | null> {
     try {
-      const record = await this.resources.withId(query.lineId);
+      const record = await this.resources.withId(LineId.of(query.lineId));
 
       if (
         !record ||

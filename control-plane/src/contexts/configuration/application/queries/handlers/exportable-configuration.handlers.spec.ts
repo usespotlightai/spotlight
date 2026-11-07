@@ -16,7 +16,10 @@ import { ExportableConfigurations } from '@configuration/application/services/ex
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
-import type { OidcTrustConfigurationPort } from '@identity/application/ports/oidc-trust-configuration.port';
+import type {
+  OidcTrustConfigurationPort,
+  OidcTrustView,
+} from '@identity/application/ports/oidc-trust-configuration.port';
 import type {
   TeamDirectoryPort,
   TeamProfile,
@@ -29,6 +32,7 @@ import type {
 } from '@lines/application/ports/line-resources.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -90,7 +94,7 @@ const OIDC_TRUST = {
   scopes: ['configure'],
   lifetimeMinutes: 15,
   description: 'Deploys the platform',
-};
+} satisfies OidcTrustView;
 
 const POOL = {
   id: 'pool_1',
@@ -167,8 +171,8 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     },
   });
   const lines = {
-    withId: vi.fn(async (id: string) =>
-      id === 'line_delivery' ? lineOf(CORE.id, 'delivery') : null,
+    withId: vi.fn(async (id: LineId) =>
+      id.value === 'line_delivery' ? lineOf(CORE.id, 'delivery') : null,
     ),
     at: vi.fn(async () => null),
     ofTeam: vi.fn(async (teamId: TeamId) =>

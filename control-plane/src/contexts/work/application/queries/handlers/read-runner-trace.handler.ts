@@ -1,12 +1,14 @@
 import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
+import { labelledRun } from '@work/application/mappers/labelled-run.mapper';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import type { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
-import { tracedRunsOf, traceOf } from '@work/application/read-models/trace-of';
 import type { HistoryAccesses } from '@work/application/services/history-accesses.service';
 import { TraceAccess } from '@work/domain/services/trace-access';
 
@@ -17,6 +19,7 @@ export class ReadRunnerTraceHandler
     private readonly accesses: HistoryAccesses,
     private readonly traces: RunnerTraceReaderPort,
     private readonly connections: RunConnectionsPort,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
   async execute(query: ReadRunnerTraceQuery): Promise<TaskTraceDto | null> {
@@ -36,7 +39,7 @@ export class ReadRunnerTraceHandler
 
       const { access } = leased;
 
-      if (access.hides(query)) {
+      if (access.hides(target)) {
         return null;
       }
 
@@ -45,7 +48,7 @@ export class ReadRunnerTraceHandler
         this.traces.journalsForTask(target),
       ]);
       const found = ran.filter((run) =>
-        access.seesRunAt(run.station?.id ?? null),
+        access.seesRunAt(run.station ? StationId.of(run.station.id) : null),
       );
 
       if (access.isScoped && found.length === 0) {
@@ -57,7 +60,7 @@ export class ReadRunnerTraceHandler
       );
 
       return TaskTraceMapper.toDto(
-        traceOf(tracedRunsOf(found, journals, errors)),
+        this.readings.traceOf(found.map(labelledRun), journals, errors),
       );
     } catch (error) {
       rethrowAsApplicationError(error);

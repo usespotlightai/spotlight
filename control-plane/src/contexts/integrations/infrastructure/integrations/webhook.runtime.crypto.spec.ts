@@ -54,7 +54,7 @@ const runtimeOf = (
     readable,
     WORKSPACE,
     signingFor(),
-    () => NOW * 1000,
+    { now: () => new Date(NOW * 1000), sleep: async () => {} },
     jwks,
     {} as HttpOutbound,
     credentialsFor(),

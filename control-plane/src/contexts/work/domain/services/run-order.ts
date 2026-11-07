@@ -8,13 +8,13 @@ import {
   type EnabledForRun,
   enabledAt,
 } from '@work/domain/services/enabled-for-run';
-import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import {
   checkoutsOf,
   type TaskCheckout,
 } from '@work/domain/services/task-checkouts';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
+import type { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
@@ -47,7 +47,7 @@ export interface OrderedAt {
 
 interface Ordering {
   line: LineMap;
-  harnesses: HarnessCatalog;
+  harnesses: HarnessCatalogue;
   ready: readonly ReadySkill[];
   profiles: readonly ReadyProfile[];
   denied?: readonly DeniedCatalogItem[];
@@ -81,7 +81,7 @@ export const orderAt = ({
     model: station.model,
     effort: station.effort,
     stationId: station.id,
-    priority: RunPriority.of(line.depthOf(station.id)),
+    priority: RunPriority.forTask(line.depthOf(station.id)),
     placement: line.placementOf(station.id),
     options: line.optionsFrom(station.id),
     noteLimit: 0,

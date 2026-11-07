@@ -3,6 +3,7 @@ import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { GenerateChangeStack } from '@change-review/application/services/generate-change-stack.service';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -13,6 +14,7 @@ export class GenerateRunChangeStackHandler
 {
   constructor(
     private readonly work: WorkPort,
+    private readonly leases: RunLeasesPort,
     private readonly generating: GenerateChangeStack,
   ) {}
 
@@ -21,7 +23,7 @@ export class GenerateRunChangeStackHandler
       const runId = RunId.of(command.runId);
 
       if (
-        !(await this.work.wasClaimedBy(runId, RunnerId.of(command.runnerId)))
+        !(await this.leases.claimedBy(runId, RunnerId.of(command.runnerId)))
       ) {
         throw new UnknownChangeStackError(
           `This runner didn’t work run ${command.runId}.`,

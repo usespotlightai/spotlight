@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
-  RunEventView,
+  RunJournalEntryView,
   RunStreamPort,
 } from '@runs/application/ports/run-stream.port';
 
@@ -8,10 +8,10 @@ import type {
 export class InMemoryRunStream implements RunStreamPort {
   private readonly watchers = new Map<
     string,
-    Set<(event: RunEventView) => void>
+    Set<(event: RunJournalEntryView) => void>
   >();
 
-  publish(runId: string, events: readonly RunEventView[]): void {
+  publish(runId: string, events: readonly RunJournalEntryView[]): void {
     const listeners = this.watchers.get(runId);
     if (!listeners) {
       return;
@@ -26,7 +26,7 @@ export class InMemoryRunStream implements RunStreamPort {
 
   subscribe(
     runId: string,
-    listener: (event: RunEventView) => void,
+    listener: (event: RunJournalEntryView) => void,
   ): () => void {
     const listeners = this.watchers.get(runId) ?? new Set();
     listeners.add(listener);

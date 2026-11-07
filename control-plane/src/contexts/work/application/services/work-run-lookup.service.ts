@@ -3,8 +3,8 @@ import type {
   RunChanges,
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
-import { RunReading } from '@runs/application/contracts/run-reading.contract';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -12,6 +12,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type {
   DispatchedFor,
   DispatchedRun,
@@ -34,6 +35,7 @@ import { referencesUnder } from '@work/application/services/journal-references';
 import { distinctFiles } from '@work/application/services/touched-files';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { filesChangedIn } from '@work/domain/services/files-changed-in';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -56,7 +58,10 @@ const changesIn = (
 });
 
 const reasoned = (step: JournalStep, index: number): ReasonedStep[] => {
-  const reasoning = reasoningIn(step);
+  const reasoning = reasoningIn({
+    ...step,
+    kind: RunReadingMapper.stepKind(step.kind),
+  });
   return reasoning ? [{ index, ...reasoning }] : [];
 };
 
@@ -92,6 +97,7 @@ export class WorkRunLookup implements WorkRunLookupPort {
     private readonly chats: ChatRepository,
     private readonly lines: LineMapsPort,
     private readonly journals: RunJournalReaderPort,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
   async run(runId: RunId): Promise<RunLookup | null> {
@@ -159,7 +165,11 @@ export class WorkRunLookup implements WorkRunLookupPort {
 
     return {
       steps: journal.steps.flatMap(reasoned),
-      changed: [...new Set(changes.flatMap(RunReading.workspacePathsIn))],
+      changed: [
+        ...new Set(
+          changes.flatMap((each) => this.readings.workspacePathsIn(each)),
+        ),
+      ],
     };
   }
 
@@ -178,17 +188,11 @@ export class WorkRunLookup implements WorkRunLookupPort {
       dispatched && line ? await this.repositoriesOn(dispatched.for, line) : [];
 
     return distinctFiles(
-      RunReading.filesChangedIn(
-        changesIn(journal, run.checkouts),
+      filesChangedIn(
+        this.readings.workspacePathsIn(changesIn(journal, run.checkouts)),
         repositories,
       ),
     );
-  }
-
-  async wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
-    const [run] = await this.facts.of([runId]);
-
-    return run?.claimedBy?.equals(runner) ?? false;
   }
 
   async leasedBy(

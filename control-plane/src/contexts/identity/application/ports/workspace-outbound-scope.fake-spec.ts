@@ -19,8 +19,8 @@ export const scopeRecorder = () => {
     }
   };
   const scope: WorkspaceOutboundScopePort = {
-    within: (workspaceId, work) => run(workspaceId, 'cached', work),
-    withinFresh: (workspaceId, work) => run(workspaceId, 'fresh', work),
+    within: (workspaceId, work) => run(workspaceId.value, 'cached', work),
+    withinFresh: (workspaceId, work) => run(workspaceId.value, 'fresh', work),
   };
 
   return { scope, current: () => current, entered: () => entered };

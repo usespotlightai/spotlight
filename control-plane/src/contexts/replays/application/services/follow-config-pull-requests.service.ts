@@ -1,4 +1,4 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { PullRequestOpenAtStationError } from '@replays/domain/exceptions/pull-request-open-at-station.error';
 import type {
@@ -37,7 +37,7 @@ const keyOf = (event: HostPullRequestEvent): HostPullRequestKey | null =>
 export class FollowConfigPullRequests {
   constructor(
     private readonly pullRequests: ConfigPullRequestRepository,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -80,7 +80,7 @@ export class FollowConfigPullRequests {
       }
 
       const { lineId, stationId } = pullRequest.station;
-      const live = await this.work.live(lineId, stationId);
+      const live = await this.configs.live(lineId, stationId);
       const checked = pullRequest.closeIfStale(
         live?.fingerprint ?? null,
         this.clock.now(),

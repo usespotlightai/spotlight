@@ -1,4 +1,5 @@
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
+import { answersTransiently } from '@integrations/domain/services/call-transience';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
@@ -109,11 +110,23 @@ export const mcpFailureOf = (
   const reason = mcpReasonOf(error, server);
 
   if (error instanceof McpUnauthorizedError) {
-    return new UpstreamError(operation, reason, UNAUTHORIZED, TRANSIENT);
+    return new UpstreamError(
+      operation,
+      reason,
+      UNAUTHORIZED,
+      answersTransiently(UNAUTHORIZED),
+    );
   }
 
   if (error instanceof StreamableHTTPError) {
-    return new UpstreamError(operation, reason, error.code ?? null, TRANSIENT);
+    const status = error.code ?? null;
+
+    return new UpstreamError(
+      operation,
+      reason,
+      status,
+      status === null ? TRANSIENT : answersTransiently(status),
+    );
   }
 
   return new UpstreamError(

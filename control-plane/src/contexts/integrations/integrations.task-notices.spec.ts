@@ -14,6 +14,7 @@ import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapt
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
+import { WebInboxLinks } from '@integrations/infrastructure/links/web-inbox-links';
 import {
   HttpOutbound,
   type OutboundResult,
@@ -21,7 +22,6 @@ import {
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import { WebInboxLinks } from '@integrations/infrastructure/web-inbox-links';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -36,8 +36,11 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
+import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { describe, expect, it, vi } from 'vitest';
 
 const taskNotices = (...args: ConstructorParameters<typeof NotifyTask>) =>
@@ -155,6 +158,7 @@ const notifying = (
     callAuthFor(injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+      new WebTaskLinks('https://app.example'),
       'https://app.example',
     ),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -256,7 +260,7 @@ describe('TaskNotices', () => {
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
     await credentials.injectedFor('https://slack.com/api/chat.postMessage', [
-      'SLACK_BOT_TOKEN',
+      SecretName.of('SLACK_BOT_TOKEN'),
     ]);
 
     expect(forSpotlight).toHaveBeenCalledWith({
@@ -483,6 +487,7 @@ const uploading = (
     callAuth,
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+      new WebTaskLinks('https://app.example'),
       'https://app.example',
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -605,7 +610,7 @@ describe('TaskNotices uploads', () => {
   it('sends a file with the connection, and refreshes the connection once where it is refused', async () => {
     const unauthorized = vi.fn(async () => AccessToken.of('at-new'));
     const connected: CallAuth = {
-      workspace: async () => 'ws_1',
+      workspace: async () => WorkspaceId.of('ws_1'),
       connection: {
         token: AccessToken.of('at-old'),
         owner: ConnectionOwner.person(UserId.of('ada')),

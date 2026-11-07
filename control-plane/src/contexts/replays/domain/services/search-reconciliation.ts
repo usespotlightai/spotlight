@@ -97,6 +97,63 @@ export const searchRunEnding = (ended: {
   started: ended.started,
 });
 
+export const RUN_STATES = [
+  'queued',
+  'claimed',
+  'suspended',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
+
+export type RunState = (typeof RUN_STATES)[number];
+
+export interface SearchRunFact {
+  readonly run: RunId;
+  readonly state: RunState;
+  readonly askedAPerson: boolean;
+  readonly started: boolean;
+  readonly queuedAt: Date;
+  readonly endedAt: Date | null;
+}
+
+const PHASE: Readonly<Record<RunState, SeenRun['phase']>> = {
+  queued: 'queued',
+  claimed: 'running',
+  suspended: 'running',
+  completed: 'ended',
+  failed: 'ended',
+  cancelled: 'ended',
+};
+
+const ENDED_AS: Readonly<Record<RunState, RunResult | null>> = {
+  queued: null,
+  claimed: null,
+  suspended: null,
+  completed: 'completed',
+  failed: 'failed',
+  cancelled: 'cancelled',
+};
+
+export const seenRunOf = (fact: SearchRunFact): SeenRun => {
+  const result = ENDED_AS[fact.state];
+
+  return {
+    run: fact.run,
+    phase: PHASE[fact.state],
+    failed:
+      result === null ||
+      searchRunEnding({
+        outcome: result,
+        asked: fact.askedAPerson,
+        started: fact.started,
+      }).failed,
+    started: fact.started,
+    queuedAt: fact.queuedAt,
+    endedAt: fact.endedAt,
+  };
+};
+
 export const cancelledUnclaimed = (
   runs: readonly SeenRun[],
   unclaimed: RunId,

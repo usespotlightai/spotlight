@@ -1,7 +1,7 @@
 import type { RunRequester } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
   orderedFor,
-  RunCompleted,
+  RunEnded,
   RunExhausted,
   RunOutcome,
   runEndedOf,
@@ -13,7 +13,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
-import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -54,7 +54,7 @@ const completed = (
   runId = 'run_1',
   requester: RunRequester = IN_CHAT,
 ) =>
-  new RunCompleted(
+  new RunEnded(
     RunId.of(runId),
     WorkspaceId.of('ws_1'),
     requester,
@@ -66,6 +66,7 @@ const completed = (
     false,
     true,
     true,
+    NOW,
   );
 
 const outcomesOf = (chat: Chat | null) => {
@@ -148,7 +149,7 @@ describe('ChatOutcomes', () => {
 
       await outcomes.onRunEnded(
         runEndedOf(
-          new RunCompleted(
+          new RunEnded(
             RunId.of('run_2'),
             WorkspaceId.of('ws_1'),
             IN_CHAT,
@@ -160,6 +161,7 @@ describe('ChatOutcomes', () => {
             false,
             true,
             true,
+            NOW,
           ),
         ),
       );
@@ -208,6 +210,7 @@ describe('ChatOutcomes', () => {
           false,
           null,
           true,
+          NOW,
         ),
       ),
     );

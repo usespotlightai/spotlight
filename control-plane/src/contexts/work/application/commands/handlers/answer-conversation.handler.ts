@@ -5,9 +5,9 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AnswerConversationCommand } from '@work/application/commands/answer-conversation.command';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import { ApprovalAnswered } from '@work/application/rendering/approval-answered';
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import type { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';

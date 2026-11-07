@@ -1,5 +1,5 @@
 import type { PeoplePort } from '@insights/application/ports/people.port';
-import { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
+import { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 import {
   PersonPrincipal,
   type Principal,
@@ -10,12 +10,12 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 export class InsightsAccess {
   constructor(private readonly people: PeoplePort) {}
 
-  forTeam(teamId: TeamId, viewerId: UserId): Promise<TeamAccess> {
+  forTeam(teamId: TeamId, viewerId: UserId): Promise<ViewedTeam> {
     return this.accessFor(teamId, PersonPrincipal.of(viewerId));
   }
 
-  async accessFor(teamId: TeamId, principal: Principal): Promise<TeamAccess> {
-    return TeamAccess.onTeam(
+  async accessFor(teamId: TeamId, principal: Principal): Promise<ViewedTeam> {
+    return ViewedTeam.onTeam(
       teamId,
       await this.people.viewerOf(teamId, principal),
     );

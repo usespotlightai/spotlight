@@ -34,6 +34,13 @@ export class AuthorizationServer {
     return new AuthorizationServer(input.issuer, input.authorize, input.token);
   }
 
+  static takesClientIssuedFor(
+    server: AuthorizationServer | null,
+    issuer: string | null,
+  ): boolean {
+    return server === null || server.issuer === issuer;
+  }
+
   equals(other: AuthorizationServer): boolean {
     return (
       this.issuer === other.issuer &&

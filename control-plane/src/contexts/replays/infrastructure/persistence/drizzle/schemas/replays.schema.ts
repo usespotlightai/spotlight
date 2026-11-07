@@ -15,7 +15,7 @@ import type { FailureCauseKind } from '@replays/domain/value-objects/failure-cau
 import { PAIR_ORDERS } from '@replays/domain/value-objects/pair-order';
 import { REFLECTION_RESULTS } from '@replays/domain/value-objects/reflection-result';
 import { RUN_RESULTS } from '@replays/domain/value-objects/replay-ending';
-import { REPLAY_RUN_CLAIMS } from '@replays/domain/value-objects/replay-run-claimed';
+import { REPLAY_RUN_DECISIONS } from '@replays/domain/value-objects/replay-run-decided';
 import {
   REPLAY_STATES,
   type ReplayStopReason,
@@ -731,6 +731,7 @@ export interface StoredPendingSearchStep {
   readonly at: string;
   readonly request: string | null;
   readonly candidates: string[];
+  readonly searched: string[];
   readonly addedTasks: string[];
   readonly replaced: {
     readonly lastStartedAt: string | null;
@@ -835,24 +836,30 @@ export const sideBySideJudging = pgTable(
   ],
 );
 
-export const replayRunClaimed = pgEnum('replay_run_claimed', REPLAY_RUN_CLAIMS);
+export const replayRunDecided = pgEnum(
+  'replay_run_decided',
+  REPLAY_RUN_DECISIONS,
+);
 
-export const replayRunClaim = pgTable(
-  'replay_run_claim',
+export const replayRunDecision = pgTable(
+  'replay_run_decision',
   {
     runId: text('run_id').primaryKey(),
-    claimedAs: replayRunClaimed('claimed_as').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    replayId: text('replay_id').notNull(),
+    decided: replayRunDecided('decided').notNull(),
     unreplayableReason: unreplayableReason('unreplayable_reason'),
-    reason: text('reason'),
     trialFingerprint: text('trial_fingerprint'),
     movesOnAfter: jsonb('moves_on_after').$type<string[]>(),
-    claimedAt: timestamptz('claimed_at').defaultNow().notNull(),
+    decidedAt: timestamptz('decided_at').defaultNow().notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    index('replay_run_decision_team_idx').on(table.teamId),
     check(
-      'replay_run_claim_unreplayable_reason',
-      sql`(${table.claimedAs} = 'unreplayable') = (${table.unreplayableReason} is not null)`,
+      'replay_run_decision_unreplayable_reason',
+      sql`(${table.decided} = 'unreplayable') = (${table.unreplayableReason} is not null)`,
     ),
   ],
 );

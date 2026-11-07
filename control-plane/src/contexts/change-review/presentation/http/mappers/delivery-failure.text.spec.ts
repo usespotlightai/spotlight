@@ -9,12 +9,15 @@ describe('deliveryFailureText', () => {
   it('passes on what GitHub said, or that GitHub could not be reached', () => {
     expect(
       deliveryFailureText({
-        code: 'github-error',
+        code: 'github-rejected',
         detail: 'Validation Failed',
       }),
     ).toBe('Validation Failed');
-    expect(deliveryFailureText({ code: 'github-error', detail: null })).toBe(
-      'Spotlight couldn’t reach GitHub.',
+    expect(
+      deliveryFailureText({ code: 'github-unreachable', detail: null }),
+    ).toBe('Spotlight couldn’t reach GitHub.');
+    expect(deliveryFailureText({ code: 'unexpected', detail: null })).toBe(
+      'Spotlight couldn’t send it to GitHub.',
     );
   });
 

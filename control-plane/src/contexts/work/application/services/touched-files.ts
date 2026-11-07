@@ -1,11 +1,12 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
-import { RunReading } from '@runs/application/contracts/run-reading.contract';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TouchedFile } from '@work/application/ports/team-memories.port';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { filesChangedIn } from '@work/domain/services/files-changed-in';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
@@ -23,6 +24,7 @@ export class TouchedFiles {
     private readonly pullRequests: PullRequestPort,
     private readonly logger: LoggerPort,
     private readonly clock: ClockPort,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
   async onTask(task: Task, line: LineMap): Promise<readonly TouchedFile[]> {
@@ -38,7 +40,7 @@ export class TouchedFiles {
     repositories: readonly Repository[],
   ): Promise<TouchedFile[]> {
     return (await this.journals.changesOfTask(task.id)).flatMap((changes) =>
-      RunReading.filesChangedIn(changes, repositories),
+      filesChangedIn(this.readings.workspacePathsIn(changes), repositories),
     );
   }
 

@@ -1,4 +1,5 @@
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { SetupChatView } from '@work/application/ports/chat-reader.port';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
@@ -39,6 +40,10 @@ const handler = (options: Options = {}) => {
           },
     ),
     isAdminOf: vi.fn().mockResolvedValue(options.admin ?? true),
+    opensChat: vi.fn(
+      async (chat: { readonly startedBy: UserId }, viewer: UserId) =>
+        chat.startedBy.equals(viewer),
+    ),
   } as unknown as WorkAccess;
 
   const setup = {

@@ -73,6 +73,10 @@ const problemOf = (state: DispatchState): string | null => {
     return 'is superseded though its task held it or it did not fail';
   }
 
+  if (state.order && !state.order.fits(state.subject.kind, state.id)) {
+    return 'carries the order of another run';
+  }
+
   if (state.refused && state.enqueued) {
     return 'was both refused and enqueued';
   }

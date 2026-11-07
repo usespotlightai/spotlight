@@ -9,15 +9,14 @@ export interface SkillSecret {
   readonly description: string;
 }
 
-interface SkillFolderLimits {
-  readonly files: number;
-  readonly characters: number;
-}
+export const SKILL_FOLDER_LIMITS = {
+  files: 50,
+  characters: 512 * 1024,
+} as const;
 
 interface SkillFolderSize {
   readonly files: number;
   readonly characters: number;
-  readonly limits: SkillFolderLimits;
 }
 
 interface SkillInput {
@@ -72,17 +71,17 @@ export class Skill {
       );
     }
 
-    if (folder && folder.files > folder.limits.files) {
+    if (folder && folder.files > SKILL_FOLDER_LIMITS.files) {
       throw new InvalidSkillError(
         input.key.value,
-        `has more than ${folder.limits.files} files in its folder`,
+        `has more than ${SKILL_FOLDER_LIMITS.files} files in its folder`,
       );
     }
 
-    if (folder && folder.characters > folder.limits.characters) {
+    if (folder && folder.characters > SKILL_FOLDER_LIMITS.characters) {
       throw new InvalidSkillError(
         input.key.value,
-        `has more than ${folder.limits.characters} characters in its folder`,
+        `has more than ${SKILL_FOLDER_LIMITS.characters} characters in its folder`,
       );
     }
 

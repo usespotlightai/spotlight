@@ -12,7 +12,7 @@ export interface TokenFacts {
   readonly cacheWrite: number | null;
 }
 
-export interface RunUsage {
+export interface RunUsageFacts {
   readonly ms: number | null;
   readonly steps: number;
   readonly errors: number;
@@ -26,5 +26,5 @@ export interface RunUsage {
 export const RUN_USAGES = Symbol('RUN_USAGES');
 
 export interface RunUsageReaderPort {
-  forRuns(runIds: readonly RunId[]): Promise<Map<string, RunUsage>>;
+  forRuns(runIds: readonly RunId[]): Promise<Map<string, RunUsageFacts>>;
 }

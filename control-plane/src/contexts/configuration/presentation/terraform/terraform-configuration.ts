@@ -8,12 +8,16 @@ import type {
   HookConfigStep,
 } from '@configuration/application/ports/hook-configs.port';
 import {
+  IMPORTS_FILE,
   judgeRubricFileOf,
   terraformNameOf as nameOf,
   stationFileOf,
+  TERRAFORM_FILE,
   TERRAFORM_PROVIDER,
   terraformAttributeOf,
+  terraformFileOf,
   terraformTypeOf,
+  VARIABLES_FILE,
 } from '@configuration/application/rendering/terraform-layout';
 import type {
   LineDefinitionAlert,
@@ -85,12 +89,6 @@ const PROVIDER_SOURCE = 'usespotlightai/spotlight';
 
 const PROVIDER_VERSION = '0.1.0-rc.4';
 
-const TERRAFORM = 'terraform.tf';
-
-const IMPORTS = 'imports.tf';
-
-const VARIABLES = 'variables.tf';
-
 const GITIGNORE = {
   path: '.gitignore',
   content: '.terraform/\n*.tfstate\n*.tfstate.*\n*.tfvars\n',
@@ -139,33 +137,6 @@ const inModuleOrder = (
   inCodePointOrder(teamOf(one), teamOf(other)) ||
   PLACE[one.kind] - PLACE[other.kind] ||
   inCodePointOrder(one.address, other.address);
-
-const fileOf = (resource: ExportableResourceDto): string => {
-  switch (resource.kind) {
-    case 'workspace':
-    case 'oidc-trust':
-      return 'workspace.tf';
-    case 'secret':
-      return 'secrets.tf';
-    case 'runner-trust':
-    case 'egress':
-    case 'runner-pool':
-    case 'workspace-runners':
-      return 'runners.tf';
-    case 'team':
-      return `team-${resource.key}.tf`;
-    case 'line':
-      return `line-${resource.teamKey}-${resource.key}.tf`;
-    case 'integration':
-      return `integration-${resource.teamKey}-${resource.integration}.tf`;
-    case 'skill':
-      return `skills-${resource.teamKey}.tf`;
-    case 'hook':
-      return `hooks-${resource.teamKey}.tf`;
-    case 'harness-profile':
-      return `profiles-${resource.teamKey}.tf`;
-  }
-};
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -352,7 +323,7 @@ const withImportBlock = (
   body: readonly HclItem[],
   more: Partial<Pick<Rendered, 'variables' | 'files'>> = {},
 ): Rendered => ({
-  file: fileOf(resource),
+  file: terraformFileOf(resource),
   variables: more.variables ?? [],
   imports: [
     block(
@@ -1105,9 +1076,9 @@ export const workspaceTerraform = (
   const paths = [...new Set(all.map((each) => each.file))];
 
   return [
-    { path: TERRAFORM, content: formatHcl([PROVIDERS]) },
+    { path: TERRAFORM_FILE, content: formatHcl([PROVIDERS]) },
     {
-      path: IMPORTS,
+      path: IMPORTS_FILE,
       content: formatHcl(all.flatMap((each) => each.imports)),
     },
     ...paths.map((path) => ({
@@ -1117,7 +1088,7 @@ export const workspaceTerraform = (
       ),
     })),
     ...(variables.length > 0
-      ? [{ path: VARIABLES, content: formatHcl(variables) }]
+      ? [{ path: VARIABLES_FILE, content: formatHcl(variables) }]
       : []),
     GITIGNORE,
     ...all.flatMap((each) => each.files),

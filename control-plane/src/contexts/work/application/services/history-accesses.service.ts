@@ -1,10 +1,12 @@
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { TraceScopes } from '@work/application/services/trace-scopes.service';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
-import { HistoryAccess } from '@work/domain/services/history-access';
+import { HistoryAccess } from '@work/domain/value-objects/history-access.vo';
 
 export interface LeasedHistory {
   readonly team: TeamId;
@@ -35,17 +37,17 @@ export class HistoryAccesses {
     }
 
     const subject = (await this.dispatches.find(leased.runId))?.subject;
-
-    if (subject?.kind === 'trial') {
-      return { team, access: HistoryAccess.ofTrial(subject.asOf) };
-    }
-
-    if (leased.policy.actsBeyondItself) {
-      return { team, access: HistoryAccess.unrestricted() };
-    }
-
     const scope = await this.scopes.scopeOf(leased.requester);
+    const access = HistoryAccess.for({
+      trial: subject?.kind === 'trial' ? { asOf: subject.asOf } : null,
+      actsBeyondItself: leased.policy.actsBeyondItself,
+      scope: scope && {
+        stationId: StationId.of(scope.stationId),
+        hiddenTaskIds: scope.hiddenTaskIds.map(TaskId.of),
+        shownRunIds: scope.shownRunIds.map(RunId.of),
+      },
+    });
 
-    return scope ? { team, access: HistoryAccess.scopedTo(scope) } : null;
+    return access ? { team, access } : null;
   }
 }

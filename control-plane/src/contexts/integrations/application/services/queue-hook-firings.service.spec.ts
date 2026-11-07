@@ -16,6 +16,8 @@ import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo'
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -47,6 +49,9 @@ const setUp = (
       causation,
       logger(),
       telemetry,
+      {
+        currentOf: async (runId: RunId) => HookRunAttempt.of(runId, 2),
+      },
     ),
   };
 };
@@ -62,9 +67,14 @@ describe('QueueHookFirings', () => {
       queueing.queue(
         TASK,
         HookOccurrence.toolUsed(
-          Tool.of('grafana.search'),
-          'occurrence_1',
-          EVENT,
+          {
+            on: 'tool.used',
+            tool: Tool.of('grafana.search'),
+            inputs: { query: 'cpu' },
+            output: null,
+            failed: false,
+          },
+          HookOccurrenceKey.of('occurrence_1'),
         ),
       ),
     ).resolves.toBe(2);
@@ -73,8 +83,8 @@ describe('QueueHookFirings', () => {
     expect(fired).toMatchObject({
       id: HookFiringId.of('id_1'),
       hookId: HookDefinitionId.of('a_id'),
-      occurrence: 'occurrence_1',
-      runId: RunId.of('run_1'),
+      occurrence: HookOccurrenceKey.of('occurrence_1'),
+      run: HookRunAttempt.of(RunId.of('run_1'), 2),
       stationKey: StationKey.of('implementation'),
       matched: true,
       link: {

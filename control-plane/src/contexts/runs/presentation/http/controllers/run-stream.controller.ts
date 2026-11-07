@@ -1,14 +1,12 @@
 import {
   Controller,
   Headers,
-  Inject,
   type MessageEvent,
   NotFoundException,
   Param,
   Query,
   Sse,
 } from '@nestjs/common';
-import { QueryBus } from '@nestjs/cqrs';
 import {
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -20,14 +18,7 @@ import {
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { RunWatchDto } from '@runs/application/dto/run-watch.dto';
-import {
-  RUN_STREAM,
-  type RunEventView,
-  type RunStreamPort,
-} from '@runs/application/ports/run-stream.port';
-import { ReadRunEventsQuery } from '@runs/application/queries/read-run-events.query';
-import { WatchRunQuery } from '@runs/application/queries/watch-run.query';
+import { WatchRunStream } from '@runs/application/services/watch-run-stream.service';
 import {
   cursorOf,
   eventIdOf,
@@ -40,10 +31,7 @@ const KEEPALIVE_MS = 20_000;
 @ApiTags('runs')
 @Controller('runs')
 export class RunStreamController {
-  constructor(
-    private readonly queryBus: QueryBus,
-    @Inject(RUN_STREAM) private readonly stream: RunStreamPort,
-  ) {}
+  constructor(private readonly watching: WatchRunStream) {}
 
   @Sse(':runId/stream')
   @ApiOperation({
@@ -61,59 +49,27 @@ export class RunStreamController {
     @Headers('last-event-id') lastEventId?: string,
     @Query('from') from?: string,
   ): Promise<Observable<MessageEvent>> {
-    const watching = await this.queryBus.execute<
-      WatchRunQuery,
-      RunWatchDto | null
-    >(new WatchRunQuery(runId, user.id));
+    const watch = await this.watching.open(runId, user.id);
 
-    if (!watching) {
+    if (!watch) {
       throw new NotFoundException();
     }
 
-    const cursor = cursorOf(lastEventId ?? from, watching.attempt);
+    const cursor = cursorOf(lastEventId ?? from, watch.attempt);
 
     const journal = new Observable<MessageEvent>((subscriber) => {
       const mark = new StreamMark(cursor);
-      let buffered: RunEventView[] = [];
-      let replaying = true;
 
-      const emit = (event: RunEventView) => {
-        if (mark.accepts(event)) {
-          const id = eventIdOf(event);
-          subscriber.next(id ? { id, data: event } : { data: event });
-        }
-      };
-
-      // Subscribe before you read the backlog, so that no event is lost between the two.
-      const detach = this.stream.subscribe(runId, (event) => {
-        if (replaying) {
-          buffered.push(event);
-          return;
-        }
-        emit(event);
-      });
-
-      this.queryBus
-        .execute<ReadRunEventsQuery, RunEventView[]>(
-          new ReadRunEventsQuery(runId, user.id, cursor.attempt, cursor.seq),
-        )
-        .then((backlog) => {
-          for (const event of backlog) {
-            emit(event);
+      return watch.follow(
+        cursor,
+        (entry) => {
+          if (mark.accepts(entry)) {
+            const id = eventIdOf(entry);
+            subscriber.next(id ? { id, data: entry } : { data: entry });
           }
-
-          replaying = false;
-          for (const event of buffered) {
-            emit(event);
-          }
-          buffered = [];
-        })
-        .catch((error: unknown) => subscriber.error(error));
-
-      return () => {
-        detach();
-        buffered = [];
-      };
+        },
+        (error) => subscriber.error(error),
+      );
     });
 
     const keepalive = interval(KEEPALIVE_MS).pipe(

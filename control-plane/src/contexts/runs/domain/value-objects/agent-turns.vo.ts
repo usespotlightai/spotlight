@@ -1,4 +1,4 @@
-export interface TimeSpan {
+interface TimeSpan {
   readonly from: number;
   readonly to: number;
 }

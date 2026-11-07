@@ -52,11 +52,13 @@ import {
   PairVerdict,
 } from '@replays/domain/value-objects/entry-pairing.vo';
 import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
+import { HealthSampleGroup } from '@replays/domain/value-objects/health-sample-group.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { OracleReference } from '@replays/domain/value-objects/oracle-reference.vo';
 import { PairingReference } from '@replays/domain/value-objects/pairing-reference.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -70,6 +72,7 @@ import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-de
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
+import { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
@@ -144,6 +147,9 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplaySetDeleted,
   ReplaySetStationGone,
   ReplayStopped,
+  MovesOnWords,
+  HealthSampleGroup,
+  ReplaysRequester,
   ReplayCeilingReached,
   ReplayRecheckRequested,
   ReplayRejudgingRequested,

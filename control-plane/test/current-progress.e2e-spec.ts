@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { RunFacts } from '@runs/application/services/run-facts.service';
-import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
-import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
+import { RunReadModel } from '@runs/application/services/run-read-model.service';
+import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -17,7 +16,7 @@ import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/rea
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { aRunOf, endedAtFor } from './support/run-ended';
+import { aRunOf, endingFor } from './support/run-ended';
 import { aTurn, requestedBySpec, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
@@ -36,12 +35,9 @@ afterAll(async () => {
 
 const progress = () => {
   const context = new DrizzleContext(db);
-  const noEvents = { dispatch: async () => {} };
+  const _noEvents = { dispatch: async () => {} };
 
-  return new RunFacts(
-    new DrizzleRunRepository(context, noEvents),
-    new DrizzleWorkspaceArchiveRepository(context, noEvents),
-  );
+  return new RunReadModel(new DrizzleRunFactsReader(context));
 };
 
 type RunState = (typeof schema.run.$inferInsert)['state'];
@@ -94,7 +90,7 @@ const inboxWith = async (
       workspaceId,
       harness: 'dev',
       state,
-      endedAt: endedAtFor(state),
+      ...endingFor(state),
       stopRequestedAt,
       spec: {
         command: { executable: 'sh', args: [] },
@@ -318,7 +314,7 @@ describe('the progress of a chat whose run waits to start', () => {
         workspaceId: 'ws_1',
         harness: 'dev',
         state,
-        endedAt: endedAtFor(state),
+        ...endingFor(state),
         spec: {
           command: { executable: 'sh', args: [] },
           briefing: 'Fix the queue.',

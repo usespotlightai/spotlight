@@ -17,7 +17,7 @@ import { SendMessageHandler } from '@work/application/commands/handlers/send-mes
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { LiveTaskDraftsPort } from '@work/application/ports/live-task-drafts.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';

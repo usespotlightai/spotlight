@@ -11,6 +11,7 @@ import {
   BUILT_IN_LINES,
   type LineOpening,
 } from '@lines/domain/services/built-in-lines';
+import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
@@ -115,7 +116,11 @@ const created = () => {
 const kindOf = (line: Line, kind: 'backlog' | 'completed') =>
   line.stations.find((each) => each.kind === kind) as Station;
 
-const NO_TASKS: ReadonlyMap<string, number> = new Map();
+const NO_TASKS = TaskCounts.NONE;
+const countsOf = (entries: readonly [string, number][]): TaskCounts =>
+  TaskCounts.of(
+    entries.map(([id, tasks]) => ({ stationId: StationId.of(id), tasks })),
+  );
 
 describe('Line', () => {
   it('takes the name of the line it creates', () => {
@@ -561,7 +566,7 @@ describe('Line, what it records of its changes', () => {
 
     it('will not drop a station while tasks are on it, naming where', () => {
       const line = lineOf([at(1), at(2)]);
-      const dropping = (tasks: ReadonlyMap<string, number>) =>
+      const dropping = (tasks: TaskCounts) =>
         line.update(
           {
             key: line.key,
@@ -573,13 +578,13 @@ describe('Line, what it records of its changes', () => {
           changeActorIn(),
         );
 
-      expect(() => dropping(new Map([['station_2', 3]]))).toThrow(
+      expect(() => dropping(countsOf([['station_2', 3]]))).toThrow(
         LineInUseError,
       );
-      expect(() => dropping(new Map([['station_2', 3]]))).toThrow(
+      expect(() => dropping(countsOf([['station_2', 3]]))).toThrow(
         'Station 2 (3)',
       );
-      expect(() => dropping(new Map([['station_1', 3]]))).not.toThrow();
+      expect(() => dropping(countsOf([['station_1', 3]]))).not.toThrow();
     });
 
     it('names which stations it removes in its successor', () => {
@@ -602,7 +607,7 @@ describe('Line, what it records of its changes', () => {
 
     it('is deleted once no task is on it, and says so', () => {
       const line = stored();
-      const deleted = line.delete(new Map(), changeActorIn());
+      const deleted = line.delete(TaskCounts.NONE, changeActorIn());
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([
@@ -620,7 +625,7 @@ describe('Line, what it records of its changes', () => {
           line.name,
         ),
       ]);
-      expect(() => deleted.delete(new Map(), changeActorIn())).toThrow(
+      expect(() => deleted.delete(TaskCounts.NONE, changeActorIn())).toThrow(
         /after it was deleted/,
       );
       expect(() =>
@@ -641,10 +646,10 @@ describe('Line, what it records of its changes', () => {
       const [, working] = line.stations;
 
       expect(() =>
-        line.delete(new Map([[working?.id.value ?? '', 2]]), changeActorIn()),
+        line.delete(countsOf([[working?.id.value ?? '', 2]]), changeActorIn()),
       ).toThrow(LineInUseError);
       expect(() =>
-        line.delete(new Map([[working?.id.value ?? '', 2]]), changeActorIn()),
+        line.delete(countsOf([[working?.id.value ?? '', 2]]), changeActorIn()),
       ).toThrow(`${working?.name.value} (2)`);
     });
   });

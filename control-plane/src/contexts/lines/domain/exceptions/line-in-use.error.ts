@@ -10,7 +10,7 @@ export class LineInUseError extends DomainError {
   ) {
     super(
       `Line ${key} would strand tasks. Please move those tasks first. Stations with tasks: ${stranded
-        .map((each) => `${each.name} (${each.tasks})`)
+        .map((each) => `${each.name.value} (${each.tasks})`)
         .join(', ')}`,
     );
     this.name = 'LineInUseError';

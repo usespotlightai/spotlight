@@ -4,7 +4,7 @@ import type {
 } from '@github/application/ports/repository-git.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
-import { Run } from '@runs/application/ports/run-fixtures.fake-spec';
+import { claimer, Run } from '@runs/application/ports/run-fixtures.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -36,7 +36,7 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { trialOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import {
   lineMapOf,
   stationOf,
@@ -135,11 +135,11 @@ const claimedBy = (
 ): Claimed => {
   const { run } = enqueued(requested);
 
-  return { run: run.claim(RunnerId.of(runner), NOW), requested };
+  return { run: run.claim(claimer(RunnerId.of(runner)), NOW), requested };
 };
 
 const TRIAL = Dispatch.trialOrdered({
-  order: DispatchOrder.of({}),
+  order: trialOrderOf(RUN),
   id: RUN,
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: null,
@@ -149,7 +149,9 @@ const TRIAL = Dispatch.trialOrdered({
     taskId: TaskId.of('task_1'),
     stationId: StationId.of('station_1'),
     asOf: NOW,
-    repositories: [{ path: 'widgets', repository: 'acme/widgets' }],
+    repositories: [
+      { path: 'widgets', repository: Repository.of('acme/widgets') },
+    ],
     followUp: null,
   },
   configuredAs: StationConfig.rehydrate(

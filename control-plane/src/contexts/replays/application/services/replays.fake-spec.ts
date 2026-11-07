@@ -1,16 +1,26 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import type { InsightsPort } from '@replays/application/ports/insights.port';
+import type {
+  LinesPort,
+  NamedStation,
+  SearchedStation,
+  StationSettings,
+  StationView,
+} from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { ReplaysReaderPort } from '@replays/application/ports/replays-reader.port';
 import type { AgentProblem } from '@replays/application/ports/runs.port';
+import type { StartingPointHoldsPort } from '@replays/application/ports/starting-point-holds.port';
 import type {
-  LiveConfig,
+  CandidateValidation,
+  LiveStationConfig,
+  StationConfigCandidatesPort,
+} from '@replays/application/ports/station-config-candidates.port';
+import type {
   PickableRun,
   RunReplayability,
-  StationView,
-  ValidatedCandidate,
-  WorkPort,
-} from '@replays/application/ports/work.port';
+  TrialableRunsPort,
+} from '@replays/application/ports/trialable-runs.port';
 import { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
@@ -32,12 +42,19 @@ import type {
 } from '@replays/application/services/search-run-dispatch.service';
 import { SetUsage } from '@replays/application/services/set-usage.service';
 import { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
+import {
+  type LiveConfig,
+  StationConfigs,
+} from '@replays/application/services/station-configs.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
-import { ReplayRunClaim } from '@replays/domain/aggregates/replay-run-claim.aggregate';
+import {
+  ReplayRunDecision,
+  type ReplayRunOwner,
+} from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
@@ -45,7 +62,7 @@ import type { SearchReplaysPlanned } from '@replays/domain/events/search-replays
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import { LineSearchBudgetVersionConflictError } from '@replays/domain/exceptions/line-search-budget-version-conflict.error';
 import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
-import { ReplayRunClaimVersionConflictError } from '@replays/domain/exceptions/replay-run-claim-version-conflict.error';
+import { ReplayRunDecisionVersionConflictError } from '@replays/domain/exceptions/replay-run-decision-version-conflict.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import { StationSearchScheduleVersionConflictError } from '@replays/domain/exceptions/station-search-schedule-version-conflict.error';
 import {
@@ -62,7 +79,7 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { LineSearchBudgetRepository } from '@replays/domain/repositories/line-search-budget.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
-import type { ReplayRunClaimRepository } from '@replays/domain/repositories/replay-run-claim.repository';
+import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
@@ -488,14 +505,8 @@ export class InMemoryReplays {
   };
 }
 
-export class FakeWork
-  implements WorkPort, ReplayRunDispatching, SearchRunDispatching
-{
-  readonly replayables = new Map<string, RunReplayability>();
-  readonly dispatched: ReplayRunOrder[] = [];
-  readonly cancelledQueued: string[] = [];
-  readonly startingPointHolds = new Map<string, readonly string[]>();
-  unqueued: ReplayRunQueued | null = null;
+export class FakeLines implements LinesPort {
+  threshold: ReplayThreshold | null = null;
 
   station = async (lineId: LineId, stationId: StationId) =>
     lineId.equals(STATION_VIEW.lineId) &&
@@ -511,6 +522,78 @@ export class FakeWork
       ? STATION_VIEW
       : null;
 
+  namedStation = async (
+    lineId: LineId,
+    stationId: StationId,
+  ): Promise<NamedStation | null> => {
+    const station = await this.station(lineId, stationId);
+
+    return station
+      ? {
+          lineKey: station.lineKey,
+          lineName: 'Delivery',
+          key: station.key,
+          name: station.name,
+        }
+      : null;
+  };
+
+  searchedStation = async (
+    lineId: LineId,
+    stationId: StationId,
+  ): Promise<SearchedStation | null> => {
+    const station = await this.station(lineId, stationId);
+
+    return station
+      ? {
+          workspaceId: station.workspaceId,
+          teamId: station.teamId,
+          runsAnAgent: true,
+          placement: { labelGroups: [], image: null },
+        }
+      : null;
+  };
+
+  stationSettings = async (): Promise<StationSettings | null> => ({
+    block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
+    threshold: this.threshold,
+    search: null,
+    agent: null,
+  });
+
+  candidateBlock = async (
+    _line: LineId,
+    _station: StationId,
+    block: unknown,
+    _planned: PlannedLine | null,
+  ): Promise<StationBlock | null> => StationBlock.of(block);
+}
+
+export class FakeStationConfigCandidates
+  implements StationConfigCandidatesPort
+{
+  live = async (): Promise<LiveStationConfig | null> => ({
+    lineKey: 'delivery',
+    fingerprint: FINGERPRINT,
+    scoring: UNSCORED,
+    hashes: LIVE_HASHES,
+  });
+
+  validate = async (): Promise<CandidateValidation | null> => ({
+    ok: true,
+    fingerprint: FINGERPRINT,
+    hashes: HASHES,
+    liveHashes: LIVE_HASHES,
+    scoring: UNSCORED,
+    changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+  });
+}
+
+export class FakeTrialableRuns implements TrialableRunsPort {
+  readonly replayables = new Map<string, RunReplayability>();
+
+  recent: PickableRun[] = [];
+
   replayable = async (_workspace: unknown, runs: readonly RunId[]) =>
     runs.flatMap((run) => {
       const found = this.replayables.get(run.value);
@@ -521,53 +604,52 @@ export class FakeWork
     (await this.replayable(workspace, runs)).map((each) => ({
       ...each,
       title: null as string | null,
-      state: null,
       endedAt: null,
-      origin: null,
     }));
 
-  recent: PickableRun[] = [];
-
   recentAt = async () => this.recent;
+}
+
+export class FakeStartingPointHolds implements StartingPointHoldsPort {
+  readonly held = new Map<string, readonly string[]>();
+
+  hold = async (
+    holder: string,
+    _workspace: unknown,
+    runs: readonly RunId[],
+  ) => {
+    this.held.set(
+      holder,
+      runs.map((each) => each.value),
+    );
+  };
+
+  release = async (holder: string) => {
+    this.held.delete(holder);
+  };
+}
+
+export class FakeRunDispatch
+  implements ReplayRunDispatching, SearchRunDispatching
+{
+  readonly dispatched: ReplayRunOrder[] = [];
+  readonly cancelledQueued: string[] = [];
+  unqueued: ReplayRunQueued | null = null;
 
   cancelled: { run: string; leaveRunAsIs: boolean }[] = [];
 
   queuedRuns = new Set<string>();
 
-  cancel = async (run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun> => {
+  cancel = async (
+    run: RunId,
+    _owner: ReplayRunOwner,
+    leaveRunAsIs: boolean,
+  ): Promise<CancelledRun> => {
     this.cancelled.push({ run: run.value, leaveRunAsIs });
     return this.queuedRuns.has(run.value)
-      ? { queued: true, fingerprint: FINGERPRINT }
-      : { queued: false };
+      ? { wasQueued: true, fingerprint: FINGERPRINT }
+      : { wasQueued: false };
   };
-
-  validate = async (
-    _line: LineId,
-    _station: StationId,
-    block: unknown,
-    _planned?: PlannedLine | null,
-  ): Promise<ValidatedCandidate> => ({
-    ok: true,
-    fingerprint: FINGERPRINT,
-    hashes: HASHES,
-    liveHashes: LIVE_HASHES,
-    scoring: UNSCORED,
-    changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-    block: StationBlock.of(block),
-  });
-
-  threshold: ReplayThreshold | null = null;
-
-  live = async (): Promise<LiveConfig> => ({
-    lineKey: 'delivery',
-    block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
-    fingerprint: FINGERPRINT,
-    scoring: UNSCORED,
-    hashes: LIVE_HASHES,
-    threshold: this.threshold,
-    search: null,
-    agent: null,
-  });
 
   unanswerable = new Set<string>();
 
@@ -633,21 +715,29 @@ export class FakeWork
       const status = this.runStatuses.get(run.value);
       return status ? [status] : [];
     });
+}
 
-  hold = async (
-    holder: string,
-    _workspace: unknown,
-    runs: readonly RunId[],
-  ) => {
-    this.startingPointHolds.set(
-      holder,
-      runs.map((each) => each.value),
-    );
-  };
+export const liveFrom = (configs: StationConfigs) => {
+  const live = configs.live.bind(configs);
 
-  release = async (holder: string) => {
-    this.startingPointHolds.delete(holder);
+  return async (): Promise<LiveConfig> => {
+    const read = await live(STATION.lineId, STATION.stationId);
+
+    if (!read) {
+      throw new Error('The fake station has no live config');
+    }
+
+    return read;
   };
+};
+
+export class FakeSuppliers {
+  readonly lines = new FakeLines();
+  readonly candidates = new FakeStationConfigCandidates();
+  readonly configs = new StationConfigs(this.candidates, this.lines);
+  readonly trialableRuns = new FakeTrialableRuns();
+  readonly holds = new FakeStartingPointHolds();
+  readonly dispatch = new FakeRunDispatch();
 }
 
 export const peopleWho = (mayPlan: boolean | null): PeoplePort => ({
@@ -658,12 +748,12 @@ export const peopleWho = (mayPlan: boolean | null): PeoplePort => ({
 
 export const accessFor = (
   memory: InMemoryReplays,
-  work: FakeWork,
+  suppliers: FakeSuppliers,
   mayPlan: boolean | null = true,
 ): ReplaysAccess =>
   new ReplaysAccess(
     peopleWho(mayPlan),
-    work,
+    suppliers.lines,
     memory.setRepository,
     memory.replayRepository,
     memory.searchRepository,
@@ -742,14 +832,14 @@ export const usageFor = (
 
 export const refreshingFor = (
   memory: InMemoryReplays,
-  work: FakeWork,
+  suppliers: FakeSuppliers,
   insights: InsightsPort = new FakeInsights(),
 ) =>
   new RefreshReplaySets(
     memory.setRepository,
     memory.searchRepository,
     usageFor(memory),
-    work,
+    suppliers.trialableRuns,
     insights,
     CLOCK,
     TRANSACTION,
@@ -758,12 +848,12 @@ export const refreshingFor = (
 
 export const snapshotsFor = (
   memory: InMemoryReplays,
-  work: FakeWork,
+  suppliers: FakeSuppliers,
   mayPlan: boolean | null = true,
 ) =>
   new LiveCandidates(
     peopleWho(mayPlan),
-    work,
+    suppliers.configs,
     memory.candidateRepository,
     IDS,
     CLOCK,
@@ -773,14 +863,14 @@ export const snapshotsFor = (
 
 export const stepsFor = (
   memory: InMemoryReplays,
-  work: FakeWork,
+  suppliers: FakeSuppliers,
   clock: ClockPort = CLOCK,
 ) =>
   new PendingSearchSteps(
     memory.scheduleRepository,
     memory.searchRepository,
     memory.budgetRepository,
-    snapshotsFor(memory, work),
+    snapshotsFor(memory, suppliers),
     clock,
     TRANSACTION,
     QUIET,
@@ -1012,31 +1102,42 @@ export class InMemoryChecks implements ReplayCheckRepository {
   };
 }
 
-export class InMemoryReplayRunClaims implements ReplayRunClaimRepository {
-  readonly claims = new Map<string, ReplayRunClaim>();
+export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
+  readonly decisions = new Map<string, ReplayRunDecision>();
 
-  find = async (runId: RunId) => this.claims.get(runId.value) ?? null;
+  find = async (runId: RunId) => this.decisions.get(runId.value) ?? null;
 
-  add = async (claim: ReplayRunClaim) => {
-    if (this.claims.has(claim.runId.value)) {
-      throw new ReplayRunClaimVersionConflictError(claim.runId);
+  ofTeam = async (teamId: TeamId) =>
+    [...this.decisions.values()].filter((each) =>
+      each.owner.teamId.equals(teamId),
+    );
+
+  add = async (decision: ReplayRunDecision) => {
+    if (this.decisions.has(decision.runId.value)) {
+      throw new ReplayRunDecisionVersionConflictError(decision.runId);
     }
-    this.claims.set(claim.runId.value, claim);
+    this.decisions.set(decision.runId.value, decision);
   };
 
-  save = async (claim: ReplayRunClaim) => {
-    if (this.claims.get(claim.runId.value)?.version !== claim.version) {
-      throw new ReplayRunClaimVersionConflictError(claim.runId);
+  save = async (decision: ReplayRunDecision) => {
+    if (
+      this.decisions.get(decision.runId.value)?.version !== decision.version
+    ) {
+      throw new ReplayRunDecisionVersionConflictError(decision.runId);
     }
-    this.claims.set(
-      claim.runId.value,
-      ReplayRunClaim.rehydrate({
-        runId: claim.runId,
-        claimedAs: claim.claimedAs,
-        unreplayableReason: claim.unreplayableReason,
-        reason: claim.reason,
-        trial: claim.trial,
-        version: claim.version + 1,
+    if (decision.isDeleted) {
+      this.decisions.delete(decision.runId.value);
+      return;
+    }
+    this.decisions.set(
+      decision.runId.value,
+      ReplayRunDecision.rehydrate({
+        runId: decision.runId,
+        owner: decision.owner,
+        decided: decision.decided,
+        unreplayableReason: decision.unreplayableReason,
+        trial: decision.trial,
+        version: decision.version + 1,
       }),
     );
   };

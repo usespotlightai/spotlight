@@ -26,7 +26,7 @@ export interface RunStationSummary {
 export interface TaskRunSummary {
   readonly id: string;
   readonly state: TaskRunState;
-  readonly stopRequested: boolean;
+  readonly progress: Progress | null;
   readonly attempt: number;
   readonly exitCode: number | null;
   readonly startedAt: Date;
@@ -36,7 +36,6 @@ export interface TaskRunSummary {
   readonly image: string | null;
   readonly station: RunStationSummary | null;
   readonly review: RunReview | null;
-  readonly takenUpOnAnswer: boolean;
 }
 
 export interface TeamRunSummary extends TaskRunSummary {

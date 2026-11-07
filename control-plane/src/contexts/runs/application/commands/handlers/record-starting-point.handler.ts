@@ -1,8 +1,9 @@
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import type {
   RecordStartingPointCommand,
   ReportedCheckout,
 } from '@runs/application/commands/runner.commands';
+import type { ArchiveReferenceLocksPort } from '@runs/application/ports/archive-reference-locks.port';
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import { UnknownRunnerError } from '@runs/domain/exceptions/unknown-runner.error';
@@ -34,8 +35,9 @@ export class RecordStartingPointHandler
   constructor(
     private readonly runs: RunRepository,
     private readonly archives: WorkspaceArchiveRepository,
-    private readonly heartbeats: RunnerHeartbeatsPort,
+    private readonly claimants: RunnerClaimantsPort,
     private readonly clock: ClockPort,
+    private readonly locks: ArchiveReferenceLocksPort,
   ) {}
 
   async execute(command: RecordStartingPointCommand): Promise<void> {
@@ -43,7 +45,7 @@ export class RecordStartingPointHandler
       const runner = RunnerId.of(command.runnerId);
       const now = this.clock.now();
 
-      if (!(await this.heartbeats.heartbeat(runner, now))) {
+      if (!(await this.claimants.claimantOf(runner, now))) {
         throw new UnknownRunnerError(command.runnerId);
       }
 
@@ -59,19 +61,21 @@ export class RecordStartingPointHandler
 
       run.assertStillOn(attempt, runner);
 
-      const restored =
-        command.archiveId === null
-          ? null
-          : await this.restored(WorkspaceArchiveId.of(command.archiveId));
+      await this.locks.referencing(run.workspaceId, async () => {
+        const restored =
+          command.archiveId === null
+            ? null
+            : await this.restored(WorkspaceArchiveId.of(command.archiveId));
 
-      await this.runs.save(
-        run.startsFrom(
-          attempt,
-          runner,
-          { restored, checkouts: checkouts.map(StartedCheckout.of) },
-          now,
-        ),
-      );
+        await this.runs.save(
+          run.startsFrom(
+            attempt,
+            runner,
+            { restored, checkouts: checkouts.map(StartedCheckout.of) },
+            now,
+          ),
+        );
+      });
     } catch (error) {
       rethrowAsApplicationError(error);
     }

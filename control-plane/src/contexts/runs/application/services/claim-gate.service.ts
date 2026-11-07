@@ -1,7 +1,8 @@
-import type {
-  RunStartGate,
-  RunStartGatesPort,
-  StartDecision,
+import {
+  type RunStartGate,
+  type RunStartGatesPort,
+  type StartDecision,
+  StartGateUnavailableError,
 } from '@runs/application/ports/run-start-gates.port';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
@@ -44,7 +45,7 @@ export class ClaimGate implements RunStartGatesPort {
 
     if (decision.kind === 'denied') {
       await this.revised(run, runner, (current) =>
-        current.deniedStart(runner, decision.reason),
+        current.deniedStart(runner, decision.reason, this.clock.now()),
       );
       return 'denied';
     }
@@ -85,14 +86,20 @@ export class ClaimGate implements RunStartGatesPort {
         this.gateUntil(pollUntil),
       );
     } catch (error) {
-      const because = error instanceof Error ? error.message : String(error);
+      if (!(error instanceof StartGateUnavailableError)) {
+        throw error;
+      }
 
       this.logger.error(
-        { runId: run.id.value, owner: requester.owner.value, error: because },
+        {
+          runId: run.id.value,
+          owner: requester.owner.value,
+          error: error.because,
+        },
         'The start gate failed before a run started, so it was requeued to be claimed again',
       );
 
-      return { kind: 'retry', because };
+      return { kind: 'retry', because: error.because };
     }
   }
 

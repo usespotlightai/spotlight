@@ -5,7 +5,7 @@ import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.po
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
-import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
+import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
@@ -21,7 +21,7 @@ import { SecretsModule } from '@secrets/secrets.module';
   controllers: [...RUNNERS_CONTROLLERS],
   providers: [...RUNNERS_PROVIDERS],
   exports: [
-    RUNNER_HEARTBEATS,
+    RUNNER_CLAIMANTS,
     RUNNER_READER,
     INSTALLER_ASSETS,
     RUNNER_CONFIGURATION,

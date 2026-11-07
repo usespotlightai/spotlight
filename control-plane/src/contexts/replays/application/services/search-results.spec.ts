@@ -6,7 +6,7 @@ import { NoticeSearchResults } from '@replays/application/services/notice-search
 import { PickSearchCandidates } from '@replays/application/services/pick-search-candidates.service';
 import {
   CLOCK,
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
@@ -49,7 +49,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let pullRequests: InMemoryConfigPullRequests;
 let noticed: SearchNotice[];
 let advised: StationNotice[];
@@ -69,9 +69,13 @@ const noticing = () =>
     pullRequests,
     memory.candidateRepository,
     memory.replayRepository,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-    new SearchFindings(work),
-    work,
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
+    new SearchFindings(suppliers.trialableRuns),
+    suppliers.lines,
     notices,
   );
 
@@ -82,8 +86,12 @@ const picking = () =>
     pullRequests,
     memory.candidateRepository,
     memory.scheduleRepository,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-    work,
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
+    suppliers.lines,
     IDS,
     CLOCK,
     TRANSACTION,
@@ -166,7 +174,7 @@ const pullRequestOf = (search: Search, source = true) =>
 
 beforeEach(() => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   pullRequests = new InMemoryConfigPullRequests();
   noticed = [];
   advised = [];
@@ -203,7 +211,7 @@ describe('PickSearchCandidates', () => {
     const search = finishedWithNothing();
 
     await memory.searchRepository.add(search);
-    work.station = async () => null;
+    suppliers.lines.station = async () => null;
     await picking().searchEnded(ended(search, 'finished'));
 
     expect(memory.searches.get(search.id.value)?.pick).toEqual({
@@ -464,7 +472,12 @@ describe('NoticeSearchResults', () => {
 
 describe('SearchSchedules', () => {
   const schedules = () =>
-    new SearchSchedules(memory.scheduleRepository, work, TRANSACTION, CLOCK);
+    new SearchSchedules(
+      memory.scheduleRepository,
+      suppliers.configs,
+      TRANSACTION,
+      CLOCK,
+    );
 
   beforeEach(async () => {
     await memory.scheduleRepository.add(

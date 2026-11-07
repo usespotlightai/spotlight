@@ -1,17 +1,17 @@
 import type { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
 import type { HashPort } from '@replays/application/ports/hash.port';
+import type { StationView } from '@replays/application/ports/lines.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
-import type {
-  LiveConfig,
-  StationView,
-  ValidatedCandidate,
-  WorkPort,
-} from '@replays/application/ports/work.port';
 import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { StartCheckReplays } from '@replays/application/services/start-check-replays.service';
+import type {
+  LiveConfig,
+  StationConfigs,
+  ValidatedCandidate,
+} from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -92,7 +92,7 @@ export class StartReplayCheckHandler
   constructor(
     private readonly access: ReplaysAccess,
     private readonly people: PeoplePort,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly snapshots: LiveCandidates,
     private readonly replaying: StartCheckReplays,
     private readonly evaluations: CheckEvaluations,
@@ -241,7 +241,7 @@ export class StartReplayCheckHandler
   }
 
   private async gated(station: StationView): Promise<Gated> {
-    const live = await this.work.live(station.lineId, station.stationId);
+    const live = await this.configs.live(station.lineId, station.stationId);
     const teamKey = await this.people.teamKey(station.teamId);
     const set = await this.sets.ofStation(station.stationId);
     const address = teamKey
@@ -271,7 +271,7 @@ export class StartReplayCheckHandler
   ): Promise<Prepared | Unprepared> {
     const { station, live } = gated;
     const scored = scoredLive(planned.station, live.block);
-    const validated = await this.work.validate(
+    const validated = await this.configs.validate(
       station.lineId,
       station.stationId,
       scored.block,

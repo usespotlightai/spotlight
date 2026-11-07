@@ -21,6 +21,7 @@ import type { HookCallbackTokens } from '@integrations/application/services/hook
 import { InvalidToolInputsError } from '@integrations/domain/exceptions/invalid-tool-inputs.error';
 import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import {
   type WaitingHookStep,
   waitExpiredAt,
@@ -37,7 +38,7 @@ type Called =
   | { readonly inputs: ToolCallInputs; readonly failure: HookFailure }
   | { readonly inputs: ToolCallInputs; readonly attempt: CallAttempt };
 
-const failedAt = (name: string, failure: HookFailure): StepResult => ({
+const failedAt = (name: HookStepName, failure: HookFailure): StepResult => ({
   outcome: {
     name,
     status: 'failed',
@@ -110,17 +111,17 @@ export class HookSteps {
     instance: HookEventInstance,
     stepResult: StepResult,
   ): Promise<void> {
-    const runId = instance.task.runId;
+    const { run } = instance;
 
-    if (!stepResult.trace || !runId) {
+    if (!stepResult.trace || !run) {
       return;
     }
 
     try {
-      await this.calls.record(runId.value, stepResult.trace);
+      await this.calls.record(run, stepResult.trace);
     } catch (error) {
       this.logger.warn(
-        { err: error, run: runId.value },
+        { err: error, run: run.runId.value, attempt: run.attempt },
         'Could not trace a hook call',
       );
     }
@@ -210,7 +211,7 @@ export class HookSteps {
       denyReason: null,
       trace: {
         hook: request.hook.key.value,
-        step: step.name,
+        step: step.name.value,
         kind: 'call',
         target: step.tool.value,
         request: called.inputs,
@@ -231,7 +232,7 @@ export class HookSteps {
     const { task } = request.instance;
     const resolved = await this.integrations.tool(
       await this.defined.ofTeam(task.teamId),
-      step.tool.value,
+      step.tool,
       request.instance.task,
     );
     const denial = hook.callDenial(

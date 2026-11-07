@@ -3,6 +3,7 @@ import type {
   HookEventInstance,
   HookRuntimePort,
 } from '@integrations/application/ports/hook-runtime.port';
+import type { RunAttemptsPort } from '@integrations/application/ports/run-attempts.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import { hookMatches } from '@integrations/application/services/hook-matching';
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
@@ -24,6 +25,7 @@ export class QueueHookFirings {
     private readonly causation: CausationPort,
     private readonly logger: LoggerPort,
     private readonly telemetry: TelemetryPort,
+    private readonly attempts: RunAttemptsPort,
   ) {}
 
   async queue(task: TaskView, occurred: HookOccurrence): Promise<number> {
@@ -32,7 +34,8 @@ export class QueueHookFirings {
       on: occurred.on,
       occurrence: occurred.key,
       task,
-      event: occurred.payload,
+      run: task.runId ? await this.attempts.currentOf(task.runId) : null,
+      event: occurred.facts,
       at,
       firing: null,
     };
@@ -77,12 +80,12 @@ export class QueueHookFirings {
           workspaceId: task.workspaceId,
           teamId: task.teamId,
           taskId: task.taskId,
-          runId: task.runId,
+          run: instance.run,
           stationKey: task.stationKey,
           on: occurred.on,
           occurrence: occurred.key,
           firedAt: at,
-          event: occurred.payload,
+          event: occurred.facts,
           matched: !matchedAfterChanges,
           cause,
           link: CauseLinks.hookFiring(hook, change),

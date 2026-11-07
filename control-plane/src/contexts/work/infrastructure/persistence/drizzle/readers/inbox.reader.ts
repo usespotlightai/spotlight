@@ -11,8 +11,6 @@ import {
   notNewerThan,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
-import { RunProgressContract } from '@runs/application/contracts/run-progress.contract';
-import type { RunFacts } from '@runs/application/ports/run-facts.port';
 import {
   RUN_PROGRESS,
   type RunProgressPort,
@@ -21,6 +19,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   InboxEntrySummary,
@@ -35,6 +34,7 @@ import type {
 import { inboxSectionOf } from '@work/application/read-models/inbox-section';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
+import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
   listedAsOpen,
@@ -157,7 +157,10 @@ const taskRowsWhere = (
     .where(
       and(
         eq(task.workspaceId, scope.workspaceId),
-        eq(task.assigneeId, scope.viewer.value),
+        eq(
+          task.assigneeId,
+          ConversationAudience.assigneeShownTo(scope.viewer).value,
+        ),
         inTeamsSeen(scope),
         narrowedTo,
       ),
@@ -185,9 +188,7 @@ const tasksWhere = async (
 
     return {
       ...row,
-      workingState: working?.state ?? null,
-      workingStopRequested: working?.stopRequested ?? false,
-      workingTurn: working?.turn ?? null,
+      workingReading: RunReadingMapper.reading(working ?? null),
       workingSince: working?.queuedAt ?? null,
     };
   });
@@ -278,19 +279,6 @@ interface TaskContext {
   readonly briefings: ReadonlyMap<string, string>;
 }
 
-const workingOf = (row: {
-  readonly workingState: RunFacts['state'] | null;
-  readonly workingStopRequested: boolean;
-  readonly workingTurn: RunFacts['turn'];
-}) =>
-  row.workingState
-    ? {
-        state: row.workingState,
-        stopRequested: row.workingStopRequested,
-        turn: row.workingTurn,
-      }
-    : null;
-
 const positionsOf = (
   conversation: MarkedConversation<{ readonly position: number }>,
 ): Conversation => ({
@@ -326,7 +314,7 @@ const conversationItem = (
   const last = conversation.notes[conversation.notes.length - 1];
   const progress =
     open && worksOn(row.working !== null, conversation.notes)
-      ? progressOfCurrentRun(RunProgressContract.reading(workingOf(row)), true)
+      ? progressOfCurrentRun(row.workingReading, true)
       : null;
   const unread = anyUnread(conversation.notes);
 
@@ -383,10 +371,7 @@ const runItem = (
   working: string,
   context: TaskContext,
 ): InboxRunSummary | null => {
-  const progress = progressOfCurrentRun(
-    RunProgressContract.reading(workingOf(row)),
-    true,
-  );
+  const progress = progressOfCurrentRun(row.workingReading, true);
 
   return progress
     ? {
@@ -552,7 +537,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
       .where(
         and(
           eq(task.workspaceId, workspaceId),
-          eq(task.assigneeId, userId.value),
+          eq(
+            task.assigneeId,
+            ConversationAudience.assigneeShownTo(userId).value,
+          ),
           eq(taskNote.closesConversation, true),
           before ? notNewerThan(taskNote.at, before) : undefined,
         ),

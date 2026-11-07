@@ -1,16 +1,17 @@
-import type { StationChangeTestMode } from '@replays/application/contracts/station-change-tests.contract';
 import type { LinesPort } from '@replays/application/ports/lines.port';
 import { ImproveStation } from '@replays/application/rendering/improve-station';
 import { StationChangeTestAnswer } from '@replays/application/rendering/station-change-test-answer';
 import type { StationChangeTests } from '@replays/application/services/station-change-tests.service';
+import {
+  admitsStation,
+  stationChangeTestModeOf,
+} from '@replays/domain/services/station-change-test';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-const MODES: readonly StationChangeTestMode[] = ['test', 'search'];
 
 export interface ImprovedStationTarget {
   readonly teamId: TeamId;
@@ -41,9 +42,6 @@ export interface StationChangeOffer {
   readonly offered: boolean;
   readonly briefing: string | null;
 }
-
-const isMode = (raw: string): raw is StationChangeTestMode =>
-  (MODES as readonly string[]).includes(raw);
 
 const blockOf = (text: string): unknown => {
   try {
@@ -87,22 +85,19 @@ export class TestStationChange {
         'This chat does not improve a station.',
       );
     }
-    if (
-      (inputs.line !== null && inputs.line !== target.lineKey) ||
-      (inputs.station !== null && inputs.station !== target.stationKey)
-    ) {
+    if (!admitsStation(target, inputs)) {
       return StationChangeTestAnswer.refused(
         'other-station',
         `This chat improves only the ${target.stationName} station (${target.stationKey}) on the ${target.lineName} line (${target.lineKey}).`,
       );
     }
 
-    const mode = inputs.mode ?? 'test';
+    const mode = stationChangeTestModeOf(inputs.mode);
 
-    if (!isMode(mode)) {
+    if (!mode) {
       return StationChangeTestAnswer.refused(
         'invalid-mode',
-        `Mode ${mode} is not known. Use test or search.`,
+        `Mode ${inputs.mode} is not known. Use test or search.`,
       );
     }
 
@@ -110,8 +105,8 @@ export class TestStationChange {
       await this.tests.request({
         workspaceId: chat.workspaceId,
         teamId: target.teamId,
-        lineId: target.lineId.value,
-        stationId: target.stationId.value,
+        lineId: target.lineId,
+        stationId: target.stationId,
         requester: chat.startedBy,
         mode,
         name: inputs.name ?? '',

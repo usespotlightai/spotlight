@@ -31,8 +31,9 @@ export interface LeasedRun extends RunContext {
   readonly id: RunId;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId | null;
-  readonly replaysFrom: Date | null;
-  readonly isSearch: boolean;
+  readonly asOf: Date | null;
+  readonly isolated: boolean;
+  readonly trial: boolean;
 }
 
 export interface RememberedTask {

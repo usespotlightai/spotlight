@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-16T10:00:00Z');
 const ADA = UserId.of('user_ada');
 const BOB = UserId.of('user_bob');
-const UNREACHABLE = DeliveryFailure.of('github-error');
+const UNREACHABLE = DeliveryFailure.of('github-unreachable');
 
 const ANCHOR = ReviewAnchor.onLines({
   path: 'src/invite.ts',

@@ -1,4 +1,5 @@
 import {
+  HOOK_FIRING_SKIPS,
   HookFiring,
   type HookFiringProgress,
 } from '@integrations/domain/aggregates/hook-firing.aggregate';
@@ -6,14 +7,24 @@ import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
 import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
+import {
+  HookEvent,
+  type HookEventName,
+} from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HOOK_FAILURES,
   HookFailure,
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import {
+  eventOfRecord,
+  recordOfEvent,
+} from '@integrations/infrastructure/hooks/hook-event-record';
 import { hookFiring } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -27,9 +38,20 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, inArray, lt, lte, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt, lte } from 'drizzle-orm';
 
 type Row = typeof hookFiring.$inferSelect;
+
+const eventNameOf = (row: Row): HookEventName => {
+  try {
+    return HookEvent.of(row.on).name;
+  } catch {
+    throw new InconsistentStateError(
+      'hook firing',
+      `fired on an unknown event (${row.id})`,
+    );
+  }
+};
 
 const isCode = (code: string): code is HookFailureCode =>
   Object.keys(HOOK_FAILURES).includes(code);
@@ -72,6 +94,19 @@ const progressOf = (row: Row): HookFiringProgress => {
     );
   }
 
+  if (row.state === 'skipped') {
+    const because = HOOK_FIRING_SKIPS.find((skip) => skip === row.skipped);
+
+    if (!because) {
+      throw new InconsistentStateError(
+        'hook firing',
+        `was skipped for no known reason (${row.id})`,
+      );
+    }
+
+    return { kind: 'skipped', at: row.handledAt, because };
+  }
+
   return { kind: row.state, at: row.handledAt };
 };
 
@@ -83,11 +118,13 @@ const unreadableStep = (id: string, why: string): InconsistentStateError =>
 const stepOf =
   (id: string) =>
   (stored: StoredStep): HookStepOutcome => {
-    const { name, status } = stored;
+    const { status } = stored;
 
-    if (typeof name !== 'string' || name.length === 0) {
+    if (typeof stored.name !== 'string' || stored.name.length === 0) {
       throw unreadableStep(id, 'without a name');
     }
+
+    const name = HookStepName.of(stored.name);
 
     if (status === 'done') {
       return { name, status, output: stored.output ?? null };
@@ -97,11 +134,14 @@ const stepOf =
       const { code, reason } = stored;
 
       if (typeof code !== 'string' || !isCode(code)) {
-        throw unreadableStep(id, `${name} that failed in a way no hook can`);
+        throw unreadableStep(
+          id,
+          `${name.value} that failed in a way no hook can`,
+        );
       }
 
       if (typeof reason !== 'string') {
-        throw unreadableStep(id, `${name} that failed for no reason`);
+        throw unreadableStep(id, `${name.value} that failed for no reason`);
       }
 
       return { name, status, code, reason, output: stored.output ?? null };
@@ -111,19 +151,19 @@ const stepOf =
       const until = new Date(String(stored.until));
 
       if (typeof stored.call !== 'string' || Number.isNaN(until.getTime())) {
-        throw unreadableStep(id, `${name} that waits on nothing`);
+        throw unreadableStep(id, `${name.value} that waits on nothing`);
       }
 
       return { name, status, call: stored.call, until };
     }
 
-    throw unreadableStep(id, `${name} in no known status`);
+    throw unreadableStep(id, `${name.value} in no known status`);
   };
 
 const storedStep = (step: HookStepOutcome): StoredStep =>
   step.status === 'waiting'
-    ? { ...step, until: step.until.toISOString() }
-    : { ...step };
+    ? { ...step, name: step.name.value, until: step.until.toISOString() }
+    : { ...step, name: step.name.value };
 
 const toFiring = (row: Row): HookFiring =>
   HookFiring.rehydrate({
@@ -132,15 +172,18 @@ const toFiring = (row: Row): HookFiring =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: TeamId.of(row.teamId),
     taskId: TaskId.of(row.taskId),
-    runId: row.runId === null ? null : RunId.of(row.runId),
+    run:
+      row.runId === null || row.runAttempt === null
+        ? null
+        : HookRunAttempt.of(RunId.of(row.runId), row.runAttempt),
     stationKey: StationKey.of(row.stationKey),
-    on: row.on as HookEventName,
-    occurrence: row.occurrence,
+    on: eventNameOf(row),
+    occurrence: HookOccurrenceKey.of(row.occurrence),
     firedAt: row.firedAt,
-    event: row.event,
+    event: eventOfRecord(eventNameOf(row), row.event),
     matched: row.matched,
     cause: CausalChain.read(row.cause),
-    link: row.link,
+    link: CausalChain.readLink(row.link),
     steps: row.steps.map(stepOf(row.id)),
     progress: progressOf(row),
     attempts: row.attempts,
@@ -166,11 +209,15 @@ const progressColumns = (progress: HookFiringProgress) => {
     };
   }
 
-  return { state: progress.kind, handledAt: progress.at };
+  return {
+    state: progress.kind,
+    handledAt: progress.at,
+    skipped: progress.kind === 'skipped' ? progress.because : null,
+  };
 };
 
 const columnsOf = (firing: HookFiring) => ({
-  event: { ...firing.event },
+  event: { ...recordOfEvent(firing.event) },
   matched: firing.matched,
   steps: firing.steps.map(storedStep),
   attempts: firing.attempts,
@@ -206,10 +253,11 @@ export class DrizzleHookFirings implements HookFiringRepository {
           workspaceId: firing.workspaceId.value,
           teamId: firing.teamId.value,
           taskId: firing.taskId.value,
-          runId: firing.runId?.value ?? null,
+          runId: firing.run?.runId.value ?? null,
+          runAttempt: firing.run?.attempt ?? null,
           stationKey: firing.stationKey.value,
           on: firing.on,
-          occurrence: firing.occurrence,
+          occurrence: firing.occurrence.value,
           cause: { ...firing.cause.stored },
           link: { ...firing.link },
           firedAt: firing.firedAt,
@@ -237,32 +285,23 @@ export class DrizzleHookFirings implements HookFiringRepository {
     return row ? toFiring(row) : null;
   }
 
-  async claimNext(now: Date): Promise<HookFiring | null> {
-    return this.context.inTransaction(async () => {
-      const [row] = await this.context.db
-        .select()
-        .from(hookFiring)
-        .where(
-          or(
-            and(eq(hookFiring.state, 'pending'), lte(hookFiring.dueAt, now)),
-            and(
-              eq(hookFiring.state, 'working'),
-              lt(hookFiring.claimedAt, HookFiring.leaseExpiredBefore(now)),
-            ),
-          ),
-        )
-        .orderBy(asc(hookFiring.dueAt), asc(hookFiring.firedAt))
-        .limit(1)
-        .for('update', { skipLocked: true });
+  async claimCandidates(
+    now: Date,
+    max: number,
+  ): Promise<readonly HookFiring[]> {
+    const rows = await this.context.db
+      .select()
+      .from(hookFiring)
+      .where(
+        and(
+          inArray(hookFiring.state, ['pending', 'working']),
+          lte(hookFiring.dueAt, now),
+        ),
+      )
+      .orderBy(asc(hookFiring.dueAt), asc(hookFiring.firedAt))
+      .limit(max);
 
-      if (!row) {
-        return null;
-      }
-
-      await this.save(toFiring(row).claimed(now));
-
-      return this.withId(HookFiringId.of(row.id));
-    });
+    return rows.map(toFiring);
   }
 
   async save(firing: HookFiring): Promise<void> {
@@ -296,7 +335,12 @@ export class DrizzleHookFirings implements HookFiringRepository {
       .from(hookFiring)
       .where(
         and(
-          inArray(hookFiring.state, ['done', 'failed', 'superseded']),
+          inArray(hookFiring.state, [
+            'done',
+            'failed',
+            'superseded',
+            'skipped',
+          ]),
           lt(hookFiring.handledAt, at),
         ),
       )

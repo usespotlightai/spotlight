@@ -61,6 +61,10 @@ export class CausalChain {
     return CausalChain.rehydrate({ links, depth });
   }
 
+  static readLink(stored: unknown): CauseLink {
+    return CausalChain.linkOf(stored as CauseLink);
+  }
+
   private static linkOf(link: CauseLink): CauseLink {
     if (
       !isKind(link?.kind) ||

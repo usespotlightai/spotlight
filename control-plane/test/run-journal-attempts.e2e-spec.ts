@@ -8,6 +8,7 @@ import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledg
 import { DrizzleRunUsages } from '@runs/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
 import { DrizzleRunJournalEntryReader } from '@runs/infrastructure/persistence/drizzle/readers/run-journal-entry.reader';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
+import { DrizzleRunUsagesReader } from '@runs/infrastructure/persistence/drizzle/readers/run-usages.reader';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -23,6 +24,7 @@ let db: DrizzleDatabase;
 let journal: DrizzleRunJournal;
 let events: DrizzleRunJournalEntryReader;
 let runUsages: DrizzleRunUsages;
+let usageFacts: DrizzleRunUsagesReader;
 const usageRecorded: DomainEvent[] = [];
 
 const recordUsage = async (runId: RunId) => {
@@ -62,6 +64,7 @@ beforeAll(async () => {
       usageRecorded.push(...events);
     },
   });
+  usageFacts = new DrizzleRunUsagesReader(new DrizzleContext(db));
 }, 60_000);
 
 afterAll(async () => {
@@ -147,7 +150,7 @@ describe('journalling a run that was tried again', () => {
     await requeued(runId, 2);
     await journal.append(RunAttempt.of(runId, 2), hooks('two-a'));
 
-    const backlog = await events.eventsSince(runId, 2, 0, 50);
+    const backlog = await events.entriesSince(runId, 2, 0, 50);
 
     expect(backlog.map((each) => [each.attempt, each.message])).toEqual([
       [2, 'two-a'],
@@ -175,7 +178,7 @@ describe('journalling a run that was tried again', () => {
     await finished(runId);
     await recordUsage(runId);
 
-    expect((await runUsages.forRuns([runId])).get(runId.value)?.steps).toBe(2);
+    expect((await usageFacts.forRuns([runId])).get(runId.value)?.steps).toBe(2);
 
     const raised = usageRecorded.length;
     await recordUsage(runId);
@@ -186,7 +189,7 @@ describe('journalling a run that was tried again', () => {
     await finished(runId);
     await recordUsage(runId);
 
-    expect((await runUsages.forRuns([runId])).get(runId.value)?.steps).toBe(1);
+    expect((await usageFacts.forRuns([runId])).get(runId.value)?.steps).toBe(1);
   });
 });
 
@@ -234,7 +237,7 @@ describe('recording the usage of a run that paused for a person', () => {
     await finished(runId);
     await recordUsage(runId);
 
-    const recordedUsage = (await runUsages.forRuns([runId])).get(runId.value);
+    const recordedUsage = (await usageFacts.forRuns([runId])).get(runId.value);
 
     expect(recordedUsage?.steps).toBe(2);
     expect(recordedUsage?.ms).toBe(7_000);
@@ -282,7 +285,7 @@ describe('recording the tokens a run used', () => {
     await finished(runId);
     await recordUsage(runId);
 
-    const recordedUsage = (await runUsages.forRuns([runId])).get(runId.value);
+    const recordedUsage = (await usageFacts.forRuns([runId])).get(runId.value);
 
     expect(recordedUsage?.tokens).toMatchObject({
       input: 15,
@@ -364,7 +367,7 @@ describe('journalling what happened around a run', () => {
       controlPlaneEntry('between', 1),
     );
 
-    const all = await events.eventsSince(runId, 1, 0, 50);
+    const all = await events.entriesSince(runId, 1, 0, 50);
     expect(all.map((each) => each.message)).toEqual([
       'one',
       'two',
@@ -372,7 +375,7 @@ describe('journalling what happened around a run', () => {
       'three',
     ]);
 
-    const later = await events.eventsSince(runId, 1, 3, 50);
+    const later = await events.entriesSince(runId, 1, 3, 50);
     expect(later.map((each) => [each.seq, each.message])).toEqual([
       [-1_000_000, 'between'],
     ]);
@@ -391,7 +394,7 @@ describe('journalling what happened around a run', () => {
       })),
     );
 
-    const replayed = await events.eventsSince(runId, 1, 0, 50);
+    const replayed = await events.entriesSince(runId, 1, 0, 50);
 
     expect(replayed).toHaveLength(200);
     expect(replayed[0]?.message).toBe('hook-5');

@@ -5,13 +5,14 @@ import type { PairVerdict } from '@insights/domain/services/grounded-pair';
 import type { PairOrder } from '@insights/domain/value-objects/pair-order';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const ORDERS: readonly PairOrder[] = ['other-first', 'run-first'];
 
 const evidenceOf = (runId: string, line: string): RunEvidence => ({
-  runId,
-  taskId: 'task_1',
+  runId: RunId.of(runId),
+  taskId: TaskId.of('task_1'),
   title: 'Drain the queue',
   description: null,
   steps: [],
@@ -37,7 +38,7 @@ const judging = async (
   const judgments = new PairJudgments(
     {
       hasTask: async () => true,
-      of: async (runId) => evidence[runId] ?? null,
+      of: async (runId) => evidence[runId.value] ?? null,
     },
     {
       available: true,

@@ -1,7 +1,3 @@
-import {
-  SESSION_READER,
-  type SessionReaderPort,
-} from '@identity/application/ports/session-reader.port';
 import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
 import type { OAuth2Start } from '@integrations/application/ports/oauth2-linking.port';
@@ -40,7 +36,10 @@ import {
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
-import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  OptionalUser,
+} from '@platform/http/decorators/current-user.decorator';
 import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 import type { RequestHeaders } from '@platform/http/request-headers';
 
@@ -55,7 +54,6 @@ export const FAILED_REDIRECT = '/?integration=failed';
 export class OAuth2ConnectionController {
   constructor(
     private readonly commandBus: CommandBus,
-    @Inject(SESSION_READER) private readonly sessions: SessionReaderPort,
     @Inject(OAuth2NonceCookie) private readonly nonceCookie: OAuth2NonceCookie,
   ) {}
 
@@ -116,7 +114,7 @@ export class OAuth2ConnectionController {
   }
 
   @Get(OAUTH2_CALLBACK_ROUTE)
-  @AllowAnonymous()
+  @AllowAnonymous({ readsSession: true })
   @RateLimited({ name: 'oauth2-callback', max: 30, windowSeconds: 60 })
   @ApiExcludeEndpoint()
   async callback(
@@ -124,6 +122,7 @@ export class OAuth2ConnectionController {
     @Query('code') code: string | undefined,
     @Req() request: { readonly headers: RequestHeaders },
     @Res() response: Redirectable,
+    @OptionalUser() viewer: AuthenticatedUser | null,
   ): Promise<void> {
     const nonce = this.nonceCookie.readFrom(request.headers);
     this.nonceCookie.clear(response);
@@ -132,8 +131,6 @@ export class OAuth2ConnectionController {
       response.redirect(FAILED_REDIRECT);
       return;
     }
-
-    const viewer = await this.sessions.read(request.headers);
 
     if (!viewer) {
       response.redirect(FAILED_REDIRECT);

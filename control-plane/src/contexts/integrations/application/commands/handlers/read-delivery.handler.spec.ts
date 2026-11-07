@@ -9,6 +9,8 @@ import { WebhookProviders } from '@integrations/application/services/webhook-pro
 import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery-reactions.adapter';
 import { ProviderDeliveryReader } from '@integrations/infrastructure/webhooks/provider-delivery-reader';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
@@ -31,9 +33,10 @@ const payloadOf = (ourOwn = false): Happened => ({
 });
 
 const stored: ReceivedDelivery = {
-  integration: 'github',
+  integration: IntegrationKey.of('github'),
   to: null,
-  id: 'delivery_1',
+  id: InboundDeliveryId.of('delivery_1'),
+  receivedAs: 'delivery:github::delivery_1',
   headers: {},
   body: {},
   causeFiringId: null,
@@ -147,7 +150,10 @@ describe('ReadDeliveryHandler', () => {
 
     expect(react).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ deliveryId: stored.id, reason: 'nothing-new' }),
+      expect.objectContaining({
+        deliveryId: stored.id.value,
+        reason: 'nothing-new',
+      }),
       'Ignored a delivery',
     );
   });

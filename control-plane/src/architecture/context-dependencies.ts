@@ -68,7 +68,7 @@ type ContextDependency = {
 };
 
 const contextDependencies = (): ContextDependency[] =>
-  sourceFiles('contexts').flatMap((file) => {
+  sourceFiles('contexts', { specs: true }).flatMap((file) => {
     const from = contextOf(file.path) as string;
 
     return moduleSpecifiersOf(file).flatMap(

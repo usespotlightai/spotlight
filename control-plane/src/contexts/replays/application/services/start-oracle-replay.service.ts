@@ -1,6 +1,6 @@
 import type { InsightsPort } from '@replays/application/ports/insights.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -26,7 +26,7 @@ export class StartOracleReplay {
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly replayRuns: ReplayRunDispatching,
     private readonly insights: InsightsPort,
     private readonly ids: IdGeneratorPort,
@@ -121,7 +121,7 @@ export class StartOracleReplay {
     baseline: Replay,
     fingerprint: StationFingerprint,
   ): Promise<boolean> {
-    const current = await this.work.live(
+    const current = await this.configs.live(
       baseline.station.lineId,
       baseline.station.stationId,
     );

@@ -1,13 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type {
   TaskRunFacts,
   TrialFactsPort,
 } from '@work/application/ports/trial-facts.port';
-import { originOfRun } from '@work/domain/services/task-origin';
-import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
@@ -31,8 +28,6 @@ export class DrizzleTrialFacts implements TrialFactsPort {
         briefed: isNotNull(dispatch.briefedTask).mapWith(Boolean),
         liveTask: task.id,
         title: task.title,
-        openedFrom: task.openedFrom,
-        originStationId: task.originStationId,
       })
       .from(dispatch)
       .leftJoin(task, eq(task.id, dispatch.taskId))
@@ -56,15 +51,6 @@ export class DrizzleTrialFacts implements TrialFactsPort {
                   briefed: row.briefed,
                   taskExists: row.liveTask !== null,
                   title: row.title,
-                  origin: row.openedFrom
-                    ? originOfRun({
-                        openedFrom: TaskOrigin.of(row.openedFrom),
-                        originStationId: row.originStationId
-                          ? StationId.of(row.originStationId)
-                          : null,
-                        ranAt: StationId.of(row.stationId),
-                      }).value
-                    : null,
                 },
               ] as const,
             ]

@@ -1,5 +1,5 @@
-import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
 import type {
+  TracedRequester,
   TraceScope,
   TraceScopeSource,
   TraceScopesPort,
@@ -12,7 +12,7 @@ export class TraceScopes implements TraceScopesPort {
     this.sources.set(source.owner, source);
   }
 
-  async scopeOf(requester: RunRequesterContract): Promise<TraceScope | null> {
+  async scopeOf(requester: TracedRequester): Promise<TraceScope | null> {
     return (
       (await this.sources.get(requester.owner)?.scopeOf(requester)) ?? null
     );

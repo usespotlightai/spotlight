@@ -44,7 +44,6 @@ describe('InboxRequest', () => {
 
   it('resolves once, and stays resolved', () => {
     const resolved = created().resolve(LATER);
-    resolved.pullEvents();
 
     expect(resolved.open).toBe(false);
     expect(resolved.resolvedAt).toEqual(LATER);
@@ -53,7 +52,6 @@ describe('InboxRequest', () => {
 
   it('reopens unread once resolved, opened again but created when it was, and leaves an open inbox request as it is', () => {
     const resolved = created().readBy(ADA, NOW).resolve(NOW);
-    resolved.pullEvents();
 
     const reopened = resolved.reopen(LATER);
 

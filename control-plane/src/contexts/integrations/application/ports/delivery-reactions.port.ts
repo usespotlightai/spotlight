@@ -10,6 +10,6 @@ export interface DeliveryReactionsPort {
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
     happenings: readonly Happened[],
-    receivedAs: string,
+    receivedAs: string | null,
   ): Promise<DeliveryFailure | null>;
 }

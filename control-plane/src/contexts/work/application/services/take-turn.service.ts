@@ -1,49 +1,26 @@
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import type {
   RunTurnsPort,
   TurnFacts,
 } from '@runs/application/ports/run-turns.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { isRunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
-import { lastWordsIn } from '@work/application/services/last-words';
+import { RunsTranslation } from '@work/application/services/run-ending-reactions';
 import type { RunRouting } from '@work/application/services/run-routing.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { TurnDecision } from '@work/domain/services/turn-decision';
-import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
-import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import { RunResult } from '@work/domain/value-objects/run-result.vo';
-
-const resultOf = (outcome: TurnFacts['outcome']): RunResult =>
-  RunResult.of({
-    exitCode: outcome.exitCode,
-    failure:
-      outcome.failure !== null && isRunFailureCode(outcome.failure)
-        ? outcome.failure
-        : null,
-    message: outcome.message,
-    stopped: outcome.stopped,
-  });
-
-const handoverOf = (handover: NonNullable<TurnFacts['handover']>): Handover =>
-  Handover.of({
-    next: handover.next,
-    note: handover.note,
-    attachments: handover.files.map((each) => Attachment.rehydrate(each)),
-  });
-
-const sessionOf = (turn: TurnFacts): HarnessSession | null =>
-  turn.session ? HarnessSession.of(turn.session) : null;
 
 export class TakeTurn {
   constructor(
@@ -57,6 +34,7 @@ export class TakeTurn {
     private readonly hooks: LifecycleHooksPort,
     private readonly files: FilesLoader,
     private readonly routing: RunRouting,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
   async take(runId: RunId, attempt: number): Promise<void> {
@@ -92,16 +70,20 @@ export class TakeTurn {
 
     const line = await this.lines.findByStation(task.stationId);
     const handover = turn.handover
-      ? await this.submitted(task, runId, handoverOf(turn.handover))
+      ? await this.submitted(
+          task,
+          runId,
+          RunsTranslation.handover(turn.handover),
+        )
       : null;
     const decision = TurnDecision.after({
       task,
       line,
-      outcome: resultOf(turn.outcome),
+      outcome: RunsTranslation.result(turn.outcome),
       handover,
       lastWords: handover
         ? null
-        : lastWordsIn(
+        : this.readings.lastWordsIn(
             await this.journals.attemptsOfRun(runId),
             task.lastPersonNoteAt,
           ),
@@ -109,7 +91,12 @@ export class TakeTurn {
     });
 
     if (decision.kind === 'resume') {
-      await this.runs.resume(runId, attempt, 'messages', decision.checkouts);
+      await this.runs.resume(
+        runId,
+        attempt,
+        'messages',
+        RunCheckoutsMapper.toRun(decision.checkouts),
+      );
       return;
     }
 
@@ -120,7 +107,7 @@ export class TakeTurn {
         task.awaitTurn({
           turn: awaited,
           note: this.routing.newNoteOf(decision.handover, line, runId),
-          session: sessionOf(turn),
+          session: RunsTranslation.session(turn.session),
           runner: turn.reportedBy,
         }),
       );
@@ -138,7 +125,7 @@ export class TakeTurn {
     turn: TurnFacts,
     decision: Extract<TurnDecision, { kind: 'route' }>,
   ): Promise<Task> {
-    const session = sessionOf(turn);
+    const session = RunsTranslation.session(turn.session);
     const recorded = session
       ? task.recordSession(turn.runId, session, turn.reportedBy)
       : task;

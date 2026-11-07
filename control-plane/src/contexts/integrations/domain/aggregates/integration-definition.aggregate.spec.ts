@@ -13,6 +13,7 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import { SpecRefreshDetail } from '@integrations/domain/value-objects/spec-refresh-detail.vo';
@@ -65,17 +66,21 @@ const compiled = (
   const tool = (name: string, backing: ToolBacking) =>
     ProvidedTool.of({ integration: key, name, description: name, backing });
 
+  const compiledIntegration = Integration.of({
+    key,
+    actions: DefinedActions.of([actionNamed('comment')]),
+    apiSpecs: generated.length > 0 ? ['openapi'] : [],
+    writtenTools: tools.map((name) =>
+      tool(name, ToolBacking.action('comment')),
+    ),
+  });
+
   return {
-    integration: Integration.of({
-      key,
-      actions: DefinedActions.of([actionNamed('comment')]),
-      tools: [
-        ...tools.map((name) => tool(name, ToolBacking.action('comment'))),
-        ...generated.map((name) =>
-          tool(name, ToolBacking.operation(from, name)),
-        ),
-      ],
-    }),
+    integration: compiledIntegration,
+    offered: OfferedTools.generatedFor(
+      compiledIntegration,
+      generated.map((name) => tool(name, ToolBacking.operation(from, name))),
+    ),
     document: DefinitionDocument.of({ integration: named, name: 'Linear' }),
     spec: withSpec || generated.length > 0 ? SPEC : null,
   };

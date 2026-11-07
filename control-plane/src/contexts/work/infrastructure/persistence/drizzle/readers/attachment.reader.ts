@@ -24,6 +24,7 @@ export class DrizzleAttachmentReader implements AttachmentReaderPort {
         tasked: taskAttachment,
         chatted: chatAttachment,
         chatStartedById: chat.startedById,
+        chatTeamId: chat.teamId,
       })
       .from(attachmentClaim)
       .leftJoin(chat, eq(chat.id, attachmentClaim.chatId))
@@ -41,9 +42,14 @@ export class DrizzleAttachmentReader implements AttachmentReaderPort {
           contentType: attachment.contentType,
           size: attachment.size,
           workspaceId: found.workspaceId,
-          holder: found.chatStartedById
-            ? { kind: 'chat', startedById: found.chatStartedById }
-            : { kind: 'task' },
+          holder:
+            found.chatStartedById && found.chatTeamId
+              ? {
+                  kind: 'chat',
+                  startedById: found.chatStartedById,
+                  teamId: found.chatTeamId,
+                }
+              : { kind: 'task' },
         }
       : null;
   }

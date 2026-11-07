@@ -8,8 +8,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SendChatMessageCommand } from '@work/application/commands/chat.commands';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
-import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { ChatLoader } from '@work/application/services/chat-loader.service';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -37,7 +37,7 @@ const sendMessage = async (model?: string | null, effort?: string | null) => {
   const saved: Chat[] = [];
 
   await new SendChatMessageHandler(
-    { inTeam: async () => chatOnOpus() } as unknown as ChatLoader,
+    { openedBy: async () => chatOnOpus() } as unknown as ChatLoader,
     {
       save: async (chat: Chat) => {
         saved.push(chat);

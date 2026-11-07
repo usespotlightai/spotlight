@@ -1,4 +1,3 @@
-import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -18,7 +17,7 @@ export interface InboxRequestVisibility {
   readonly readsTeamInsights: boolean;
 }
 
-export class InboxRequest extends EventRecorder {
+export class InboxRequest {
   private constructor(
     readonly id: InboxRequestId,
     readonly workspaceId: WorkspaceId,
@@ -30,9 +29,7 @@ export class InboxRequest extends EventRecorder {
     readonly reads: readonly InboxRequestRead[],
     readonly resolvedAt: Date | null,
     readonly version: number,
-  ) {
-    super();
-  }
+  ) {}
 
   static create(input: {
     id: InboxRequestId;
@@ -68,6 +65,13 @@ export class InboxRequest extends EventRecorder {
     resolvedAt: Date | null;
     version: number;
   }): InboxRequest {
+    if (input.version < 0) {
+      throw new InconsistentStateError(
+        'inbox request',
+        'has a negative version',
+      );
+    }
+
     if (input.openedAt < input.createdAt) {
       throw new InconsistentStateError(
         'inbox request',
@@ -189,7 +193,6 @@ export class InboxRequest extends EventRecorder {
       this.version,
     );
 
-    reopened.inheritEvents(this);
     return reopened;
   }
 
@@ -209,8 +212,6 @@ export class InboxRequest extends EventRecorder {
       change.resolvedAt ?? this.resolvedAt,
       this.version,
     );
-
-    next.inheritEvents(this);
 
     return next;
   }

@@ -1,9 +1,9 @@
 import type { EgressEnforcement } from '@runs/application/contracts/run-journal.contract';
 import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
 import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
-import type { RunViewersPort } from '@runs/application/ports/run-viewers.port';
 import { ReadRunNetworkHandler } from '@runs/application/queries/handlers/read-run-network.handler';
 import { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.query';
+import type { RunViewing } from '@runs/application/services/run-viewing.service';
 import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -26,23 +26,34 @@ const connection = (host: string) =>
 const reading = (checked: EgressEnforcement | null, visible = true) => {
   const read: number[] = [];
   const runs = {
-    watchedBy: async (runId: RunId) => (visible ? { runId, attempt: 2 } : null),
-  } as unknown as RunViewersPort;
+    watchedBy: async (runId: RunId) =>
+      visible
+        ? {
+            runId,
+            attempt: 2,
+            requester: {
+              owner: 'work',
+              kind: 'task',
+              id: 'task_1',
+              token: null,
+              team: 'team_1',
+            },
+          }
+        : null,
+  } as unknown as RunViewing;
   const events = {
-    eventsSince: async () => [],
+    entriesSince: async () => [],
     egressEnforcementOf: async (_runId: RunId, attempt: number) => {
       read.push(attempt);
       return checked;
     },
   } satisfies RunJournalEntryReaderPort;
   const connections = {
-    record: async () => {},
     of: async () => [
       { attempt: 1, connection: connection('old.example.com') },
       { attempt: 2, connection: connection('registry.npmjs.org') },
     ],
     errorsIn: async () => [],
-    purgeBefore: async () => 0,
   } satisfies RunConnectionsPort;
 
   return {
@@ -56,7 +67,7 @@ describe('ReadRunNetworkHandler', () => {
     const { handler, read } = reading('enforced');
 
     await expect(
-      handler.execute(new ReadRunNetworkQuery('run_1', 'user_1')),
+      handler.execute(new ReadRunNetworkQuery('team_1', 'run_1', 'user_1')),
     ).resolves.toEqual({
       runId: 'run_1',
       attempt: 2,
@@ -83,7 +94,7 @@ describe('ReadRunNetworkHandler', () => {
     for (const egressEnforcement of ['not-enforced', null] as const) {
       await expect(
         reading(egressEnforcement).handler.execute(
-          new ReadRunNetworkQuery('run_1', 'user_1'),
+          new ReadRunNetworkQuery('team_1', 'run_1', 'user_1'),
         ),
       ).resolves.toMatchObject({ egressEnforcement });
     }
@@ -92,8 +103,18 @@ describe('ReadRunNetworkHandler', () => {
   it('reads nothing for a run the viewer may not see', async () => {
     await expect(
       reading(null, false).handler.execute(
-        new ReadRunNetworkQuery('run_1', 'user_1'),
+        new ReadRunNetworkQuery('team_1', 'run_1', 'user_1'),
       ),
     ).resolves.toBeNull();
+  });
+
+  it('reads no run of another team', async () => {
+    const { handler } = reading(null);
+
+    expect(
+      await handler.execute(
+        new ReadRunNetworkQuery('team_2', 'run_1', 'user_1'),
+      ),
+    ).toBeNull();
   });
 });

@@ -6,12 +6,16 @@ import {
 } from '@lines/application/ports/line-resources.port';
 import type { INestApplication } from '@nestjs/common';
 import {
+  LINES as REPLAYS_LINES,
+  type LinesPort as ReplaysLinesPort,
+} from '@replays/application/ports/lines.port';
+import {
   PEOPLE,
   type PeoplePort,
 } from '@replays/application/ports/people.port';
-import { WORK, type WorkPort } from '@replays/application/ports/work.port';
 import { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
+import { StationConfigs } from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import {
@@ -43,13 +47,16 @@ export const plannedCandidate = async (
   stationKey: string,
   block: Record<string, unknown>,
 ): Promise<string> => {
-  const work = app.get<WorkPort>(WORK);
-  const station = await work.keyed(LineId.of(lineId), stationKey);
+  const station = await app
+    .get<ReplaysLinesPort>(REPLAYS_LINES)
+    .keyed(LineId.of(lineId), stationKey);
   const teamKey =
     station && (await app.get<PeoplePort>(PEOPLE).teamKey(station.teamId));
   const validated =
     station &&
-    (await work.validate(LineId.of(lineId), station.stationId, block));
+    (await app
+      .get(StationConfigs)
+      .validate(LineId.of(lineId), station.stationId, block));
   const address =
     station && teamKey
       ? StationPath.of(teamKey, station.lineKey, station.key)
@@ -115,7 +122,7 @@ export const startedReplay = async (
           .get(DrizzleCandidateRepository)
           .find(CandidateId.of(terms.candidate));
   const config = await app
-    .get<WorkPort>(WORK)
+    .get(StationConfigs)
     .live(seen.station.lineId, seen.station.stationId);
 
   if (!config) {

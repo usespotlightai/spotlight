@@ -38,6 +38,7 @@ import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
   lineMapOf,
   repositoryOf,
+  stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
@@ -129,7 +130,22 @@ describe('Chat', () => {
         teamId: TeamId.of('team_1'),
         key: LineKey.of(key),
         name: LineName.of(key),
-        stations: [],
+        stations: [
+          stationOf({
+            id: StationId.of(`backlog_${key}`),
+            key: StationKey.of('backlog'),
+            name: StationName.of('Backlog'),
+            position: 0,
+            kind: 'backlog',
+          }),
+          stationOf({
+            id: StationId.of(`completed_${key}`),
+            key: StationKey.of('completed'),
+            name: StationName.of('Completed'),
+            position: 1,
+            kind: 'completed',
+          }),
+        ],
         repositories: [
           repositoryOf(Repository.of(repository), {
             image: RunnerImage.of(image),
@@ -249,6 +265,21 @@ describe('Chat', () => {
 
     expect(chat.messages).toHaveLength(1);
     expect(chat.unacknowledged.map((each) => each.position.value)).toEqual([0]);
+  });
+
+  it('hands its unacknowledged messages only to its current run', () => {
+    const chat = started()
+      .assignRun(RunId.of('run_1'), NOW)
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And docs.'),
+        at: LATER,
+      });
+
+    expect(
+      chat.pendingFor(RunId.of('run_1')).map((each) => each.position.value),
+    ).toEqual([1]);
+    expect(chat.pendingFor(RunId.of('run_0'))).toEqual([]);
   });
 
   it('names an attachment where nothing was typed', () => {

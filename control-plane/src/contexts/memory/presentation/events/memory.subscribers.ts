@@ -8,13 +8,13 @@ import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
 import type { MemoryReviewRequested } from '@memory/domain/events/memory-review-requested.event';
 import type { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import {
-  RUN_BRIEFED,
-  type RunBriefedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-briefed.integration-event';
+  DISPATCH_BRIEFED,
+  type DispatchBriefedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-briefed.integration-event';
 import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
@@ -39,9 +39,9 @@ export const memorySubscribers = (
   reactions: MemoryReactions,
   recording: RecordRunMemoryUses,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<RunBriefedIntegrationEvent>(
+  subscribing<DispatchBriefedIntegrationEvent>(
     'memory.record-briefed-memories',
-    [RUN_BRIEFED],
+    [DISPATCH_BRIEFED],
     (event) =>
       recording.runBriefed(
         {
@@ -72,9 +72,9 @@ export const memorySubscribers = (
     ['memory.created'],
     (event) => reactions.onCreated(event),
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'memory.record-memories-read',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) =>
       recording.runEnded({
         id: RunId.of(event.runId),
@@ -82,9 +82,9 @@ export const memorySubscribers = (
         taskId: event.taskId ? TaskId.of(event.taskId) : null,
       }),
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'memory.request-memories',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) =>
       event.taskId
         ? requesting.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))

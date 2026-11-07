@@ -8,6 +8,7 @@ export class JudgeSettings {
     readonly rubric: string | null,
     readonly claims: readonly string[],
     readonly passThreshold: number,
+    readonly rubricVersion: string,
     readonly sample: number,
     readonly minAgreement: number,
   ) {}
@@ -16,6 +17,7 @@ export class JudgeSettings {
     rubric: string | null;
     claims: readonly string[];
     passThreshold: number;
+    rubricVersion: string;
     sample: number;
     minAgreement: number;
   }): JudgeSettings {
@@ -41,22 +43,15 @@ export class JudgeSettings {
       input.rubric,
       [...input.claims],
       input.passThreshold,
+      input.rubricVersion,
       input.sample,
       input.minAgreement,
     );
   }
 
-  get criteria(): string {
-    return JSON.stringify({
-      rubric: this.rubric,
-      claims: this.claims,
-      passThreshold: this.passThreshold,
-    });
-  }
-
   equals(other: JudgeSettings): boolean {
     return (
-      this.criteria === other.criteria &&
+      this.rubricVersion === other.rubricVersion &&
       this.sample === other.sample &&
       this.minAgreement === other.minAgreement
     );

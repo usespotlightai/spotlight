@@ -5,13 +5,14 @@ import { ChangeJudgments } from '@insights/application/services/change-judgments
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const RUBRIC = 'scores: 1-5\nDid it drain the queue without dropping a job?';
 
 const evidenceOf = (runId: string, line: string): RunEvidence => ({
-  runId,
-  taskId: 'task_1',
+  runId: RunId.of(runId),
+  taskId: TaskId.of('task_1'),
   title: 'Drain the queue',
   description: 'It stalls on restart.',
   steps: [
@@ -52,7 +53,7 @@ const judging = async (
   const judgments = new ChangeJudgments(
     {
       hasTask: async () => true,
-      of: async (runId) => evidence[runId] ?? null,
+      of: async (runId) => evidence[runId.value] ?? null,
     },
     {
       available: options.available ?? true,

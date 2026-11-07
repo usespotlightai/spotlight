@@ -21,7 +21,9 @@ export class HookTraces implements HookTracesPort {
   async record(runId: string, call: HookCallTrace): Promise<void> {
     const run = await this.runs.findById(RunId.of(runId));
 
-    if (!run) {
+    const attempt = run?.attemptNumbered(call.attempt);
+
+    if (!run || !attempt) {
       return;
     }
 
@@ -35,12 +37,12 @@ export class HookTraces implements HookTracesPort {
     };
     const at = new Date(call.startedAt.getTime() + call.ms);
 
-    const seq = await this.journal.appendControlPlaneEntry(run.currentAttempt, {
+    const seq = await this.journal.appendControlPlaneEntry(attempt, {
       ...entry,
       at,
     });
     this.stream.publish(run.id.value, [
-      { ...entry, seq, attempt: run.attempt, at: at.toISOString() },
+      { ...entry, seq, attempt: call.attempt, at: at.toISOString() },
     ]);
   }
 }

@@ -1,4 +1,5 @@
 import type { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -55,5 +56,9 @@ export class TaskFailures {
       [...this.occurrences, occurrence].sort(byTime),
       this.version,
     );
+  }
+
+  erased(): Erased<TaskFailures> {
+    return erasedAs(this);
   }
 }

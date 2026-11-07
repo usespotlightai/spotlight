@@ -177,7 +177,8 @@ describe('TurnDecision', () => {
     const decision = deciding({ task: answered, on: grown });
 
     expect(
-      decision.kind === 'resume' && decision.checkouts.map((each) => each.path),
+      decision.kind === 'resume' &&
+        decision.checkouts.map((each) => each.repository.name),
     ).toEqual(['widgets']);
   });
 

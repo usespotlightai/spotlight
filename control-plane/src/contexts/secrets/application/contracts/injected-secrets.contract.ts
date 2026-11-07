@@ -1,14 +1,12 @@
 import { Credential } from '@secrets/application/contracts/credential.contract';
-import type { InjectedSecret } from '@secrets/domain/value-objects/secret-binding.vo';
-import { SECRET_LOCATIONS as LOCATIONS } from '@secrets/domain/value-objects/secret-location.vo';
 import {
   SECRET,
   type Secret,
 } from '@shared-kernel/domain/value-objects/secret';
 
-export type SecretLocation = 'header' | 'query';
+export const SECRET_LOCATIONS = ['header', 'query'] as const;
 
-export const SECRET_LOCATIONS: readonly SecretLocation[] = LOCATIONS;
+export type SecretLocation = (typeof SECRET_LOCATIONS)[number];
 
 export interface SecretInjectionTarget {
   readonly location: SecretLocation;
@@ -33,31 +31,8 @@ export class InjectedSecrets implements Secret {
     return new InjectedSecrets([]);
   }
 
-  static from(injected: readonly InjectedSecret[]): InjectedSecrets {
-    return new InjectedSecrets(
-      injected.map((each) => ({
-        location: each.location,
-        name: each.name,
-        value: Credential.of(each.revealedValue()),
-        bare: Credential.of(each.revealedBare()),
-      })),
-    );
-  }
-
-  static of(
-    injected: readonly (SecretInjectionTarget & {
-      readonly value: string;
-      readonly bare: string;
-    })[],
-  ): InjectedSecrets {
-    return new InjectedSecrets(
-      injected.map((each) => ({
-        location: each.location,
-        name: each.name,
-        value: Credential.of(each.value),
-        bare: Credential.of(each.bare),
-      })),
-    );
+  static of(injected: readonly InjectedValue[]): InjectedSecrets {
+    return new InjectedSecrets([...injected]);
   }
 
   get [SECRET](): true {

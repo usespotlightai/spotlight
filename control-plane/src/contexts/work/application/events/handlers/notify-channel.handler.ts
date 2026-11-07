@@ -1,12 +1,12 @@
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
+import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { BindableChatEvent } from '@work/application/contracts/bindable-chat-events.contract';
 import type { ListedProposal } from '@work/application/contracts/listed-proposal.contract';
 import type { ChannelNoticesPort } from '@work/application/ports/channel-notices.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
-import { lastWordsIn } from '@work/application/services/last-words';
 import {
-  type RunEnded,
   RunEndedFacts,
   type RunEndingReactions,
 } from '@work/application/services/run-ending-reactions';
@@ -29,6 +29,7 @@ export class NotifyChannel implements RunEndingReactions {
     private readonly lines: LineMapsPort,
     private readonly notices: ChannelNoticesPort,
     private readonly journals: RunJournalReaderPort,
+    private readonly readings: RunJournalReadingsPort,
   ) {}
 
   async onChatStarted(event: ChatStarted): Promise<void> {
@@ -47,7 +48,7 @@ export class NotifyChannel implements RunEndingReactions {
     }
   }
 
-  async onRunEnded(event: RunEnded): Promise<void> {
+  async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
     if (event.ending === 'completed') {
       await this.completed(event);
     }
@@ -57,7 +58,7 @@ export class NotifyChannel implements RunEndingReactions {
     }
   }
 
-  private async completed(event: RunEnded): Promise<void> {
+  private async completed(event: RunEndedIntegrationEvent): Promise<void> {
     const chat = await this.fromChannel(WorkRequesters.chatOf(event.requester));
 
     if (!chat) {
@@ -67,7 +68,7 @@ export class NotifyChannel implements RunEndingReactions {
     const proposals = await this.listed(chat.openProposals);
     const lastWords =
       event.reported && !event.report
-        ? lastWordsIn(
+        ? this.readings.lastWordsIn(
             await this.journals.attemptsOfRun(RunEndedFacts.runId(event)),
             null,
           )
@@ -79,7 +80,7 @@ export class NotifyChannel implements RunEndingReactions {
     }
   }
 
-  private async exhausted(event: RunEnded): Promise<void> {
+  private async exhausted(event: RunEndedIntegrationEvent): Promise<void> {
     const chat = await this.fromChannel(WorkRequesters.chatOf(event.requester));
 
     if (chat) {

@@ -15,9 +15,9 @@ import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { changeReviewSubscribers } from '@change-review/presentation/events/change-review.subscribers';
+import type { DispatchEndedIntegrationEvent } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import type { PullRequestClosedIntegrationEvent } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import type { ReviewCommentReceivedIntegrationEvent } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
-import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { TaskDispatchedIntegrationEvent } from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -162,10 +162,10 @@ describe('change review receiving a run begin and end', () => {
 
   it('signals a review ended when its run ends, and nothing for a run with no task', async () => {
     const { receiving, ended } = signalled();
-    const subscriber = receiving('work.run-ended.v1');
+    const subscriber = receiving('work.dispatch-ended.v1');
 
-    const ofTask: RunEndedIntegrationEvent = {
-      kind: 'work.run-ended.v1',
+    const ofTask: DispatchEndedIntegrationEvent = {
+      kind: 'work.dispatch-ended.v1',
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
@@ -175,7 +175,7 @@ describe('change review receiving a run begin and end', () => {
       stopped: false,
       asked: false,
     };
-    const ofChat: RunEndedIntegrationEvent = {
+    const ofChat: DispatchEndedIntegrationEvent = {
       ...ofTask,
       runId: 'run_2',
       taskId: null,
@@ -207,8 +207,8 @@ describe('change review receiving a run end', () => {
       {} as never,
     ).find((each) => each.name === 'change-review.request-decisions');
 
-    const ofTask: RunEndedIntegrationEvent = {
-      kind: 'work.run-ended.v1',
+    const ofTask: DispatchEndedIntegrationEvent = {
+      kind: 'work.dispatch-ended.v1',
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
@@ -220,7 +220,7 @@ describe('change review receiving a run end', () => {
     };
 
     await subscriber?.handle(ofTask);
-    const ofChat: RunEndedIntegrationEvent = {
+    const ofChat: DispatchEndedIntegrationEvent = {
       ...ofTask,
       runId: 'run_2',
       taskId: null,
@@ -228,7 +228,7 @@ describe('change review receiving a run end', () => {
 
     await subscriber?.handle(ofChat);
 
-    expect(subscriber?.kinds).toEqual(['work.run-ended.v1']);
+    expect(subscriber?.kinds).toEqual(['work.dispatch-ended.v1']);
     expect(runEnded).toHaveBeenCalledTimes(1);
     expect(runEnded).toHaveBeenCalledWith(
       TaskId.of('task_1'),

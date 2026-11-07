@@ -62,7 +62,7 @@ const bucketWith = (keys: readonly string[], failing: Error[] = []) => {
       bucket: 'files',
       store,
       signer: store,
-      runners: store,
+      machineSigner: store,
     } satisfies S3Clients),
   };
 };

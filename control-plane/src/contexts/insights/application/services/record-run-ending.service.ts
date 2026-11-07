@@ -2,20 +2,13 @@ import type { EndedRun, WorkPort } from '@insights/application/ports/work.port';
 import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
-import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
 import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
 import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
-import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface RunEnded {
   readonly runId: string;
@@ -28,19 +21,18 @@ export interface RunEnded {
 
 const endOf = (
   run: EndedRun,
-  fingerprint: string | null,
   ending: RunEnding,
   failure: string | null,
   asked: boolean,
 ): RunEnd =>
   RunEnd.of({
     location: RunLocation.of({
-      teamId: TeamId.of(run.teamId),
-      lineId: LineId.of(run.lineId),
-      stationId: StationId.of(run.stationId),
-      taskId: TaskId.of(run.taskId),
+      teamId: run.teamId,
+      lineId: run.lineId,
+      stationId: run.stationId,
+      taskId: run.taskId,
     }),
-    fingerprint,
+    fingerprint: run.fingerprint,
     agentConfig: RunAgentConfig.of({
       harness: run.harness,
       model: run.model,
@@ -64,7 +56,6 @@ export class RecordRunEnding {
     private readonly records: RunRecordRepository,
     private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
-    private readonly logger: LoggerPort,
   ) {}
 
   async ended(event: RunEnded): Promise<void> {
@@ -74,30 +65,17 @@ export class RecordRunEnding {
       return;
     }
 
-    const run = await this.work.endedRun(event.runId);
+    const run = await this.work.endedRun(RunId.of(event.runId));
 
     if (!run) {
       return;
     }
 
-    const fingerprint = ConfigFingerprint.readable(run.fingerprint);
-
-    if (run.fingerprint !== null && fingerprint === null) {
-      this.logger.warn(
-        {
-          runId: run.runId,
-          stationId: run.stationId,
-          fingerprint: run.fingerprint,
-        },
-        'Run ended with a malformed config fingerprint, recorded as no config',
-      );
-    }
-
-    const end = endOf(run, fingerprint, ending, event.failure, event.asked);
+    const end = endOf(run, ending, event.failure, event.asked);
     const { taskId, teamId } = end.location;
-    const workspaceId = WorkspaceId.of(run.workspaceId);
+    const workspaceId = run.workspaceId;
 
-    const runId = RunId.of(run.runId);
+    const runId = run.runId;
 
     await this.transaction.inTransaction(() =>
       this.recorder.record(this.records, {

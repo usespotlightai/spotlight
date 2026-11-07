@@ -13,14 +13,16 @@ import {
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { injectedSecretsOf } from '@secrets/application/contracts/injected-secrets.fake-spec';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const injectingKey = {
   connection: null,
-  secrets: ['TRACKER_KEY'],
+  secrets: [SecretName.of('TRACKER_KEY')],
   credentials: {
     injectedFor: async () =>
-      InjectedSecrets.of([
+      injectedSecretsOf([
         { location: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
       ]),
     standInsFor: async () => InjectedSecrets.none(),
@@ -253,7 +255,7 @@ describe('McpSessions', () => {
 
   it('injects the connection and the secrets only for the server', async () => {
     const injectedFor = vi.fn(async () =>
-      InjectedSecrets.of([
+      injectedSecretsOf([
         {
           location: 'header',
           name: 'x-api-key',
@@ -270,7 +272,7 @@ describe('McpSessions', () => {
       { query: 'queue' },
       {
         connection: 'the-token',
-        secrets: ['TRACKER_KEY'],
+        secrets: [SecretName.of('TRACKER_KEY')],
         credentials: { injectedFor, standInsFor: vi.fn() },
       },
     );
@@ -280,7 +282,9 @@ describe('McpSessions', () => {
       authorization: 'Bearer the-token',
       apiKey: 'tk_live',
     });
-    expect(injectedFor).toHaveBeenCalledWith(server.url, ['TRACKER_KEY']);
+    expect(injectedFor).toHaveBeenCalledWith(server.url, [
+      SecretName.of('TRACKER_KEY'),
+    ]);
   });
 
   it('injects a secret in the query, and takes it out of what the server answers', async () => {
@@ -291,10 +295,10 @@ describe('McpSessions', () => {
       { id: 'tk/live' },
       {
         connection: null,
-        secrets: ['TRACKER_KEY'],
+        secrets: [SecretName.of('TRACKER_KEY')],
         credentials: {
           injectedFor: async () =>
-            InjectedSecrets.of([
+            injectedSecretsOf([
               {
                 location: 'query',
                 name: 'key',

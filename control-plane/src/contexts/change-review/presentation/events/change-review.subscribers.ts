@@ -27,6 +27,10 @@ import type { StackCheckLayersFailed } from '@change-review/domain/events/stack-
 import type { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
 import type { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import {
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
@@ -38,10 +42,6 @@ import {
   REVIEW_COMMENT_RECEIVED,
   type ReviewCommentReceivedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/review-comment-received.integration-event';
-import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
@@ -120,18 +120,18 @@ export const changeReviewSubscribers = (
     (event) => signalling.began(TaskId.of(event.taskId), RunId.of(event.runId)),
     { callsOut: true },
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'change-review.signal-reviewed',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) =>
       event.taskId
         ? signalling.ended(TaskId.of(event.taskId), RunId.of(event.runId))
         : Promise.resolve(),
     { callsOut: true },
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'change-review.request-decisions',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) =>
       event.taskId
         ? deciding.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))
@@ -169,13 +169,13 @@ export const changeReviewSubscribers = (
   ),
   subscribing<DecisionsRecorded>(
     'change-review.post-decisions-comment',
-    ['decisions.recorded'],
+    ['decision-set.recorded'],
     (event) => decisions.onRecorded(event),
     { callsOut: true },
   ),
   subscribing<DecisionDisputed>(
     'change-review.post-decisions-comment-on-dispute',
-    ['decisions.disputed'],
+    ['decision-set.disputed'],
     (event) => decisions.onDisputed(event),
     { callsOut: true },
   ),

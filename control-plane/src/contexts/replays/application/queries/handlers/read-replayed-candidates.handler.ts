@@ -1,6 +1,6 @@
 import type { ReplayedCandidatesDto } from '@replays/application/dto/replayed-candidates.dto';
 import type { ReplaysReaderPort } from '@replays/application/ports/replays-reader.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { TrialableRunsPort } from '@replays/application/ports/trialable-runs.port';
 import type { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
 import { replayedCandidatesView } from '@replays/application/queries/views/replayed-candidate-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
@@ -34,7 +34,7 @@ export class ReadReplayedCandidatesHandler
     private readonly searches: SearchRepository,
     private readonly sets: ReplaySetRepository,
     private readonly candidates: CandidateRepository,
-    private readonly work: WorkPort,
+    private readonly trialableRuns: TrialableRunsPort,
     private readonly clock: ClockPort,
     private readonly healths: SetHealths,
   ) {}
@@ -92,7 +92,7 @@ export class ReadReplayedCandidatesHandler
             ),
           ]).map((each) => CandidateId.of(each)),
         ),
-        this.work.runSummaries(
+        this.trialableRuns.runSummaries(
           access.workspaceId,
           seen.flatMap((each) => each.runs),
         ),

@@ -1,6 +1,6 @@
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
-import type { RunStateFact } from '@runs/application/ports/run-facts.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { Progress } from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
 
@@ -31,8 +31,7 @@ export interface UnfinishedRunRow {
   readonly openedBy: string | null;
   readonly harness: string;
   readonly config: StationConfigParts | null;
-  readonly state: RunStateFact;
-  readonly stopRequested: boolean;
+  readonly progress: Progress | null;
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
 }

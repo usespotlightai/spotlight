@@ -1,6 +1,8 @@
 import type { RefreshIntegrationSpecHandler } from '@integrations/application/commands/handlers/refresh-integration-spec.handler';
 import type { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
+import type { InboundDeliveryRetention } from '@integrations/application/services/inbound-delivery-retention.service';
 import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
+import type { IntegrationCursors } from '@integrations/application/services/integration-cursors.service';
 import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
@@ -33,6 +35,8 @@ const subscribersWith = (
     { execute } as unknown as RefreshIntegrationSpecHandler,
     {} as InferOutputSchemas,
     { answer },
+    {} as IntegrationCursors,
+    {} as InboundDeliveryRetention,
   );
 
 const handledBy = async (

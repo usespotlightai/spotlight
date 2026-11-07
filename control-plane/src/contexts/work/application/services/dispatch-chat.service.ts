@@ -1,19 +1,15 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import {
-  RunSpecContract,
-  TRACE_PARENT_VAR,
-} from '@runs/application/contracts/run-spec.contract';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunSpecPartsMapper } from '@work/application/mappers/run-spec-parts.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
-import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { SavepointPort } from '@work/application/ports/savepoint.port';
 import {
   type BriefedMemory,
   type MemoryFolder,
@@ -39,14 +35,17 @@ import {
   chatPlacement,
   chatSetupOf,
 } from '@work/domain/services/chat-placement';
-import { CHAT_PRIORITY } from '@work/domain/services/chat-priority';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import {
   CHAT_RUN_API_LIFETIME_MS,
   CHAT_RUN_API_SCOPES,
 } from '@work/domain/value-objects/chat-run-api-grant';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
-import { REMOTE_VIA_GIT_PROXY } from '@work/domain/value-objects/run-checkout';
+import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+
+export interface ChatDispatching {
+  takenUp(chat: Chat): Promise<Chat>;
+}
 
 export class DispatchChat implements ChatDispatching {
   constructor(
@@ -130,7 +129,7 @@ export class DispatchChat implements ChatDispatching {
       id,
       workspaceId: chat.workspaceId,
       harness: chat.harness,
-      priority: CHAT_PRIORITY,
+      priority: RunPriority.chat,
       requester: WorkRequesters.chat(chat.id, chat.teamId),
       policy: WorkRequesters.chatPolicy,
       workspace: WorkRequesters.chatWorkspace(chat.id),
@@ -148,18 +147,21 @@ export class DispatchChat implements ChatDispatching {
         checkouts: chat.repositories.map((repository) => {
           const setup = chatSetupOf(repository, lines);
 
-          return {
-            remote: REMOTE_VIA_GIT_PROXY,
+          return RunSpecPartsMapper.proxiedCheckout({
             path: repository.name,
-            ...(setup ? { setup } : {}),
-          };
+            branch: null,
+            ref: null,
+            diffOf: null,
+            setup,
+          });
         }),
-        command: command.started({
-          [TRACE_PARENT_VAR]: this.tracing.forChat(chat.id, id),
-        }),
+        command: RunSpecPartsMapper.traced(
+          command,
+          this.tracing.forChat(chat.id, id),
+        ),
         briefing,
         handover: { options: [], noteLimit: 0 },
-        resume: RunSpecContract.resumeOf(resume),
+        resume: RunSpecPartsMapper.resume(resume),
         manifest: [
           ...builtInToolsForChat({ settingUp: chat.setup !== null }).map(
             (each) => each.declared,

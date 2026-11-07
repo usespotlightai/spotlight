@@ -8,13 +8,13 @@ import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
+import { WebInboxLinks } from '@integrations/infrastructure/links/web-inbox-links';
 import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
-import { WebInboxLinks } from '@integrations/infrastructure/web-inbox-links';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -29,6 +29,7 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ChannelNoticeDto } from '@work/application/ports/channel-notices.port';
+import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
 import { describe, expect, it, vi } from 'vitest';
 
 const channelNotices = (...args: ConstructorParameters<typeof NotifyChannel>) =>
@@ -110,6 +111,7 @@ const notifying = (definition = SLACK) => {
     callAuthFor(injecting().injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+      new WebTaskLinks('https://app.example'),
       'https://app.example',
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },

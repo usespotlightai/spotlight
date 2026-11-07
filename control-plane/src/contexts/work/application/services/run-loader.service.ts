@@ -1,17 +1,17 @@
 import type {
-  LeasedRun,
+  LeasedRunFacts,
   RunLeasesPort,
 } from '@runs/application/ports/run-leases.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { ActsOnItselfOnlyError } from '@work/application/errors/acts-on-itself-only.error';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
 export interface LoadedRun {
-  readonly run: LeasedRun;
+  readonly run: LeasedRunFacts;
   readonly worked: { readonly task: Task; readonly at: StationId } | null;
 }
 
@@ -33,7 +33,7 @@ export class RunLoader {
     );
 
     if (!run.policy.actsBeyondItself) {
-      throw new ActsOnItselfOnlyError(what);
+      throw new NotAllowedForIsolatedRunError(what);
     }
 
     const subject = (await this.dispatches.find(run.runId))?.subject;

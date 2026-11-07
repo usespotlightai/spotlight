@@ -18,13 +18,13 @@ import {
   ToolUse,
 } from '@runs/domain/value-objects/tool-use.vo';
 import {
-  RUN_ENDED,
-  type RunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import {
-  RUN_SUPERSEDED,
-  type RunSupersededIntegrationEvent,
-} from '@shared-kernel/application/integration-events/run-superseded.integration-event';
+  DISPATCH_SUPERSEDED,
+  type DispatchSupersededIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -165,8 +165,8 @@ beforeAll(async () => {
     }),
   );
 
-  const ended: RunEndedIntegrationEvent = {
-    kind: RUN_ENDED,
+  const ended: DispatchEndedIntegrationEvent = {
+    kind: DISPATCH_ENDED,
     runId: RUN.value,
     workspaceId: workspaceId.value,
     taskId: TASK.value,
@@ -982,8 +982,8 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
         outcome: 'failed',
       }),
     );
-    const ended: RunEndedIntegrationEvent = {
-      kind: RUN_ENDED,
+    const ended: DispatchEndedIntegrationEvent = {
+      kind: DISPATCH_ENDED,
       runId: cancelled.value,
       workspaceId: team.workspaceId.value,
       taskId: task.value,
@@ -1061,8 +1061,8 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       }),
     );
 
-    const ended: RunEndedIntegrationEvent = {
-      kind: RUN_ENDED,
+    const ended: DispatchEndedIntegrationEvent = {
+      kind: DISPATCH_ENDED,
       runId: runId.value,
       workspaceId: team.workspaceId.value,
       taskId: task.value,
@@ -1072,8 +1072,8 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       stopped: false,
       asked: false,
     };
-    const superseded: RunSupersededIntegrationEvent = {
-      kind: RUN_SUPERSEDED,
+    const superseded: DispatchSupersededIntegrationEvent = {
+      kind: DISPATCH_SUPERSEDED,
       runId: runId.value,
       workspaceId: team.workspaceId.value,
       taskId: task.value,

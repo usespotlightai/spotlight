@@ -20,6 +20,10 @@ import { UpdateLineCommand } from '@lines/application/commands/update-line.comma
 import { DeleteTeamLines } from '@lines/application/events/handlers/delete-team-lines.handler';
 import { SeedLines } from '@lines/application/events/handlers/seed-lines.handler';
 import { LINES_EVENT_MAPPERS } from '@lines/application/integration-events/lines.event-mappers';
+import {
+  type ContentHashPort,
+  LINES_CONTENT_HASH,
+} from '@lines/application/ports/content-hash.port';
 import { ENABLED_AT_STATIONS } from '@lines/application/ports/enabled-at-stations.port';
 import {
   LINE_COMPILER,
@@ -36,6 +40,10 @@ import {
   type LineResourcesPort,
 } from '@lines/application/ports/line-resources.port';
 import { LINES } from '@lines/application/ports/lines.port';
+import {
+  PUBLISHED_LINE_VIEWS,
+  type PublishedLineViewsPort,
+} from '@lines/application/ports/published-line-views.port';
 import {
   SEEDING_HARNESS,
   type SeedingHarnessPort,
@@ -64,6 +72,7 @@ import { DrizzleLineReader } from '@lines/infrastructure/persistence/drizzle/rea
 import { DrizzleLineDependents } from '@lines/infrastructure/persistence/drizzle/readers/line-dependents.reader';
 import { DrizzleLineImages } from '@lines/infrastructure/persistence/drizzle/readers/line-images.reader';
 import { DrizzleLineResources } from '@lines/infrastructure/persistence/drizzle/readers/line-resources.reader';
+import { DrizzlePublishedLineViews } from '@lines/infrastructure/persistence/drizzle/readers/published-line-views.reader';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import { linesSubscribers } from '@lines/presentation/events/lines.subscribers';
 import { LineController } from '@lines/presentation/http/controllers/line.controller';
@@ -74,6 +83,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import {
   ID_GENERATOR,
   type IdGeneratorPort,
@@ -106,6 +116,7 @@ export const LINES_PROVIDERS: readonly Provider[] = [
   { provide: LINE_COMPILER, useClass: LineCompiler },
   { provide: LINE_RENDERING, useClass: LineDefinitionRendering },
   { provide: LINE_RESOURCES, useClass: DrizzleLineResources },
+  { provide: PUBLISHED_LINE_VIEWS, useClass: DrizzlePublishedLineViews },
 
   {
     provide: LINES_DEPENDENTS,
@@ -145,22 +156,36 @@ export const LINES_PROVIDERS: readonly Provider[] = [
     provide: LINES,
     inject: [
       DrizzleLineRepository,
+      PUBLISHED_LINE_VIEWS,
       LINE_RESOURCES,
       LINE_COMPILER,
       LINE_RENDERING,
       CatalogDenials,
       ID_GENERATOR,
+      LINES_CONTENT_HASH,
     ],
     useFactory: (
       lines: DrizzleLineRepository,
+      views: PublishedLineViewsPort,
       resources: LineResourcesPort,
       compiler: LineCompilerPort,
       rendering: LineRenderingPort,
       catalog: CatalogDenials,
       ids: IdGeneratorPort,
+      hash: ContentHashPort,
     ) =>
-      new PublishedLines(lines, resources, compiler, rendering, catalog, ids),
+      new PublishedLines(
+        lines,
+        views,
+        resources,
+        compiler,
+        rendering,
+        catalog,
+        ids,
+        hash,
+      ),
   },
+  { provide: LINES_CONTENT_HASH, useClass: Sha256ContentHash },
 
   {
     provide: LINES_EVENTS,

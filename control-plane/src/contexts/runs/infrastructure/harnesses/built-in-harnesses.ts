@@ -3,7 +3,9 @@ import type {
   HarnessNote,
   HarnessProfileShape,
   ProfileReview,
+  ReadyProfileShape,
 } from '@runs/application/contracts/harness-profile.contract';
+import type { RunCommandShape } from '@runs/application/contracts/run-spec.contract';
 import type {
   Chosen,
   HarnessCatalogueEntry,
@@ -12,14 +14,12 @@ import type {
   SkillsHome,
 } from '@runs/application/ports/harness-launch.port';
 import type { HarnessProfileReviewPort } from '@runs/application/ports/harness-profile-review.port';
-import type { HarnessCatalog } from '@runs/domain/services/harness-catalog';
-import { Harness } from '@runs/domain/value-objects/harness.vo';
 import { HarnessCommand } from '@runs/domain/value-objects/harness-command.vo';
-import { HarnessName } from '@runs/domain/value-objects/harness-name.vo';
-import type {
-  HarnessSettings,
-  PermissionKind,
-  ReadyProfile,
+import {
+  type HarnessSettings,
+  type PermissionKind,
+  type ReadyProfile,
+  readyProfile,
 } from '@runs/domain/value-objects/ready-profile';
 import type { SessionOption } from '@runs/domain/value-objects/run-spec.vo';
 import { claudeCodeProfile } from '@runs/infrastructure/harnesses/profiles/claude-code.profile';
@@ -34,6 +34,7 @@ import {
 } from '@runs/infrastructure/harnesses/profiles/profile-translator';
 import { EFFORTS } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { parse } from 'smol-toml';
 
 type ModelBinding =
@@ -191,7 +192,7 @@ const DEFINITIONS: readonly Definition[] = [
   OPENCODE,
 ];
 
-export const DEFAULT_HARNESS = HarnessId.of(CLAUDE_CODE.id);
+const DEFAULT_HARNESS = HarnessId.of(CLAUDE_CODE.id);
 
 const nativeProblem = (
   def: Definition,
@@ -229,18 +230,8 @@ const nativeProblem = (
 
 @Injectable()
 export class BuiltInHarnesses
-  implements HarnessCatalog, HarnessLaunchPort, HarnessProfileReviewPort
+  implements HarnessLaunchPort, HarnessProfileReviewPort
 {
-  all(): readonly Harness[] {
-    return DEFINITIONS.map(named);
-  }
-
-  named(id: HarnessId): Harness | null {
-    const found = this.definition(id);
-
-    return found ? named(found) : null;
-  }
-
   skillsFor(id: HarnessId): SkillsHome | null {
     return this.definition(id)?.skills ?? null;
   }
@@ -253,15 +244,15 @@ export class BuiltInHarnesses
     return DEFINITIONS.flatMap((each) => each.profile.lays);
   }
 
-  commandFor(id: HarnessId, chosen: Chosen): HarnessCommand | null {
+  commandFor(id: HarnessId, chosen: Chosen): RunCommandShape | null {
     const def = this.definition(id);
 
-    return def ? commandOf(def, chosen, {}) : null;
+    return def ? commandOf(def, chosen, {}).started() : null;
   }
 
   preparedFor(
     id: HarnessId,
-    chosen: Chosen & { readonly profile: ReadyProfile | null },
+    chosen: Chosen & { readonly profile: ReadyProfileShape | null },
   ): PreparedHarness | null {
     const def = this.definition(id);
 
@@ -270,15 +261,25 @@ export class BuiltInHarnesses
     }
 
     if (!chosen.profile) {
-      return { command: commandOf(def, chosen, {}), setup: null };
+      return { command: commandOf(def, chosen, {}).started(), setup: null };
     }
 
-    const translated = def.profile.translate(chosen.profile);
+    const profile: ReadyProfile = chosen.profile;
+    const translated = def.profile.translate(profile);
 
     return {
-      command: commandOf(def, chosen, translated.config, translated.env),
-      setup: setupOf(chosen.profile, translated),
+      command: commandOf(
+        def,
+        chosen,
+        translated.config,
+        translated.env,
+      ).started(),
+      setup: setupOf(profile, translated),
     };
+  }
+
+  readyProfile(shape: HarnessProfileShape): ReadyProfileShape {
+    return readyProfile(ProfileKey.of(shape.key), shape);
   }
 
   review(profile: HarnessProfileShape): ProfileReview {
@@ -419,6 +420,3 @@ const setupOf = (
   })),
   askKinds: askKindsOf(profile),
 });
-
-const named = (def: Definition): Harness =>
-  Harness.of({ id: HarnessId.of(def.id), name: HarnessName.of(def.name) });

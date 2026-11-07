@@ -2,12 +2,13 @@ import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { CheckWorkPort } from '@runs/application/ports/check-work.port';
 import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -29,7 +30,7 @@ const claimed = () =>
       handover: { options: [], noteLimit: 4_000 },
       resume: {},
     }),
-  }).claim(RUNNER, NOW);
+  }).claim(claimer(RUNNER), NOW);
 
 const taking = (
   over: {
@@ -144,9 +145,9 @@ describe('ClaimsTaken', () => {
     await expect(
       taken.check(
         {
-          stackId: 'stack_1',
-          recheck: false,
-          runId: 'run_1',
+          checkId: CheckWorkId.of('stack_1'),
+          repeat: false,
+          runId: RunId.of('run_1'),
           repository: null,
           base: null,
           setup: null,
@@ -156,6 +157,11 @@ describe('ClaimsTaken', () => {
         RUNNER,
       ),
     ).rejects.toThrow('pooled_1 is spent');
-    expect(checks.unclaim).toHaveBeenCalledWith('stack_1', false, RUNNER, NOW);
+    expect(checks.unclaim).toHaveBeenCalledWith(
+      CheckWorkId.of('stack_1'),
+      false,
+      RUNNER,
+      NOW,
+    );
   });
 });

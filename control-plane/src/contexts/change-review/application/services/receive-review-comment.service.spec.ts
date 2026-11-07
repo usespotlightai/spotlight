@@ -57,7 +57,6 @@ const receiving = (stored: ReviewComment[] = []) => {
   const service = new ReceiveReviewComment(
     {
       run: async () => null,
-      wasClaimedBy: async () => false,
       teamOfRun: async () => null,
       reasoning: async () => null,
       task: async () => null,

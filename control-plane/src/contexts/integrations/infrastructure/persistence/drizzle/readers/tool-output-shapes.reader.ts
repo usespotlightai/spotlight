@@ -1,5 +1,6 @@
 import type { ToolOutputShapesPort } from '@integrations/application/ports/tool-output-shapes.port';
 import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { inferredOutputSchema } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -13,7 +14,7 @@ export class DrizzleToolOutputShapes implements ToolOutputShapesPort {
 
   async ofTools(
     teamId: TeamId,
-    tools: readonly string[],
+    tools: readonly ToolName[],
   ): Promise<ReadonlyMap<string, JsonObject>> {
     if (tools.length === 0) {
       return new Map();
@@ -28,7 +29,10 @@ export class DrizzleToolOutputShapes implements ToolOutputShapesPort {
       .where(
         and(
           eq(inferredOutputSchema.teamId, teamId.value),
-          inArray(inferredOutputSchema.tool, [...tools]),
+          inArray(
+            inferredOutputSchema.tool,
+            tools.map((each) => each.value),
+          ),
         ),
       );
 

@@ -1,8 +1,10 @@
 import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
+import { ProvisionFailureMarks } from '@runs/application/services/provision-failure-marks.service';
 import { ProvisionFailures } from '@runs/application/services/provision-failures.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { RunProvisionFailed } from '@runs/domain/events/run-provision-failed.event';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
@@ -40,6 +42,17 @@ const reserved = () => waiting().reservedFor(POOLED, PoolId.of('pool_1'), NOON);
 const failing = (stored: Run, conflicts = 0) => {
   let current = stored;
   let clashes = conflicts;
+  const written: number[] = [];
+  const append = vi.fn(async () => {
+    const seq = JournalSeq.firstControlPlane - written.length;
+    written.push(seq);
+    return seq;
+  });
+  const publish = vi.fn();
+  const marks = new ProvisionFailureMarks(
+    { appendControlPlaneEntry: append } as unknown as RunJournalPort,
+    { publish } as unknown as RunStreamPort,
+  );
   const runs = {
     findById: vi.fn(async () => current),
     save: vi.fn(async (run: Run) => {
@@ -48,26 +61,20 @@ const failing = (stored: Run, conflicts = 0) => {
         throw new RunVersionConflictError(run.id.value);
       }
       current = run;
+      for (const event of run.pullEvents()) {
+        if (event instanceof RunProvisionFailed) {
+          await marks.onProvisionFailed(event);
+        }
+      }
     }),
   };
-  const written: number[] = [];
-  const append = vi.fn(async () => {
-    const seq = JournalSeq.firstControlPlane - written.length;
-    written.push(seq);
-    return seq;
-  });
-  const publish = vi.fn();
 
   return {
     runs,
     append,
     publish,
     current: () => current,
-    failures: new ProvisionFailures(
-      runs as unknown as RunRepository,
-      { appendControlPlaneEntry: append } as unknown as RunJournalPort,
-      { publish } as unknown as RunStreamPort,
-    ),
+    failures: new ProvisionFailures(runs as unknown as RunRepository),
   };
 };
 
@@ -126,7 +133,7 @@ describe('ProvisionFailures', () => {
 
   it('does nothing for a run no longer waiting on the queue', async () => {
     const { failures, runs, append, publish } = failing(
-      waiting().claim(RunnerId.of('runner_1'), NOON),
+      waiting().claim(claimer(RunnerId.of('runner_1')), NOON),
     );
 
     expect(

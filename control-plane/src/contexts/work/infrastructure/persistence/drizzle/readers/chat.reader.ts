@@ -27,7 +27,6 @@ import type {
   ChatView,
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
-import { ChatAccess } from '@work/domain/services/chat-access';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Progress } from '@work/domain/value-objects/progress';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
@@ -141,18 +140,14 @@ export class DrizzleChatReader implements ChatReaderPort {
     );
   }
 
-  async read(
-    teamId: TeamId,
-    chatId: ChatId,
-    viewerId: UserId,
-  ): Promise<ChatView | null> {
+  async read(teamId: TeamId, chatId: ChatId): Promise<ChatView | null> {
     const [row] = await this.db
       .select()
       .from(chat)
       .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
       .limit(1);
 
-    if (!row || !ChatAccess.readableBy(UserId.of(row.startedById), viewerId)) {
+    if (!row) {
       return null;
     }
 

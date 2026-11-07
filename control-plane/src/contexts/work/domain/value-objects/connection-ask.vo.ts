@@ -12,7 +12,7 @@ export class ConnectionAsk {
   private constructor(
     readonly teamId: TeamId,
     readonly integration: IntegrationName,
-    readonly integrationName: string,
+    readonly providedBy: string,
     readonly personId: UserId,
     readonly met: boolean,
   ) {}
@@ -20,14 +20,14 @@ export class ConnectionAsk {
   static of(input: {
     teamId: TeamId;
     integration: IntegrationName;
-    integrationName: string;
+    providedBy: string;
     personId: UserId;
     met?: boolean;
   }): ConnectionAsk {
     return new ConnectionAsk(
       input.teamId,
       input.integration,
-      input.integrationName.trim() || input.integration.value,
+      input.providedBy.trim() || input.integration.value,
       input.personId,
       input.met ?? false,
     );
@@ -54,7 +54,7 @@ export class ConnectionAsk {
     return new ConnectionAsk(
       this.teamId,
       this.integration,
-      this.integrationName,
+      this.providedBy,
       this.personId,
       true,
     );

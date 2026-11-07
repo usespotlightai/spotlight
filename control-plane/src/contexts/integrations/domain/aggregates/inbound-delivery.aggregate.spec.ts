@@ -1,7 +1,9 @@
 import { InboundDelivery } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { InvalidInboundDeliveryTransitionError } from '@integrations/domain/exceptions/invalid-inbound-delivery-transition.error';
+import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import { DELIVERING } from '@integrations/domain/services/delivery-retry';
 import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { describe, expect, it } from 'vitest';
@@ -15,7 +17,7 @@ const received = () =>
     {
       integration: IntegrationKey.of('github'),
       to: null,
-      id: 'd_1',
+      id: InboundDeliveryId.of('d_1'),
       headers: { 'x-delivery': 'd_1' },
       body: { action: 'closed' },
       causeFiringId: null,
@@ -51,19 +53,9 @@ describe('InboundDelivery', () => {
   });
 
   it('refuses a delivery without an id', () => {
-    expect(() =>
-      InboundDelivery.receive(
-        {
-          integration: IntegrationKey.of('github'),
-          to: null,
-          id: ' ',
-          headers: {},
-          body: {},
-          causeFiringId: null,
-        },
-        NOW,
-      ),
-    ).toThrow(InconsistentStateError);
+    expect(() => InboundDeliveryId.of(' ')).toThrow(
+      InvalidIntegrationPartError,
+    );
   });
 
   it('is claimed once it is due', () => {

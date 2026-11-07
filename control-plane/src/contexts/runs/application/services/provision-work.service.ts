@@ -270,7 +270,7 @@ export class ProvisionWork {
 
     for (const check of await this.checks.expired(now)) {
       await this.checks.failed(
-        check.stackId,
+        check.checkId,
         check.runner,
         ProvisionFailure.expired(check.until),
         now,
@@ -319,8 +319,8 @@ export class ProvisionWork {
 
   private provisionableCheck(check: WaitingCheck): Provisionable {
     return {
-      key: `check:${check.stackId}`,
-      ids: { runId: check.runId, stackId: check.stackId },
+      key: `check:${check.checkId.value}`,
+      ids: { runId: check.runId.value, checkId: check.checkId.value },
       placement: check.placement,
       needsEgress: false,
       on: (pool, last) => this.checkOn(check, pool, last),
@@ -392,7 +392,7 @@ export class ProvisionWork {
   ): Promise<Provisioned> {
     const runnerId = RunnerId.of(this.ids.generate());
     const until = await this.checks.reserve(
-      check.stackId,
+      check.checkId,
       runnerId,
       pool.pool,
       this.clock.now(),
@@ -405,8 +405,8 @@ export class ProvisionWork {
     return this.attempted(
       () =>
         this.provisioned(pool, runnerId, {
-          work: { kind: 'check', id: check.stackId },
-          runId: RunId.of(check.runId),
+          work: { kind: 'check', id: check.checkId.value },
+          runId: check.runId,
           tags: {},
           placement: check.placement,
           needsEgress: false,
@@ -415,12 +415,12 @@ export class ProvisionWork {
       {
         failed: (failure) =>
           this.checks.failed(
-            check.stackId,
+            check.checkId,
             runnerId,
             failure,
             this.clock.now(),
           ),
-        unreserved: () => this.checks.unreserve(check.stackId, runnerId),
+        unreserved: () => this.checks.unreserve(check.checkId, runnerId),
       },
       last,
     );

@@ -12,7 +12,7 @@ import {
   SpotlightCredentials,
   SpotlightSigningSecrets,
 } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
-import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { injectedSecretsOf } from '@secrets/application/contracts/injected-secrets.fake-spec';
 import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type {
   RunGrant,
@@ -47,7 +47,7 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
     run: string | null,
     standIns = false,
   ) =>
-    InjectedSecrets.of(
+    injectedSecretsOf(
       request.secrets.map((name) => {
         const secret = bound[name];
         const host = new URL(request.url).hostname;
@@ -139,7 +139,9 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
 export const credentialsFor = (
   bound: Readonly<Record<string, Bound>> = {},
 ): Credentials =>
-  new SpotlightCredentials(injecting(bound).injection, async () => 'ws_1');
+  new SpotlightCredentials(injecting(bound).injection, async () =>
+    WorkspaceId.of('ws_1'),
+  );
 
 export const signingFor = (
   secrets: Readonly<Record<string, string>> = {},

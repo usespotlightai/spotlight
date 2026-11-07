@@ -6,6 +6,7 @@ import {
   SpecUnauthorized,
 } from '@integrations/infrastructure/specs/spec-fetch';
 import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const DESCRIPTION = 'https://specs.example/linear.json';
@@ -18,7 +19,7 @@ const GET = {
 
 const injection = (over: Partial<SpecInjection> = {}): SpecInjection => ({
   apiHost: 'api.linear.app',
-  secrets: ['LINEAR_API_KEY'],
+  secrets: [SecretName.of('LINEAR_API_KEY')],
   connection: 'oauth-token',
   credentials: credentialsFor({
     LINEAR_API_KEY: { host: 'api.linear.app', value: 'lin_api_1' },

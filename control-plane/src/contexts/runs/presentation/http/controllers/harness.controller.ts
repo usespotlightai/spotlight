@@ -27,7 +27,7 @@ export class HarnessController {
   @Get()
   @ApiOperation({
     operationId: 'listHarnesses',
-    summary: 'List the harnesses that can run a station',
+    summary: 'List the harnesses a run can use',
   })
   @ApiOkResponse({ type: HarnessResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })

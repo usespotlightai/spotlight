@@ -8,7 +8,9 @@ export const DELIVERY_FAILURE_CODES = [
   'parent-never-on-github',
   'never-on-github',
   'not-recorded',
-  'github-error',
+  'github-unreachable',
+  'github-rejected',
+  'unexpected',
 ] as const;
 
 export type DeliveryFailureCode = (typeof DELIVERY_FAILURE_CODES)[number];
@@ -23,7 +25,9 @@ const RECOVERY: Readonly<Record<DeliveryFailureCode, DeliveryRecovery>> = {
   'parent-never-on-github': 'permanent',
   'never-on-github': 'permanent',
   'not-recorded': 'permanent',
-  'github-error': 'transient',
+  'github-unreachable': 'transient',
+  'github-rejected': 'permanent',
+  unexpected: 'permanent',
 };
 
 const MAX_DETAIL = 1_000;

@@ -6,18 +6,19 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
   RUNS as REPLAYS_RUNS,
   type RunsPort as ReplaysRunsPort,
+  type ReplayTrialRun,
 } from '@replays/application/ports/runs.port';
 import {
   STATION_TRIALS,
   type StationTrialsPort,
 } from '@replays/application/ports/station-trials.port';
 import {
-  REPLAY_RUN_POLICY,
   ReplayRunDispatch,
   type ReplayRunOrder,
 } from '@replays/application/services/replay-run-dispatch.service';
+import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
-import { DrizzleReplayRunClaimRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-claim.repository';
+import { DrizzleReplayRunDecisionRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-decision.repository';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
 import {
@@ -270,8 +271,8 @@ const replayOrderOf = async (
 
   return {
     run,
+    owner: ownerOf(),
     original: RunId.of(original.runId),
-    workspaceId: team.workspaceId,
     lineId: line.id,
     stationId: StationId.of(BUILD),
     block: StationBlock.of({
@@ -282,6 +283,12 @@ const replayOrderOf = async (
     answer: null,
   };
 };
+
+const ownerOf = () => ({
+  workspaceId: team.workspaceId,
+  teamId: team.teamId,
+  replayId: ReplayId.of(randomUUID()),
+});
 
 const replayed = async (original: Original): Promise<string> => {
   const run = RunId.of(randomUUID());
@@ -405,7 +412,7 @@ const untilDelivered = (runId: string) =>
       )
       .where(
         and(
-          eq(schema.eventOutbox.kind, 'run.completed'),
+          eq(schema.eventOutbox.kind, 'run.ended'),
           sql`${schema.eventOutbox.payload} -> 'runId' ->> 'value' = ${runId}`,
           sql`${schema.eventDelivery.deliveredAt} IS NOT NULL`,
         ),
@@ -713,14 +720,14 @@ describe('a replay cancelled while it is ordered', () => {
     const cancellingFirst: ReplaysRunsPort = Object.assign(
       Object.create(runs),
       {
-        enqueue: async (order: RunOrderContract) => {
-          await app.get(ReplayRunDispatch).cancel(run, false);
-          return runs.enqueue(order);
+        enqueueTrial: async (trial: ReplayTrialRun) => {
+          await app.get(ReplayRunDispatch).cancel(run, ownerOf(), false);
+          return runs.enqueueTrial(trial);
         },
       },
     );
     const racing = new ReplayRunDispatch(
-      app.get(DrizzleReplayRunClaimRepository),
+      app.get(DrizzleReplayRunDecisionRepository),
       app.get<StationTrialsPort>(STATION_TRIALS),
       cancellingFirst,
     );
@@ -760,7 +767,14 @@ describe('an order under a run id Runs already knows', () => {
         token: null,
         team: team.teamId.value,
       },
-      policy: REPLAY_RUN_POLICY,
+      policy: {
+        holdsTurn: false,
+        gated: false,
+        actsBeyondItself: false,
+        asks: 'recorded',
+        listed: false,
+        exclusive: false,
+      },
       workspace: null,
       restore: null,
       extensions: {},
@@ -858,8 +872,8 @@ describe('a replay ending', () => {
     await untilDelivered(replayId);
 
     for (const kind of [
-      'work.run-ended.v1',
-      'work.run-briefed.v1',
+      'work.dispatch-ended.v1',
+      'work.dispatch-briefed.v1',
       'work.task-dispatched.v1',
     ]) {
       expect(await published(kind, replayId)).toEqual([]);

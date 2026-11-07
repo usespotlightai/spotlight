@@ -3,6 +3,7 @@ import type { PullRequestPort } from '@github/application/ports/pull-request.por
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { JournalEntry } from '@runs/application/ports/run-journal.port';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
@@ -271,6 +272,7 @@ describe('reading what a task’s runs changed', () => {
       { changedIn: async () => [] } as unknown as PullRequestPort,
       { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
       { now: () => new Date(), sleep: () => new Promise(() => {}) },
+      runJournalReadings(),
     ).onTask(
       {
         id: TaskId.of(taskId),

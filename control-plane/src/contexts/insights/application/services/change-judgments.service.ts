@@ -33,8 +33,8 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
     }
 
     const [run, reference] = await Promise.all([
-      this.evidence.of(order.runId.value),
-      order.reference ? this.evidence.of(order.reference.value) : null,
+      this.evidence.of(order.runId),
+      order.reference ? this.evidence.of(order.reference) : null,
     ]);
 
     if (!run) {

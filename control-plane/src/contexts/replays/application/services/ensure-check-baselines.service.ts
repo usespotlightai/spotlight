@@ -1,6 +1,6 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
 import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -23,7 +23,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
     private readonly evaluations: CheckEvaluations,
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
-    private readonly work: WorkPort,
+    private readonly configs: StationConfigs,
     private readonly snapshots: LiveCandidates,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -58,7 +58,7 @@ export class EnsureCheckBaselines implements PendingJobsPort {
 
     const live =
       set && !set.isAtGoneStation
-        ? await this.work.live(set.station.lineId, set.station.stationId)
+        ? await this.configs.live(set.station.lineId, set.station.stationId)
         : null;
 
     if (!check.measuresAgainst(live?.hashes ?? null)) {

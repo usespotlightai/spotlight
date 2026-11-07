@@ -4,7 +4,7 @@ import type {
   EgressConnectionRecord,
   EgressConnectionsRecordedDto,
 } from '@runs/application/dto/egress-connections.dto';
-import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
+import type { RunConnectionLedgerPort } from '@runs/application/ports/run-connection-ledger.port';
 import type { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import { InvalidRunConnectionError } from '@runs/domain/exceptions/invalid-run-connection.error';
 import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
@@ -49,7 +49,7 @@ export class RecordEgressConnectionsHandler
   constructor(
     private readonly egress: RunnerEgressPort,
     private readonly fetches: EgressSecretFetches,
-    private readonly connections: RunConnectionsPort,
+    private readonly connections: RunConnectionLedgerPort,
     private readonly clock: ClockPort,
   ) {}
 

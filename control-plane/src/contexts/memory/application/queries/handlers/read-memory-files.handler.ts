@@ -6,7 +6,7 @@ import { memoryFilesOf } from '@memory/application/rendering/memory-files';
 import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
-import { usesMemories } from '@memory/domain/services/search-memory-access';
+import { usesMemories } from '@memory/domain/services/isolated-run-memory-access';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -34,7 +34,7 @@ export class ReadMemoryFilesHandler
         return [];
       }
 
-      const applying = await this.applicable.at(run, run.replaysFrom);
+      const applying = await this.applicable.at(run, run.asOf);
       const [lines, replaced] = await Promise.all([
         this.lines.ofTeam(run.teamId),
         this.memories.findAll(

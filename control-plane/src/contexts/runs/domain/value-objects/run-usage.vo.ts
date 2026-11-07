@@ -15,7 +15,7 @@ export interface SpentReading {
   readonly cost: Money | null;
 }
 
-export interface StepReading {
+interface StepReading {
   readonly status: string | null;
   readonly change: {
     readonly path: string | null;

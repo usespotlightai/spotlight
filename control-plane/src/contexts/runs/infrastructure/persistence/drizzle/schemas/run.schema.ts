@@ -146,7 +146,7 @@ export const run = pgTable(
       table.harness,
       table.state,
       table.priority,
-      table.queuedAt,
+      table.createdAt,
     ),
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),

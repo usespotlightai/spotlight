@@ -8,7 +8,9 @@ import { IntegrationConnection } from '@integrations/domain/aggregates/integrati
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -87,11 +89,11 @@ const nearing = (over: { refreshToken?: string | null } = {}) =>
     integration: SLACK,
     owner: ConnectionOwner.team(),
     accessToken: AccessToken.of('xoxb-old'),
-    refreshToken: AccessToken.maybe(
+    refreshToken: RefreshToken.maybe(
       'refreshToken' in over ? over.refreshToken : 'xoxe-old',
     ),
     expiresAt: new Date('2026-09-07T10:02:00.000Z'),
-    scopes: ['chat:write'],
+    scopes: [OAuthScope.of('chat:write')],
     linkedAccount: 'Acme',
     refreshFailedAt: null,
     refreshClaim: null,

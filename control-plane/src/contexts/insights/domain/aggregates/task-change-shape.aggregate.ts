@@ -1,5 +1,6 @@
 import { TaskChangeShapeErased } from '@insights/domain/events/task-change-shape-erased.event';
 import { TaskChangeShaped } from '@insights/domain/events/task-change-shaped.event';
+import { type Erased, erasedAs } from '@shared-kernel/domain/erased';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -88,7 +89,7 @@ export class TaskChangeShape extends EventRecorder {
     return reshaped;
   }
 
-  erased(): TaskChangeShape {
+  erased(): Erased<TaskChangeShape> {
     const erased = new TaskChangeShape(
       this.taskId,
       this.workspaceId,
@@ -100,6 +101,6 @@ export class TaskChangeShape extends EventRecorder {
     erased.inheritEvents(this);
     erased.record(new TaskChangeShapeErased(this.taskId, this.workspaceId));
 
-    return erased;
+    return erasedAs(erased);
   }
 }

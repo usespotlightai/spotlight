@@ -1,14 +1,15 @@
 import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
+import { labelledRun } from '@work/application/mappers/labelled-run.mapper';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
-import { tracedRunsOf, traceOf } from '@work/application/read-models/trace-of';
 import type { RunAccess } from '@work/application/services/run-access.service';
 
 export class ReadTaskTraceHandler
@@ -18,6 +19,7 @@ export class ReadTaskTraceHandler
     private readonly runs: RunReaderPort,
     private readonly journals: RunJournalReaderPort,
     private readonly connections: RunConnectionsPort,
+    private readonly readings: RunJournalReadingsPort,
     private readonly access: RunAccess,
   ) {}
 
@@ -45,7 +47,7 @@ export class ReadTaskTraceHandler
       );
 
       return TaskTraceMapper.toDto(
-        traceOf(tracedRunsOf(found, journals, errors)),
+        this.readings.traceOf(found.map(labelledRun), journals, errors),
       );
     } catch (error) {
       rethrowAsApplicationError(error);

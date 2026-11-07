@@ -55,14 +55,14 @@ import {
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHANGE_STACK_READY } from '@shared-kernel/application/integration-events/change-stack-ready.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import { DISPATCH_ENDED } from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
+import { DISPATCH_SUPERSEDED } from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import { LINE_CHANGED } from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import { MEMORIES_USED } from '@shared-kernel/application/integration-events/memories-used.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
 import { PULL_REQUEST_PURGED } from '@shared-kernel/application/integration-events/pull-request-purged.integration-event';
 import { PULL_REQUEST_REVIEW_TAKEN } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import { PULL_REQUEST_UPDATED } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
-import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
-import { RUN_SUPERSEDED } from '@shared-kernel/application/integration-events/run-superseded.integration-event';
 import { RUN_USAGE_RECORDED } from '@shared-kernel/application/integration-events/run-usage-recorded.integration-event';
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import { TASK_ASKED } from '@shared-kernel/application/integration-events/task-asked.integration-event';
@@ -73,22 +73,24 @@ import { TASK_PASSED } from '@shared-kernel/application/integration-events/task-
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
 import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const PULL = 'https://github.com/acme/api/pull/3';
 
 const ENDED: EndedRun = {
-  runId: 'run_1',
-  workspaceId: 'ws_1',
-  teamId: 'team_1',
-  lineId: 'line_1',
-  stationId: 'station_1',
-  taskId: 'task_1',
+  runId: RunId.of('run_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
+  taskId: TaskId.of('task_1'),
   fingerprint: FIRST_CONFIG,
   visit: 1,
   ...SET_UP,
@@ -98,11 +100,11 @@ const ENDED: EndedRun = {
 const WORK = {
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
-  taskRunOf: async (runId: string) =>
-    runId === ENDED.runId
+  taskRunOf: async (runId: RunId) =>
+    runId.equals(ENDED.runId)
       ? { runId, taskId: ENDED.taskId, teamId: ENDED.teamId }
       : null,
-  endedRun: async (runId: string) => (runId === ENDED.runId ? ENDED : null),
+  endedRun: async (runId: RunId) => (runId.equals(ENDED.runId) ? ENDED : null),
   configsInOrder: async () => [],
 };
 
@@ -136,12 +138,6 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       records,
       new FactRecorder(deletions),
       inTransaction,
-      {
-        debug: () => {},
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-      },
     ),
     superseding: new RecordSupersededRun(
       records,
@@ -183,8 +179,8 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       {
         judgesOnTeam: async () => new Map(),
         judgeAt: async () => ({
-          teamId: 'team_1',
-          lineId: 'line_1',
+          teamId: TeamId.of('team_1'),
+          lineId: LineId.of('line_1'),
           rubric: 'Did the run retry uploads?',
           rubricVersion: RUBRIC_VERSION,
           claims: [],
@@ -330,7 +326,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
 };
 
 const runEnded = (change: Record<string, unknown> = {}) => ({
-  kind: RUN_ENDED,
+  kind: DISPATCH_ENDED,
   runId: 'run_1',
   workspaceId: 'ws_1',
   taskId: 'task_1',
@@ -453,7 +449,7 @@ describe('insightsSubscribers', () => {
       server: null,
     });
     await subscriber.deliver('insights.record-superseded-run', {
-      kind: RUN_SUPERSEDED,
+      kind: DISPATCH_SUPERSEDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
@@ -987,7 +983,7 @@ describe('insightsSubscribers', () => {
       passed: true,
     });
     await subscriber.deliver('insights.record-superseded-run', {
-      kind: RUN_SUPERSEDED,
+      kind: DISPATCH_SUPERSEDED,
       runId: 'run_4',
       workspaceId: 'ws_1',
       taskId: 'task_1',

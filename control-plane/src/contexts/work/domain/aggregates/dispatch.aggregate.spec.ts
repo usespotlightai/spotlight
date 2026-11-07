@@ -1,4 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -12,6 +14,10 @@ import {
   DispatchEnding,
   type DispatchOutcome,
 } from '@work/domain/value-objects/dispatch-ending.vo';
+import {
+  runOrderOf,
+  trialOrderOf,
+} from '@work/domain/value-objects/dispatch-order.fake-spec';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
@@ -55,7 +61,7 @@ const TRIAL: DispatchSubject = {
   taskId: TaskId.of('task_1'),
   stationId: STATION,
   asOf: NOW,
-  repositories: [{ path: 'api', repository: 'acme/api' }],
+  repositories: [{ path: 'api', repository: Repository.of('acme/api') }],
   followUp: null,
 };
 
@@ -80,11 +86,20 @@ const ordered = (
   Dispatch.ordered({
     ...ordering(subject),
     briefedMemories,
-    order: DispatchOrder.of({ runId: RUN.value }),
+    order: runOrderOf(RUN),
   });
 
-const ending = (outcome: DispatchOutcome, failure: string | null = null) =>
-  DispatchEnding.of({ endedAt: LATER, outcome, failure, stopped: false });
+const ending = (
+  outcome: DispatchOutcome,
+  failure: RunFailureCode | null = null,
+) =>
+  DispatchEnding.of({
+    endedAt: LATER,
+    outcome,
+    failure,
+    stopped: false,
+    askedAPerson: false,
+  });
 
 const kinds = (dispatch: Dispatch) =>
   dispatch.pullEvents().map((each) => each.kind);
@@ -103,7 +118,7 @@ describe('Dispatch', () => {
   });
 
   it('records a trial with the order it returns, without asking anyone to enqueue it', () => {
-    const order = DispatchOrder.of({ runId: RUN.value });
+    const order = trialOrderOf(RUN);
     const trial = Dispatch.trialOrdered({ ...ordering(TRIAL), order });
 
     expect(trial.order).toBe(order);
@@ -114,9 +129,26 @@ describe('Dispatch', () => {
     expect(() =>
       Dispatch.ordered({
         ...ordering(TRIAL),
-        order: DispatchOrder.of({}),
+        order: runOrderOf(RUN),
       }),
     ).toThrow(InvalidDispatchTransitionError);
+  });
+
+  it('refuses an order of another kind or of another run', () => {
+    expect(() =>
+      Dispatch.ordered({ ...ordering(TASK), order: trialOrderOf(RUN) }),
+    ).toThrow(InvalidDispatchTransitionError);
+    expect(() =>
+      Dispatch.ordered({
+        ...ordering(TASK),
+        order: runOrderOf(RunId.of('run_other')),
+      }),
+    ).toThrow(InvalidDispatchTransitionError);
+    expect(() =>
+      DispatchOrder.of({ kind: 'run', runId: RUN, snapshot: {} }),
+    ).toThrow(InvalidDispatchTransitionError);
+    expect(runOrderOf(RUN).equals(runOrderOf(RUN))).toBe(true);
+    expect(runOrderOf(RUN).equals(trialOrderOf(RUN))).toBe(false);
   });
 
   it('records a station config only for a run at a station, and always for a trial', () => {
@@ -124,14 +156,14 @@ describe('Dispatch', () => {
       Dispatch.ordered({
         ...ordering(CHAT),
         configuredAs: CONFIG,
-        order: DispatchOrder.of({}),
+        order: runOrderOf(RUN),
       }),
     ).toThrow(InvalidDispatchTransitionError);
     expect(() =>
       Dispatch.trialOrdered({
         ...ordering(TRIAL),
         configuredAs: null,
-        order: DispatchOrder.of({}),
+        order: trialOrderOf(RUN),
       }),
     ).toThrow(InvalidDispatchTransitionError);
   });
@@ -180,7 +212,7 @@ describe('Dispatch', () => {
       kinds(
         Dispatch.trialOrdered({
           ...ordering(TRIAL),
-          order: DispatchOrder.of({}),
+          order: trialOrderOf(RUN),
         }).ended(ending('completed')),
       ),
     ).toEqual([]);
@@ -234,7 +266,7 @@ describe('Dispatch', () => {
       expect(
         Dispatch.trialOrdered({
           ...ordering(TRIAL),
-          order: DispatchOrder.of({}),
+          order: trialOrderOf(RUN),
         })
           .detached(NOW)
           .ended(failed).superseded,

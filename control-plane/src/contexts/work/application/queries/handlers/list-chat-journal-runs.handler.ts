@@ -22,7 +22,7 @@ export class ListChatJournalRunsHandler
     query: ListChatJournalRunsQuery,
   ): Promise<JournalledRunDto[] | null> {
     try {
-      const runs = this.access.shownOfChat(
+      const runs = await this.access.shownOfChat(
         await this.journals.runsOfChat(
           TeamId.of(query.teamId),
           ChatId.of(query.chatId),

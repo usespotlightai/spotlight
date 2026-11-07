@@ -1,4 +1,4 @@
-import type { LeasedRun } from '@runs/application/ports/run-leases.port';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -7,6 +7,7 @@ import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
+import type { ToolCallResultDto } from '@work/application/ports/integration-tool-calls.port';
 import type {
   HookDecision,
   LifecycleHooksPort,
@@ -17,10 +18,11 @@ import type {
 } from '@work/application/ports/task-views.port';
 import type { ToolUsesPort } from '@work/application/ports/tool-uses.port';
 import type { RunWorks } from '@work/application/services/run-works.service';
+import { ToolCallFailures } from '@work/application/services/tool-call-failures';
 import type { ToolSources } from '@work/application/services/tool-sources.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import { RecordedToolUse } from '@work/domain/entities/recorded-tool-use.entity';
-import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import { LeaseLostError } from '@work/domain/exceptions/lease-lost.error';
 import { ToolApprovalDismissedError } from '@work/domain/exceptions/tool-approval-dismissed.error';
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
 import { ToolAwaitsConnectionError } from '@work/domain/exceptions/tool-awaits-connection.error';
@@ -28,9 +30,9 @@ import { ToolBlockedByPersonError } from '@work/domain/exceptions/tool-blocked-b
 import { ToolConnectionDeniedError } from '@work/domain/exceptions/tool-connection-denied.error';
 import { ToolHookDeniedError } from '@work/domain/exceptions/tool-hook-denied.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
-import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
 import { StricterRule } from '@work/domain/services/stricter-rule';
+import { ToolEnablement } from '@work/domain/services/tool-enablement';
 import type { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';
@@ -56,15 +58,16 @@ export class UseToolHandler
         command.runnerId,
       );
 
-      if (!run.policy.actsBeyondItself || !run.manifest.includes(tool.value)) {
-        throw new ToolNotEnabledError(tool.value);
-      }
+      ToolEnablement.assertEnabled(tool, {
+        actsBeyondItself: run.policy.actsBeyondItself,
+        manifest: run.manifest,
+      });
 
       if (!work) {
         throw new ToolNeedsWorkError(tool.value);
       }
 
-      const context = await work.toolContext();
+      const context = await work.toolContext(tool);
       const resolved = await this.sources.resolve(
         tool,
         run,
@@ -148,14 +151,14 @@ export class UseToolHandler
         throw error;
       }
 
-      let output: unknown;
+      let result: ToolCallResultDto;
 
       try {
-        output = await resolved.call(inputs);
+        result = await resolved.call(inputs);
       } catch (error) {
         await cleared.returned();
 
-        if (error instanceof RunAttemptOverError) {
+        if (error instanceof LeaseLostError) {
           throw error;
         }
 
@@ -169,6 +172,21 @@ export class UseToolHandler
         );
         throw error;
       }
+
+      if (result.outcome === 'failed') {
+        await cleared.returned();
+        await this.used(
+          run,
+          tool,
+          inputs,
+          ToolOutput.answered(result.failure.reason),
+          true,
+          resolved.actingAs,
+        );
+        throw ToolCallFailures.errorOf(result.failure);
+      }
+
+      const { output } = result;
 
       await this.used(
         run,
@@ -190,7 +208,7 @@ export class UseToolHandler
     }
   }
 
-  private taskViewOf(run: LeasedRun): Promise<TaskViewDto | null> {
+  private taskViewOf(run: LeasedRunFacts): Promise<TaskViewDto | null> {
     const task = WorkRequesters.taskOf(run.requester);
 
     return task
@@ -199,7 +217,7 @@ export class UseToolHandler
   }
 
   private async used(
-    run: LeasedRun,
+    run: LeasedRunFacts,
     tool: Tool,
     inputs: ToolInputs,
     output: ToolOutput,

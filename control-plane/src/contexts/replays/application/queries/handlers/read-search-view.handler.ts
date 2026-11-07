@@ -1,6 +1,6 @@
 import type { SearchViewDto } from '@replays/application/dto/search-view.dto';
+import type { LinesPort } from '@replays/application/ports/lines.port';
 import type { StationHistoryPort } from '@replays/application/ports/station-history.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReadSearchViewQuery } from '@replays/application/queries/read-search-view.query';
 import type { SearchVisibilities } from '@replays/application/queries/search-visibilities';
 import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
@@ -16,7 +16,7 @@ export class ReadSearchViewHandler
   constructor(
     private readonly searchRuns: SearchRunDispatching,
     private readonly visibilities: SearchVisibilities,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
     private readonly history: StationHistoryPort,
   ) {}
 
@@ -33,7 +33,7 @@ export class ReadSearchViewHandler
 
       const visible = await this.visibilities.of(query.runId);
       const stationId = StationId.of(visible.stationId);
-      const station = await this.work.findStation(stationId);
+      const station = await this.lines.findStation(stationId);
       const shown = visible.candidates.flatMap((candidate) =>
         candidate.runs.map((run) => run.runId),
       );

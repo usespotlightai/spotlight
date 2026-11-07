@@ -4,8 +4,10 @@ import type {
   TrialRequest,
 } from '@replays/application/ports/station-trials.port';
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
+import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-import { UNTRIALABLE } from '@replays/infrastructure/acl/work.adapter';
+import { UNTRIALABLE } from '@replays/infrastructure/acl/trialable-runs.adapter';
+import { WorkTrialRun } from '@replays/infrastructure/acl/work-trial-run';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   TrialFollowUp,
@@ -36,10 +38,8 @@ export class StationTrials implements StationTrialsPort {
       workspaceId: request.workspaceId.value,
       lineId: request.lineId.value,
       stationId: request.stationId.value,
-      config: request.block,
-      ...(request.repositories === undefined
-        ? {}
-        : { repositories: request.repositories }),
+      config: request.block.value,
+      ...(request.line ? { repositories: request.line.repositories } : {}),
       followUp: request.answer && FOLLOW_UP[request.answer],
     });
 
@@ -47,21 +47,19 @@ export class StationTrials implements StationTrialsPort {
       return {
         ordered: false,
         unreplayableReason: UNTRIALABLE[ordering.reason],
-        reason: ordering.description,
       };
     }
 
-    const { team, ...order } = ordering.order;
-
     return {
       ordered: true,
-      order,
-      team,
-      fingerprint: ordering.fingerprint
-        ? StationFingerprint.of(ordering.fingerprint)
-        : null,
-      checkouts: ordering.checkouts,
-      movesOnAfter: ordering.movesOnAfter,
+      trial: new WorkTrialRun(
+        ordering.order,
+        ordering.checkouts,
+        ordering.fingerprint
+          ? StationFingerprint.of(ordering.fingerprint)
+          : null,
+        MovesOnWords.of(ordering.movesOnAfter),
+      ),
     };
   }
 

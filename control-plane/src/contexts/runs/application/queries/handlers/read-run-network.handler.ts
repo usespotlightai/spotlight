@@ -1,8 +1,8 @@
 import type { RunNetworkDto } from '@runs/application/dto/run-network.dto';
 import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
 import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
-import type { RunViewersPort } from '@runs/application/ports/run-viewers.port';
 import type { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.query';
+import type { RunViewing } from '@runs/application/services/run-viewing.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -12,7 +12,7 @@ export class ReadRunNetworkHandler
   implements QueryHandlerPort<ReadRunNetworkQuery, RunNetworkDto | null>
 {
   constructor(
-    private readonly runs: RunViewersPort,
+    private readonly runs: RunViewing,
     private readonly events: RunJournalEntryReaderPort,
     private readonly connections: RunConnectionsPort,
   ) {}
@@ -22,7 +22,9 @@ export class ReadRunNetworkHandler
       const runId = RunId.of(query.runId);
       const found = await this.runs.watchedBy(runId, UserId.of(query.viewerId));
 
-      if (!found) {
+      const team = found?.requester.team ?? null;
+
+      if (!found || (team !== null && team !== query.teamId)) {
         return null;
       }
 

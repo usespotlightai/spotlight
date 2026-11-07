@@ -1,10 +1,6 @@
-export type ProvisionAttemptOutcome =
-  | 'provisioned'
-  | 'failed'
-  | 'full'
-  | 'gone';
+type ProvisionAttemptOutcome = 'provisioned' | 'failed' | 'full' | 'gone';
 
-export type ProvisionNextStep = 'done' | 'record-failure' | 'try-another-pool';
+type ProvisionNextStep = 'done' | 'record-failure' | 'try-another-pool';
 
 export const ProvisionPlan = {
   after(

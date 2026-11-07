@@ -32,8 +32,9 @@ const LEASED: LeasedRun = {
   lineId: LineId.of('line_1'),
   stationId: StationId.of('station_1'),
   repositories: [],
-  replaysFrom: null,
-  isSearch: false,
+  asOf: null,
+  isolated: false,
+  trial: false,
 };
 
 const remembering = (run: LeasedRun | null = LEASED) => {

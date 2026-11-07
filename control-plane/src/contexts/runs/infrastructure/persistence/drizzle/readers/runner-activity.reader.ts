@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
-  LeasedRun,
   RunnerActivityReaderPort,
+  RunnerActivityRow,
 } from '@runs/application/ports/runner-activity-reader.port';
 import { isLeasedState } from '@runs/domain/value-objects/run-state';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
@@ -15,7 +15,9 @@ import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async leasedIn(workspaceId: WorkspaceId): Promise<readonly LeasedRun[]> {
+  async leasedIn(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly RunnerActivityRow[]> {
     const rows = await this.db
       .select({
         id: run.id,

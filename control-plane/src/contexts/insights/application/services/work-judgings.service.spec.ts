@@ -9,13 +9,14 @@ import { inTransaction } from '@insights/runs.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-30T10:05:00.000Z');
 
 const EVIDENCE: RunEvidence = {
-  runId: 'run_1',
-  taskId: 'task_1',
+  runId: RunId.of('run_1'),
+  taskId: TaskId.of('task_1'),
   title: 'Retry uploads',
   description: 'They fail on a flaky network.',
   steps: [

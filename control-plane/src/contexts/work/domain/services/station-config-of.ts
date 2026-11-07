@@ -77,7 +77,7 @@ export const stationConfigOf = (
       ...(station.judge
         ? {
             judge: {
-              rubricHash: sha256(station.judge.criteria),
+              rubricHash: station.judge.rubricVersion,
               sample: station.judge.sample,
               minAgreement: station.judge.minAgreement,
             },

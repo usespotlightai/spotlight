@@ -14,6 +14,7 @@ import {
   HappenedMapper,
   type ReceivedHappening,
 } from '@work/application/mappers/happened.mapper';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type {
   HappeningReactionsPort,
@@ -21,7 +22,6 @@ import type {
 } from '@work/application/ports/happening-reactions.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import {
@@ -29,6 +29,7 @@ import {
   ChannelChats,
 } from '@work/application/services/channel-chats.service';
 import { correlatedTask } from '@work/application/services/correlated-task';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import {
   failedReactionOf,
   HELD,
@@ -208,7 +209,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     return run?.suspendedAt
       ? TurnWait.holdsHappening(
-          run.turn,
+          RunReadingMapper.turn(run.turn),
           this.clock.now().getTime() - run.suspendedAt.getTime(),
         )
       : false;

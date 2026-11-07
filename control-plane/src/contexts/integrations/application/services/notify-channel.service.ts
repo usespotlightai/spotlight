@@ -6,17 +6,19 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BindableChatEvent } from '@work/application/contracts/bindable-chat-events.contract';
 
 export interface ChannelNotice {
-  readonly workspaceId: string;
-  readonly teamId: string;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
   readonly marks: Readonly<Record<string, string>>;
   readonly body: string;
   readonly proposals: ChatPayload['reply']['proposals'];
   readonly chatId: string | null;
-  readonly taskId: string | null;
+  readonly taskId: TaskId | null;
 }
 
 export class NotifyChannel {
@@ -29,7 +31,7 @@ export class NotifyChannel {
   ) {}
 
   async notify(notice: ChannelNotice, event: BindableChatEvent): Promise<void> {
-    const teamId = TeamId.of(notice.teamId);
+    const { teamId } = notice;
     const definitions = await this.defined.ofTeam(teamId);
     const posting = this.runtime
       .integrations(definitions)

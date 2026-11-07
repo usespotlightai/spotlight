@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
+  FileChangeDto,
   HistoryOutcome,
   HistoryRunDto,
   HistoryUsage,
   RunnerHistoryDto,
 } from '@work/application/dto/runner-history.dto';
-import type { FileChange } from '@work/application/read-models/file-changes-of';
 import { StationConfigResponseDto } from '@work/presentation/http/dto/station-config.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 
@@ -156,7 +156,7 @@ export class FileChangeResponseDto {
   })
   readonly omitted: boolean;
 
-  constructor(from: FileChange) {
+  constructor(from: FileChangeDto) {
     this.path = from.path;
     this.before = from.before;
     this.after = from.after;

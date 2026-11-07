@@ -1,6 +1,7 @@
 export const HOOK_TRACES = Symbol('HOOK_TRACES');
 
 export interface HookCallTrace {
+  readonly attempt: number;
   readonly hook: string;
   readonly step: string;
   readonly kind: 'call' | 'request';

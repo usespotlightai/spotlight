@@ -1,6 +1,6 @@
 import type { ChangeStackBecameReady } from '@change-review/domain/events/change-stack-became-ready.event';
 import type { StackChecked } from '@change-review/domain/events/stack-checked.event';
-import type { TrialStackCompleted } from '@change-review/domain/events/trial-stack-completed.event';
+import type { TrialStackSettled } from '@change-review/domain/events/trial-stack-settled.event';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -74,8 +74,8 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
       };
     },
   ),
-  mapping<TrialStackCompleted>(
-    'change-stack.trial-completed',
+  mapping<TrialStackSettled>(
+    'change-stack.trial-settled',
     (event): TrialStackCompletedIntegrationEvent => ({
       kind: TRIAL_STACK_COMPLETED,
       runId: event.runId.value,

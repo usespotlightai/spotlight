@@ -40,6 +40,9 @@ export const REVIEW_STATES = [
 
 export type ReviewState = (typeof REVIEW_STATES)[number];
 
+export const isListedReview = (state: ReviewState): boolean =>
+  state !== 'discarded';
+
 const hasContent = (verdict: ReviewVerdict, body: string, comments: number) =>
   verdict === 'approve' || body.length > 0 || comments > 0;
 

@@ -101,7 +101,7 @@ const checkOf = (
     id: StackCheckId.of(ChangeStackId.of(id), recheck),
     runId: RUN,
     taskId: null,
-    teamId: null,
+    teamId: TeamId.of('team_1'),
     trial: true,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),

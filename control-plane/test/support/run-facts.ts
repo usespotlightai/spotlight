@@ -1,19 +1,15 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { RunFacts } from '@runs/application/services/run-facts.service';
+import { RunReadModel } from '@runs/application/services/run-read-model.service';
+import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
-import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
-import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 
-const NO_EVENTS = { dispatch: async () => {} };
+const _NO_EVENTS = { dispatch: async () => {} };
 
-export const runFactsOver = (db: DrizzleDatabase): RunFacts => {
+export const runFactsOver = (db: DrizzleDatabase): RunReadModel => {
   const context = new DrizzleContext(db);
 
-  return new RunFacts(
-    new DrizzleRunRepository(context, NO_EVENTS),
-    new DrizzleWorkspaceArchiveRepository(context, NO_EVENTS),
-  );
+  return new RunReadModel(new DrizzleRunFactsReader(context));
 };
 
 export const runJournalsOver = (db: DrizzleDatabase): DrizzleRunJournals =>

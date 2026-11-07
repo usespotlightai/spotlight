@@ -9,6 +9,7 @@ import type { EgressSecretFetches } from '@runs/application/services/egress-secr
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -65,7 +66,7 @@ export class ActiveRunsHandler
 
     if (authorized.work.kind === 'check') {
       return this.checks.isLeasedBy(
-        authorized.work.id,
+        CheckWorkId.of(authorized.work.id),
         RunnerId.of(authorized.runnerId),
         this.clock.now(),
       );

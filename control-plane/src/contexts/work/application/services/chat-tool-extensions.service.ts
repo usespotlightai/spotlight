@@ -91,11 +91,13 @@ export class ChatToolExtensions implements ChatToolExtensionsPort {
           missing: null,
           personRule: null,
           defaultFor: () => undefined,
-          call: async (inputs) =>
-            extension.call(
+          call: async (inputs) => ({
+            outcome: 'answered',
+            output: await extension.call(
               contextOf(await this.chatOf(context)),
               inputs.values,
             ),
+          }),
         }
       : null;
   }

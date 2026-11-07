@@ -1,8 +1,4 @@
-import {
-  filesChangedIn,
-  workspacePath,
-} from '@runs/domain/services/workspace-path';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { workspacePath } from '@runs/domain/services/workspace-path';
 import { describe, expect, it } from 'vitest';
 
 const FOLDERS = ['api', 'web'];
@@ -28,41 +24,5 @@ describe('a path within the workspace', () => {
     expect(workspacePath('/tmp/scratch.ts', FOLDERS)).toBeNull();
     expect(workspacePath('/work/api', FOLDERS)).toBeNull();
     expect(workspacePath('api/../../etc/passwd', FOLDERS)).toBeNull();
-  });
-});
-
-describe('the files changed in a run', () => {
-  const API = Repository.of('acme/api');
-  const WEB = Repository.of('acme/web');
-
-  it('name each file within a checkout in the repository of that folder', () => {
-    expect(
-      filesChangedIn(
-        {
-          checkouts: ['api', 'web'],
-          paths: [
-            '/runs/run_1/api/src/uploads.ts',
-            '/runs/run_1/web/src/Upload.tsx',
-            '/tmp/scratch.ts',
-          ],
-        },
-        [API, WEB],
-      ),
-    ).toEqual([
-      { repository: API, path: 'src/uploads.ts' },
-      { repository: WEB, path: 'src/Upload.tsx' },
-    ]);
-  });
-
-  it('leave out a checkout whose repository is not worked on', () => {
-    expect(
-      filesChangedIn(
-        {
-          checkouts: ['api', 'web'],
-          paths: ['/runs/run_1/web/src/Upload.tsx'],
-        },
-        [API],
-      ),
-    ).toEqual([]);
   });
 });

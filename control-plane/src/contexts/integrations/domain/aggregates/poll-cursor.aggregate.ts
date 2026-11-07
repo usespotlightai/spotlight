@@ -74,6 +74,12 @@ export class PollCursor {
     return new PollCursor({ ...this.state, polledAt: now });
   }
 
+  happeningsKeyFor(next: string | null): string | null {
+    return next === null
+      ? null
+      : `poll:${this.state.integration.value}:${this.state.teamId.value}:${this.state.cursor ?? ''}`;
+  }
+
   advancedTo(cursor: string | null): PollCursor {
     if (this.state.polledAt === null) {
       throw new InvalidCursorTransitionError(

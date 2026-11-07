@@ -31,12 +31,13 @@ import {
 import type { OnModuleDestroy } from '@nestjs/common';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 type Fetch = typeof globalThis.fetch;
 
 export interface McpInjection {
   readonly connection: string | null;
-  readonly secrets: readonly string[];
+  readonly secrets: readonly SecretName[];
   readonly credentials: Credentials;
 }
 

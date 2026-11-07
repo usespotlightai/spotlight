@@ -20,7 +20,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const access = (
   over: {
     member?: boolean;
-    readsTeam?: boolean;
+    actsForTeam?: boolean;
     task?: Partial<ReviewedTask> | null;
     run?: Partial<RunForReview> | null;
     ranFor?: TeamId | null;
@@ -36,7 +36,7 @@ const access = (
               teamId: TeamId.of('team_1'),
               by: UserId.of('user_1'),
             },
-      readsTeam: async () => over.readsTeam ?? over.member !== false,
+      actsForTeam: async () => over.actsForTeam ?? over.member !== false,
       find: async () => ({ name: 'Ada', image: null }),
     } as unknown as PeoplePort,
     {
@@ -238,7 +238,7 @@ describe('who may see a task’s decisions', () => {
 
 describe('who may act in the reviews of a team’s work', () => {
   const unseen = () => new UnknownDecisionError();
-  const outsider = { readsTeam: false };
+  const outsider = { actsForTeam: false };
 
   it('is someone the team rule admits: a team member or a workspace admin', async () => {
     expect(

@@ -3,7 +3,7 @@ import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { ClaimHostCallCommand } from '@runs/application/commands/host-call.commands';
 import type { HostCallClaimDto } from '@runs/application/dto/host-call.dto';
 import type { LongPoll } from '@runs/application/services/long-poll';
-import type { NetworkCallRepository } from '@runs/domain/repositories/network-call.repository';
+import type { NetworkCallClaims } from '@runs/application/services/network-call-claims.service';
 import { CallingHost } from '@runs/domain/value-objects/calling-host.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -17,7 +17,7 @@ export class ClaimHostCallHandler
   constructor(
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly runners: RunnersPort,
-    private readonly calls: NetworkCallRepository,
+    private readonly calls: NetworkCallClaims,
     private readonly clock: ClockPort,
     private readonly polls: LongPoll,
     private readonly tokens: TokenIssuer,
@@ -41,7 +41,7 @@ export class ClaimHostCallHandler
 
       const secretsToken = this.tokens.issue();
       const claimed = await this.polls.polled(() =>
-        this.calls.claimNext(
+        this.calls.next(
           authenticated.workspaceId,
           host,
           this.clock.now(),

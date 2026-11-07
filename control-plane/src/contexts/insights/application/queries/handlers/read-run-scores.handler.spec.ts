@@ -29,12 +29,14 @@ import {
   StationFactsInMemory,
   WORKSPACE,
 } from '@insights/runs.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const JUDGE: StationJudge = {
-  teamId: 'team_1',
-  lineId: 'line_1',
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
   rubric: 'Did the run retry uploads?',
   rubricVersion: RUBRIC_VERSION,
   claims: [],

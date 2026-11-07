@@ -5,6 +5,7 @@ import type {
   SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class SpecReaders implements SpecReaderPort {
   constructor(

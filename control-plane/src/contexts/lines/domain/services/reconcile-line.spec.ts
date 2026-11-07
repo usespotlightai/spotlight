@@ -11,7 +11,10 @@ import {
 } from '@lines/domain/value-objects/line-plan.vo';
 import { LineSearchPolicy } from '@lines/domain/value-objects/search-policy.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
-import type { StrandedStation } from '@lines/domain/value-objects/stranded-station';
+import {
+  type StrandedStation,
+  TaskCounts,
+} from '@lines/domain/value-objects/stranded-station';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
@@ -122,11 +125,11 @@ const reconciling = (
         by: changeActorIn(),
         existing: line,
         plan,
-        taskCounts: new Map(
-          line.stations.map((each) => [
-            each.id.value,
-            tasks[each.key.value] ?? 0,
-          ]),
+        taskCounts: TaskCounts.of(
+          line.stations.map((each) => ({
+            stationId: each.id,
+            tasks: tasks[each.key.value] ?? 0,
+          })),
         ),
         newId: () => `new_${++next}`,
       }),
@@ -236,7 +239,7 @@ describe('reconciling a line with the plan describing it', () => {
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.stranded).toEqual([
-      expect.objectContaining({ key: going, tasks: 3 }),
+      expect.objectContaining({ key: StationKey.of(going), tasks: 3 }),
     ]);
   });
 
@@ -255,7 +258,7 @@ describe('reconciling a line with the plan describing it', () => {
       Object.fromEntries(going.map((key) => [key, 1])),
     );
 
-    expect(!result.ok && result.stranded.map((each) => each.key)).toEqual(
+    expect(!result.ok && result.stranded.map((each) => each.key.value)).toEqual(
       going,
     );
   });

@@ -25,6 +25,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
+import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type {
   RunConfigSummary,
   RunConfigView,
@@ -35,12 +36,14 @@ import type {
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
 import type { RunsInWorkspace } from '@work/application/ports/viewed-runs';
-import { takenUpOnAnswer } from '@work/application/read-models/taken-up-on-answer';
 import { worksOn } from '@work/domain/services/conversations';
 import { inThreadAt } from '@work/domain/services/station-thread';
-import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
+import { takesUpRun } from '@work/domain/services/taking-up';
+import {
+  progressOfCurrentRun,
+  progressOfTaskRun,
+} from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
-import { taskRunStateOf } from '@work/domain/value-objects/task-run-state';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
@@ -223,13 +226,22 @@ export class DrizzleRunReader implements RunReaderPort {
     return rows.flatMap(
       ({ stationLineId, currentRunId, superseded, orderedAt, ...row }) => {
         const run = facts.get(row.id);
+        const state = run && RunReadingMapper.state(run.state, superseded);
 
-        return run
+        return run && state
           ? [
               {
                 ...row,
-                state: taskRunStateOf(run.state, superseded),
-                stopRequested: run.stopRequested,
+                state,
+                progress: progressOfTaskRun(
+                  state,
+                  RunReadingMapper.reading(run),
+                  takesUpRun({
+                    holdsRun: row.id === currentRunId,
+                    awaitsAPerson:
+                      row.taskId !== null && awaited.has(row.taskId),
+                  }),
+                ),
                 attempt: run.attempt,
                 exitCode: run.exitCode,
                 startedAt: orderedAt,
@@ -242,10 +254,6 @@ export class DrizzleRunReader implements RunReaderPort {
                   stationCounts,
                 ),
                 review: review.get(row.id) ?? null,
-                takenUpOnAnswer: takenUpOnAnswer(row.id, {
-                  currentRunId,
-                  awaitsPerson: row.taskId !== null && awaited.has(row.taskId),
-                }),
               },
             ]
           : [];
@@ -338,12 +346,15 @@ export class DrizzleRunReader implements RunReaderPort {
         createdAt: found.createdAt,
         briefing: found.briefing ?? '',
         progress: worksOn(found.workingRunId === latestRun.runId.value, notes)
-          ? progressOfCurrentRun(latestRun, true)
+          ? progressOfCurrentRun(RunReadingMapper.reading(latestRun), true)
           : null,
         latestRun: {
           id: latestRun.runId.value,
-          state: taskRunStateOf(latestRun.state, latest?.superseded ?? false),
-          progress: latestRun.progress,
+          state: RunReadingMapper.state(
+            latestRun.state,
+            latest?.superseded ?? false,
+          ),
+          progress: RunReadingMapper.progress(latestRun.progress),
         },
         notes: notes.filter((note) =>
           inThreadAt(

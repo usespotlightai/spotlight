@@ -3,6 +3,7 @@ import type { HookResourceDto } from '@integrations/application/dto/hook-resourc
 import type { HookResourcesPort } from '@integrations/application/ports/hook-resources.port';
 import type { ReadHookQuery } from '@integrations/application/queries/read-hook.query';
 import type { HookViews } from '@integrations/application/services/hook-views.service';
+import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -17,7 +18,9 @@ export class ReadHookHandler
 
   async execute(query: ReadHookQuery): Promise<HookResourceDto | null> {
     try {
-      const record = await this.resources.withId(query.hookId);
+      const record = await this.resources.withId(
+        HookDefinitionId.of(query.hookId),
+      );
 
       if (
         !record ||

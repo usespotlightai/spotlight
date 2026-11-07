@@ -9,7 +9,7 @@ import { HistoryAccesses } from '@work/application/services/history-accesses.ser
 import { TraceScopes } from '@work/application/services/trace-scopes.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { trialOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 export interface LeasedHistoryFixture {
@@ -50,7 +50,7 @@ const trialOf = (runId: RunId, asOf: Date | null): Dispatch =>
       followUp: null,
     },
     configuredAs: CONFIG,
-    order: DispatchOrder.of({}),
+    order: trialOrderOf(runId),
     now: new Date('2026-09-01T09:00:00.000Z'),
   });
 

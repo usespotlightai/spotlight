@@ -1,8 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { Injectable } from '@nestjs/common';
+import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type {
   ArchiveCursor,
+  ArchiveDue,
   ArchiveReferencesPort,
   ArchivesDue,
 } from '@runs/application/ports/archive-references.port';
@@ -43,6 +43,22 @@ const sameKey = and(
   gt(newer.completedAt, workspaceArchive.completedAt),
 );
 
+const dueOf = (row: {
+  readonly id: string;
+  readonly workspaceKey: string;
+  readonly grantedAt: Date;
+  readonly supersededAt: Date | null;
+  readonly lastStartedFromAt: Date | null;
+  readonly pinned: boolean;
+}): ArchiveDue => ({
+  id: WorkspaceArchiveId.of(row.id),
+  workspaceKey: WorkspaceKey.parse(row.workspaceKey),
+  grantedAt: row.grantedAt,
+  supersededAt: row.supersededAt,
+  lastStartedFromAt: row.lastStartedFromAt,
+  pinned: row.pinned,
+});
+
 const pastCursor = (after: ArchiveCursor | null) =>
   after
     ? or(
@@ -56,29 +72,26 @@ const pastCursor = (after: ArchiveCursor | null) =>
 
 @Injectable()
 export class DrizzleArchiveReferences implements ArchiveReferencesPort {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
+  constructor(private readonly context: DrizzleContext) {}
+
+  private get db() {
+    return this.context.db;
+  }
+
+  async of(id: WorkspaceArchiveId): Promise<ArchiveDue | null> {
+    const [row] = await this.selected()
+      .where(eq(workspaceArchive.id, id.value))
+      .limit(1);
+
+    return row ? dueOf(row) : null;
+  }
 
   async due(
     { grantedIncompleteBy }: ArchiveRemovalCutoffs,
     after: ArchiveCursor | null,
     limit: number,
   ): Promise<ArchivesDue> {
-    const rows = await this.db
-      .select({
-        id: workspaceArchive.id,
-        workspaceKey: workspaceArchive.workspaceKey,
-        grantedAt: workspaceArchive.grantedAt,
-        supersededAt: sql<Date | null>`(${this.db
-          .select({ at: min(newer.completedAt) })
-          .from(newer)
-          .where(sameKey)})`.mapWith(workspaceArchive.completedAt),
-        lastStartedFromAt: sql<Date | null>`(${this.db
-          .select({ at: max(run.startedFromAt) })
-          .from(run)
-          .where(startedFromIt)})`.mapWith(run.startedFromAt),
-        pinned: exists(this.pinning()).mapWith(Boolean),
-      })
-      .from(workspaceArchive)
+    const rows = await this.selected()
       .where(
         and(
           pastCursor(after),
@@ -94,14 +107,7 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
       .orderBy(asc(workspaceArchive.grantedAt), asc(workspaceArchive.id))
       .limit(limit);
 
-    const due = rows.map((row) => ({
-      id: WorkspaceArchiveId.of(row.id),
-      workspaceKey: WorkspaceKey.parse(row.workspaceKey),
-      grantedAt: row.grantedAt,
-      supersededAt: row.supersededAt,
-      lastStartedFromAt: row.lastStartedFromAt,
-      pinned: row.pinned,
-    }));
+    const due = rows.map(dueOf);
     const last = due[due.length - 1];
 
     return {
@@ -111,6 +117,25 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
           ? { grantedAt: last.grantedAt, id: last.id }
           : null,
     };
+  }
+
+  private selected() {
+    return this.db
+      .select({
+        id: workspaceArchive.id,
+        workspaceKey: workspaceArchive.workspaceKey,
+        grantedAt: workspaceArchive.grantedAt,
+        supersededAt: sql<Date | null>`(${this.db
+          .select({ at: min(newer.completedAt) })
+          .from(newer)
+          .where(sameKey)})`.mapWith(workspaceArchive.completedAt),
+        lastStartedFromAt: sql<Date | null>`(${this.db
+          .select({ at: max(run.startedFromAt) })
+          .from(run)
+          .where(startedFromIt)})`.mapWith(run.startedFromAt),
+        pinned: exists(this.pinning()).mapWith(Boolean),
+      })
+      .from(workspaceArchive);
   }
 
   private pinning() {

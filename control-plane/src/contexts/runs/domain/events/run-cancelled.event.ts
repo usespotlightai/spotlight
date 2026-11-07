@@ -13,5 +13,6 @@ export class RunCancelled implements DomainEvent {
     readonly attempt: number,
     readonly asked: boolean,
     readonly started: boolean,
+    readonly endedAt: Date,
   ) {}
 }

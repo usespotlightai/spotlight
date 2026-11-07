@@ -4,13 +4,13 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type {
   HookFailureNotice,
   HookFailureReport,
   TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';

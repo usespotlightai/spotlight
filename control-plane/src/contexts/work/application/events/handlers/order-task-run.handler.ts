@@ -1,5 +1,5 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { DispatchOrderMapper } from '@work/application/mappers/dispatch-order.mapper';
+import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
@@ -52,7 +52,7 @@ export class OrderTaskRun {
       ordered
         ? Dispatch.ordered({
             ...ordering,
-            order: DispatchOrderMapper.toDispatchOrder(ordered.order),
+            order: RunOrdersMapper.toDispatchOrder(ordered.order),
           })
         : Dispatch.unorderable(ordering),
     );

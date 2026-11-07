@@ -18,9 +18,9 @@ import { AnswerConversationCommand } from '@work/application/commands/answer-con
 import { AnswerConversationHandler } from '@work/application/commands/handlers/answer-conversation.handler';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';

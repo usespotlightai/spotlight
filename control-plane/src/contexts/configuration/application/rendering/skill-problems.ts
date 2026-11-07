@@ -1,7 +1,7 @@
 import type { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { SkillKeyReservedError } from '@configuration/domain/exceptions/skill-key-reserved.error';
 import { SkillMainFileMissingError } from '@configuration/domain/exceptions/skill-main-file-missing.error';
-import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
+import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import type { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -19,7 +19,7 @@ export const SkillProblems = {
           ? [error.field]
           : error instanceof SkillMainFileMissingError
             ? ['files']
-            : ['files', SKILL_FILE],
+            : ['files', SKILL_MAIN_FILE],
       ),
       reason: error.because,
     });

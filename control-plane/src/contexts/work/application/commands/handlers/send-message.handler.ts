@@ -8,7 +8,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SendMessageCommand } from '@work/application/commands/send-message.command';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
+import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
 import type { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';

@@ -2,7 +2,7 @@ import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.p
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type { RunUsageWriterPort } from '@runs/application/ports/run-usage-writer.port';
 import { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
-import type { RunCompleted } from '@runs/domain/events/run-completed.event';
+import type { RunEnded } from '@runs/domain/events/run-ended.event';
 import type { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -14,7 +14,7 @@ export class RecordRunUsage {
     private readonly launch: HarnessLaunchPort,
   ) {}
 
-  onRunCompleted(event: RunCompleted): Promise<void> {
+  onRunEnded(event: RunEnded): Promise<void> {
     return this.record(event.runId);
   }
 

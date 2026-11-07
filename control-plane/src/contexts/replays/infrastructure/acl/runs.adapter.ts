@@ -1,29 +1,49 @@
 import type {
   AgentProblem,
   QueuedRunCancellation,
+  ReplayTrialRun,
   RunEnqueueing,
-  RunState,
   RunStatus,
   RunsPort,
+  SearchAgentRun,
 } from '@replays/application/ports/runs.port';
+import type { RunState } from '@replays/domain/services/search-reconciliation';
+import {
+  REPLAYS_OWNER,
+  ReplaysRequester,
+} from '@replays/domain/value-objects/replays-requester.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type {
-  RunOrderContract,
-  RunRequesterContract,
+  HarnessChoiceProblem,
+  HarnessCommands,
+} from '@replays/infrastructure/acl/harness-commands';
+import { WorkTrialRun } from '@replays/infrastructure/acl/work-trial-run';
+import {
+  type RunOrderContract,
+  type RunPolicyContract,
+  type RunRequesterContract,
+  workspaceKeyOf,
 } from '@runs/application/contracts/run-order.contract';
-import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type {
   RunFactsPort,
   RunStateFact,
 } from '@runs/application/ports/run-facts.port';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
-import type { RunsPort as WorkRunsPort } from '@runs/application/ports/runs.port';
+import type { RunsPort as RunQueuePort } from '@runs/application/ports/runs.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type {
-  HarnessChoiceProblem,
-  HarnessCommandsPort,
-} from '@work/application/ports/harness-commands.port';
+
+const RUN_POLICY: RunPolicyContract = {
+  holdsTurn: false,
+  gated: false,
+  actsBeyondItself: false,
+  asks: 'recorded',
+  listed: false,
+  exclusive: false,
+};
+
+const SEARCH_PRIORITY = -1;
 
 const STATE: Readonly<Record<RunStateFact, RunState>> = {
   queued: 'queued',
@@ -48,24 +68,112 @@ const choiceOf = (agent: SearchAgent) => ({
   effort: agent.effort,
 });
 
+const requesterContractOf = (
+  requester: ReplaysRequester,
+  team: string,
+): RunRequesterContract => ({ ...requester.encoded(), team });
+
+const workspaceOf = (name: string) => ({
+  key: workspaceKeyOf(REPLAYS_OWNER, name),
+  rejoinable: false,
+  restores: 'when-continuing' as const,
+});
+
+const trialOrderOf = (run: RunId, trial: WorkTrialRun): RunOrderContract => {
+  const { team, ...order } = trial.order;
+
+  return {
+    ...order,
+    requester: requesterContractOf(ReplaysRequester.replayOf(run), team),
+    policy: RUN_POLICY,
+    workspace: workspaceOf(`replay-${run.value}`),
+    extensions: {
+      replay: {
+        archive: order.restore?.archive ?? null,
+        checkouts: trial.checkouts.map((each) => ({
+          path: each.path,
+          commit: each.commit,
+          repository: each.repository,
+        })),
+        movesOnAfter: [...trial.movesOnAfter.words],
+      },
+    },
+    apiGrant: null,
+    tags: {},
+  };
+};
+
+const enqueueingOf = (
+  enqueued: Awaited<ReturnType<RunQueuePort['enqueue']>>,
+): RunEnqueueing =>
+  enqueued.outcome === 'enqueued'
+    ? { outcome: 'enqueued' }
+    : { outcome: 'refused', reason: enqueued.reason };
+
 export class Runs implements RunsPort {
   constructor(
-    private readonly runs: WorkRunsPort,
+    private readonly runs: RunQueuePort,
     private readonly facts: RunFactsPort,
     private readonly leases: RunLeasesPort,
-    private readonly commands: HarnessCommandsPort,
+    private readonly commands: HarnessCommands,
   ) {}
 
-  async enqueue(order: RunOrderContract): Promise<RunEnqueueing> {
-    const enqueued = await this.runs.enqueue(order);
+  async enqueueTrial({ run, trial }: ReplayTrialRun): Promise<RunEnqueueing> {
+    if (!(trial instanceof WorkTrialRun)) {
+      throw new InconsistentStateError(
+        'replay trial',
+        `${run.value} is enqueued with a trial Work did not order`,
+      );
+    }
 
-    return enqueued.outcome === 'enqueued'
-      ? { enqueued: true }
-      : { enqueued: false, reason: enqueued.reason };
+    return enqueueingOf(await this.runs.enqueue(trialOrderOf(run, trial)));
   }
 
-  async cancel(run: RunId): Promise<{ readonly known: boolean }> {
-    return { known: (await this.runs.cancel(run)).was !== 'unknown' };
+  async enqueueSearch(order: SearchAgentRun): Promise<RunEnqueueing> {
+    const requester = requesterContractOf(order.requester, order.teamId.value);
+    const command = this.commands.commandFor(
+      choiceOf(order.agent),
+      requester,
+      order.run.value,
+    );
+
+    if (!command) {
+      return { outcome: 'harness-unavailable' };
+    }
+
+    return enqueueingOf(
+      await this.runs.enqueue({
+        runId: order.run.value,
+        workspaceId: order.workspaceId.value,
+        harness: order.agent.harness,
+        priority: SEARCH_PRIORITY,
+        placement: {
+          labelGroups: order.placement.labelGroups,
+          image: order.placement.image,
+        },
+        spec: {
+          command,
+          briefing: order.briefing,
+          handover: { options: [], noteLimit: 0 },
+          resume: {},
+        },
+        requester,
+        policy: RUN_POLICY,
+        workspace: workspaceOf(`search-${order.run.value}`),
+        restore: null,
+        extensions: { search: {} },
+        apiGrant: null,
+        tags: {},
+        refusal: null,
+      }),
+    );
+  }
+
+  async cancel(
+    run: RunId,
+    reason: string,
+  ): Promise<{ readonly known: boolean }> {
+    return { known: (await this.runs.cancel(run, reason)).was !== 'unknown' };
   }
 
   async cancelIfQueued(
@@ -89,7 +197,7 @@ export class Runs implements RunsPort {
   async statuses(runs: readonly RunId[]): Promise<readonly RunStatus[]> {
     return (await this.facts.of(runs)).map((each) => ({
       run: each.runId,
-      requester: each.requester,
+      requester: ReplaysRequester.decode(each.requester),
       state: STATE[each.state],
       askedAPerson: each.askedAPerson,
       started: each.started,
@@ -101,11 +209,10 @@ export class Runs implements RunsPort {
   async leasedBy(
     run: RunId,
     runnerId: string,
-  ): Promise<RunRequesterContract | null> {
-    return (
-      (await this.leases.leasedBy(run, RunnerId.of(runnerId)))?.requester ??
-      null
-    );
+  ): Promise<ReplaysRequester | null> {
+    const leased = await this.leases.leasedBy(run, RunnerId.of(runnerId));
+
+    return leased ? ReplaysRequester.decode(leased.requester) : null;
   }
 
   agentProblem(agent: SearchAgent): AgentProblem | null {
@@ -114,13 +221,5 @@ export class Runs implements RunsPort {
     return problem
       ? { field: FIELD[problem.field], reason: problem.reason }
       : null;
-  }
-
-  commandFor(
-    agent: SearchAgent,
-    requester: RunRequesterContract,
-    run: RunId,
-  ): RunSpecShape['command'] | null {
-    return this.commands.commandFor(choiceOf(agent), requester, run.value);
   }
 }

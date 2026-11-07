@@ -209,7 +209,7 @@ describe('Task', () => {
   });
 
   it('remembers it was opened by a person, or received from an integration', () => {
-    expect(added().openedFrom.value).toBe('person');
+    expect(added().openedFrom.encoded).toBe('person');
 
     const received = Task.add({
       line: LINE,
@@ -221,7 +221,7 @@ describe('Task', () => {
       newId: () => 'task_1',
     });
 
-    expect(received.openedFrom.value).toBe('slack');
+    expect(received.openedFrom.integration?.value).toBe('slack');
     expect(received.pullEvents()).toContainEqual(
       expect.objectContaining({ kind: 'task.opened', fromIntegration: true }),
     );
@@ -450,6 +450,20 @@ describe('Task, reopened by a word', () => {
     expect(() =>
       added().reopen(LINE, MENTIONED, TaskRank.of('m'), said),
     ).toThrow(TaskNotReopenableError);
+  });
+
+  it('keeps a completed task finished when a person writes on it', () => {
+    const completed = added().react(
+      LINE,
+      StationId.of('completed_1'),
+      TaskRank.of('m'),
+      newNote,
+    );
+
+    const written = completed.addMessage(said);
+
+    expect(written.finished).toBe(true);
+    expect(written.stationId).toEqual(StationId.of('completed_1'));
   });
 
   it('does not reopen a completed task', () => {
@@ -808,7 +822,11 @@ describe('Task, what it is doing', () => {
 
   describe('a message to the agent of the run', () => {
     const here = StationId.of('station_1');
-    const aloud = { ...newNote, voice: Voice.person(UserId.of('user_1')) };
+    const aloud = {
+      ...newNote,
+      line: LINE,
+      voice: Voice.person(UserId.of('user_1')),
+    };
 
     it('joins the trail where the task still is', () => {
       const received = added().addMessage(aloud, here);
@@ -1139,7 +1157,8 @@ describe('Task, what it is doing', () => {
       expect(ended.finished).toBe(true);
       expect(ended.currentRunId).toBeNull();
       expect(
-        ended.addMessage({ ...newNote, voice: Voice.world() }).finished,
+        ended.addMessage({ ...newNote, line: LINE, voice: Voice.world() })
+          .finished,
       ).toBe(false);
     });
 
@@ -1164,6 +1183,7 @@ describe('Task, what it is doing', () => {
       expect(
         asked.answer(NotePosition.of(1), {
           ...newNote,
+          line: LINE,
           voice: Voice.person(UserId.of('user_1')),
         }).finished,
       ).toBe(false);

@@ -37,7 +37,7 @@ export class ReadTaskChangeStackHandler
 
       return latest
         ? {
-            runId: latest.runId,
+            runId: latest.runId.value,
             repository: latest.repository,
             state: latest.state,
             checkStatus: latest.check?.status ?? null,

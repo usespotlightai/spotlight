@@ -4,10 +4,11 @@ import type {
 } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { JsonObject } from '@shared-kernel/domain/json-value';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { UntrialableReasonCode } from '@work/application/contracts/untrialable-reason.contract';
+import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
+import { TrialabilityMapper } from '@work/application/mappers/trialability.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
@@ -36,47 +37,20 @@ import {
   type TrialOriginal,
   trialPlanFor,
 } from '@work/domain/services/trial-plan';
-import { TRIAL_PRIORITY } from '@work/domain/services/trial-priority';
-import {
-  type TrialArchive,
-  trialBlockOf,
-} from '@work/domain/services/trialability';
+import { trialBlockOf } from '@work/domain/services/trialability';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { UntrialableReason } from '@work/domain/value-objects/untrialable-reason';
-
-const REASONS: Readonly<Record<UntrialableReason, UntrialableReasonCode>> = {
-  'unknown-run': 'unknown-run',
-  'not-a-task-run': 'not-a-task-run',
-  'task-gone': 'task-gone',
-  'still-running': 'still-running',
-  'no-starting-point': 'no-starting-point',
-  'no-briefing': 'no-briefing',
-  'archive-gone': 'archive-gone',
-  'attachments-gone': 'attachments-gone',
-  'answer-gone': 'answer-gone',
-  'repository-gone': 'repository-gone',
-  'not-at-the-station': 'not-at-the-station',
-  'candidate-unfit': 'candidate-unfit',
-  'cannot-start': 'cannot-start',
-};
 
 const untrialable = (
   reason: UntrialableReason,
   description: string,
 ): TrialOrdering => ({
   outcome: 'untrialable',
-  reason: REASONS[reason],
+  reason: TrialabilityMapper.reasonCode(reason),
   description,
 });
-
-const archiveOf = (facts: RunFacts): TrialArchive =>
-  facts.startedFrom?.archiveId
-    ? facts.startedFrom.archiveStored
-      ? 'stored'
-      : 'gone'
-    : 'none';
 
 interface Original {
   readonly facts: RunFacts;
@@ -175,7 +149,7 @@ export class StationTrials implements StationTrialsPort {
       );
     }
 
-    return known.order.snapshot as unknown as TrialOrdering;
+    return RunOrdersMapper.toTrialOrdering(known.order);
   }
 
   private async ordered(
@@ -252,14 +226,14 @@ export class StationTrials implements StationTrialsPort {
     const followedUp = await this.followUp(original, request.followUp);
     const briefing = followedUp ? `${briefed}\n\n${followedUp}` : briefed;
     const configuredAs = this.ordering.configuredAs(laidOut, candidate);
-    const ordering: TrialOrdering = {
-      outcome: 'ordered',
+    const ordering = {
+      outcome: 'ordered' as const,
       order: {
         runId: runId.value,
         workspaceId: original.facts.workspaceId.value,
         team: candidate.teamId.value,
         harness: order.harness.value,
-        priority: TRIAL_PRIORITY,
+        priority: RunPriority.trial.value,
         placement: {
           labelGroups: order.placement.labelGroups,
           image: order.placement.image?.value ?? null,
@@ -295,9 +269,9 @@ export class StationTrials implements StationTrialsPort {
           asOf: original.trial.startedAt,
           repositories: plan.checkouts.map((each) => ({
             path: each.path,
-            repository: each.repository,
+            repository: Repository.of(each.repository),
           })),
-          followUp: request.followUp ? { answer: request.followUp } : null,
+          followUp: request.followUp,
         },
         configuredAs,
         briefedTask: original.briefed,
@@ -306,7 +280,7 @@ export class StationTrials implements StationTrialsPort {
           briefed: memories.briefed,
           omitted: memories.omitted,
         }),
-        order: DispatchOrder.of(ordering as unknown as JsonObject),
+        order: RunOrdersMapper.fromTrialOrdering(ordering),
         now: this.clock.now(),
       }),
     );
@@ -339,7 +313,7 @@ export class StationTrials implements StationTrialsPort {
         stationId: subject?.stationId ?? null,
         ended: facts.ended,
         startedFrom: facts.startedFrom !== null,
-        archive: archiveOf(facts),
+        archive: TrialabilityMapper.archiveOf(facts),
         briefed: dispatch?.briefedTask !== null,
         taskExists: task !== null,
       },

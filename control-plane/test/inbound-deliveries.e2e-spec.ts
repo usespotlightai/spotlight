@@ -38,8 +38,22 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
       NOW,
     );
 
+  const claimNext = async (now: Date): Promise<InboundDelivery | null> => {
+    const [next] = (await deliveries.claimCandidates(now, 20)).filter(
+      (candidate) => candidate.isClaimableAt(now),
+    );
+
+    if (!next) {
+      return null;
+    }
+
+    await deliveries.save(next.claimed(now));
+
+    return deliveries.current(next);
+  };
+
   const claimed = async (now: Date = NOW): Promise<InboundDelivery> => {
-    const next = await deliveries.claimNext(now);
+    const next = await claimNext(now);
 
     if (!next) {
       throw new Error('nothing was due');
@@ -128,7 +142,33 @@ describe('inbound deliveries, stored in the database (e2e)', () => {
       failed: 'nope',
       dueAt: at(2),
     });
-    await expect(deliveries.claimNext(at(1))).resolves.toBeNull();
+    await expect(claimNext(at(1))).resolves.toBeNull();
     await expect(claimed(at(2))).resolves.toMatchObject({ id, attempts: 1 });
+  });
+
+  it('removes a finished delivery at its version, once it is past its retention', async () => {
+    const id = randomUUID();
+
+    await deliveries.add(received(id));
+    await deliveries.save((await claimed()).worked(NOW));
+
+    const later = new Date(NOW.getTime() + 31 * 24 * 60 * 60 * 1000);
+    const [finished] = (
+      await deliveries.finishedBefore(
+        InboundDelivery.retentionCutoff(later),
+        500,
+      )
+    ).filter((each) => each.id === id);
+
+    expect(finished?.isPastRetention(later)).toBe(true);
+
+    if (!finished) throw new Error('the delivery did not finish');
+
+    await deliveries.remove(finished);
+
+    await expect(rowOf(id)).resolves.toBeUndefined();
+    await expect(deliveries.remove(finished)).rejects.toThrow(
+      InboundDeliveryVersionConflictError,
+    );
   });
 });

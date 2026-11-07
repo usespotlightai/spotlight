@@ -1,5 +1,5 @@
 import { Run, type RunStart } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
 import { RunAttemptOverError } from '@runs/domain/exceptions/run-attempt-over.error';
@@ -45,7 +45,8 @@ const queued = (reports = true) =>
     }),
   });
 
-const claimed = (reports?: boolean) => queued(reports).claim(RUNNER, NOW);
+const claimed = (reports?: boolean) =>
+  queued(reports).claim(claimer(RUNNER), NOW);
 
 const on = (attempt = 1) => RunAttempt.of(RunId.of('run_1'), attempt);
 
@@ -125,7 +126,7 @@ describe('where a run started', () => {
     const first = claimed().startsFrom(on(), RUNNER, restored(), NOW);
     const expired = first.expireLease(first.leaseExpiresAt as Date);
     const retried = expired
-      .claim(OTHER, later(120_000))
+      .claim(claimer(OTHER), later(120_000))
       .startsFrom(
         on(2),
         OTHER,
@@ -140,7 +141,7 @@ describe('where a run started', () => {
 
   it('rejects a report from an attempt that is over', () => {
     const expired = claimed().expireLease(later(60_000));
-    const retried = expired.claim(RUNNER, later(120_000));
+    const retried = expired.claim(claimer(RUNNER), later(120_000));
 
     expect(() =>
       retried.startsFrom(on(1), RUNNER, restored(), later(120_000)),
@@ -202,6 +203,9 @@ describe('where a run started', () => {
         reservation: null,
         provisioning: run.provisioning,
         startedFrom,
+        version: 0,
+        queuedAt: NOW,
+        createdAt: NOW,
       });
     };
 

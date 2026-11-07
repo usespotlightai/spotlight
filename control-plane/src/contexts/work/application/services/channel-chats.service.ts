@@ -16,9 +16,9 @@ import type {
   ChannelNoticeDto,
   ChannelNoticesPort,
 } from '@work/application/ports/channel-notices.port';
-import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
+import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { EmptyChatMessageError } from '@work/domain/exceptions/empty-chat-message.error';

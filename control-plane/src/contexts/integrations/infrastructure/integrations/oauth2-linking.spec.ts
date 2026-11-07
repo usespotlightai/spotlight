@@ -24,12 +24,15 @@ import {
 } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
 
 const TEAM = TeamId.of('team_1');
+
+const SLACK_KEY = IntegrationKey.of('slack');
 const BASE = 'https://app.example';
 
 const SLACK = `
@@ -138,10 +141,12 @@ const linking = (
     landingFor: linked.landingFor.bind(linked),
     begin: async (input: OAuth2LinkInput) => {
       const registration = await linked.registrationFor(
-        TeamId.of(input.teamId),
-        IntegrationKey.of(input.integration),
+        input.teamId,
+        input.integration,
       );
-      const client = registration ? await registered(input.integration) : null;
+      const client = registration
+        ? await registered(input.integration.value)
+        : null;
 
       return client ? linked.begin(input, client) : null;
     },
@@ -161,13 +166,15 @@ const signed = (integration = 'slack', by = 'user_1', nonce = 'n-1') =>
   }).token;
 
 const linkInput = (over: Partial<OAuth2LinkInput> = {}): OAuth2LinkInput => ({
-  teamId: 'team_1',
-  integration: 'slack',
-  by: 'user_1',
+  teamId: TEAM,
+  integration: IntegrationKey.of('slack'),
+  by: UserId.of('user_1'),
   owner: 'team',
   returnTo: null,
   ...over,
 });
+
+const viewerOf = (id: string | null) => (id === null ? null : UserId.of(id));
 
 const returned = (
   over: {
@@ -179,7 +186,7 @@ const returned = (
   state: over.state ?? signed(),
   code: 'the-code',
   nonce: 'nonce' in over ? (over.nonce ?? null) : 'n-1',
-  viewerId: 'viewerId' in over ? (over.viewerId ?? null) : 'user_1',
+  viewerId: viewerOf('viewerId' in over ? (over.viewerId ?? null) : 'user_1'),
 });
 
 describe('OAuth2Linking', () => {
@@ -219,7 +226,9 @@ describe('OAuth2Linking', () => {
   it('will not begin for an integration that the team does not connect this way', async () => {
     const { it } = linking();
 
-    expect(await it.begin(linkInput({ integration: 'linear' }))).toBeNull();
+    expect(
+      await it.begin(linkInput({ integration: IntegrationKey.of('linear') })),
+    ).toBeNull();
   });
 
   it('turns a returning code into tokens, with who signed it', async () => {
@@ -228,9 +237,9 @@ describe('OAuth2Linking', () => {
     const authorized = await it.authorized(returned());
 
     expect(exchange).toHaveBeenCalledOnce();
-    expect(authorized?.teamId).toBe('team_1');
-    expect(authorized?.integration).toBe('slack');
-    expect(authorized?.by).toBe('user_1');
+    expect(authorized?.teamId.value).toBe('team_1');
+    expect(authorized?.integration.value).toBe('slack');
+    expect(authorized?.by.value).toBe('user_1');
     expect(authorized?.owner).toBe('person');
     expect(authorized?.returnTo).toBe('/w/acme/inbox/task_1');
     expect(authorized?.tokens.accessToken.value).toBe('xoxb-1');
@@ -321,7 +330,7 @@ describe('OAuth2Linking', () => {
   it('sends the browser back to where the link began', async () => {
     const { it } = linking();
 
-    expect(await it.landingFor('team_1', 'slack', null)).toBe(
+    expect(await it.landingFor(TEAM, SLACK_KEY, null)).toBe(
       'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
     );
   });
@@ -329,9 +338,9 @@ describe('OAuth2Linking', () => {
   it('lands back on the inbox item that asked for the connection', async () => {
     const { it } = linking();
 
-    expect(
-      await it.landingFor('team_1', 'slack', '/w/acme/inbox/task_1:0'),
-    ).toBe('https://app.example/w/acme/inbox/task_1:0?connected=slack');
+    expect(await it.landingFor(TEAM, SLACK_KEY, '/w/acme/inbox/task_1:0')).toBe(
+      'https://app.example/w/acme/inbox/task_1:0?connected=slack',
+    );
   });
 
   it('never lands anywhere outside the app', async () => {
@@ -345,7 +354,7 @@ describe('OAuth2Linking', () => {
       '/w/acme/inbox?next=https://evil.example',
       '/w/acme/runs',
     ]) {
-      expect(await it.landingFor('team_1', 'slack', returnTo)).toBe(
+      expect(await it.landingFor(TEAM, SLACK_KEY, returnTo)).toBe(
         'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
       );
     }

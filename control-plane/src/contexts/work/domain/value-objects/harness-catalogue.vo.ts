@@ -8,6 +8,10 @@ export class HarnessCatalogue {
     return new HarnessCatalogue([...harnesses]);
   }
 
+  knows(id: HarnessId): boolean {
+    return this.harnesses.some((each) => each.equals(id));
+  }
+
   chosen(raw: string): HarnessId {
     const harness = this.harnesses.find((each) => each.value === raw.trim());
 

@@ -1,14 +1,11 @@
-import type {
-  RunRepository,
-  WorkspaceArchiveRepository,
-} from '@runs/application/ports/run-fixtures.fake-spec';
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
   Run,
-  RunFacts,
   RunPolicy,
   RunRequester,
   RunSpec,
   Runs,
+  runReadModelOver,
 } from '@runs/application/ports/run-fixtures.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -24,7 +21,7 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -38,7 +35,7 @@ const dispatched = (id: RunId, subject: DispatchSubject): Dispatch =>
     teamId: null,
     subject,
     configuredAs: null,
-    order: DispatchOrder.of({}),
+    order: runOrderOf(id),
     now: ORDERED_AT,
   }).enqueuedAsRun();
 
@@ -116,7 +113,9 @@ export const aRunFor = (
     attempt: 1,
     reservation: null,
     provisioning: Provisioning.none(),
+    version: 0,
     queuedAt: ORDERED_AT,
+    createdAt: ORDERED_AT,
   });
 };
 
@@ -129,9 +128,7 @@ export const runWorksOver = (
   clock: ClockPort,
 ): RunWorks =>
   new RunWorks(
-    new RunFacts(runs, {
-      find: async () => null,
-    } as unknown as WorkspaceArchiveRepository),
+    runReadModelOver(runs),
     new Runs(runs, { sha256: (text) => text }, clock),
     tasks,
     chats,

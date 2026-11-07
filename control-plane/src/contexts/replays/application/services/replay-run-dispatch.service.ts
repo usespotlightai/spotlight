@@ -1,31 +1,25 @@
 import type { RunsPort } from '@replays/application/ports/runs.port';
-import type {
-  StationTrialsPort,
-  TrialOrdering,
-} from '@replays/application/ports/station-trials.port';
-import { ReplayRunClaim } from '@replays/domain/aggregates/replay-run-claim.aggregate';
-import { ReplayRunClaimVersionConflictError } from '@replays/domain/exceptions/replay-run-claim-version-conflict.error';
-import type { ReplayRunClaimRepository } from '@replays/domain/repositories/replay-run-claim.repository';
+import type { StationTrialsPort } from '@replays/application/ports/station-trials.port';
+import {
+  ReplayRunDecision,
+  type ReplayRunOwner,
+} from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import { ReplayRunDecisionVersionConflictError } from '@replays/domain/exceptions/replay-run-decision-version-conflict.error';
+import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
-import {
-  type RunOrderContract,
-  type RunPolicyContract,
-  workspaceKeyOf,
-} from '@runs/application/contracts/run-order.contract';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface ReplayRunOrder {
   readonly run: RunId;
+  readonly owner: ReplayRunOwner;
   readonly original: RunId;
-  readonly workspaceId: WorkspaceId;
   readonly lineId: LineId;
   readonly stationId: StationId;
   readonly block: StationBlock;
@@ -38,8 +32,11 @@ export type ReplayRunQueued =
   | { readonly queued: false; readonly unreplayableReason: UnreplayableReason };
 
 export type CancelledRun =
-  | { readonly queued: false }
-  | { readonly queued: true; readonly fingerprint: StationFingerprint | null };
+  | { readonly wasQueued: false }
+  | {
+      readonly wasQueued: true;
+      readonly fingerprint: StationFingerprint | null;
+    };
 
 export interface OracleAnswerInput {
   readonly run: RunId;
@@ -49,109 +46,77 @@ export interface OracleAnswerInput {
 export interface ReplayRunDispatching {
   dispatch(order: ReplayRunOrder): Promise<ReplayRunQueued>;
 
-  cancel(run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun>;
+  cancel(
+    run: RunId,
+    owner: ReplayRunOwner,
+    leaveRunAsIs: boolean,
+  ): Promise<CancelledRun>;
 
   cancelQueued(runs: readonly RunId[]): Promise<void>;
 
   answerable(inputs: readonly OracleAnswerInput[]): Promise<readonly RunId[]>;
 }
 
-export const REPLAY_RUN_POLICY: RunPolicyContract = {
-  holdsTurn: false,
-  gated: false,
-  actsBeyondItself: false,
-  asks: 'recorded',
-  listed: false,
-  exclusive: false,
-};
-
 const CEILING_REACHED =
   'Replay reached its ceiling before a runner claimed the run.';
 
 const STOPPED = 'Replay stopped before a runner claimed the run.';
 
-const CLAIM_ATTEMPTS = 3;
+const DECISION_ATTEMPTS = 3;
 
-const NEVER_QUEUED: CancelledRun = { queued: false };
+const NEVER_QUEUED: CancelledRun = { wasQueued: false };
 
 const CANCELLED: ReplayRunQueued = {
   queued: false,
   unreplayableReason: 'cancelled',
 };
 
-const unqueuedOf = (claim: ReplayRunClaim): ReplayRunQueued => ({
+const unqueuedOf = (decision: ReplayRunDecision): ReplayRunQueued => ({
   queued: false,
-  unreplayableReason: claim.unreplayableReason ?? 'cancelled',
+  unreplayableReason: decision.unreplayableReason ?? 'cancelled',
 });
 
-const orderOf = (
-  run: RunId,
-  trial: Extract<TrialOrdering, { ordered: true }>,
-): RunOrderContract => ({
-  ...trial.order,
-  requester: {
-    owner: 'replays',
-    kind: 'replay',
-    id: run.value,
-    token: null,
-    team: trial.team,
-  },
-  policy: REPLAY_RUN_POLICY,
-  workspace: {
-    key: workspaceKeyOf('replays', `replay-${run.value}`),
-    rejoinable: false,
-    restores: 'when-continuing',
-  },
-  extensions: {
-    replay: {
-      archive: trial.order.restore?.archive ?? null,
-      checkouts: trial.checkouts.map((each) => ({
-        path: each.path,
-        commit: each.commit,
-        repository: each.repository,
-      })),
-      movesOnAfter: [...trial.movesOnAfter],
-    },
-  },
-  apiGrant: null,
-  tags: {},
+const queuedOf = (decision: ReplayRunDecision): CancelledRun => ({
+  wasQueued: true,
+  fingerprint: decision.trial?.fingerprint ?? null,
 });
 
 export class ReplayRunDispatch implements ReplayRunDispatching {
   constructor(
-    private readonly claims: ReplayRunClaimRepository,
+    private readonly decisions: ReplayRunDecisionRepository,
     private readonly trials: StationTrialsPort,
     private readonly runs: RunsPort,
   ) {}
 
   async dispatch(order: ReplayRunOrder): Promise<ReplayRunQueued> {
-    const claim = await this.claimed(ReplayRunClaim.toQueue(order.run));
+    const decision = await this.decidedFirst(
+      ReplayRunDecision.decidedToQueue(order.run, order.owner),
+    );
 
-    if (!claim.mayQueue) {
-      return unqueuedOf(claim);
+    if (!decision.mayQueue) {
+      return unqueuedOf(decision);
     }
 
-    const trial = await this.trials.order({
+    const ordering = await this.trials.order({
       run: order.run,
       original: order.original,
-      workspaceId: order.workspaceId,
+      workspaceId: order.owner.workspaceId,
       lineId: order.lineId,
       stationId: order.stationId,
-      block: order.block.value,
-      repositories: order.line?.repositories,
+      block: order.block,
+      line: order.line,
       answer: order.answer,
     });
 
-    if (!trial.ordered) {
+    if (!ordering.ordered) {
       const refused = await this.changed(order.run, (each) =>
-        each.mayQueue
-          ? each.unreplayable(trial.unreplayableReason, trial.reason)
-          : each,
+        each.mayQueue ? each.unreplayable(ordering.unreplayableReason) : each,
       );
 
       return unqueuedOf(refused);
     }
 
+    const { trial } = ordering;
     const ordered = await this.changed(order.run, (each) =>
       each.mayQueue
         ? each.ordered({
@@ -166,45 +131,50 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
       return unqueuedOf(ordered);
     }
 
-    const enqueued = await this.runs.enqueue(orderOf(order.run, trial));
+    const enqueued = await this.runs.enqueueTrial({ run: order.run, trial });
 
-    if (!enqueued.enqueued) {
+    if (enqueued.outcome !== 'enqueued') {
       await this.trials.withdraw(order.run);
       const refused = await this.changed(order.run, (each) =>
-        each.mayQueue
-          ? each.unreplayable('cannot-start', enqueued.reason)
-          : each,
+        each.mayQueue ? each.unreplayable('cannot-start') : each,
       );
 
       return unqueuedOf(refused);
     }
 
     if (!(await this.found(order.run)).mayQueue) {
-      await this.runs.cancel(order.run);
+      await this.runs.cancel(order.run, STOPPED);
       return CANCELLED;
     }
 
     return { queued: true, fingerprint: trial.fingerprint };
   }
 
-  async cancel(run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun> {
-    const claim = await this.claimed(ReplayRunClaim.toCancel(run));
+  async cancel(
+    run: RunId,
+    owner: ReplayRunOwner,
+    leaveRunAsIs: boolean,
+  ): Promise<CancelledRun> {
+    const decision = await this.decidedFirst(
+      ReplayRunDecision.decidedToCancel(run, owner),
+    );
 
-    if (!claim.mayQueue) {
+    if (!decision.mayQueue) {
       return NEVER_QUEUED;
     }
 
     if (leaveRunAsIs && (await this.runs.statuses([run])).length > 0) {
-      return { queued: true, fingerprint: claim.trial?.fingerprint ?? null };
+      return queuedOf(decision);
     }
 
     await this.changed(run, (each) => each.cancelled());
 
     if (leaveRunAsIs || !(await this.stopped(run))) {
+      await this.trials.withdraw(run);
       return NEVER_QUEUED;
     }
 
-    return { queued: true, fingerprint: claim.trial?.fingerprint ?? null };
+    return queuedOf(decision);
   }
 
   async cancelQueued(runs: readonly RunId[]): Promise<void> {
@@ -232,7 +202,7 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
 
     switch (cancelled.outcome) {
       case 'claimed':
-        return (await this.runs.cancel(run)).known;
+        return (await this.runs.cancel(run, STOPPED)).known;
       case 'unknown':
         return false;
       case 'cancelled':
@@ -241,18 +211,20 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
     }
   }
 
-  private async claimed(first: ReplayRunClaim): Promise<ReplayRunClaim> {
-    const known = await this.claims.find(first.runId);
+  private async decidedFirst(
+    first: ReplayRunDecision,
+  ): Promise<ReplayRunDecision> {
+    const known = await this.decisions.find(first.runId);
 
     if (known) {
       return known;
     }
 
     try {
-      await this.claims.add(first);
+      await this.decisions.add(first);
       return first;
     } catch (error) {
-      if (!(error instanceof ReplayRunClaimVersionConflictError)) {
+      if (!(error instanceof ReplayRunDecisionVersionConflictError)) {
         throw error;
       }
 
@@ -262,23 +234,23 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
 
   private async changed(
     run: RunId,
-    change: (claim: ReplayRunClaim) => ReplayRunClaim,
-  ): Promise<ReplayRunClaim> {
+    change: (decision: ReplayRunDecision) => ReplayRunDecision,
+  ): Promise<ReplayRunDecision> {
     for (let attempt = 1; ; attempt += 1) {
-      const claim = await this.found(run);
-      const next = change(claim);
+      const decision = await this.found(run);
+      const next = change(decision);
 
-      if (next === claim) {
-        return claim;
+      if (next === decision) {
+        return decision;
       }
 
       try {
-        await this.claims.save(next);
+        await this.decisions.save(next);
         return next;
       } catch (error) {
         if (
-          !(error instanceof ReplayRunClaimVersionConflictError) ||
-          attempt >= CLAIM_ATTEMPTS
+          !(error instanceof ReplayRunDecisionVersionConflictError) ||
+          attempt >= DECISION_ATTEMPTS
         ) {
           throw error;
         }
@@ -286,16 +258,16 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
     }
   }
 
-  private async found(run: RunId): Promise<ReplayRunClaim> {
-    const claim = await this.claims.find(run);
+  private async found(run: RunId): Promise<ReplayRunDecision> {
+    const decision = await this.decisions.find(run);
 
-    if (!claim) {
+    if (!decision) {
       throw new InconsistentStateError(
-        'replay run claim',
-        `${run.value} is acted on before it was claimed`,
+        'replay run decision',
+        `${run.value} is acted on before it was decided`,
       );
     }
 
-    return claim;
+    return decision;
   }
 }

@@ -10,8 +10,10 @@ import {
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -28,7 +30,7 @@ const checkOf = (
     id: StackCheckId.of(ChangeStackId.of(id), over.recheck ?? false),
     runId: RUN,
     taskId: null,
-    teamId: null,
+    teamId: TeamId.of('team_1'),
     trial: over.trial ?? true,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),
@@ -86,14 +88,14 @@ describe('RecheckTrialChanges', () => {
       checkOf('task', 'checked', { trial: false }),
     ]);
 
-    expect(await service.recheckable(RUN)).toEqual(['passed']);
+    expect(await service.recheckable(RUN)).toEqual([CheckWorkId.of('passed')]);
   });
 
   it('checks one stack again, once however often it is requested', async () => {
     const { added, service } = rechecking([checkOf('passed', 'checked')]);
 
-    await service.recheck(RUN, 'passed');
-    await service.recheck(RUN, 'passed');
+    await service.recheck(RUN, CheckWorkId.of('passed'));
+    await service.recheck(RUN, CheckWorkId.of('passed'));
 
     expect(added.map((each) => [each.stackId.value, each.recheck])).toEqual([
       ['passed', true],
@@ -106,9 +108,9 @@ describe('RecheckTrialChanges', () => {
       checkOf('passed', 'checked'),
     ]);
 
-    await service.recheck(RUN, 'skipped');
-    await service.recheck(RunId.of('replay-2'), 'passed');
-    await service.recheck(RUN, 'missing');
+    await service.recheck(RUN, CheckWorkId.of('skipped'));
+    await service.recheck(RunId.of('replay-2'), CheckWorkId.of('passed'));
+    await service.recheck(RUN, CheckWorkId.of('missing'));
 
     expect(added).toEqual([]);
   });

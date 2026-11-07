@@ -54,6 +54,7 @@ import {
 } from '@runs/presentation/http/dto/host-requirements.response.dto';
 import { ClaimedWorkResponseDto } from '@runs/presentation/http/dto/runner.response.dto';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
+import { HostCallResponseHttpMapper } from '@runs/presentation/http/mappers/host-call-response.http.mapper';
 
 interface Answerable {
   status(code: number): unknown;
@@ -123,7 +124,7 @@ export class HostWorkController {
     summary:
       'Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run',
     description:
-      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a task or chat whose workspace a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the workspace of its task or chat and waits for runs.',
+      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a workspace key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its workspace key and waits for runs.',
   })
   @ApiOkResponse({ type: HostClaimResponseDto })
   @ApiConflictResponse({
@@ -299,14 +300,7 @@ export class HostWorkController {
       new RecordHostCallResponseCommand(
         { bearer: bearerIn(authorization), trust },
         id,
-        {
-          host: body?.host,
-          status: body?.status,
-          headers: body?.headers,
-          body: body?.body,
-          ms: body?.ms,
-          error: body?.error,
-        },
+        HostCallResponseHttpMapper.toSent(body),
       ),
     );
 

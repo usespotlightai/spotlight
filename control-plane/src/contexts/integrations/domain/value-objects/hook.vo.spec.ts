@@ -7,8 +7,10 @@ import {
 } from '@integrations/domain/value-objects/hook.vo';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import { usedTool } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
+import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
@@ -34,16 +36,16 @@ const hook = (failure: HookOnFailure = 'continue') =>
       HookEvent.of('tool.using'),
     ),
     steps: [
-      { name: 'tell', kind: 'call', tool: COMMENT },
+      { name: HookStepName.of('tell'), kind: 'call', tool: COMMENT },
       {
-        name: 'check',
+        name: HookStepName.of('check'),
         kind: 'request',
         url: new URL('https://dba.acme.dev/review'),
         headers: [],
         fromNetwork: false,
       },
       {
-        name: 'audit',
+        name: HookStepName.of('audit'),
         kind: 'request',
         url: null,
         headers: [],
@@ -76,7 +78,7 @@ describe('Hook', () => {
         key: HookKey.of('dba'),
         event: HookEvent.of('tool.using'),
         match: HookMatch.anything(HookEvent.of('run.ended')),
-        steps: [{ name: 'tell', kind: 'call', tool: COMMENT }],
+        steps: [{ name: HookStepName.of('tell'), kind: 'call', tool: COMMENT }],
         signing: null,
         failure: 'continue',
         timeoutSeconds: 10,
@@ -91,8 +93,8 @@ describe('Hook', () => {
       repositories: [],
     };
 
-    expect(hook().matches(task, { tool: 'linear.comment' })).toBe(true);
-    expect(hook().matches(task, { tool: 'linear.search' })).toBe(false);
+    expect(hook().matches(task, usedTool('linear.comment'))).toBe(true);
+    expect(hook().matches(task, usedTool('linear.search'))).toBe(false);
   });
 
   it('gives each step its own timeout, within the budget it is given', () => {
@@ -125,7 +127,7 @@ describe('Hook', () => {
         match: HookMatch.anything(HookEvent.of('run.ended')),
         steps: [
           {
-            name: 'tell',
+            name: HookStepName.of('tell'),
             kind: 'request',
             url: new URL('https://dba.example.com'),
             headers: ['x-team', 'Webhook-Signature'],
@@ -147,7 +149,7 @@ describe('Hook', () => {
         match: HookMatch.anything(HookEvent.of('tool.using')),
         steps: [
           {
-            name: 'check',
+            name: HookStepName.of('check'),
             kind: 'request',
             url: new URL('http://dba.acme.dev'),
             headers: [],
@@ -202,13 +204,19 @@ describe('Hook', () => {
   describe('making a request', () => {
     it('may send over https', () => {
       expect(
-        hook().requestDenial('check', new URL('https://dba.acme.dev')),
+        hook().requestDenial(
+          HookStepName.of('check'),
+          new URL('https://dba.acme.dev'),
+        ),
       ).toBeNull();
     });
 
     it('may not send in the clear from Spotlight, once its url is written out', () => {
       expect(
-        hook().requestDenial('check', new URL('http://dba.acme.dev')),
+        hook().requestDenial(
+          HookStepName.of('check'),
+          new URL('http://dba.acme.dev'),
+        ),
       ).toMatchObject({
         code: 'not-allowed',
         reason: 'sends to http://dba.acme.dev, which is not https',
@@ -217,7 +225,10 @@ describe('Hook', () => {
 
     it('may send in the clear from the team’s own network', () => {
       expect(
-        hook().requestDenial('audit', new URL('http://audit.internal')),
+        hook().requestDenial(
+          HookStepName.of('audit'),
+          new URL('http://audit.internal'),
+        ),
       ).toBeNull();
     });
   });
@@ -225,7 +236,7 @@ describe('Hook', () => {
   describe('judging an event before it happens', () => {
     it('lets the next step go on after a step that did its work', () => {
       expect(
-        hook('block').decisionOn('check', {
+        hook('block').decisionOn(HookStepName.of('check'), {
           denyReason: null,
           failedBecause: null,
         }),
@@ -234,7 +245,7 @@ describe('Hook', () => {
 
     it('denies what an endpoint denied', () => {
       expect(
-        hook().decisionOn('check', {
+        hook().decisionOn(HookStepName.of('check'), {
           denyReason: 'the migration drops a column',
           failedBecause: null,
         }),
@@ -247,7 +258,7 @@ describe('Hook', () => {
 
     it('denies the event when a step fails and the hook blocks on failure', () => {
       expect(
-        hook('block').decisionOn('check', {
+        hook('block').decisionOn(HookStepName.of('check'), {
           denyReason: null,
           failedBecause: 'was answered 503',
         }),
@@ -260,7 +271,7 @@ describe('Hook', () => {
 
     it('lets the event go on when a step fails and the hook continues', () => {
       expect(
-        hook('continue').decisionOn('check', {
+        hook('continue').decisionOn(HookStepName.of('check'), {
           denyReason: null,
           failedBecause: 'was answered 503',
         }),

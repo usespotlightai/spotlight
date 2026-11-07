@@ -12,7 +12,7 @@ import { StationRuns } from '@work/application/services/station-runs.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -164,8 +164,7 @@ const unfinishedRow = (
   openedBy: 'user_ada',
   harness: 'claude-code',
   config: null,
-  state: 'queued',
-  stopRequested: false,
+  progress: 'queued',
   queuedAt: QUEUED,
   startedAt: null,
   ...change,
@@ -178,7 +177,7 @@ describe('StationRuns.unfinished', () => {
         unfinishedOfTeam: async () => [
           unfinishedRow('run_queued'),
           unfinishedRow('run_claimed', {
-            state: 'claimed',
+            progress: 'in-progress',
             startedAt: STARTED,
             config: {
               prompt: null,
@@ -194,11 +193,8 @@ describe('StationRuns.unfinished', () => {
               memories: false,
             },
           }),
-          unfinishedRow('run_stopping', {
-            state: 'claimed',
-            stopRequested: true,
-          }),
-          unfinishedRow('run_suspended', { state: 'suspended' }),
+          unfinishedRow('run_stopping', { progress: 'stopping' }),
+          unfinishedRow('run_suspended', { progress: null }),
         ],
       } as unknown as StationRunReaderPort,
       NO_DISPATCHES,
@@ -291,7 +287,7 @@ describe('StationRuns.taskRunOf', () => {
         teamId: TeamId.of('team_1'),
         subject,
         configuredAs: null,
-        order: DispatchOrder.of({}),
+        order: runOrderOf(RunId.of('run_1')),
         now: QUEUED,
       }),
   });

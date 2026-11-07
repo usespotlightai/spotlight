@@ -45,16 +45,16 @@ export class ClaimsTaken {
   }
 
   async check(claimed: ClaimedCheck, runner: RunnerId): Promise<void> {
-    await this.taken(runner, { kind: 'check', id: claimed.stackId }, () =>
+    await this.taken(runner, { kind: 'check', id: claimed.checkId.value }, () =>
       this.checks.unclaim(
-        claimed.stackId,
-        claimed.recheck,
+        claimed.checkId,
+        claimed.repeat,
         runner,
         this.clock.now(),
       ),
     );
     this.logger.info(
-      { stackId: claimed.stackId, runnerId: runner.value },
+      { checkId: claimed.checkId.value, runnerId: runner.value },
       'Claimed a check',
     );
   }
@@ -93,7 +93,7 @@ export class ClaimsTaken {
       }
 
       try {
-        await this.runs.save(existing.unclaimedBy(runner));
+        await this.runs.save(existing.unclaimedBy(runner, this.clock.now()));
         return;
       } catch (error) {
         if (

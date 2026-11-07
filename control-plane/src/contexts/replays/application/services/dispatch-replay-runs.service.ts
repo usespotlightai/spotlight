@@ -1,5 +1,6 @@
 import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplayRunOwner } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import { DispatchSlotTakenError } from '@replays/domain/exceptions/dispatch-slot-taken.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
@@ -14,6 +15,12 @@ import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-j
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+
+const ownerOf = (replay: Replay): ReplayRunOwner => ({
+  workspaceId: replay.workspaceId,
+  teamId: replay.teamId,
+  replayId: replay.id,
+});
 
 export class DispatchReplayRuns implements PendingJobsPort {
   readonly name = 'Dispatching replay runs';
@@ -106,8 +113,8 @@ export class DispatchReplayRuns implements PendingJobsPort {
 
     const queued = await this.replayRuns.dispatch({
       run,
+      owner: ownerOf(replay),
       original: entry.original,
-      workspaceId: replay.workspaceId,
       lineId: replay.station.lineId,
       stationId: replay.station.stationId,
       block: candidate.block,
@@ -122,7 +129,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
     );
 
     if (queued.queued && updated && !updated.isDispatching) {
-      await this.replayRuns.cancel(run, false);
+      await this.replayRuns.cancel(run, ownerOf(replay), false);
     }
   }
 
@@ -138,10 +145,14 @@ export class DispatchReplayRuns implements PendingJobsPort {
       return;
     }
 
-    const cancelled = await this.replayRuns.cancel(run, leaveRunAsIs);
+    const cancelled = await this.replayRuns.cancel(
+      run,
+      ownerOf(replay),
+      leaveRunAsIs,
+    );
 
     await this.changed(replay, (fresh, now) => {
-      if (cancelled.queued) {
+      if (cancelled.wasQueued) {
         return fresh.confirm(run, cancelled.fingerprint, now);
       }
       if (neverQueued) {

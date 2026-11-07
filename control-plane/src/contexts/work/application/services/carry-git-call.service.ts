@@ -1,25 +1,22 @@
-import type {
-  GitAnswer,
-  GitCall,
-  RepositoryGitPort,
-} from '@github/application/ports/repository-git.port';
+import type { RepositoryGitPort } from '@github/application/ports/repository-git.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { CheckAccessPort } from '@work/application/ports/check-access.port';
 import type {
-  GitGatewayPort,
+  GitAnswerDto,
+  GitCallDto,
   GitService,
-} from '@work/application/ports/git-gateway.port';
+} from '@work/application/dto/git-call.dto';
+import type { CheckAccessPort } from '@work/application/ports/check-access.port';
 import type {
   CheckedRepository,
   RunWorks,
 } from '@work/application/services/run-works.service';
 import { CheckGitAccess } from '@work/domain/services/check-git-access';
 
-export class CarryGitCall implements GitGatewayPort {
+export class CarryGitCall {
   constructor(
     private readonly works: RunWorks,
     private readonly workspaces: WorkspaceConnectionsPort,
@@ -33,8 +30,8 @@ export class CarryGitCall implements GitGatewayPort {
     runnerId: string,
     repo: string,
     service: GitService,
-    call: GitCall,
-  ): Promise<GitAnswer | null> {
+    call: GitCallDto,
+  ): Promise<GitAnswerDto | null> {
     const allowed = await this.allowedRepository(
       runId,
       runnerId,
@@ -46,9 +43,29 @@ export class CarryGitCall implements GitGatewayPort {
       return null;
     }
 
-    return (await this.workspaces.isConnected(allowed.workspaceId))
-      ? this.git.call(allowed.workspaceId, allowed.repository, call)
-      : null;
+    if (!(await this.workspaces.isConnected(allowed.workspaceId))) {
+      return null;
+    }
+
+    const answer = await this.git.call(
+      allowed.workspaceId,
+      allowed.repository,
+      {
+        method: call.method,
+        path: call.path,
+        search: call.search,
+        headers: call.headers,
+        body: call.body,
+      },
+    );
+
+    return (
+      answer && {
+        status: answer.status,
+        headers: answer.headers,
+        body: answer.body,
+      }
+    );
   }
 
   private async allowedRepository(

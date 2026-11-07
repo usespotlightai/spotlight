@@ -4,5 +4,5 @@ export type ChatRefusal =
   | { readonly kind: 'approval-needs-a-task'; readonly tool: Tool }
   | {
       readonly kind: 'connection-needs-a-task';
-      readonly integrationName: string;
+      readonly providedBy: string;
     };

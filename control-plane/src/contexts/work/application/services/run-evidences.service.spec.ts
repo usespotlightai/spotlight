@@ -3,6 +3,7 @@ import type {
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
+import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -13,7 +14,10 @@ import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import {
+  runOrderOf,
+  trialOrderOf,
+} from '@work/domain/value-objects/dispatch-order.fake-spec';
 import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -116,7 +120,7 @@ const dispatchOf = (id: RunId, subject: DispatchSubject): Dispatch =>
     subject,
     configuredAs: CONFIG,
     briefedTask: BRIEFED,
-    order: DispatchOrder.of({}),
+    order: trialOrderOf(id),
     now: new Date('2026-09-30T09:00:00.000Z'),
   });
 
@@ -135,7 +139,7 @@ const DISPATCHES = new Map<string, Dispatch>([
       },
       configuredAs: null,
       briefedTask: BRIEFED,
-      order: DispatchOrder.of({}),
+      order: runOrderOf(TASK_RUN.runId),
       now: new Date('2026-09-30T09:00:00.000Z'),
     }),
   ],
@@ -175,6 +179,7 @@ const evidences = () =>
     {
       find: async (id: RunId) => DISPATCHES.get(id.value) ?? null,
     } as unknown as DispatchRepository,
+    runJournalReadings(),
   );
 
 describe('RunEvidences', () => {

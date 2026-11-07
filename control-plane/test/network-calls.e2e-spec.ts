@@ -1,4 +1,5 @@
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { NetworkCallClaims } from '@runs/application/services/network-call-claims.service';
 import { NetworkCalls } from '@runs/application/services/network-calls.service';
 import { NetworkCall } from '@runs/domain/aggregates/network-call.aggregate';
 import { NetworkCallVersionConflictError } from '@runs/domain/exceptions/network-call-version-conflict.error';
@@ -22,6 +23,7 @@ const TOKEN = TokenHash.of('a'.repeat(64));
 
 let database: TestDatabase;
 let calls: DrizzleNetworkCallRepository;
+let claims: NetworkCallClaims;
 let ids = 0;
 
 const queued = async (
@@ -59,9 +61,11 @@ beforeAll(async () => {
     }
   }
 
-  calls = new DrizzleNetworkCallRepository(new DrizzleContext(database.db), {
+  const context = new DrizzleContext(database.db);
+  calls = new DrizzleNetworkCallRepository(context, {
     dispatch: async () => {},
   });
+  claims = new NetworkCallClaims(calls, context);
 });
 
 afterAll(async () => {
@@ -94,12 +98,7 @@ describe('DrizzleNetworkCallRepository', () => {
     const oldest = await queued({ at: later(-2_000) });
     await queued({ at: later(-1_000) });
 
-    const claimed = await calls.claimNext(
-      WorkspaceId.of('ws_1'),
-      HOST,
-      NOW,
-      TOKEN,
-    );
+    const claimed = await claims.next(WorkspaceId.of('ws_1'), HOST, NOW, TOKEN);
 
     expect(claimed?.id).toEqual(oldest.id);
     expect((await calls.find(oldest.id))?.progress).toEqual({
@@ -113,7 +112,7 @@ describe('DrizzleNetworkCallRepository', () => {
     await queued({ at: later(-20_000), expiresAt: later(-1) });
 
     expect(
-      await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW, TOKEN),
+      await claims.next(WorkspaceId.of('ws_1'), HOST, NOW, TOKEN),
     ).toBeNull();
   });
 
@@ -124,7 +123,7 @@ describe('DrizzleNetworkCallRepository', () => {
 
     const claimed = await Promise.all(
       Array.from({ length: 8 }, (_, each) =>
-        calls.claimNext(
+        claims.next(
           WorkspaceId.of('ws_1'),
           CallingHost.of(`host_${each}`),
           NOW,
@@ -140,7 +139,7 @@ describe('DrizzleNetworkCallRepository', () => {
 
   it('stores the response, and does not write over a call that changed', async () => {
     const call = await queued();
-    await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW, TOKEN);
+    await claims.next(WorkspaceId.of('ws_1'), HOST, NOW, TOKEN);
     const claimed = await calls.find(call.id);
     const response = NetworkResponse.of({
       status: 200,
@@ -180,7 +179,7 @@ describe('DrizzleNetworkCallRepository', () => {
 
   it('stores no header or body of a call once it is answered or expired', async () => {
     const answered = await queued();
-    await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW, TOKEN);
+    await claims.next(WorkspaceId.of('ws_1'), HOST, NOW, TOKEN);
     const claimed = await calls.find(answered.id);
 
     if (!claimed) {
@@ -238,7 +237,7 @@ describe('DrizzleNetworkCallRepository', () => {
 
   it('remembers that a host claimed a call that expired unanswered', async () => {
     const call = await queued({ workspace: 'ws_unanswered' });
-    await calls.claimNext(WorkspaceId.of('ws_unanswered'), HOST, NOW, TOKEN);
+    await claims.next(WorkspaceId.of('ws_unanswered'), HOST, NOW, TOKEN);
     const claimed = await calls.find(call.id);
     await calls.save((claimed as NetworkCall).expire(later(15_000)));
 

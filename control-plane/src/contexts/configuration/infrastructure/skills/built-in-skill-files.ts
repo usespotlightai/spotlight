@@ -5,8 +5,8 @@ import type {
   ReadSkillFolder,
   SkillFile,
 } from '@configuration/application/ports/skill-folders.port';
+import { SKILL_MAIN_FILE } from '@configuration/domain/value-objects/skill-files.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
-import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
 
 const BUILT_IN_SKILLS_DIRECTORY = join(__dirname, 'built-in');
 
@@ -39,7 +39,7 @@ export class BuiltInSkillFiles implements BuiltInSkillsPort {
     for (const key of keys) {
       if (!folders.some((each) => each.skill.key.value === key)) {
         throw new Error(
-          `Spotlight has a built-in ${key} skill, and there is no ${key}/${SKILL_FILE} in ${directory}`,
+          `Spotlight has a built-in ${key} skill, and there is no ${key}/${SKILL_MAIN_FILE} in ${directory}`,
         );
       }
     }

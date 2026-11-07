@@ -1,5 +1,6 @@
 import type {
   QueuedRunCancellation,
+  ReplayTrialRun,
   RunEnqueueing,
   RunStatus,
   RunsPort,
@@ -13,24 +14,33 @@ import {
   ReplayRunDispatch,
   type ReplayRunOrder,
 } from '@replays/application/services/replay-run-dispatch.service';
-import { InMemoryReplayRunClaims } from '@replays/application/services/replays.fake-spec';
-import { ReplayRunClaim } from '@replays/domain/aggregates/replay-run-claim.aggregate';
+import { InMemoryReplayRunDecisions } from '@replays/application/services/replays.fake-spec';
+import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
+import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const RUN = RunId.of('run_trial');
 const FINGERPRINT = StationFingerprint.of('f'.repeat(64));
 
+const OWNER = {
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  replayId: ReplayId.of('replay_1'),
+};
+
 const ORDER: ReplayRunOrder = {
   run: RUN,
+  owner: OWNER,
   original: RunId.of('run_original'),
-  workspaceId: WorkspaceId.of('ws_1'),
   lineId: LineId.of('line_1'),
   stationId: StationId.of('station_1'),
   block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
@@ -40,25 +50,10 @@ const ORDER: ReplayRunOrder = {
 
 const ORDERED: TrialOrdering = {
   ordered: true,
-  order: {
-    runId: RUN.value,
-    workspaceId: 'ws_1',
-    harness: 'claude-code',
-    priority: -1,
-    placement: { labelGroups: [], image: null },
-    spec: {
-      command: { executable: 'claude', args: [] },
-      briefing: 'Fix the queue.',
-      handover: { options: ['ship'], noteLimit: 0 },
-      resume: {},
-    },
-    restore: { archive: 'archive_1' },
-    refusal: null,
+  trial: {
+    fingerprint: FINGERPRINT,
+    movesOnAfter: MovesOnWords.of(['Ship', 'done']),
   },
-  team: 'team_1',
-  fingerprint: FINGERPRINT,
-  checkouts: [{ path: 'api', repository: 'acme/api', commit: 'abc' }],
-  movesOnAfter: ['ship', 'done'],
 };
 
 class FakeTrials implements StationTrialsPort {
@@ -81,21 +76,23 @@ class FakeTrials implements StationTrialsPort {
 }
 
 class FakeRuns implements RunsPort {
-  readonly enqueued: RunOrderContract[] = [];
+  readonly enqueued: ReplayTrialRun[] = [];
   readonly cancelled: string[] = [];
   readonly known = new Set<string>();
-  enqueueing: RunEnqueueing = { enqueued: true };
+  enqueueing: RunEnqueueing = { outcome: 'enqueued' };
   queued: QueuedRunCancellation = { outcome: 'cancelled', started: false };
   onEnqueue: () => Promise<void> = async () => {};
 
-  enqueue = async (order: RunOrderContract) => {
-    this.enqueued.push(order);
-    if (this.enqueueing.enqueued) {
-      this.known.add(order.runId);
+  enqueueTrial = async (run: ReplayTrialRun) => {
+    this.enqueued.push(run);
+    if (this.enqueueing.outcome === 'enqueued') {
+      this.known.add(run.run.value);
     }
     await this.onEnqueue();
     return this.enqueueing;
   };
+
+  enqueueSearch = async () => this.enqueueing;
 
   cancel = async (run: RunId) => {
     this.cancelled.push(run.value);
@@ -110,13 +107,7 @@ class FakeRuns implements RunsPort {
       .filter((each) => this.known.has(each.value))
       .map((each) => ({
         run: each,
-        requester: {
-          owner: 'replays',
-          kind: 'replay',
-          id: each.value,
-          token: null,
-          team: 'team_1',
-        },
+        requester: ReplaysRequester.replayOf(each),
         state: 'queued',
         askedAPerson: false,
         started: false,
@@ -127,20 +118,18 @@ class FakeRuns implements RunsPort {
   leasedBy = async () => null;
 
   agentProblem = () => null;
-
-  commandFor = () => null;
 }
 
-let claims: InMemoryReplayRunClaims;
+let decisions: InMemoryReplayRunDecisions;
 let trials: FakeTrials;
 let runs: FakeRuns;
 let dispatch: ReplayRunDispatch;
 
 beforeEach(() => {
-  claims = new InMemoryReplayRunClaims();
+  decisions = new InMemoryReplayRunDecisions();
   trials = new FakeTrials();
   runs = new FakeRuns();
-  dispatch = new ReplayRunDispatch(claims, trials, runs);
+  dispatch = new ReplayRunDispatch(decisions, trials, runs);
 });
 
 describe('ReplayRunDispatch', () => {
@@ -150,30 +139,8 @@ describe('ReplayRunDispatch', () => {
       fingerprint: FINGERPRINT,
     });
 
-    const [order] = runs.enqueued;
-    expect(order?.requester).toEqual({
-      owner: 'replays',
-      kind: 'replay',
-      id: RUN.value,
-      token: null,
-      team: 'team_1',
-    });
-    expect(order?.policy).toMatchObject({
-      holdsTurn: false,
-      gated: false,
-      actsBeyondItself: false,
-      asks: 'recorded',
-      listed: false,
-      exclusive: false,
-    });
-    expect(order?.workspace?.key).toBe(`replays/replay-${RUN.value}`);
-    expect(order?.extensions.replay).toEqual({
-      archive: 'archive_1',
-      checkouts: [{ path: 'api', commit: 'abc', repository: 'acme/api' }],
-      movesOnAfter: ['ship', 'done'],
-    });
-    expect(order?.restore).toEqual({ archive: 'archive_1' });
-    expect((await claims.find(RUN))?.trial?.movesOnAfter).toEqual([
+    expect(runs.enqueued).toEqual([{ run: RUN, trial: ORDERED.trial }]);
+    expect((await decisions.find(RUN))?.trial?.movesOnAfter.words).toEqual([
       'ship',
       'done',
     ]);
@@ -183,7 +150,6 @@ describe('ReplayRunDispatch', () => {
     trials.ordering = {
       ordered: false,
       unreplayableReason: 'archive-gone',
-      reason: 'The archive is gone.',
     };
 
     expect(await dispatch.dispatch(ORDER)).toEqual({
@@ -191,11 +157,11 @@ describe('ReplayRunDispatch', () => {
       unreplayableReason: 'archive-gone',
     });
     expect(runs.enqueued).toEqual([]);
-    expect((await claims.find(RUN))?.claimedAs).toBe('unreplayable');
+    expect((await decisions.find(RUN))?.decided).toBe('unreplayable');
   });
 
   it('withdraws the trial when the run cannot be enqueued', async () => {
-    runs.enqueueing = { enqueued: false, reason: 'no such harness' };
+    runs.enqueueing = { outcome: 'refused', reason: 'no such harness' };
 
     expect(await dispatch.dispatch(ORDER)).toEqual({
       queued: false,
@@ -204,8 +170,8 @@ describe('ReplayRunDispatch', () => {
     expect(trials.withdrawn).toEqual([RUN.value]);
   });
 
-  it('queues nothing once a cancel claimed the run first', async () => {
-    await claims.add(ReplayRunClaim.toCancel(RUN));
+  it('queues nothing once a cancel decided the run first', async () => {
+    await decisions.add(ReplayRunDecision.decidedToCancel(RUN, OWNER));
 
     expect(await dispatch.dispatch(ORDER)).toEqual({
       queued: false,
@@ -214,9 +180,9 @@ describe('ReplayRunDispatch', () => {
     expect(trials.requests).toEqual([]);
   });
 
-  it('cancels the run it enqueued when a cancel claimed the run meanwhile', async () => {
+  it('cancels the run it enqueued when a cancel decided the run meanwhile', async () => {
     runs.onEnqueue = async () => {
-      await dispatch.cancel(RUN, false);
+      await dispatch.cancel(RUN, OWNER, false);
     };
 
     expect(await dispatch.dispatch(ORDER)).toEqual({
@@ -226,9 +192,9 @@ describe('ReplayRunDispatch', () => {
     expect(runs.cancelled).toContain(RUN.value);
   });
 
-  it('withdraws the trial when a cancel claimed the run before it was enqueued', async () => {
+  it('withdraws the trial when a cancel decided the run before it was enqueued', async () => {
     trials.onOrder = async () => {
-      await dispatch.cancel(RUN, false);
+      await dispatch.cancel(RUN, OWNER, false);
     };
 
     expect(await dispatch.dispatch(ORDER)).toEqual({
@@ -236,41 +202,59 @@ describe('ReplayRunDispatch', () => {
       unreplayableReason: 'cancelled',
     });
     expect(runs.enqueued).toEqual([]);
-    expect(trials.withdrawn).toEqual([RUN.value]);
+    expect(new Set(trials.withdrawn)).toEqual(new Set([RUN.value]));
   });
 
   describe('cancel', () => {
-    it('never queues a run nobody claimed yet', async () => {
-      expect(await dispatch.cancel(RUN, false)).toEqual({ queued: false });
-      expect((await claims.find(RUN))?.claimedAs).toBe('cancelled');
+    it('never queues a run nobody decided yet', async () => {
+      expect(await dispatch.cancel(RUN, OWNER, false)).toEqual({
+        wasQueued: false,
+      });
+      expect((await decisions.find(RUN))?.decided).toBe('cancelled');
     });
 
     it('stops a queued run and confirms it with its config', async () => {
       await dispatch.dispatch(ORDER);
 
-      expect(await dispatch.cancel(RUN, false)).toEqual({
-        queued: true,
+      expect(await dispatch.cancel(RUN, OWNER, false)).toEqual({
+        wasQueued: true,
         fingerprint: FINGERPRINT,
       });
-      expect((await claims.find(RUN))?.claimedAs).toBe('cancelled');
+      expect((await decisions.find(RUN))?.decided).toBe('cancelled');
     });
 
     it('leaves a run as it is when asked to, and confirms it', async () => {
       await dispatch.dispatch(ORDER);
 
-      expect(await dispatch.cancel(RUN, true)).toEqual({
-        queued: true,
+      expect(await dispatch.cancel(RUN, OWNER, true)).toEqual({
+        wasQueued: true,
         fingerprint: FINGERPRINT,
       });
       expect(runs.cancelled).toEqual([]);
-      expect((await claims.find(RUN))?.mayQueue).toBe(true);
+      expect((await decisions.find(RUN))?.mayQueue).toBe(true);
     });
 
-    it('cancels a claim whose run was never created', async () => {
-      await claims.add(ReplayRunClaim.toQueue(RUN));
+    it('cancels a decision whose run was never created', async () => {
+      await decisions.add(ReplayRunDecision.decidedToQueue(RUN, OWNER));
 
-      expect(await dispatch.cancel(RUN, true)).toEqual({ queued: false });
-      expect((await claims.find(RUN))?.claimedAs).toBe('cancelled');
+      expect(await dispatch.cancel(RUN, OWNER, true)).toEqual({
+        wasQueued: false,
+      });
+      expect((await decisions.find(RUN))?.decided).toBe('cancelled');
+      expect(trials.withdrawn).toEqual([RUN.value]);
+    });
+
+    it('withdraws a trial Work stored when the run was never enqueued', async () => {
+      runs.onEnqueue = async () => {
+        throw new Error('the process stopped');
+      };
+      await expect(dispatch.dispatch(ORDER)).rejects.toThrow();
+      runs.known.clear();
+
+      expect(await dispatch.cancel(RUN, OWNER, false)).toEqual({
+        wasQueued: false,
+      });
+      expect(trials.withdrawn).toEqual([RUN.value]);
     });
   });
 });

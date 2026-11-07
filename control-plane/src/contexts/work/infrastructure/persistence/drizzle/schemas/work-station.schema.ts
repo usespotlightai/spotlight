@@ -29,5 +29,6 @@ export const workStation = pgTable(
 
 export const workLine = pgTable('work_line', {
   lineId: text('line_id').primaryKey(),
-  lineVersion: integer('line_version').notNull(),
+  lineVersion: integer('line_version'),
+  savedVersion: integer('saved_version'),
 });

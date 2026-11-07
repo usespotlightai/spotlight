@@ -60,22 +60,13 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     private readonly teams: TeamRepository,
   ) {}
 
-  async viewableBy(
-    viewer: UserId,
-    workspaces: readonly WorkspaceId[],
-  ): Promise<ReadonlySet<string>> {
-    const roles = await this.roles.rolesOf(viewer, workspaces);
-
-    return new Set(
-      [...roles]
-        .filter(([, role]) => Permissions.ofRole(WorkspaceRole.of(role)).reads)
-        .map(([workspaceId]) => workspaceId),
-    );
-  }
-
   async mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean> {
-    return (await this.viewableBy(viewer, [workspaceId])).has(
+    const role = (await this.roles.rolesOf(viewer, [workspaceId])).get(
       workspaceId.value,
+    );
+
+    return (
+      role !== undefined && Permissions.ofRole(WorkspaceRole.of(role)).reads
     );
   }
 
@@ -134,12 +125,12 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
     );
   }
 
-  async permissionsAsTeamReader(
+  async permissionsAsTeamMember(
     teamId: TeamId,
     principal: Principal,
   ): Promise<TeamPermissions | null> {
     return this.grantedOnTeam(teamId, (team, workspace) =>
-      TeamAccess.readsTeam(team, workspace, principal)
+      TeamAccess.actsOnTeam(team, workspace, principal)
         ? published(workspace, workspace.permissionsFor(principal))
         : null,
     );

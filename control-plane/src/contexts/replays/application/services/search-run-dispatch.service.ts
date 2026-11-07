@@ -1,17 +1,18 @@
 import type { LinesPort } from '@replays/application/ports/lines.port';
 import type {
   AgentProblem,
-  RunState,
-  RunStatus,
   RunsPort,
 } from '@replays/application/ports/runs.port';
-import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
-import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import {
-  type RunPolicyContract,
-  type RunRequesterContract,
-  workspaceKeyOf,
-} from '@runs/application/contracts/run-order.contract';
+  type SeenRun,
+  seenRunOf,
+} from '@replays/domain/services/search-reconciliation';
+import {
+  ReplaysRequester,
+  type SearchIteration,
+} from '@replays/domain/value-objects/replays-requester.vo';
+import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
+import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -31,19 +32,9 @@ export type SearchRunQueued =
   | { readonly queued: true }
   | { readonly queued: false; readonly reason: string };
 
-export interface LeasedSearchRun {
-  readonly searchId: SearchId;
-  readonly iteration: number;
-}
+export type LeasedSearchRun = SearchIteration;
 
-export interface SearchRunStatus {
-  readonly run: RunId;
-  readonly phase: 'queued' | 'running' | 'ended';
-  readonly failed: boolean;
-  readonly started: boolean;
-  readonly queuedAt: Date;
-  readonly endedAt: Date | null;
-}
+export type SearchRunStatus = SeenRun;
 
 export type UnclaimedCancellation =
   | { readonly outcome: 'cancelled'; readonly started: boolean }
@@ -69,62 +60,13 @@ export interface SearchRunDispatching {
   ): Promise<readonly SearchRunStatus[]>;
 }
 
-export const SEARCH_RUN_POLICY: RunPolicyContract = {
-  holdsTurn: false,
-  gated: false,
-  actsBeyondItself: false,
-  asks: 'recorded',
-  listed: false,
-  exclusive: false,
-};
-
-const SEARCH_PRIORITY = -1;
-
 const STOPPED = 'Search stopped before a runner claimed the run.';
 
 const LEFT_UNCLAIMED =
   'No runner claimed the run in time. Its search cancelled it.';
 
-const PHASE: Readonly<Record<RunState, SearchRunStatus['phase']>> = {
-  queued: 'queued',
-  claimed: 'running',
-  suspended: 'running',
-  completed: 'ended',
-  failed: 'ended',
-  cancelled: 'ended',
-};
-
-const statusOf = (status: RunStatus): SearchRunStatus => ({
-  run: status.run,
-  phase: PHASE[status.state],
-  failed: status.state !== 'completed' || status.askedAPerson,
-  started: status.started,
-  queuedAt: status.queuedAt,
-  endedAt: status.endedAt,
-});
-
-const requesterOf = (
-  order: SearchRunOrder,
-  team: string | null,
-): RunRequesterContract => ({
-  owner: 'replays',
-  kind: 'search',
-  id: order.searchId.value,
-  token: String(order.iteration),
-  team,
-});
-
-const sameRequester = (
-  one: RunRequesterContract,
-  other: RunRequesterContract,
-): boolean =>
-  one.owner === other.owner &&
-  one.kind === other.kind &&
-  one.id === other.id &&
-  one.token === other.token;
-
-export const isSearchRequester = (requester: RunRequesterContract): boolean =>
-  requester.owner === 'replays' && requester.kind === 'search';
+const requesterOf = (order: SearchRunOrder): ReplaysRequester =>
+  ReplaysRequester.searchIteration(order.searchId, order.iteration);
 
 export class SearchRunDispatch implements SearchRunDispatching {
   constructor(
@@ -153,55 +95,34 @@ export class SearchRunDispatch implements SearchRunDispatching {
       };
     }
 
-    const requester = requesterOf(order, station.teamId.value);
-    const command = this.runs.commandFor(order.agent, requester, order.run);
-
-    if (!command) {
-      return {
-        queued: false,
-        reason: `no runner can start ${order.agent.harness}, the harness it searches with`,
-      };
-    }
-
-    const enqueued = await this.runs.enqueue({
-      runId: order.run.value,
-      workspaceId: station.workspaceId.value,
-      harness: order.agent.harness,
-      priority: SEARCH_PRIORITY,
-      placement: {
-        labelGroups: station.placement.labelGroups,
-        image: station.placement.image,
-      },
-      spec: {
-        command,
-        briefing: order.briefing,
-        handover: { options: [], noteLimit: 0 },
-        resume: {},
-      },
-      requester,
-      policy: SEARCH_RUN_POLICY,
-      workspace: {
-        key: workspaceKeyOf('replays', `search-${order.run.value}`),
-        rejoinable: false,
-        restores: 'when-continuing',
-      },
-      restore: null,
-      extensions: { search: {} },
-      apiGrant: null,
-      tags: {},
-      refusal: null,
+    const enqueued = await this.runs.enqueueSearch({
+      run: order.run,
+      requester: requesterOf(order),
+      workspaceId: station.workspaceId,
+      teamId: station.teamId,
+      agent: order.agent,
+      briefing: order.briefing,
+      placement: station.placement,
     });
 
-    return enqueued.enqueued
-      ? { queued: true }
-      : { queued: false, reason: enqueued.reason };
+    switch (enqueued.outcome) {
+      case 'enqueued':
+        return { queued: true };
+      case 'refused':
+        return { queued: false, reason: enqueued.reason };
+      case 'harness-unavailable':
+        return {
+          queued: false,
+          reason: `no runner can start ${order.agent.harness}, the harness it searches with`,
+        };
+    }
   }
 
   async cancelSearchRun(run: RunId): Promise<void> {
     const cancelled = await this.runs.cancelIfQueued(run, STOPPED);
 
     if (cancelled.outcome === 'claimed') {
-      await this.runs.cancel(run);
+      await this.runs.cancel(run, STOPPED);
     }
   }
 
@@ -223,14 +144,7 @@ export class SearchRunDispatch implements SearchRunDispatching {
     run: RunId,
     runnerId: string,
   ): Promise<LeasedSearchRun | null> {
-    const requester = await this.runs.leasedBy(run, runnerId);
-
-    return requester && isSearchRequester(requester) && requester.token
-      ? {
-          searchId: SearchId.of(requester.id),
-          iteration: Number(requester.token),
-        }
-      : null;
+    return (await this.runs.leasedBy(run, runnerId))?.searchIteration ?? null;
   }
 
   async searchRunStatuses(
@@ -241,8 +155,8 @@ export class SearchRunDispatch implements SearchRunDispatching {
     }
 
     return (await this.runs.statuses(runs))
-      .filter((each) => isSearchRequester(each.requester))
-      .map(statusOf);
+      .filter((each) => each.requester?.searchIteration)
+      .map(seenRunOf);
   }
 
   private async alreadyQueued(order: SearchRunOrder): Promise<boolean> {
@@ -252,7 +166,7 @@ export class SearchRunDispatch implements SearchRunDispatching {
       return false;
     }
 
-    if (!sameRequester(known.requester, requesterOf(order, null))) {
+    if (!known.requester?.equals(requesterOf(order))) {
       throw new InconsistentStateError(
         'run',
         `${order.run.value} is already a run of something other than iteration ${order.iteration} of search ${order.searchId.value}`,

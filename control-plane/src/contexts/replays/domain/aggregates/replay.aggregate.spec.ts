@@ -558,7 +558,12 @@ describe('Replay', () => {
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([
-        new ReplayStopped(inProgress.id, inProgress.workspaceId, [run(0)]),
+        new ReplayStopped(
+          inProgress.id,
+          inProgress.workspaceId,
+          inProgress.teamId,
+          [run(0)],
+        ),
         new ReplayEnded(inProgress.id, inProgress.workspaceId, null, 'deleted'),
       ]);
 
@@ -712,7 +717,10 @@ describe('Replay', () => {
       expect(replay.cancel(run(1), NOW).occupying).toHaveLength(1);
       expect(replay.cancel(run(0), NOW).occupying).toHaveLength(2);
       expect(replay.pullEvents()).toEqual([
-        new ReplayStopped(replay.id, replay.workspaceId, [run(0), run(1)]),
+        new ReplayStopped(replay.id, replay.workspaceId, replay.teamId, [
+          run(0),
+          run(1),
+        ]),
         new ReplayEnded(replay.id, replay.workspaceId, null, 'stopped'),
         stopRequested(replay),
       ]);
@@ -769,7 +777,9 @@ describe('Replay', () => {
       expect(stopped.stoppedAt).toEqual(NOW);
       expect(() => stopped.stop(NOW, BY)).toThrow(ReplayEndedError);
       expect(stopped.pullEvents()).toEqual([
-        new ReplayStopped(stopped.id, stopped.workspaceId, [run(1)]),
+        new ReplayStopped(stopped.id, stopped.workspaceId, stopped.teamId, [
+          run(1),
+        ]),
         stopRequested(stopped),
       ]);
     });

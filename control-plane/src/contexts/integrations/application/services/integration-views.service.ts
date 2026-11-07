@@ -7,8 +7,10 @@ import type { IntegrationCompilerPort } from '@integrations/application/ports/in
 import type { IntegrationRecord } from '@integrations/application/ports/integration-resources.port';
 import { integrationAt } from '@integrations/application/rendering/integration-problems';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
+import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -52,7 +54,7 @@ export class IntegrationViews {
   }
 
   onTeam(record: IntegrationRecord, teamKey: string): IntegrationResourceDto {
-    const compiled = this.compiler.compile(record.definition);
+    const compiled = this.compiler.compile(record.definition, null);
     const spec = compiled.ok ? compiled.spec : null;
     const apiSpec: ApiSpecDto | null =
       spec && record.reading
@@ -62,9 +64,13 @@ export class IntegrationViews {
             readAt: record.reading.readAt.toISOString(),
             problem: record.reading.problem,
             tools: compiled.ok
-              ? compiled.integration.generatedToolCount(
+              ? OfferedTools.listed(
+                  compiled.integration,
                   ToolName.parsedAll(record.tools),
-                )
+                  record.generatedFrom
+                    ? ContentHash.of(record.generatedFrom)
+                    : null,
+                ).generatedCount
               : record.tools.length,
           }
         : null;

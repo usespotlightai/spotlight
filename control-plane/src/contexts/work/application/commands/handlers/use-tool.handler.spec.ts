@@ -4,12 +4,12 @@ import type {
 } from '@catalog/application/contracts/catalog.contract';
 import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import {
+  claimer,
   Run,
   RunPolicy,
   RunRequester,
   RunSpec,
 } from '@runs/application/ports/run-fixtures.fake-spec';
-import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -31,7 +31,6 @@ import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type {
-  IntegrationToolsPort,
   ResolvedTool,
   TaskToolContext,
   ToolContext,
@@ -49,6 +48,7 @@ import type {
 } from '@work/application/ports/task-views.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
+import type { IntegrationToolResolver } from '@work/application/services/integration-tools.service';
 import { RunCatalog } from '@work/application/services/run-catalog.service';
 import {
   aChatDispatch,
@@ -62,7 +62,7 @@ import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ToolUsed } from '@work/domain/events/tool-used.event';
-import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import { LeaseLostError } from '@work/domain/exceptions/lease-lost.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -260,7 +260,9 @@ const claimed = (
     attempt: 1,
     reservation: null,
     provisioning: Provisioning.none(),
+    version: 0,
     queuedAt: NOW,
+    createdAt: NOW,
     requester: REQUESTERS[over.requested ?? 'task'],
     policy: policyFor(over.requested ?? 'task'),
     spec: RunSpec.of({
@@ -271,7 +273,7 @@ const claimed = (
       manifest: enabled.map(describedAs),
       ...(over.catalog ? { catalog: over.catalog } : {}),
     }),
-  }).claim(RunnerId.of('runner_1'), NOW);
+  }).claim(claimer(RunnerId.of('runner_1')), NOW);
 
 const LINE = {
   id: 'line_1',
@@ -428,7 +430,7 @@ const using = (
     } as unknown as ChatRepository),
   );
 
-  const integrationTools: IntegrationToolsPort = {
+  const integrationTools: IntegrationToolResolver = {
     resolve: async (tool, context): Promise<ResolvedTool | null> =>
       tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
         ? {
@@ -440,13 +442,22 @@ const using = (
               input.name === 'issue' ? 'ENG-12' : undefined,
             call: async (inputs) => {
               if (over.movedOnWhileCalling) {
-                throw new RunAttemptOverError('run_1', 1);
+                throw new LeaseLostError('run_1', 1);
               }
               called.push({ tool: tool.value, context, inputs });
               if (over.failing) {
-                throw new UpstreamError('using linear.comment', 'down');
+                return {
+                  outcome: 'failed',
+                  failure: {
+                    blocked: false,
+                    reason: 'using linear.comment: down',
+                  },
+                };
               }
-              return 'https://linear.app/acme/issue/ENG-12#comment-1';
+              return {
+                outcome: 'answered',
+                output: 'https://linear.app/acme/issue/ENG-12#comment-1',
+              };
             },
           }
         : null,
@@ -524,10 +535,7 @@ const using = (
         if (over.recordingFails) {
           throw new Error('the outbox is unreachable');
         }
-        const used = use.recordedFirst(true);
-        if (used) {
-          recorded.push(used);
-        }
+        recorded.push(...(use.pullEvents() as ToolUsed[]));
       },
       purgeBefore: async () => 0,
     },
@@ -1437,7 +1445,7 @@ describe('UseToolHandler', () => {
       const { useTool, called, hooked } = using(leased, {
         movedOnTo: leased
           .expireLease(leased.leaseExpiresAt as Date)
-          .claim(RunnerId.of('runner_1'), NOW),
+          .claim(claimer(RunnerId.of('runner_1')), NOW),
       });
 
       await expect(

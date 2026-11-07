@@ -7,7 +7,7 @@ import type {
 import type { RunUsageWriterPort } from '@runs/application/ports/run-usage-writer.port';
 import { CHAT_POLICY, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
-import type { RunCompleted } from '@runs/domain/events/run-completed.event';
+import type { RunEnded } from '@runs/domain/events/run-ended.event';
 import type { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import type { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import { Money } from '@runs/domain/value-objects/money.vo';
@@ -72,13 +72,13 @@ const recording = (found: RunFacts | null) => {
   };
 };
 
-const ended = { runId: RUN } as unknown as RunCompleted;
+const ended = { runId: RUN } as unknown as RunEnded;
 
 describe('RecordRunUsage', () => {
   it('records the usage of a completed run with who asked for it and whether it is listed', async () => {
     const { handler, recorded } = recording(facts());
 
-    await handler.onRunCompleted(ended);
+    await handler.onRunEnded(ended);
 
     expect(recorded).toHaveLength(1);
     expect(recorded[0]).toMatchObject({
@@ -118,8 +118,8 @@ describe('RecordRunUsage', () => {
     const running = recording(facts({ ended: false, state: 'claimed' }));
     const unknown = recording(null);
 
-    await running.handler.onRunCompleted(ended);
-    await unknown.handler.onRunCompleted(ended);
+    await running.handler.onRunEnded(ended);
+    await unknown.handler.onRunEnded(ended);
 
     expect(running.recorded).toEqual([]);
     expect(unknown.recorded).toEqual([]);

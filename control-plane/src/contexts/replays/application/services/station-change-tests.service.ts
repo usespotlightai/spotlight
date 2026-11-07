@@ -4,13 +4,11 @@ import type {
   StationChangeTestRequest,
   StationChangeTestScope,
 } from '@replays/application/contracts/station-change-tests.contract';
-import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
-  LiveConfig,
+  LinesPort,
   StationView,
-  ValidatedCandidate,
-  WorkPort,
-} from '@replays/application/ports/work.port';
+} from '@replays/application/ports/lines.port';
+import type { PeoplePort } from '@replays/application/ports/people.port';
 import { stationChangeRefusalReason } from '@replays/application/rendering/station-change-refusals';
 import type { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
@@ -18,6 +16,11 @@ import type { PendingSearchSteps } from '@replays/application/services/pending-s
 import type { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { resultPendingAt } from '@replays/application/services/result-pending';
 import type { StartSearch } from '@replays/application/services/start-search.service';
+import type {
+  LiveConfig,
+  StationConfigs,
+  ValidatedCandidate,
+} from '@replays/application/services/station-configs.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
@@ -53,7 +56,6 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -90,7 +92,8 @@ const scopeOf = (search: Search): StationChangeTestScope => ({
 
 export class StationChangeTests {
   constructor(
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
+    private readonly configs: StationConfigs,
     private readonly people: PeoplePort,
     private readonly schedules: StationSearchScheduleRepository,
     private readonly sets: ReplaySetRepository,
@@ -110,9 +113,9 @@ export class StationChangeTests {
   async request(
     request: StationChangeTestRequest,
   ): Promise<StationChangeTestOutcome> {
-    const lineId = LineId.of(request.lineId);
-    const stationId = StationId.of(request.stationId);
-    const station = await this.work.station(lineId, stationId);
+    const lineId = request.lineId;
+    const stationId = request.stationId;
+    const station = await this.lines.station(lineId, stationId);
 
     if (
       !station?.workspaceId.equals(request.workspaceId) ||
@@ -121,7 +124,7 @@ export class StationChangeTests {
       return this.refused('station-gone');
     }
 
-    const live = await this.work.live(lineId, stationId);
+    const live = await this.configs.live(lineId, stationId);
 
     if (!live) {
       return this.refused('not-replayable');
@@ -172,7 +175,7 @@ export class StationChangeTests {
     station: StationView,
     proposal: Proposal,
   ): Promise<StationChangeTestOutcome> {
-    const stationId = StationId.of(request.stationId);
+    const stationId = request.stationId;
     const schedule = await this.schedules.ofStation(stationId);
     const set = schedule && (await this.sets.find(schedule.setId));
     const policy = live.search;
@@ -191,7 +194,7 @@ export class StationChangeTests {
       fitsMonth: fitsMonthAfter(
         policy,
         await this.searches.ofLineStartedSince(
-          LineId.of(request.lineId),
+          request.lineId,
           monthStartOf(now),
         ),
       ),
@@ -271,9 +274,7 @@ export class StationChangeTests {
       throw error;
     }
 
-    const active = await this.searches.activeAtStation(
-      StationId.of(request.stationId),
-    );
+    const active = await this.searches.activeAtStation(request.stationId);
 
     return active
       ? this.joinedOrEarlier(active, request, station)
@@ -289,7 +290,7 @@ export class StationChangeTests {
       return this.refused('search-running');
     }
 
-    const stationId = StationId.of(request.stationId);
+    const stationId = request.stationId;
     const iteration = seen.requestIteration;
     const candidate = this.candidateOf(
       seen.id,
@@ -408,9 +409,9 @@ export class StationChangeTests {
     station: StationView,
   ): Promise<Checked> {
     const teamKey = await this.people.teamKey(request.teamId);
-    const validated = await this.work.validate(
-      LineId.of(request.lineId),
-      StationId.of(request.stationId),
+    const validated = await this.configs.validate(
+      request.lineId,
+      request.stationId,
       request.block,
     );
     const address =

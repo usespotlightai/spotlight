@@ -1,4 +1,8 @@
 import {
+  pullRequestOpening,
+  usedTool,
+} from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import {
   compileHook,
   secretIn,
 } from '@integrations/infrastructure/hooks/hook.compile';
@@ -171,12 +175,7 @@ describe('compileHook', () => {
     if (!compiled.ok) throw new Error('did not compile');
 
     const matched = (tool: string) =>
-      compiled.ir.hook.matches(TASK, {
-        tool,
-        inputs: {},
-        output: null,
-        failed: false,
-      });
+      compiled.ir.hook.matches(TASK, usedTool(tool));
 
     expect(matched('grafana.search')).toBe(true);
     expect(matched('grafana.dashboard')).toBe(false);
@@ -195,7 +194,10 @@ describe('compileHook', () => {
       };
 
       return (
-        compiled.ir.hook.matches(TASK, event) &&
+        compiled.ir.hook.matches(
+          TASK,
+          pullRequestOpening(changed, 'acme/api'),
+        ) &&
         compiled.ir.when !== null &&
         isTrue(compiled.ir.when, instance(event))
       );

@@ -4,8 +4,10 @@ import { isUsableConnection } from '@integrations/domain/services/integration-co
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
+import type { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -21,9 +23,9 @@ interface State {
   readonly integration: IntegrationKey;
   readonly owner: ConnectionOwner;
   readonly accessToken: AccessToken;
-  readonly refreshToken: AccessToken | null;
+  readonly refreshToken: RefreshToken | null;
   readonly expiresAt: Date | null;
-  readonly scopes: readonly string[];
+  readonly scopes: readonly OAuthScope[];
   readonly linkedAccount: string | null;
   readonly refreshFailedAt: Date | null;
   readonly refreshClaim: RefreshClaim | null;
@@ -118,7 +120,7 @@ export class IntegrationConnection extends EventRecorder {
     return this.state.accessToken;
   }
 
-  get refreshToken(): AccessToken | null {
+  get refreshToken(): RefreshToken | null {
     return this.state.refreshToken;
   }
 
@@ -126,7 +128,7 @@ export class IntegrationConnection extends EventRecorder {
     return this.state.expiresAt;
   }
 
-  get scopes(): readonly string[] {
+  get scopes(): readonly OAuthScope[] {
     return this.state.scopes;
   }
 
@@ -186,7 +188,7 @@ export class IntegrationConnection extends EventRecorder {
     return this.state.accessToken.equals(token);
   }
 
-  refreshesWith(token: AccessToken): boolean {
+  refreshesWith(token: RefreshToken): boolean {
     return this.state.refreshToken?.equals(token) ?? false;
   }
 

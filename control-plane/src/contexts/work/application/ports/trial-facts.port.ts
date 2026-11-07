@@ -7,7 +7,6 @@ export interface TaskRunFacts {
   readonly briefed: boolean;
   readonly taskExists: boolean;
   readonly title: string | null;
-  readonly origin: string | null;
 }
 
 export interface TrialFactsPort {

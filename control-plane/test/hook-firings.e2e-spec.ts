@@ -13,6 +13,7 @@ import { CausalChain } from '@integrations/domain/value-objects/causal-chain.vo'
 import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
+import { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
@@ -79,12 +80,12 @@ describe('hook firings, stored in the database (e2e)', () => {
       workspaceId: WorkspaceId.of('workspace_1'),
       teamId: TeamId.of('team_1'),
       taskId: TaskId.of('task_1'),
-      runId: null,
+      run: null,
       stationKey: StationKey.of('triage'),
       on: 'task.opened',
       occurrence,
       firedAt,
-      event: {},
+      event: HookEventFacts.of({ on: 'task.opened' }),
       matched: true,
       cause: CausalChain.none().append(OPENED),
       link: {
@@ -94,8 +95,22 @@ describe('hook firings, stored in the database (e2e)', () => {
       },
     });
 
+  const claimNext = async (now: Date): Promise<HookFiring | null> => {
+    const [next] = (await firings.claimCandidates(now, 20)).filter(
+      (candidate) => candidate.isClaimableAt(now),
+    );
+
+    if (!next) {
+      return null;
+    }
+
+    await firings.save(next.claimed(now));
+
+    return firings.withId(next.id);
+  };
+
   const claimed = async (now: Date = NOW): Promise<HookFiring> => {
-    const next = await firings.claimNext(now);
+    const next = await claimNext(now);
 
     if (!next) {
       throw new Error('nothing was due');
@@ -134,6 +149,7 @@ describe('hook firings, stored in the database (e2e)', () => {
       on: 'task.opened',
       definition: {},
       tools: [],
+      blocks: false,
     });
   });
 
@@ -278,7 +294,7 @@ describe('hook firings, stored in the database (e2e)', () => {
 
     await firings.save(working.stepTaken(HOOK, waiting, NOW));
 
-    await expect(firings.claimNext(at(1))).resolves.toBeNull();
+    await expect(claimNext(at(1))).resolves.toBeNull();
     await expect(claimed(at(2))).resolves.toMatchObject({
       id: working.id,
       steps: [waiting],

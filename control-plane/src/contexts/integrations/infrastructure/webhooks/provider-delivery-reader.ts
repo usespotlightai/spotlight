@@ -6,9 +6,28 @@ import type {
   Delivered,
   WebhookProviderPort,
 } from '@integrations/application/ports/webhook-provider.port';
+import type { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import { deliveryFailureOf } from '@integrations/infrastructure/webhooks/delivery-failures';
 
 export class ProviderDeliveryReader implements DeliveryReaderPort {
+  async receive(
+    provider: WebhookProviderPort,
+    delivered: Delivered,
+  ): Promise<DeliveryFailure | null> {
+    try {
+      await provider.received?.(delivered);
+      return null;
+    } catch (error) {
+      const failure = deliveryFailureOf(error);
+
+      if (!failure) {
+        throw error;
+      }
+
+      return failure;
+    }
+  }
+
   async read(
     provider: WebhookProviderPort,
     delivered: Delivered,

@@ -14,6 +14,7 @@ import {
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
@@ -31,11 +32,15 @@ const workOfTeam = (teamId: string): WorkPort => ({
   endedRun: async (runId) =>
     ({
       runId,
-      workspaceId: 'ws_1',
-      teamId,
-      taskId: 'task_1',
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of(teamId),
+      taskId: TaskId.of('task_1'),
     }) as EndedRun,
-  taskRunOf: async (runId) => ({ runId, teamId, taskId: 'task_1' }),
+  taskRunOf: async (runId) => ({
+    runId,
+    teamId: TeamId.of(teamId),
+    taskId: TaskId.of('task_1'),
+  }),
   configsInOrder: async () => [],
 });
 

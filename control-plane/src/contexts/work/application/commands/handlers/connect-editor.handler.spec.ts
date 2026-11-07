@@ -10,6 +10,7 @@ import {
 } from '@work/application/commands/connect-editor.command';
 import { ConnectEditorHandler } from '@work/application/commands/handlers/connect-editor.handler';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
@@ -74,15 +75,15 @@ const setUp = () => {
   const leases = {
     hold: vi.fn(async () => ({ sandboxId: 'sandbox_1', holder: 'conn_1' })),
   } satisfies EditorLeasesPort;
-  const handler = new ConnectEditorHandler(
-    tasks,
-    chats,
-    access,
-    leases,
-    workAccessSeeing((_, viewer) => viewer.value !== OUTSIDER, {
+  const handler = new ConnectEditorHandler(tasks, chats, leases, {
+    ...workAccessSeeing((_, viewer) => viewer.value !== OUTSIDER, {
       onTeam: (_, viewer) => viewer.value !== CAL,
     }),
-  );
+    seesWorkspace: (workspaceId: WorkspaceId, viewer: UserId) =>
+      access.mayView(viewer, workspaceId),
+    memberWorkspaceAt: async (slug: string, viewer: UserId) =>
+      (await access.inWorkspace(slug, viewer))?.workspaceId ?? null,
+  } as unknown as WorkAccess);
 
   return {
     leases,

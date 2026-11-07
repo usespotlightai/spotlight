@@ -4,6 +4,7 @@ import type { DeleteChangeJudgings } from '@replays/application/services/delete-
 import type { DeleteConfigPullRequests } from '@replays/application/services/delete-config-pull-requests.service';
 import type { DeleteLineSearchBudgets } from '@replays/application/services/delete-line-search-budgets.service';
 import type { DeleteReplayChecks } from '@replays/application/services/delete-replay-checks.service';
+import type { DeleteReplayRunDecisions } from '@replays/application/services/delete-replay-run-decisions.service';
 import type { DeleteReplays } from '@replays/application/services/delete-replays.service';
 import type { DeleteSearches } from '@replays/application/services/delete-searches.service';
 import type { DeleteSideBySideJudgings } from '@replays/application/services/delete-side-by-side-judgings.service';
@@ -66,7 +67,15 @@ import type { SideBySideJudgingFailed } from '@replays/domain/events/side-by-sid
 import type { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import {
+  type PublishedRequester,
+  ReplaysRequester,
+} from '@replays/domain/value-objects/replays-requester.vo';
 import { runResultOf } from '@replays/presentation/events/run-result.translation';
+import {
+  DISPATCH_ENDED,
+  type DispatchEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/dispatch-ended.integration-event';
 import {
   LINE_CHANGED,
   type LineChangedIntegrationEvent,
@@ -79,10 +88,6 @@ import {
   PULL_REQUEST_REOPENED,
   type PullRequestReopenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
-import {
-  REQUESTED_RUN_ENDED,
-  type RequestedRunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/requested-run-ended.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -150,6 +155,7 @@ export interface ReplaysReactions {
   readonly deletingChangeJudgings: DeleteChangeJudgings;
   readonly deletingSideBySideJudgings: DeleteSideBySideJudgings;
   readonly deletingBudgets: DeleteLineSearchBudgets;
+  readonly deletingRunDecisions: DeleteReplayRunDecisions;
   readonly startingSearchReplays: StartSearchReplays;
   readonly startingCheckReplays: StartCheckReplays;
   readonly noticingResults: NoticeSearchResults;
@@ -159,15 +165,14 @@ export interface ReplaysReactions {
   readonly following: FollowConfigPullRequests;
 }
 
-const REPLAYS = 'replays';
+const requestedAReplay = (event: {
+  readonly requester: PublishedRequester;
+}): boolean => ReplaysRequester.decode(event.requester)?.isReplay ?? false;
 
-const requestedAs = (
-  event: {
-    readonly requester: { readonly owner: string; readonly kind: string };
-  },
-  kind: 'replay' | 'search',
-): boolean =>
-  event.requester.owner === REPLAYS && event.requester.kind === kind;
+const requestedASearch = (event: {
+  readonly requester: PublishedRequester;
+}): boolean =>
+  Boolean(ReplaysRequester.decode(event.requester)?.searchIteration);
 
 const spentOf = (event: {
   readonly spentCosts: readonly { amount: number; currency: string }[];
@@ -181,11 +186,11 @@ const spentOf = (event: {
 export const replaysSubscribers = (
   reactions: ReplaysReactions,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<RequestedRunEndedIntegrationEvent>(
+  subscribing<RunEndedIntegrationEvent>(
     'replays.record-replay-run-ended',
-    [REQUESTED_RUN_ENDED],
+    [RUN_ENDED],
     async (event) => {
-      if (!requestedAs(event, 'replay')) {
+      if (!requestedAReplay(event)) {
         return;
       }
 
@@ -197,6 +202,7 @@ export const replaysSubscribers = (
         askedAPerson: event.askedAPerson,
         handsOver: event.handsOver,
         next: event.report?.next ?? null,
+        endedAt: new Date(event.endedAt),
       });
     },
   ),
@@ -204,7 +210,7 @@ export const replaysSubscribers = (
     'replays.record-replay-run-usage',
     [RUN_USAGE_RECORDED],
     async (event) => {
-      if (!requestedAs(event, 'replay')) {
+      if (!requestedAReplay(event)) {
         return;
       }
 
@@ -328,9 +334,9 @@ export const replaysSubscribers = (
     (event) => reactions.startingPointHolds.changed(event.setId),
     { callsOut: true },
   ),
-  subscribing<RunEndedIntegrationEvent>(
+  subscribing<DispatchEndedIntegrationEvent>(
     'replays.keep-replay-set-of-station',
-    [RUN_ENDED],
+    [DISPATCH_ENDED],
     (event) =>
       reactions.keeping.onRunEnded(
         event.stationId,
@@ -345,7 +351,7 @@ export const replaysSubscribers = (
   subscribing<ReplayStopped>(
     'replays.stop-runs-of-stopped-replay',
     ['replay.stopped'],
-    (event) => reactions.cancellingRuns.stopped(event.runs),
+    (event) => reactions.cancellingRuns.stopped(event),
     { callsOut: true },
   ),
   subscribing<ReplayCeilingReached>(
@@ -401,11 +407,11 @@ export const replaysSubscribers = (
     ['replay.ended'],
     (event) => reactions.searching.replayEnded(event),
   ),
-  subscribing<RequestedRunEndedIntegrationEvent>(
+  subscribing<RunEndedIntegrationEvent>(
     'replays.record-search-run-ended',
-    [REQUESTED_RUN_ENDED],
+    [RUN_ENDED],
     async (event) => {
-      if (!requestedAs(event, 'search')) {
+      if (!requestedASearch(event)) {
         return;
       }
 
@@ -414,6 +420,7 @@ export const replaysSubscribers = (
         outcome: runResultOf(event.outcome),
         asked: event.askedAPerson,
         started: event.started,
+        endedAt: new Date(event.endedAt),
       });
     },
   ),
@@ -421,7 +428,7 @@ export const replaysSubscribers = (
     'replays.record-search-run-usage',
     [RUN_USAGE_RECORDED],
     async (event) => {
-      if (!requestedAs(event, 'search')) {
+      if (!requestedASearch(event)) {
         return;
       }
 
@@ -630,6 +637,12 @@ export const replaysSubscribers = (
     'replays.delete-line-search-budgets-of-deleted-team',
     [TEAM_DELETED],
     (event) => reactions.deletingBudgets.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-replay-run-decisions-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => reactions.deletingRunDecisions.ofTeam(TeamId.of(event.teamId)),
     { callsOut: true },
   ),
   subscribing<SearchReplaysPlanned>(

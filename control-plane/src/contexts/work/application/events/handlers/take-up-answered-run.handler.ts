@@ -1,9 +1,10 @@
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { runCheckoutsFor } from '@work/domain/services/task-checkouts';
+import { checkoutsOf } from '@work/domain/services/task-checkouts';
 
 export class TakeUpAnsweredRun {
   constructor(
@@ -33,7 +34,7 @@ export class TakeUpAnsweredRun {
       runId,
       turn,
       'answered',
-      line ? runCheckoutsFor(task, line) : [],
+      RunCheckoutsMapper.toRun(line ? checkoutsOf(task, line) : []),
     );
   }
 }

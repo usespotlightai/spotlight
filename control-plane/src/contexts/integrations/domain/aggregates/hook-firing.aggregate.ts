@@ -14,17 +14,20 @@ import {
   HookEvent,
   type HookEventName,
 } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import type { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
+import type { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type {
   HookStepOutcome,
   WaitingHookStep,
 } from '@integrations/domain/value-objects/hook-step-outcome.vo';
-import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -32,7 +35,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface NextHookStep {
-  readonly name: string;
+  readonly name: HookStepName;
   readonly earlier: readonly HookStepOutcome[];
   readonly resuming: WaitingHookStep | null;
 }
@@ -42,14 +45,23 @@ export type HookFiringProgress =
   | { readonly kind: 'working'; readonly claimedAt: Date }
   | { readonly kind: 'done'; readonly at: Date }
   | { readonly kind: 'failed'; readonly at: Date }
-  | { readonly kind: 'superseded'; readonly at: Date };
+  | { readonly kind: 'superseded'; readonly at: Date }
+  | {
+      readonly kind: 'skipped';
+      readonly at: Date;
+      readonly because: HookFiringSkip;
+    };
+
+export const HOOK_FIRING_SKIPS = ['hook-deleted', 'no-longer-matches'] as const;
+
+export type HookFiringSkip = (typeof HOOK_FIRING_SKIPS)[number];
 
 export type HookFiringState = HookFiringProgress['kind'];
 
 export interface HookFiringRepeats {
   readonly hookId: HookDefinitionId;
   readonly taskId: TaskId;
-  readonly linkKey: string;
+  readonly link: CauseLink;
   readonly since: Date;
   readonly before: { readonly firedAt: Date; readonly id: HookFiringId };
 }
@@ -60,6 +72,7 @@ export const HOOK_FIRING_STATES = [
   'done',
   'failed',
   'superseded',
+  'skipped',
 ] as const satisfies readonly HookFiringState[];
 
 interface Fired {
@@ -68,12 +81,12 @@ interface Fired {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly taskId: TaskId;
-  readonly runId: RunId | null;
+  readonly run: HookRunAttempt | null;
   readonly stationKey: StationKey;
   readonly on: HookEventName;
-  readonly occurrence: string;
+  readonly occurrence: HookOccurrenceKey;
   readonly firedAt: Date;
-  readonly event: Readonly<Record<string, unknown>>;
+  readonly event: HookEventFacts;
   readonly matched: boolean;
   readonly cause: CausalChain;
   readonly link: CauseLink;
@@ -93,12 +106,8 @@ const WAIT_AGAIN_MS = 2_000;
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-const frozenEvent = (
-  event: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> => deepFrozen(structuredClone(event));
-
 const impossibleTrail = (steps: readonly HookStepOutcome[]): string | null => {
-  const names = new Set(steps.map((step) => step.name));
+  const names = new Set(steps.map((step) => step.name.value));
 
   if (names.size !== steps.length) {
     return 'takes a step twice';
@@ -123,9 +132,14 @@ export class HookFiring extends EventRecorder {
   }
 
   static fire(input: Fired): HookFiring {
+    if (input.event.on !== input.on) {
+      throw new InvalidHookFiringTransitionError(
+        `cannot fire on ${input.on} for a ${input.event.on} event`,
+      );
+    }
+
     return new HookFiring({
       ...input,
-      event: frozenEvent(input.event),
       steps: [],
       progress: { kind: 'pending', dueAt: input.firedAt },
       attempts: 0,
@@ -175,7 +189,14 @@ export class HookFiring extends EventRecorder {
       );
     }
 
-    return new HookFiring({ ...state, event: frozenEvent(state.event) });
+    if (state.event.on !== state.on) {
+      throw new InconsistentStateError(
+        'hook firing',
+        `fired on ${state.on} for a ${state.event.on} event (${state.id.value})`,
+      );
+    }
+
+    return new HookFiring(state);
   }
 
   static leaseExpiredBefore(now: Date): Date {
@@ -206,8 +227,12 @@ export class HookFiring extends EventRecorder {
     return this.state.taskId;
   }
 
+  get run(): HookRunAttempt | null {
+    return this.state.run;
+  }
+
   get runId(): RunId | null {
-    return this.state.runId;
+    return this.state.run?.runId ?? null;
   }
 
   get stationKey(): StationKey {
@@ -218,7 +243,7 @@ export class HookFiring extends EventRecorder {
     return this.state.on;
   }
 
-  get occurrence(): string {
+  get occurrence(): HookOccurrenceKey {
     return this.state.occurrence;
   }
 
@@ -226,7 +251,7 @@ export class HookFiring extends EventRecorder {
     return this.state.firedAt;
   }
 
-  get event(): Readonly<Record<string, unknown>> {
+  get event(): HookEventFacts {
     return this.state.event;
   }
 
@@ -269,7 +294,7 @@ export class HookFiring extends EventRecorder {
   get finished(): boolean {
     const { kind } = this.state.progress;
 
-    return kind === 'done' || kind === 'failed' || kind === 'superseded';
+    return kind !== 'pending' && kind !== 'working';
   }
 
   get finishedAt(): Date | null {
@@ -292,7 +317,7 @@ export class HookFiring extends EventRecorder {
     return {
       hookId: this.state.hookId,
       taskId: this.state.taskId,
-      linkKey: this.state.link.key,
+      link: this.state.link,
       since: this.repeatsCountedSince,
       before: { firedAt: this.state.firedAt, id: this.state.id },
     };
@@ -302,35 +327,42 @@ export class HookFiring extends EventRecorder {
     readonly repository: Repository;
     readonly pullRequest: PullRequestUrl;
   } | null {
+    const { repository, pullRequest } = this.state.event;
+
     if (
       this.state.matched ||
-      !HookEvent.of(this.state.on).matchedAfterChanges
+      !HookEvent.of(this.state.on).matchedAfterChanges ||
+      repository === null ||
+      pullRequest === null
     ) {
       return null;
     }
 
-    return {
-      repository: Repository.of(String(this.state.event.repository ?? '')),
-      pullRequest: PullRequestUrl.of(String(this.state.event.url ?? '')),
-    };
+    return { repository, pullRequest };
   }
 
-  eventWithChanges(
-    changed: readonly string[],
-  ): Readonly<Record<string, unknown>> {
-    return { ...this.state.event, changed: [...changed] };
+  eventWithChanges(changed: readonly string[]): HookEventFacts {
+    return this.state.event.withChanges(changed);
+  }
+
+  isClaimableAt(now: Date): boolean {
+    const { progress } = this.state;
+
+    if (progress.kind === 'pending') {
+      return progress.dueAt.getTime() <= now.getTime();
+    }
+
+    return (
+      progress.kind === 'working' &&
+      progress.claimedAt.getTime() <
+        HookFiring.leaseExpiredBefore(now).getTime()
+    );
   }
 
   claimed(now: Date): HookFiring {
     const { progress } = this.state;
-    const due =
-      progress.kind === 'pending' && progress.dueAt.getTime() <= now.getTime();
-    const leaseExpired =
-      progress.kind === 'working' &&
-      progress.claimedAt.getTime() <
-        HookFiring.leaseExpiredBefore(now).getTime();
 
-    if (!due && !leaseExpired) {
+    if (!this.isClaimableAt(now)) {
       throw new InvalidHookFiringTransitionError(
         progress.kind === 'working'
           ? 'is still claimed'
@@ -342,11 +374,13 @@ export class HookFiring extends EventRecorder {
   }
 
   nextStepOf(hook: Hook): NextHookStep | null {
-    const taken = new Map(this.state.steps.map((step) => [step.name, step]));
+    const taken = new Map(
+      this.state.steps.map((step) => [step.name.value, step]),
+    );
     const earlier: HookStepOutcome[] = [];
 
     for (const { name } of hook.steps) {
-      const before = taken.get(name);
+      const before = taken.get(name.value);
 
       if (before?.status === 'done') {
         earlier.push(before);
@@ -368,9 +402,9 @@ export class HookFiring extends EventRecorder {
 
     const next = this.nextStepOf(hook);
 
-    if (next === null || next.name !== outcome.name) {
+    if (next === null || !next.name.equals(outcome.name)) {
       throw new InvalidHookFiringTransitionError(
-        `cannot take step ${outcome.name} now${next ? `. Step ${next.name} comes first` : '. Every step is done'}`,
+        `cannot take step ${outcome.name.value} now${next ? `. Step ${next.name.value} comes first` : '. Every step is done'}`,
       );
     }
 
@@ -380,7 +414,7 @@ export class HookFiring extends EventRecorder {
       outcome.call !== next.resuming.call
     ) {
       throw new InvalidHookFiringTransitionError(
-        `cannot wait on a second call at step ${outcome.name}`,
+        `cannot wait on a second call at step ${outcome.name.value}`,
       );
     }
 
@@ -401,14 +435,20 @@ export class HookFiring extends EventRecorder {
       : this.with({ steps });
   }
 
-  recordMatch(event: Readonly<Record<string, unknown>>): HookFiring {
+  recordMatch(event: HookEventFacts): HookFiring {
     this.guardWorking('be matched');
 
     if (this.state.matched) {
       throw new InvalidHookFiringTransitionError('was already matched');
     }
 
-    return this.with({ event: frozenEvent(event), matched: true });
+    if (event.on !== this.state.on) {
+      throw new InvalidHookFiringTransitionError(
+        `cannot be matched on a ${event.on} event`,
+      );
+    }
+
+    return this.with({ event, matched: true });
   }
 
   hookBroken(hook: string, reason: string, now: Date): HookFiring {
@@ -519,6 +559,15 @@ export class HookFiring extends EventRecorder {
     });
   }
 
+  skipped(because: HookFiringSkip, now: Date): HookFiring {
+    this.guardWorking('be skipped');
+
+    return this.with({
+      progress: { kind: 'skipped', at: now, because },
+      attempts: this.state.attempts + 1,
+    });
+  }
+
   isPastRetention(now: Date): boolean {
     const at = this.finishedAt;
 
@@ -538,11 +587,13 @@ export class HookFiring extends EventRecorder {
     return purged;
   }
 
-  private doneAfter(hook: Hook, step: string): HookStepOutcome[] {
-    const names = hook.steps.map((each) => each.name);
-    const taken = new Map(this.state.steps.map((each) => [each.name, each]));
+  private doneAfter(hook: Hook, step: HookStepName): HookStepOutcome[] {
+    const names = hook.steps.map((each) => each.name.value);
+    const taken = new Map(
+      this.state.steps.map((each) => [each.name.value, each]),
+    );
 
-    return names.slice(names.indexOf(step) + 1).flatMap((name) => {
+    return names.slice(names.indexOf(step.value) + 1).flatMap((name) => {
       const before = taken.get(name);
 
       return before?.status === 'done' ? [before] : [];

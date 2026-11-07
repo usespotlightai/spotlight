@@ -21,7 +21,7 @@ export class RequesterOwner {
   }
 }
 
-export interface RunRequesterParts {
+interface RunRequesterParts {
   readonly owner: string;
   readonly kind: string;
   readonly id: string;

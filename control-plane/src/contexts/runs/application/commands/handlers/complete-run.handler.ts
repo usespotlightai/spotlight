@@ -1,5 +1,6 @@
 import type { CompleteRunCommand } from '@runs/application/commands/runner.commands';
-import type { RunFilesPort } from '@runs/application/ports/run-files.port';
+import type { RunFileFacts } from '@runs/application/ports/run-files.port';
+import type { RunFileSources } from '@runs/application/services/run-file-sources.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
@@ -25,7 +26,7 @@ export class CompleteRunHandler
     private readonly runs: RunRepository,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
-    private readonly files: RunFilesPort,
+    private readonly files: RunFileSources,
   ) {}
 
   async execute(command: CompleteRunCommand): Promise<void> {
@@ -34,9 +35,10 @@ export class CompleteRunHandler
       const runnerId = RunnerId.of(command.runnerId);
 
       if (command.timedOut) {
-        return await this.changed(runId, (run) =>
+        await this.changed(runId, (run) =>
           run.timedOut(runnerId, this.clock.now()),
         );
+        return;
       }
 
       const outcome = command.stopped
@@ -47,24 +49,29 @@ export class CompleteRunHandler
             setupFailed: command.setupFailed,
             message: command.message,
           });
-      const attachments = outcome.handsOver
-        ? await this.handedOverBy(
-            await this.found(runId),
-            command.handover?.attachments ?? [],
-          )
+      const run = await this.found(runId);
+      const files = outcome.handsOver
+        ? await this.handedOverBy(run, command.handover?.attachments ?? [])
         : [];
       const report = HandoverReport.of({
         handover: command.handover
-          ? Handover.of({ ...command.handover, attachments })
+          ? Handover.of({
+              ...command.handover,
+              attachments: files.map((each) => HandedOverFile.of(each)),
+            })
           : null,
         session: command.sessionId
           ? HarnessSession.of(command.sessionId)
           : null,
       });
 
-      return await this.changed(runId, (run) =>
-        run.reportTurn(runnerId, outcome, report, this.clock.now()),
+      const reported = await this.changed(runId, (current) =>
+        current.reportTurn(runnerId, outcome, report, this.clock.now()),
       );
+
+      if (reported.takesFilesAtCompletion && files.length > 0) {
+        await this.files.take(reported, files);
+      }
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -73,18 +80,12 @@ export class CompleteRunHandler
   private async handedOverBy(
     run: Run,
     ids: readonly string[],
-  ): Promise<HandedOverFile[]> {
+  ): Promise<readonly RunFileFacts[]> {
     if (ids.length === 0 || !run.policy.actsBeyondItself) {
       return [];
     }
 
-    const files = await this.files.uploadedBy(run.id, run.workspaceId, ids);
-
-    if (!run.policy.holdsTurn) {
-      await this.files.take(run.workspaceId, files);
-    }
-
-    return files.map((each) => HandedOverFile.of(each));
+    return this.files.uploadedBy(run, ids);
   }
 
   private async found(runId: RunId): Promise<Run> {
@@ -97,14 +98,15 @@ export class CompleteRunHandler
     return run;
   }
 
-  private async changed(
-    runId: RunId,
-    change: (run: Run) => Run,
-  ): Promise<void> {
+  private async changed(runId: RunId, change: (run: Run) => Run): Promise<Run> {
     for (let attempt = 1; ; attempt++) {
       try {
         return await this.transaction.inTransaction(async () => {
-          await this.runs.save(change(await this.found(runId)));
+          const changed = change(await this.found(runId));
+
+          await this.runs.save(changed);
+
+          return changed;
         });
       } catch (error) {
         if (

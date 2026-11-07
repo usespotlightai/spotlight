@@ -5,7 +5,6 @@ import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.map
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
 import type { IntegrationToolCallsPort } from '@work/application/ports/integration-tool-calls.port';
 import type {
-  IntegrationToolsPort,
   ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
@@ -14,7 +13,16 @@ import type { IntegrationTaskViews } from '@work/application/services/integratio
 import type { RunWorks } from '@work/application/services/run-works.service';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
-export class IntegrationTools implements IntegrationToolsPort {
+export interface IntegrationToolResolver {
+  resolve(
+    tool: Tool,
+    context: ToolContext,
+    attempt: LeasedAttempt,
+    runnerId: string,
+  ): Promise<ResolvedTool | null>;
+}
+
+export class IntegrationTools implements IntegrationToolResolver {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: LineMapsPort,

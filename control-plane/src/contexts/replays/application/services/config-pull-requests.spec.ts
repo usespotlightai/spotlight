@@ -22,10 +22,11 @@ import { ReconcileConfigPullRequests } from '@replays/application/services/recon
 import { replayedWorld } from '@replays/application/services/replayed-candidates.fake-spec';
 import {
   CLOCK,
-  FakeWork,
+  FakeSuppliers,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
+  liveFrom,
   peopleWho,
   QUIET,
   STATION_VIEW,
@@ -208,7 +209,7 @@ const searchWithTerse = (): Search => {
 };
 
 let memory: InMemoryReplays;
-let work: FakeWork;
+let suppliers: FakeSuppliers;
 let pullRequests: InMemoryConfigPullRequests;
 let configs: FakeConfigs;
 let editor: FakeEditor;
@@ -224,8 +225,12 @@ const picking = () =>
     pullRequests,
     memory.candidateRepository,
     memory.scheduleRepository,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-    work,
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
+    suppliers.lines,
     IDS,
     clock,
     TRANSACTION,
@@ -246,20 +251,30 @@ const opening = () =>
     memory.searchRepository,
     memory.candidateRepository,
     memory.replayRepository,
-    work,
+    suppliers.lines,
+    suppliers.trialableRuns,
     peopleWho(true),
     configs,
     editor,
     TRANSACTION,
     clock,
     QUIET,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new SetHealths(
+      suppliers.configs,
+      memory.replayRepository,
+      memory.candidateRepository,
+    ),
     memory.setRepository,
-    new SearchFindings(work),
+    new SearchFindings(suppliers.trialableRuns),
   );
 
 const following = () =>
-  new FollowConfigPullRequests(pullRequests, work, TRANSACTION, clock);
+  new FollowConfigPullRequests(
+    pullRequests,
+    suppliers.configs,
+    TRANSACTION,
+    clock,
+  );
 
 const closing = () =>
   new CloseStaleConfigPullRequests(
@@ -271,7 +286,12 @@ const closing = () =>
   );
 
 const schedules = () =>
-  new SearchSchedules(memory.scheduleRepository, work, TRANSACTION, clock);
+  new SearchSchedules(
+    memory.scheduleRepository,
+    suppliers.configs,
+    TRANSACTION,
+    clock,
+  );
 
 const reconciling = () =>
   new ReconcileConfigPullRequests(
@@ -283,9 +303,9 @@ const reconciling = () =>
   );
 
 const liveIs = (fingerprint: StationFingerprint) => {
-  const live = work.live;
+  const live = liveFrom(suppliers.configs);
 
-  work.live = async () => ({ ...(await live()), fingerprint });
+  suppliers.configs.live = async () => ({ ...(await live()), fingerprint });
 };
 
 const onHost = (
@@ -335,7 +355,7 @@ const only = (): ConfigPullRequest => {
 
 beforeEach(() => {
   memory = new InMemoryReplays();
-  work = new FakeWork();
+  suppliers = new FakeSuppliers();
   pullRequests = new InMemoryConfigPullRequests();
   configs = new FakeConfigs();
   editor = new FakeEditor();
@@ -540,7 +560,7 @@ describe('picking a search candidate', () => {
   });
 
   it('fails at once when the line names no source', async () => {
-    work.station = async () => ({ ...STATION_VIEW, source: null });
+    suppliers.lines.station = async () => ({ ...STATION_VIEW, source: null });
     await pick();
     await opening().processDue();
 

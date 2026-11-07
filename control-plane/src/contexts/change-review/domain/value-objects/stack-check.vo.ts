@@ -93,6 +93,7 @@ const MAX_SKIP_DETAIL = 2_000;
 export interface StackSkip {
   readonly code: SkipCode;
   readonly detail: string | null;
+  readonly attempts?: number;
 }
 
 export const skipOf = (code: string, detail: string | null): StackSkip => {
@@ -110,10 +111,13 @@ export const skipOf = (code: string, detail: string | null): StackSkip => {
 export const parseStoredSkip = (
   code: string,
   detail: string | null,
+  attempts: number | null,
 ): StackSkip => {
   switch (code) {
     case PROVISION_FAILED:
-      return { code: PROVISION_FAILED, detail };
+      return attempts === null
+        ? { code: PROVISION_FAILED, detail }
+        : { code: PROVISION_FAILED, detail, attempts };
     case QUEUE_TIMEOUT:
       return { code: QUEUE_TIMEOUT, detail };
     default:
@@ -126,7 +130,8 @@ export const provisionFailed = (
   attempts: number,
 ): StackSkip => ({
   code: PROVISION_FAILED,
-  detail: `Attempts: ${attempts}\nLast failure: ${failure.description}`,
+  detail: failure.description,
+  attempts,
 });
 
 export const queueTimeout = (): StackSkip => ({

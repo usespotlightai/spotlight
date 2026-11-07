@@ -3,9 +3,9 @@ import type { INestApplication } from '@nestjs/common';
 import { API_PREFIX } from '@platform/http/routes';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RunViewing } from '@runs/application/services/run-viewing.service';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { RunAccess } from '@work/application/services/run-access.service';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
@@ -62,7 +62,7 @@ const chatRun = async (startedBy: string): Promise<string> => {
     harness: 'dev',
   });
   await db.insert(schema.run).values({
-    ...requestedByChat(chatId),
+    ...requestedByChat(chatId, { teamId: team.teamId.value }),
     id: runId,
     workspaceId: team.workspaceId.value,
     harness: 'dev',
@@ -112,7 +112,7 @@ afterAll(async () => {
 describe('who may watch a run', () => {
   it('shows a chat run’s journal and network log only to the person who started the chat', async () => {
     const runId = await chatRun(team.owner.value);
-    const runs = app.get(RunAccess);
+    const runs = app.get(RunViewing);
 
     expect(
       (await runs.watchedBy(RunId.of(runId), team.owner))?.runId.value,

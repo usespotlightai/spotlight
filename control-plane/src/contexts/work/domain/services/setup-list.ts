@@ -24,11 +24,6 @@ export const TAKEN: Record<SetupStepKey, (state: SetupState) => boolean> = {
   configuration: (state) => state.configured,
 };
 
-export const mayStartSetup = (
-  state: SetupState,
-  hasEgressCapableRunner: boolean,
-): boolean => state.connectedToGitHub && hasEgressCapableRunner;
-
 export interface SetupChatCandidate {
   readonly pullRequest: string | null;
   readonly startedAt: Date;

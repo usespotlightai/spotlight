@@ -13,7 +13,10 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
+import {
+  ReviewRequest,
+  type ReviewRequestParts,
+} from '@work/domain/value-objects/review-request.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
@@ -52,7 +55,7 @@ const taskOn = (line: LineMap) =>
     newId: fresh,
   });
 
-const REQUEST: ReviewRequest = {
+const REQUEST = ReviewRequest.of({
   trigger: 'opened',
   label: null,
   pullRequest: PULL,
@@ -60,11 +63,11 @@ const REQUEST: ReviewRequest = {
   outside: false,
   draft: false,
   branch: Branch.of('fix-uploads'),
-};
+});
 
 const requested = (
   over: {
-    request?: Partial<ReviewRequest>;
+    request?: Partial<ReviewRequestParts>;
     branchTask?: Task;
     pullRequestTask?: Task;
     reviewTask?: Task;
@@ -79,9 +82,9 @@ const requested = (
       description: null,
       assignEmail: null,
       marks: [Mark.review(PULL)],
-      review: { ...REQUEST, ...over.request },
+      review: REQUEST.with(over.request ?? {}),
     },
-    request: { ...REQUEST, ...over.request },
+    request: REQUEST.with(over.request ?? {}),
     anchor: null,
     branchTask: over.branchTask ?? null,
     pullRequestTask: over.pullRequestTask ?? null,

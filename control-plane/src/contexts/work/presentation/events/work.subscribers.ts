@@ -3,13 +3,13 @@ import {
   type HostBecameReadyIntegrationEvent,
 } from '@shared-kernel/application/integration-events/host-became-ready.integration-event';
 import {
-  REQUESTED_RUN_ENDED,
-  type RequestedRunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/requested-run-ended.integration-event';
+  RUN_ENDED,
+  type RunEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {
-  REQUESTED_RUN_SUSPENDED,
-  type RequestedRunSuspendedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/requested-run-suspended.integration-event';
+  RUN_SUSPENDED,
+  type RunSuspendedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-suspended.integration-event';
 import {
   RUNNER_ACCESS_CREATED,
   type RunnerAccessCreatedIntegrationEvent,
@@ -35,6 +35,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
+import type { ProposalAcceptances } from '@work/application/events/handlers/create-task-from-proposal.handler';
 import type { DeleteTaskDraft } from '@work/application/events/handlers/delete-task-draft.handler';
 import type { DeleteTaskInboxRequests } from '@work/application/events/handlers/delete-task-inbox-requests.handler';
 import type { DeleteTeamChats } from '@work/application/events/handlers/delete-team-chats.handler';
@@ -49,14 +50,12 @@ import type { ReleaseTakenMarks } from '@work/application/events/handlers/releas
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import {
   type NewTeam,
-  WELCOME_TEAM,
   type WelcomeTeam,
 } from '@work/application/events/handlers/welcome-team.handler';
 import {
   NOTICED_TASK_EVENT_KINDS,
   type NoticedTaskEvent,
 } from '@work/application/mappers/bindable-task-event.mapper';
-import type { ProposalAcceptances } from '@work/application/ports/proposal-acceptances.port';
 import type { Notices } from '@work/application/services/notices.service';
 import type { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { RunEndingReactions } from '@work/application/services/run-ending-reactions';
@@ -94,9 +93,9 @@ const reactingToEndings = (
   reactions: RunEndingReactions,
   { callsOut } = { callsOut: false },
 ): DomainEventSubscriber =>
-  subscribing<RequestedRunEndedIntegrationEvent>(
+  subscribing<RunEndedIntegrationEvent>(
     name,
-    [REQUESTED_RUN_ENDED],
+    [RUN_ENDED],
     (event) =>
       OF_WORK(event) ? reactions.onRunEnded(event) : Promise.resolve(),
     { callsOut },
@@ -136,9 +135,9 @@ export const workSubscribers = (reactions: {
     (event) => reactions.answeredRuns.on(event),
     { callsOut: true },
   ),
-  subscribing<RequestedRunSuspendedIntegrationEvent>(
+  subscribing<RunSuspendedIntegrationEvent>(
     'work.take-turn',
-    [REQUESTED_RUN_SUSPENDED],
+    [RUN_SUSPENDED],
     (event) =>
       OF_WORK(event)
         ? reactions.turns.take(RunId.of(event.runId), event.attempt)
@@ -198,7 +197,7 @@ export const workSubscribers = (reactions: {
     { callsOut: true },
   ),
   subscribing<TeamCreatedIntegrationEvent>(
-    WELCOME_TEAM,
+    'work.welcome-team',
     [TEAM_CREATED],
     (event) => reactions.welcoming.welcome(newTeam(event)),
   ),
@@ -235,6 +234,7 @@ export const workSubscribers = (reactions: {
     'work.order-task-run',
     ['task.dispatched'],
     (event) => reactions.taskRuns.on(event),
+    { callsOut: true },
   ),
   subscribing<DispatchOrdered>(
     'work.enqueue-ordered-run',
@@ -252,9 +252,9 @@ export const workSubscribers = (reactions: {
     ['dispatch.refused'],
     (event) => reactions.unorderedRuns.ofChat(event),
   ),
-  subscribing<RequestedRunEndedIntegrationEvent>(
+  subscribing<RunEndedIntegrationEvent>(
     'work.end-dispatch',
-    [REQUESTED_RUN_ENDED],
+    [RUN_ENDED],
     (event) => reactions.dispatchEndings.onRunEnded(event),
   ),
   subscribing<TaskRunDetached>(

@@ -254,6 +254,10 @@ export class Line extends EventRecorder {
     );
   }
 
+  get nextVersion(): number {
+    return this.version + 1;
+  }
+
   assertVersion(version: number): void {
     if (version !== this.version) {
       throw new LineVersionConflictError(this.id.value);
@@ -295,7 +299,7 @@ export class Line extends EventRecorder {
             ]),
           ).values(),
         ],
-        this.version + 1,
+        this.nextVersion,
         updated.name,
         updated.laidOut,
       ),
@@ -316,9 +320,9 @@ export class Line extends EventRecorder {
   ): void {
     const stranded: StrandedStation[] = removed
       .map((each) => ({
-        key: each.key.value,
-        name: each.name.value,
-        tasks: taskCounts.get(each.id.value) ?? 0,
+        key: each.key,
+        name: each.name,
+        tasks: taskCounts.at(each.id),
       }))
       .filter((each) => each.tasks > 0);
 
@@ -359,7 +363,7 @@ export class Line extends EventRecorder {
         this.key,
         ConfigurationChange.deleted(this.whatChanged, by),
         this.stations.map((each) => each.id),
-        this.version + 1,
+        this.nextVersion,
         this.name,
       ),
     );

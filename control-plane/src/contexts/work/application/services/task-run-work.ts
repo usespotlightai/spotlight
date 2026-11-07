@@ -1,10 +1,13 @@
-import type { LeasedRun } from '@runs/application/ports/run-leases.port';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
+import type {
+  ConnectionMissingDto,
+  MissingConnectionReason,
+} from '@work/application/ports/integration-tool-calls.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
@@ -25,7 +28,10 @@ import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
+import {
+  ConnectionAsk,
+  type MissingConnection,
+} from '@work/domain/value-objects/connection-ask.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -38,9 +44,18 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const RETURN_ATTEMPTS = 3;
 
+const MISSING_CONNECTIONS: Readonly<
+  Record<MissingConnectionReason, MissingConnection>
+> = {
+  'not-connected': 'not-connected',
+  'refresh-failed': 'refresh-failed',
+  'no-requester': 'no-requester',
+  'not-a-member': 'not-a-member',
+};
+
 export class TaskRunWork implements RunWork {
   constructor(
-    private readonly run: LeasedRun,
+    private readonly run: LeasedRunFacts,
     private readonly task: Task,
     private readonly stationId: StationId,
     private readonly tasks: TaskRepository,
@@ -119,7 +134,10 @@ export class TaskRunWork implements RunWork {
     declared: DeclaredTool,
     missing: ConnectionMissingDto,
   ): Promise<ConnectionAsked> {
-    if (!missing.personId || !ConnectionAsk.askableWhen(missing.because)) {
+    if (
+      !missing.personId ||
+      !ConnectionAsk.askableWhen(MISSING_CONNECTIONS[missing.because])
+    ) {
       return { kind: 'denied', reason: ConnectionAskedText.denial(missing) };
     }
 
@@ -140,7 +158,7 @@ export class TaskRunWork implements RunWork {
       ConnectionAsk.of({
         teamId: line.teamId,
         integration: IntegrationName.of(missing.integration),
-        integrationName: missing.integrationName,
+        providedBy: missing.integrationName,
         personId: UserId.of(missing.personId),
       }),
     );

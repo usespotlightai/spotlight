@@ -31,6 +31,8 @@ import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-sp
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -339,7 +341,11 @@ describe('UpdateLineHandler', () => {
     expect(
       await updating({
         throwing: new LineInUseError('delivery', [
-          { key: 'build', name: 'Build', tasks: 2 },
+          {
+            key: StationKey.of('build'),
+            name: StationName.of('Build'),
+            tasks: 2,
+          },
         ]),
       }).update(DELIVERY),
     ).toEqual({
@@ -360,15 +366,12 @@ describe('DeleteLineHandler', () => {
     const existing = lineAt(3);
     const stored = lines(existing, null);
     const guard = {
-      release: vi.fn(async () => 'released' as const),
-      lockedTaskCountsAt: vi.fn(
-        async () =>
-          new Map(
-            existing.stations.map((each) => [
-              each.id.value,
-              tasks[each.key.value] ?? 0,
-            ]),
-          ),
+      release: vi.fn(async () => {}),
+      lockedTaskCountsAt: vi.fn(async () =>
+        existing.stations.map((each) => ({
+          stationId: each.id,
+          tasks: tasks[each.key.value] ?? 0,
+        })),
       ),
     } satisfies StationDeletionGuardPort;
     const handler = new DeleteLineHandler(

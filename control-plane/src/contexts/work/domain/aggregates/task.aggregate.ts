@@ -41,6 +41,7 @@ import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revis
 import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
+import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
   notesIn,
@@ -50,6 +51,7 @@ import {
 import { Placement } from '@work/domain/services/placement';
 import type { Outcome } from '@work/domain/services/reaction-for';
 import { openSetupList } from '@work/domain/services/setup-list';
+import { takesUpRun } from '@work/domain/services/taking-up';
 import { anyUnread } from '@work/domain/services/unread';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import {
@@ -95,6 +97,7 @@ import type { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import { WorkspaceRelease } from '@work/domain/value-objects/workspace-release.vo';
 
 export interface OpenReviewComment {
   readonly at: NotePosition;
@@ -716,7 +719,10 @@ export class Task extends EventRecorder {
   }
 
   takesUp(runId: RunId): boolean {
-    return this.hasCurrentRun(runId) && !this.awaitingReview;
+    return takesUpRun({
+      holdsRun: this.hasCurrentRun(runId),
+      awaitsAPerson: this.awaitingReview,
+    });
   }
 
   get idle(): boolean {
@@ -725,6 +731,12 @@ export class Task extends EventRecorder {
 
   get finished(): boolean {
     return this.finishedAt !== null;
+  }
+
+  get workspaceRelease(): WorkspaceRelease {
+    return this.finishedAt
+      ? WorkspaceRelease.since(this.finishedAt)
+      : WorkspaceRelease.held();
   }
 
   get isSetup(): boolean {
@@ -811,9 +823,10 @@ export class Task extends EventRecorder {
       throw new NothingSaidError(this.id.value);
     }
 
+    const said = { ...newNote, line };
     const reopened = this.stationId.equals(to)
-      ? this.addMessage(newNote)
-      : this.react(line, to, rank, newNote);
+      ? this.addMessage(said)
+      : this.react(line, to, rank, said);
 
     reopened.record(
       new TaskActedOn(
@@ -1063,6 +1076,10 @@ export class Task extends EventRecorder {
     return this.trail.open;
   }
 
+  showsConversationsTo(viewer: UserId): boolean {
+    return ConversationAudience.includes(this.assignee, viewer);
+  }
+
   assignedToThem(userId: UserId): boolean {
     return this.assignee?.equals(userId) ?? false;
   }
@@ -1180,6 +1197,10 @@ export class Task extends EventRecorder {
 
   get unacknowledged(): readonly TaskNote[] {
     return this.trail.unacknowledged;
+  }
+
+  pendingFor(runId: RunId): readonly TaskNote[] {
+    return this.hasCurrentRun(runId) ? this.unacknowledged : [];
   }
 
   get allAttachments(): readonly Attachment[] {
@@ -1431,13 +1452,7 @@ export class Task extends EventRecorder {
         {
           ...asking,
           form: 'approval',
-          approval: Approval.request(
-            subject,
-            this.stationId,
-            needed.because,
-            intent,
-            askedOf,
-          ),
+          approval: Approval.request(subject, this.stationId, needed, intent),
         },
       ),
       check: { kind: 'pending' },
@@ -1484,7 +1499,7 @@ export class Task extends EventRecorder {
 
     const answered = this.answer(NotePosition.of(open.from), {
       line: on.line,
-      body: TaskNoteBody.connected(ask.integrationName),
+      body: TaskNoteBody.connected(ask.providedBy),
       at: on.at,
       voice: Voice.person(personId),
     });
@@ -1679,7 +1694,7 @@ export class Task extends EventRecorder {
     newNote: NewNote,
     kind: TaskNoteKind,
     deferredMove: DeferredMove | null = null,
-  ): { notes: readonly TaskNote[]; finishedAt?: null } {
+  ): { notes: readonly TaskNote[]; finishedAt: Date | null } {
     return {
       notes: [
         ...this.notes,
@@ -1693,8 +1708,16 @@ export class Task extends EventRecorder {
           deferredMove,
         }),
       ],
-      ...(newNote.voice.isStation ? {} : { finishedAt: null }),
+      finishedAt: this.reopenedBy(newNote) ? null : this.finishedAt,
     };
+  }
+
+  private reopenedBy(newNote: NewNote): boolean {
+    return (
+      !newNote.voice.isStation &&
+      newNote.line !== null &&
+      this.reopenableOn(newNote.line)
+    );
   }
 
   private with(part: {

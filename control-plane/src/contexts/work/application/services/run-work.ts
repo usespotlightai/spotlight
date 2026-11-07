@@ -1,6 +1,7 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { GitService } from '@work/application/ports/git-gateway.port';
+import type { GitService } from '@work/application/dto/git-call.dto';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
@@ -34,7 +35,7 @@ export interface RunWork {
     name: string,
     service: GitService,
   ): Promise<Repository | null>;
-  toolContext(): Promise<ToolContext>;
+  toolContext(tool: Tool): Promise<ToolContext>;
   clearFor(
     declared: DeclaredTool,
     call: ToolCall,

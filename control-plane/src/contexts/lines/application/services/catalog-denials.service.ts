@@ -24,10 +24,10 @@ export class CatalogDenials {
     const entitled = await this.catalog.entitledTo(workspaceId, {
       tools: items
         .filter((each) => each.field === 'tools')
-        .map((each) => each.id),
+        .map((each) => each.item.value),
       skills: items
         .filter((each) => each.field === 'skills')
-        .map((each) => each.id),
+        .map((each) => each.item.value),
     });
 
     return deniedIn(items, entitled).map(({ item, because }) =>

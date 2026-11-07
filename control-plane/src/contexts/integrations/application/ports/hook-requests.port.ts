@@ -6,6 +6,7 @@ import type {
   WaitMode,
 } from '@integrations/application/ports/hook-runtime.port';
 import type { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-step-outcome.vo';
 
 export const HOOK_REQUESTS = Symbol('HOOK_REQUESTS');
@@ -13,7 +14,7 @@ export const HOOK_REQUESTS = Symbol('HOOK_REQUESTS');
 export interface HookRequest {
   readonly hook: ListeningHook;
   readonly instance: HookEventInstance;
-  readonly step: string;
+  readonly step: HookStepName;
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly body: string;

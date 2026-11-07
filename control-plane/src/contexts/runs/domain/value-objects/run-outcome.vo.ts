@@ -2,6 +2,13 @@ import { InvalidRunOutcomeError } from '@runs/domain/exceptions/invalid-run-outc
 import { RunFailure } from '@runs/domain/value-objects/run-failure.vo';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 
+export type RunEnding =
+  | 'completed'
+  | 'failed'
+  | 'stopped'
+  | 'refused'
+  | 'cancelled';
+
 export class RunOutcome {
   private constructor(
     readonly exitCode: number,
@@ -107,6 +114,20 @@ export class RunOutcome {
 
   get succeeded(): boolean {
     return !this.failed;
+  }
+
+  get ending(): RunEnding {
+    if (this.cancelled) {
+      return 'cancelled';
+    }
+    if (this.stopped) {
+      return 'stopped';
+    }
+    if (this.failure?.code === 'refused') {
+      return 'refused';
+    }
+
+    return this.failed ? 'failed' : 'completed';
   }
 
   get cancelled(): boolean {

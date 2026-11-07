@@ -31,6 +31,8 @@ export interface WebhookProviderPort {
 
   routes(delivered: Delivered): Promise<WorkspaceId | null>;
 
+  received?(delivered: Delivered): Promise<void>;
+
   read(delivered: Delivered): Promise<readonly Happened[]>;
 
   answer?(delivered: Delivered): string | null;

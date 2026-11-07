@@ -5,12 +5,14 @@ import type { StackCheckRepository } from '@change-review/domain/repositories/st
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -29,7 +31,7 @@ const waiting = (stack: string, placement: string[] = []) =>
     stackId: ChangeStackId.of(stack),
     runId: RunId.of(`run_of_${stack}`),
     taskId: null,
-    teamId: null,
+    teamId: TeamId.of('team_1'),
     trial: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null, RunnerPlacement.of(placement)),
@@ -94,8 +96,8 @@ describe('ProvisionChangeStackChecks', () => {
 
     expect(offered).toEqual([
       {
-        stackId: 'stack_1',
-        runId: 'run_of_stack_1',
+        checkId: CheckWorkId.of('stack_1'),
+        runId: RunId.of('run_of_stack_1'),
         placement: RunnerPlacement.of(['gpu']),
       },
     ]);
@@ -114,14 +116,19 @@ describe('ProvisionChangeStackChecks', () => {
       max: 1,
     });
 
-    expect(offered.map((each) => each.stackId)).toEqual(['stack_2']);
+    expect(offered.map((each) => each.checkId.value)).toEqual(['stack_2']);
   });
 
   it('reserves a waiting check for the runner and says until when', async () => {
     const { service, check } = provisioning([waiting('stack_1')]);
 
     await expect(
-      service.reserve('stack_1', RUNNER, PoolId.of('pool_burst'), NOW),
+      service.reserve(
+        CheckWorkId.of('stack_1'),
+        RUNNER,
+        PoolId.of('pool_burst'),
+        NOW,
+      ),
     ).resolves.toEqual(UNTIL);
     expect(check('stack_1').reservation?.runner).toEqual(RUNNER);
     expect(check('stack_1').reservation?.pool.value).toBe('pool_burst');
@@ -137,10 +144,20 @@ describe('ProvisionChangeStackChecks', () => {
     ]);
 
     await expect(
-      service.reserve('stack_1', RUNNER, PoolId.of('pool_burst'), NOW),
+      service.reserve(
+        CheckWorkId.of('stack_1'),
+        RUNNER,
+        PoolId.of('pool_burst'),
+        NOW,
+      ),
     ).resolves.toBeNull();
     await expect(
-      service.reserve('stack_2', RUNNER, PoolId.of('pool_burst'), NOW),
+      service.reserve(
+        CheckWorkId.of('stack_2'),
+        RUNNER,
+        PoolId.of('pool_burst'),
+        NOW,
+      ),
     ).resolves.toBeNull();
     expect(save).not.toHaveBeenCalled();
   });
@@ -149,7 +166,12 @@ describe('ProvisionChangeStackChecks', () => {
     const { service, find } = provisioning([waiting('stack_1')], 3);
 
     await expect(
-      service.reserve('stack_1', RUNNER, PoolId.of('pool_burst'), NOW),
+      service.reserve(
+        CheckWorkId.of('stack_1'),
+        RUNNER,
+        PoolId.of('pool_burst'),
+        NOW,
+      ),
     ).resolves.toBeNull();
     expect(find).toHaveBeenCalledTimes(3);
   });
@@ -160,8 +182,8 @@ describe('ProvisionChangeStackChecks', () => {
       waiting('stack_2'),
     ]);
 
-    await service.unreserve('stack_1', RUNNER);
-    await service.unreserve('stack_2', RUNNER);
+    await service.unreserve(CheckWorkId.of('stack_1'), RUNNER);
+    await service.unreserve(CheckWorkId.of('stack_2'), RUNNER);
 
     expect(check('stack_1').reservation).toBeNull();
     expect(save).toHaveBeenCalledOnce();
@@ -172,7 +194,7 @@ describe('ProvisionChangeStackChecks', () => {
       waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
     ]);
 
-    await service.unreserve('stack_1', OTHER);
+    await service.unreserve(CheckWorkId.of('stack_1'), OTHER);
 
     expect(save).not.toHaveBeenCalled();
     expect(check('stack_1').reservation?.runner).toEqual(RUNNER);
@@ -184,7 +206,7 @@ describe('ProvisionChangeStackChecks', () => {
       2,
     );
 
-    await service.unreserve('stack_1', RUNNER);
+    await service.unreserve(CheckWorkId.of('stack_1'), RUNNER);
 
     expect(find).toHaveBeenCalledTimes(3);
     expect(check('stack_1').reservation).toBeNull();
@@ -196,7 +218,7 @@ describe('ProvisionChangeStackChecks', () => {
       1,
     );
 
-    await service.failed('stack_1', RUNNER, HTTP_ERROR, NOW);
+    await service.failed(CheckWorkId.of('stack_1'), RUNNER, HTTP_ERROR, NOW);
 
     expect(check('stack_1').reservation).toBeNull();
     expect(check('stack_1').provisioning.attempts).toBe(1);
@@ -210,7 +232,7 @@ describe('ProvisionChangeStackChecks', () => {
     );
 
     await expect(
-      service.failed('stack_1', RUNNER, HTTP_ERROR, NOW),
+      service.failed(CheckWorkId.of('stack_1'), RUNNER, HTTP_ERROR, NOW),
     ).rejects.toThrow(StackCheckVersionConflictError);
     expect(find).toHaveBeenCalledTimes(3);
   });
@@ -222,7 +244,7 @@ describe('ProvisionChangeStackChecks', () => {
         .skip(OTHER, skipOf('workspace-failed', null), NOW),
     ]);
 
-    await service.failed('stack_1', RUNNER, HTTP_ERROR, NOW);
+    await service.failed(CheckWorkId.of('stack_1'), RUNNER, HTTP_ERROR, NOW);
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -232,7 +254,7 @@ describe('ProvisionChangeStackChecks', () => {
       waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
     ]);
 
-    await service.failed('stack_1', OTHER, HTTP_ERROR, NOW);
+    await service.failed(CheckWorkId.of('stack_1'), OTHER, HTTP_ERROR, NOW);
 
     expect(save).not.toHaveBeenCalled();
     expect(check('stack_1').provisioning.attempts).toBe(0);
@@ -256,7 +278,7 @@ describe('ProvisionChangeStackChecks', () => {
     ]);
 
     await expect(service.expired(later)).resolves.toEqual([
-      { stackId: 'stack_1', runner: RUNNER, until: UNTIL },
+      { checkId: CheckWorkId.of('stack_1'), runner: RUNNER, until: UNTIL },
     ]);
   });
 });

@@ -2,7 +2,7 @@ import type {
   HostCredentials,
   RunnerAuthenticatorPort,
 } from '@runners/application/ports/runner-authenticator.port';
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { RunnerClaimantsPort } from '@runners/application/ports/runner-claimants.port';
 import type {
   RunnersPort,
   StartedRunner,
@@ -24,11 +24,12 @@ import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { LongPoll } from '@runs/application/services/long-poll';
 import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -54,12 +55,12 @@ const queued = (harness = 'claude-code') =>
     }),
   });
 
-const taken = () => queued().claim(POOLED, NOW);
+const taken = () => queued().claim(claimer(POOLED), NOW);
 
 const aCheck: ClaimedCheck = {
-  stackId: 'stack_1',
-  recheck: false,
-  runId: 'run_1',
+  checkId: CheckWorkId.of('stack_1'),
+  repeat: false,
+  runId: RunId.of('run_1'),
   repository: 'widgets',
   base: null,
   setup: null,
@@ -128,7 +129,7 @@ const pulling = (
     ),
   };
   const heartbeats = {
-    heartbeat: vi.fn(async () => ({
+    claimantOf: vi.fn(async () => ({
       workspaceId: WorkspaceId.of('ws_1'),
       harnesses: [HarnessId.of('claude-code')],
       offer: RunnerOffer.of(['linux']),
@@ -176,7 +177,7 @@ const pulling = (
   const handler = new ClaimHostWorkHandler(
     authenticator as RunnerAuthenticatorPort,
     runners as unknown as RunnersPort,
-    heartbeats as RunnerHeartbeatsPort,
+    heartbeats as RunnerClaimantsPort,
     runs,
     { next: claimNext } as unknown as RunClaims,
     checks,
@@ -677,7 +678,12 @@ describe('ClaimHostWorkHandler', () => {
     });
 
     await expect(handler.execute(pull())).rejects.toThrow('pooled_1 is spent');
-    expect(unclaim).toHaveBeenCalledWith('stack_1', false, POOLED, NOW);
+    expect(unclaim).toHaveBeenCalledWith(
+      CheckWorkId.of('stack_1'),
+      false,
+      POOLED,
+      NOW,
+    );
   });
 
   it('releases the runner when nothing turned up while it waited', async () => {

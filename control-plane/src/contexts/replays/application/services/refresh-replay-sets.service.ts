@@ -1,5 +1,5 @@
 import type { InsightsPort } from '@replays/application/ports/insights.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { TrialableRunsPort } from '@replays/application/ports/trialable-runs.port';
 import type { SetUsage } from '@replays/application/services/set-usage.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplaySetInUseError } from '@replays/domain/exceptions/replay-set-in-use.error';
@@ -28,7 +28,7 @@ export class RefreshReplaySets implements PendingJobsPort {
     private readonly sets: ReplaySetRepository,
     private readonly searches: SearchRepository,
     private readonly usage: SetUsage,
-    private readonly work: WorkPort,
+    private readonly trialableRuns: TrialableRunsPort,
     private readonly insights: InsightsPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -84,7 +84,7 @@ export class RefreshReplaySets implements PendingJobsPort {
       return false;
     }
 
-    const recent = await this.work.recentAt(
+    const recent = await this.trialableRuns.recentAt(
       seen.workspaceId,
       seen.station.stationId,
       REPLAY_SET_PICKED_FROM,

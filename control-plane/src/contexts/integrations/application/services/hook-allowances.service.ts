@@ -21,7 +21,7 @@ export class HookAllowancesService {
     const provided = (await this.integrations.ofTeam(teamId)).flatMap(
       (each) => each.tools,
     );
-    const workspaceHosts = await this.workspaceHosts.fresh(workspaceId.value);
+    const workspaceHosts = await this.workspaceHosts.fresh(workspaceId);
 
     return {
       provided,

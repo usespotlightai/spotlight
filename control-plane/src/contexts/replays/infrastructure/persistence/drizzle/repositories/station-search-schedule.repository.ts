@@ -36,6 +36,7 @@ const toStep = (stored: StoredPendingSearchStep): PendingSearchStep => ({
   at: new Date(stored.at),
   request: stored.request === null ? null : CandidateId.of(stored.request),
   candidates: stored.candidates.map((each) => CandidateId.of(each)),
+  searched: stored.searched.map((each) => TaskId.of(each)),
   addedTasks: stored.addedTasks.map((each) => TaskId.of(each)),
   replaced: stored.replaced && {
     lastStartedAt: dateOf(stored.replaced.lastStartedAt),
@@ -58,6 +59,7 @@ const storedOf = (step: PendingSearchStep): StoredPendingSearchStep => ({
   at: step.at.toISOString(),
   request: step.request?.value ?? null,
   candidates: step.candidates.map((each) => each.value),
+  searched: step.searched.map((each) => each.value),
   addedTasks: step.addedTasks.map((each) => each.value),
   replaced: step.replaced && {
     lastStartedAt: step.replaced.lastStartedAt?.toISOString() ?? null,

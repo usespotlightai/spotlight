@@ -39,7 +39,10 @@ export class BuiltInTools {
           missing: null,
           personRule: null,
           defaultFor: () => undefined,
-          call: (inputs) => use.call(context, inputs),
+          call: async (inputs) => ({
+            outcome: 'answered',
+            output: await use.call(context, inputs),
+          }),
         }
       : null;
   }

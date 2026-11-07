@@ -55,7 +55,7 @@ const setUp = async (
       runs,
       archives,
       {
-        heartbeat: async () =>
+        claimantOf: async () =>
           known
             ? {
                 workspaceId: WorkspaceId.of('ws_1'),
@@ -66,6 +66,10 @@ const setUp = async (
             : null,
       },
       { now: () => GRANTED_AT, sleep: async () => {} },
+      {
+        referencing: (_workspace, work) => work(),
+        removing: (_workspace, work) => work(),
+      },
     ),
   };
 };

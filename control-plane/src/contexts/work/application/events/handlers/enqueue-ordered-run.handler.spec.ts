@@ -1,3 +1,4 @@
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { RunsPort } from '@runs/application/ports/runs.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -5,6 +6,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { EnqueueOrderedRun } from '@work/application/events/handlers/enqueue-ordered-run.handler';
+import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
@@ -12,14 +14,46 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DispatchEnding } from '@work/domain/value-objects/dispatch-ending.vo';
-import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-11-07T10:00:00.000Z');
 const RUN = RunId.of('run_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
-const ORDER = { runId: RUN.value, workspaceId: WORKSPACE.value };
+const ORDER: RunOrderContract = {
+  runId: RUN.value,
+  workspaceId: WORKSPACE.value,
+  harness: 'claude-code',
+  priority: 0,
+  placement: { labelGroups: [], image: null },
+  spec: {
+    command: { executable: 'claude-agent-acp', args: [] },
+    briefing: 'Fix the queue.',
+    handover: { options: ['Review'], noteLimit: 4_000 },
+    resume: {},
+  },
+  requester: {
+    owner: 'work',
+    kind: 'task',
+    id: 'task_1',
+    token: '2',
+    team: 'team_1',
+  },
+  policy: {
+    holdsTurn: true,
+    gated: true,
+    actsBeyondItself: true,
+    asks: 'requester',
+    listed: true,
+    exclusive: true,
+  },
+  workspace: { key: 'work/task-task_1', rejoinable: true, restores: 'always' },
+  restore: null,
+  extensions: {},
+  apiGrant: null,
+  tags: { taskId: 'task_1' },
+  refusal: null,
+};
 
 const ordered = () =>
   Dispatch.ordered({
@@ -33,7 +67,7 @@ const ordered = () =>
       stationId: StationId.of('station_1'),
     },
     configuredAs: null,
-    order: DispatchOrder.of(ORDER),
+    order: RunOrdersMapper.toDispatchOrder(ORDER),
     now: NOW,
   });
 
@@ -140,6 +174,7 @@ describe('EnqueueOrderedRun', () => {
         outcome: 'failed',
         failure: 'refused',
         stopped: false,
+        askedAPerson: false,
       }),
     );
 

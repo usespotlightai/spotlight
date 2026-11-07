@@ -15,8 +15,6 @@ import {
 import { welcomeTask } from '@work/domain/services/welcome-task';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 
-export const WELCOME_TEAM = 'work.welcome-team';
-
 export interface NewTeam {
   readonly teamId: TeamId;
   readonly owner: UserId;

@@ -56,6 +56,10 @@ export class Notice {
   }
 
   static rehydrate(state: NoticeState): Notice {
+    if (state.version < 0) {
+      throw new InconsistentStateError('notice', 'has a negative version');
+    }
+
     if (state.resolvedAt && state.resolvedAt < state.createdAt) {
       throw new InconsistentStateError(
         'notice',

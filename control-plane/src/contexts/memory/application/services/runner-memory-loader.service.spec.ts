@@ -1,6 +1,6 @@
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import { NotAllowedInSearchError } from '@memory/domain/exceptions/not-allowed-in-search.error';
+import { NotAllowedInIsolatedRunError } from '@memory/domain/exceptions/not-allowed-in-isolated-run.error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -9,7 +9,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const leasedRun = (isSearch: boolean): LeasedRun => ({
+const leasedRun = (isolated: boolean): LeasedRun => ({
   id: RunId.of('run_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -17,8 +17,9 @@ const leasedRun = (isSearch: boolean): LeasedRun => ({
   lineId: LineId.of('line_1'),
   stationId: StationId.of('station_1'),
   repositories: [],
-  replaysFrom: null,
-  isSearch,
+  asOf: null,
+  isolated,
+  trial: false,
 });
 
 const loader = (run: LeasedRun) =>
@@ -31,12 +32,12 @@ describe('a run that recalls memories', () => {
         RunId.of('run_1'),
         RunnerId.of('runner_1'),
       ),
-    ).rejects.toThrow(NotAllowedInSearchError);
+    ).rejects.toThrow(NotAllowedInIsolatedRunError);
     await expect(
       loader(leasedRun(false)).recalling(
         RunId.of('run_1'),
         RunnerId.of('runner_1'),
       ),
-    ).resolves.toMatchObject({ isSearch: false });
+    ).resolves.toMatchObject({ isolated: false, trial: false });
   });
 });

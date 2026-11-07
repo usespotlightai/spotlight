@@ -83,8 +83,6 @@ export interface FilesUnder {
 export interface WorkRunLookupPort {
   run(runId: RunId): Promise<RunLookup | null>;
 
-  wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean>;
-
   leasedBy(runId: RunId, runner: RunnerId): Promise<LeasedRunLookup | null>;
 
   contextOfRun(runId: RunId): Promise<RunContext | null>;

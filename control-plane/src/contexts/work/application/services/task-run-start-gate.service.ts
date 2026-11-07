@@ -1,7 +1,8 @@
-import type {
-  RunStartGate,
-  StartDecision,
-  StartingRun,
+import {
+  type RunStartGate,
+  type StartDecision,
+  StartGateUnavailableError,
+  type StartingRun,
 } from '@runs/application/ports/run-start-gates.port';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
@@ -24,8 +25,16 @@ export class TaskRunStartGate implements RunStartGate {
 
     const view = await this.taskViews.of(taskId.value, run.runId.value);
 
-    return view
-      ? this.hooks.before(view, { on: 'run.starting' }, until)
-      : { kind: 'allowed' };
+    if (!view) {
+      return { kind: 'allowed' };
+    }
+
+    try {
+      return await this.hooks.before(view, { on: 'run.starting' }, until);
+    } catch (error) {
+      throw new StartGateUnavailableError(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }
 }

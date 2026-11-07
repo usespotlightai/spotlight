@@ -138,7 +138,7 @@ export class ProblemException extends HttpException {
         type: problemType('forbidden'),
         title: `Not allowed to ${act}`,
         status: HttpStatus.FORBIDDEN,
-        detail: `Your workspace role or token scopes do not give the ${act} permission for this ${kind}.`,
+        detail: `You may not ${act} this ${kind}.`,
         permission: act,
       },
       { kind, act },

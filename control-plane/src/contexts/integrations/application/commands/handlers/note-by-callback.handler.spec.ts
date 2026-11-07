@@ -176,12 +176,16 @@ describe('hook callbacks', () => {
 
     await expect(
       noting.execute(new NoteByCallbackCommand('token', '   ', null)),
-    ).resolves.toBe('empty');
+    ).resolves.toEqual({
+      invalid: 'Note must not be empty. Maximum length: 20000 characters',
+    });
     await expect(
       noting.execute(
         new NoteByCallbackCommand('token', 'x'.repeat(20_001), null),
       ),
-    ).resolves.toBe('empty');
+    ).resolves.toEqual({
+      invalid: 'Note must not be empty. Maximum length: 20000 characters',
+    });
     await expect(
       rejected.noting.execute(new NoteByCallbackCommand('token', 'Hi', null)),
     ).resolves.toBe('rejected');

@@ -1,4 +1,5 @@
 import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
+import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -90,7 +91,10 @@ const PUSH = {
 };
 
 const runOf = (id: string) =>
-  aRunFor(RunId.of(id), 'claude-code').claim(RunnerId.of('runner_1'), NOW);
+  aRunFor(RunId.of(id), 'claude-code').claim(
+    claimer(RunnerId.of('runner_1')),
+    NOW,
+  );
 
 const withRun = (runId: string) =>
   Task.rehydrate({

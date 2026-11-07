@@ -38,6 +38,25 @@ export interface LineMapInput {
   readonly placement?: RunnerPlacement;
 }
 
+const topologyProblemOf = (stations: readonly Station[]): string | null => {
+  for (const kind of ['backlog', 'completed'] as const) {
+    const count = stations.filter((each) => each.kind === kind).length;
+
+    if (count !== 1) {
+      return `has ${count} ${kind} stations, not one`;
+    }
+  }
+
+  const ids = new Set(stations.map((each) => each.id.value));
+  const astray = stations.find((each) =>
+    each.passesTo.some((target) => !ids.has(target.value)),
+  );
+
+  return astray
+    ? `passes from ${astray.id.value} to a station it does not have`
+    : null;
+};
+
 export class LineMap {
   private constructor(
     readonly id: LineId,
@@ -57,6 +76,12 @@ export class LineMap {
     const stations = [...input.stations].sort(
       (a, b) => a.position - b.position,
     );
+    const problem = topologyProblemOf(stations);
+
+    if (problem) {
+      throw new InconsistentStateError('line', problem);
+    }
+
     return new LineMap(
       input.id,
       input.workspaceId,
@@ -105,9 +130,11 @@ export class LineMap {
   }
 
   placementOf(stationId: StationId): RunnerPlacement {
-    return (
-      this.stationAt(stationId)?.placement.or(this.placement) ?? this.placement
-    ).in(this.image);
+    return RunnerPlacement.forStation(
+      this.stationAt(stationId)?.placement ?? null,
+      this.placement,
+      this.image,
+    );
   }
 
   names(repository: Repository): boolean {

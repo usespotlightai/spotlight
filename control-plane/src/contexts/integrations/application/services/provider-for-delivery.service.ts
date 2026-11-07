@@ -2,6 +2,7 @@ import type { ConfiguredWebhookProvidersPort } from '@integrations/application/p
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import type { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
 import type { DeliveryAddressee } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
+import { DeliveryProviders } from '@integrations/domain/services/delivery-providers';
 
 export interface Addressed {
   readonly integration: string;
@@ -16,13 +17,17 @@ export class ProviderForDelivery {
 
   async find(addressed: Addressed): Promise<WebhookProviderPort | null> {
     const { to } = addressed;
+    const builtIn = this.registered.find(addressed.integration);
+    const owner = DeliveryProviders.ownerOf({
+      addressedToTeam: to !== null,
+      builtIn: builtIn !== null,
+    });
 
-    if (to === null) {
-      return this.registered.find(addressed.integration);
+    if (owner === 'built-in') {
+      return builtIn;
     }
 
-    // Built-in providers have priority, so a team file cannot take the deliveries of a built-in provider.
-    if (this.registered.find(addressed.integration)) {
+    if (owner === 'nobody' || to === null) {
       return null;
     }
 

@@ -1,5 +1,5 @@
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
-import type { RunCheckout } from '@runs/domain/value-objects/run-spec.vo';
+import type { RunCheckoutShape } from '@runs/application/contracts/run-spec.contract';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -32,7 +32,7 @@ export interface RunLease {
 export interface RunsPort {
   enqueue(order: RunOrderContract): Promise<RunEnqueueing>;
   requestStop(runId: RunId): Promise<StopRequest>;
-  cancel(runId: RunId): Promise<RunCancellation>;
+  cancel(runId: RunId, reason: string): Promise<RunCancellation>;
   cancelIfQueued(runId: RunId, reason: string): Promise<QueuedRunCancellation>;
   askedAPerson(lease: RunLease): Promise<void>;
   keep(runId: RunId, attempt: number): Promise<void>;
@@ -40,7 +40,7 @@ export interface RunsPort {
     runId: RunId,
     attempt: number | null,
     because: ResumedBecause,
-    checkouts: readonly RunCheckout[],
+    checkouts: readonly RunCheckoutShape[],
   ): Promise<void>;
   finish(runId: RunId, attempt: number): Promise<void>;
 }

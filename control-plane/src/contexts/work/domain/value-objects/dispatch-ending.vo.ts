@@ -1,4 +1,4 @@
-const CANCELLED = 'cancelled';
+import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 
 export type DispatchOutcome =
   | 'completed'
@@ -9,16 +9,18 @@ export type DispatchOutcome =
 export interface DispatchEndingParts {
   readonly endedAt: Date;
   readonly outcome: DispatchOutcome;
-  readonly failure: string | null;
+  readonly failure: RunFailureCode | null;
   readonly stopped: boolean;
+  readonly askedAPerson: boolean;
 }
 
 export class DispatchEnding implements DispatchEndingParts {
   private constructor(
     readonly endedAt: Date,
     readonly outcome: DispatchOutcome,
-    readonly failure: string | null,
+    readonly failure: RunFailureCode | null,
     readonly stopped: boolean,
+    readonly askedAPerson: boolean,
   ) {}
 
   static of(parts: DispatchEndingParts): DispatchEnding {
@@ -27,6 +29,7 @@ export class DispatchEnding implements DispatchEndingParts {
       parts.outcome,
       parts.failure,
       parts.stopped,
+      parts.askedAPerson,
     );
   }
 
@@ -34,7 +37,17 @@ export class DispatchEnding implements DispatchEndingParts {
     return (
       this.outcome !== 'cancelled' &&
       this.failure !== null &&
-      this.failure !== CANCELLED
+      this.failure !== 'cancelled'
+    );
+  }
+
+  equals(other: DispatchEnding): boolean {
+    return (
+      this.endedAt.getTime() === other.endedAt.getTime() &&
+      this.outcome === other.outcome &&
+      this.failure === other.failure &&
+      this.stopped === other.stopped &&
+      this.askedAPerson === other.askedAPerson
     );
   }
 }

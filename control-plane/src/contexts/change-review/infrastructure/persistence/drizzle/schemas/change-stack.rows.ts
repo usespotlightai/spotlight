@@ -97,6 +97,7 @@ export interface StoredCheckOutcome {
   readonly skip: {
     readonly code: string;
     readonly detail: string | null;
+    readonly attempts?: number;
   } | null;
   readonly whole: StoredStep | null;
   readonly layers: readonly StoredStep[];

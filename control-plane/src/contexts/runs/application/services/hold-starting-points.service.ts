@@ -1,3 +1,4 @@
+import type { ArchiveReferenceLocksPort } from '@runs/application/ports/archive-reference-locks.port';
 import type { StartingPointHoldsPort } from '@runs/application/ports/starting-point-holds.port';
 import { StartingPointHold } from '@runs/domain/aggregates/starting-point-hold.aggregate';
 import type { StartingPointHoldRepository } from '@runs/domain/repositories/starting-point-hold.repository';
@@ -10,6 +11,7 @@ export class HoldStartingPoints implements StartingPointHoldsPort {
   constructor(
     private readonly holds: StartingPointHoldRepository,
     private readonly transaction: TransactionPort,
+    private readonly locks: ArchiveReferenceLocksPort,
   ) {}
 
   hold(
@@ -21,7 +23,7 @@ export class HoldStartingPoints implements StartingPointHoldsPort {
     const named = HoldHolder.of(holder);
     const workspace = WorkspaceId.of(workspaceId);
 
-    return this.transaction.inTransaction(async () => {
+    return this.locks.referencing(workspace, async () => {
       const held = await this.holds.find(named);
 
       if (held) {
@@ -29,9 +31,7 @@ export class HoldStartingPoints implements StartingPointHoldsPort {
         return;
       }
 
-      await this.holds.add(
-        StartingPointHold.take(named, workspace).holding(runs, workspace),
-      );
+      await this.holds.add(StartingPointHold.take(named, workspace, runs));
     });
   }
 

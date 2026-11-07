@@ -17,16 +17,19 @@ export class InferOutputSchemas {
     private readonly log: LoggerPort,
   ) {}
 
-  async infer(teamId: TeamId, tool: string, answer: unknown): Promise<void> {
+  async infer(teamId: TeamId, tool: ToolName, answer: unknown): Promise<void> {
     if (!isJsonValue(answer)) {
       return;
     }
 
     try {
-      await this.saveInferred(teamId, ToolName.of(tool), answer);
+      await this.saveInferred(teamId, tool, answer);
     } catch (error) {
       this.log.debug(
-        { tool, error: error instanceof Error ? error.name : 'unknown' },
+        {
+          tool: tool.value,
+          error: error instanceof Error ? error.name : 'unknown',
+        },
         'could not infer what a tool answers',
       );
     }

@@ -1,6 +1,6 @@
 import type {
   LeasedAttempt,
-  LeasedRun,
+  LeasedRunFacts,
   RunLeasesPort,
 } from '@runs/application/ports/run-leases.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
@@ -18,7 +18,7 @@ import { TrialRunWork } from '@work/application/services/trial-run-work';
 import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
-import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import { LeaseLostError } from '@work/domain/exceptions/lease-lost.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -28,7 +28,7 @@ import { trialRepositoryNamed } from '@work/domain/value-objects/dispatch-subjec
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 
 export interface LeasedRunWork {
-  readonly run: LeasedRun;
+  readonly run: LeasedRunFacts;
   readonly work: RunWork | null;
 }
 
@@ -108,15 +108,13 @@ export class RunWorks {
     if (subject?.kind === 'task') {
       const task = await this.tasks.find(subject.taskId);
 
-      return task?.hasCurrentRun(run.runId)
-        ? task.unacknowledged.map(pendingOf)
-        : [];
+      return task ? task.pendingFor(run.runId).map(pendingOf) : [];
     }
 
     if (subject?.kind === 'chat') {
       const chat = await this.chats.find(subject.chatId);
 
-      return chat ? chat.unacknowledged.map(pendingOf) : [];
+      return chat ? chat.pendingFor(run.runId).map(pendingOf) : [];
     }
 
     return [];
@@ -130,7 +128,7 @@ export class RunWorks {
     );
 
     if (!still) {
-      throw new RunAttemptOverError(leased.runId.value, leased.attempt);
+      throw new LeaseLostError(leased.runId.value, leased.attempt);
     }
   }
 
@@ -164,7 +162,7 @@ export class RunWorks {
       : null;
   }
 
-  private async workOf(run: LeasedRun): Promise<RunWork | null> {
+  private async workOf(run: LeasedRunFacts): Promise<RunWork | null> {
     const dispatch = await this.dispatches.find(run.runId);
 
     if (dispatch) {
@@ -177,7 +175,7 @@ export class RunWorks {
   }
 
   private async dispatchedWork(
-    run: LeasedRun,
+    run: LeasedRunFacts,
     dispatch: Dispatch,
   ): Promise<RunWork | null> {
     const subject = dispatch.subject;

@@ -69,8 +69,8 @@ export class PostDecisionsComment {
         repository,
         this.links.decisionsOf({
           slug,
-          teamId: task.teamId.value,
-          taskId: taskId.value,
+          teamId: task.teamId,
+          taskId,
         }),
       ),
     });

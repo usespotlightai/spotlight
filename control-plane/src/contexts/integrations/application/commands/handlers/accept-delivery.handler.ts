@@ -12,6 +12,7 @@ import {
 } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import type { InboundDeliveryRepository } from '@integrations/domain/repositories/inbound-delivery.repository';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -65,7 +66,7 @@ export class AcceptDeliveryHandler
           {
             integration: IntegrationKey.of(provider.key),
             to,
-            id: provider.delivery(command.delivered),
+            id: InboundDeliveryId.of(provider.delivery(command.delivered)),
             headers: command.delivered.headers,
             body: command.delivered.body,
             causeFiringId: command.causeFiringId?.trim()

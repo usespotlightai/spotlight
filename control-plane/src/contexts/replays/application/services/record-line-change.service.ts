@@ -1,4 +1,5 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { LinesPort } from '@replays/application/ports/lines.port';
+import type { StationConfigs } from '@replays/application/services/station-configs.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -14,7 +15,8 @@ export class RecordLineChange {
     private readonly sets: ReplaySetRepository,
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
-    private readonly work: WorkPort,
+    private readonly lines: LinesPort,
+    private readonly configs: StationConfigs,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -55,13 +57,13 @@ export class RecordLineChange {
 
   private async stationExists(set: ReplaySet): Promise<boolean> {
     return (
-      (await this.work.station(set.station.lineId, set.station.stationId)) !==
+      (await this.lines.station(set.station.lineId, set.station.stationId)) !==
       null
     );
   }
 
   private async staleOraclesOf(set: ReplaySet): Promise<readonly ReplayId[]> {
-    const live = await this.work.live(
+    const live = await this.configs.live(
       set.station.lineId,
       set.station.stationId,
     );

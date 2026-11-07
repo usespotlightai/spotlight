@@ -6,7 +6,7 @@ export const ChatRefused = {
       case 'approval-needs-a-task':
         return `${refusal.tool.value} has to be approved by a person on a task, and a chat has nobody to put it to.`;
       case 'connection-needs-a-task':
-        return `${refusal.integrationName} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`;
+        return `${refusal.providedBy} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`;
     }
   },
 };

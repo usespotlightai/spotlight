@@ -6,7 +6,6 @@ import type {
 } from '@change-review/application/ports/work.port';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -59,10 +58,6 @@ export class Work implements WorkPort {
 
   async teamOfRun(runId: RunId): Promise<TeamId | null> {
     return (await this.work.contextOfRun(runId))?.teamId ?? null;
-  }
-
-  wasClaimedBy(runId: RunId, runner: RunnerId): Promise<boolean> {
-    return this.work.wasClaimedBy(runId, runner);
   }
 
   async reasoning(runId: RunId): Promise<RunReasoning | null> {

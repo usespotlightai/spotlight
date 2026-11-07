@@ -11,6 +11,7 @@ import { RunScoresViews } from '@insights/application/services/run-scores-views.
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import type { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import {
   JudgingsInMemory,
@@ -37,8 +38,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NUMBER_JUDGE: StationJudge = {
-  teamId: 'team_1',
-  lineId: 'line_1',
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
   rubric: 'scores: 1-5\nHow well did it retry?',
   rubricVersion: RUBRIC_VERSION,
   claims: [],
@@ -48,8 +49,8 @@ const NUMBER_JUDGE: StationJudge = {
 };
 
 const CLAIMS_JUDGE: StationJudge = {
-  teamId: 'team_1',
-  lineId: 'line_1',
+  teamId: TeamId.of('team_1'),
+  lineId: LineId.of('line_1'),
   rubric: null,
   rubricVersion: RUBRIC_VERSION,
   claims: ['It retries the upload.', 'It adds a test.'],
@@ -196,7 +197,7 @@ describe('GradeRunHandler', () => {
   it('names the claims the judge marked, even once the station’s claims changed', async () => {
     const run = await grading(null, {
       ...CLAIMS_JUDGE,
-      rubricVersion: 'd'.repeat(64),
+      rubricVersion: RubricVersion.of('d'.repeat(64)),
     });
     await run.scores.add(
       judgeScore('run_1', ScoreScale.claims(), 0, {

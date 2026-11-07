@@ -72,7 +72,7 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
       return null;
     }
 
-    const claims = await this.scope.within(trust.workspaceId.value, () =>
+    const claims = await this.scope.within(trust.workspaceId, () =>
       this.workloads.verify(token, {
         issuer: trust.workload.issuer,
         audience: trust.workload.audience,

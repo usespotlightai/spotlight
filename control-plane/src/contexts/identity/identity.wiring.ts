@@ -171,6 +171,7 @@ import { VerificationSending } from '@identity/application/services/verification
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
 import { WorkspaceInviteRemoval } from '@identity/application/services/workspace-invite-removal.service';
+import { WorkspaceInviting } from '@identity/application/services/workspace-inviting.service';
 import { WorkspaceReader } from '@identity/application/services/workspace-reader.service';
 import { WorkspaceSetup } from '@identity/application/services/workspace-setup.service';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
@@ -369,6 +370,14 @@ const services: Provider[] = [
     inject: [DrizzleWorkspaceRepository],
     useFactory: (workspaces: DrizzleWorkspaceRepository) =>
       new WorkspaceAdministration(workspaces),
+  },
+  {
+    provide: WorkspaceInviting,
+    inject: [WorkspaceAdministration, InviteToWorkspaceHandler],
+    useFactory: (
+      administration: WorkspaceAdministration,
+      inviteToWorkspace: InviteToWorkspaceHandler,
+    ) => new WorkspaceInviting(administration, inviteToWorkspace),
   },
   {
     provide: InviteSending,

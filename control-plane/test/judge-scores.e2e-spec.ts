@@ -33,6 +33,7 @@ import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/dri
 import { scoreFactOf } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import type { Erased } from '@shared-kernel/domain/erased';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -169,10 +170,10 @@ beforeAll(async () => {
     {
       judgesOnTeam: async () => new Map(),
       judgeAt: async (stationId) =>
-        stationId === CLAIMS_STATION
+        stationId.value === CLAIMS_STATION
           ? {
-              teamId: 'team_1',
-              lineId: 'line_1',
+              teamId: TeamId.of('team_1'),
+              lineId: LineId.of('line_1'),
               rubric: null,
               claims: [...CLAIMS],
               passThreshold: 0.5,
@@ -181,8 +182,8 @@ beforeAll(async () => {
               minAgreement: 0.5,
             }
           : {
-              teamId: 'team_1',
-              lineId: 'line_1',
+              teamId: TeamId.of('team_1'),
+              lineId: LineId.of('line_1'),
               rubric: 'Did the run retry uploads?',
               claims: [],
               passThreshold: 1,
@@ -199,7 +200,7 @@ afterAll(async () => {
   await database?.close();
 });
 
-const erased = async <A>(
+const erased = async <A extends { erased(): Erased<A> }>(
   aggregates: ScopedRemoval<A>,
   taskId: TaskId,
 ): Promise<void> => {
@@ -207,7 +208,7 @@ const erased = async <A>(
     DeletionScope.ofTask(WORKSPACE, taskId),
     100,
   )) {
-    await aggregates.remove(each);
+    await aggregates.remove(each.erased());
   }
 };
 

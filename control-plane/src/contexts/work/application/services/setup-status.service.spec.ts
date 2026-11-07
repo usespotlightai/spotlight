@@ -7,6 +7,7 @@ import type {
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
 import { SetupStatus } from '@work/application/services/setup-status.service';
+import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('123e4567-e89b-42d3-a456-426614174001');
@@ -34,7 +35,10 @@ const read = (options: Options = {}) => {
     setupChatsOf: vi.fn().mockResolvedValue(options.chats ?? []),
   } as unknown as ChatReaderPort;
 
-  return new SetupStatus(connections, runners, chats).of(WORKSPACE, TEAM);
+  return new SetupStatus(connections, runners, chats, {} as ChatRepository).of(
+    WORKSPACE,
+    TEAM,
+  );
 };
 
 describe('SetupStatus', () => {

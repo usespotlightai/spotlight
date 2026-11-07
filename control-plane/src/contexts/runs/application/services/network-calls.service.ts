@@ -113,35 +113,23 @@ export class NetworkCalls implements NetworkCallsPort {
   }
 
   private viewOf(call: NetworkCall, now: Date): NetworkCallState {
-    const { response } = call;
+    const view = call.viewAt(now);
 
-    if (response) {
-      return {
-        kind: 'answered',
-        response: {
-          status: response.status,
-          headers: response.headers,
-          body: response.body,
-          ms: response.ms,
-          error: response.error,
-        },
-      };
+    if (view.kind !== 'answered') {
+      return view;
     }
 
-    const state = call.stateAt(now);
-
-    if (state === 'waiting' || state === 'claimed') {
-      return { kind: 'waiting' };
-    }
-
-    const { progress } = call;
+    const { response } = view;
 
     return {
-      kind: 'expired',
-      claimed:
-        progress.kind === 'claimed' ||
-        ((progress.kind === 'expired' || progress.kind === 'cancelled') &&
-          progress.claimed),
+      kind: 'answered',
+      response: {
+        status: response.status,
+        headers: response.headers,
+        body: response.body,
+        ms: response.ms,
+        error: response.error,
+      },
     };
   }
 
