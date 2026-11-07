@@ -1,4 +1,9 @@
-import type { EgressEnforcement } from '@work/application/contracts/run-journal.contract';
+import type { EgressEnforcement } from '@runs/application/contracts/run-journal.contract';
+import type {
+  ConnectionError,
+  ConnectionOutcome,
+  ConnectionReason,
+} from '@runs/application/contracts/run-reading.contract';
 import type {
   JournalStepDto,
   RunSpanDto,
@@ -7,11 +12,6 @@ import type {
   Category,
   NodeKind,
 } from '@work/application/read-models/trace-of';
-import type {
-  ConnectionError,
-  ConnectionOutcome,
-  ConnectionReason,
-} from '@work/domain/value-objects/run-connection.vo';
 
 export interface TraceConnectionDto {
   readonly host: string;

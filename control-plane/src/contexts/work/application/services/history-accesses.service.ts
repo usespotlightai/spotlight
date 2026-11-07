@@ -1,7 +1,7 @@
+import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { RunLeasesPort } from '@work/application/ports/run-leases.port';
 import type { TraceScopes } from '@work/application/services/trace-scopes.service';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { HistoryAccess } from '@work/domain/services/history-access';

@@ -9,6 +9,7 @@ import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
 import { RunnersModule } from '@runners/runners.module';
+import { RunsModule } from '@runs/runs.module';
 import { SecretsModule } from '@secrets/secrets.module';
 import { BUILT_IN_SKILLS } from '@work/application/ports/built-in-skills.port';
 import { STATION_PROFILES } from '@work/application/ports/station-profiles.port';
@@ -27,6 +28,7 @@ const BINDINGS = contextBindings([
     SecretsModule,
     RunnersModule,
     LinesModule,
+    RunsModule,
     WorkModule,
   ],
   controllers: [...CONFIGURATION_CONTROLLERS],

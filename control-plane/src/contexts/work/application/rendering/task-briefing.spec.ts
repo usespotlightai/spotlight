@@ -1,3 +1,7 @@
+import {
+  HANDING_OVER,
+  OPENING_PULL_REQUESTS,
+} from '@shared-kernel/domain/built-in-skills';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -19,10 +23,6 @@ import type {
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import {
-  HANDING_OVER,
-  OPENING_PULL_REQUESTS,
-} from '@work/domain/services/built-in-skills';
 import { builtInTool } from '@work/domain/services/built-in-tools';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';

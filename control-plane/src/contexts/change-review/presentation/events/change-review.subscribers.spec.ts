@@ -316,6 +316,7 @@ describe('change review receiving a stack’s check end', () => {
         WorkspaceId.of('ws_1'),
         true,
         false,
+        new Date('2026-10-02T09:30:00.000Z'),
       ),
     );
 

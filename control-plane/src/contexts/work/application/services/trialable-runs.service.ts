@@ -1,11 +1,11 @@
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UntrialableReasonCode } from '@work/application/contracts/untrialable-reason.contract';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@work/application/ports/run-facts.port';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   TaskRunFacts,

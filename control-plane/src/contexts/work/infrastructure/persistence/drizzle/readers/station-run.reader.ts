@@ -1,18 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import {
   RUN_FACTS,
   type RunFacts,
   type RunFactsPort,
-} from '@work/application/ports/run-facts.port';
+} from '@runs/application/ports/run-facts.port';
 import {
   RUN_JOURNALS,
   type RunJournalsPort,
-} from '@work/application/ports/run-journals.port';
+} from '@runs/application/ports/run-journals.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   EndedRunRow,
   KeyedStation,

@@ -163,6 +163,10 @@ import {
   type RunnerConfigurationPort,
 } from '@runners/application/ports/runner-configuration.port';
 import {
+  HARNESS_PROFILE_REVIEW,
+  type HarnessProfileReviewPort,
+} from '@runs/application/ports/harness-profile-review.port';
+import {
   DEFINED_SECRETS,
   type DefinedSecretsPort,
 } from '@secrets/application/ports/defined-secrets.port';
@@ -184,10 +188,6 @@ import {
   BUILT_IN_SKILL_KEYS,
   BUILT_IN_SKILLS,
 } from '@work/application/ports/built-in-skills.port';
-import {
-  HARNESS_PROFILE_REVIEW,
-  type HarnessProfileReviewPort,
-} from '@work/application/ports/harness-profile-review.port';
 import { STATION_PROFILES } from '@work/application/ports/station-profiles.port';
 import { TEAM_SKILLS } from '@work/application/ports/team-skills.port';
 

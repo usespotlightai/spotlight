@@ -13,16 +13,16 @@ import { buildOpenApiDocument } from '@platform/http/openapi';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
+import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { eq } from 'drizzle-orm';
 import {
   afterAll,

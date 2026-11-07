@@ -1,3 +1,4 @@
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -25,10 +26,8 @@ import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
-import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import {
@@ -145,7 +144,7 @@ const asking = (start: Task, inChat = false) => {
     {
       toolFor: (title) =>
         title === 'mcp__linear__create_issue'
-          ? CalledTool.of({ server: 'linear', tool: 'create_issue' })
+          ? { server: 'linear', tool: 'create_issue' }
           : null,
     },
   );

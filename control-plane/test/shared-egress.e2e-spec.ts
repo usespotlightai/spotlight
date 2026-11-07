@@ -14,11 +14,11 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { EGRESS_TOKEN_HEADER } from '@runners/presentation/http/controllers/egress-resource.controller';
-import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
+import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
 import {
   DrizzleRunConnections,
   MAX_ERRORS_PER_RUN,
-} from '@work/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
+} from '@runs/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,

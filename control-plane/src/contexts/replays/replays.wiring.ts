@@ -205,6 +205,22 @@ import { RunnerFailureCausesController } from '@replays/presentation/http/contro
 import { RunnerSearchCandidatesController } from '@replays/presentation/http/controllers/runner-search-candidates.controller';
 import { RunnerSearchViewController } from '@replays/presentation/http/controllers/runner-search-view.controller';
 import {
+  RUN_FACTS,
+  type RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
+import {
+  RUN_LEASES,
+  type RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import {
+  RUNS as WORK_RUNS,
+  type RunsPort as WorkRunsPort,
+} from '@runs/application/ports/runs.port';
+import {
+  STARTING_POINT_HOLDS,
+  type StartingPointHoldsPort,
+} from '@runs/application/ports/starting-point-holds.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -242,22 +258,6 @@ import {
   NOTICES,
   type NoticesPort,
 } from '@work/application/ports/notices.port';
-import {
-  RUN_FACTS,
-  type RunFactsPort,
-} from '@work/application/ports/run-facts.port';
-import {
-  RUN_LEASES,
-  type RunLeasesPort,
-} from '@work/application/ports/run-leases.port';
-import {
-  RUNS as WORK_RUNS,
-  type RunsPort as WorkRunsPort,
-} from '@work/application/ports/runs.port';
-import {
-  STARTING_POINT_HOLDS,
-  type StartingPointHoldsPort,
-} from '@work/application/ports/starting-point-holds.port';
 import {
   STATION_CONFIG_CANDIDATES,
   type StationConfigCandidatesPort,

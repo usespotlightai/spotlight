@@ -18,6 +18,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       WorkspaceId.of('ws_1'),
       false,
       false,
+      new Date('2026-10-02T09:30:00.000Z'),
     );
 
     expect(
@@ -31,6 +32,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
         taskId: 'task_1',
         workspaceId: 'ws_1',
         passed: false,
+        at: '2026-10-02T09:30:00.000Z',
       },
     ]);
   });
@@ -76,6 +78,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       WorkspaceId.of('ws_1'),
       true,
       true,
+      new Date('2026-10-02T09:30:00.000Z'),
     );
 
     expect(
@@ -100,6 +103,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       WorkspaceId.of('ws_1'),
       false,
       true,
+      new Date('2026-10-02T09:30:00.000Z'),
     );
 
     expect(

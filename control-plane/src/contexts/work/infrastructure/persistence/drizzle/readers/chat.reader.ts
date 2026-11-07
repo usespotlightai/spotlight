@@ -10,6 +10,10 @@ import {
   pageOf,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@runs/application/ports/run-progress.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
@@ -23,13 +27,9 @@ import type {
   ChatView,
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
-import {
-  RUN_PROGRESS,
-  type RunProgressPort,
-} from '@work/application/ports/run-progress.port';
 import { ChatAccess } from '@work/domain/services/chat-access';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { Progress } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';

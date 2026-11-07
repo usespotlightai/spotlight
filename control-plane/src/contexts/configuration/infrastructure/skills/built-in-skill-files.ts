@@ -6,7 +6,7 @@ import type {
   SkillFile,
 } from '@configuration/application/ports/skill-folders.port';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
-import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
+import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
 
 const BUILT_IN_SKILLS_DIRECTORY = join(__dirname, 'built-in');
 

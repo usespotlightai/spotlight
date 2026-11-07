@@ -1,17 +1,16 @@
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type {
   JournalStep,
   RunJournal,
   RunSpan,
-} from '@work/application/contracts/run-journal.contract';
+} from '@runs/application/contracts/run-journal.contract';
+import { RunConnection } from '@runs/application/ports/run-fixtures.fake-spec';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import {
   paired,
   type TracedRun,
   traceOf,
 } from '@work/application/read-models/trace-of';
-import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
-import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);
@@ -65,7 +64,7 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
 const tracedRun = (part: Partial<TracedRun> = {}): TracedRun => ({
   id: RunId.of('run_1'),
   station: StationName.of('Implementation'),
-  harness: HarnessName.of('claude-code'),
+  harness: 'claude-code',
   state: 'completed',
   attempt: 1,
   startedAt: at(0),

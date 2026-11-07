@@ -1,11 +1,11 @@
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunOrderContract } from '@work/application/contracts/run-order.contract';
 
 export const STATION_TRIALS = Symbol('REPLAYS_STATION_TRIALS');
 

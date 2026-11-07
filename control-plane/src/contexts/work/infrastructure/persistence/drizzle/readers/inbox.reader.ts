@@ -11,6 +11,12 @@ import {
   notNewerThan,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
+import { RunProgressContract } from '@runs/application/contracts/run-progress.contract';
+import type { RunFacts } from '@runs/application/ports/run-facts.port';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@runs/application/ports/run-progress.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -26,11 +32,6 @@ import type {
   InboxRunSummary,
   InboxScope,
 } from '@work/application/ports/inbox-reader.port';
-import type { RunFacts } from '@work/application/ports/run-facts.port';
-import {
-  RUN_PROGRESS,
-  type RunProgressPort,
-} from '@work/application/ports/run-progress.port';
 import { inboxSectionOf } from '@work/application/read-models/inbox-section';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
@@ -44,10 +45,7 @@ import {
 import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
-import {
-  progressOfCurrentRun,
-  type RunState,
-} from '@work/domain/value-objects/run-state';
+import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
@@ -281,7 +279,7 @@ interface TaskContext {
 }
 
 const workingOf = (row: {
-  readonly workingState: RunState | null;
+  readonly workingState: RunFacts['state'] | null;
   readonly workingStopRequested: boolean;
   readonly workingTurn: RunFacts['turn'];
 }) =>
@@ -328,7 +326,7 @@ const conversationItem = (
   const last = conversation.notes[conversation.notes.length - 1];
   const progress =
     open && worksOn(row.working !== null, conversation.notes)
-      ? progressOfCurrentRun(workingOf(row), true)
+      ? progressOfCurrentRun(RunProgressContract.reading(workingOf(row)), true)
       : null;
   const unread = anyUnread(conversation.notes);
 
@@ -385,7 +383,10 @@ const runItem = (
   working: string,
   context: TaskContext,
 ): InboxRunSummary | null => {
-  const progress = progressOfCurrentRun(workingOf(row), true);
+  const progress = progressOfCurrentRun(
+    RunProgressContract.reading(workingOf(row)),
+    true,
+  );
 
   return progress
     ? {

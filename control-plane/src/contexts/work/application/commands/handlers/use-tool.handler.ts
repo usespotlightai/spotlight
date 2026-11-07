@@ -1,3 +1,4 @@
+import type { LeasedRun } from '@runs/application/ports/run-leases.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -10,7 +11,6 @@ import type {
   HookDecision,
   LifecycleHooksPort,
 } from '@work/application/ports/lifecycle-hooks.port';
-import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import type {
   TaskViewDto,
   TaskViewsPort,

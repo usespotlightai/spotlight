@@ -1,10 +1,10 @@
 import type { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { SkillKeyReservedError } from '@configuration/domain/exceptions/skill-key-reserved.error';
 import { SkillMainFileMissingError } from '@configuration/domain/exceptions/skill-main-file-missing.error';
+import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
 import type { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 
 export const SKILLS = 'skills';
 

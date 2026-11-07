@@ -21,15 +21,15 @@ import {
 } from '@integrations/integrations.mcp.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   NetworkCallState,
   NetworkCallsPort,
   NetworkRequest,
-} from '@work/application/ports/network-calls.port';
+} from '@runs/application/ports/network-calls.port';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-11-01T09:00:00.000Z');

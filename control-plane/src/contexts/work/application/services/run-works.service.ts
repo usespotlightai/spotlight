@@ -1,15 +1,15 @@
+import type {
+  LeasedAttempt,
+  LeasedRun,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type {
-  LeasedAttempt,
-  LeasedRun,
-  RunLeasesPort,
-} from '@work/application/ports/run-leases.port';
-import type { RunsPort } from '@work/application/ports/runs.port';
 import { ChatRunWork } from '@work/application/services/chat-run-work';
 import { IsolatedRunWork } from '@work/application/services/isolated-run-work';
 import type { RunWork } from '@work/application/services/run-work';
@@ -18,6 +18,7 @@ import { TrialRunWork } from '@work/application/services/trial-run-work';
 import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
+import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -110,11 +111,15 @@ export class RunWorks {
   }
 
   async stillOn(leased: LeasedAttempt, runnerId: string): Promise<void> {
-    await this.leases.assertStillOn(
+    const still = await this.leases.isStillOn(
       leased.runId,
       leased.attempt,
       RunnerId.of(runnerId),
     );
+
+    if (!still) {
+      throw new RunAttemptOverError(leased.runId.value, leased.attempt);
+    }
   }
 
   async repositoryForCheck(

@@ -1,3 +1,4 @@
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
@@ -7,7 +8,6 @@ import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
 import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
@@ -35,7 +35,6 @@ import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 
 export class DispatchTask implements TaskDispatching {
   private readonly ordering: StationOrdering;
@@ -92,7 +91,7 @@ export class DispatchTask implements TaskDispatching {
 
     const prepared = this.ordering.prepared(order);
 
-    if (!prepared || !this.launch.skillsFor(order.harness.id)) {
+    if (!prepared || !this.launch.skillsFor(order.harness)) {
       this.notDispatched(task, line, 'harness-not-prepared');
       return null;
     }
@@ -168,7 +167,7 @@ export class DispatchTask implements TaskDispatching {
       order: runOrderOf({
         id,
         workspaceId: task.workspaceId,
-        harness: order.harness.id,
+        harness: order.harness,
         priority: order.priority,
         requester: WorkRequesters.task(task.id, task.revision, line.teamId),
         policy: WorkRequesters.taskPolicy,
@@ -176,7 +175,7 @@ export class DispatchTask implements TaskDispatching {
         apiGrant: null,
         tags: { taskId: task.id.value },
         placement: order.placement,
-        spec: RunSpec.of({
+        spec: {
           ...this.ordering.laid(ordered, {
             briefing,
             naming: this.tracing.for(task.id, id),
@@ -186,7 +185,7 @@ export class DispatchTask implements TaskDispatching {
           ...(catalog.length > 0 ? { catalog } : {}),
           startingPoint: true,
           ...(injected.length > 0 ? { injectedSecrets: injected } : {}),
-        }),
+        },
         refusals: order.refusals,
       }),
       briefedTask: briefed,

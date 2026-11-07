@@ -6,7 +6,7 @@ import type { AttachmentSummary } from '@work/application/ports/attachment-reade
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type { RunsInWorkspace } from '@work/application/ports/viewed-runs';
 import type { ReviewState } from '@work/domain/services/conversations';
-import type { Progress } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
 

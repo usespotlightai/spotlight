@@ -1,0 +1,67 @@
+import type { WorkspaceArchiveAnswer } from '@runs/application/dto/workspace-archive.dto';
+import type { WorkspaceArchiveStorePort } from '@runs/application/ports/workspace-archive-store.port';
+import type { StoredWorkspaceArchiveQuery } from '@runs/application/queries/stored-workspace-archive.query';
+import type { Run } from '@runs/domain/aggregates/run.aggregate';
+import type { WorkspaceArchive } from '@runs/domain/aggregates/workspace-archive.aggregate';
+import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import type { WorkspaceArchiveRepository } from '@runs/domain/repositories/workspace-archive.repository';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+
+export class StoredWorkspaceArchiveHandler
+  implements
+    QueryHandlerPort<StoredWorkspaceArchiveQuery, WorkspaceArchiveAnswer>
+{
+  constructor(
+    private readonly runs: RunRepository,
+    private readonly archives: WorkspaceArchiveRepository,
+    private readonly store: WorkspaceArchiveStorePort,
+  ) {}
+
+  async execute(
+    query: StoredWorkspaceArchiveQuery,
+  ): Promise<WorkspaceArchiveAnswer> {
+    try {
+      const run = await this.runs.findById(RunId.of(query.runId));
+
+      if (!run?.isLeasedBy(RunnerId.of(query.runnerId))) {
+        return { leased: false };
+      }
+
+      const archive = await this.restoredBy(run);
+
+      if (!archive) {
+        return { leased: true, archive: null };
+      }
+
+      return {
+        leased: true,
+        archive: {
+          id: archive.id.value,
+          url: await this.store.grantDownload(archive),
+          size: archive.size.bytes,
+          sha256: archive.digest.sha256,
+        },
+      };
+    } catch (error) {
+      rethrowAsApplicationError(error);
+    }
+  }
+
+  private async restoredBy(run: Run): Promise<WorkspaceArchive | null> {
+    const source = run.restoresFrom;
+
+    if (!source) {
+      return null;
+    }
+
+    const candidate =
+      'archive' in source
+        ? await this.archives.find(source.archive)
+        : await this.archives.newestCompleted(run.workspaceId, source.newestOf);
+
+    return run.archiveToRestore(candidate ? [candidate] : []);
+  }
+}

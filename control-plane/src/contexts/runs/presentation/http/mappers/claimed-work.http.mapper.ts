@@ -1,0 +1,49 @@
+import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
+import {
+  ClaimedCheckResponseDto,
+  ClaimedCheckStepResponseDto,
+  ClaimedRunResponseDto,
+  ClaimedWorkResponseDto,
+} from '@runs/presentation/http/dto/runner.response.dto';
+
+export const ClaimedWorkHttpMapper = {
+  toResponse(claimed: ClaimedWorkDto): ClaimedWorkResponseDto {
+    if (claimed.kind === 'run') {
+      return new ClaimedWorkResponseDto(
+        'run',
+        new ClaimedRunResponseDto(
+          claimed.run.id,
+          claimed.run.harness,
+          claimed.run.attempt,
+          claimed.run.spec,
+        ),
+        null,
+      );
+    }
+
+    const { check } = claimed;
+
+    return new ClaimedWorkResponseDto(
+      'check',
+      null,
+      new ClaimedCheckResponseDto(
+        check.stackId,
+        check.recheck,
+        check.runId,
+        check.repository,
+        check.base,
+        check.setup,
+        check.command,
+        check.steps.map(
+          (step) =>
+            new ClaimedCheckStepResponseDto(
+              step.id,
+              step.patch,
+              step.stopsOnFailure,
+              step.runsSetup,
+            ),
+        ),
+      ),
+    );
+  },
+};

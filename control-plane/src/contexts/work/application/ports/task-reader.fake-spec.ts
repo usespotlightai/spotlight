@@ -3,7 +3,7 @@ import type {
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { Progress } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
 
 const person = (id: string) => ({ id, name: 'Ada', image: null });
 

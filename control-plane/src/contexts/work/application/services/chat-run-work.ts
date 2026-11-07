@@ -1,9 +1,9 @@
+import type { LeasedRun } from '@runs/application/ports/run-leases.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { GitService } from '@work/application/ports/git-gateway.port';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
-import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import { ChatRefused } from '@work/application/rendering/chat-refused';
 import type {
   Cleared,

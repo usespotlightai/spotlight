@@ -25,7 +25,7 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -106,11 +106,16 @@ const approvalAsked = () =>
     null,
   ).task;
 
-const CLEAN = RunOutcome.of({ exitCode: 0, failed: false });
+const CLEAN = RunResult.of({
+  exitCode: 0,
+  failure: null,
+  message: null,
+  stopped: false,
+});
 
 const deciding = (input: {
   task?: Task;
-  outcome?: RunOutcome;
+  outcome?: RunResult;
   handover?: { next?: string; note?: string } | null;
   stopRequested?: boolean;
   on?: LineMap;
@@ -182,9 +187,25 @@ describe('TurnDecision', () => {
 
   it('routes a turn that failed or was stopped', () => {
     expect(
-      deciding({ outcome: RunOutcome.of({ exitCode: 1, failed: true }) }).kind,
+      deciding({
+        outcome: RunResult.of({
+          exitCode: 1,
+          failure: 'exited',
+          message: null,
+          stopped: false,
+        }),
+      }).kind,
     ).toBe('route');
-    expect(deciding({ outcome: RunOutcome.stopped(130) }).kind).toBe('route');
+    expect(
+      deciding({
+        outcome: RunResult.of({
+          exitCode: 130,
+          failure: null,
+          message: null,
+          stopped: true,
+        }),
+      }).kind,
+    ).toBe('route');
   });
 
   it('routes, asking nobody, a turn whose run a person asked to stop', () => {

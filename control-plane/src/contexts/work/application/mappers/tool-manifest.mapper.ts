@@ -1,5 +1,5 @@
+import type { ToolManifestShape } from '@runs/application/contracts/run-spec.contract';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
-import type { ToolManifestShape } from '@work/application/contracts/run-spec.contract';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 
 const descriptionOf = (declared: DeclaredTool): string =>

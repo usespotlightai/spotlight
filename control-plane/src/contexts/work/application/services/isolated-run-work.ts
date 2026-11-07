@@ -1,8 +1,8 @@
+import type { LeasedRun } from '@runs/application/ports/run-leases.port';
+import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ToolContext } from '@work/application/ports/integration-tools.port';
-import type { LeasedRun } from '@work/application/ports/run-leases.port';
-import type { RunsPort } from '@work/application/ports/runs.port';
 import type {
   Cleared,
   ConnectionAsked,

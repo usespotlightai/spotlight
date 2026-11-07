@@ -80,8 +80,6 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
-
 const PULL = 'https://github.com/acme/api/pull/3';
 
 const ENDED: EndedRun = {
@@ -149,19 +147,11 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       records,
       new FactRecorder(deletions),
       inTransaction,
-      {
-        now: () => RECEIVED_AT,
-        sleep: async () => {},
-      },
     ),
     checking: new RecordChangeChecks(
       records,
       new FactRecorder(deletions),
       inTransaction,
-      {
-        now: () => RECEIVED_AT,
-        sleep: async () => {},
-      },
     ),
     acting: new RecordHumanAction(
       WORK,

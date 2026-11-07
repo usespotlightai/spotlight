@@ -326,7 +326,7 @@ describe('a search for a better station config', () => {
 
     await endedSearchRun(agent);
     await eventually(
-      () => deliveredTo('work.end-runner-of-ended-run', 'runId', agent.runId),
+      () => deliveredTo('runs.end-runner-of-ended-run', 'runId', agent.runId),
       WITHIN,
     );
     for (const path of [

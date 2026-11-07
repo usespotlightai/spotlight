@@ -240,7 +240,7 @@ const untilUsageRecorded = (runId: string) =>
           sql`(${schema.eventOutbox.payload} ->> 'runId' = ${runId} OR ${schema.eventOutbox.payload} -> 'runId' ->> 'value' = ${runId})`,
         ),
       );
-    const usageRecorded = await published('work.run-usage-recorded.v1', runId);
+    const usageRecorded = await published('runs.run-usage-recorded.v1', runId);
 
     return pending.length === 0 && usageRecorded.length > 0;
   });
@@ -564,7 +564,7 @@ describe('a search run ending', () => {
 
     expect((await runRow(runId))?.state).toBe('completed');
 
-    const [endedEvent] = await published('work.requested-run-ended.v1', runId);
+    const [endedEvent] = await published('runs.run-ended.v1', runId);
 
     expect(endedEvent?.payload).toMatchObject({
       requester: {
@@ -588,10 +588,10 @@ describe('a search run ending', () => {
         ),
       ),
     ).toBe(false);
-    expect(await published('work.run-usage-recorded.v1', runId)).toEqual([
+    expect(await published('runs.run-usage-recorded.v1', runId)).toEqual([
       {
         payload: expect.objectContaining({
-          kind: 'work.run-usage-recorded.v1',
+          kind: 'runs.run-usage-recorded.v1',
           requester: expect.objectContaining({
             owner: 'replays',
             kind: 'search',
@@ -641,7 +641,7 @@ describe('a search run ending', () => {
 
     expect((await runRow(runId))?.askedAPerson).toBe(true);
 
-    const [endedEvent] = await published('work.requested-run-ended.v1', runId);
+    const [endedEvent] = await published('runs.run-ended.v1', runId);
 
     expect(endedEvent?.payload).toMatchObject({ askedAPerson: true });
   });
@@ -655,8 +655,7 @@ describe('a search run ending', () => {
     expect((await runRow(queued.id))?.state).toBe('cancelled');
     await eventually(
       async () =>
-        (await published('work.requested-run-ended.v1', queued.id)).length ===
-        1,
+        (await published('runs.run-ended.v1', queued.id)).length === 1,
     );
     expect(await published('work.run-ended.v1', queued.id)).toEqual([]);
   });

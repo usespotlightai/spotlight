@@ -1,3 +1,11 @@
+import type {
+  JournalStep,
+  RunChanges,
+  RunJournal,
+} from '@runs/application/contracts/run-journal.contract';
+import { RunReading } from '@runs/application/contracts/run-reading.contract';
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
+import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -5,19 +13,12 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
-  JournalStep,
-  RunChanges,
-  RunJournal,
-} from '@work/application/contracts/run-journal.contract';
-import type {
   DispatchedFor,
   DispatchedRun,
   DispatchedRunsPort,
 } from '@work/application/ports/dispatched-runs.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import type { RunLeasesPort } from '@work/application/ports/run-leases.port';
 import type {
   ChangedFile,
   FilesUnder,
@@ -35,10 +36,6 @@ import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
-import {
-  filesChangedIn,
-  workspacePathsIn,
-} from '@work/domain/services/workspace-path';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
@@ -162,7 +159,7 @@ export class WorkRunLookup implements WorkRunLookupPort {
 
     return {
       steps: journal.steps.flatMap(reasoned),
-      changed: [...new Set(changes.flatMap(workspacePathsIn))],
+      changed: [...new Set(changes.flatMap(RunReading.workspacePathsIn))],
     };
   }
 
@@ -181,7 +178,10 @@ export class WorkRunLookup implements WorkRunLookupPort {
       dispatched && line ? await this.repositoriesOn(dispatched.for, line) : [];
 
     return distinctFiles(
-      filesChangedIn(changesIn(journal, run.checkouts), repositories),
+      RunReading.filesChangedIn(
+        changesIn(journal, run.checkouts),
+        repositories,
+      ),
     );
   }
 

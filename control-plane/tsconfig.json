@@ -19,6 +19,7 @@
       "@platform/*": ["./src/platform/*"],
       "@shared-kernel/*": ["./src/shared-kernel/*"],
       "@lines/*": ["./src/contexts/lines/*"],
+      "@runs/*": ["./src/contexts/runs/*"],
       "@work/*": ["./src/contexts/work/*"],
       "@runners/*": ["./src/contexts/runners/*"],
       "@change-review/*": ["./src/contexts/change-review/*"],

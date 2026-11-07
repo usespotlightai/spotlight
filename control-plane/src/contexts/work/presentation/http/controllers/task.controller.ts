@@ -37,7 +37,6 @@ import { SendMessageCommand } from '@work/application/commands/send-message.comm
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
-import type { RunNetworkDto } from '@work/application/dto/run-network.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
 import type { TaskDto } from '@work/application/dto/task.dto';
 import type {
@@ -57,7 +56,6 @@ import {
   ReadTeamRunQuery,
 } from '@work/application/queries/list-team-runs.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
-import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { AddTaskRequestDto } from '@work/presentation/http/dto/add-task.request.dto';
@@ -71,7 +69,6 @@ import {
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
-import { RunNetworkResponseDto } from '@work/presentation/http/dto/run-network.response.dto';
 import {
   TaskPageResponseDto,
   TaskResponseDto,
@@ -262,31 +259,6 @@ export class TaskController {
     }
 
     return new RunConfigResponseDto(found);
-  }
-
-  @Get('runs/:runId/network')
-  @ApiOperation({
-    operationId: 'readRunNetwork',
-    summary:
-      'The connections a run made through a shared egress, and if egress was enforced',
-  })
-  @ApiParam({ name: 'runId', type: String })
-  @ApiOkResponse({ type: RunNetworkResponseDto })
-  @ApiNotFoundResponse({ description: 'No such run for this caller' })
-  async network(
-    @Param('runId') runId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<RunNetworkResponseDto> {
-    const found = await this.queryBus.execute<
-      ReadRunNetworkQuery,
-      RunNetworkDto | null
-    >(new ReadRunNetworkQuery(runId, user.id));
-
-    if (!found) {
-      throw new NotFoundException();
-    }
-
-    return new RunNetworkResponseDto(found);
   }
 
   @Get('runs/:runId/notes')

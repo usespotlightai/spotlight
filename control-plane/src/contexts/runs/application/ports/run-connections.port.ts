@@ -1,0 +1,26 @@
+import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
+import type { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
+
+export const RUN_CONNECTIONS = Symbol('RUN_CONNECTIONS');
+
+export interface RecordedConnection {
+  readonly attempt: number;
+  readonly connection: RunConnection;
+}
+
+export interface ConnectionOfRun extends RecordedConnection {
+  readonly runId: string;
+}
+
+export interface RunConnectionsPort {
+  record(
+    attempt: RunAttempt,
+    connections: readonly RunConnection[],
+  ): Promise<void>;
+
+  of(runId: string): Promise<readonly RecordedConnection[]>;
+
+  errorsIn(runIds: readonly string[]): Promise<readonly ConnectionOfRun[]>;
+
+  purgeBefore(before: Date, max: number): Promise<number>;
+}

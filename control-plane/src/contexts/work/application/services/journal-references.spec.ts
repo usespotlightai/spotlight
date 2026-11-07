@@ -1,4 +1,4 @@
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import { referencesUnder } from '@work/application/services/journal-references';
 import { describe, expect, it } from 'vitest';
 

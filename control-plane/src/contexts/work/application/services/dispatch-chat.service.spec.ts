@@ -1,4 +1,14 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type {
+  Run,
+  RunRepository,
+} from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  HarnessCommand,
+  Runs,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -15,23 +25,18 @@ import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { BriefingContext } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import type { OrderedRun } from '@work/application/services/ordered-run';
-import { Runs } from '@work/application/services/runs.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
-import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
   lineMapOf,
@@ -39,7 +44,6 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
-import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');

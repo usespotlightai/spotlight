@@ -1,4 +1,5 @@
 import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
+import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -14,7 +15,6 @@ import {
 } from '@work/domain/services/task-checkouts';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
-import type { Harness } from '@work/domain/value-objects/harness.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
@@ -23,7 +23,7 @@ import type { Resume } from '@work/domain/value-objects/resume.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 
 export interface RunOrder {
-  readonly harness: Harness;
+  readonly harness: HarnessId;
   readonly model: HarnessModel | null;
   readonly effort: Effort | null;
   readonly stationId: StationId;
@@ -67,9 +67,9 @@ export const orderAt = ({
     return null;
   }
 
-  const harness = harnesses.named(station.harness);
+  const harness = station.harness;
 
-  if (!harness) {
+  if (!harnesses.knows(harness)) {
     return null;
   }
 

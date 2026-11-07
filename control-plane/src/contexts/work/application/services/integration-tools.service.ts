@@ -1,3 +1,4 @@
+import type { LeasedAttempt } from '@runs/application/ports/run-leases.port';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { PersonRuleMapper } from '@work/application/mappers/person-rule.mapper';
 import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
@@ -9,7 +10,6 @@ import type {
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { LeasedAttempt } from '@work/application/ports/run-leases.port';
 import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';

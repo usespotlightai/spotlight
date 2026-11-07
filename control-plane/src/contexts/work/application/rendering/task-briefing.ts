@@ -1,10 +1,10 @@
+import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
 import {
   HANDOVER_TO_A_PERSON,
   HANDOVER_TO_FINISH,
 } from '@shared-kernel/domain/value-objects/handover-word';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 import type { SkillBrief } from '@work/application/dto/ready-skill.dto';
 import type {
   BriefedMemory,

@@ -257,14 +257,8 @@ beforeAll(async () => {
   recorder = new FactRecorder(deletions);
   subscribers = insightsSubscribers({
     ending: new RecordRunEnding(work, records, recorder, context, QUIET),
-    superseding: new RecordSupersededRun(records, recorder, context, {
-      now: () => RECEIVED_AT,
-      sleep: async () => {},
-    }),
-    checking: new RecordChangeChecks(records, recorder, context, {
-      now: () => RECEIVED_AT,
-      sleep: async () => {},
-    }),
+    superseding: new RecordSupersededRun(records, recorder, context),
+    checking: new RecordChangeChecks(records, recorder, context),
     acting: new RecordHumanAction(work, records, recorder, context),
     deleting: new DeleteInsights(
       {
@@ -410,6 +404,7 @@ describe('how a station’s runs turned out', () => {
       taskId: 'task_1',
       workspaceId: WORKSPACE,
       passed: true,
+      at: RECEIVED_AT.toISOString(),
     });
     endedRun('run_2', {
       startedAt: at(10),
@@ -424,6 +419,7 @@ describe('how a station’s runs turned out', () => {
       taskId: 'task_1',
       workspaceId: WORKSPACE,
       passed: false,
+      at: RECEIVED_AT.toISOString(),
     });
 
     expect((await records.of(RunId.of('run_2')))?.checks).toBe('passed');

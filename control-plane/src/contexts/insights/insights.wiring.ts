@@ -677,23 +677,21 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RecordSupersededRun,
-    inject: [DrizzleRunRecordRepository, FactRecorder, TRANSACTION, CLOCK],
+    inject: [DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
       recorder: FactRecorder,
       transaction: TransactionPort,
-      clock: ClockPort,
-    ) => new RecordSupersededRun(records, recorder, transaction, clock),
+    ) => new RecordSupersededRun(records, recorder, transaction),
   },
   {
     provide: RecordChangeChecks,
-    inject: [DrizzleRunRecordRepository, FactRecorder, TRANSACTION, CLOCK],
+    inject: [DrizzleRunRecordRepository, FactRecorder, TRANSACTION],
     useFactory: (
       records: DrizzleRunRecordRepository,
       recorder: FactRecorder,
       transaction: TransactionPort,
-      clock: ClockPort,
-    ) => new RecordChangeChecks(records, recorder, transaction, clock),
+    ) => new RecordChangeChecks(records, recorder, transaction),
   },
   {
     provide: RecordHumanAction,

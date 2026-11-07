@@ -4,16 +4,16 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import {
+  WORKSPACE_ARCHIVE_STORE,
+  type WorkspaceArchiveStorePort,
+} from '@runs/application/ports/workspace-archive-store.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, sql } from 'drizzle-orm';

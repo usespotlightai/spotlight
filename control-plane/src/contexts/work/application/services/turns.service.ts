@@ -1,13 +1,13 @@
-import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
-import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { RunFactsPort } from '@work/application/ports/run-facts.port';
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type {
   RunTurnsPort,
   TurnFacts,
   TurnsCursor,
-} from '@work/application/ports/run-turns.port';
-import type { RunsPort } from '@work/application/ports/runs.port';
+} from '@runs/application/ports/run-turns.port';
+import type { RunsPort } from '@runs/application/ports/runs.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';

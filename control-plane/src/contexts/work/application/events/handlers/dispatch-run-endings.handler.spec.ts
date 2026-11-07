@@ -1,3 +1,11 @@
+import {
+  orderedFor,
+  RunCancelled,
+  RunCompleted,
+  RunExhausted,
+  RunOutcome,
+  runEndedOf,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -5,18 +13,13 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { DispatchRunEndings } from '@work/application/events/handlers/dispatch-run-endings.handler';
 import { DropUnorderedRun } from '@work/application/events/handlers/drop-unordered-run.handler';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
-import { RunCancelled } from '@work/domain/events/run-cancelled.event';
-import { RunCompleted } from '@work/domain/events/run-completed.event';
-import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -76,7 +79,7 @@ describe('DispatchRunEndings', () => {
   });
 
   it('ends the dispatch of a run that ended, with how it ended', async () => {
-    await endings().onRunCompleted(failed);
+    await endings().onRunEnded(runEndedOf(failed));
 
     expect(stored?.ending?.outcome).toBe('failed');
     expect(stored?.ending?.failure).toBe('exited');
@@ -84,16 +87,18 @@ describe('DispatchRunEndings', () => {
   });
 
   it('ends an exhausted or cancelled run as such', async () => {
-    await endings().onRunExhausted(
-      new RunExhausted(
-        RUN,
-        WORKSPACE,
-        SUBJECT,
-        3,
-        3,
-        false,
-        'runner-lost',
-        true,
+    await endings().onRunEnded(
+      runEndedOf(
+        new RunExhausted(
+          RUN,
+          WORKSPACE,
+          SUBJECT,
+          3,
+          3,
+          false,
+          'runner-lost',
+          true,
+        ),
       ),
     );
 
@@ -101,8 +106,8 @@ describe('DispatchRunEndings', () => {
     expect(stored?.ending?.failure).toBe('runner-lost');
 
     stored = null;
-    await endings().onRunCancelled(
-      new RunCancelled(RUN, WORKSPACE, SUBJECT, 1, false, false),
+    await endings().onRunEnded(
+      runEndedOf(new RunCancelled(RUN, WORKSPACE, SUBJECT, 1, false, false)),
     );
 
     expect(saves).toHaveLength(1);
@@ -112,7 +117,7 @@ describe('DispatchRunEndings', () => {
     await endings().onTaskRunDetached(
       new TaskRunDetached(TASK, WORKSPACE, RUN),
     );
-    await endings().onRunCompleted(failed);
+    await endings().onRunEnded(runEndedOf(failed));
 
     expect(stored?.superseded).toBe(true);
     expect(stored?.pullEvents().map((each) => each.kind)).toEqual([
@@ -122,8 +127,8 @@ describe('DispatchRunEndings', () => {
   });
 
   it('changes nothing on a redelivery', async () => {
-    await endings().onRunCompleted(failed);
-    await endings().onRunCompleted(failed);
+    await endings().onRunEnded(runEndedOf(failed));
+    await endings().onRunEnded(runEndedOf(failed));
     await endings().onTaskRunDetached(
       new TaskRunDetached(TASK, WORKSPACE, RUN),
     );

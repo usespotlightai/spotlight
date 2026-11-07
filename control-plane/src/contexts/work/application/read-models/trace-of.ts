@@ -1,16 +1,18 @@
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type {
   EgressEnforcement,
   JournalStep,
   RunJournal,
   RunSpan,
-} from '@work/application/contracts/run-journal.contract';
-import type { ConnectionOfRun } from '@work/application/ports/run-connections.port';
-import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
-import type { Money } from '@work/domain/value-objects/money.vo';
-import type { RunConnection } from '@work/domain/value-objects/run-connection.vo';
-import { faulted } from '@work/domain/value-objects/step-status';
+} from '@runs/application/contracts/run-journal.contract';
+import type { ConnectionOfRun } from '@runs/application/ports/run-connections.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+
+type RunConnection = ConnectionOfRun['connection'];
+
+type Spent = NonNullable<NonNullable<RunJournal['spent']>['cost']>;
+
+import { RunReading } from '@runs/application/contracts/run-reading.contract';
 import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
 
 export type NodeKind = 'run' | 'phase' | 'step' | 'span' | 'connection';
@@ -20,7 +22,7 @@ export type Category = 'agent' | 'overhead' | 'failed';
 export interface TracedRun {
   readonly id: RunId;
   readonly station: StationName | null;
-  readonly harness: HarnessName;
+  readonly harness: string;
   readonly state: TaskRunState;
   readonly attempt: number;
   readonly startedAt: Date;
@@ -50,7 +52,7 @@ export const tracedRunsOf = (
   return runs.map((run) => ({
     id: RunId.of(run.id),
     station: StationName.maybe(run.station?.name),
-    harness: HarnessName.of(run.harness),
+    harness: run.harness,
     state: run.state,
     attempt: run.attempt,
     startedAt: run.startedAt,
@@ -83,7 +85,7 @@ export interface TraceNode {
   readonly category: Category;
   readonly step: JournalStep | null;
   readonly span: RunSpan | null;
-  readonly cost: Money | null;
+  readonly cost: Spent | null;
   readonly connection: TracedConnection | null;
   readonly egressEnforcement: EgressEnforcement | null;
   readonly children: readonly TraceNode[];
@@ -103,7 +105,7 @@ const ending = (from: Date, ms: number): Date =>
   new Date(at(from) + Math.max(ms, 0));
 
 const categoryOf = (step: JournalStep): Category => {
-  if (faulted(step.status)) {
+  if (RunReading.faulted(step.status)) {
     return 'failed';
   }
 
@@ -147,7 +149,10 @@ const nodeOfSpan = (
   name: step ? step.text : plainly(span.name),
   from: span.startedAt,
   to: ending(span.startedAt, span.ms),
-  category: span.failed || (step && faulted(step.status)) ? 'failed' : 'agent',
+  category:
+    span.failed || (step && RunReading.faulted(step.status))
+      ? 'failed'
+      : 'agent',
   step,
   span,
   cost: null,
@@ -257,7 +262,7 @@ const phasesOf = (run: TracedRun, journal: RunJournal): Phase[] => {
   if (marks.firstAgentUpdateAt && marks.lastAgentUpdateAt) {
     phases.push({
       id: `${run.id.value}:turn`,
-      name: `Turn · ${run.harness.value}`,
+      name: `Turn · ${run.harness}`,
       from: marks.firstAgentUpdateAt,
       to: marks.lastAgentUpdateAt,
       isAgent: true,

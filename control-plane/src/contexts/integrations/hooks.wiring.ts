@@ -147,6 +147,14 @@ import {
 import { API_PREFIX } from '@platform/http/routes';
 import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import {
+  HOOK_TRACES,
+  type HookTracesPort,
+} from '@runs/application/ports/hook-traces.port';
+import {
+  NETWORK_CALLS,
+  type NetworkCallsPort,
+} from '@runs/application/ports/network-calls.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -169,15 +177,7 @@ import {
 } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
-import {
-  HOOK_TRACES,
-  type HookTracesPort,
-} from '@work/application/ports/hook-traces.port';
 import { LIFECYCLE_HOOKS } from '@work/application/ports/lifecycle-hooks.port';
-import {
-  NETWORK_CALLS,
-  type NetworkCallsPort,
-} from '@work/application/ports/network-calls.port';
 import {
   TASK_NOTES_FROM_HOOKS,
   type TaskNotesFromHooksPort,

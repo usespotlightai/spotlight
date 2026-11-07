@@ -1,3 +1,11 @@
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
+import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
+import { HarnessCommand } from '@runs/application/ports/run-fixtures.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -15,15 +23,9 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { NamedMemory } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@work/application/ports/run-facts.port';
 import type { TrialOrdering } from '@work/application/ports/station-trials.port';
 import type { BriefedContext } from '@work/application/ports/team-memories.port';
 import { candidateOf } from '@work/application/services/candidate-lines.fake-spec';
@@ -43,9 +45,6 @@ import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
-import { Harness } from '@work/domain/value-objects/harness.vo';
-import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
-import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import {
   lineMapOf,
   repositoryOf,
@@ -56,7 +55,6 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
@@ -64,14 +62,10 @@ const BUILD = StationId.of('station_build');
 const ORIGINAL = RunId.of('run_1');
 const API = 'a'.repeat(40);
 
-const DEV = Harness.of({
-  id: HarnessId.of('dev'),
-  name: HarnessName.of('Dev'),
-});
+const DEV = { id: HarnessId.of('dev') };
 
 const harnesses: HarnessCatalog = {
-  all: () => [DEV],
-  named: (id: HarnessId) => (id.equals(DEV.id) ? DEV : null),
+  knows: (id: HarnessId) => id.equals(DEV.id),
 };
 
 const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
@@ -87,6 +81,7 @@ const launch: HarnessLaunchPort = {
   skillsFor: () => ({ directory: '.claude/skills', readByHarness: true }),
   skillHomes: () => ['.claude/skills'],
   settingFiles: () => ['claude/settings.json'],
+  defaultHarness: () => DEV.id,
   commandFor,
   preparedFor: (id, chosen) => {
     const command = commandFor(id, chosen);

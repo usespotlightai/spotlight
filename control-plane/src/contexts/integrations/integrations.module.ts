@@ -11,6 +11,7 @@ import {
 import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
+import { RunsModule } from '@runs/runs.module';
 import { SecretsModule } from '@secrets/secrets.module';
 import { CHANNEL_NOTICES } from '@work/application/ports/channel-notices.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
@@ -35,6 +36,7 @@ const BINDINGS = contextBindings([
     SecretsModule,
     GitHubModule,
     LinesModule,
+    RunsModule,
     WorkModule,
     ConfigurationModule,
   ],

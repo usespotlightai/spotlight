@@ -89,6 +89,9 @@ const problemOf = (state: DispatchState): string | null => {
   return null;
 };
 
+const later = (one: Date, other: Date): Date =>
+  one.getTime() >= other.getTime() ? one : other;
+
 export class Dispatch extends EventRecorder {
   private constructor(private readonly state: DispatchState) {
     super();
@@ -365,7 +368,12 @@ export class Dispatch extends EventRecorder {
     const superseded = this.with({ superseded: true });
 
     superseded.record(
-      new DispatchSuperseded(this.id, this.workspaceId, subject.taskId),
+      new DispatchSuperseded(
+        this.id,
+        this.workspaceId,
+        subject.taskId,
+        later(this.state.detachedAt, this.state.ending.endedAt),
+      ),
     );
 
     return superseded;

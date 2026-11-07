@@ -11,6 +11,7 @@ import {
   REPLAYS_CONTROLLERS,
   REPLAYS_PROVIDERS,
 } from '@replays/replays.wiring';
+import { RunsModule } from '@runs/runs.module';
 import { WorkModule } from '@work/work.module';
 
 const BINDINGS = contextBindings([STATION_CONFIG_PULL_REQUESTS]);
@@ -20,6 +21,7 @@ const BINDINGS = contextBindings([STATION_CONFIG_PULL_REQUESTS]);
     IdentityModule,
     GitHubModule,
     LinesModule,
+    RunsModule,
     WorkModule,
     ChangeReviewModule,
     InsightsModule,

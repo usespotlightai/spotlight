@@ -1,5 +1,5 @@
+import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { RunsPort } from '@work/application/ports/runs.port';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';

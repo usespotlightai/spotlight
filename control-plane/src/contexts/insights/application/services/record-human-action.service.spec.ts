@@ -260,11 +260,13 @@ describe('recording how a run’s change was checked', () => {
       records,
       new FactRecorder(deletionsInMemory()),
       inTransaction,
-      {
-        now: () => RECEIVED_AT,
-        sleep: async () => {},
-      },
-    ).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), false);
+    ).checked(
+      RunId.of('run_1'),
+      WORKSPACE,
+      TaskId.of('task_1'),
+      false,
+      RECEIVED_AT,
+    );
 
     expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
   });
@@ -276,11 +278,13 @@ describe('recording how a run’s change was checked', () => {
       records,
       new FactRecorder(deletionsInMemory()),
       inTransaction,
-      {
-        now: () => RECEIVED_AT,
-        sleep: async () => {},
-      },
-    ).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), null);
+    ).checked(
+      RunId.of('run_1'),
+      WORKSPACE,
+      TaskId.of('task_1'),
+      null,
+      RECEIVED_AT,
+    );
 
     const record = await records.of(RunId.of('run_1'));
     expect(record?.checks).toBe('skipped');

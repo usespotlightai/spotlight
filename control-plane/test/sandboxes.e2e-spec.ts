@@ -9,7 +9,7 @@ import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
+} from '@runs/application/ports/workspace-archive-store.port';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,

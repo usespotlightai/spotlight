@@ -17,7 +17,7 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = (
@@ -96,8 +96,14 @@ describe('HandoverFor.resolve, with files the run attached', () => {
 
   it('has no files on a note the run did not write', () => {
     expect(
-      HandoverFor.outcome(RunOutcome.of({ exitCode: 1, failed: true }))
-        .attachments,
+      HandoverFor.outcome(
+        RunResult.of({
+          exitCode: 1,
+          failure: 'exited',
+          message: null,
+          stopped: false,
+        }),
+      ).attachments,
     ).toEqual([]);
     expect(HandoverFor.stopped().attachments).toEqual([]);
   });
@@ -219,7 +225,12 @@ describe('HandoverFor.after', () => {
   it('hands a stopped run back to a person, whatever it handed over', () => {
     expect(
       HandoverFor.after({
-        outcome: RunOutcome.stopped(0),
+        outcome: RunResult.of({
+          exitCode: 0,
+          failure: null,
+          message: null,
+          stopped: true,
+        }),
         handover,
         line: LINE,
         currentStation,
@@ -230,7 +241,12 @@ describe('HandoverFor.after', () => {
   it('follows the handover of a run that did not fail', () => {
     expect(
       HandoverFor.after({
-        outcome: RunOutcome.of({ exitCode: 0, failed: false }),
+        outcome: RunResult.of({
+          exitCode: 0,
+          failure: null,
+          message: null,
+          stopped: false,
+        }),
         handover,
         line: LINE,
         currentStation,
@@ -239,8 +255,18 @@ describe('HandoverFor.after', () => {
   });
 
   it('reads the outcome of a run that failed or handed over nothing', () => {
-    const failed = RunOutcome.of({ exitCode: 1, failed: true });
-    const silent = RunOutcome.of({ exitCode: 0, failed: false });
+    const failed = RunResult.of({
+      exitCode: 1,
+      failure: 'exited',
+      message: null,
+      stopped: false,
+    });
+    const silent = RunResult.of({
+      exitCode: 0,
+      failure: null,
+      message: null,
+      stopped: false,
+    });
 
     expect(
       HandoverFor.after({
@@ -261,7 +287,12 @@ describe('HandoverFor.after', () => {
   });
 
   it('takes the last words of a run that names no next step as its note', () => {
-    const silent = RunOutcome.of({ exitCode: 0, failed: false });
+    const silent = RunResult.of({
+      exitCode: 0,
+      failure: null,
+      message: null,
+      stopped: false,
+    });
     const resolved = HandoverFor.after({
       outcome: silent,
       handover: null,
@@ -276,8 +307,15 @@ describe('HandoverFor.after', () => {
 
   it('says the run named no next step when it left no words either', () => {
     expect(
-      HandoverFor.outcome(RunOutcome.of({ exitCode: 0, failed: false }), '  ')
-        .body.value,
+      HandoverFor.outcome(
+        RunResult.of({
+          exitCode: 0,
+          failure: null,
+          message: null,
+          stopped: false,
+        }),
+        '  ',
+      ).body.value,
     ).toBe('The run finished without saying where the task should go next.');
   });
 });

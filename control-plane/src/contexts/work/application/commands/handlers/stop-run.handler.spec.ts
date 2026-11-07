@@ -1,3 +1,12 @@
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  HandoverReport,
+  orderedFor,
+  Run,
+  RunOutcome,
+  RunSpec,
+  Runs,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -9,21 +18,14 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
-import { Runs } from '@work/application/services/runs.service';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 

@@ -2,6 +2,13 @@ import type {
   CatalogDenial,
   CatalogDenialReason,
 } from '@catalog/application/contracts/catalog.contract';
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  Run,
+  RunPolicy,
+  RunRequester,
+  RunSpec,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -53,13 +60,11 @@ import { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ToolUsed } from '@work/domain/events/tool-used.event';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
   builtInTool,
@@ -82,10 +87,7 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
-import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';

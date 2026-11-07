@@ -1,10 +1,10 @@
-import { distinct } from '@shared-kernel/domain/distinct';
-import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
-import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import {
   HANDING_OVER,
   USING_TOOLS,
-} from '@work/domain/services/built-in-skills';
+} from '@shared-kernel/domain/built-in-skills';
+import { distinct } from '@shared-kernel/domain/distinct';
+import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { builtInTool } from '@work/domain/services/built-in-tools';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';

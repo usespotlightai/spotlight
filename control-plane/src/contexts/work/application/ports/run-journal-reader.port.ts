@@ -1,11 +1,11 @@
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   JournalledRun,
   RunChanges,
   RunJournal,
-} from '@work/application/contracts/run-journal.contract';
+} from '@runs/application/contracts/run-journal.contract';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   RunsInWorkspace,
   RunsOfChat,

@@ -1,27 +1,24 @@
+import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { GrantRunAttachmentUploadCommand } from '@work/application/commands/grant-run-attachment-upload.command';
 import { GrantRunAttachmentUploadHandler } from '@work/application/commands/handlers/grant-run-attachment-upload.handler';
-import { GrantRunAttachmentUploadCommand } from '@work/application/commands/runner.commands';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunActsOnlyOnItselfError } from '@work/domain/exceptions/run-acts-only-on-itself.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const runOf = ({ leased = true, replay = false } = {}) =>
-  ({
-    id: RunId.of('run_1'),
-    workspaceId: WorkspaceId.of('ws_1'),
-    isLeasedBy: () => leased,
-    mayActBeyondItself: (what: string) => {
-      if (replay) {
-        throw new RunActsOnlyOnItselfError(what);
-      }
-    },
-  }) as unknown as Run;
+type Leased = Awaited<ReturnType<RunLeasesPort['leasedBy']>>;
 
-const granting = (run: Run) => {
+const runOf = ({ leased = true, replay = false } = {}): Leased =>
+  leased
+    ? ({
+        runId: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        policy: { actsBeyondItself: !replay },
+      } as unknown as Leased)
+    : null;
+
+const granting = (run: Leased) => {
   const grant = vi.fn(
     async (_workspaceId: WorkspaceId, _uploader: RunId, _file: Attachment) => ({
       url: 'https://files.example/put',
@@ -29,7 +26,7 @@ const granting = (run: Run) => {
     }),
   );
   const handler = new GrantRunAttachmentUploadHandler(
-    { findById: async () => run } as unknown as RunRepository,
+    { leasedBy: async () => run } as unknown as RunLeasesPort,
     { grant } as unknown as AttachmentStorePort,
     { generate: () => 'file_1' },
   );

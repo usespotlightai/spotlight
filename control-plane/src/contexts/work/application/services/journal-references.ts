@@ -1,4 +1,4 @@
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import type { FilesUnder } from '@work/application/ports/work-run-lookup.port';
 
 const escaped = (text: string): string =>

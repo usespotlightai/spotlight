@@ -1,4 +1,4 @@
-import type { RunOrderContract } from '@work/application/contracts/run-order.contract';
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { UntrialableReasonCode } from '@work/application/contracts/untrialable-reason.contract';
 
 export const STATION_TRIALS = Symbol('STATION_TRIALS');

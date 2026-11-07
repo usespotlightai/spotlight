@@ -1,48 +1,49 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
-import type { RunOutcomes } from '@work/application/services/run-outcomes';
+import {
+  type RunEnded,
+  RunEndedFacts,
+  type RunEndingReactions,
+} from '@work/application/services/run-ending-reactions';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
-import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
-export class ChatOutcomes implements RunOutcomes {
+export class ChatOutcomes implements RunEndingReactions {
   constructor(
     private readonly chats: ChatRepository,
     private readonly dispatch: ChatDispatching,
   ) {}
 
-  async onRunCompleted(event: RunCompleted): Promise<void> {
+  async onRunEnded(event: RunEnded): Promise<void> {
+    if (event.ending === 'cancelled') {
+      return;
+    }
+
+    const runId = RunEndedFacts.runId(event);
     const chat = await this.waiting(
-      event.runId,
-      WorkRequesters.chatOf(event.requester.parts),
+      runId,
+      WorkRequesters.chatOf(event.requester),
     );
 
     if (!chat) {
       return;
     }
 
-    const ended = chat.runEnded(event.runId, {
-      session: event.session,
-      claimedBy: event.claimedBy,
+    if (event.ending === 'exhausted') {
+      await this.chats.save(chat.runEndedWithoutSession(runId));
+      return;
+    }
+
+    const ended = chat.runEnded(runId, {
+      session: RunEndedFacts.session(event),
+      claimedBy: RunEndedFacts.claimedBy(event),
     });
 
     await this.chats.save(
       ended.followsUp ? await this.dispatch.takenUp(ended.chat) : ended.chat,
     );
-  }
-
-  async onRunExhausted(event: RunExhausted): Promise<void> {
-    const chat = await this.waiting(
-      event.runId,
-      WorkRequesters.chatOf(event.requester.parts),
-    );
-
-    if (chat) {
-      await this.chats.save(chat.runEndedWithoutSession(event.runId));
-    }
   }
 
   private async waiting(

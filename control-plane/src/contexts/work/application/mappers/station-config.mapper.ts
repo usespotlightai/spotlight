@@ -28,7 +28,7 @@ export const StationConfigMapper = {
     return StationConfig.of(
       {
         prompt: station.agentPrompt,
-        harness: order.harness.id.value,
+        harness: order.harness.value,
         model: order.model?.value ?? null,
         effort: order.effort?.value ?? null,
         profile: profile

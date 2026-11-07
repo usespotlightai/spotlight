@@ -1,9 +1,9 @@
+import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunLeasesPort } from '@work/application/ports/run-leases.port';
 import type { TraceScope } from '@work/application/ports/trace-scopes.port';
 import { HistoryAccesses } from '@work/application/services/history-accesses.service';
 import { TraceScopes } from '@work/application/services/trace-scopes.service';

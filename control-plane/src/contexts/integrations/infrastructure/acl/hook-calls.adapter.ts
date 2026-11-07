@@ -2,7 +2,7 @@ import type {
   HookCall,
   HookCallsPort,
 } from '@integrations/application/ports/hook-calls.port';
-import type { HookTracesPort } from '@work/application/ports/hook-traces.port';
+import type { HookTracesPort } from '@runs/application/ports/hook-traces.port';
 
 export class HookCalls implements HookCallsPort {
   constructor(private readonly traces: HookTracesPort) {}

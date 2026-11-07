@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { RunRequesterContract } from '@work/application/contracts/run-order.contract';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 

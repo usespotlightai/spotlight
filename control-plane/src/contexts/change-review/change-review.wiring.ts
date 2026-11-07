@@ -196,6 +196,8 @@ import {
   RUNNERS,
   type RunnersPort,
 } from '@runners/application/ports/runners.port';
+import { CHECK_PROVISIONING } from '@runs/application/ports/check-provisioning.port';
+import { CHECK_WORK } from '@runs/application/ports/check-work.port';
 import {
   CLOCK,
   type ClockPort,
@@ -221,8 +223,6 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { CHECK_ACCESS } from '@work/application/ports/check-access.port';
-import { CHECK_PROVISIONING } from '@work/application/ports/check-provisioning.port';
-import { CHECK_WORK } from '@work/application/ports/check-work.port';
 import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
 import { TASK_DECISIONS } from '@work/application/ports/task-decisions.port';
 import {

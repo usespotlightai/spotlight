@@ -1,3 +1,4 @@
+import type { LeasedRun } from '@runs/application/ports/run-leases.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -6,7 +7,6 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { ConnectionAsked as ConnectionAskedText } from '@work/application/rendering/connection-asked';
 import { PermissionAsked } from '@work/application/rendering/permission-asked';

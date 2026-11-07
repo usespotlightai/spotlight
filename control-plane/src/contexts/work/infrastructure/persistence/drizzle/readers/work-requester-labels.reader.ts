@@ -6,7 +6,7 @@ import {
   type RequesterLabel,
   type RunRequesterLabelSource,
   requesterRefOf,
-} from '@work/application/ports/run-requester-labels.port';
+} from '@runs/application/ports/run-requester-labels.port';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';

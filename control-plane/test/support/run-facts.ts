@@ -1,10 +1,10 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { RunFacts } from '@runs/application/services/run-facts.service';
+import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
+import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
+import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
-import { RunFacts } from '@work/application/services/run-facts.service';
-import { DrizzleRunJournals } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
-import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
-import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 
 const NO_EVENTS = { dispatch: async () => {} };
 

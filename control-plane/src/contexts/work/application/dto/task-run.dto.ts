@@ -1,4 +1,4 @@
-import type { Progress } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
 import { TASK_RUN_STATES } from '@work/domain/value-objects/task-run-state';
 
 export const REVIEW_STATE_NAMES = ['pending', 'answered'] as const;

@@ -14,5 +14,6 @@ export class StackChecked implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly passed: boolean | null,
     readonly trial: boolean,
+    readonly at: Date,
   ) {}
 }

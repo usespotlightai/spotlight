@@ -1,16 +1,14 @@
+import type { RunUsage } from '@runs/application/ports/run-usage-reader.port';
 import type {
   RunNotesSummary,
   RunReaderPort,
 } from '@work/application/ports/run-reader.port';
-import type { RunUsage } from '@work/application/ports/run-usage-reader.port';
 import { ReadRunNotesHandler } from '@work/application/queries/handlers/read-run-notes.handler';
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import {
   inWorkspace,
   runAccessWhere,
 } from '@work/application/services/run-access.fake-spec';
-import { Money } from '@work/domain/value-objects/money.vo';
-import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const RUN_ID = '4e1e84a2-0c39-406d-bbbb-559f29e450be';
@@ -40,8 +38,8 @@ const usage: RunUsage = {
   changedLines: 0,
   contextTokens: 40_000,
   contextWindow: 200_000,
-  cost: Money.of(0.42, 'USD'),
-  tokens: Tokens.of({ input: 1_200, output: 900, cacheRead: 80_000 }),
+  cost: { amount: 0.42, currency: 'USD' },
+  tokens: { input: 1_200, output: 900, cacheRead: 80_000, cacheWrite: null },
 };
 
 const reading = (

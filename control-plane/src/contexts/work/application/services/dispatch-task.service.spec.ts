@@ -2,7 +2,30 @@ import type {
   CatalogRequest,
   EntitledItems,
 } from '@catalog/application/contracts/catalog.contract';
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
+import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
+import {
+  RunSpecContract,
+  type RunSpecShape,
+} from '@runs/application/contracts/run-spec.contract';
+import type {
+  HarnessLaunchPort,
+  SkillsHome,
+} from '@runs/application/ports/harness-launch.port';
+import type {
+  Run,
+  RunRepository,
+} from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  HarnessCommand,
+  Runs,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  HANDING_OVER,
+  OPENING_PULL_REQUESTS,
+  USING_TOOLS,
+} from '@shared-kernel/domain/built-in-skills';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -23,17 +46,8 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
-import {
-  RunSpecContract,
-  type RunSpecShape,
-} from '@work/application/contracts/run-spec.contract';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
-import type {
-  HarnessLaunchPort,
-  SkillsHome,
-} from '@work/application/ports/harness-launch.port';
 import type {
   BriefingContext,
   BriefingSelection,
@@ -42,23 +56,12 @@ import type {
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import type { OrderedRun } from '@work/application/services/ordered-run';
 import { RunCatalog } from '@work/application/services/run-catalog.service';
-import { Runs } from '@work/application/services/runs.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import type { TouchedFiles } from '@work/application/services/touched-files';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
-import {
-  HANDING_OVER,
-  OPENING_PULL_REQUESTS,
-  USING_TOOLS,
-} from '@work/domain/services/built-in-skills';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { Harness } from '@work/domain/value-objects/harness.vo';
-import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
-import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
   lineMapOf,
@@ -72,7 +75,6 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -84,17 +86,13 @@ const written = (run?: Run): RunSpecShape => {
   return RunSpecContract.toWire(run.spec);
 };
 
-const DEV = Harness.of({
-  id: HarnessId.of('dev'),
-  name: HarnessName.of('Dev'),
-});
+const DEV = { id: HarnessId.of('dev') };
 
 const DEV_EXECUTABLE = 'dev-agent';
 const DEV_ARGS = ['--acp'];
 
 const harnesses: HarnessCatalog = {
-  all: () => [DEV],
-  named: (id: HarnessId) => (id.equals(DEV.id) ? DEV : null),
+  knows: (id: HarnessId) => id.equals(DEV.id),
 };
 
 let skillsHome: SkillsHome = {
@@ -114,6 +112,7 @@ const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
 const launch: HarnessLaunchPort = {
   skillsFor: () => skillsHome,
   skillHomes: () => ['.claude/skills', '.spotlight/skills'],
+  defaultHarness: () => DEV.id,
   settingFiles: () => ['claude/settings.json', 'codex/config.toml'],
   commandFor,
   preparedFor: (id, chosen) => {

@@ -21,6 +21,21 @@ import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
 import {
+  ARCHIVE_REFERENCES,
+  type ArchiveReferencesPort,
+} from '@runs/application/ports/archive-references.port';
+import {
+  WORKSPACE_ARCHIVE_STORE,
+  type WorkspaceArchiveStorePort,
+} from '@runs/application/ports/workspace-archive-store.port';
+import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
+import {
+  type ArchiveFacts,
+  WorkspaceArchive,
+} from '@runs/domain/aggregates/workspace-archive.aggregate';
+import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
+import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
@@ -34,10 +49,6 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
-  ARCHIVE_REFERENCES,
-  type ArchiveReferencesPort,
-} from '@work/application/ports/archive-references.port';
-import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
@@ -45,19 +56,8 @@ import {
   STATION_CONFIG_CANDIDATES,
   type StationConfigCandidatesPort,
 } from '@work/application/ports/station-config-candidates.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
-import { ArchiveHolders } from '@work/application/services/archive-holders.service';
-import {
-  type ArchiveFacts,
-  WorkspaceArchive,
-} from '@work/domain/aggregates/workspace-archive.aggregate';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';

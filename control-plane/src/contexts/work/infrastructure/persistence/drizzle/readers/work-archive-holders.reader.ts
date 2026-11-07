@@ -4,7 +4,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
   ArchiveHolderSource,
   HeldWorkspace,
-} from '@work/application/ports/archive-holders.port';
+} from '@runs/application/ports/archive-holders.port';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';

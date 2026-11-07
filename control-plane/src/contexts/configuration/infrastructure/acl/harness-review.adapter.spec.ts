@@ -1,7 +1,7 @@
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { HarnessReviewOfWork } from '@configuration/infrastructure/acl/harness-review.adapter';
+import type { HarnessNote } from '@runs/application/contracts/harness-profile.contract';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
-import type { HarnessNote } from '@work/application/contracts/harness-profile.contract';
 import { describe, expect, it } from 'vitest';
 
 const PARSED = {

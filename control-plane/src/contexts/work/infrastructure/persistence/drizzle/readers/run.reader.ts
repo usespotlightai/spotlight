@@ -10,21 +10,21 @@ import {
   pageOf,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
+import {
+  RUN_FACTS,
+  type RunFacts,
+  type RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@runs/application/ports/run-progress.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
-import {
-  RUN_FACTS,
-  type RunFacts,
-  type RunFactsPort,
-} from '@work/application/ports/run-facts.port';
-import {
-  RUN_PROGRESS,
-  type RunProgressPort,
-} from '@work/application/ports/run-progress.port';
 import type {
   RunConfigSummary,
   RunConfigView,
@@ -38,10 +38,7 @@ import type { RunsInWorkspace } from '@work/application/ports/viewed-runs';
 import { takenUpOnAnswer } from '@work/application/read-models/taken-up-on-answer';
 import { worksOn } from '@work/domain/services/conversations';
 import { inThreadAt } from '@work/domain/services/station-thread';
-import {
-  progressOf,
-  progressOfCurrentRun,
-} from '@work/domain/value-objects/run-state';
+import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import { taskRunStateOf } from '@work/domain/value-objects/task-run-state';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
@@ -346,7 +343,7 @@ export class DrizzleRunReader implements RunReaderPort {
         latestRun: {
           id: latestRun.runId.value,
           state: taskRunStateOf(latestRun.state, latest?.superseded ?? false),
-          progress: progressOf(latestRun),
+          progress: latestRun.progress,
         },
         notes: notes.filter((note) =>
           inThreadAt(

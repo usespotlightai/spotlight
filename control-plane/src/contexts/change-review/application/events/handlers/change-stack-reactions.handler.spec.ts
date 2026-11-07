@@ -28,6 +28,7 @@ const checked = (trial: boolean) =>
     WorkspaceId.of('ws_1'),
     true,
     trial,
+    new Date('2026-10-02T09:30:00.000Z'),
   );
 
 describe('ChangeStackReactions', () => {

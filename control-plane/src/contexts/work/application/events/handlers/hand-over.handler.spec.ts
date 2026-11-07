@@ -1,3 +1,14 @@
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import {
+  HandoverReport,
+  orderedFor,
+  Run,
+  RunCompleted,
+  RunHandover,
+  RunOutcome,
+  RunSpec,
+  runEndedOf,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -13,26 +24,20 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { lastWordsIn } from '@work/application/services/last-words';
+import { RunEndedFacts } from '@work/application/services/run-ending-reactions';
 import { RunRouting } from '@work/application/services/run-routing.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Handover } from '@work/domain/value-objects/handover.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
   lineMapOf,
@@ -40,8 +45,6 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -220,8 +223,8 @@ const handOver = async (
   }
 
   return raised instanceof RunCompleted
-    ? handler.onRunCompleted(raised)
-    : handler.onRunExhausted(raised as RunExhausted);
+    ? handler.onRunEnded(runEndedOf(raised))
+    : handler.onRunEnded(runEndedOf(raised));
 };
 
 const routedAsItsTurn = async (
@@ -239,16 +242,17 @@ const routedAsItsTurn = async (
 
   const map = line();
   const handover = HandoverFor.after({
-    outcome: ended.outcome,
-    handover: ended.handover,
+    outcome: RunEndedFacts.result(runEndedOf(ended)),
+    handover: RunEndedFacts.handover(runEndedOf(ended)),
     line: map,
     currentStation: task.stationId,
     lastWords: ended.handover
       ? null
       : lastWordsIn(journals, task.lastPersonNoteAt),
   });
-  const recorded = ended.session
-    ? task.recordSession(ended.runId, ended.session, ended.claimedBy)
+  const session = RunEndedFacts.session(runEndedOf(ended));
+  const recorded = session
+    ? task.recordSession(ended.runId, session, ended.claimedBy)
     : task;
 
   await stored.save(await routing.routed(handover, recorded, map, ended.runId));
@@ -351,7 +355,7 @@ describe('HandOver', () => {
       run(
         false,
         HandoverReport.of({
-          handover: Handover.of({
+          handover: RunHandover.of({
             next: 'done',
             note: 'Pull request opened.',
           }),
@@ -446,7 +450,7 @@ describe('HandOver', () => {
         run(
           false,
           HandoverReport.of({
-            handover: Handover.of({ next: 'done', note: 'Done.' }),
+            handover: RunHandover.of({ next: 'done', note: 'Done.' }),
           }),
         ),
         tasks(asked()),
@@ -474,7 +478,7 @@ describe('HandOver', () => {
           run(
             false,
             HandoverReport.of({
-              handover: Handover.of({ next: 'done', note: 'Done.' }),
+              handover: RunHandover.of({ next: 'done', note: 'Done.' }),
             }),
           ),
       ],
@@ -514,7 +518,7 @@ describe('HandOver', () => {
       run(
         false,
         HandoverReport.of({
-          handover: Handover.of({ next, note: 'Over to you.' }),
+          handover: RunHandover.of({ next, note: 'Over to you.' }),
         }),
       );
 

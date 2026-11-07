@@ -4,7 +4,7 @@ import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { PassDenial } from '@work/domain/value-objects/line-denial';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
-import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import type { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 
@@ -25,7 +25,7 @@ const DENIALS: Record<PassDenial, (key: string) => string> = {
 
 export const HandoverFor = {
   after(input: {
-    outcome: RunOutcome;
+    outcome: RunResult;
     handover: Handover | null;
     line: LineMap | null;
     currentStation: StationId;
@@ -105,7 +105,7 @@ export const HandoverFor = {
   },
 
   outcome(
-    outcome: RunOutcome | null,
+    outcome: RunResult | null,
     lastWords: string | null = null,
   ): ResolvedHandover {
     if (!outcome) {

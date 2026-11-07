@@ -1,10 +1,10 @@
+import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
-import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';

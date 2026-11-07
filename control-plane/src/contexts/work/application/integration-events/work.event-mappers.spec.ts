@@ -1,5 +1,4 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -10,17 +9,12 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
 import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
-import { RunCancelled } from '@work/domain/events/run-cancelled.event';
-import { RunCompleted } from '@work/domain/events/run-completed.event';
-import { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
@@ -34,13 +28,7 @@ import {
   DispatchEnding,
   type DispatchOutcome,
 } from '@work/domain/value-objects/dispatch-ending.vo';
-import { Handover } from '@work/domain/value-objects/handover.vo';
-import { Money } from '@work/domain/value-objects/money.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
-import { Tokens } from '@work/domain/value-objects/tokens.vo';
-import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { describe, expect, it } from 'vitest';
 
 const RECORDED_AT = new Date('2026-10-02T09:30:00.000Z');
@@ -70,7 +58,6 @@ const dispatchEnded = (
 const TASK = TaskId.of('task_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const RUN = RunId.of('run_1');
-const SUBJECT = orderedFor.task('task_1', 0).requester;
 
 describe('WORK_EVENT_MAPPERS', () => {
   it('publishes a task opening, on which team and line, by whom and when', () => {
@@ -141,89 +128,6 @@ describe('WORK_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         teamId: 'team_1',
         url: 'https://github.com/acme/api/pull/1',
-      },
-    ]);
-  });
-
-  it('publishes what a run cost once its usage is recorded, with who asked for it and whether it is listed', () => {
-    expect(
-      published(
-        new RunUsageRecorded(
-          RUN,
-          WORKSPACE,
-          RunRequester.of({
-            owner: 'replays',
-            kind: 'search',
-            id: 'search_1',
-            token: '2',
-            team: TeamId.of('team_1'),
-          }),
-          false,
-          1,
-          60_000,
-          12,
-          1,
-          40,
-          40_000,
-          200_000,
-          Money.of(0.42, 'USD'),
-          [Money.of(0.42, 'USD'), Money.of(0.1, 'EUR')],
-          1,
-          Tokens.of({ input: 1_200, output: 900, cacheRead: 80_000 }),
-          ToolUse.of({
-            servers: [
-              {
-                server: 'linear',
-                calls: 2,
-                failed: 1,
-                latency: LatencyHistogram.timing([300, 900]),
-                lastCallFailed: true,
-              },
-            ],
-            skills: ['our-migrations'],
-          }),
-        ),
-      ),
-    ).toEqual([
-      {
-        kind: 'work.run-usage-recorded.v1',
-        runId: 'run_1',
-        workspaceId: 'ws_1',
-        requester: {
-          owner: 'replays',
-          kind: 'search',
-          id: 'search_1',
-          token: '2',
-          team: 'team_1',
-        },
-        listed: false,
-        ms: 60_000,
-        steps: 12,
-        errors: 1,
-        changedLines: 40,
-        contextTokens: 40_000,
-        contextWindow: 200_000,
-        cost: 0.42,
-        currency: 'USD',
-        spentCosts: [
-          { amount: 0.42, currency: 'USD' },
-          { amount: 0.1, currency: 'EUR' },
-        ],
-        unpricedCalls: 1,
-        inputTokens: 1_200,
-        outputTokens: 900,
-        cacheReadTokens: 80_000,
-        cacheWriteTokens: null,
-        servers: [
-          {
-            server: 'linear',
-            calls: 2,
-            failed: 1,
-            latency: LatencyHistogram.timing([300, 900]).counts,
-            lastCallFailed: true,
-          },
-        ],
-        skillsRead: ['our-migrations'],
       },
     ]);
   });
@@ -365,137 +269,6 @@ describe('WORK_EVENT_MAPPERS', () => {
     expect(ended(dispatchEnded('cancelled'))).toBe('cancelled');
   });
 
-  it('leaves the end of a task or chat run to its dispatch', () => {
-    const completed = (requester: RunRequester) =>
-      new RunCompleted(
-        RUN,
-        WORKSPACE,
-        requester,
-        RunOutcome.of({ exitCode: 1, failed: true }),
-        null,
-        null,
-        null,
-        1,
-        false,
-        true,
-        true,
-      );
-
-    expect(published(completed(SUBJECT))).toEqual([]);
-    expect(published(completed(orderedFor.chat('chat_1').requester))).toEqual(
-      [],
-    );
-    expect(
-      published(
-        new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3, false, null, true),
-      ),
-    ).toEqual([]);
-    expect(
-      published(new RunCancelled(RUN, WORKSPACE, SUBJECT, 1, false, false)),
-    ).toEqual([]);
-  });
-
-  it('publishes the end of a run another requester ordered, with that requester', () => {
-    const replay = orderedFor.isolated('replay', 'run_1').requester;
-
-    expect(
-      published(
-        new RunCompleted(
-          RUN,
-          WORKSPACE,
-          replay,
-          RunOutcome.of({ exitCode: 0, failed: false }),
-          null,
-          Handover.of({ next: 'review', note: 'Over to you.' }),
-          null,
-          1,
-          true,
-          true,
-          true,
-        ),
-      ),
-    ).toEqual([
-      {
-        kind: 'work.requested-run-ended.v1',
-        runId: 'run_1',
-        workspaceId: 'ws_1',
-        requester: {
-          owner: 'replays',
-          kind: 'replay',
-          id: 'run_1',
-          token: null,
-          team: 'team_1',
-        },
-        attempt: 1,
-        ending: 'completed',
-        outcome: 'completed',
-        failure: null,
-        stopped: false,
-        started: true,
-        askedAPerson: true,
-        handsOver: true,
-        report: { next: 'review', note: 'Over to you.' },
-        endedAt: '2026-10-02T09:30:00.000Z',
-      },
-    ]);
-    expect(
-      published(
-        new RunExhausted(
-          RUN,
-          WORKSPACE,
-          replay,
-          3,
-          3,
-          false,
-          'runner-lost',
-          true,
-        ),
-      ),
-    ).toEqual([
-      expect.objectContaining({
-        kind: 'work.requested-run-ended.v1',
-        ending: 'exhausted',
-        outcome: 'exhausted',
-        failure: 'runner-lost',
-        askedAPerson: false,
-        handsOver: false,
-        report: null,
-        attempt: 3,
-      }),
-    ]);
-    expect(
-      published(
-        new RunCancelled(
-          RUN,
-          WORKSPACE,
-          orderedFor.isolated('search', 'search_1').requester,
-          2,
-          false,
-          true,
-        ),
-      ),
-    ).toEqual([
-      expect.objectContaining({
-        ending: 'cancelled',
-        outcome: 'cancelled',
-        started: true,
-        requester: expect.objectContaining({ kind: 'search', id: 'search_1' }),
-      }),
-    ]);
-    expect(
-      published(
-        new RunCancelled(
-          RUN,
-          WORKSPACE,
-          orderedFor.spec().requester,
-          1,
-          false,
-          false,
-        ),
-      ).map((each) => each.kind),
-    ).toEqual(['work.requested-run-ended.v1']);
-  });
-
   it('says which station a dispatched run worked at, which failure ended it and whether a person stopped it', () => {
     expect(published(dispatchEnded('completed', null, true))).toEqual([
       {
@@ -516,12 +289,15 @@ describe('WORK_EVENT_MAPPERS', () => {
   });
 
   it('publishes a run its task superseded', () => {
-    expect(published(new DispatchSuperseded(RUN, WORKSPACE, TASK))).toEqual([
+    expect(
+      published(new DispatchSuperseded(RUN, WORKSPACE, TASK, RECORDED_AT)),
+    ).toEqual([
       {
         kind: 'work.run-superseded.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
         taskId: 'task_1',
+        at: RECORDED_AT.toISOString(),
       },
     ]);
   });

@@ -8,8 +8,8 @@ import { runCheckoutsFor } from '@work/domain/services/task-checkouts';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
-import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import type { RunCheckout } from '@work/domain/value-objects/run-spec.vo';
+import type { RunCheckout } from '@work/domain/value-objects/run-checkout';
+import type { RunResult } from '@work/domain/value-objects/run-result.vo';
 
 export type TurnDecision =
   | { readonly kind: 'keep'; readonly handover: ResolvedHandover }
@@ -20,7 +20,7 @@ export const TurnDecision = {
   after(turn: {
     readonly task: Task;
     readonly line: LineMap | null;
-    readonly outcome: RunOutcome;
+    readonly outcome: RunResult;
     readonly handover: Handover | null;
     readonly lastWords: string | null;
     readonly stopRequested: boolean;

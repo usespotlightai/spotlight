@@ -6,13 +6,13 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import {
   HARNESS_LAUNCH,
   type HarnessLaunchPort,
-} from '@work/application/ports/harness-launch.port';
+} from '@runs/application/ports/harness-launch.port';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import {
   STATION_PROFILES,
   type StationProfilesPort,

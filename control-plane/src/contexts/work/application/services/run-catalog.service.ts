@@ -1,5 +1,6 @@
 import type { CatalogRequest } from '@catalog/application/contracts/catalog.contract';
 import type { CatalogPort } from '@catalog/application/ports/catalog.port';
+import type { LeasedRun } from '@runs/application/ports/run-leases.port';
 import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
@@ -8,7 +9,6 @@ import type {
   ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
-import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import { CatalogItemDeniedError } from '@work/domain/exceptions/catalog-item-denied.error';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';

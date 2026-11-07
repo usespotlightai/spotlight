@@ -1,4 +1,4 @@
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 
 export const lastWordsIn = (
   attempts: readonly RunJournal[],

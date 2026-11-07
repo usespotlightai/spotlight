@@ -3,7 +3,6 @@ import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
 import { verdictOf } from '@insights/domain/value-objects/check-verdict';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -14,7 +13,6 @@ export class RecordChangeChecks {
     private readonly records: RunRecordRepository,
     private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
-    private readonly clock: ClockPort,
   ) {}
 
   checked(
@@ -22,6 +20,7 @@ export class RecordChangeChecks {
     workspaceId: WorkspaceId,
     taskId: TaskId | null,
     passed: boolean | null,
+    at: Date,
   ): Promise<void> {
     if (!taskId) {
       return Promise.resolve();
@@ -35,7 +34,7 @@ export class RecordChangeChecks {
         erased: (existing) => existing.erased(),
         load: () => this.records.of(runId),
         fresh: () => RunRecord.empty(runId, workspaceId, taskId),
-        change: (record) => record.recordCheck(verdict, this.clock.now()),
+        change: (record) => record.recordCheck(verdict, at),
       }),
     );
   }

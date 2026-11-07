@@ -1,5 +1,5 @@
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
-import type { RunOrderContract } from '@work/application/contracts/run-order.contract';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 
 export const DispatchOrderMapper = {

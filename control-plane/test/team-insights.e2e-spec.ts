@@ -9,6 +9,14 @@ import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
+import { Money } from '@runs/domain/value-objects/money.vo';
+import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
+import { Tokens } from '@runs/domain/value-objects/tokens.vo';
+import {
+  type ServerCalls,
+  ToolUse,
+} from '@runs/domain/value-objects/tool-use.vo';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -25,7 +33,6 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
-import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
@@ -33,14 +40,7 @@ import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { Money } from '@work/domain/value-objects/money.vo';
-import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
-import { Tokens } from '@work/domain/value-objects/tokens.vo';
-import {
-  type ServerCalls,
-  ToolUse,
-} from '@work/domain/value-objects/tool-use.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -1077,6 +1077,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       runId: runId.value,
       workspaceId: team.workspaceId.value,
       taskId: task.value,
+      at: new Date().toISOString(),
     };
 
     await app

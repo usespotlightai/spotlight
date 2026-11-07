@@ -5,7 +5,11 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { lastWordsIn } from '@work/application/services/last-words';
-import type { RunOutcomes } from '@work/application/services/run-outcomes';
+import {
+  type RunEnded,
+  RunEndedFacts,
+  type RunEndingReactions,
+} from '@work/application/services/run-ending-reactions';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type {
   Chat,
@@ -15,13 +19,11 @@ import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
-import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
-export class NotifyChannel implements RunOutcomes {
+export class NotifyChannel implements RunEndingReactions {
   constructor(
     private readonly chats: ChatRepository,
     private readonly lines: LineMapsPort,
@@ -45,10 +47,18 @@ export class NotifyChannel implements RunOutcomes {
     }
   }
 
-  async onRunCompleted(event: RunCompleted): Promise<void> {
-    const chat = await this.fromChannel(
-      WorkRequesters.chatOf(event.requester.parts),
-    );
+  async onRunEnded(event: RunEnded): Promise<void> {
+    if (event.ending === 'completed') {
+      await this.completed(event);
+    }
+
+    if (event.ending === 'exhausted') {
+      await this.exhausted(event);
+    }
+  }
+
+  private async completed(event: RunEnded): Promise<void> {
+    const chat = await this.fromChannel(WorkRequesters.chatOf(event.requester));
 
     if (!chat) {
       return;
@@ -56,8 +66,11 @@ export class NotifyChannel implements RunOutcomes {
 
     const proposals = await this.listed(chat.openProposals);
     const lastWords =
-      event.reported && !event.handover
-        ? lastWordsIn(await this.journals.attemptsOfRun(event.runId), null)
+      event.reported && !event.report
+        ? lastWordsIn(
+            await this.journals.attemptsOfRun(RunEndedFacts.runId(event)),
+            null,
+          )
         : null;
     const body = ChannelReplies.answered(lastWords?.trim() || null, proposals);
 
@@ -66,10 +79,8 @@ export class NotifyChannel implements RunOutcomes {
     }
   }
 
-  async onRunExhausted(event: RunExhausted): Promise<void> {
-    const chat = await this.fromChannel(
-      WorkRequesters.chatOf(event.requester.parts),
-    );
+  private async exhausted(event: RunEnded): Promise<void> {
+    const chat = await this.fromChannel(WorkRequesters.chatOf(event.requester));
 
     if (chat) {
       await this.post(chat, 'chat.replied', ChannelReplies.failed);

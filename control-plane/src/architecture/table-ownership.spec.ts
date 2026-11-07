@@ -27,7 +27,7 @@ describe('table ownership', () => {
     ).toEqual([
       'imports the schema of work (contexts/work/infrastructure/persistence/drizzle/schemas/task.schema)',
       'names task of work in SQL',
-      'names run of work in SQL',
+      'names run of runs in SQL',
     ]);
   });
 

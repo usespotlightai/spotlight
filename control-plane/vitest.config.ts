@@ -33,6 +33,7 @@ const shared = {
       '@platform': resolve(__dirname, 'src/platform'),
       '@shared-kernel': resolve(__dirname, 'src/shared-kernel'),
       '@lines': resolve(__dirname, 'src/contexts/lines'),
+      '@runs': resolve(__dirname, 'src/contexts/runs'),
       '@work': resolve(__dirname, 'src/contexts/work'),
       '@runners': resolve(__dirname, 'src/contexts/runners'),
       '@change-review': resolve(__dirname, 'src/contexts/change-review'),

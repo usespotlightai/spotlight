@@ -16,12 +16,12 @@ import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-st
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { CAUSE_HEADER } from '@platform/http/cause-header';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type {
   NetworkCallsPort,
   NetworkRequest,
   NetworkResponse,
-} from '@work/application/ports/network-calls.port';
+} from '@runs/application/ports/network-calls.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
 type Fetch = typeof globalThis.fetch;
 

@@ -1,10 +1,10 @@
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   RunOrderContract,
   RunRequesterContract,
-} from '@work/application/contracts/run-order.contract';
-import type { RunSpecShape } from '@work/application/contracts/run-spec.contract';
+} from '@runs/application/contracts/run-order.contract';
+import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const RUNS = Symbol('REPLAYS_RUNS');
 

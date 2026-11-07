@@ -12,7 +12,7 @@ import {
 } from '@configuration/domain/value-objects/skill-files.vo';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { madeBy, problemsIn } from '@platform/definitions/definition-schema';
-import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
+import { SKILL_FILE } from '@runs/application/contracts/run-spec.contract';
 import { z } from 'zod';
 
 const filePath = z.string().superRefine((path, context) => {

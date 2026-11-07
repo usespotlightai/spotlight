@@ -1,11 +1,11 @@
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
+import type { RunUsageReaderPort } from '@runs/application/ports/run-usage-reader.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
-import { connectionsInMemory } from '@work/application/ports/run-connections.fake-spec';
 import type {
   RunOutcomeShape,
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
-import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type {
   KeyedStation,
   StationRunReaderPort,
@@ -20,9 +20,7 @@ import {
 } from '@work/application/queries/read-runner-history.query';
 import { historyAccessesOf } from '@work/application/services/history-accesses.fake-spec';
 import { StationRunHistories } from '@work/application/services/station-run-histories.service';
-import { Money } from '@work/domain/value-objects/money.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
-import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const FP = 'a'.repeat(64);
@@ -158,8 +156,13 @@ const reading = ({
             changedLines: 0,
             contextTokens: 40_000,
             contextWindow: 200_000,
-            cost: Money.of(0.42, 'USD'),
-            tokens: Tokens.UNREPORTED,
+            cost: { amount: 0.42, currency: 'USD' },
+            tokens: {
+              input: null,
+              output: null,
+              cacheRead: null,
+              cacheWrite: null,
+            },
           },
         ]),
       ),

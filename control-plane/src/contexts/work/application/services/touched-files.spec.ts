@@ -1,9 +1,9 @@
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
+import type { RunChanges } from '@runs/application/contracts/run-journal.contract';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunChanges } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { TouchedFiles } from '@work/application/services/touched-files';
 import type { Task } from '@work/domain/aggregates/task.aggregate';

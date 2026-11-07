@@ -2,7 +2,6 @@ import type { FactRecorder } from '@insights/application/services/fact-recorder.
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
 import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -13,13 +12,13 @@ export class RecordSupersededRun {
     private readonly records: RunRecordRepository,
     private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
-    private readonly clock: ClockPort,
   ) {}
 
   superseded(
     runId: RunId,
     workspaceId: WorkspaceId,
     taskId: TaskId | null,
+    at: Date,
   ): Promise<void> {
     if (!taskId) {
       return Promise.resolve();
@@ -31,7 +30,7 @@ export class RecordSupersededRun {
         erased: (existing) => existing.erased(),
         load: () => this.records.of(runId),
         fresh: () => RunRecord.empty(runId, workspaceId, taskId),
-        change: (record) => record.supersededByItsTask(this.clock.now()),
+        change: (record) => record.supersededByItsTask(at),
       }),
     );
   }

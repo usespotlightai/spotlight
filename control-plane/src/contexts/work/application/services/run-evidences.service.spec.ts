@@ -1,12 +1,12 @@
+import type {
+  JournalStep,
+  RunJournal,
+} from '@runs/application/contracts/run-journal.contract';
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type {
-  JournalStep,
-  RunJournal,
-} from '@work/application/contracts/run-journal.contract';
-import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { RunEvidences } from '@work/application/services/run-evidences.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';

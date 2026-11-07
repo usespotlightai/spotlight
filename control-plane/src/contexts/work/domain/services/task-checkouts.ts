@@ -6,7 +6,7 @@ import type { RepositoryName } from '@work/domain/value-objects/repository-name.
 import {
   REMOTE_VIA_GIT_PROXY,
   type RunCheckout,
-} from '@work/domain/value-objects/run-spec.vo';
+} from '@work/domain/value-objects/run-checkout';
 
 type CheckoutDiff = 'worktree' | 'commits';
 

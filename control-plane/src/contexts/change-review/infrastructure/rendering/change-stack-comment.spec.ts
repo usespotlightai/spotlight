@@ -121,7 +121,7 @@ describe('ChangeStackComment', () => {
         ],
         NOW,
       )
-      .retainCheckedLayers();
+      .retainCheckedLayers(new Date('2026-10-02T09:30:00.000Z'));
     const body = ChangeStackComment.of(
       {
         cohorts: stack.cohorts,

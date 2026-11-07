@@ -1,3 +1,11 @@
+import type { RunRequester } from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  orderedFor,
+  RunCompleted,
+  RunExhausted,
+  RunOutcome,
+  runEndedOf,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -7,14 +15,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
 import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
-import { RunCompleted } from '@work/domain/events/run-completed.event';
-import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import type { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-14T09:00:00.000Z');
@@ -82,7 +85,7 @@ describe('ChatOutcomes', () => {
   it('releases the run and keeps the session for the next one', async () => {
     const { outcomes, save, takenUp } = outcomesOf(working());
 
-    await outcomes.onRunCompleted(completed());
+    await outcomes.onRunEnded(runEndedOf(completed()));
 
     const saved = save.mock.calls[0]?.[0];
     expect(saved?.running).toBe(false);
@@ -99,7 +102,7 @@ describe('ChatOutcomes', () => {
     });
     const { outcomes, save, takenUp } = outcomesOf(withMessage);
 
-    await outcomes.onRunCompleted(completed());
+    await outcomes.onRunEnded(runEndedOf(completed()));
 
     expect(takenUp).toHaveBeenCalledTimes(1);
     expect(save.mock.calls[0]?.[0].currentRunId?.value).toBe('run_2');
@@ -113,7 +116,7 @@ describe('ChatOutcomes', () => {
     });
     const { outcomes, save, takenUp } = outcomesOf(withMessage);
 
-    await outcomes.onRunCompleted(completed(RunOutcome.stopped(0)));
+    await outcomes.onRunEnded(runEndedOf(completed(RunOutcome.stopped(0))));
 
     expect(takenUp).toHaveBeenCalledTimes(1);
     expect(save.mock.calls[0]?.[0].currentRunId?.value).toBe('run_2');
@@ -122,7 +125,7 @@ describe('ChatOutcomes', () => {
   it('waits for the person when the agent was stopped with nothing left to take', async () => {
     const { outcomes, takenUp } = outcomesOf(working());
 
-    await outcomes.onRunCompleted(completed(RunOutcome.stopped(0)));
+    await outcomes.onRunEnded(runEndedOf(completed(RunOutcome.stopped(0))));
 
     expect(takenUp).not.toHaveBeenCalled();
   });
@@ -143,19 +146,21 @@ describe('ChatOutcomes', () => {
     async (_, outcome, claimedBy) => {
       const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
-      await outcomes.onRunCompleted(
-        new RunCompleted(
-          RunId.of('run_2'),
-          WorkspaceId.of('ws_1'),
-          IN_CHAT,
-          outcome,
-          claimedBy,
-          null,
-          null,
-          1,
-          false,
-          true,
-          true,
+      await outcomes.onRunEnded(
+        runEndedOf(
+          new RunCompleted(
+            RunId.of('run_2'),
+            WorkspaceId.of('ws_1'),
+            IN_CHAT,
+            outcome,
+            claimedBy,
+            null,
+            null,
+            1,
+            false,
+            true,
+            true,
+          ),
         ),
       );
 
@@ -172,7 +177,7 @@ describe('ChatOutcomes', () => {
   it('ignores a run the chat has already moved past', async () => {
     const { outcomes, save } = outcomesOf(working());
 
-    await outcomes.onRunCompleted(completed(undefined, 'run_0'));
+    await outcomes.onRunEnded(runEndedOf(completed(undefined, 'run_0')));
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -180,8 +185,10 @@ describe('ChatOutcomes', () => {
   it('ignores a run that works a task', async () => {
     const { outcomes, save } = outcomesOf(working());
 
-    await outcomes.onRunCompleted(
-      completed(undefined, 'run_1', orderedFor.task('task_1', 0).requester),
+    await outcomes.onRunEnded(
+      runEndedOf(
+        completed(undefined, 'run_1', orderedFor.task('task_1', 0).requester),
+      ),
     );
 
     expect(save).not.toHaveBeenCalled();
@@ -190,16 +197,18 @@ describe('ChatOutcomes', () => {
   it('releases a run no runner finished, and unacknowledges what it acknowledged', async () => {
     const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
-    await outcomes.onRunExhausted(
-      new RunExhausted(
-        RunId.of('run_2'),
-        WorkspaceId.of('ws_1'),
-        IN_CHAT,
-        3,
-        3,
-        false,
-        null,
-        true,
+    await outcomes.onRunEnded(
+      runEndedOf(
+        new RunExhausted(
+          RunId.of('run_2'),
+          WorkspaceId.of('ws_1'),
+          IN_CHAT,
+          3,
+          3,
+          false,
+          null,
+          true,
+        ),
       ),
     );
 

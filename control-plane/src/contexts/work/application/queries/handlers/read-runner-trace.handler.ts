@@ -1,9 +1,9 @@
+import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
-import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import type { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { tracedRunsOf, traceOf } from '@work/application/read-models/trace-of';

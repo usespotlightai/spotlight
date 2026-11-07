@@ -291,6 +291,7 @@ export const insightsSubscribers = (
         RunId.of(event.runId),
         WorkspaceId.of(event.workspaceId),
         event.taskId ? TaskId.of(event.taskId) : null,
+        new Date(event.at),
       ),
   ),
   subscribing<ChangeCheckedIntegrationEvent>(
@@ -302,6 +303,7 @@ export const insightsSubscribers = (
         WorkspaceId.of(event.workspaceId),
         event.taskId ? TaskId.of(event.taskId) : null,
         event.passed,
+        new Date(event.at),
       ),
   ),
   subscribing<TaskActedOnIntegrationEvent>(

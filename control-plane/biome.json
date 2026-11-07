@@ -187,7 +187,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "The platform is technical plumbing shared by every context; it knows no bounded context."
                   },
@@ -238,7 +239,9 @@
                       "@catalog/**",
                       "!@catalog/catalog.module",
                       "@lines/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "The application root composes the context modules: it imports their module classes and nothing else."
                   },
@@ -269,6 +272,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -311,7 +315,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'identity' may depend on no other context. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -347,6 +352,7 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@secrets/**"
                     ],
                     "message": "Context boundary: 'github' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -392,7 +398,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'secrets' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -437,7 +444,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'catalog' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -481,7 +489,8 @@
                       "@insights/**",
                       "@replays/**",
                       "@integrations/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'lines' may depend on identity, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -495,6 +504,61 @@
                       "!@catalog/application/ports/**",
                       "!@catalog/application/contracts/**",
                       "!@catalog/catalog.module"
+                    ],
+                    "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runs/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@github/**",
+                      "@catalog/**",
+                      "@work/**",
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: 'runs' may depend on identity, secrets, runners, lines. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                  },
+                  {
+                    "group": [
+                      "@identity/**",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/secrets.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/lines.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -529,7 +593,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'runners' may depend on identity, secrets. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -575,7 +640,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -602,7 +667,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -634,7 +703,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -665,7 +734,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -697,7 +770,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, runners, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -725,6 +798,10 @@
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
                       "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module",
                       "@runners/**",
                       "!@runners/application/ports/**",
                       "!@runners/application/contracts/**",
@@ -761,7 +838,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -788,7 +865,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -819,7 +900,7 @@
                       "@change-review/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -854,7 +935,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -880,7 +965,7 @@
                 "patterns": [
                   {
                     "group": ["@runners/**", "@integrations/**", "@memory/**"],
-                    "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -916,6 +1001,10 @@
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
                       "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module",
                       "@configuration/**",
                       "!@configuration/application/ports/**",
                       "!@configuration/application/contracts/**",
@@ -951,7 +1040,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -982,7 +1071,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -1119,6 +1212,32 @@
                       "!vitest"
                     ],
                     "message": "The domain layer contains the model: 'lines' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runs/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@runs/domain/**",
+                      "!@shared-kernel/domain/**",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "The domain layer contains the model: 'runs' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1357,7 +1476,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'identity' may depend on no other context. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1402,7 +1522,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'identity' may depend on no other context. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1442,6 +1563,7 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@secrets/**"
                     ],
                     "message": "Context boundary: 'github' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -1495,6 +1617,7 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@secrets/**"
                     ],
                     "message": "Context boundary: 'github' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -1544,7 +1667,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'secrets' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1597,7 +1721,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'secrets' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1646,7 +1771,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'catalog' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1699,7 +1825,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'catalog' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1747,7 +1874,8 @@
                       "@insights/**",
                       "@replays/**",
                       "@integrations/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'lines' may depend on identity, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1766,6 +1894,69 @@
                   },
                   {
                     "group": ["@lines/infrastructure/**"],
+                    "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
+                  },
+                  {
+                    "group": ["@platform/**"],
+                    "message": "The application layer depends on ports, never on platform plumbing: declare the port here and bind a platform adapter in the context wiring."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runs/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@github/**",
+                      "@catalog/**",
+                      "@work/**",
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: 'runs' may depend on identity, secrets, runners, lines. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                  },
+                  {
+                    "group": [
+                      "@identity/**",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/secrets.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/lines.module"
+                    ],
+                    "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
+                  },
+                  {
+                    "group": ["@runs/infrastructure/**"],
                     "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
                   },
                   {
@@ -1803,7 +1994,8 @@
                       "@insights/**",
                       "@replays/**",
                       "@integrations/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'lines' may depend on identity, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1822,6 +2014,65 @@
                   },
                   {
                     "group": ["@lines/infrastructure/**"],
+                    "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runs/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@github/**",
+                      "@catalog/**",
+                      "@work/**",
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: 'runs' may depend on identity, secrets, runners, lines. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                  },
+                  {
+                    "group": [
+                      "@identity/**",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/secrets.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/lines.module"
+                    ],
+                    "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
+                  },
+                  {
+                    "group": ["@runs/infrastructure/**"],
                     "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
                   },
                   {
@@ -1855,7 +2106,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'runners' may depend on identity, secrets. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1911,7 +2163,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'runners' may depend on identity, secrets. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1961,7 +2214,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -1988,7 +2241,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2029,7 +2286,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2056,7 +2313,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2092,7 +2353,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2123,7 +2384,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2163,7 +2428,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2194,7 +2459,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2231,7 +2500,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2258,7 +2527,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2299,7 +2572,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2326,7 +2599,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2363,7 +2640,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2390,7 +2667,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2431,7 +2712,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2458,7 +2739,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2493,7 +2778,7 @@
                       "@change-review/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2528,7 +2813,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2567,7 +2856,7 @@
                       "@change-review/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2602,7 +2891,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2632,7 +2925,7 @@
                 "patterns": [
                   {
                     "group": ["@runners/**", "@integrations/**", "@memory/**"],
-                    "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2668,6 +2961,10 @@
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
                       "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module",
                       "@configuration/**",
                       "!@configuration/application/ports/**",
                       "!@configuration/application/contracts/**",
@@ -2705,7 +3002,7 @@
                 "patterns": [
                   {
                     "group": ["@runners/**", "@integrations/**", "@memory/**"],
-                    "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2741,6 +3038,10 @@
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
                       "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module",
                       "@configuration/**",
                       "!@configuration/application/ports/**",
                       "!@configuration/application/contracts/**",
@@ -2780,7 +3081,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2811,7 +3112,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2851,7 +3156,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -2882,7 +3187,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -2927,7 +3236,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'identity' may depend on no other context. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2967,6 +3277,7 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@secrets/**"
                     ],
                     "message": "Context boundary: 'github' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
@@ -3018,7 +3329,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'secrets' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3069,7 +3381,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'catalog' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3119,7 +3432,8 @@
                       "@insights/**",
                       "@replays/**",
                       "@integrations/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'lines' may depend on identity, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3137,6 +3451,73 @@
                       "!@catalog/application/dto/**",
                       "!@catalog/application/errors/**",
                       "!@catalog/catalog.module"
+                    ],
+                    "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/runs/infrastructure/**",
+        "src/contexts/runs/**/*.spec.ts",
+        "src/contexts/runs/**/*.fake-spec.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@github/**",
+                      "@catalog/**",
+                      "@work/**",
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: 'runs' may depend on identity, secrets, runners, lines. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                  },
+                  {
+                    "group": [
+                      "@identity/**",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/errors/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/application/dto/**",
+                      "!@secrets/application/errors/**",
+                      "!@secrets/secrets.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/errors/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/application/dto/**",
+                      "!@lines/application/errors/**",
+                      "!@lines/lines.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },
@@ -3175,7 +3556,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: 'runners' may depend on identity, secrets. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3229,7 +3611,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -3268,7 +3650,13 @@
                       "!@lines/application/contracts/**",
                       "!@lines/application/dto/**",
                       "!@lines/application/errors/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/application/dto/**",
+                      "!@runs/application/errors/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },
@@ -3304,7 +3692,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -3349,7 +3737,13 @@
                       "!@lines/application/contracts/**",
                       "!@lines/application/dto/**",
                       "!@lines/application/errors/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/application/dto/**",
+                      "!@runs/application/errors/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },
@@ -3385,7 +3779,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, runners, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -3425,6 +3819,12 @@
                       "!@lines/application/dto/**",
                       "!@lines/application/errors/**",
                       "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/application/dto/**",
+                      "!@runs/application/errors/**",
+                      "!@runs/runs.module",
                       "@runners/**",
                       "!@runners/application/ports/**",
                       "!@runners/application/contracts/**",
@@ -3467,7 +3867,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -3506,7 +3906,13 @@
                       "!@lines/application/contracts/**",
                       "!@lines/application/dto/**",
                       "!@lines/application/errors/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/application/dto/**",
+                      "!@runs/application/errors/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },
@@ -3541,7 +3947,7 @@
                       "@change-review/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -3592,7 +3998,13 @@
                       "!@lines/application/contracts/**",
                       "!@lines/application/dto/**",
                       "!@lines/application/errors/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/application/dto/**",
+                      "!@runs/application/errors/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },
@@ -3622,7 +4034,7 @@
                 "patterns": [
                   {
                     "group": ["@runners/**", "@integrations/**", "@memory/**"],
-                    "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -3673,7 +4085,13 @@
                       "!@lines/application/contracts/**",
                       "!@lines/application/dto/**",
                       "!@lines/application/errors/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/application/dto/**",
+                      "!@runs/application/errors/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },
@@ -3709,7 +4127,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -3754,7 +4172,13 @@
                       "!@lines/application/contracts/**",
                       "!@lines/application/dto/**",
                       "!@lines/application/errors/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/application/dto/**",
+                      "!@runs/application/errors/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },
@@ -3787,6 +4211,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -3837,6 +4262,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -3887,6 +4313,7 @@
                       "@github/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -3937,6 +4364,7 @@
                       "@github/**",
                       "@secrets/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -4004,9 +4432,61 @@
                       "@lines/application/events/**",
                       "@nestjs/**",
                       "drizzle-orm",
-                      "drizzle-orm/**"
+                      "drizzle-orm/**",
+                      "@runs/**"
                     ],
                     "message": "A domain spec tests the model: 'lines' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/runs/domain/**/*.spec.ts",
+        "src/contexts/runs/domain/**/*.fake-spec.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@identity/**",
+                      "@github/**",
+                      "@secrets/**",
+                      "@catalog/**",
+                      "@lines/**",
+                      "@runners/**",
+                      "@work/**",
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**",
+                      "@platform/**",
+                      "@runs/infrastructure/**",
+                      "@runs/presentation/**",
+                      "@runs/application/services/**",
+                      "@runs/application/commands/**",
+                      "@runs/application/queries/**",
+                      "@runs/application/events/**",
+                      "@nestjs/**",
+                      "drizzle-orm",
+                      "drizzle-orm/**"
+                    ],
+                    "message": "A domain spec tests the model: 'runs' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
                   },
                   {
                     "group": ["@/**", "../**"],
@@ -4038,6 +4518,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@work/**",
                       "@configuration/**",
                       "@change-review/**",
@@ -4088,6 +4569,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@configuration/**",
                       "@change-review/**",
@@ -4138,6 +4620,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@change-review/**",
@@ -4188,6 +4671,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -4238,6 +4722,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -4288,6 +4773,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -4338,6 +4824,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -4388,6 +4875,7 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@runners/**",
                       "@work/**",
                       "@configuration/**",
@@ -4441,7 +4929,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: at this edge 'identity' may depend on no other context."
                   },
@@ -4481,6 +4970,7 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
+                      "@runs/**",
                       "@secrets/**"
                     ],
                     "message": "Context boundary: at this edge 'github' may depend on identity."
@@ -4530,7 +5020,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: at this edge 'secrets' may depend on identity."
                   },
@@ -4579,7 +5070,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: at this edge 'catalog' may depend on identity."
                   },
@@ -4627,7 +5119,8 @@
                       "@insights/**",
                       "@replays/**",
                       "@integrations/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: at this edge 'lines' may depend on identity, catalog."
                   },
@@ -4646,6 +5139,65 @@
                   },
                   {
                     "group": ["@lines/infrastructure/**"],
+                    "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/runs/presentation/events/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@github/**",
+                      "@catalog/**",
+                      "@work/**",
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: at this edge 'runs' may depend on identity, secrets, runners, lines."
+                  },
+                  {
+                    "group": [
+                      "@identity/**",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/secrets.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/lines.module"
+                    ],
+                    "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
+                  },
+                  {
+                    "group": ["@runs/infrastructure/**"],
                     "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
                   },
                   {
@@ -4679,7 +5231,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@catalog/**",
-                      "@lines/**"
+                      "@lines/**",
+                      "@runs/**"
                     ],
                     "message": "Context boundary: at this edge 'runners' may depend on identity, secrets."
                   },
@@ -4729,7 +5282,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: at this edge 'work' may depend on identity, github, secrets, catalog, lines, runners."
+                    "message": "Context boundary: at this edge 'work' may depend on identity, github, secrets, catalog, lines, runners, runs."
                   },
                   {
                     "group": [
@@ -4756,7 +5309,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
                   },
@@ -4792,7 +5349,7 @@
                       "@replays/**",
                       "@integrations/**"
                     ],
-                    "message": "Context boundary: at this edge 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work."
+                    "message": "Context boundary: at this edge 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs."
                   },
                   {
                     "group": [
@@ -4823,7 +5380,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
                   },
@@ -4860,7 +5421,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: at this edge 'change-review' may depend on identity, github, secrets, catalog, lines, work."
+                    "message": "Context boundary: at this edge 'change-review' may depend on identity, github, secrets, catalog, lines, work, runs."
                   },
                   {
                     "group": [
@@ -4887,7 +5448,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
                   },
@@ -4924,7 +5489,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: at this edge 'memory' may depend on identity, github, secrets, catalog, lines, work."
+                    "message": "Context boundary: at this edge 'memory' may depend on identity, github, secrets, catalog, lines, work, runs."
                   },
                   {
                     "group": [
@@ -4951,7 +5516,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
                   },
@@ -4986,7 +5555,7 @@
                       "@change-review/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: at this edge 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory."
+                    "message": "Context boundary: at this edge 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs."
                   },
                   {
                     "group": [
@@ -5021,7 +5590,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
                   },
@@ -5056,7 +5629,7 @@
                       "@integrations/**",
                       "@memory/**"
                     ],
-                    "message": "Context boundary: at this edge 'replays' may depend on identity, github, secrets, catalog, lines, work, change-review, insights."
+                    "message": "Context boundary: at this edge 'replays' may depend on identity, github, secrets, catalog, lines, work, change-review, insights, runs."
                   },
                   {
                     "group": [
@@ -5091,7 +5664,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
                   },
@@ -5127,7 +5704,7 @@
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: at this edge 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration."
+                    "message": "Context boundary: at this edge 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs."
                   },
                   {
                     "group": [
@@ -5158,7 +5735,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
                     ],
                     "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
                   },

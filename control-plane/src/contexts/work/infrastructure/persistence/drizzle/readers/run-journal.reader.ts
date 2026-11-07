@@ -1,21 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import type {
+  JournalledRun,
+  RunChanges,
+  RunJournal,
+} from '@runs/application/contracts/run-journal.contract';
+import {
+  RUN_JOURNALS,
+  type RunJournalsPort,
+} from '@runs/application/ports/run-journals.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type {
-  JournalledRun,
-  RunChanges,
-  RunJournal,
-} from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import {
-  RUN_JOURNALS,
-  type RunJournalsPort,
-} from '@work/application/ports/run-journals.port';
 import type {
   RunsInWorkspace,
   RunsOfChat,

@@ -1,3 +1,12 @@
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  HandoverReport,
+  orderedFor,
+  Run,
+  RunOutcome,
+  RunSpec,
+  Runs,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -6,16 +15,9 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
-import { Runs } from '@work/application/services/runs.service';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');

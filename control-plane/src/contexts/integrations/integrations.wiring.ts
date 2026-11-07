@@ -311,6 +311,10 @@ import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RedisConnection } from '@platform/redis/redis-connection';
 import {
+  NETWORK_CALLS,
+  type NetworkCallsPort,
+} from '@runs/application/ports/network-calls.port';
+import {
   CREDENTIAL_ENCRYPTION,
   type CredentialEncryptionPort,
 } from '@secrets/application/ports/credential-encryption.port';
@@ -352,10 +356,6 @@ import {
   HappeningReactionsPort,
 } from '@work/application/ports/happening-reactions.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
-import {
-  NETWORK_CALLS,
-  type NetworkCallsPort,
-} from '@work/application/ports/network-calls.port';
 import {
   NOTE_FILES,
   type NoteFilesPort,

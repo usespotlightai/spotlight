@@ -5,4 +5,5 @@ export type RunSupersededIntegrationEvent = {
   readonly runId: string;
   readonly workspaceId: string;
   readonly taskId: string | null;
+  readonly at: string;
 };

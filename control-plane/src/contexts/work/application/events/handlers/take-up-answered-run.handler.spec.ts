@@ -1,3 +1,13 @@
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  HandoverReport,
+  orderedFor,
+  Run,
+  RunOutcome,
+  RunSpec,
+  Runs,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -6,19 +16,11 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import { Runs } from '@work/application/services/runs.service';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-11-07T10:00:00.000Z');

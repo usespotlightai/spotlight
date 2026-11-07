@@ -1,4 +1,4 @@
-import type { RunRequesterContract } from '@work/application/contracts/run-order.contract';
+import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
 import type {
   TraceScope,
   TraceScopeSource,

@@ -29,6 +29,7 @@ import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import type { StartingPointHoldsPort } from '@runs/application/ports/starting-point-holds.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -38,7 +39,6 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { UntrialableReasonCode } from '@work/application/contracts/untrialable-reason.contract';
-import type { StartingPointHoldsPort } from '@work/application/ports/starting-point-holds.port';
 import type {
   StationConfigCandidatesPort,
   StationConfigFacts,

@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import {
   RUN_JOURNAL_READER,
   type RunJournalReaderPort,

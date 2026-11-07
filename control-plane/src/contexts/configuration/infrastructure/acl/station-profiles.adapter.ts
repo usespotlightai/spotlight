@@ -1,7 +1,7 @@
 import type { HarnessProfileResourcesPort } from '@configuration/application/ports/harness-profile-resources.port';
 import { HarnessProfileShapeMapper } from '@configuration/infrastructure/acl/harness-profile-shape.mapper';
+import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 
 export class StationProfiles implements StationProfilesPort {

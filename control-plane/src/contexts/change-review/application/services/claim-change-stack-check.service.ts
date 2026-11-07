@@ -6,17 +6,17 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
+import type {
+  CheckLeaseRenewal,
+  CheckWorkPort,
+  ClaimedCheck,
+} from '@runs/application/ports/check-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type {
-  CheckLeaseRenewal,
-  CheckWorkPort,
-  ClaimedCheck,
-} from '@work/application/ports/check-work.port';
 
 const ATTEMPTS = 3;
 

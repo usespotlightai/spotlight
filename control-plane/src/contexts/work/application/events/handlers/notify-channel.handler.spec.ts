@@ -1,3 +1,10 @@
+import {
+  orderedFor,
+  RunCompleted,
+  RunExhausted,
+  RunOutcome,
+  runEndedOf,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -18,13 +25,10 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
-import { RunCompleted } from '@work/domain/events/run-completed.event';
-import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
@@ -33,7 +37,6 @@ import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -130,7 +133,7 @@ describe('NotifyChannel', () => {
     const chat = started();
     const { handler, notify } = notifying(chat);
 
-    await handler.onRunCompleted(completed(chat, 'They time out.'));
+    await handler.onRunEnded(runEndedOf(completed(chat, 'They time out.')));
 
     expect(notify).toHaveBeenCalledWith(
       {
@@ -153,7 +156,7 @@ describe('NotifyChannel', () => {
     const chat = proposing();
     const { handler, notify } = notifying(chat);
 
-    await handler.onRunCompleted(completed(chat, 'Here is a plan.'));
+    await handler.onRunEnded(runEndedOf(completed(chat, 'Here is a plan.')));
 
     const listed = [
       {
@@ -186,7 +189,7 @@ describe('NotifyChannel', () => {
     const chat = started([]);
     const { handler, notify } = notifying(chat);
 
-    await handler.onRunCompleted(completed(chat, 'They time out.'));
+    await handler.onRunEnded(runEndedOf(completed(chat, 'They time out.')));
     await handler.onChatStarted(
       new ChatStarted(chat.id, WORKSPACE, chat.teamId, chat.startedBy, NOW),
     );
@@ -201,8 +204,19 @@ describe('NotifyChannel', () => {
     await handler.onChatStarted(
       new ChatStarted(chat.id, WORKSPACE, chat.teamId, chat.startedBy, NOW),
     );
-    await handler.onRunExhausted(
-      new RunExhausted(RUN, WORKSPACE, subject(chat), 1, 0, false, null, true),
+    await handler.onRunEnded(
+      runEndedOf(
+        new RunExhausted(
+          RUN,
+          WORKSPACE,
+          subject(chat),
+          1,
+          0,
+          false,
+          null,
+          true,
+        ),
+      ),
     );
 
     expect(notify.mock.calls.map((call) => [call[1], call[0].body])).toEqual([

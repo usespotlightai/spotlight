@@ -5,9 +5,11 @@ import { IntegrationsBindingsModule } from '@integrations/integrations.module';
 import { MemoryBindingsModule } from '@memory/memory.module';
 import { Global, Module } from '@nestjs/common';
 import { ReplaysBindingsModule } from '@replays/replays.module';
+import { RunsBindingsModule } from '@runs/runs.module';
 import { WorkBindingsModule } from '@work/work.module';
 
 const BINDINGS = [
+  RunsBindingsModule,
   WorkBindingsModule,
   ConfigurationBindingsModule,
   ChangeReviewBindingsModule,

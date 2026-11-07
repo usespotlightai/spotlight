@@ -10,12 +10,12 @@ import {
   type SkillSecret,
 } from '@configuration/domain/value-objects/skill.vo';
 import { splitFrontmatter } from '@platform/markdown/frontmatter';
-import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import {
   SKILL_FILE,
   SKILL_FOLDER_LIMITS,
-} from '@work/application/contracts/run-spec.contract';
+} from '@runs/application/contracts/run-spec.contract';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { parse as parseYaml } from 'yaml';
 
 const toolsIn = (key: DefinedSkillKey, raw: unknown): Tool[] => {

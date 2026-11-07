@@ -1,3 +1,19 @@
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  CompleteRunCommand,
+  CompleteRunHandler,
+  HandoverReport,
+  InMemoryArchives,
+  orderedFor,
+  Run,
+  RunFacts,
+  RunOutcome,
+  RunSpec,
+  Runs,
+  RunVersionConflictError,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -13,9 +29,6 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
-import { CompleteRunCommand } from '@work/application/commands/runner.commands';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type {
   BeforeHookEvent,
   HookDecision,
@@ -27,37 +40,27 @@ import type {
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
-import { RunFacts } from '@work/application/services/run-facts.service';
+import { RunFiles } from '@work/application/services/run-files.service';
 import { RunRouting } from '@work/application/services/run-routing.service';
-import { Runs } from '@work/application/services/runs.service';
 import { TakeTurn } from '@work/application/services/take-turn.service';
-import { InMemoryArchives } from '@work/application/services/workspace-archives.fake-spec';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import {
   lineMapOf,
   routesOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
@@ -271,7 +274,7 @@ const turning = (over: Turning = {}) => {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
     clock,
-    files,
+    new RunFiles(files),
   );
 
   return {

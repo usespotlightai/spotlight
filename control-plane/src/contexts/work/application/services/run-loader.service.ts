@@ -1,11 +1,11 @@
+import type {
+  LeasedRun,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { ActsOnItselfOnlyError } from '@work/application/errors/acts-on-itself-only.error';
-import type {
-  LeasedRun,
-  RunLeasesPort,
-} from '@work/application/ports/run-leases.port';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';

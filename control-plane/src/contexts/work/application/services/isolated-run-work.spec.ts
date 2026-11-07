@@ -1,13 +1,17 @@
+import type {
+  RunRepository,
+  WorkspaceArchiveRepository,
+} from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  Run,
+  RunFacts,
+  Runs,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { IsolatedRunWork } from '@work/application/services/isolated-run-work';
-import { RunFacts } from '@work/application/services/run-facts.service';
 import { aRunFor } from '@work/application/services/run-works.fake-spec';
-import { Runs } from '@work/application/services/runs.service';
-import { Run } from '@work/domain/aggregates/run.aggregate';
 import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
-import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-02T09:00:00.000Z');

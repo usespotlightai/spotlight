@@ -1,16 +1,16 @@
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
+import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
+import type {
+  RunUsage,
+  RunUsageReaderPort,
+} from '@runs/application/ports/run-usage-reader.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type {
   HistoryUsage,
   WrittenHistoryRun,
 } from '@work/application/dto/runner-history.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
-import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
-import type {
-  RunUsage,
-  RunUsageReaderPort,
-} from '@work/application/ports/run-usage-reader.port';
 import type {
   HistoryConfig,
   HistoryStation,
@@ -23,7 +23,6 @@ import type {
 } from '@work/application/ports/station-run-reader.port';
 import { fileChangesOf } from '@work/application/read-models/file-changes-of';
 import { connectionsOf, traceOf } from '@work/application/read-models/trace-of';
-import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 
 export const historyUsageOf = (usage: RunUsage | null): HistoryUsage | null =>
   usage && {
@@ -103,7 +102,7 @@ export class StationRunHistories implements StationHistoryPort {
             {
               id: RunId.of(each.runId),
               station: StationName.maybe(station),
-              harness: HarnessName.of(each.harness),
+              harness: each.harness,
               state: each.state,
               attempt: each.attempt,
               startedAt: each.startedAt,

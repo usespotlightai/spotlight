@@ -1,7 +1,7 @@
 import type { SearchVisibilities } from '@replays/application/queries/search-visibilities';
 import { isSearchRequester } from '@replays/application/services/search-run-dispatch.service';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import type { RunRequesterContract } from '@work/application/contracts/run-order.contract';
+import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
 import type {
   TraceScope,
   TraceScopeSource,

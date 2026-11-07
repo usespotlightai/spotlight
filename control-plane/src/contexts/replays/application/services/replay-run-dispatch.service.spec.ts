@@ -17,11 +17,11 @@ import { InMemoryReplayRunClaims } from '@replays/application/services/replays.f
 import { ReplayRunClaim } from '@replays/domain/aggregates/replay-run-claim.aggregate';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunOrderContract } from '@work/application/contracts/run-order.contract';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const RUN = RunId.of('run_trial');

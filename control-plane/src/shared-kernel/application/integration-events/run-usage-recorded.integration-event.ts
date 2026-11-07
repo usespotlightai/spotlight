@@ -1,4 +1,4 @@
-export const RUN_USAGE_RECORDED = 'work.run-usage-recorded.v1';
+export const RUN_USAGE_RECORDED = 'runs.run-usage-recorded.v1';
 
 type ServerCallsPublished = {
   readonly server: string;

@@ -1,7 +1,14 @@
 import {
   RunSpecContract,
+  type RunSpecShape,
   TRACE_PARENT_VAR,
-} from '@work/application/contracts/run-spec.contract';
+} from '@runs/application/contracts/run-spec.contract';
+import type {
+  HarnessLaunchPort,
+  PreparedHarness,
+  SkillsHome,
+} from '@runs/application/ports/harness-launch.port';
+import { BUILT_IN_SKILL_KEY_LIST } from '@shared-kernel/domain/built-in-skills';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
@@ -9,16 +16,10 @@ import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
 import { StationConfigMapper } from '@work/application/mappers/station-config.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
-import type {
-  HarnessLaunchPort,
-  PreparedHarness,
-  SkillsHome,
-} from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import { Attached } from '@work/application/rendering/attached';
 import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
-import { BUILT_IN_SKILL_KEY_LIST } from '@work/domain/services/built-in-skills';
 import { skillsForTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import {
@@ -35,7 +36,6 @@ import {
   type ReadyProfile,
   withoutServers,
 } from '@work/domain/value-objects/ready-profile';
-import type { RunSpecParts } from '@work/domain/value-objects/run-spec.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
@@ -59,7 +59,7 @@ export interface Laid {
 const laidOut = (
   { order, prepared, home, folders }: Ordered,
   laid: Laid,
-): RunSpecParts => ({
+): RunSpecShape => ({
   checkouts: runCheckoutsOf(order.checkouts),
   command: prepared.command.started({ [TRACE_PARENT_VAR]: laid.naming }),
   briefing: laid.briefing,
@@ -150,7 +150,7 @@ export class StationOrdering {
       return null;
     }
 
-    const home = this.launch.skillsFor(order.harness.id);
+    const home = this.launch.skillsFor(order.harness);
 
     if (!home) {
       return null;
@@ -195,7 +195,7 @@ export class StationOrdering {
   ): PreparedHarness | null {
     const profile = order.enabled.profile;
 
-    return this.launch.preparedFor(order.harness.id, {
+    return this.launch.preparedFor(order.harness, {
       model: order.model,
       effort: order.effort,
       profile: profile && readying.profile(profile),
@@ -242,7 +242,7 @@ export class StationOrdering {
   laid(
     ordered: Ordered,
     input: Pick<Laid, 'briefing' | 'naming' | 'attachments'>,
-  ): RunSpecParts {
+  ): RunSpecShape {
     return laidOut(ordered, {
       ...input,
       skillHomes: this.launch.skillHomes(),

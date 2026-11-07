@@ -18,20 +18,20 @@ import {
 } from '@replays/application/services/replay-run-dispatch.service';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { DrizzleReplayRunClaimRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-claim.repository';
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
+import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
+import {
+  WORKSPACE_ARCHIVE_STORE,
+  type WorkspaceArchiveStorePort,
+} from '@runs/application/ports/workspace-archive-store.port';
+import { RunOrderConflictError } from '@runs/domain/exceptions/run-order-conflict.error';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import type { RunOrderContract } from '@work/application/contracts/run-order.contract';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
-import { RUNS, type RunsPort } from '@work/application/ports/runs.port';
-import {
-  WORKSPACE_ARCHIVE_STORE,
-  type WorkspaceArchiveStorePort,
-} from '@work/application/ports/workspace-archive-store.port';
-import { RunOrderConflictError } from '@work/domain/exceptions/run-order-conflict.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -805,7 +805,7 @@ describe('a replay ending', () => {
     expect(row?.state).toBe('completed');
     expect(row?.askedAPerson).toBe(false);
 
-    const [ended] = await published('work.requested-run-ended.v1', replayId);
+    const [ended] = await published('runs.run-ended.v1', replayId);
     expect(ended?.payload).toMatchObject({
       requester: { owner: 'replays', kind: 'replay', id: replayId },
       ending: 'completed',
@@ -842,7 +842,7 @@ describe('a replay ending', () => {
     expect(await inboxHas(original.taskId)).toBe(false);
     expect(await notesOf(original.taskId)).toEqual([]);
 
-    const [ended] = await published('work.requested-run-ended.v1', replayId);
+    const [ended] = await published('runs.run-ended.v1', replayId);
     expect(ended?.payload).toMatchObject({
       askedAPerson: true,
       report: { next: 'review' },

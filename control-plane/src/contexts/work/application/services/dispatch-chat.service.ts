@@ -1,18 +1,18 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import {
+  RunSpecContract,
+  TRACE_PARENT_VAR,
+} from '@runs/application/contracts/run-spec.contract';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import {
-  RunSpecContract,
-  TRACE_PARENT_VAR,
-} from '@work/application/contracts/run-spec.contract';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import {
   type BriefedMemory,
@@ -41,15 +41,12 @@ import {
 } from '@work/domain/services/chat-placement';
 import { CHAT_PRIORITY } from '@work/domain/services/chat-priority';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
-import {
-  REMOTE_VIA_GIT_PROXY,
-  RunSpec,
-} from '@work/domain/value-objects/run-spec.vo';
 import {
   CHAT_RUN_API_LIFETIME_MS,
   CHAT_RUN_API_SCOPES,
-} from '@work/domain/value-objects/spotlight-api-grant.vo';
+} from '@work/domain/value-objects/chat-run-api-grant';
+import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { REMOTE_VIA_GIT_PROXY } from '@work/domain/value-objects/run-checkout';
 
 export class DispatchChat implements ChatDispatching {
   constructor(
@@ -147,7 +144,7 @@ export class DispatchChat implements ChatDispatching {
       tags: {},
       placement,
       refusals: [],
-      spec: RunSpec.of({
+      spec: {
         checkouts: chat.repositories.map((repository) => {
           const setup = chatSetupOf(repository, lines);
 
@@ -171,7 +168,7 @@ export class DispatchChat implements ChatDispatching {
         ].map(toolManifestOf),
         attachments: Attached.shapes(chat.sharedAttachments),
         ...(chat.setup ? { spotlightApi: true } : {}),
-      }),
+      },
     });
 
     return {

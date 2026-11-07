@@ -9,6 +9,10 @@ import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -21,14 +25,10 @@ import {
   type TeamMemoriesPort,
 } from '@work/application/ports/team-memories.port';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
-import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

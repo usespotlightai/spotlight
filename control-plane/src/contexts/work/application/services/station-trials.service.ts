@@ -1,3 +1,7 @@
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { JsonObject } from '@shared-kernel/domain/json-value';
@@ -7,10 +11,6 @@ import type { UntrialableReasonCode } from '@work/application/contracts/untriala
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
 import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@work/application/ports/run-facts.port';
 import type {
   StationTrialsPort,
   TrialFollowUp,
@@ -258,7 +258,7 @@ export class StationTrials implements StationTrialsPort {
         runId: runId.value,
         workspaceId: original.facts.workspaceId.value,
         team: candidate.teamId.value,
-        harness: order.harness.id.value,
+        harness: order.harness.value,
         priority: TRIAL_PRIORITY,
         placement: {
           labelGroups: order.placement.labelGroups,

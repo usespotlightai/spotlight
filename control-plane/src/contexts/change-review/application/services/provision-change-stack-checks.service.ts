@@ -2,15 +2,15 @@ import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggrega
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
-import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
-import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   CheckProvisioningPort,
   ExpiredCheck,
   WaitingCheck,
-} from '@work/application/ports/check-provisioning.port';
+} from '@runs/application/ports/check-provisioning.port';
+import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
+import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const ATTEMPTS = 3;
 

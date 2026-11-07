@@ -6,6 +6,7 @@ import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PlatformModule } from '@platform/platform.module';
 import { RunnersModule } from '@runners/runners.module';
+import { RunsModule } from '@runs/runs.module';
 import { SecretsModule } from '@secrets/secrets.module';
 import { WorkModule } from '@work/work.module';
 import { ContextBindingsModule } from './context-bindings.module';
@@ -15,6 +16,7 @@ import { ContextBindingsModule } from './context-bindings.module';
     PlatformModule,
     ScheduleModule.forRoot(),
     LinesModule,
+    RunsModule,
     WorkModule,
     RunnersModule,
     IdentityModule,

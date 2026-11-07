@@ -1,3 +1,4 @@
+import type { LeasedRun } from '@runs/application/ports/run-leases.port';
 import type {
   Tool,
   ToolOrigin,
@@ -7,7 +8,6 @@ import type {
   ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
-import type { LeasedRun } from '@work/application/ports/run-leases.port';
 import type { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import type { RunCatalog } from '@work/application/services/run-catalog.service';
 

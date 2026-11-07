@@ -1,6 +1,6 @@
+import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type { TaskRunSummary } from '@work/application/ports/run-reader.port';
 
 export const RUNNER_TRACE_READER = Symbol('RUNNER_TRACE_READER');

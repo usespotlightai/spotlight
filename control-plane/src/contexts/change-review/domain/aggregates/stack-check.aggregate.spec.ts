@@ -382,7 +382,9 @@ describe('StackCheck', () => {
     );
     redrafting.pullEvents();
 
-    const checked = redrafting.retainCheckedLayers();
+    const checked = redrafting.retainCheckedLayers(
+      new Date('2026-10-02T09:30:00.000Z'),
+    );
 
     expect(checked.statusAt(LATER)).toBe('checked');
     expect(kinds(checked)).toEqual(['stack-check.checked']);

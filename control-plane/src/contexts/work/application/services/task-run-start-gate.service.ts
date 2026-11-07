@@ -1,9 +1,9 @@
-import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import type {
   RunStartGate,
   StartDecision,
   StartingRun,
-} from '@work/application/ports/run-start-gates.port';
+} from '@runs/application/ports/run-start-gates.port';
+import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 

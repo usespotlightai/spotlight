@@ -7,9 +7,9 @@ import type {
 import type { LineResourcesPort } from '@lines/application/ports/line-resources.port';
 import type { LinesPort } from '@lines/application/ports/lines.port';
 import { Work } from '@replays/infrastructure/acl/work.adapter';
+import type { StartingPointHoldsPort } from '@runs/application/ports/starting-point-holds.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import type { StartingPointHoldsPort } from '@work/application/ports/starting-point-holds.port';
 import type {
   LiveStationConfig,
   StationConfigCandidatesPort,

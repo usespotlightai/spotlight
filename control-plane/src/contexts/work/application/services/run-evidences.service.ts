@@ -1,20 +1,19 @@
+import type { JournalStep } from '@runs/application/contracts/run-journal.contract';
+import { RunReading } from '@runs/application/contracts/run-reading.contract';
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { JournalStep } from '@work/application/contracts/run-journal.contract';
 import type {
   EvidencedHunk,
   EvidencedRun,
   EvidencedStep,
   RunEvidencePort,
 } from '@work/application/ports/run-evidence.port';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@work/application/ports/run-facts.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { hunksOf } from '@work/domain/services/change-hunks';
-import { workspacePath } from '@work/domain/services/workspace-path';
 
 const MAX_TEXT = 4_000;
 
@@ -63,8 +62,8 @@ const hunksIn = (
   }
 
   return order.flatMap((path) =>
-    hunksOf(
-      workspacePath(path, checkouts) ?? path,
+    RunReading.hunksOf(
+      RunReading.workspacePath(path, checkouts) ?? path,
       first.get(path) ?? '',
       last.get(path) ?? '',
     ),

@@ -3,6 +3,8 @@ import type {
   RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
+import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
+import { Run } from '@runs/application/ports/run-fixtures.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -29,10 +31,8 @@ import {
 } from '@work/application/services/run-works.fake-spec';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';

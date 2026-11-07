@@ -21,8 +21,8 @@ import {
   unscoped,
 } from '@platform/outbound/outbound-scope.fake-spec';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
+import type { NetworkCallsPort } from '@runs/application/ports/network-calls.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T10:00:00.000Z');

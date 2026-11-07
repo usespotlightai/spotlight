@@ -1,4 +1,5 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -16,7 +17,6 @@ import type {
   ChannelNoticesPort,
 } from '@work/application/ports/channel-notices.port';
 import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { WorkAccess } from '@work/application/services/work-access.service';

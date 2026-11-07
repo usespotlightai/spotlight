@@ -1,5 +1,5 @@
+import type { RunUsage } from '@runs/application/ports/run-usage-reader.port';
 import type { RunSpendDto } from '@work/application/dto/run-notes.dto';
-import type { RunUsage } from '@work/application/ports/run-usage-reader.port';
 
 export const RunSpendMapper = {
   toDto(usage: RunUsage): RunSpendDto {

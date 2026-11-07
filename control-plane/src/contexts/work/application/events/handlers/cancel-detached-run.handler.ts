@@ -1,5 +1,5 @@
+import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { RunsPort } from '@work/application/ports/runs.port';
 import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
 import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 

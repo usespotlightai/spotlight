@@ -2,7 +2,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { Progress } from '@work/domain/value-objects/run-state';
+import type { Progress } from '@work/domain/value-objects/progress';
 
 export const CHAT_READER = Symbol('CHAT_READER');
 

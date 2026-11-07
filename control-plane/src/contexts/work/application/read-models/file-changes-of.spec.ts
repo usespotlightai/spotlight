@@ -1,7 +1,7 @@
 import type {
   JournalStep,
   RunJournal,
-} from '@work/application/contracts/run-journal.contract';
+} from '@runs/application/contracts/run-journal.contract';
 import { fileChangesOf } from '@work/application/read-models/file-changes-of';
 import { describe, expect, it } from 'vitest';
 

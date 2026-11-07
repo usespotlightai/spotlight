@@ -1,9 +1,10 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import {
+  type RunEnded,
+  RunEndedFacts,
+} from '@work/application/services/run-ending-reactions';
 import type { ChatDeleted } from '@work/domain/events/chat-deleted.event';
-import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
-import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import {
@@ -17,27 +18,11 @@ export class DispatchRunEndings {
     private readonly clock: ClockPort,
   ) {}
 
-  onRunCompleted(event: RunCompleted): Promise<void> {
-    return this.ended(event.runId, {
-      outcome: event.outcome.failed ? 'failed' : 'completed',
-      failure: event.outcome.failure?.code ?? null,
-      stopped: event.outcome.stopped,
-    });
-  }
-
-  onRunExhausted(event: RunExhausted): Promise<void> {
-    return this.ended(event.runId, {
-      outcome: 'exhausted',
+  onRunEnded(event: RunEnded): Promise<void> {
+    return this.ended(RunEndedFacts.runId(event), {
+      outcome: event.outcome,
       failure: event.failure,
-      stopped: false,
-    });
-  }
-
-  onRunCancelled(event: RunCancelled): Promise<void> {
-    return this.ended(event.runId, {
-      outcome: 'cancelled',
-      failure: null,
-      stopped: false,
+      stopped: event.stopped,
     });
   }
 

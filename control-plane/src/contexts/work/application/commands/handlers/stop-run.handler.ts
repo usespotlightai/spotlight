@@ -1,9 +1,9 @@
+import type { RunsPort } from '@runs/application/ports/runs.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { StopRunCommand } from '@work/application/commands/stop-run.command';
-import type { RunsPort } from '@work/application/ports/runs.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';

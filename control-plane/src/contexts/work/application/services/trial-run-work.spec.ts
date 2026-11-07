@@ -1,14 +1,18 @@
+import type {
+  RunRepository,
+  WorkspaceArchiveRepository,
+} from '@runs/application/ports/run-fixtures.fake-spec';
+import {
+  Run,
+  RunFacts,
+  Runs,
+} from '@runs/application/ports/run-fixtures.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { RunFacts } from '@work/application/services/run-facts.service';
 import { aRunFor } from '@work/application/services/run-works.fake-spec';
-import { Runs } from '@work/application/services/runs.service';
 import { TrialRunWork } from '@work/application/services/trial-run-work';
-import { Run } from '@work/domain/aggregates/run.aggregate';
 import { NotAllowedForIsolatedRunError } from '@work/domain/exceptions/not-allowed-for-isolated-run.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
-import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { describe, expect, it } from 'vitest';

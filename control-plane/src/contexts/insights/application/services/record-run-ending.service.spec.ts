@@ -78,10 +78,6 @@ const recording = (runs: readonly EndedRun[]) => {
       records,
       new FactRecorder(deletions),
       inTransaction,
-      {
-        now: () => RECEIVED_AT,
-        sleep: async () => {},
-      },
     ),
     ended: (
       runId: string,
@@ -215,7 +211,12 @@ describe('recording that a run ended', () => {
   it('keeps a superseding received before the end of the run', async () => {
     const recorder = recording([endedRun('run_1')]);
 
-    await recorder.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
+    await recorder.superseding.superseded(
+      RunId.of('run_1'),
+      WORKSPACE,
+      TASK,
+      RECEIVED_AT,
+    );
     await recorder.ended('run_1');
 
     expect((await recorder.stored('run_1'))?.factWith(null, null)?.ending).toBe(
@@ -227,8 +228,18 @@ describe('recording that a run ended', () => {
     const recorder = recording([endedRun('run_1')]);
     await recorder.ended('run_1');
 
-    await recorder.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
-    await recorder.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
+    await recorder.superseding.superseded(
+      RunId.of('run_1'),
+      WORKSPACE,
+      TASK,
+      RECEIVED_AT,
+    );
+    await recorder.superseding.superseded(
+      RunId.of('run_1'),
+      WORKSPACE,
+      TASK,
+      RECEIVED_AT,
+    );
 
     const record = await recorder.stored('run_1');
     expect(record?.factWith(null, null)?.ending).toBe('superseded');
@@ -238,7 +249,12 @@ describe('recording that a run ended', () => {
   it('knows the task of a run superseded before its end was received', async () => {
     const recorder = recording([]);
 
-    await recorder.superseding.superseded(RunId.of('run_9'), WORKSPACE, TASK);
+    await recorder.superseding.superseded(
+      RunId.of('run_9'),
+      WORKSPACE,
+      TASK,
+      RECEIVED_AT,
+    );
 
     const record = await recorder.stored('run_9');
     expect(record?.taskId?.equals(TASK)).toBe(true);
@@ -247,7 +263,12 @@ describe('recording that a run ended', () => {
 
   it('records nothing of a run whose team was deleted, and lets go of what it received about the run before', async () => {
     const recorder = recording([endedRun('run_1')]);
-    await recorder.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
+    await recorder.superseding.superseded(
+      RunId.of('run_1'),
+      WORKSPACE,
+      TASK,
+      RECEIVED_AT,
+    );
     await recorder.deletions.markDeleted(
       DeletionScope.ofTeam(WORKSPACE, TeamId.of('team_1')),
     );

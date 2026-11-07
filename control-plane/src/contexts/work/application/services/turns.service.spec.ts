@@ -1,18 +1,18 @@
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
+import type {
+  RunTurnsPort,
+  TurnFacts,
+} from '@runs/application/ports/run-turns.port';
+import type { RunsPort } from '@runs/application/ports/runs.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@work/application/ports/run-facts.port';
-import type {
-  RunTurnsPort,
-  TurnFacts,
-} from '@work/application/ports/run-turns.port';
-import type { RunsPort } from '@work/application/ports/runs.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import {
   STUCK_TURNS_METRIC,
@@ -21,7 +21,6 @@ import {
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -38,7 +37,7 @@ const turnAged = (
   workspaceId: WorkspaceId.of('ws_1'),
   attempt: 1,
   turn,
-  outcome: RunOutcome.of({ exitCode: 0, failed: false }),
+  outcome: { exitCode: 0, failure: null, message: null, stopped: false },
   handover: null,
   session: null,
   reportedBy: RunnerId.of('runner_1'),

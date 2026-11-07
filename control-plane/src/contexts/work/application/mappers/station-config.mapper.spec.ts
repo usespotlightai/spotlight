@@ -1,3 +1,4 @@
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -11,7 +12,6 @@ import {
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
-import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { describe, expect, it } from 'vitest';
 
 const HASH = new Sha256ContentHash();
@@ -22,7 +22,7 @@ const LINE = {
 } as unknown as LineMap;
 
 const ORDER = {
-  harness: { id: HarnessId.of('claude-code') },
+  harness: HarnessId.of('claude-code'),
   model: null,
   effort: null,
   enabled: { profile: null, tools: [] },

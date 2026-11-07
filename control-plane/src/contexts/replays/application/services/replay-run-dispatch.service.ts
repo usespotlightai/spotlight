@@ -11,16 +11,16 @@ import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo'
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import {
+  type RunOrderContract,
+  type RunPolicyContract,
+  workspaceKeyOf,
+} from '@runs/application/contracts/run-order.contract';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  type RunOrderContract,
-  type RunPolicyContract,
-  workspaceKeyOf,
-} from '@work/application/contracts/run-order.contract';
 
 export interface ReplayRunOrder {
   readonly run: RunId;

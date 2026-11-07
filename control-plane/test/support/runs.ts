@@ -1,8 +1,8 @@
+import type { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import type { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
-import type { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 
 type DispatchRow = typeof dispatch.$inferInsert;
 

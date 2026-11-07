@@ -10,5 +10,6 @@ export class DispatchSuperseded implements DomainEvent {
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
     readonly taskId: TaskId,
+    readonly at: Date,
   ) {}
 }

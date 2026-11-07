@@ -1,5 +1,5 @@
-import type { RunRequesterContract } from '@work/application/contracts/run-order.contract';
-import type { RunSpecShape } from '@work/application/contracts/run-spec.contract';
+import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
+import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 
 export const HARNESS_COMMANDS = Symbol('HARNESS_COMMANDS');
 

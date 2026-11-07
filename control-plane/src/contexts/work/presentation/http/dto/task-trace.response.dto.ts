@@ -1,10 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { TraceConnectionDto } from '@work/application/dto/task-trace.dto';
 import {
   CONNECTION_ERRORS,
   CONNECTION_OUTCOMES,
   CONNECTION_REASONS,
-} from '@work/domain/value-objects/run-connection.vo';
+} from '@runs/application/contracts/run-reading.contract';
+import type { TraceConnectionDto } from '@work/application/dto/task-trace.dto';
 import {
   JournalStepResponseDto,
   RunSpanResponseDto,

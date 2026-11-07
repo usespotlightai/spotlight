@@ -1,10 +1,10 @@
-import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
-import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
-import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import {
   OPENING_PULL_REQUESTS,
   REVIEWING_PULL_REQUESTS,
-} from '@work/domain/services/built-in-skills';
+} from '@shared-kernel/domain/built-in-skills';
+import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 
 type ToolWorksOn = 'task' | 'chat';

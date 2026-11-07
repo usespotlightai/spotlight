@@ -1,4 +1,5 @@
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -15,7 +16,6 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { StartChatCommand } from '@work/application/commands/chat.commands';
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
 import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';

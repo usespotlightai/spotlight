@@ -17,11 +17,11 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
+import { CONTROL_PLANE_SEQ } from '@runs/application/contracts/run-journal.contract';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { CONTROL_PLANE_SEQ } from '@work/application/contracts/run-journal.contract';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import {

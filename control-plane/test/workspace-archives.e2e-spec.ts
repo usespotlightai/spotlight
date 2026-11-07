@@ -1,25 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { WorkspaceArchiveStorePort } from '@work/application/ports/workspace-archive-store.port';
-import { ArchiveHolders } from '@work/application/services/archive-holders.service';
-import { RemoveReleasedArchives } from '@work/application/services/remove-released-archives.service';
+import type { WorkspaceArchiveStorePort } from '@runs/application/ports/workspace-archive-store.port';
+import { ArchiveHolders } from '@runs/application/services/archive-holders.service';
+import { RemoveReleasedArchives } from '@runs/application/services/remove-released-archives.service';
 import {
   type ArchiveFacts,
   type StoredArchive,
   WorkspaceArchive,
-} from '@work/domain/aggregates/workspace-archive.aggregate';
-import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
-import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
-import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
-import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
-import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
-import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizzle/readers/archive-references.reader';
+} from '@runs/domain/aggregates/workspace-archive.aggregate';
+import { WorkspaceArchiveVersionConflictError } from '@runs/domain/exceptions/workspace-archive-version-conflict.error';
+import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
+import { ArchiveSize } from '@runs/domain/value-objects/archive-size.vo';
+import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
+import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
+import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
+import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { DrizzleWorkArchiveHolders } from '@work/infrastructure/persistence/drizzle/readers/work-archive-holders.reader';
-import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf } from './support/run-ended';

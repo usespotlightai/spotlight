@@ -6,14 +6,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { after, pageOf } from '@platform/persistence/drizzle/keyset';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@runs/application/ports/run-progress.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page } from '@work/application/dto/page.dto';
-import {
-  RUN_PROGRESS,
-  type RunProgressPort,
-} from '@work/application/ports/run-progress.port';
 import type {
   TaskListing,
   TaskNoteSummary,

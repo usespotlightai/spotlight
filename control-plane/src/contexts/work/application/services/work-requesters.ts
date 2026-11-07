@@ -1,11 +1,11 @@
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import {
   type RunPolicyContract,
   type RunRequesterContract,
   type RunWorkspaceContract,
   workspaceKeyOf,
-} from '@work/application/contracts/run-order.contract';
+} from '@runs/application/contracts/run-order.contract';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 

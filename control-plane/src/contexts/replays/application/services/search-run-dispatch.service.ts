@@ -7,15 +7,15 @@ import type {
 } from '@replays/application/ports/runs.port';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   type RunPolicyContract,
   type RunRequesterContract,
   workspaceKeyOf,
-} from '@work/application/contracts/run-order.contract';
+} from '@runs/application/contracts/run-order.contract';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export interface SearchRunOrder {
   readonly run: RunId;

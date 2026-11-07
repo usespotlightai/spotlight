@@ -1,3 +1,4 @@
+import { RunProgressContract } from '@runs/application/contracts/run-progress.contract';
 import type {
   TaskRunDto,
   TeamRunDto,
@@ -9,16 +10,23 @@ import type {
 import {
   type Progress,
   progressOfCurrentRun,
-} from '@work/domain/value-objects/run-state';
+} from '@work/domain/value-objects/progress';
 import type { TaskRunState } from '@work/domain/value-objects/task-run-state';
 
 const progressOfTaskRun = (
-  run: { readonly state: TaskRunState; readonly stopRequested: boolean },
+  run: {
+    readonly state: TaskRunState;
+    readonly stopRequested: boolean;
+    readonly turn?: 'pending' | 'kept' | null;
+  },
   takenUp: boolean,
 ): Progress | null =>
   run.state === 'superseded'
     ? null
-    : progressOfCurrentRun({ ...run, state: run.state }, takenUp);
+    : progressOfCurrentRun(
+        RunProgressContract.reading({ ...run, state: run.state }),
+        takenUp,
+      );
 
 export const TaskRunMapper = {
   summaryToDto(summary: TaskRunSummary): TaskRunDto {

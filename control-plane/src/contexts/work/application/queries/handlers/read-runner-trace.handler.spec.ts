@@ -1,6 +1,6 @@
+import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { connectionsInMemory } from '@work/application/ports/run-connections.fake-spec';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';

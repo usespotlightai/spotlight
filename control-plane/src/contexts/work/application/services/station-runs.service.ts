@@ -1,3 +1,4 @@
+import { RunProgressContract } from '@runs/application/contracts/run-progress.contract';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
@@ -13,7 +14,6 @@ import type {
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { visitAfter } from '@work/domain/services/station-visit';
 import { reviewedOrAll } from '@work/domain/services/task-checkouts';
-import { progressOf } from '@work/domain/value-objects/run-state';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 const PREVIEW_LIMIT = 300;
@@ -70,7 +70,7 @@ export class StationRuns implements StationRunsPort {
     const rows = await this.reader.unfinishedOfTeam(TeamId.of(teamId));
 
     return rows.flatMap(({ config, state, stopRequested, ...run }) => {
-      const progress = progressOf({ state, stopRequested });
+      const progress = RunProgressContract.of({ state, stopRequested });
 
       return progress
         ? [

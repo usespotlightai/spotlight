@@ -1,8 +1,5 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
-import {
-  PROGRESSES,
-  type Progress,
-} from '@work/domain/value-objects/run-state';
+import { PROGRESSES, type Progress } from '@work/domain/value-objects/progress';
 
 export const PROGRESS_NAMES = PROGRESSES;
 

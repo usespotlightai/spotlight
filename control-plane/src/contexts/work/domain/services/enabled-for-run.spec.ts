@@ -1,3 +1,8 @@
+import {
+  HANDING_OVER,
+  OPENING_PULL_REQUESTS,
+  USING_TOOLS,
+} from '@shared-kernel/domain/built-in-skills';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
@@ -5,11 +10,6 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
-import {
-  HANDING_OVER,
-  OPENING_PULL_REQUESTS,
-  USING_TOOLS,
-} from '@work/domain/services/built-in-skills';
 import {
   describedTools,
   enabledAt,

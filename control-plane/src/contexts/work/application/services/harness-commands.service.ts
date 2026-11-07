@@ -1,3 +1,9 @@
+import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
+import {
+  type RunSpecShape,
+  TRACE_PARENT_VAR,
+} from '@runs/application/contracts/run-spec.contract';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import { InvalidEffortError } from '@shared-kernel/domain/exceptions/invalid-effort.error';
 import { InvalidHarnessModelError } from '@shared-kernel/domain/exceptions/invalid-harness-model.error';
 import { EFFORTS, Effort } from '@shared-kernel/domain/value-objects/effort.vo';
@@ -7,17 +13,11 @@ import {
   HarnessModel,
 } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { RunRequesterContract } from '@work/application/contracts/run-order.contract';
-import {
-  type RunSpecShape,
-  TRACE_PARENT_VAR,
-} from '@work/application/contracts/run-spec.contract';
 import type {
   HarnessChoice,
   HarnessChoiceProblem,
   HarnessCommandsPort,
 } from '@work/application/ports/harness-commands.port';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 
 const refusedBy = (

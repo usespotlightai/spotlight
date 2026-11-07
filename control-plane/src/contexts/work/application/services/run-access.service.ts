@@ -1,15 +1,15 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { RunFactsPort } from '@work/application/ports/run-facts.port';
+import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
 import type {
   RunViewersPort,
   ViewedRun,
   WatchedRun,
-} from '@work/application/ports/run-viewers.port';
+} from '@runs/application/ports/run-viewers.port';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   RunsInWorkspace,
   RunsOfChat,

@@ -47,7 +47,7 @@ export class StackCheckReactions {
     const check = await this.checks.find(StackCheckId.first(stackId));
 
     if (check?.redrafting) {
-      await this.checks.save(check.retainCheckedLayers());
+      await this.checks.save(check.retainCheckedLayers(this.clock.now()));
     }
   }
 }

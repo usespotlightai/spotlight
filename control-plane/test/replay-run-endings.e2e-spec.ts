@@ -11,26 +11,26 @@ import {
   type ReplaysReactions,
   replaysSubscribers,
 } from '@replays/presentation/events/replays.subscribers';
+import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
+import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { Handover } from '@runs/domain/value-objects/handover.vo';
+import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { RunExtensions } from '@runs/domain/value-objects/run-extensions.vo';
+import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
+import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
+import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
+import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
+import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import {
+  RunWorkspace,
+  WorkspaceKey,
+} from '@runs/domain/value-objects/workspace-key.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
-import { Run } from '@work/domain/aggregates/run.aggregate';
-import { Handover } from '@work/domain/value-objects/handover.vo';
-import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { RunExtensions } from '@work/domain/value-objects/run-extensions.vo';
-import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
-import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
-import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import {
-  RunWorkspace,
-  WorkspaceKey,
-} from '@work/domain/value-objects/workspace-key.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp } from './support/app';
 
@@ -87,7 +87,7 @@ const receivedBy = async (
     ending: { ended: async (ended: ReplayRunEnded) => received.push(ended) },
   } as unknown as ReplaysReactions);
   const published = events.flatMap((event) =>
-    WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
+    RUNS_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
       (each) => each.map(event, new Date()) ?? [],
     ),
   );
@@ -207,7 +207,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     const published = ended
       .pullEvents()
       .flatMap((event) =>
-        WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
+        RUNS_EVENT_MAPPERS.filter((each) => each.from === event.kind).flatMap(
           (each) => each.map(event, new Date()) ?? [],
         ),
       );

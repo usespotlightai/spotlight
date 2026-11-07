@@ -1,9 +1,9 @@
+import type { RunProgressPort } from '@runs/application/ports/run-progress.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { RunProgressPort } from '@work/application/ports/run-progress.port';
 import {
   type Progress,
   progressOfCurrentRun,
-} from '@work/domain/value-objects/run-state';
+} from '@work/domain/value-objects/progress';
 
 export const progressOfCurrentRuns = async (
   progress: RunProgressPort,

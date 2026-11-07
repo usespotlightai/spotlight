@@ -54,6 +54,7 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
             taskId: event.taskId?.value ?? null,
             workspaceId: event.workspaceId.value,
             passed: event.passed,
+            at: event.at.toISOString(),
           };
     },
   ),

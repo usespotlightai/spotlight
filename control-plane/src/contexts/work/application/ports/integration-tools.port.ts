@@ -1,3 +1,4 @@
+import type { LeasedAttempt } from '@runs/application/ports/run-leases.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -6,7 +7,6 @@ import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
-import type { LeasedAttempt } from '@work/application/ports/run-leases.port';
 import type { PersonRule } from '@work/domain/services/stricter-rule';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type {

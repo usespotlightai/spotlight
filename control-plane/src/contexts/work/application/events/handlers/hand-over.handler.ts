@@ -1,13 +1,16 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { isRunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { lastWordsIn } from '@work/application/services/last-words';
-import type { RunOutcomes } from '@work/application/services/run-outcomes';
+import {
+  type RunEnded,
+  RunEndedFacts,
+  type RunEndingReactions,
+} from '@work/application/services/run-ending-reactions';
 import type { RunRouting } from '@work/application/services/run-routing.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { RunCompleted } from '@work/domain/events/run-completed.event';
-import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -17,7 +20,7 @@ interface WaitingTask {
   readonly line: LineMap | null;
 }
 
-export class HandOver implements RunOutcomes {
+export class HandOver implements RunEndingReactions {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly lines: LineMapsPort,
@@ -25,8 +28,18 @@ export class HandOver implements RunOutcomes {
     private readonly journals: RunJournalReaderPort,
   ) {}
 
-  async onRunCompleted(event: RunCompleted): Promise<void> {
-    if (event.outcome.handsOver) {
+  async onRunEnded(event: RunEnded): Promise<void> {
+    if (event.ending === 'completed') {
+      await this.completed(event);
+    }
+
+    if (event.ending === 'exhausted') {
+      await this.exhausted(event);
+    }
+  }
+
+  private async completed(event: RunEnded): Promise<void> {
+    if (event.handsOver) {
       return;
     }
 
@@ -36,31 +49,34 @@ export class HandOver implements RunOutcomes {
     }
 
     const { task, line } = found;
+    const runId = RunEndedFacts.runId(event);
+    const handed = RunEndedFacts.handover(event);
+    const session = RunEndedFacts.session(event);
 
     const handover = HandoverFor.after({
-      outcome: event.outcome,
-      handover: event.handover,
+      outcome: RunEndedFacts.result(event),
+      handover: handed,
       line,
       currentStation: task.stationId,
       lastWords:
-        event.reported && !event.handover
+        event.reported && !handed
           ? lastWordsIn(
-              await this.journals.attemptsOfRun(event.runId),
+              await this.journals.attemptsOfRun(runId),
               task.lastPersonNoteAt,
             )
           : null,
     });
 
-    const recorded = event.session
-      ? task.recordSession(event.runId, event.session, event.claimedBy)
+    const recorded = session
+      ? task.recordSession(runId, session, RunEndedFacts.claimedBy(event))
       : task;
 
     await this.saved(
-      await this.routing.routed(handover, recorded, line, event.runId),
+      await this.routing.routed(handover, recorded, line, runId),
     );
   }
 
-  async onRunExhausted(event: RunExhausted): Promise<void> {
+  private async exhausted(event: RunEnded): Promise<void> {
     const found = await this.waiting(event);
     if (!found) {
       return;
@@ -70,11 +86,13 @@ export class HandOver implements RunOutcomes {
       await this.routing.routed(
         HandoverFor.exhausted(
           event.expiredLeases,
-          event.failure ?? 'runner-lost',
+          event.failure !== null && isRunFailureCode(event.failure)
+            ? event.failure
+            : 'runner-lost',
         ),
         found.task,
         found.line,
-        event.runId,
+        RunEndedFacts.runId(event),
       ),
     );
   }
@@ -84,10 +102,8 @@ export class HandOver implements RunOutcomes {
     await this.tasks.save(task);
   }
 
-  private async waiting(
-    ended: RunCompleted | RunExhausted,
-  ): Promise<WaitingTask | null> {
-    const requested = WorkRequesters.decode(ended.requester.parts);
+  private async waiting(ended: RunEnded): Promise<WaitingTask | null> {
+    const requested = WorkRequesters.decode(ended.requester);
 
     if (!requested || !('task' in requested)) {
       return null;
@@ -95,7 +111,7 @@ export class HandOver implements RunOutcomes {
 
     const { task: taskId, revision } = requested;
     const task = await this.tasks.find(taskId);
-    if (!task?.hasCurrentRun(ended.runId)) {
+    if (!task?.hasCurrentRun(RunEndedFacts.runId(ended))) {
       return null;
     }
 

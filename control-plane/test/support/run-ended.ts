@@ -2,7 +2,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import {
   type RunState,
   TERMINAL_RUN_STATES,
-} from '@work/domain/value-objects/run-state';
+} from '@runs/domain/value-objects/run-state';
 import { requestedBySpec, requestedByTask } from './runs';
 import * as schema from './schema';
 

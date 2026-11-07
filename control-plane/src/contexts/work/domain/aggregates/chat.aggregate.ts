@@ -44,7 +44,6 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
-import { SpotlightApiGrant } from '@work/domain/value-objects/spotlight-api-grant.vo';
 import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -661,10 +660,6 @@ export class Chat extends EventRecorder {
     next.inheritEvents(this);
 
     return next;
-  }
-
-  apiGrantAt(now: Date): SpotlightApiGrant {
-    return SpotlightApiGrant.forChatRun(this.startedBy, now);
   }
 
   deleted(): Chat {

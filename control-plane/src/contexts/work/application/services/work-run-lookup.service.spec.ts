@@ -1,3 +1,13 @@
+import type {
+  JournalStep,
+  RunChanges,
+  RunJournal,
+} from '@runs/application/contracts/run-journal.contract';
+import type {
+  RunFacts,
+  RunFactsPort,
+} from '@runs/application/ports/run-facts.port';
+import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -8,21 +18,11 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  JournalStep,
-  RunChanges,
-  RunJournal,
-} from '@work/application/contracts/run-journal.contract';
-import type {
   DispatchedFor,
   DispatchedRunsPort,
 } from '@work/application/ports/dispatched-runs.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@work/application/ports/run-facts.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import type { RunLeasesPort } from '@work/application/ports/run-leases.port';
 import { WorkRunLookup } from '@work/application/services/work-run-lookup.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';

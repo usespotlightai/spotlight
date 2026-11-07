@@ -3,7 +3,7 @@ import type {
   JournalStep,
   RunJournal,
   RunSpan,
-} from '@work/application/contracts/run-journal.contract';
+} from '@runs/application/contracts/run-journal.contract';
 import type {
   JournalledRunDto,
   JournalStepDto,

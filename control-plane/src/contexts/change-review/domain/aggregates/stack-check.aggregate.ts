@@ -523,7 +523,7 @@ export class StackCheck extends EventRecorder {
     });
   }
 
-  retainCheckedLayers(): StackCheck {
+  retainCheckedLayers(now: Date): StackCheck {
     this.assertIn('redrafting', 'retain its layers');
 
     const checked = this.with({ status: 'checked' });
@@ -535,6 +535,7 @@ export class StackCheck extends EventRecorder {
         this.workspaceId,
         this.outcome?.whole?.passed ?? null,
         this.trial,
+        now,
       ),
     );
 
@@ -581,6 +582,7 @@ export class StackCheck extends EventRecorder {
               ? (outcome.whole?.passed ?? null)
               : null,
             this.trial,
+            now,
           ),
     );
 
