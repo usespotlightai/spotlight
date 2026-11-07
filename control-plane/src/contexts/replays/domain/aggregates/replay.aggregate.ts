@@ -11,6 +11,7 @@ import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudgin
 import { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import { ReplayEndedError } from '@replays/domain/exceptions/replay-ended.error';
@@ -1034,12 +1035,10 @@ export class Replay extends EventRecorder {
     const deleted = new Replay(this.state, true);
 
     deleted.inheritEvents(this);
+    deleted.record(
+      new ReplayDeleted(this.id, this.workspaceId, this.teamId, toCancel),
+    );
 
-    if (toCancel.length > 0) {
-      deleted.record(
-        new ReplayStopped(this.id, this.workspaceId, this.teamId, toCancel),
-      );
-    }
     if (this.isDispatching) {
       deleted.record(this.endedAs('deleted'));
     }

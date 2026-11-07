@@ -7,7 +7,7 @@ import type { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.ev
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
-  type RunEndingPublished,
+  type RunEndedByPublished,
   type RunOutcomePublished,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {
@@ -21,7 +21,7 @@ import {
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 interface Ending {
-  readonly ending: RunEndingPublished;
+  readonly endedBy: RunEndedByPublished;
   readonly outcome: RunOutcomePublished;
   readonly failure: string | null;
   readonly exitCode: number | null;
@@ -56,7 +56,7 @@ const requestedRunEnded = (
   workspaceId: event.workspaceId.value,
   requester: event.requester.parts,
   attempt: event.attempt.number,
-  ending: ending.ending,
+  endedBy: ending.endedBy,
   outcome: ending.outcome,
   failure: ending.failure,
   exitCode: ending.exitCode,
@@ -76,7 +76,7 @@ const requestedRunEnded = (
 export const RUNS_EVENT_MAPPERS = [
   mapping<RunEnded>('run.ended', (event) =>
     requestedRunEnded(event, {
-      ending: 'completed',
+      endedBy: 'turn',
       outcome: event.outcome.failed ? 'failed' : 'completed',
       failure: event.outcome.failure?.code ?? null,
       exitCode: event.outcome.exitCode.value,
@@ -104,7 +104,7 @@ export const RUNS_EVENT_MAPPERS = [
   mapping<RunExhausted>('run.exhausted', (event) =>
     requestedRunEnded(event, {
       ...NOT_REPORTED,
-      ending: 'exhausted',
+      endedBy: 'exhaustion',
       outcome: 'exhausted',
       failure: event.failure,
       expiredLeases: event.expiredLeases,
@@ -113,7 +113,7 @@ export const RUNS_EVENT_MAPPERS = [
   mapping<RunCancelled>('run.cancelled', (event) =>
     requestedRunEnded(event, {
       ...NOT_REPORTED,
-      ending: 'cancelled',
+      endedBy: 'cancellation',
       outcome: 'cancelled',
       failure: null,
     }),

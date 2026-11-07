@@ -1,3 +1,4 @@
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
@@ -38,10 +39,7 @@ export interface SearchedStation {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly runsAnAgent: boolean;
-  readonly placement: {
-    readonly labelGroups: readonly (readonly string[])[];
-    readonly image: string | null;
-  };
+  readonly placement: RunnerPlacement;
 }
 
 export interface NamedStation {

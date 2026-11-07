@@ -25,6 +25,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "facts:rebuild": "ts-node -r tsconfig-paths/register src/contexts/insights/presentation/cli/rebuild-run-facts.ts",
+    "replay-outcomes:rebuild": "ts-node -r tsconfig-paths/register src/contexts/replays/presentation/cli/rebuild-replay-outcomes.ts",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "auth:generate": "auth generate --config scripts/auth-config.ts --output src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y && node scripts/auth-schema-timestamptz.mjs src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts"
   },

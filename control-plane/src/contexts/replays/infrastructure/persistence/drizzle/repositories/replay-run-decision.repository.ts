@@ -66,6 +66,15 @@ export class DrizzleReplayRunDecisionRepository
     return rows.map(toDecision);
   }
 
+  async ofReplay(replayId: ReplayId): Promise<readonly ReplayRunDecision[]> {
+    const rows = await this.context.db
+      .select()
+      .from(replayRunDecision)
+      .where(eq(replayRunDecision.replayId, replayId.value));
+
+    return rows.map(toDecision);
+  }
+
   async add(decision: ReplayRunDecision): Promise<void> {
     const written = await this.context.db
       .insert(replayRunDecision)

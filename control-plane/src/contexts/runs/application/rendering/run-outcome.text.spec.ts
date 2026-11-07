@@ -25,7 +25,7 @@ describe('runOutcomeText', () => {
       RunOutcome.of({
         exitCode: ExitCode.of(1),
         failed: true,
-        message: ' It exited. ',
+        detail: ' It exited. ',
       }),
       'It exited.',
     ],

@@ -243,7 +243,7 @@ const searchedOf = (
       {
         candidateId: each.candidateId.value,
         name: proposal.name.value,
-        hypothesis: candidate?.hypothesis ?? null,
+        hypothesis: candidate?.hypothesis?.value ?? null,
         fingerprint: candidate?.fingerprint.value ?? null,
         changes: changesOf(candidate),
         replayId: each.replayId.value,

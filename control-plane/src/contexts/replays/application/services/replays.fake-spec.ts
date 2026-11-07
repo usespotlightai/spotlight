@@ -86,7 +86,6 @@ import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/r
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
-import { servingBaselineOf } from '@replays/domain/services/baseline';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
@@ -136,7 +135,7 @@ export const candidateRowOf = (candidate: Candidate): ReplayedCandidateRow => ({
   isOracle: candidate.isOracle,
   fingerprint: candidate.fingerprint,
   basedOn: candidate.basedOn,
-  hypothesis: candidate.search?.hypothesis.value ?? null,
+  hypothesis: candidate.search?.hypothesis ?? null,
   changes: candidate.changedFrom.changes,
 });
 
@@ -209,14 +208,12 @@ export class InMemoryReplays {
         outcomesWhere((each) =>
           searchIds.some((id) => each.searchId?.equals(id) ?? false),
         ),
-      baselinesOfSets: async (setIds) =>
-        setIds.flatMap((id) => {
-          const found = servingBaselineOf(
-            outcomesWhere((each) => each.setId.equals(id)),
-          );
-
-          return found ? [found] : [];
-        }),
+      servingBaselinesOfSets: async (setIds) =>
+        outcomesWhere(
+          (each) =>
+            each.servesAsBaseline &&
+            setIds.some((id) => each.setId.equals(id)),
+        ),
       healthSamplesOfSets: async (setIds) =>
         outcomesWhere(
           (each) =>
@@ -707,13 +704,11 @@ class FakeRunDispatch implements ReplayRunDispatching, SearchRunDispatching {
 
   readonly searchesDispatched: SearchRunOrder[] = [];
 
-  searchProblem: string | null = null;
+  searchRefused = false;
 
   dispatchSearch = async (order: SearchRunOrder): Promise<SearchRunQueued> => {
     this.searchesDispatched.push(order);
-    return this.searchProblem === null
-      ? { queued: true }
-      : { queued: false, reason: this.searchProblem };
+    return { queued: !this.searchRefused };
   };
 
   readonly cancelledSearchRuns: string[] = [];
@@ -1142,6 +1137,11 @@ export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
   ofTeam = async (teamId: TeamId) =>
     [...this.decisions.values()].filter((each) =>
       each.owner.teamId.equals(teamId),
+    );
+
+  ofReplay = async (replayId: ReplayId) =>
+    [...this.decisions.values()].filter((each) =>
+      each.owner.replayId.equals(replayId),
     );
 
   add = async (decision: ReplayRunDecision) => {

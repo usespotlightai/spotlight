@@ -49,11 +49,11 @@ export class NotifyChannel implements RunEndingReactions {
   }
 
   async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
-    if (event.ending === 'completed') {
+    if (event.endedBy === 'turn') {
       await this.completed(event);
     }
 
-    if (event.ending === 'exhausted') {
+    if (event.endedBy === 'exhaustion') {
       await this.exhausted(event);
     }
   }

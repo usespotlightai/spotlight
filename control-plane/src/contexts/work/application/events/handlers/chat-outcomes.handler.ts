@@ -17,7 +17,7 @@ export class ChatOutcomes implements RunEndingReactions {
   ) {}
 
   async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
-    if (event.ending === 'cancelled') {
+    if (event.endedBy === 'cancellation') {
       return;
     }
 
@@ -31,7 +31,7 @@ export class ChatOutcomes implements RunEndingReactions {
       return;
     }
 
-    if (event.ending === 'exhausted') {
+    if (event.endedBy === 'exhaustion') {
       await this.chats.save(chat.runEndedWithoutSession(runId));
       return;
     }

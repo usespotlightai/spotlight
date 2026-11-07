@@ -108,7 +108,7 @@ const enqueueingOf = (
 ): RunEnqueueing =>
   enqueued.outcome === 'enqueued'
     ? { outcome: 'enqueued' }
-    : { outcome: 'refused', reason: enqueued.reason };
+    : { outcome: 'refused' };
 
 export class Runs implements RunsPort {
   constructor(
@@ -149,7 +149,7 @@ export class Runs implements RunsPort {
         priority: SEARCH_PRIORITY,
         placement: {
           labelGroups: order.placement.labelGroups,
-          image: order.placement.image,
+          image: order.placement.image?.value ?? null,
         },
         spec: {
           command,

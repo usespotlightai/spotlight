@@ -407,32 +407,9 @@ export class DrizzleReplayRepository implements ReplayRepository {
     setIds: readonly ReplaySetId[],
     perGroup: number,
   ): Promise<readonly Replay[]> {
-    if (setIds.length === 0) {
-      return [];
-    }
-
-    const ranked = this.context.db
-      .select({
-        id: replay.id,
-        place:
-          sql<number>`rank() over (partition by ${replay.setId}, ${replay.healthSampleGroup} order by ${replay.sampledAt} desc)`.as(
-            'place',
-          ),
-      })
-      .from(replay)
-      .where(
-        and(
-          inArray(replay.setId, [...new Set(setIds.map((each) => each.value))]),
-          isNotNull(replay.healthSampleGroup),
-        ),
-      )
-      .as('ranked');
-    const rows = await this.context.db
-      .select({ id: ranked.id })
-      .from(ranked)
-      .where(lte(ranked.place, perGroup));
-
-    return this.findMany(rows.map((each) => ReplayId.of(each.id)));
+    return this.findMany(
+      await this.outcomes.healthSampleCandidatesOf(setIds, perGroup),
+    );
   }
 
   async pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]> {
@@ -552,10 +529,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       candidateId: aggregate.candidateId.value,
       liveCandidate: aggregate.liveCandidate,
       baseline: aggregate.baseline,
-      servesAsBaseline: aggregate.servesAsBaseline,
       takesPairings: aggregate.takesPairings,
-      healthSampleGroup: aggregate.healthSampleGroup?.value ?? null,
-      sampledAt: aggregate.sampledAt,
       judges: aggregate.judges,
       checked: aggregate.checked,
       rubricVersion: aggregate.rubricVersion,

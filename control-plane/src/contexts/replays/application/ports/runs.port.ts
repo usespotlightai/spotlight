@@ -1,3 +1,4 @@
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { OrderedTrial } from '@replays/application/ports/station-trials.port';
 import type { SearchRunFact } from '@replays/domain/services/search-reconciliation';
 import type { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
@@ -10,7 +11,7 @@ export const RUNS = Symbol('REPLAYS_RUNS');
 
 export type RunEnqueueing =
   | { readonly outcome: 'enqueued' }
-  | { readonly outcome: 'refused'; readonly reason: string }
+  | { readonly outcome: 'refused' }
   | { readonly outcome: 'harness-unavailable' };
 
 export type QueuedRunCancellation =
@@ -38,10 +39,7 @@ export interface SearchAgentRun {
   readonly teamId: TeamId;
   readonly agent: SearchAgent;
   readonly briefing: string;
-  readonly placement: {
-    readonly labelGroups: readonly (readonly string[])[];
-    readonly image: string | null;
-  };
+  readonly placement: RunnerPlacement;
 }
 
 export interface RunsPort {

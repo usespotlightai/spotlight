@@ -55,7 +55,7 @@ export const runEnded = (
   workspaceId: 'ws_1',
   requester: requestedBy.task(),
   attempt: 1,
-  ending: 'completed',
+  endedBy: 'turn',
   outcome: 'completed',
   failure: null,
   exitCode: 0,
@@ -118,7 +118,7 @@ export const runExhausted = (
 ): RunEndedIntegrationEvent =>
   runEnded({
     ...NOT_REPORTED,
-    ending: 'exhausted',
+    endedBy: 'exhaustion',
     outcome: 'exhausted',
     attempt: 3,
     expiredLeases: 3,
@@ -130,7 +130,7 @@ export const runCancelled = (
 ): RunEndedIntegrationEvent =>
   runEnded({
     ...NOT_REPORTED,
-    ending: 'cancelled',
+    endedBy: 'cancellation',
     outcome: 'cancelled',
     ...part,
   });

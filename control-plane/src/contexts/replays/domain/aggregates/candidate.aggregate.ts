@@ -1,7 +1,11 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind';
+import {
+  type CandidateKind,
+  isLiveKind,
+  isOracleKind,
+} from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
@@ -232,11 +236,11 @@ export class Candidate extends EventRecorder {
   }
 
   get isLive(): boolean {
-    return this.state.kind === 'live';
+    return isLiveKind(this.state.kind);
   }
 
   get isOracle(): boolean {
-    return this.state.kind === 'oracle';
+    return isOracleKind(this.state.kind);
   }
 
   get basedOn(): StationFingerprint {

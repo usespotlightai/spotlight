@@ -81,7 +81,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           team: 'team_1',
         },
         attempt: 1,
-        ending: 'completed',
+        endedBy: 'turn',
         outcome: 'completed',
         failure: null,
         exitCode: 0,
@@ -227,7 +227,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           team: 'team_1',
         },
         attempt: 1,
-        ending: 'completed',
+        endedBy: 'turn',
         outcome: 'completed',
         failure: null,
         exitCode: 0,
@@ -261,7 +261,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
     ).toEqual([
       expect.objectContaining({
         kind: 'runs.run-ended.v1',
-        ending: 'exhausted',
+        endedBy: 'exhaustion',
         outcome: 'exhausted',
         failure: 'runner-lost',
         askedAPerson: false,
@@ -286,7 +286,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       expect.objectContaining({
-        ending: 'cancelled',
+        endedBy: 'cancellation',
         outcome: 'cancelled',
         started: true,
         requester: expect.objectContaining({ kind: 'search', id: 'search_1' }),

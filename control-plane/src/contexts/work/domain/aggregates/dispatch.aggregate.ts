@@ -81,13 +81,14 @@ const problemOf = (state: DispatchState): string | null => {
     return 'was both refused and enqueued';
   }
 
-  if (
-    state.subject.kind !== 'trial' &&
-    !state.enqueued &&
-    !state.refused &&
-    !state.order
-  ) {
-    return 'waits to be enqueued without an order';
+  if (state.subject.kind === 'trial' && state.enqueued) {
+    return 'is a trial, which its requester enqueues, yet records an enqueue';
+  }
+
+  if (!state.enqueued && !state.refused && !state.order) {
+    return state.subject.kind === 'trial'
+      ? 'is a trial without the order its requester enqueues'
+      : 'waits to be enqueued without an order';
   }
 
   return null;
@@ -262,6 +263,12 @@ export class Dispatch extends EventRecorder {
   }
 
   enqueuedAsRun(): Dispatch {
+    if (this.state.subject.kind === 'trial') {
+      throw new InvalidDispatchTransitionError(
+        `Run ${this.id.value} is a trial. Its requester enqueues it.`,
+      );
+    }
+
     if (this.state.refused) {
       throw new InvalidDispatchTransitionError(
         `Run ${this.id.value} was refused. It cannot be enqueued.`,
@@ -274,10 +281,7 @@ export class Dispatch extends EventRecorder {
 
     const enqueued = this.with({ enqueued: true, order: null });
 
-    if (
-      this.state.subject.kind !== 'trial' &&
-      this.state.briefedMemories.briefed.length > 0
-    ) {
+    if (this.state.briefedMemories.briefed.length > 0) {
       enqueued.record(
         new DispatchBriefed(
           this.id,

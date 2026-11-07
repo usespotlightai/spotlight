@@ -1,3 +1,6 @@
+import { StartGateUnavailableError } from '@runs/application/ports/run-start-gates.port';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -16,14 +19,17 @@ import { describe, expect, it, vi } from 'vitest';
 const UNTIL = new Date('2026-09-26T09:00:10.000Z');
 const TEAM = TeamId.of('team_1');
 
-const gating = (viewed = true) => {
+const gating = (viewed = true, failure: Error | null = null) => {
   const of = vi.fn(async (taskId: string, runId: string | null) =>
     viewed ? ({ taskId, runId } as unknown as TaskViewDto) : null,
   );
-  const before = vi.fn(async () => ({
-    kind: 'denied' as const,
-    reason: 'frozen',
-  }));
+  const before = vi.fn(async () => {
+    if (failure) {
+      throw failure;
+    }
+
+    return { kind: 'denied' as const, reason: 'frozen' };
+  });
 
   return {
     of,
@@ -85,5 +91,41 @@ describe('TaskRunStartGate', () => {
       ),
     ).toEqual({ kind: 'allowed' });
     expect(before).not.toHaveBeenCalled();
+  });
+
+  describe('when the hooks cannot answer', () => {
+    const taskRun = starting(
+      WorkRequesters.task(TaskId.of('task_1'), TaskRevision.of(0), TEAM),
+    );
+
+    it('reports the gate unavailable for a store or upstream failure', async () => {
+      await expect(
+        gating(true, new Error('connect ECONNREFUSED')).gate.mayStart(
+          taskRun,
+          UNTIL,
+        ),
+      ).rejects.toBeInstanceOf(StartGateUnavailableError);
+      await expect(
+        gating(true, new UpstreamError('hook', 'timed out')).gate.mayStart(
+          taskRun,
+          UNTIL,
+        ),
+      ).rejects.toBeInstanceOf(StartGateUnavailableError);
+    });
+
+    it('lets a domain or programming error through', async () => {
+      await expect(
+        gating(true, new InconsistentStateError('hook', 'is torn')).gate.mayStart(
+          taskRun,
+          UNTIL,
+        ),
+      ).rejects.toBeInstanceOf(InconsistentStateError);
+      await expect(
+        gating(true, new TypeError('x is undefined')).gate.mayStart(
+          taskRun,
+          UNTIL,
+        ),
+      ).rejects.toBeInstanceOf(TypeError);
+    });
   });
 });

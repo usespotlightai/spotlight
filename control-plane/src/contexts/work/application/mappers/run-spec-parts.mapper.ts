@@ -27,9 +27,9 @@ export const RunSpecPartsMapper = {
   },
 
   resume(resume: {
-    readonly sessionId: { readonly value: string } | null;
+    readonly session: { readonly value: string } | null;
   }): RunResumeShape {
-    return resume.sessionId ? { sessionId: resume.sessionId.value } : {};
+    return resume.session ? { sessionId: resume.session.value } : {};
   },
 
   traced(command: RunCommandShape, traceParent: string): RunCommandShape {

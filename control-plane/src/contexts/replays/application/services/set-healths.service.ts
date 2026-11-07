@@ -5,6 +5,7 @@ import type { ReplayRepository } from '@replays/domain/repositories/replay.repos
 import { minGainUnder } from '@replays/domain/services/gain-estimate';
 import {
   HEALTH_SAMPLES_PER_GROUP,
+  healthReplaysOf,
   healthSamplesOf,
   missingReferencesOf,
   type SetHealth,
@@ -71,12 +72,11 @@ export class SetHealths {
     const references = await Promise.all(
       missingReferencesOf(read).map((each) => this.replays.find(each)),
     );
-    const replayed = [
-      ...read,
-      ...references.flatMap((each) => (each ? [each] : [])),
-    ]
-      .filter((each) => each.setId.equals(set.id))
-      .map((each) => each.outcome());
+    const replayed = healthReplaysOf(
+      read,
+      references.flatMap((each) => (each ? [each] : [])),
+      set.id,
+    ).map((each) => each.outcome());
     const candidates =
       replayed.length === 0
         ? []

@@ -1,6 +1,6 @@
 export const RUN_ENDED = 'runs.run-ended.v1';
 
-export type RunEndingPublished = 'completed' | 'exhausted' | 'cancelled';
+export type RunEndedByPublished = 'turn' | 'exhaustion' | 'cancellation';
 
 export type RunOutcomePublished =
   | 'completed'
@@ -29,7 +29,7 @@ export type RunEndedIntegrationEvent = {
   readonly workspaceId: string;
   readonly requester: RunRequesterPublished;
   readonly attempt: number;
-  readonly ending: RunEndingPublished;
+  readonly endedBy: RunEndedByPublished;
   readonly outcome: RunOutcomePublished;
   readonly failure: string | null;
   readonly exitCode: number | null;

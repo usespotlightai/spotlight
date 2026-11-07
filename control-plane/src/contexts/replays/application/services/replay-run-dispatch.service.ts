@@ -110,7 +110,7 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
 
     if (!ordering.ordered) {
       const refused = await this.changed(order.run, (each) =>
-        each.mayQueue ? each.unreplayable(ordering.unreplayableReason) : each,
+        each.unreplayable(ordering.unreplayableReason),
       );
 
       return unqueuedOf(refused);
@@ -118,12 +118,10 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
 
     const { trial } = ordering;
     const ordered = await this.changed(order.run, (each) =>
-      each.mayQueue
-        ? each.ordered({
-            fingerprint: trial.fingerprint,
-            movesOnAfter: trial.movesOnAfter,
-          })
-        : each,
+      each.ordered({
+        fingerprint: trial.fingerprint,
+        movesOnAfter: trial.movesOnAfter,
+      }),
     );
 
     if (!ordered.mayQueue) {
@@ -136,7 +134,7 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
     if (enqueued.outcome !== 'enqueued') {
       await this.trials.withdraw(order.run);
       const refused = await this.changed(order.run, (each) =>
-        each.mayQueue ? each.unreplayable('cannot-start') : each,
+        each.unreplayable('cannot-start'),
       );
 
       return unqueuedOf(refused);

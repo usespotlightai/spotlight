@@ -11,6 +11,7 @@ import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo
 import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { JudgeScaleKind } from '@shared-kernel/domain/value-objects/judge-scale.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -105,6 +106,21 @@ export class ReplayOutcome {
   private constructor(private readonly state: ReplayOutcomeState) {}
 
   static of(state: ReplayOutcomeState): ReplayOutcome {
+    const strayEntry = state.entries.find(
+      (each) =>
+        !Number.isInteger(each.repeat) ||
+        each.repeat < 1 ||
+        each.repeat > state.repeats ||
+        !state.originals.some((original) => original.equals(each.original)),
+    );
+
+    if (strayEntry) {
+      throw new InconsistentStateError(
+        'replay outcome',
+        `holds entry ${strayEntry.position} outside its ${state.repeats} repeats of its original runs`,
+      );
+    }
+
     return new ReplayOutcome({
       ...state,
       runSubset: state.runSubset && [...state.runSubset],

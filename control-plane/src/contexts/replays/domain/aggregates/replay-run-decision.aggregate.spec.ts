@@ -33,13 +33,12 @@ const ending = (handsOver: boolean, next: string | null) => ({
 
 describe('ReplayRunDecision', () => {
   it('records the trial it ordered only while it may still queue the run', () => {
+    const settled = ReplayRunDecision.decidedToCancel(RUN, OWNER);
+
     expect(ordered().trial?.movesOnAfter.words).toEqual(['ship', 'done']);
-    expect(() =>
-      ReplayRunDecision.decidedToCancel(RUN, OWNER).ordered({
-        fingerprint: null,
-        movesOnAfter: MovesOnWords.of([]),
-      }),
-    ).toThrow(InconsistentStateError);
+    expect(
+      settled.ordered({ fingerprint: null, movesOnAfter: MovesOnWords.of([]) }),
+    ).toBe(settled);
   });
 
   it('is cancelled from queued, and stays as it is once settled', () => {
@@ -48,9 +47,7 @@ describe('ReplayRunDecision', () => {
     expect(cancelled.mayQueue).toBe(false);
     expect(cancelled.trial?.fingerprint).toBe(FINGERPRINT);
     expect(cancelled.cancelled()).toBe(cancelled);
-    expect(() => cancelled.unreplayable('cannot-start')).toThrow(
-      InconsistentStateError,
-    );
+    expect(cancelled.unreplayable('cannot-start')).toBe(cancelled);
   });
 
   it('says a replay asked a person when it handed over and did not move on', () => {

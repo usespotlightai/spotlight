@@ -606,11 +606,11 @@ describe('Task, what it is doing', () => {
     it('hands the conversation to the next run', () => {
       const carried = sessionRecorded().resume();
 
-      expect(carried.sessionId).toEqual(session);
+      expect(carried.session).toEqual(session);
     });
 
     it('requests no conversation when there is none to return to', () => {
-      expect(added().resume().sessionId).toBeNull();
+      expect(added().resume().session).toBeNull();
     });
 
     it('survives a person answering what it was waiting on', () => {
@@ -1656,6 +1656,12 @@ describe('Task, what it is doing', () => {
           ],
         }),
       ).toThrow(InconsistentStateError);
+    });
+
+    it('refuses a negative version', () => {
+      expect(() => Task.rehydrate({ ...added(), version: -1 })).toThrow(
+        InconsistentStateError,
+      );
     });
   });
 

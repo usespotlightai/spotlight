@@ -1,4 +1,4 @@
-import { NotAllowedInIsolatedRunError } from '@memory/domain/exceptions/not-allowed-in-isolated-run.error';
+import { NotAllowedWithoutMemoriesError } from '@memory/domain/exceptions/not-allowed-without-memories.error';
 
 export interface RunIsolation {
   readonly isolated: boolean;
@@ -8,11 +8,11 @@ export interface RunIsolation {
 export const usesMemories = (run: RunIsolation): boolean =>
   !run.isolated || run.trial;
 
-export const notAllowedInIsolatedRun = (
+export const notAllowedWithoutMemories = (
   run: RunIsolation,
   what: string,
 ): void => {
   if (!usesMemories(run)) {
-    throw new NotAllowedInIsolatedRunError(what);
+    throw new NotAllowedWithoutMemoriesError(what);
   }
 };

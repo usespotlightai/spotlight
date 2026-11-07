@@ -199,7 +199,7 @@ export const EXPECTED_ERROR_STATUSES: Readonly<Record<string, number>> = {
   'contexts/memory/domain/exceptions/memory-draft-version-conflict.error: MemoryDraftVersionConflictError': 409,
   'contexts/memory/domain/exceptions/memory-version-conflict.error: MemoryVersionConflictError': 409,
   'contexts/memory/domain/exceptions/not-allowed-as-of-past-time.error: NotAllowedAsOfPastTimeError': 409,
-  'contexts/memory/domain/exceptions/not-allowed-in-isolated-run.error: NotAllowedInIsolatedRunError': 409,
+  'contexts/memory/domain/exceptions/not-allowed-without-memories.error: NotAllowedWithoutMemoriesError': 409,
   'contexts/memory/domain/exceptions/team-not-found.error: TeamNotFoundError': 404,
   'contexts/memory/domain/exceptions/unknown-memory.error: UnknownMemoryError': 404,
   'contexts/memory/domain/exceptions/unknown-run.error: UnknownRunError': 404,

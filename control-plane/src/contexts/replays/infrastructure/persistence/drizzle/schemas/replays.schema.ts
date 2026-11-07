@@ -378,10 +378,7 @@ export const replay = pgTable(
     candidateId: text('candidate_id').notNull(),
     liveCandidate: boolean('live_candidate').notNull(),
     baseline: boolean('baseline').notNull(),
-    servesAsBaseline: boolean('serves_as_baseline').notNull(),
     takesPairings: boolean('takes_pairings').notNull(),
-    healthSampleGroup: text('health_sample_group'),
-    sampledAt: timestamptz('sampled_at').notNull(),
     judges: boolean('judges').notNull(),
     checked: boolean('checked').notNull(),
     rubricVersion: text('rubric_version'),
@@ -411,12 +408,6 @@ export const replay = pgTable(
       isCurrencyCode(table.ceilingCurrency),
     ),
     index('replay_set_idx').on(table.setId),
-    index('replay_set_baseline_idx')
-      .on(table.setId, table.startedAt)
-      .where(sql`${table.servesAsBaseline}`),
-    index('replay_set_health_sample_idx')
-      .on(table.setId, table.healthSampleGroup, table.sampledAt)
-      .where(sql`${table.healthSampleGroup} is not null`),
     index('replay_candidate_idx').on(table.candidateId),
     index('replay_team_state_idx').on(table.teamId, table.state),
     index('replay_team_started_idx').on(table.teamId, table.startedAt),
@@ -946,6 +937,7 @@ export const replayRunDecision = pgTable(
   },
   (table) => [
     index('replay_run_decision_team_idx').on(table.teamId),
+    index('replay_run_decision_replay_idx').on(table.replayId),
     check(
       'replay_run_decision_unreplayable_reason',
       sql`(${table.decided} = 'unreplayable') = (${table.unreplayableReason} is not null)`,

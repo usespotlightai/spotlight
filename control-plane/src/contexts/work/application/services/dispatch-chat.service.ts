@@ -96,7 +96,7 @@ export class DispatchChat implements ChatDispatching {
       return null;
     }
 
-    const memories = resume.sessionId
+    const memories = resume.session
       ? NOTHING_REMEMBERED
       : await this.savepoint
           .inSavepoint(() =>
@@ -117,7 +117,7 @@ export class DispatchChat implements ChatDispatching {
             return NOTHING_REMEMBERED;
           });
     const offered = await this.extensions.offeredTo(chat);
-    const briefing = resume.sessionId
+    const briefing = resume.session
       ? ChatBriefing.followUp(chat, handed)
       : await this.briefed(chat, memories.briefed, memories.folder, offered);
 

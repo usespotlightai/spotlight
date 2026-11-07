@@ -668,8 +668,8 @@ describe('Chat', () => {
       })
       .chat.resume();
 
-    expect(plain.sessionId).toBeNull();
-    expect(resume.sessionId?.value).toBe('session_1');
+    expect(plain.session).toBeNull();
+    expect(resume.session?.value).toBe('session_1');
   });
 
   it('takes a proposal only from the run working it', () => {

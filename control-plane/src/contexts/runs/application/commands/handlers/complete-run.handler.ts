@@ -48,7 +48,7 @@ export class CompleteRunHandler
             exitCode: ExitCode.of(command.exitCode),
             failed: command.failed,
             setupFailed: command.setupFailed,
-            message: command.message,
+            detail: command.message,
           });
       const run = await this.found(runId);
       const files = outcome.handsOver
@@ -82,7 +82,7 @@ export class CompleteRunHandler
     run: Run,
     ids: readonly string[],
   ): Promise<readonly RunFileFacts[]> {
-    if (ids.length === 0 || !run.policy.actsBeyondItself) {
+    if (ids.length === 0 || !run.handsOverFiles) {
       return [];
     }
 

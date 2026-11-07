@@ -128,14 +128,10 @@ export class ReplayRunDecision {
   }
 
   ordered(trial: DecidedTrial): ReplayRunDecision {
-    if (!this.mayQueue) {
-      throw new InconsistentStateError(
-        HOLDER,
-        'records the trial it ordered only while it is decided to queue the run',
-      );
-    }
-
-    if (this.state.trial && sameTrial(this.state.trial, trial)) {
+    if (
+      !this.mayQueue ||
+      (this.state.trial && sameTrial(this.state.trial, trial))
+    ) {
       return this;
     }
 
@@ -143,14 +139,9 @@ export class ReplayRunDecision {
   }
 
   unreplayable(unreplayableReason: UnreplayableReason): ReplayRunDecision {
-    if (!this.mayQueue) {
-      throw new InconsistentStateError(
-        HOLDER,
-        'becomes unreplayable only while it is decided to queue the run',
-      );
-    }
-
-    return this.with({ decided: 'unreplayable', unreplayableReason });
+    return this.mayQueue
+      ? this.with({ decided: 'unreplayable', unreplayableReason })
+      : this;
   }
 
   cancelled(): ReplayRunDecision {

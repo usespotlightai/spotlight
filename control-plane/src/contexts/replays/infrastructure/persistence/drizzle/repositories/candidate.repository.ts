@@ -6,16 +6,15 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
-import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
-import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
+import { candidateSearchOf } from '@replays/infrastructure/persistence/drizzle/mappers/candidate-search.mapper';
 import { replayCandidate } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -30,15 +29,6 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
 
 type CandidateRow = typeof replayCandidate.$inferSelect;
-
-const searchOf = (row: CandidateRow) =>
-  row.searchId !== null && row.iteration !== null && row.hypothesis !== null
-    ? {
-        searchId: SearchId.of(row.searchId),
-        iteration: row.iteration,
-        hypothesis: Hypothesis.of(row.hypothesis),
-      }
-    : null;
 
 const referenceOf = (row: CandidateRow): PlannedReference | null =>
   row.kind === 'planned'
@@ -96,7 +86,7 @@ const toCandidate = (row: CandidateRow): Candidate =>
       StationFingerprint.of(row.changedFrom),
       row.changes,
     ),
-    search: searchOf(row),
+    search: candidateSearchOf(row),
     reference: referenceOf(row),
     createdAt: row.createdAt,
     version: row.version,

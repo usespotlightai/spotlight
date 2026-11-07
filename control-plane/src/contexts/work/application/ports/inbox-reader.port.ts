@@ -167,7 +167,7 @@ export interface InboxScope {
   readonly workspaceId: string;
   readonly viewer: UserId;
   readonly teamsSeen: ReadonlySet<string>;
-  readonly teamsRead: ReadonlySet<string>;
+  readonly teamsActedOn: ReadonlySet<string>;
 }
 
 export interface InboxReaderPort {

@@ -3,7 +3,7 @@ import type { TaskRunSummary } from '@work/application/ports/run-reader.port';
 
 export const labelledRun = (run: TaskRunSummary): RunToTrace => ({
   id: run.id,
-  station: run.station && { name: run.station.name },
+  label: run.station?.name ?? null,
   harness: run.harness,
   failed: run.state === 'failed',
   attempt: run.attempt,

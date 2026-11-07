@@ -1,10 +1,7 @@
 import type { Handover } from '@runs/domain/value-objects/handover.vo';
 import type { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
-import type {
-  RunEnding,
-  RunOutcome,
-} from '@runs/domain/value-objects/run-outcome.vo';
+import type { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -28,8 +25,4 @@ export class RunEnded implements DomainEvent {
     readonly reported: boolean,
     readonly endedAt: Date,
   ) {}
-
-  get ending(): RunEnding {
-    return this.outcome.ending;
-  }
 }

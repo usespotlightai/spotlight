@@ -23,6 +23,7 @@ import { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-
 import { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import { SearchDeleted } from '@replays/domain/events/search-deleted.event';
@@ -149,6 +150,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplaySetDeleted,
   ReplaySetStationGone,
   ReplayStopped,
+  ReplayDeleted,
   MovesOnWords,
   HealthSampleGroup,
   ReplaysRequester,

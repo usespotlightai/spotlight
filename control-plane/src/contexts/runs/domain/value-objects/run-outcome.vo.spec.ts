@@ -3,18 +3,6 @@ import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('RunOutcome', () => {
-  it('names how the run ended', () => {
-    expect(
-      [
-        RunOutcome.of({ exitCode: ExitCode.of(0), failed: false }),
-        RunOutcome.of({ exitCode: ExitCode.of(1), failed: true }),
-        RunOutcome.stopped(ExitCode.of(0)),
-        RunOutcome.refused([{ description: 'names no harness' }]),
-        RunOutcome.cancelled('Task moved on'),
-      ].map((each) => each.ending),
-    ).toEqual(['completed', 'failed', 'stopped', 'refused', 'cancelled']);
-  });
-
   it('tells a run that failed before its agent was handed it from one whose agent failed', () => {
     expect(
       RunOutcome.of({

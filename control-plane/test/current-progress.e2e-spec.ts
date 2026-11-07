@@ -160,7 +160,7 @@ const inboxWith = async (
     workspaceId,
     viewer: UserId.of(viewer),
     teamsSeen: new Set(['team_1']),
-    teamsRead: new Set(),
+    teamsActedOn: new Set(),
   });
 
   const onBoard = await tasks.findInTeam(

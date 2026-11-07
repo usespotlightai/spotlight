@@ -14,7 +14,7 @@ import {
 } from '@runs/application/queries/handlers/list-harnesses.handler';
 import { HostRequirementsQuery } from '@runs/application/queries/host.queries';
 import { ListHarnessesQuery } from '@runs/application/queries/list-harnesses.query';
-import { MIN_RUNNER_RELEASE } from '@runs/domain/value-objects/min-runner-release';
+import { MIN_RUNNER_RELEASE } from '@runs/application/contracts/least-runner-release.contract';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';

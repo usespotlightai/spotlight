@@ -26,11 +26,7 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const UNBRIEFED: SearchRunQueued = {
-  queued: false,
-  reason:
-    'the config it started from is gone, or it had no failing task to look into',
-};
+const UNBRIEFED: SearchRunQueued = { queued: false };
 
 interface ReflectionFocus {
   readonly incumbent: CandidateId;

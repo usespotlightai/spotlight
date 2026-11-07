@@ -52,6 +52,10 @@ describe('InboundDelivery', () => {
     expect(delivery.causeFiringId).toBeNull();
   });
 
+  it('is known by its integration, team and delivery id', () => {
+    expect(received().receivedAs).toBe('delivery:github::d_1');
+  });
+
   it('refuses a delivery without an id', () => {
     expect(() => InboundDeliveryId.of(' ')).toThrow(
       InvalidIntegrationPartError,

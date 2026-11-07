@@ -1,6 +1,6 @@
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import { NotAllowedInIsolatedRunError } from '@memory/domain/exceptions/not-allowed-in-isolated-run.error';
+import { NotAllowedWithoutMemoriesError } from '@memory/domain/exceptions/not-allowed-without-memories.error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -32,7 +32,7 @@ describe('a run that recalls memories', () => {
         RunId.of('run_1'),
         RunnerId.of('runner_1'),
       ),
-    ).rejects.toThrow(NotAllowedInIsolatedRunError);
+    ).rejects.toThrow(NotAllowedWithoutMemoriesError);
     await expect(
       loader(leasedRun(false)).recalling(
         RunId.of('run_1'),

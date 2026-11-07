@@ -43,7 +43,7 @@ const linesOf = (lines: readonly LineMap[]): string =>
         ),
       ].join('\n\n');
 
-const workspaceOf = (chat: Chat): string =>
+const workingCopyOf = (chat: Chat): string =>
   chat.repositories.length === 0
     ? '## The workspace\n\nNo repository is checked out. Ask where the code lives if you need to read it.'
     : [
@@ -122,7 +122,7 @@ export const ChatBriefing = {
     return [
       setup ? SettingUp.opening(input.team) : opening(input.team),
       linesOf(input.lines),
-      workspaceOf(input.chat),
+      workingCopyOf(input.chat),
       setup
         ? SettingUp.section(
             setup,

@@ -267,6 +267,9 @@ export class Task extends EventRecorder {
     awaitedTurn?: AwaitedTurn | null;
     answeredTurnAt?: Date | null;
   }): Task {
+    if (input.version < 0) {
+      throw new InconsistentStateError('task', 'has a negative version');
+    }
     if (input.finishedAt !== null && input.currentRunId !== null) {
       throw new InconsistentStateError(
         'task',
@@ -1077,7 +1080,7 @@ export class Task extends EventRecorder {
 
   resume(): Resume {
     return Resume.of({
-      sessionId: this.session,
+      session: this.session,
     });
   }
 

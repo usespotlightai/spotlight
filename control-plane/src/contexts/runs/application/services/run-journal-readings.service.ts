@@ -11,14 +11,13 @@ import type {
 } from '@runs/application/contracts/run-trace.contract';
 import type { ConnectionOfRun } from '@runs/application/ports/run-connections.port';
 import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
-import { fileChangesOf } from '@runs/application/read-models/file-changes';
+import {
+  fileChangesOf,
+  netHunksOf,
+} from '@runs/application/read-models/file-changes';
 import { lastWordsIn } from '@runs/application/read-models/last-words';
 import { tracedRunsOf, traceOf } from '@runs/application/read-models/run-trace';
-import { hunksOf } from '@runs/domain/services/change-hunks';
-import {
-  workingCopyPath,
-  workingCopyPathsIn,
-} from '@runs/domain/services/working-copy-path';
+import { workingCopyPathsIn } from '@runs/domain/services/working-copy-path';
 
 export class RunJournalReadings implements RunJournalReadingsPort {
   traceOf(
@@ -48,31 +47,6 @@ export class RunJournalReadings implements RunJournalReadingsPort {
     steps: readonly JournalStep[],
     checkouts: readonly string[],
   ): readonly ChangeHunk[] {
-    const order: string[] = [];
-    const first = new Map<string, string>();
-    const last = new Map<string, string>();
-
-    for (const step of steps) {
-      const change = step.change;
-
-      if (!change?.path) {
-        continue;
-      }
-
-      if (!first.has(change.path)) {
-        first.set(change.path, change.before);
-        order.push(change.path);
-      }
-
-      last.set(change.path, change.after);
-    }
-
-    return order.flatMap((path) =>
-      hunksOf(
-        workingCopyPath(path, checkouts) ?? path,
-        first.get(path) ?? '',
-        last.get(path) ?? '',
-      ),
-    );
+    return netHunksOf(steps, checkouts);
   }
 }

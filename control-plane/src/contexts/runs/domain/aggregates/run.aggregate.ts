@@ -1087,6 +1087,10 @@ export class Run extends EventRecorder {
     return !this.policy.holdsTurn;
   }
 
+  get handsOverFiles(): boolean {
+    return this.policy.actsBeyondItself;
+  }
+
   get hasStarted(): boolean {
     return this.startedAt !== null || this.attempt.number > 1;
   }

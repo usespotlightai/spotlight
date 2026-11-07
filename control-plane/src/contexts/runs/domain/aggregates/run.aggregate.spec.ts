@@ -288,7 +288,7 @@ describe('Run', () => {
       RunOutcome.of({
         exitCode: ExitCode.of(2),
         failed: true,
-        message: 'no push',
+        detail: 'no push',
       }),
       HandoverReport.none(),
       noon,

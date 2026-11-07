@@ -1,11 +1,12 @@
 import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
+import type { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class CancelReplayRuns {
   constructor(private readonly replayRuns: ReplayRunDispatching) {}
 
-  async stopped(event: ReplayStopped): Promise<void> {
+  async stopped(event: ReplayStopped | ReplayDeleted): Promise<void> {
     const owner = {
       workspaceId: event.workspaceId,
       teamId: event.teamId,

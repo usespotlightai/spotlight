@@ -5,9 +5,9 @@ import type { ReadReplayedCandidatesQuery } from '@replays/application/queries/r
 import { replayedCandidatesView } from '@replays/application/queries/views/replayed-candidate-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
-import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import {
   HEALTH_SAMPLES_PER_GROUP,
+  healthReplaysOf,
   healthSamplesOf,
   missingReferencesOf,
   setHealthOf,
@@ -16,6 +16,7 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -80,17 +81,15 @@ export class ReadReplayedCandidatesHandler
       const [searchReplays, baselines, pullRequests, read, live] =
         await Promise.all([
           this.reader.outcomesOfSearches(searches.map((each) => each.id)),
-          this.reader.baselinesOfSets(seenIds),
+          this.reader.servingBaselinesOfSets(seenIds),
           this.reader.pullRequestsOfSearches(searches.map((each) => each.id)),
           this.reader
             .healthSamplesOfSets(seenIds, HEALTH_SAMPLES_PER_GROUP)
             .then(healthSamplesOf),
           this.healths.standardsAt(seen.map((each) => each.station)),
         ]);
-      const sampled = [
-        ...read,
-        ...(await this.reader.outcomes(missingReferencesOf(read))),
-      ];
+      const references = await this.reader.outcomes(missingReferencesOf(read));
+      const sampled = [...read, ...references];
       const [candidates, summaries] = await Promise.all([
         this.reader.candidates(
           distinct<CandidateId>([
@@ -110,18 +109,24 @@ export class ReadReplayedCandidatesHandler
       const standards = new Map(
         seen.map((set) => {
           const standard = live.get(set.station.stationId.value);
-          const minGain = standard?.minGain ?? DEFAULT_MIN_GAIN;
+
+          if (!standard) {
+            throw new InconsistentStateError(
+              'replayed candidates',
+              `read no live standard for station ${set.station.stationId.value}`,
+            );
+          }
 
           return [
             set.id.value,
             {
               health: setHealthOf(
-                sampled.filter((each) => each.setId.equals(set.id)),
+                healthReplaysOf(read, references, set.id),
                 candidates,
-                standard?.fingerprint ?? null,
-                minGain,
+                standard.fingerprint,
+                standard.minGain,
               ),
-              minGain,
+              minGain: standard.minGain,
             },
           ];
         }),

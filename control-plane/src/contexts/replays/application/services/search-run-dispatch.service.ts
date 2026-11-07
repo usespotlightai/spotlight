@@ -28,9 +28,9 @@ export interface SearchRunOrder {
   readonly briefing: string;
 }
 
-export type SearchRunQueued =
-  | { readonly queued: true }
-  | { readonly queued: false; readonly reason: string };
+export interface SearchRunQueued {
+  readonly queued: boolean;
+}
 
 export type LeasedSearchRun = SearchIteration;
 
@@ -89,10 +89,7 @@ export class SearchRunDispatch implements SearchRunDispatching {
     );
 
     if (!station?.runsAnAgent) {
-      return {
-        queued: false,
-        reason: 'the line no longer has the station it searches',
-      };
+      return { queued: false };
     }
 
     const enqueued = await this.runs.enqueueSearch({
@@ -105,17 +102,7 @@ export class SearchRunDispatch implements SearchRunDispatching {
       placement: station.placement,
     });
 
-    switch (enqueued.outcome) {
-      case 'enqueued':
-        return { queued: true };
-      case 'refused':
-        return { queued: false, reason: enqueued.reason };
-      case 'harness-unavailable':
-        return {
-          queued: false,
-          reason: `no runner can start ${order.agent.harness}, the harness it searches with`,
-        };
-    }
+    return { queued: enqueued.outcome === 'enqueued' };
   }
 
   async cancelSearchRun(run: RunId): Promise<void> {

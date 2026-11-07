@@ -10,20 +10,20 @@ import type { InboxRequestId } from '@work/domain/value-objects/inbox-request-id
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import type { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
 
-export type InboxRequestAccess = 'seesTeam' | 'readsTeamInsights';
+export type InboxRequestAccess = 'seesTeam' | 'actsOnTeam';
 
 export interface InboxRequestVisibility {
   readonly form: InboxRequestForm;
   readonly viewer: UserId;
   readonly assignee: UserId | null;
   readonly seesTeam: boolean;
-  readonly readsTeamInsights: boolean;
+  readonly actsOnTeam: boolean;
 }
 
 export interface InboxRequestAudience {
   readonly assignee: UserId;
   readonly unassigned: boolean;
-  readonly formsForTeamReaders: readonly InboxRequestForm[];
+  readonly formsForTeamActors: readonly InboxRequestForm[];
 }
 
 export class InboxRequest {
@@ -136,7 +136,7 @@ export class InboxRequest {
         return 'seesTeam';
       case 'grade':
       case 'alert':
-        return 'readsTeamInsights';
+        return 'actsOnTeam';
     }
   }
 
@@ -144,8 +144,8 @@ export class InboxRequest {
     return {
       assignee: viewer,
       unassigned: true,
-      formsForTeamReaders: INBOX_REQUEST_FORMS.filter(
-        (form) => InboxRequest.requiredAccess(form) === 'readsTeamInsights',
+      formsForTeamActors: INBOX_REQUEST_FORMS.filter(
+        (form) => InboxRequest.requiredAccess(form) === 'actsOnTeam',
       ),
     };
   }
@@ -153,8 +153,8 @@ export class InboxRequest {
   static visibleTo(visibility: InboxRequestVisibility): boolean {
     const audience = InboxRequest.audienceOf(visibility.viewer);
 
-    if (audience.formsForTeamReaders.includes(visibility.form)) {
-      return visibility.readsTeamInsights;
+    if (audience.formsForTeamActors.includes(visibility.form)) {
+      return visibility.actsOnTeam;
     }
 
     return visibility.assignee

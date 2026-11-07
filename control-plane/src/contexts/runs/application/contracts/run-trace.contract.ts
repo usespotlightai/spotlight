@@ -12,7 +12,7 @@ export type Category = 'agent' | 'overhead' | 'failed';
 
 export interface RunToTrace {
   readonly id: string;
-  readonly station: { readonly name: string } | null;
+  readonly label: string | null;
   readonly harness: string;
   readonly failed: boolean;
   readonly attempt: number;

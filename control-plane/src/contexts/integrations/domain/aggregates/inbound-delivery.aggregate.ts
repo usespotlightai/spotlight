@@ -118,7 +118,7 @@ export class InboundDelivery {
   get receivedAs(): string {
     const { integration, to, id } = this.state;
 
-    return `delivery:${integration.value}:${to?.teamId.value ?? ''}:${id}`;
+    return `delivery:${integration.value}:${to?.teamId.value ?? ''}:${id.value}`;
   }
 
   get headers(): DeliveryHeaders {

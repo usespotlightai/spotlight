@@ -10,7 +10,6 @@ import {
 } from '@runs/application/read-models/run-trace';
 import { RunConnection } from '@runs/domain/value-objects/run-connection.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);
@@ -63,7 +62,7 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
 
 const tracedRun = (part: Partial<TracedRun> = {}): TracedRun => ({
   id: RunId.of('run_1'),
-  station: StationName.of('Implementation'),
+  label: 'Implementation',
   harness: 'claude-code',
   failed: false,
   attempt: 1,

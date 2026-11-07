@@ -161,7 +161,7 @@ describe('ReplayRunDispatch', () => {
   });
 
   it('withdraws the trial when the run cannot be enqueued', async () => {
-    runs.enqueueing = { outcome: 'refused', reason: 'no such harness' };
+    runs.enqueueing = { outcome: 'refused' };
 
     expect(await dispatch.dispatch(ORDER)).toEqual({
       queued: false,

@@ -40,7 +40,7 @@ const UNREPLAYABLE: Readonly<Record<UnreplayableReason, string>> = {
   'still-running': 'the run has not ended',
   'no-starting-point': 'the run recorded no starting point',
   'no-briefing': 'the task briefing was not kept',
-  'archive-gone': 'the starting workspace is gone',
+  'archive-gone': 'the starting working copy is gone',
   'attachments-gone': 'the briefing files are gone',
   'answer-gone': 'the answer is gone',
   'repository-gone': 'the repository is not on the line',
@@ -54,7 +54,7 @@ const UNREPLAYABLE: Readonly<Record<UnreplayableReason, string>> = {
 
 const FAILURES: Readonly<Record<RunFailureCode, string>> = {
   exited: 'the agent stopped with an error',
-  unprepared: 'the workspace setup failed before the agent started',
+  unprepared: 'the working-copy setup failed before the agent started',
   refused: 'the config is not allowed in a replay',
   unprovisioned: 'no runner was available',
   'start-gate-unanswered': 'start gates did not answer',

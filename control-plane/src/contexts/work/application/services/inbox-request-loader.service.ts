@@ -60,7 +60,7 @@ export class InboxRequestLoader {
         viewer,
         assignee: task.assignee,
         seesTeam: standing.seesTasks,
-        readsTeamInsights: standing.actsOnTasks,
+        actsOnTeam: standing.actsOnTasks,
       })
     ) {
       throw new UnknownInboxRequestError(inboxRequestId);

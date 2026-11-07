@@ -824,7 +824,7 @@ describe('a replay ending', () => {
     const [ended] = await published('runs.run-ended.v1', replayId);
     expect(ended?.payload).toMatchObject({
       requester: { owner: 'replays', kind: 'replay', id: replayId },
-      ending: 'completed',
+      endedBy: 'turn',
       outcome: 'completed',
       askedAPerson: false,
       handsOver: true,

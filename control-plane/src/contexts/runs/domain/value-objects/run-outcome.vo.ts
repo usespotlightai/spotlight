@@ -1,13 +1,14 @@
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { RunFailure } from '@runs/domain/value-objects/run-failure.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 
-export type RunEnding =
-  | 'completed'
-  | 'failed'
-  | 'stopped'
-  | 'refused'
-  | 'cancelled';
+const COUNTS_ATTEMPTS: readonly RunFailureCode[] = [
+  'unprovisioned',
+  'start-gate-unanswered',
+  'runner-lost',
+  'timed-out',
+];
 
 export class RunOutcome {
   private constructor(
@@ -16,20 +17,36 @@ export class RunOutcome {
     readonly detail: string | null,
     readonly stopped: boolean = false,
     readonly attempts: number | null = null,
-  ) {}
+  ) {
+    if (attempts === null) {
+      return;
+    }
+    if (!Number.isInteger(attempts) || attempts < 1) {
+      throw new InconsistentStateError(
+        'run outcome',
+        'counts attempts that are not a positive whole number',
+      );
+    }
+    if (!failure || !COUNTS_ATTEMPTS.includes(failure.code)) {
+      throw new InconsistentStateError(
+        'run outcome',
+        'counts attempts for a failure that does not retry',
+      );
+    }
+  }
 
   static of(input: {
     exitCode: ExitCode;
     failed: boolean;
     setupFailed?: boolean;
-    message?: string | null;
+    detail?: string | null;
   }): RunOutcome {
     return new RunOutcome(
       input.exitCode,
       input.failed
         ? RunFailure.of(input.setupFailed ? 'unprepared' : 'exited')
         : null,
-      input.message?.trim() || null,
+      input.detail?.trim() || null,
     );
   }
 
@@ -113,20 +130,6 @@ export class RunOutcome {
 
   get succeeded(): boolean {
     return !this.failed;
-  }
-
-  get ending(): RunEnding {
-    if (this.cancelled) {
-      return 'cancelled';
-    }
-    if (this.stopped) {
-      return 'stopped';
-    }
-    if (this.failure?.code === 'refused') {
-      return 'refused';
-    }
-
-    return this.failed ? 'failed' : 'completed';
   }
 
   get cancelled(): boolean {

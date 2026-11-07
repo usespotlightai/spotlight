@@ -86,7 +86,7 @@ const SCOPE: InboxScope = {
   workspaceId: 'ws_1',
   viewer: UserId.of('user_1'),
   teamsSeen: new Set(['team_1']),
-  teamsRead: new Set(),
+  teamsActedOn: new Set(),
 };
 
 const access = (scope: InboxScope | null = SCOPE): WorkAccess =>

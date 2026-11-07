@@ -569,11 +569,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: DeleteReplayRunDecisions,
-    inject: [DrizzleReplayRunDecisionRepository, TRANSACTION],
+    inject: [DrizzleReplayRunDecisionRepository, CancelReplayRuns, TRANSACTION],
     useFactory: (
       decisions: DrizzleReplayRunDecisionRepository,
+      cancelling: CancelReplayRuns,
       transaction: TransactionPort,
-    ) => new DeleteReplayRunDecisions(decisions, transaction),
+    ) => new DeleteReplayRunDecisions(decisions, cancelling, transaction),
   },
   {
     provide: StartSearchReplays,

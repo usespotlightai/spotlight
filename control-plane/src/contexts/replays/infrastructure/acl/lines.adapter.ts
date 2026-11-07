@@ -199,20 +199,15 @@ export class Lines implements LinesPort {
       return null;
     }
 
-    const placement = RunnerPlacement.forStation(
-      RunnerPlacement.of(station.runners),
-      RunnerPlacement.of(line.runners),
-      line.image ? RunnerImage.of(line.image) : null,
-    );
-
     return {
       workspaceId: WorkspaceId.of(line.workspaceId),
       teamId: TeamId.of(line.teamId),
       runsAnAgent: RUNS_AN_AGENT[station.kind],
-      placement: {
-        labelGroups: placement.labelGroups,
-        image: placement.image?.value ?? null,
-      },
+      placement: RunnerPlacement.forStation(
+        RunnerPlacement.of(station.runners),
+        RunnerPlacement.of(line.runners),
+        line.image ? RunnerImage.of(line.image) : null,
+      ),
     };
   }
 }

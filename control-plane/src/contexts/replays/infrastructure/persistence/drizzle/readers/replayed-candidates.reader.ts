@@ -10,6 +10,10 @@ import type {
 } from '@replays/application/ports/replayed-candidates-reader.port';
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import {
+  isLiveKind,
+  isOracleKind,
+} from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
@@ -23,7 +27,9 @@ import {
   closeFailureOf,
   reasonOf,
 } from '@replays/infrastructure/persistence/drizzle/mappers/config-pull-request-reason.mapper';
+import { candidateSearchOf } from '@replays/infrastructure/persistence/drizzle/mappers/candidate-search.mapper';
 import { outcomeFrom } from '@replays/infrastructure/persistence/drizzle/mappers/replay-outcome.mapper';
+import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import {
   configPullRequest,
   replayCandidate,
@@ -48,8 +54,6 @@ import {
   eq,
   gte,
   inArray,
-  isNotNull,
-  lte,
   type SQL,
   sql,
 } from 'drizzle-orm';
@@ -87,7 +91,10 @@ const splitEntriesOf = (stored: readonly StoredSplitEntry[]) =>
 export class DrizzleReplayedCandidatesReader
   implements ReplayedCandidatesReaderPort
 {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    private readonly projection: DrizzleReplayOutcomes,
+  ) {}
 
   async startedOfTeamSince(
     teamId: TeamId,
@@ -197,34 +204,8 @@ export class DrizzleReplayedCandidatesReader
         );
   }
 
-  async baselinesOfSets(
+  async servingBaselinesOfSets(
     setIds: readonly ReplaySetId[],
-  ): Promise<readonly ReplayOutcome[]> {
-    if (setIds.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .selectDistinctOn([replayOutcome.setId])
-      .from(replayOutcome)
-      .where(
-        and(
-          inArray(replayOutcome.setId, distinct(setIds)),
-          eq(replayOutcome.servesAsBaseline, true),
-        ),
-      )
-      .orderBy(
-        asc(replayOutcome.setId),
-        desc(replayOutcome.startedAt),
-        asc(replayOutcome.replayId),
-      );
-
-    return rows.map(outcomeFrom);
-  }
-
-  async healthSamplesOfSets(
-    setIds: readonly ReplaySetId[],
-    perGroup: number,
   ): Promise<readonly ReplayOutcome[]> {
     if (setIds.length === 0) {
       return [];
@@ -234,7 +215,7 @@ export class DrizzleReplayedCandidatesReader
       .select({
         replayId: replayOutcome.replayId,
         place:
-          sql<number>`rank() over (partition by ${replayOutcome.setId}, ${replayOutcome.healthSampleGroup} order by ${replayOutcome.sampledAt} desc)`.as(
+          sql<number>`rank() over (partition by ${replayOutcome.setId} order by ${replayOutcome.startedAt} desc)`.as(
             'place',
           ),
       })
@@ -242,16 +223,25 @@ export class DrizzleReplayedCandidatesReader
       .where(
         and(
           inArray(replayOutcome.setId, distinct(setIds)),
-          isNotNull(replayOutcome.healthSampleGroup),
+          eq(replayOutcome.servesAsBaseline, true),
         ),
       )
       .as('ranked');
     const rows = await this.context.db
       .select({ replayId: ranked.replayId })
       .from(ranked)
-      .where(lte(ranked.place, perGroup));
+      .where(eq(ranked.place, 1));
 
     return this.outcomes(rows.map((each) => ReplayId.of(each.replayId)));
+  }
+
+  async healthSamplesOfSets(
+    setIds: readonly ReplaySetId[],
+    perGroup: number,
+  ): Promise<readonly ReplayOutcome[]> {
+    return this.outcomes(
+      await this.projection.healthSampleCandidatesOf(setIds, perGroup),
+    );
   }
 
   outcomes(replayIds: readonly ReplayId[]): Promise<readonly ReplayOutcome[]> {
@@ -285,12 +275,11 @@ export class DrizzleReplayedCandidatesReader
 
     return rows.map((row) => ({
       id: CandidateId.of(row.id),
-      isLive: row.kind === 'live',
-      isOracle: row.kind === 'oracle',
+      isLive: isLiveKind(row.kind),
+      isOracle: isOracleKind(row.kind),
       fingerprint: StationFingerprint.of(row.fingerprint),
       basedOn: StationFingerprint.of(row.changedFrom),
-      hypothesis:
-        row.searchId !== null && row.iteration !== null ? row.hypothesis : null,
+      hypothesis: candidateSearchOf(row)?.hypothesis ?? null,
       changes: row.changes.map((each) => ({ ...each })),
     }));
   }

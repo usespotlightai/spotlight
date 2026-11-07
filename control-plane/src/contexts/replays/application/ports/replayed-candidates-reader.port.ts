@@ -1,3 +1,4 @@
+import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { ScoredSearch } from '@replays/domain/services/search-scores';
 import type { HealthCandidate } from '@replays/domain/services/set-health';
@@ -57,7 +58,7 @@ export interface ReplayedSearchRow extends ScoredSearch {
 }
 
 export interface ReplayedCandidateRow extends HealthCandidate {
-  readonly hypothesis: string | null;
+  readonly hypothesis: Hypothesis | null;
   readonly changes: readonly StationChange[];
 }
 
@@ -94,7 +95,7 @@ export interface ReplayedCandidatesReaderPort {
     searchIds: readonly SearchId[],
   ): Promise<readonly ReplayOutcome[]>;
 
-  baselinesOfSets(
+  servingBaselinesOfSets(
     setIds: readonly ReplaySetId[],
   ): Promise<readonly ReplayOutcome[]>;
 

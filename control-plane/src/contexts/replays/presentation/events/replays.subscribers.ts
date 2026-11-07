@@ -54,6 +54,7 @@ import type { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted
 import type { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import type { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
 import type { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
+import type { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import type { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import type { SearchDeleted } from '@replays/domain/events/search-deleted.event';
@@ -352,6 +353,12 @@ export const replaysSubscribers = (
     'replays.stop-runs-of-stopped-replay',
     ['replay.stopped'],
     (event) => reactions.cancellingRuns.stopped(event),
+    { callsOut: true },
+  ),
+  subscribing<ReplayDeleted>(
+    'replays.cancel-runs-and-delete-run-decisions-of-deleted-replay',
+    ['replay.deleted'],
+    (event) => reactions.deletingRunDecisions.ofDeletedReplay(event),
     { callsOut: true },
   ),
   subscribing<ReplayCeilingReached>(

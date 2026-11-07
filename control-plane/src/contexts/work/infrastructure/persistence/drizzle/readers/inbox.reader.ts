@@ -97,8 +97,8 @@ const requestAudience = (audience: InboxRequestAudience): SQL | undefined =>
   or(
     eq(task.assigneeId, audience.assignee.value),
     audience.unassigned ? isNull(task.assigneeId) : undefined,
-    audience.formsForTeamReaders.length > 0
-      ? inArray(inboxRequest.form, [...audience.formsForTeamReaders])
+    audience.formsForTeamActors.length > 0
+      ? inArray(inboxRequest.form, [...audience.formsForTeamActors])
       : undefined,
   );
 
@@ -852,7 +852,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         viewer: scope.viewer,
         assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
         seesTeam: scope.teamsSeen.has(row.teamId),
-        readsTeamInsights: scope.teamsRead.has(row.teamId),
+        actsOnTeam: scope.teamsActedOn.has(row.teamId),
       }),
     );
 

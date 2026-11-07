@@ -6,7 +6,7 @@ import { HarnessMapper } from '@runs/application/mappers/harness.mapper';
 import type { ControlPlaneReleasePort } from '@runs/application/ports/control-plane-release.port';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { HostRequirementsQuery } from '@runs/application/queries/host.queries';
-import { MIN_RUNNER_RELEASE } from '@runs/domain/value-objects/min-runner-release';
+import { MIN_RUNNER_RELEASE } from '@runs/application/contracts/least-runner-release.contract';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';

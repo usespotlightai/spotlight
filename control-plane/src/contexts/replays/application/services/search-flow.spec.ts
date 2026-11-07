@@ -535,7 +535,7 @@ describe('a search’s iterations', () => {
   });
 
   it('counts an iteration that could not start as failed, and stalls after two without looking into why when only one iteration is left', async () => {
-    suppliers.dispatch.searchProblem = 'no runner can start claude-code';
+    suppliers.dispatch.searchRefused = true;
 
     await seeded({ ...BUDGET, iterations: 3 });
 

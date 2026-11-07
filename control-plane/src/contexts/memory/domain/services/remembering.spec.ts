@@ -1,7 +1,7 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { NotAllowedAsOfPastTimeError } from '@memory/domain/exceptions/not-allowed-as-of-past-time.error';
-import { NotAllowedInIsolatedRunError } from '@memory/domain/exceptions/not-allowed-in-isolated-run.error';
+import { NotAllowedWithoutMemoriesError } from '@memory/domain/exceptions/not-allowed-without-memories.error';
 import {
   type Remembered,
   type RememberedAt,
@@ -112,7 +112,7 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
     ).toThrow(NotAllowedAsOfPastTimeError);
   });
 
-  it('is never for a run isolated from the team', () => {
+  it('is never for an isolated run that is not a trial', () => {
     expect(() =>
       Remembering.of({
         taskId: null,
@@ -121,7 +121,7 @@ describe('Remembering, what an agent proposes for its team to approve', () => {
         isolated: true,
         trial: false,
       }),
-    ).toThrow(NotAllowedInIsolatedRunError);
+    ).toThrow(NotAllowedWithoutMemoriesError);
   });
 
   it('cites the step the agent remembered it from, as the run’s own', () => {

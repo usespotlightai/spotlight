@@ -15,13 +15,12 @@ import type {
 } from '@runs/application/ports/run-connections.port';
 import { faulted } from '@runs/domain/value-objects/step-status';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 
 type RunConnection = RunConnectionContract;
 
 export interface TracedRun {
   readonly id: RunId;
-  readonly station: StationName | null;
+  readonly label: string | null;
   readonly harness: string;
   readonly failed: boolean;
   readonly attempt: number;
@@ -40,7 +39,7 @@ export const tracedRunsOf = (
 
   return runs.map((run) => ({
     id: RunId.of(run.id),
-    station: StationName.maybe(run.station?.name),
+    label: run.label || null,
     harness: run.harness,
     failed: run.failed,
     attempt: run.attempt,
@@ -345,7 +344,7 @@ const withConnections = (
 };
 
 const runName = (run: TracedRun): string =>
-  `${run.station?.value ?? 'Run'}${run.attempt > 1 ? ` · attempt ${run.attempt}` : ''}`;
+  `${run.label ?? 'Run'}${run.attempt > 1 ? ` · attempt ${run.attempt}` : ''}`;
 
 const runNode = (run: TracedRun): TraceNode => {
   const journal = run.journal;

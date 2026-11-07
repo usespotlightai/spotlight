@@ -108,7 +108,7 @@ export class WorkAccess {
       (await this.teams.inWorkspace(workspaceId)).map(async ({ id }) => ({
         id: id.value,
         seen: await this.seesTeam(id, viewer),
-        read: await this.actsOnTeam(id, viewer),
+        actedOn: await this.actsOnTeam(id, viewer),
       })),
     );
 
@@ -118,8 +118,8 @@ export class WorkAccess {
       teamsSeen: new Set(
         teams.filter((each) => each.seen).map((each) => each.id),
       ),
-      teamsRead: new Set(
-        teams.filter((each) => each.read).map((each) => each.id),
+      teamsActedOn: new Set(
+        teams.filter((each) => each.actedOn).map((each) => each.id),
       ),
     };
   }

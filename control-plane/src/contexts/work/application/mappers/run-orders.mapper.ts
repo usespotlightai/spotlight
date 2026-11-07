@@ -8,7 +8,16 @@ import type {
   RunRestoreContract,
   RunWorkingCopyContract,
 } from '@runs/application/contracts/run-order.contract';
-import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
+import type {
+  AttachmentShape,
+  HarnessSetupShape,
+  RunCheckoutShape,
+  RunCommandShape,
+  RunResumeShape,
+  RunSpecShape,
+  SkillFileShape,
+  ToolManifestShape,
+} from '@runs/application/contracts/run-spec.contract';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import {
   isJsonObject,
@@ -92,15 +101,210 @@ const placementOf = (value: JsonValue | undefined): RunPlacementContract => {
   };
 };
 
+const present = <K extends string, T>(
+  key: K,
+  value: JsonValue | undefined,
+  decode: (value: JsonValue) => T,
+): { [P in K]?: T } =>
+  (value === undefined ? {} : { [key]: decode(value) }) as { [P in K]?: T };
+
+const runCheckoutOf = (value: JsonValue): RunCheckoutShape => {
+  const checkout = objectAt(value, 'spec checkout');
+
+  return {
+    remote: textAt(checkout.remote, 'spec checkout remote'),
+    ...present('path', checkout.path, (each) =>
+      textAt(each, 'spec checkout path'),
+    ),
+    ...present('branch', checkout.branch, (each) =>
+      textAt(each, 'spec checkout branch'),
+    ),
+    ...present('ref', checkout.ref, (each) =>
+      textAt(each, 'spec checkout ref'),
+    ),
+    ...present('diffOf', checkout.diffOf, (each) =>
+      each === 'commits'
+        ? ('commits' as const)
+        : unreadable('spec checkout diff'),
+    ),
+    ...present('setup', checkout.setup, (each) =>
+      textAt(each, 'spec checkout setup'),
+    ),
+  };
+};
+
+const commandOf = (value: JsonValue | undefined): RunCommandShape => {
+  const command = objectAt(value, 'spec command');
+
+  return {
+    executable: textAt(command.executable, 'spec command executable'),
+    args: textsAt(command.args, 'spec command args'),
+    ...present('env', command.env, (each) =>
+      textRecordAt(each, 'spec command env'),
+    ),
+    ...present('sessionOptions', command.sessionOptions, (each) =>
+      listAt(each, 'spec session options', (item) => {
+        const option = objectAt(item, 'spec session option');
+
+        return {
+          id: textAt(option.id, 'spec session option id'),
+          value: textAt(option.value, 'spec session option value'),
+          ...present('optional', option.optional, (flag) =>
+            flagAt(flag, 'spec session option optional'),
+          ),
+        };
+      }),
+    ),
+  };
+};
+
+const handoverOf = (value: JsonValue | undefined): RunSpecShape['handover'] => {
+  const handover = objectAt(value, 'spec handover');
+
+  return {
+    options: textsAt(handover.options, 'spec handover options'),
+    noteLimit: numberAt(handover.noteLimit, 'spec handover note limit'),
+  };
+};
+
+const resumeOf = (value: JsonValue | undefined): RunResumeShape => {
+  const resume = objectAt(value, 'spec resume');
+
+  return {
+    ...present('sessionId', resume.sessionId, (each) =>
+      textAt(each, 'spec resume session'),
+    ),
+    ...present('resumeSession', resume.resumeSession, (each) =>
+      flagAt(each, 'spec resume session flag'),
+    ),
+  };
+};
+
+const skillFileOf = (value: JsonValue): SkillFileShape => {
+  const file = objectAt(value, 'spec file');
+
+  return {
+    path: textAt(file.path, 'spec file path'),
+    text: textAt(file.text, 'spec file text'),
+  };
+};
+
+const manifestOf = (value: JsonValue): ToolManifestShape => {
+  const tool = objectAt(value, 'spec tool');
+
+  return {
+    name: textAt(tool.name, 'spec tool name'),
+    description: textAt(tool.description, 'spec tool description'),
+    inputs: listAt(tool.inputs, 'spec tool inputs', (item) => {
+      const input = objectAt(item, 'spec tool input');
+
+      return {
+        name: textAt(input.name, 'spec tool input name'),
+        schema: objectAt(input.schema, 'spec tool input schema'),
+        ...present('description', input.description, (each) =>
+          textAt(each, 'spec tool input description'),
+        ),
+        required: flagAt(input.required, 'spec tool input required'),
+        defaulted: flagAt(input.defaulted, 'spec tool input defaulted'),
+        stdin: flagAt(input.stdin, 'spec tool input stdin'),
+      };
+    }),
+    approval:
+      tool.approval === null
+        ? null
+        : {
+            because: textAt(
+              objectAt(tool.approval, 'spec tool approval').because,
+              'spec tool approval',
+            ),
+          },
+    ...present('integration', tool.integration, (each) =>
+      textAt(each, 'spec tool integration'),
+    ),
+    ...present('output', tool.output, (each) =>
+      objectAt(each, 'spec tool output'),
+    ),
+  };
+};
+
+const attachmentOf = (value: JsonValue): AttachmentShape => {
+  const attachment = objectAt(value, 'spec attachment');
+
+  return {
+    id: textAt(attachment.id, 'spec attachment id'),
+    path: textAt(attachment.path, 'spec attachment path'),
+  };
+};
+
+const harnessSetupOf = (value: JsonValue): HarnessSetupShape => {
+  const setup = objectAt(value, 'spec harness setup');
+
+  return {
+    files: listAt(setup.files, 'spec harness files', skillFileOf),
+    ...present('session', setup.session, (each) =>
+      objectAt(each, 'spec harness session'),
+    ),
+    mcpServers: listAt(setup.mcpServers, 'spec mcp servers', (item) => {
+      const server = objectAt(item, 'spec mcp server');
+
+      return {
+        name: textAt(server.name, 'spec mcp server name'),
+        command: textAt(server.command, 'spec mcp server command'),
+        args: textsAt(server.args, 'spec mcp server args'),
+        env: listAt(server.env, 'spec mcp server env', (entry) => {
+          const variable = objectAt(entry, 'spec mcp server variable');
+
+          return {
+            name: textAt(variable.name, 'spec mcp server variable name'),
+            value: textAt(variable.value, 'spec mcp server variable value'),
+          };
+        }),
+      };
+    }),
+    askKinds: textsAt(setup.askKinds, 'spec ask kinds'),
+  };
+};
+
 const specOf = (value: JsonValue | undefined): RunSpecShape => {
   const spec = objectAt(value, 'spec');
+  const flag = (what: string) => (each: JsonValue) => flagAt(each, what);
+  const texts = (what: string) => (each: JsonValue) => textsAt(each, what);
 
-  objectAt(spec.command, 'spec command');
-  objectAt(spec.handover, 'spec handover');
-  objectAt(spec.resume, 'spec resume');
-  textAt(spec.briefing, 'spec briefing');
-
-  return spec as unknown as RunSpecShape;
+  return {
+    ...present('checkouts', spec.checkouts, (each) =>
+      listAt(each, 'spec checkouts', runCheckoutOf),
+    ),
+    command: commandOf(spec.command),
+    briefing: textAt(spec.briefing, 'spec briefing'),
+    handover: handoverOf(spec.handover),
+    resume: resumeOf(spec.resume),
+    ...present('skills', spec.skills, (each) =>
+      listAt(each, 'spec skills', skillFileOf),
+    ),
+    ...present('skillHomes', spec.skillHomes, texts('spec skill homes')),
+    ...present('manifest', spec.manifest, (each) =>
+      listAt(each, 'spec manifest', manifestOf),
+    ),
+    ...present('catalog', spec.catalog, texts('spec catalog')),
+    ...present('attachments', spec.attachments, (each) =>
+      listAt(each, 'spec attachments', attachmentOf),
+    ),
+    ...present('diffs', spec.diffs, flag('spec diffs')),
+    ...present('check', spec.check, (each) => textAt(each, 'spec check')),
+    ...present(
+      'startingPoint',
+      spec.startingPoint,
+      flag('spec starting point'),
+    ),
+    ...present('harnessSetup', spec.harnessSetup, harnessSetupOf),
+    ...present('settingFiles', spec.settingFiles, texts('spec setting files')),
+    ...present(
+      'injectedSecrets',
+      spec.injectedSecrets,
+      texts('spec injected secrets'),
+    ),
+    ...present('spotlightApi', spec.spotlightApi, flag('spec spotlight api')),
+  };
 };
 
 const requesterJson = (requester: RunRequesterContract): JsonObject => ({

@@ -139,7 +139,7 @@ describe('InboxRequest', () => {
         viewer: BEA,
         assignee: null,
         seesTeam: true,
-        readsTeamInsights: true,
+        actsOnTeam: true,
         ...change,
       });
 
@@ -151,16 +151,16 @@ describe('InboxRequest', () => {
     });
 
     it('is anyone who sees the task’s team while nobody is assigned, whether or not they read the team’s insights', () => {
-      expect(attending({ readsTeamInsights: false })).toBe(true);
+      expect(attending({ actsOnTeam: false })).toBe(true);
       expect(attending({ seesTeam: false })).toBe(false);
     });
 
-    it('asks a grade of everyone who reads the team’s insights, whoever the task is assigned to', () => {
+    it('asks a grade of everyone who acts on the team, whoever the task is assigned to', () => {
       expect(attending({ form: 'grade', seesTeam: false })).toBe(true);
       expect(attending({ form: 'grade', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'grade', readsTeamInsights: false })).toBe(
+      expect(attending({ form: 'grade', actsOnTeam: false })).toBe(
         false,
       );
       expect(
@@ -168,17 +168,17 @@ describe('InboxRequest', () => {
           form: 'grade',
           viewer: ADA,
           assignee: ADA,
-          readsTeamInsights: false,
+          actsOnTeam: false,
         }),
       ).toBe(false);
     });
 
-    it('creates an alert for everyone who reads the team’s insights, whoever the task is assigned to', () => {
+    it('creates an alert for everyone who acts on the team, whoever the task is assigned to', () => {
       expect(attending({ form: 'alert', seesTeam: false })).toBe(true);
       expect(attending({ form: 'alert', viewer: BEA, assignee: ADA })).toBe(
         true,
       );
-      expect(attending({ form: 'alert', readsTeamInsights: false })).toBe(
+      expect(attending({ form: 'alert', actsOnTeam: false })).toBe(
         false,
       );
       expect(
@@ -186,15 +186,15 @@ describe('InboxRequest', () => {
           form: 'alert',
           viewer: ADA,
           assignee: ADA,
-          readsTeamInsights: false,
+          actsOnTeam: false,
         }),
       ).toBe(false);
     });
 
     it('needs only the access its form requires', () => {
       expect(InboxRequest.requiredAccess('memories')).toBe('seesTeam');
-      expect(InboxRequest.requiredAccess('grade')).toBe('readsTeamInsights');
-      expect(InboxRequest.requiredAccess('alert')).toBe('readsTeamInsights');
+      expect(InboxRequest.requiredAccess('grade')).toBe('actsOnTeam');
+      expect(InboxRequest.requiredAccess('alert')).toBe('actsOnTeam');
     });
   });
 });

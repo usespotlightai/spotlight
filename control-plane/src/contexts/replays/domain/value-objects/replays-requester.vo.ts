@@ -1,5 +1,5 @@
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface PublishedRequester {
   readonly owner: string;
@@ -18,7 +18,7 @@ export const REPLAYS_OWNER = 'replays';
 const ITERATION = /^(0|[1-9][0-9]*)$/;
 
 type Requested =
-  | { readonly kind: 'replay'; readonly run: string }
+  | { readonly kind: 'replay'; readonly run: RunId }
   | {
       readonly kind: 'search';
       readonly searchId: SearchId;
@@ -29,7 +29,7 @@ export class ReplaysRequester {
   private constructor(private readonly requested: Requested) {}
 
   static replayOf(run: RunId): ReplaysRequester {
-    return new ReplaysRequester({ kind: 'replay', run: run.value });
+    return new ReplaysRequester({ kind: 'replay', run });
   }
 
   static searchIteration(
@@ -45,7 +45,7 @@ export class ReplaysRequester {
     }
 
     if (published.kind === 'replay') {
-      return new ReplaysRequester({ kind: 'replay', run: published.id });
+      return ReplaysRequester.replayOf(RunId.of(published.id));
     }
 
     if (
@@ -80,7 +80,7 @@ export class ReplaysRequester {
       ? {
           owner: REPLAYS_OWNER,
           kind: 'replay',
-          id: this.requested.run,
+          id: this.requested.run.value,
           token: null,
         }
       : {

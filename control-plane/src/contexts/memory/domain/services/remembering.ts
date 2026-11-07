@@ -1,7 +1,7 @@
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { NotAllowedAsOfPastTimeError } from '@memory/domain/exceptions/not-allowed-as-of-past-time.error';
-import { notAllowedInIsolatedRun } from '@memory/domain/services/isolated-run-memory-access';
+import { notAllowedWithoutMemories } from '@memory/domain/services/run-memory-use';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
@@ -130,7 +130,7 @@ export class Remembering {
     isolated: boolean;
     trial: boolean;
   }): Remembering {
-    notAllowedInIsolatedRun(input, 'remember anything for the team');
+    notAllowedWithoutMemories(input, 'remember anything for the team');
 
     if (input.asOf !== null) {
       throw new NotAllowedAsOfPastTimeError('remember anything for the team');

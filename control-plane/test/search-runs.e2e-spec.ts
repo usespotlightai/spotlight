@@ -575,7 +575,7 @@ describe('a search run ending', () => {
         team: team.teamId.value,
       },
       workspaceId: team.workspaceId.value,
-      ending: 'completed',
+      endedBy: 'turn',
       failure: null,
       askedAPerson: false,
       stopped: false,

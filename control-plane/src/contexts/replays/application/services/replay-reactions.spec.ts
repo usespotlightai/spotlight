@@ -1,4 +1,6 @@
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
+import { DeleteReplayRunDecisions } from '@replays/application/services/delete-replay-run-decisions.service';
+import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import { DeleteReplays } from '@replays/application/services/delete-replays.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
@@ -34,6 +36,7 @@ import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/entities/replay-entry.entity
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import {
@@ -552,7 +555,7 @@ describe('DeleteReplays', () => {
     await deleting().replaysOfSet(set.id);
 
     expect(memory.events.map((each) => each.kind)).toEqual([
-      'replay.stopped',
+      'replay.deleted',
       'replay.ended',
     ]);
     expect(memory.replays.size).toBe(0);
@@ -577,6 +580,46 @@ describe('CancelReplayRuns', () => {
       { run: 'run_1', leaveRunAsIs: false },
     ]);
     expect(suppliers.dispatch.cancelledQueued).toEqual(['run_2']);
+  });
+});
+
+describe('DeleteReplayRunDecisions', () => {
+  it('cancels the runs of a deleted replay before it deletes that replay’s decisions only', async () => {
+    const decisions = new InMemoryReplayRunDecisions();
+    const owner = {
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+    };
+    await decisions.add(
+      ReplayRunDecision.decidedToQueue(RunId.of('run_1'), {
+        ...owner,
+        replayId: ReplayId.of('replay_1'),
+      }),
+    );
+    await decisions.add(
+      ReplayRunDecision.decidedToQueue(RunId.of('run_2'), {
+        ...owner,
+        replayId: ReplayId.of('replay_2'),
+      }),
+    );
+
+    await new DeleteReplayRunDecisions(
+      decisions,
+      new CancelReplayRuns(suppliers.dispatch),
+      TRANSACTION,
+    ).ofDeletedReplay(
+      new ReplayDeleted(
+        ReplayId.of('replay_1'),
+        owner.workspaceId,
+        owner.teamId,
+        [RunId.of('run_1')],
+      ),
+    );
+
+    expect(suppliers.dispatch.cancelled).toEqual([
+      { run: 'run_1', leaveRunAsIs: false },
+    ]);
+    expect([...decisions.decisions.keys()]).toEqual(['run_2']);
   });
 });
 

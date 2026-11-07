@@ -11,6 +11,7 @@ import { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-re
 import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { InvalidMoneyError } from '@replays/domain/exceptions/invalid-money.error';
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
@@ -552,13 +553,13 @@ describe('Replay', () => {
   });
 
   describe('deleting', () => {
-    it('cancels its runs in flight unless it was stopped already', () => {
+    it('names its runs in flight to cancel unless it was stopped already', () => {
       const inProgress = reserved(aReplay({ count: 2 }), 1);
       const deleted = inProgress.delete();
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([
-        new ReplayStopped(
+        new ReplayDeleted(
           inProgress.id,
           inProgress.workspaceId,
           inProgress.teamId,
@@ -569,7 +570,14 @@ describe('Replay', () => {
 
       const stopped = inProgress.stop(NOW, BY);
       stopped.pullEvents();
-      expect(stopped.delete().pullEvents()).toEqual([]);
+      expect(stopped.delete().pullEvents()).toEqual([
+        new ReplayDeleted(
+          inProgress.id,
+          inProgress.workspaceId,
+          inProgress.teamId,
+          [],
+        ),
+      ]);
     });
   });
 

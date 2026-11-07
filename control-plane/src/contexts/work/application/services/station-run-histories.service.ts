@@ -110,7 +110,7 @@ export class StationRunHistories implements StationHistoryPort {
             [
               {
                 id: each.runId,
-                station: station ? { name: station } : null,
+                label: station || null,
                 harness: each.harness,
                 failed: each.state === 'failed',
                 attempt: each.attempt,

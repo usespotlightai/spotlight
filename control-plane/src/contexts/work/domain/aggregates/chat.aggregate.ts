@@ -548,7 +548,7 @@ export class Chat extends EventRecorder {
 
   resume(): Resume {
     return Resume.of({
-      sessionId: this.session,
+      session: this.session,
     });
   }
 

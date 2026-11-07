@@ -150,10 +150,10 @@ const SAYING_DECISIONS = [
   'Routine choices anyone would make need no mention. Name them again in your handover note.',
 ].join('\n\n');
 
-const PERSISTENT_WORKSPACE =
+const PERSISTENT_WORKING_COPY =
   'The task keeps this workspace from one run and station to the next, so work an earlier one left, committed or not, may already be here.';
 
-const workspaceOf = (task: BriefedTask, line: LineMap): string | null => {
+const workingCopyOf = (task: BriefedTask, line: LineMap): string | null => {
   const repositories = repositoriesReviewedOrAll(task.reviewing, line);
 
   if (repositories.length === 0) {
@@ -168,14 +168,14 @@ const workspaceOf = (task: BriefedTask, line: LineMap): string | null => {
     ? [
         '## The workspace',
         `The repository is checked out in:\n\n${listed}`,
-        PERSISTENT_WORKSPACE,
+        PERSISTENT_WORKING_COPY,
       ].join('\n\n')
     : [
         '## The workspace',
         'These repositories are checked out side by side, each in its own directory:',
         listed,
         'Work out which one (or ones) your change belongs in. When you open a pull request, name the repository with `spotlight tools call pull-request --repository <name>`.',
-        PERSISTENT_WORKSPACE,
+        PERSISTENT_WORKING_COPY,
       ].join('\n\n');
 };
 
@@ -209,7 +209,7 @@ export const TaskBriefing = {
       }),
       Learned.remembering(),
       station?.decisions ? SAYING_DECISIONS : null,
-      workspaceOf(input.task, input.line),
+      workingCopyOf(input.task, input.line),
       SpotlightCli.section,
       ConfiguringSpotlight.section,
       toolsOf(input.tools),

@@ -308,6 +308,13 @@ export const missingReferencesOf = <
       : [],
   );
 
+export const healthReplaysOf = <T extends HealthSampled>(
+  read: readonly T[],
+  references: readonly T[],
+  setId: { readonly value: string },
+): readonly T[] =>
+  [...read, ...references].filter((each) => each.setId.value === setId.value);
+
 export const setHealthOf = (
   replays: readonly ReplayOutcome[],
   candidates: readonly HealthCandidate[],
