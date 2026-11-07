@@ -18,9 +18,9 @@ import {
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type { HookStepOutcome } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import {
   eventOfRecord,
   recordOfEvent,
@@ -38,7 +38,7 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, inArray, lt, lte } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt, lte, or } from 'drizzle-orm';
 
 type Row = typeof hookFiring.$inferSelect;
 
@@ -124,7 +124,7 @@ const stepOf =
       throw unreadableStep(id, 'without a name');
     }
 
-    const name = HookStepName.of(stored.name);
+    const name = HookStepName.rehydrate(stored.name);
 
     if (status === 'done') {
       return { name, status, output: stored.output ?? null };
@@ -175,10 +175,10 @@ const toFiring = (row: Row): HookFiring =>
     run:
       row.runId === null || row.runAttempt === null
         ? null
-        : HookRunAttempt.of(RunId.of(row.runId), row.runAttempt),
+        : RunAttemptRef.of(RunId.of(row.runId), row.runAttempt),
     stationKey: StationKey.of(row.stationKey),
     on: eventNameOf(row),
-    occurrence: HookOccurrenceKey.of(row.occurrence),
+    occurrence: HookOccurrenceKey.rehydrate(row.occurrence),
     firedAt: row.firedAt,
     event: eventOfRecord(eventNameOf(row), row.event),
     matched: row.matched,
@@ -294,8 +294,14 @@ export class DrizzleHookFirings implements HookFiringRepository {
       .from(hookFiring)
       .where(
         and(
-          inArray(hookFiring.state, ['pending', 'working']),
           lte(hookFiring.dueAt, now),
+          or(
+            eq(hookFiring.state, 'pending'),
+            and(
+              eq(hookFiring.state, 'working'),
+              lt(hookFiring.claimedAt, HookFiring.leaseExpiredBefore(now)),
+            ),
+          ),
         ),
       )
       .orderBy(asc(hookFiring.dueAt), asc(hookFiring.firedAt))

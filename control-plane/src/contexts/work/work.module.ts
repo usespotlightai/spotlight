@@ -21,7 +21,6 @@ import { STATION_TRIALS } from '@work/application/ports/station-trials.port';
 import { TASK_LINKS } from '@work/application/ports/task-links.port';
 import { TASK_NOTES_FROM_HOOKS } from '@work/application/ports/task-notes-from-hooks.port';
 import { TASK_VIEWS } from '@work/application/ports/task-views.port';
-import { TRACE_PARENT } from '@work/application/ports/trace-parent.port';
 import { TRACE_SCOPES } from '@work/application/ports/trace-scopes.port';
 import { TRIALABLE_RUNS } from '@work/application/ports/trialable-runs.port';
 import { WORK_RUN_LOOKUP } from '@work/application/ports/work-run-lookup.port';
@@ -58,7 +57,6 @@ const BINDINGS = contextBindings([STATION_DELETION_GUARD]);
     STATION_HISTORY,
     TRACE_SCOPES,
     CHAT_TOOL_EXTENSIONS,
-    TRACE_PARENT,
     NOTE_FILES,
     CONNECTION_ASKS,
     TASK_LINKS,

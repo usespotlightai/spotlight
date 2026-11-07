@@ -226,12 +226,12 @@ export class DrizzleIntegrationConnections
         await this.decrypted(row, 'access', row.accessToken),
       ),
       refreshToken: row.refreshToken
-        ? RefreshToken.of(
+        ? RefreshToken.rehydrate(
             await this.decrypted(row, 'refresh', row.refreshToken),
           )
         : null,
       expiresAt: row.expiresAt,
-      scopes: row.scopes ? row.scopes.split(' ').map(OAuthScope.of) : [],
+      scopes: row.scopes ? row.scopes.split(' ').map(OAuthScope.rehydrate) : [],
       linkedAccount: row.linkedAccount,
       refreshFailedAt: row.refreshFailedAt,
       refreshClaim: row.refreshClaimedUntil

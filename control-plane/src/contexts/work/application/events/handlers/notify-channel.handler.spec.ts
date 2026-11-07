@@ -1,4 +1,4 @@
-import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
@@ -90,19 +90,8 @@ const notifying = (chat: Chat) => {
       })),
     } as unknown as LineMapsPort,
     { notify } satisfies ChannelNoticesPort,
-    {
-      attemptsOfRun: async () =>
-        said === null
-          ? []
-          : [
-              {
-                runId: RUN.value,
-                attempt: 1,
-                steps: [{ kind: 'message', text: said }],
-              },
-            ],
-    } as unknown as RunJournalReaderPort,
-    runJournalReadings(),
+    { attemptsOfRun: async () => [] } as unknown as RunJournalReaderPort,
+    runJournalReadings({ lastWordsIn: () => said }),
   );
 
   return { handler, notify };

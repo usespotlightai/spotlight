@@ -1,5 +1,4 @@
-import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
-import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import type { TurnFacts } from '@runs/application/ports/run-turns.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -137,16 +136,6 @@ const attaching = () => {
   };
 };
 
-const journalOf = (attempt: number, said: readonly string[]): RunJournal =>
-  ({
-    runId: 'run_1',
-    attempt,
-    steps: said.flatMap((text) => [
-      { kind: 'message', text },
-      { kind: 'tool', text: 'grep' },
-    ]),
-  }) as unknown as RunJournal;
-
 const RUN = RunId.of('run_1');
 
 const dispatched = () =>
@@ -168,7 +157,7 @@ const dispatched = () =>
 interface Turning {
   readonly decision?: HookDecision;
   readonly task?: Task | (() => Task | null) | null;
-  readonly journals?: readonly RunJournal[];
+  readonly lastWords?: string;
   readonly files?: FilesLoader;
 }
 
@@ -203,7 +192,7 @@ const turning = (over: Turning = {}) => {
     taskStore,
     { findByStation: async () => line() } as unknown as LineMapsPort,
     {
-      attemptsOfRun: async () => over.journals ?? [],
+      attemptsOfRun: async () => [],
     } as unknown as RunJournalReaderPort,
     { of: async () => TASK_VIEW } as unknown as TaskViewsPort,
     {
@@ -220,7 +209,7 @@ const turning = (over: Turning = {}) => {
       { runIdFor: async () => RunId.of('run_2') },
       clock,
     ),
-    runJournalReadings(),
+    runJournalReadings({ lastWordsIn: () => over.lastWords ?? null }),
   );
 
   return {
@@ -286,10 +275,7 @@ describe('TakeTurn', () => {
     it('puts the last words of the latest attempt to the person when the turn names no next step', async () => {
       const turn = turning({
         task: claimedByTheRun(),
-        journals: [
-          journalOf(1, ['Which queue?']),
-          journalOf(2, ['Looking at it.', 'Here is a draft you can use.']),
-        ],
+        lastWords: 'Here is a draft you can use.',
       });
 
       await turn.take(turnFacts({ session: 'session_1' }));

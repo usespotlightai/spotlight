@@ -21,17 +21,12 @@ import {
 } from '@integrations/domain/services/connection-choice';
 import type { ConnectionMissing } from '@integrations/domain/value-objects/connection-missing.vo';
 import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-
-export interface RunAttempt {
-  readonly runId: RunId;
-  readonly attempt: number;
-}
 
 export interface RunTool {
   readonly declared: DeclaredTool;
@@ -63,7 +58,7 @@ export class ResolveToolForRun {
   async resolve(
     tool: ToolName,
     task: UnlinkedTaskView,
-    run: RunAttempt,
+    run: RunAttemptRef,
     requester: UserId | null,
   ): Promise<RunTool | null> {
     const teamId = task.teamId;
@@ -122,8 +117,7 @@ export class ResolveToolForRun {
             {
               teamId,
               workspaceId: task.workspaceId,
-              runId: run.runId,
-              attempt: run.attempt,
+              run,
               injectedSecrets: resolved.injectedSecrets,
             },
             found.connection,

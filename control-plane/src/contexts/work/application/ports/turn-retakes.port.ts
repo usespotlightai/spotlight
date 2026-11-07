@@ -12,5 +12,12 @@ export interface TurnRetakesPort {
     to: Date,
   ): Promise<boolean>;
 
+  release(
+    runId: RunId,
+    suspendedAt: Date,
+    from: Date,
+    to: Date | null,
+  ): Promise<void>;
+
   forgetSuspendedBefore(before: Date): Promise<void>;
 }

@@ -2,6 +2,7 @@ import type { ConfiguredWebhookProvidersPort } from '@integrations/application/p
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
 import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -44,7 +45,7 @@ describe('ProviderForDelivery', () => {
         (
           await providers.find({
             to: null,
-            integration: 'github',
+            integration: IntegrationKey.of('github'),
           })
         )?.key,
       ).toBe('github');
@@ -56,7 +57,7 @@ describe('ProviderForDelivery', () => {
       expect(
         await providers.find({
           to: null,
-          integration: 'sentry',
+          integration: IntegrationKey.of('sentry'),
         }),
       ).toBeNull();
     });
@@ -67,7 +68,7 @@ describe('ProviderForDelivery', () => {
       expect(
         await providers.find({
           to: null,
-          integration: 'linear',
+          integration: IntegrationKey.of('linear'),
         }),
       ).toBeNull();
       expect(find).not.toHaveBeenCalled();
@@ -86,7 +87,7 @@ describe('ProviderForDelivery', () => {
               teamId: TeamId.of('team_1'),
               teamKey: 'platform',
             },
-            integration: 'linear',
+            integration: IntegrationKey.of('linear'),
           })
         )?.key,
       ).toBe('linear');
@@ -101,7 +102,7 @@ describe('ProviderForDelivery', () => {
           teamId: TeamId.of('team_1'),
           teamKey: 'platform',
         },
-        integration: 'linear',
+        integration: IntegrationKey.of('linear'),
       });
 
       expect(find).toHaveBeenCalledWith(
@@ -122,7 +123,7 @@ describe('ProviderForDelivery', () => {
             teamId: TeamId.of('team_1'),
             teamKey: 'platform',
           },
-          integration: 'sentry',
+          integration: IntegrationKey.of('sentry'),
         }),
       ).toBeNull();
     });
@@ -137,7 +138,7 @@ describe('ProviderForDelivery', () => {
             teamId: TeamId.of('team_1'),
             teamKey: 'platform',
           },
-          integration: 'github',
+          integration: IntegrationKey.of('github'),
         }),
       ).toBeNull();
       expect(find).not.toHaveBeenCalled();

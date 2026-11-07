@@ -20,7 +20,7 @@ import { RunBeforeHooks } from '@integrations/application/services/run-before-ho
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { runStarting } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -47,7 +47,7 @@ const setUp = (
       clock,
       logger(),
       {
-        currentOf: async (runId: RunId) => HookRunAttempt.of(runId, 2),
+        currentOf: async (runId: RunId) => RunAttemptRef.of(runId, 2),
       },
     ),
   };
@@ -61,7 +61,7 @@ describe('RunBeforeHooks', () => {
 
     await expect(before.decide(TASK, USING)).resolves.toEqual(ALLOWED);
     expect(calls.record).toHaveBeenCalledWith(
-      HookRunAttempt.of(RunId.of('run_1'), 2),
+      RunAttemptRef.of(RunId.of('run_1'), 2),
       expect.objectContaining({ step: 'tell' }),
     );
   });

@@ -5,7 +5,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 
 export const runAccessWhere = (sees: boolean): RunAccess =>
   new RunAccess(
-    { find: async () => null } as never,
+    { ownershipOf: async () => null } as never,
     {
       seesWorkspace: async () => sees,
       seesWorkspaceOfTeam: async () => false,

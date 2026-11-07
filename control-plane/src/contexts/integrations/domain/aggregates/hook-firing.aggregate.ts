@@ -18,12 +18,12 @@ import type { HookEventFacts } from '@integrations/domain/value-objects/hook-eve
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import type { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
 import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type {
   HookStepOutcome,
   WaitingHookStep,
 } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -81,7 +81,7 @@ interface Fired {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly taskId: TaskId;
-  readonly run: HookRunAttempt | null;
+  readonly run: RunAttemptRef | null;
   readonly stationKey: StationKey;
   readonly on: HookEventName;
   readonly occurrence: HookOccurrenceKey;
@@ -227,7 +227,7 @@ export class HookFiring extends EventRecorder {
     return this.state.taskId;
   }
 
-  get run(): HookRunAttempt | null {
+  get run(): RunAttemptRef | null {
     return this.state.run;
   }
 

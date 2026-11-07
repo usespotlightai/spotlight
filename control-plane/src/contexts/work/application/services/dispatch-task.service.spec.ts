@@ -6,7 +6,8 @@ import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
-import { readyProfiles } from '@runs/application/ports/harness-launch.fake-spec';
+import { cannedReadyProfiles } from '@work/application/ports/runs.fake-spec';
+const readyProfiles = cannedReadyProfiles();
 import type {
   HarnessLaunchPort,
   SkillsHome,

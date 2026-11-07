@@ -27,6 +27,9 @@ export type HookFailureCode = keyof typeof HOOK_FAILURES;
 
 const MAX_REASON = 1_000;
 
+export const outboundLimitReason = (perSecond: number): string =>
+  `this workspace sends more than ${perSecond} requests each second to other services`;
+
 export type CallFailureFact =
   | {
       readonly kind: 'upstream';
@@ -78,10 +81,7 @@ export class HookFailure {
   }
 
   static overOutboundLimit(perSecond: number): HookFailure {
-    return HookFailure.of(
-      'throttled',
-      `this workspace sends more than ${perSecond} requests each second to other services`,
-    );
+    return HookFailure.of('throttled', outboundLimitReason(perSecond));
   }
 
   static refusedByPolicy(reason: string): HookFailure {

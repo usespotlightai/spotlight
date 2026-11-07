@@ -15,8 +15,8 @@ import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -53,7 +53,7 @@ const fired = (cause = CausalChain.none().append(MOVED)) =>
     workspaceId: WorkspaceId.of('workspace_1'),
     teamId: TeamId.of('team_1'),
     taskId: TaskId.of('task_1'),
-    run: HookRunAttempt.of(RunId.of('run_1'), 1),
+    run: RunAttemptRef.of(RunId.of('run_1'), 1),
     stationKey: StationKey.of('implementation'),
     on: 'task.moved',
     occurrence: HookOccurrenceKey.of('moved_1'),

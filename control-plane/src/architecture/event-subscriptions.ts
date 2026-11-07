@@ -226,10 +226,44 @@ const handBuiltSubscribers = (file: SourceFile): Violation[] =>
       at: at(file, literal),
     }));
 
+const SUBSCRIBER_TYPES = new Set(['DomainEventSubscriber', 'EventProjection']);
+
+const subscriberClasses = (file: SourceFile): Violation[] =>
+  descendants(file.tree, ts.isClassLike)
+    .filter((declaration) =>
+      (declaration.heritageClauses ?? []).some((clause) =>
+        clause.types.some(
+          (type) =>
+            ts.isIdentifier(type.expression) &&
+            SUBSCRIBER_TYPES.has(type.expression.text),
+        ),
+      ),
+    )
+    .map((declaration) => ({
+      key: `${file.path}: declares a subscriber class without subscribing or projecting`,
+      at: at(file, declaration),
+    }));
+
+const REGISTRATIONS = new Set(['subscribing', 'projecting']);
+
+const memberRegistrations = (file: SourceFile): Violation[] =>
+  descendants(file.tree, ts.isCallExpression)
+    .filter(
+      (call) =>
+        ts.isPropertyAccessExpression(call.expression) &&
+        REGISTRATIONS.has(call.expression.name.text),
+    )
+    .map((call) => ({
+      key: `${file.path}: calls ${call.expression.getText()}, which the check cannot follow`,
+      at: at(file, call),
+    }));
+
 export const eventSubscriptionsIn = (file: SourceFile): Violation[] => [
   ...registrationViolations(file, 'subscribing'),
   ...registrationViolations(file, 'projecting'),
   ...handBuiltSubscribers(file),
+  ...subscriberClasses(file),
+  ...memberRegistrations(file),
 ];
 
 export const eventSubscriptionViolations = (): Violation[] =>

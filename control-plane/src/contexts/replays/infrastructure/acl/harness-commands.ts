@@ -1,3 +1,4 @@
+import { traceParentOf } from '@platform/telemetry/trace-parent';
 import type { RunRequesterContract } from '@runs/application/contracts/run-order.contract';
 import {
   type RunSpecShape,
@@ -12,8 +13,6 @@ import {
   HARNESS_MODEL_MAX_LENGTH,
   HarnessModel,
 } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 
 export interface HarnessChoice {
   readonly harness: string;
@@ -42,10 +41,7 @@ const refusedBy = (
 };
 
 export class HarnessCommands {
-  constructor(
-    private readonly launch: HarnessLaunchPort,
-    private readonly tracing: TraceParentPort,
-  ) {}
+  constructor(private readonly launch: HarnessLaunchPort) {}
 
   problemOf({
     harness,
@@ -101,7 +97,10 @@ export class HarnessCommands {
           ...command,
           env: {
             ...command.env,
-            [TRACE_PARENT_VAR]: this.tracing.of(requester, RunId.of(runId)),
+            [TRACE_PARENT_VAR]: traceParentOf(
+              `${requester.kind}:${requester.id}`,
+              runId,
+            ),
           },
         }
       : null;

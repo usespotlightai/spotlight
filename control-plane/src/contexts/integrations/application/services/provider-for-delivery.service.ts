@@ -3,9 +3,10 @@ import type { WebhookProviderPort } from '@integrations/application/ports/webhoo
 import type { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
 import type { DeliveryAddressee } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { DeliveryProviders } from '@integrations/domain/services/delivery-providers';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 
 export interface Addressed {
-  readonly integration: string;
+  readonly integration: IntegrationKey;
   readonly to: DeliveryAddressee | null;
 }
 
@@ -17,7 +18,7 @@ export class ProviderForDelivery {
 
   async find(addressed: Addressed): Promise<WebhookProviderPort | null> {
     const { to } = addressed;
-    const builtIn = this.registered.find(addressed.integration);
+    const builtIn = this.registered.find(addressed.integration.value);
     const owner = DeliveryProviders.ownerOf({
       addressedToTeam: to !== null,
       builtIn: builtIn !== null,
@@ -37,7 +38,7 @@ export class ProviderForDelivery {
         teamId: to.teamId,
         teamKey: to.teamKey,
       },
-      addressed.integration,
+      addressed.integration.value,
     );
   }
 }

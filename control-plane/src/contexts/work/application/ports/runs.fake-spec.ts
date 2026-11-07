@@ -1,3 +1,6 @@
+import type { ReadyProfileShape } from '@runs/application/contracts/harness-profile.contract';
+import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
+import type { RunJournalReadingsPort } from '@runs/application/ports/run-journal-readings.port';
 import type {
   LeasedRunFacts,
   RunLeasesPort,
@@ -14,6 +17,7 @@ import {
   type RunRequesterPublished,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -283,3 +287,25 @@ export const runLeasesOver = (
       found(runId)?.claimedBy.equals(runner) ?? false,
   };
 };
+
+export const cannedJournalReadings = (
+  canned: Partial<RunJournalReadingsPort> = {},
+): RunJournalReadingsPort => ({
+  traceOf: () => ({ from: null, to: null, rows: 0, errors: 0, roots: [] }),
+  fileChangesOf: () => [],
+  lastWordsIn: () => null,
+  workingCopyPathsIn: () => [],
+  hunksIn: () => [],
+  ...canned,
+});
+
+export const cannedReadyProfiles = (
+  canned: Partial<Pick<ReadyProfileShape, 'mcpServers' | 'injectedSecrets'>> = {},
+): Pick<HarnessLaunchPort, 'readyProfile'> => ({
+  readyProfile: (shape) => ({
+    ...shape,
+    key: ProfileKey.of(shape.key),
+    injectedSecrets: [],
+    ...canned,
+  }),
+});

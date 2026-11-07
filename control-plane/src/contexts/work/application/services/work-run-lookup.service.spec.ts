@@ -7,7 +7,7 @@ import type {
   RunFacts,
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
-import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import type { RunLeasesPort } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -112,6 +112,18 @@ interface Seen {
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
 
+const WORKING_COPIES: Readonly<Record<string, string>> = {
+  '/runs/run_0/docs/a.md': 'docs/a.md',
+  '/runs/run_1/api/src/uploads.ts': 'api/src/uploads.ts',
+  '/runs/run_2/api/src/uploads.ts': 'api/src/uploads.ts',
+  '/runs/run_1/web/src/Upload.tsx': 'web/src/Upload.tsx',
+};
+
+const readings = runJournalReadings({
+  workingCopyPathsIn: (changed) =>
+    changed.paths.flatMap((path) => WORKING_COPIES[path] ?? []),
+});
+
 const lookingUp = (seen: Seen) => {
   const facts = seen.facts === undefined ? factsOf() : seen.facts;
 
@@ -142,7 +154,7 @@ const lookingUp = (seen: Seen) => {
       ofRun: async () => seen.journal ?? null,
       changesOfTask: async () => seen.changesOfTask ?? [],
     } as unknown as RunJournalReaderPort,
-    runJournalReadings(),
+    readings,
   );
 };
 
@@ -373,7 +385,7 @@ describe('WorkRunLookup, reading how a run reasoned and what it changed', () => 
             edited('/tmp/scratch.ts'),
           ]),
       } as unknown as RunJournalReaderPort,
-      runJournalReadings(),
+      readings,
     ).changedBy(RUN);
 
     expect(changed?.map((each) => [each.repository.value, each.path])).toEqual([

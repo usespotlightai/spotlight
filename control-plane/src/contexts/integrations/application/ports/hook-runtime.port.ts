@@ -8,12 +8,12 @@ import type { HookFailure } from '@integrations/domain/value-objects/hook-failur
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import type { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
 import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import type {
   HookStepOutcome,
   WaitingHookStep,
 } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -24,7 +24,7 @@ export interface HookEventInstance {
   readonly occurrence: HookOccurrenceKey;
   readonly at: Date;
   readonly task: TaskView;
-  readonly run: HookRunAttempt | null;
+  readonly run: RunAttemptRef | null;
   readonly event: HookEventFacts;
   readonly firing: HookFiringId | null;
 }

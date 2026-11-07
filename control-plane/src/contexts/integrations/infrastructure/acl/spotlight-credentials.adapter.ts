@@ -53,8 +53,8 @@ class RunCredentials implements Credentials {
   ): Promise<InjectedSecrets> {
     return this.injection.forRun({
       workspaceId: this.run.workspaceId.value,
-      runId: this.run.runId.value,
-      attempt: this.run.attempt,
+      runId: this.run.run.runId.value,
+      attempt: this.run.run.attempt,
       secrets: secrets.map((each) => each.value),
       url,
     });
@@ -66,8 +66,8 @@ class RunCredentials implements Credentials {
   ): Promise<InjectedSecrets> {
     return this.injection.standInsForRun({
       workspaceId: this.run.workspaceId.value,
-      runId: this.run.runId.value,
-      attempt: this.run.attempt,
+      runId: this.run.run.runId.value,
+      attempt: this.run.run.attempt,
       secrets: secrets.map((each) => each.value),
       url,
     });

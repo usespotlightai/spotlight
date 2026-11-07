@@ -115,6 +115,19 @@ const TABLE_WRITERS: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 
+const CHILDREN_WRITTEN_APART: Readonly<Record<string, string>> = {
+  memory_use:
+    'append-only ledger of memory uses, persisted with RecordedMemoryUses (DECISIONS configuration-memory)',
+  oidc_trust_usage:
+    'last-used stamps of an OIDC trust, written on every exchange without loading the trust (DECISIONS r2-review-seams RS-16)',
+  replay_outcome:
+    'documented projection of Replay.outcome(), written inside the Replay repository save (DECISIONS r3-an-10)',
+  secret_value:
+    'vault of the built-in secret source, written by the store and not by the Secret aggregate (DECISIONS r2-review-seams RS-16)',
+  signup_survey:
+    'answers of the signup survey, stored beside the workspace and no part of the Workspace aggregate (DECISIONS r2-review-seams RS-16)',
+};
+
 const LIBRARY_TABLES: ReadonlySet<string> = new Set([
   'account',
   'device_code',
@@ -270,6 +283,23 @@ const unclassifiedTables = (): Violation[] =>
     at: table,
   }));
 
+const childrenWrittenApart = (): Violation[] => [
+  ...Object.keys(TABLE_WRITERS)
+    .filter(
+      (table) => rootsOf(table).size > 0 && !(table in CHILDREN_WRITTEN_APART),
+    )
+    .map((table) => ({
+      key: `${table}: declared writer of a child of ${[...rootsOf(table)].join(', ')} without a recorded reason`,
+      at: table,
+    })),
+  ...Object.keys(CHILDREN_WRITTEN_APART)
+    .filter((table) => !(table in TABLE_WRITERS) || rootsOf(table).size === 0)
+    .map((table) => ({
+      key: `${table}: recorded as a child written apart, but it is not a declared child`,
+      at: table,
+    })),
+];
+
 const staleWriters = (files: readonly SourceFile[]): Violation[] =>
   Object.entries(TABLE_WRITERS).flatMap(([table, writers]) =>
     writers
@@ -323,5 +353,6 @@ export const aggregateChildWriteViolations = (): Violation[] => {
     ...files.flatMap((file) => childWritesOf(file, rootWriter)),
     ...unclassifiedTables(),
     ...staleWriters(files),
+    ...childrenWrittenApart(),
   ];
 };

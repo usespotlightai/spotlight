@@ -1,4 +1,5 @@
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 const isWebAddress = (raw: string): boolean => {
   try {
@@ -14,6 +15,17 @@ export class OAuth2Endpoint {
   private readonly kind = 'oauth2-endpoint';
 
   private constructor(readonly value: string) {}
+
+  static rehydrate(stored: string): OAuth2Endpoint {
+    try {
+      return OAuth2Endpoint.of(stored);
+    } catch {
+      throw new InconsistentStateError(
+        'OAuth endpoint',
+        'was stored in a shape it cannot take',
+      );
+    }
+  }
 
   static of(raw: string): OAuth2Endpoint {
     if (!isWebAddress(raw)) {

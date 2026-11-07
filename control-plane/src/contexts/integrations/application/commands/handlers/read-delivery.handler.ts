@@ -38,7 +38,7 @@ export class ReadDeliveryHandler
     {
       const stored = command.delivered;
       const provider = await this.providers.find({
-        integration: stored.integration.value,
+        integration: stored.integration,
         to: stored.to,
       });
 

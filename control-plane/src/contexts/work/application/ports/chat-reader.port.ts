@@ -101,7 +101,14 @@ export interface SetupChatView {
   readonly startedAt: Date;
 }
 
+export interface ChatOwnership {
+  readonly startedBy: UserId;
+  readonly teamId: TeamId;
+}
+
 export interface ChatReaderPort {
+  ownershipOf(chatId: ChatId): Promise<ChatOwnership | null>;
+
   startedBy(
     teamId: TeamId,
     userId: UserId,

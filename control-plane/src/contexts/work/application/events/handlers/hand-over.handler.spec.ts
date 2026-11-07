@@ -1,5 +1,4 @@
-import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
-import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import type { RunEndedIntegrationEvent } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -182,7 +181,7 @@ const dispatch: TaskDispatching = {
 const handOver = async (
   ended = run(false),
   stored: TaskRepository = tasks(),
-  journals: readonly RunJournal[] = [],
+  lastWords: string | null = null,
 ) => {
   const routing = new RunRouting(
     stored as TaskRepository & TaskPlacementsPort,
@@ -194,12 +193,12 @@ const handOver = async (
     lines(),
     routing,
     {
-      attemptsOfRun: async () => journals,
+      attemptsOfRun: async () => [],
     } as unknown as RunJournalReaderPort,
-    runJournalReadings(),
+    runJournalReadings({ lastWordsIn: () => lastWords }),
   );
   if (ended.handsOver) {
-    return routedAsItsTurn(ended, stored, routing, journals);
+    return routedAsItsTurn(ended, stored, routing, lastWords);
   }
 
   return handler.onRunEnded(ended);
@@ -209,7 +208,7 @@ const routedAsItsTurn = async (
   ended: RunEndedIntegrationEvent,
   stored: TaskRepository,
   routing: RunRouting,
-  journals: readonly RunJournal[],
+  lastWords: string | null,
 ) => {
   const runId = RunId.of(ended.runId);
   const taskId = WorkRequesters.taskOf(ended.requester);
@@ -225,9 +224,7 @@ const routedAsItsTurn = async (
     handover: RunEndedFacts.handover(ended),
     line: map,
     currentStation: task.stationId,
-    lastWords: ended.report
-      ? null
-      : runJournalReadings().lastWordsIn(journals, task.lastPersonNoteAt),
+    lastWords: ended.report ? null : lastWords,
   });
   const session = RunEndedFacts.session(ended);
   const recorded = session
@@ -240,13 +237,6 @@ const routedAsItsTurn = async (
 
   await stored.save(await routing.routed(handover, recorded, map, runId));
 };
-
-const journalOf = (said: string): RunJournal =>
-  ({
-    runId: 'run_1',
-    attempt: 1,
-    steps: [{ kind: 'message', text: said }],
-  }) as unknown as RunJournal;
 
 beforeEach(() => {
   saved = undefined;
@@ -264,9 +254,7 @@ describe('HandOver', () => {
   });
 
   it('puts the last words of a run without a handover to the person', async () => {
-    await handOver(run(false), tasks(), [
-      journalOf('Here is a draft you can use.'),
-    ]);
+    await handOver(run(false), tasks(), 'Here is a draft you can use.');
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes.map((each) => each.body.value)).toEqual([

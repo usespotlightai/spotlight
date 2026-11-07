@@ -13,7 +13,7 @@ import { HookDefinitionId } from '@integrations/domain/value-objects/hook-defini
 import { taskMoved } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -29,7 +29,7 @@ const FINISHED = HookFiring.rehydrate({
       workspaceId: WorkspaceId.of('workspace_1'),
       teamId: TeamId.of('team_1'),
       taskId: TaskId.of('task_1'),
-      run: HookRunAttempt.of(RunId.of('run_1'), 1),
+      run: RunAttemptRef.of(RunId.of('run_1'), 1),
       stationKey: StationKey.of('implementation'),
       on: 'task.moved',
       occurrence: HookOccurrenceKey.of('moved_1'),

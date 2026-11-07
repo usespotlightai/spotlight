@@ -60,8 +60,13 @@ export class Turns {
         continue;
       }
 
-      if (check.retakes) {
-        await this.retaken(turn);
+      if (check.retakes && !(await this.retaken(turn)) && !check.givesUp) {
+        await this.retakes.release(
+          turn.runId,
+          turn.suspendedAt,
+          now,
+          checkedAt,
+        );
       }
 
       if (check.givesUp) {
@@ -129,14 +134,16 @@ export class Turns {
     await this.retakes.forgetSuspendedBefore(TurnWait.retakesKeptAfter(now));
   }
 
-  private async retaken(turn: TurnFacts): Promise<void> {
+  private async retaken(turn: TurnFacts): Promise<boolean> {
     try {
       await this.taking.take(turn.runId, turn.attempt);
+      return true;
     } catch (error) {
       this.logger.warn(
         { err: error, runId: turn.runId.value },
         'The turn of a run could not be decided again; it is tried later',
       );
+      return false;
     }
   }
 

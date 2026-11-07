@@ -2,13 +2,13 @@ import type {
   HookCall,
   HookCallsPort,
 } from '@integrations/application/ports/hook-calls.port';
-import type { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import type { HookTracesPort } from '@runs/application/ports/hook-traces.port';
 
 export class HookCalls implements HookCallsPort {
   constructor(private readonly traces: HookTracesPort) {}
 
-  record(run: HookRunAttempt, call: HookCall): Promise<void> {
+  record(run: RunAttemptRef, call: HookCall): Promise<void> {
     return this.traces.record(run.runId.value, {
       attempt: run.attempt,
       hook: call.hook,

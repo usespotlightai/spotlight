@@ -40,6 +40,17 @@ describe('event subscriptions', () => {
     ]);
   });
 
+  it('finds a subscriber class and a registration it cannot follow', () => {
+    expect(
+      problemsIn(`import type { DomainEventSubscriber } from '${SUBSCRIBER}';
+        class Custom implements DomainEventSubscriber {}
+        registry.subscribing('memory.a', ['memory.used'], handle);`),
+    ).toEqual([
+      'declares a subscriber class without subscribing or projecting',
+      'calls registry.subscribing, which the check cannot follow',
+    ]);
+  });
+
   it('finds another context domain event heard by its kind', () => {
     expect(
       problemsIn(`import { subscribing } from '${SUBSCRIBER}';

@@ -32,11 +32,11 @@ import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
@@ -86,7 +86,7 @@ const INSTANCE: HookEventInstance = {
   on: 'tool.used',
   occurrence: HookOccurrenceKey.of('occurrence_1'),
   firing: HookFiringId.of('firing_1'),
-  run: HookRunAttempt.of(RunId.of('run_1'), 2),
+  run: RunAttemptRef.of(RunId.of('run_1'), 2),
   at: NOW,
   event: usedTool('grafana.search'),
   task: TASK,
@@ -600,7 +600,7 @@ describe('HookSteps', () => {
       });
 
       expect(record).toHaveBeenCalledWith(
-        HookRunAttempt.of(RunId.of('run_1'), 2),
+        RunAttemptRef.of(RunId.of('run_1'), 2),
         trace,
       );
     });

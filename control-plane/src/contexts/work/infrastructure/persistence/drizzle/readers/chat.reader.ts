@@ -14,7 +14,7 @@ import {
   RUN_PROGRESS,
   type RunProgressPort,
 } from '@runs/application/ports/run-progress.port';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   mapPage,
@@ -22,6 +22,7 @@ import {
   type PageRequest,
 } from '@work/application/dto/page.dto';
 import type {
+  ChatOwnership,
   ChatReaderPort,
   ChatSummary,
   ChatView,
@@ -66,6 +67,18 @@ export class DrizzleChatReader implements ChatReaderPort {
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
     @Inject(RUN_PROGRESS) private readonly progress: RunProgressPort,
   ) {}
+
+  async ownershipOf(chatId: ChatId): Promise<ChatOwnership | null> {
+    const [row] = await this.db
+      .select({ startedById: chat.startedById, teamId: chat.teamId })
+      .from(chat)
+      .where(eq(chat.id, chatId.value))
+      .limit(1);
+
+    return row
+      ? { startedBy: UserId.of(row.startedById), teamId: TeamId.of(row.teamId) }
+      : null;
+  }
 
   async setupChatsOf(teamId: TeamId): Promise<readonly SetupChatView[]> {
     const rows = await this.db

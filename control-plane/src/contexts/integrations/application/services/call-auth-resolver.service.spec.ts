@@ -13,6 +13,7 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { RefreshToken } from '@integrations/domain/value-objects/refresh-token.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { InjectedCallCredentials } from '@integrations/infrastructure/acl/spotlight-credentials.adapter';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
@@ -274,8 +275,7 @@ describe('CallAuthResolver', () => {
       {
         teamId: TEAM,
         workspaceId: WorkspaceId.of('ws_1'),
-        runId: RunId.of('run_1'),
-        attempt: 2,
+        run: RunAttemptRef.of(RunId.of('run_1'), 2),
         injectedSecrets: [SecretName.of('SLACK_BOT_TOKEN')],
       },
       null,
@@ -306,8 +306,7 @@ describe('CallAuthResolver', () => {
       {
         teamId: TEAM,
         workspaceId: WorkspaceId.of('ws_1'),
-        runId: RunId.of('run_1'),
-        attempt: 1,
+        run: RunAttemptRef.of(RunId.of('run_1'), 1),
         injectedSecrets: [],
       },
       null,

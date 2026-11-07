@@ -136,8 +136,8 @@ export class DrizzleOAuth2ClientRegistrations
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
       integration: IntegrationKey.of(row.integration),
-      registrationEndpoint: OAuth2Endpoint.of(row.registrationEndpoint),
-      redirectUri: OAuth2Endpoint.of(row.redirectUri),
+      registrationEndpoint: OAuth2Endpoint.rehydrate(row.registrationEndpoint),
+      redirectUri: OAuth2Endpoint.rehydrate(row.redirectUri),
       server:
         row.issuer && row.authorizeEndpoint && row.tokenEndpoint
           ? AuthorizationServer.of({
@@ -146,9 +146,9 @@ export class DrizzleOAuth2ClientRegistrations
               token: row.tokenEndpoint,
             })
           : null,
-      clientId: OAuth2ClientId.of(row.clientId),
+      clientId: OAuth2ClientId.rehydrate(row.clientId),
       clientSecret: row.clientSecret
-        ? ClientSecret.of(
+        ? ClientSecret.rehydrate(
             (
               await this.encryption.decrypt(
                 row.workspaceId,

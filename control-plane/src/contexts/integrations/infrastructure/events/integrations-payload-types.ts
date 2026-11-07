@@ -36,7 +36,6 @@ import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookOccurrence } from '@integrations/domain/value-objects/hook-occurrence.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
-import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-delivery-id.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
@@ -56,6 +55,7 @@ import { Poll } from '@integrations/domain/value-objects/poll.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { RaisedHappening } from '@integrations/domain/value-objects/raised-happening.vo';
 import { RefreshClaim } from '@integrations/domain/value-objects/refresh-claim.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
@@ -91,7 +91,7 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   HookEvent,
   HookEventFacts,
   HookFiringId,
-  HookRunAttempt,
+  RunAttemptRef,
   HookKey,
   HookMatch,
   HookOccurrence,

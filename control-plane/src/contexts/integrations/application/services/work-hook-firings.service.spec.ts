@@ -40,8 +40,8 @@ import {
 } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
-import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -176,7 +176,7 @@ const stored = (
         workspaceId: WorkspaceId.of('workspace_1'),
         teamId: TeamId.of('team_1'),
         taskId: TaskId.of('task_1'),
-        run: HookRunAttempt.of(RunId.of('run_1'), 1),
+        run: RunAttemptRef.of(RunId.of('run_1'), 1),
         stationKey: StationKey.of('implementation'),
         on: 'tool.used',
         occurrence: HookOccurrenceKey.of('occurrence_1'),

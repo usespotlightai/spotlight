@@ -1859,7 +1859,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ReadChatQuery, ReadChatHandler, [
     CHAT_READER,
-    ChatLoader,
+    WorkAccess,
   ]),
 
   ...bindQueryHandler(ReadChatJournalQuery, ReadChatJournalHandler, [
@@ -1874,10 +1874,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RunAccess,
-    inject: [RUN_VIEWERS, CHAT_REPOSITORY, WorkAccess],
+    inject: [RUN_VIEWERS, CHAT_READER, WorkAccess],
     useFactory: (
       viewers: RunViewersPort,
-      chats: ChatRepository,
+      chats: ChatReaderPort,
       access: WorkAccess,
     ) => {
       const runAccess = new RunAccess(chats, access);

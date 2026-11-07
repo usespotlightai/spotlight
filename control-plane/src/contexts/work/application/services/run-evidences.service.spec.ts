@@ -1,9 +1,10 @@
 import type {
+  ChangeHunk,
   JournalStep,
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunFactsPort } from '@runs/application/ports/run-facts.port';
-import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -23,7 +24,7 @@ import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const stepOf = (change: Partial<JournalStep>): JournalStep => ({
   kind: 'message',
@@ -157,6 +158,16 @@ const DISPATCHES = new Map<string, Dispatch>([
   ],
 ]);
 
+const HUNK: ChangeHunk = {
+  id: 'api/src/uploads.ts#1',
+  path: 'api/src/uploads.ts',
+  index: 1,
+  header: '@@ -1,3 +1,4 @@',
+  lines: [' a', '-b', '+B', ' c', '+d'],
+};
+
+const hunksIn = vi.fn(() => [HUNK]);
+
 const evidences = () =>
   new RunEvidences(
     {
@@ -179,7 +190,7 @@ const evidences = () =>
     {
       find: async (id: RunId) => DISPATCHES.get(id.value) ?? null,
     } as unknown as DispatchRepository,
-    runJournalReadings(),
+    runJournalReadings({ hunksIn }),
   );
 
 describe('RunEvidences', () => {
@@ -202,22 +213,13 @@ describe('RunEvidences', () => {
       title: 'Retry uploads, as briefed',
       description: 'They failed then.',
     });
-    expect(evidence?.hunks.map((each) => each.id)).toEqual([
-      'api/src/uploads.ts#1',
-    ]);
+    expect(evidence?.hunks).toEqual([HUNK]);
   });
 
-  it('cuts the run’s file changes into hunks named by path and place', async () => {
+  it('hands on the hunks cut from the steps of every attempt in the run’s checkouts', async () => {
     const evidence = await evidences().of('run_1');
 
-    expect(evidence?.hunks).toEqual([
-      {
-        id: 'api/src/uploads.ts#1',
-        path: 'api/src/uploads.ts',
-        index: 1,
-        header: '@@ -1,3 +1,4 @@',
-        lines: [' a', '-b', '+B', ' c', '+d'],
-      },
-    ]);
+    expect(evidence?.hunks).toEqual([HUNK]);
+    expect(hunksIn).toHaveBeenLastCalledWith(journal.steps, ['api']);
   });
 });

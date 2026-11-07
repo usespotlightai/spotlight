@@ -35,6 +35,14 @@ export class IntegrationKey {
     return new IntegrationKey(named);
   }
 
+  static maybe(raw: string): IntegrationKey | null {
+    const named = raw.trim();
+
+    return isIntegrationKey(named) && !IntegrationKey.isReserved(named)
+      ? new IntegrationKey(named)
+      : null;
+  }
+
   raises(happening: { readonly integration: string }): boolean {
     return happening.integration === this.value;
   }

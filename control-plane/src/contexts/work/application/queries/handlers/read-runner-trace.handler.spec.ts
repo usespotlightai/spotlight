@@ -1,5 +1,5 @@
 import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
-import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';

@@ -2,6 +2,7 @@ import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/provided-tool.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
@@ -348,6 +349,8 @@ const scheduleSchema = z.object({
   action: key('post-message'),
 });
 
+const scope = z.string().refine(OAuthScope.isToken, OAuthScope.SHAPE);
+
 const connectionSchema = z.object({
   actsAs: z.enum(ACTS_AS).default('team'),
   oauth2: z
@@ -355,7 +358,7 @@ const connectionSchema = z.object({
       z
         .object({
           discover: z.literal(true),
-          scopes: z.array(z.string()).default([]),
+          scopes: z.array(scope).default([]),
           identity: expression.optional(),
           resource: z.string().url().optional(),
         })
@@ -364,7 +367,7 @@ const connectionSchema = z.object({
         discover: z.literal(false).default(false),
         authorize: z.string().url(),
         token: z.string().url(),
-        scopes: z.array(z.string()).default([]),
+        scopes: z.array(scope).default([]),
         identity: expression.optional(),
         registration: z.string().url().optional(),
         resource: z.string().url().optional(),

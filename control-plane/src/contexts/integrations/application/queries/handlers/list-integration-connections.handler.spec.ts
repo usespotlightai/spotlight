@@ -34,13 +34,13 @@ const listing = (membership: { isAdmin: boolean } | null) =>
     {
       ofTeam: async () => [
         {
-          integration: 'linear',
+          integration: IntegrationKey.of('linear'),
           personId: UserId.of('user_1'),
           linkedAccount: '@me',
           connectedAt: AT,
         },
         {
-          integration: 'linear',
+          integration: IntegrationKey.of('linear'),
           personId: UserId.of('user_2'),
           linkedAccount: '@bob',
           connectedAt: AT,

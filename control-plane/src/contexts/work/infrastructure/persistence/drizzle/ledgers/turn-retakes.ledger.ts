@@ -41,6 +41,27 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
     return advanced.length > 0;
   }
 
+  async release(
+    runId: RunId,
+    suspendedAt: Date,
+    from: Date,
+    to: Date | null,
+  ): Promise<void> {
+    const claimed = and(
+      this.turn(runId, suspendedAt),
+      eq(turnRetake.checkedAt, from),
+    );
+
+    if (to) {
+      await this.context.db
+        .update(turnRetake)
+        .set({ checkedAt: to })
+        .where(claimed);
+    } else {
+      await this.context.db.delete(turnRetake).where(claimed);
+    }
+  }
+
   async forgetSuspendedBefore(before: Date): Promise<void> {
     await this.context.db
       .delete(turnRetake)

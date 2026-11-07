@@ -5,19 +5,19 @@ import type {
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { ChatReaderPort } from '@work/application/ports/chat-reader.port';
 import type {
   RunsInWorkspace,
   RunsOfChat,
 } from '@work/application/ports/viewed-runs';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
-import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 
 export class RunAccess implements RunViewerSource {
   readonly owner = WorkRequesters.owner;
 
   constructor(
-    private readonly chats: ChatRepository,
+    private readonly chats: ChatReaderPort,
     private readonly access: WorkAccess,
   ) {}
 
@@ -42,9 +42,9 @@ export class RunAccess implements RunViewerSource {
         const chatId = WorkRequesters.chatOf(run.requester);
 
         if (chatId) {
-          const chat = await this.chats.find(chatId);
+          const ownership = await this.chats.ownershipOf(chatId);
 
-          return chat !== null && this.access.opensChat(chat, viewer);
+          return ownership !== null && this.access.opensChat(ownership, viewer);
         }
 
         return seesWorkspace(run.workspaceId);

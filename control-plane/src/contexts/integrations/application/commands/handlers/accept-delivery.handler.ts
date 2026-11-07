@@ -42,10 +42,9 @@ export class AcceptDeliveryHandler
         return this.refused(command, null, 'unknown-team');
       }
 
-      const provider = await this.providers.find({
-        integration: command.integration,
-        to,
-      });
+      const integration = IntegrationKey.maybe(command.integration);
+      const provider =
+        integration && (await this.providers.find({ integration, to }));
 
       if (!provider) {
         return this.refused(command, to, 'unknown-integration');

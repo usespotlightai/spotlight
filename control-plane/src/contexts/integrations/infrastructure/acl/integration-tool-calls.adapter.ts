@@ -1,9 +1,14 @@
+import { OUTBOUND_CALL } from '@integrations/application/errors/outbound-limit-reached.error';
 import type {
   ResolveToolForRun,
   RunTool,
   RunToolCall,
 } from '@integrations/application/services/resolve-tool-for-run.service';
-import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
+import {
+  type CallFailureFact,
+  outboundLimitReason,
+} from '@integrations/domain/value-objects/hook-failure.vo';
+import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
 import { ToolDeclarationMapper } from '@integrations/infrastructure/acl/tool-declaration.mapper';
@@ -25,7 +30,7 @@ const failureOf = (fact: CallFailureFact): ToolCallFailureDto => {
     case 'over-outbound-limit':
       return {
         blocked: false,
-        reason: `calling a service: this workspace sends more than ${fact.perSecond} requests each second to other services`,
+        reason: `${OUTBOUND_CALL}: ${outboundLimitReason(fact.perSecond)}`,
       };
     case 'upstream':
     case 'unknown':
@@ -80,7 +85,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
       ? await this.tools.resolve(
           named,
           IntegrationTaskViewMapper.toView(task),
-          { runId: RunId.of(run.runId), attempt: run.attempt },
+          RunAttemptRef.of(RunId.of(run.runId), run.attempt),
           requester ? UserId.of(requester) : null,
         )
       : null;

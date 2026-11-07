@@ -1283,6 +1283,17 @@
                 "patterns": [
                   {
                     "group": [
+                      "@runs/application/contracts/run-journal.contract",
+                      "@runs/application/contracts/run-trace.contract",
+                      "@runs/application/ports/run-journal-readings.port",
+                      "@runs/application/ports/run-journals.port",
+                      "**/runs/application/contracts/run-journal.contract",
+                      "**/runs/application/contracts/run-trace.contract"
+                    ],
+                    "message": "Work is conformist to Runs for journal and trace readings in its application and presentation layers only: the 'work' domain never uses Runs' journal or trace contract types."
+                  },
+                  {
+                    "group": [
                       "**",
                       "!@work/domain/**",
                       "!@shared-kernel/domain/**",

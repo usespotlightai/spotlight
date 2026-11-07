@@ -1,4 +1,4 @@
-import type { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
+import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 
 export const HOOK_CALLS = Symbol('HOOK_CALLS');
 
@@ -16,5 +16,5 @@ export interface HookCall {
 }
 
 export interface HookCallsPort {
-  record(run: HookRunAttempt, call: HookCall): Promise<void>;
+  record(run: RunAttemptRef, call: HookCall): Promise<void>;
 }

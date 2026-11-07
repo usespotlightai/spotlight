@@ -13,9 +13,9 @@ import { ConnectionChoice } from '@integrations/domain/services/connection-choic
 import type { ConnectionMissing } from '@integrations/domain/value-objects/connection-missing.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import type { Integration } from '@integrations/domain/value-objects/integration.vo';
+import type { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -24,8 +24,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface RunCallAuth {
   readonly teamId: TeamId;
   readonly workspaceId: WorkspaceId;
-  readonly runId: RunId;
-  readonly attempt: number;
+  readonly run: RunAttemptRef;
   readonly injectedSecrets: readonly SecretName[];
 }
 
@@ -113,8 +112,8 @@ export class CallAuthResolver {
     if (run.injectedSecrets.length > 0) {
       await this.injection.grant({
         workspaceId: run.workspaceId.value,
-        runId: run.runId.value,
-        attempt: run.attempt,
+        runId: run.run.runId.value,
+        attempt: run.run.attempt,
         secrets: run.injectedSecrets.map((each) => each.value),
       });
     }

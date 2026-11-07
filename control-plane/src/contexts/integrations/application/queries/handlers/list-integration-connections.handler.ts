@@ -52,12 +52,12 @@ export class ListIntegrationConnectionsHandler
       const mine = connected
         .filter((each) => each.personId.equals(viewer))
         .map(({ integration, linkedAccount, connectedAt }) => {
-          const tools = offered.find(
-            (each) => each.integration.key.value === integration,
+          const tools = offered.find((each) =>
+            each.integration.key.equals(integration),
           );
 
           return {
-            integration,
+            integration: integration.value,
             linkedAccount,
             connectedAt,
             tools: (tools?.all ?? [])
@@ -82,7 +82,7 @@ export class ListIntegrationConnectionsHandler
       return {
         mine,
         people: connected.map((each) => ({
-          integration: each.integration,
+          integration: each.integration.value,
           personId: each.personId.value,
           name: named.get(each.personId.value)?.name ?? '',
           linkedAccount: each.linkedAccount,

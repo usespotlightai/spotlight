@@ -14,7 +14,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, inArray, isNull, lt, lte } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, lte, or } from 'drizzle-orm';
 
 type Row = typeof inboundDelivery.$inferSelect;
 
@@ -55,7 +55,7 @@ const toDelivery = (row: Row): InboundDelivery =>
             teamKey: row.teamKey,
           }
         : null,
-    id: InboundDeliveryId.of(row.id),
+    id: InboundDeliveryId.rehydrate(row.id),
     headers: row.headers as DeliveryHeaders,
     body: row.body,
     causeFiringId:
@@ -129,8 +129,17 @@ export class DrizzleInboundDeliveries implements InboundDeliveryRepository {
       .from(inboundDelivery)
       .where(
         and(
-          inArray(inboundDelivery.state, ['pending', 'working']),
           lte(inboundDelivery.dueAt, now),
+          or(
+            eq(inboundDelivery.state, 'pending'),
+            and(
+              eq(inboundDelivery.state, 'working'),
+              lt(
+                inboundDelivery.claimedAt,
+                InboundDelivery.leaseExpiredBefore(now),
+              ),
+            ),
+          ),
         ),
       )
       .orderBy(asc(inboundDelivery.dueAt), asc(inboundDelivery.receivedAt))

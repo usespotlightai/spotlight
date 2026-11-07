@@ -1,4 +1,5 @@
-import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import {
   SECRET,
   type Secret,
@@ -11,11 +12,22 @@ export class ClientSecret implements Secret {
 
   private constructor(readonly value: string) {}
 
+  static rehydrate(stored: string): ClientSecret {
+    try {
+      return ClientSecret.of(stored);
+    } catch {
+      throw new InconsistentStateError(
+        'client secret',
+        'was stored in a shape it cannot take',
+      );
+    }
+  }
+
   static of(raw: string): ClientSecret {
     const token = raw.trim();
 
     if (token.length === 0) {
-      throw new InvalidIdentifierError(
+      throw new InvalidIntegrationPartError(
         'client secret',
         'is what the authorization server gave the client to prove itself with, and is never empty',
       );

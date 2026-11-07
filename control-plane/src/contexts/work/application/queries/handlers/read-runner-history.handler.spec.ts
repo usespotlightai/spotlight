@@ -1,6 +1,6 @@
 import type { RunJournal } from '@runs/application/contracts/run-journal.contract';
 import { connectionsInMemory } from '@runs/application/ports/run-connections.fake-spec';
-import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import { cannedJournalReadings as runJournalReadings } from '@work/application/ports/runs.fake-spec';
 import type { RunUsageReaderPort } from '@runs/application/ports/run-usage-reader.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {

@@ -288,10 +288,6 @@ import {
   type StationTrialsPort as WorkStationTrialsPort,
 } from '@work/application/ports/station-trials.port';
 import {
-  TRACE_PARENT,
-  type TraceParentPort,
-} from '@work/application/ports/trace-parent.port';
-import {
   TRACE_SCOPES,
   type TraceScopesPort,
 } from '@work/application/ports/trace-scopes.port';
@@ -338,14 +334,13 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   DrizzleReplayRunDecisionRepository,
   {
     provide: RUNS,
-    inject: [WORK_RUNS, RUN_FACTS, RUN_LEASES, HARNESS_LAUNCH, TRACE_PARENT],
+    inject: [WORK_RUNS, RUN_FACTS, RUN_LEASES, HARNESS_LAUNCH],
     useFactory: (
       runs: WorkRunsPort,
       facts: RunFactsPort,
       leases: RunLeasesPort,
       launch: HarnessLaunchPort,
-      tracing: TraceParentPort,
-    ) => new Runs(runs, facts, leases, new HarnessCommands(launch, tracing)),
+    ) => new Runs(runs, facts, leases, new HarnessCommands(launch)),
   },
   {
     provide: STATION_TRIALS,

@@ -52,9 +52,14 @@ const turning = (
     tasks?: readonly Task[];
     facts?: readonly RunFacts[];
     holds?: boolean;
+    takeFails?: boolean;
   } = {},
 ) => {
-  const take = vi.fn(async () => undefined);
+  const take = vi.fn(async (): Promise<void> => {
+    if (over.takeFails) {
+      throw new Error('Runs unavailable');
+    }
+  });
   const resume = vi.fn(async () => undefined);
   const cancel = vi.fn(async () => ({
     was: 'suspended' as const,
@@ -80,6 +85,18 @@ const turning = (
         }
         checked.set(key(runId, suspendedAt), to);
         return true;
+      },
+      release: async (runId, suspendedAt, from, to) => {
+        if (
+          checked.get(key(runId, suspendedAt))?.getTime() !== from.getTime()
+        ) {
+          return;
+        }
+        if (to) {
+          checked.set(key(runId, suspendedAt), to);
+        } else {
+          checked.delete(key(runId, suspendedAt));
+        }
       },
       forgetSuspendedBefore: async () => undefined,
     } satisfies TurnRetakesPort,
@@ -120,6 +137,18 @@ describe('Turns', () => {
 
     expect(take).toHaveBeenCalledTimes(1);
     expect(take).toHaveBeenCalledWith(RUN, 1);
+  });
+
+  it('decides a turn again on the next tick when the retake failed (R4-RW-09)', async () => {
+    const failing = turning({
+      turns: [turnAged(45 * MINUTE + 30_000)],
+      takeFails: true,
+    });
+
+    await failing.turns.retakePending(NOW);
+    await failing.turns.retakePending(new Date(NOW.getTime() + MINUTE));
+
+    expect(failing.take).toHaveBeenCalledTimes(2);
   });
 
   it('leaves alone a turn pending for less than the longest delivery', async () => {
