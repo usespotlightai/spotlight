@@ -8,6 +8,7 @@ import type {
   SandboxesPort,
   SandboxTakingRuns,
   StartedSandbox,
+  WarmStart,
 } from '@runners/application/ports/sandboxes.port';
 import type { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
 import type { HostClaimDto } from '@runs/application/dto/host.dto';
@@ -31,6 +32,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const CLAIM_WINDOW_MS = 60_000;
 
@@ -55,7 +57,11 @@ type Claimed =
       readonly sandboxToken: string | null;
       readonly reused: boolean;
     }
-  | { readonly kind: 'sandbox'; readonly sandbox: StartedSandbox };
+  | {
+      readonly kind: 'sandbox';
+      readonly sandbox: StartedSandbox;
+      readonly warm: WarmStart | null;
+    };
 
 export class ClaimHostWorkHandler
   implements CommandHandlerPort<ClaimHostWorkCommand, HostClaimDto>
@@ -148,6 +154,7 @@ export class ClaimHostWorkHandler
           sandboxId: claimed.sandbox.id,
           sandboxToken: claimed.sandbox.token,
           allowedHosts: this.sandboxHosts.hosts(),
+          warm: claimed.warm,
         };
       }
 
@@ -196,9 +203,14 @@ export class ClaimHostWorkHandler
         registered.workspaceId.value,
         this.clock.now(),
       );
+      const avoiding = held.map((each) => WorkingCopyKey.parse(each));
+      const waiting = await this.waitingForWarm(
+        registered.workspaceId,
+        avoiding,
+      );
       const run = await this.startedRun(
         claimantOf(runner, registered, {
-          avoiding: held.map((each) => WorkingCopyKey.parse(each)),
+          avoiding: [...avoiding, ...waiting],
         }),
         host,
         until,
@@ -206,6 +218,12 @@ export class ClaimHostWorkHandler
 
       if (run) {
         return run;
+      }
+
+      const warm = await this.startedWarm(registered, host);
+
+      if (warm) {
+        return warm;
       }
 
       const check = await this.checks.claimNext(
@@ -313,7 +331,61 @@ export class ClaimHostWorkHandler
       );
 
       if (started) {
-        return { kind: 'sandbox', sandbox: started };
+        return { kind: 'sandbox', sandbox: started, warm: null };
+      }
+    }
+
+    return null;
+  }
+
+  private async waitingForWarm(
+    workspaceId: WorkspaceId,
+    avoiding: readonly WorkingCopyKey[],
+  ): Promise<readonly WorkingCopyKey[]> {
+    const now = this.clock.now();
+    const ready = await this.sandboxes.readyWarmIn(workspaceId.value, now);
+    const lines = new Map<string, number>();
+
+    for (const each of ready) {
+      lines.set(each.line, (lines.get(each.line) ?? 0) + 1);
+    }
+
+    const waiting: WorkingCopyKey[] = [];
+
+    for (const [line, count] of lines) {
+      const first = await this.runs.queuedFirstRuns(workspaceId, {
+        line,
+        avoiding,
+        queuedSince: ClaimOrder.warmWaitSince(now),
+        max: count,
+      });
+
+      waiting.push(
+        ...first.flatMap((each) =>
+          each.workingCopyKey ? [each.workingCopyKey] : [],
+        ),
+      );
+    }
+
+    return waiting;
+  }
+
+  private async startedWarm(
+    registered: RunnerClaimant,
+    host: string,
+  ): Promise<Claimed | null> {
+    for (const requested of await this.sandboxes.requestedWarmIn(
+      registered.workspaceId.value,
+    )) {
+      const started = await this.sandboxes.startWarm(
+        requested,
+        host,
+        registered.offer,
+        this.clock.now(),
+      );
+
+      if (started) {
+        return { kind: 'sandbox', sandbox: started, warm: started.warm };
       }
     }
 
@@ -333,6 +405,10 @@ export class ClaimHostWorkHandler
 
     if (!registered || registered.workspaceId.value !== into.workspaceId) {
       return null;
+    }
+
+    if ('warmFor' in into) {
+      return this.claimedIntoWarm(runner, registered, host, into, until);
     }
 
     const claimant = claimantOf(runner, registered, {
@@ -376,6 +452,67 @@ export class ClaimHostWorkHandler
     );
 
     if (!held) {
+      await this.taken.dropRun(found, runner);
+      return null;
+    }
+
+    return {
+      kind: 'work',
+      work: claimedRun(found),
+      sandboxId: into.id,
+      sandboxToken: null,
+      reused: true,
+    };
+  }
+
+  private async claimedIntoWarm(
+    runner: RunnerId,
+    registered: RunnerClaimant,
+    host: string,
+    into: { readonly id: string; readonly warmFor: string },
+    until: Date,
+  ): Promise<Claimed | null> {
+    const found = await this.polls.polled<Run | 'requeued'>(async () => {
+      const now = this.clock.now();
+      const workspaceId = registered.workspaceId.value;
+      const held = [
+        ...(await this.sandboxes.liveKeysIn(workspaceId, now)),
+        ...(await this.sandboxes.requestedIn(workspaceId)).map(
+          (each) => each.key,
+        ),
+      ];
+      const run = await this.claims.next(
+        claimantOf(runner, registered, {
+          firstOfLine: into.warmFor,
+          avoiding: held.map((each) => WorkingCopyKey.parse(each)),
+        }),
+        now,
+      );
+      const start = run
+        ? await this.starting.mayStart(run, runner, until)
+        : null;
+
+      return start === 'requeued' ? start : start === 'starts' ? run : null;
+    }, until);
+
+    if (!found || found === 'requeued') {
+      return null;
+    }
+
+    await this.taken.run(found, runner);
+
+    const adopted = await this.sandboxes.adoptForRun(
+      into.id,
+      {
+        workspaceId: found.workspaceId.value,
+        key: found.workingCopyKey?.value ?? null,
+        hostId: host,
+        runId: found.id.value,
+      },
+      this.clock.now(),
+    );
+
+    if (!adopted) {
       await this.taken.dropRun(found, runner);
       return null;
     }

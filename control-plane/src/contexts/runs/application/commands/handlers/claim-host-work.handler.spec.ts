@@ -8,10 +8,12 @@ import type {
   StartedRunner,
 } from '@runners/application/ports/runners.port';
 import type {
+  ReadyWarmSandbox,
   RequestedSandbox,
   SandboxesPort,
   SandboxTakingRuns,
   StartedSandbox,
+  StartedWarmSandbox,
 } from '@runners/application/ports/sandboxes.port';
 import { ClaimHostWorkHandler } from '@runs/application/commands/handlers/claim-host-work.handler';
 import { ClaimHostWorkCommand } from '@runs/application/commands/runner.commands';
@@ -82,6 +84,11 @@ const pulling = (
     startsRequested?: StartedSandbox | null;
     newest?: Run | null;
     queuedForKey?: readonly Run[];
+    requestedWarm?: readonly string[];
+    startsWarm?: StartedWarmSandbox | null;
+    readyWarm?: readonly ReadyWarmSandbox[];
+    firstRuns?: readonly Run[];
+    adopts?: boolean;
   } = {},
 ) => {
   let now = NOW;
@@ -140,6 +147,7 @@ const pulling = (
   const runs = {
     newestWithKey: vi.fn(async () => over.newest ?? null),
     queuedWithKey: vi.fn(async () => over.queuedForKey ?? []),
+    queuedFirstRuns: vi.fn(async () => over.firstRuns ?? []),
     findById: vi.fn(async () => over.run ?? null),
     save: vi.fn(async (run: Run) => {
       saved.push(run);
@@ -172,6 +180,10 @@ const pulling = (
         : over.startsRequested,
     ),
     drain: vi.fn(async () => {}),
+    requestedWarmIn: vi.fn(async () => over.requestedWarm ?? []),
+    startWarm: vi.fn(async () => over.startsWarm ?? null),
+    readyWarmIn: vi.fn(async () => over.readyWarm ?? []),
+    adoptForRun: vi.fn(async () => over.adopts ?? true),
     authenticate: vi.fn(async () => null),
   } satisfies SandboxesPort;
   const handler = new ClaimHostWorkHandler(
@@ -197,6 +209,7 @@ const pulling = (
   return {
     handler,
     sandboxes,
+    runs,
     authenticator,
     runners,
     claimNext,
@@ -529,6 +542,7 @@ describe('ClaimHostWorkHandler', () => {
         sandboxId: 'sandbox_r',
         sandboxToken: 'requested-token',
         allowedHosts: ['archives.example.com'],
+        warm: null,
       });
       expect(sandboxes.startRequested).toHaveBeenCalledWith(
         'sandbox_r',
@@ -634,6 +648,178 @@ describe('ClaimHostWorkHandler', () => {
       });
 
       expect(await handler.execute(pull())).toEqual({ outcome: 'nothing' });
+    });
+  });
+
+  describe('a warm sandbox', () => {
+    const warm: StartedWarmSandbox = {
+      id: 'sandbox_w',
+      token: 'warm-token',
+      warm: {
+        line: 'line_1',
+        checkouts: [{ path: 'widgets', setup: 'npm ci' }],
+      },
+    };
+    const keeping: SandboxTakingRuns = {
+      id: 'sandbox_w',
+      workspaceId: 'ws_1',
+      warmFor: 'line_1',
+    };
+    const into = () =>
+      new ClaimHostWorkCommand(
+        { bearer: 'pool-token', trust: undefined },
+        HOST,
+        IMAGE,
+        'sandbox_w',
+      );
+    const firstRun = () =>
+      Run.enqueue({
+        id: RunId.of('run_9'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('claude-code'),
+        ...orderedFor.holdingTurn('task_9', 0),
+        spec: RunSpec.of({
+          command: { executable: 'claude-agent-acp', args: [] },
+          briefing: 'start the task',
+          handover: { options: [], noteLimit: 4_000 },
+          resume: {},
+        }),
+      });
+
+    it('is started after the queued runs, before a check, with the repositories to clone, on the host’s offer', async () => {
+      const { handler, sandboxes, claimCheck, runners } = pulling({
+        requestedWarm: ['sandbox_w'],
+        startsWarm: warm,
+        check: aCheck,
+      });
+
+      expect(await handler.execute(pull())).toEqual({
+        outcome: 'sandbox',
+        sandboxId: 'sandbox_w',
+        sandboxToken: 'warm-token',
+        allowedHosts: ['archives.example.com'],
+        warm: warm.warm,
+      });
+      expect(sandboxes.startWarm).toHaveBeenCalledWith(
+        'sandbox_w',
+        HOST,
+        RunnerOffer.of(['linux']),
+        NOW,
+      );
+      expect(claimCheck).not.toHaveBeenCalled();
+      expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
+    });
+
+    it('waits while a queued run can be taken', async () => {
+      const { handler, sandboxes } = pulling({
+        run: taken(),
+        requestedWarm: ['sandbox_w'],
+        startsWarm: warm,
+      });
+
+      expect(await handler.execute(pull())).toMatchObject({
+        outcome: 'claimed',
+        work: { kind: 'run' },
+      });
+      expect(sandboxes.startWarm).not.toHaveBeenCalled();
+    });
+
+    it('takes up a check when no host offer fits the requested warm sandbox', async () => {
+      const { handler } = pulling({
+        requestedWarm: ['sandbox_w'],
+        startsWarm: null,
+        check: aCheck,
+      });
+
+      expect(await handler.execute(pull())).toMatchObject({
+        outcome: 'claimed',
+        work: { kind: 'check' },
+      });
+    });
+
+    it('keeps from other hosts the first run of its line that it waits for', async () => {
+      const { handler, claimNext, runs } = pulling({
+        run: taken(),
+        liveKeys: ['requester/subject-task_2'],
+        readyWarm: [{ id: 'sandbox_w', line: 'line_1' }],
+        firstRuns: [firstRun()],
+      });
+
+      await handler.execute(pull());
+
+      expect(runs.queuedFirstRuns).toHaveBeenCalledWith(
+        WorkspaceId.of('ws_1'),
+        {
+          line: 'line_1',
+          avoiding: [WorkingCopyKey.parse('requester/subject-task_2')],
+          queuedSince: new Date(NOW.getTime() - 60_000),
+          max: 1,
+        },
+      );
+      expect(claimNext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sandbox: {
+            avoiding: [
+              WorkingCopyKey.parse('requester/subject-task_2'),
+              firstRun().workingCopyKey,
+            ],
+          },
+        }),
+        NOW,
+      );
+    });
+
+    it('takes the first run of a task on its line, avoiding keys that have a sandbox, and is adopted by it', async () => {
+      const { handler, claimNext, sandboxes } = pulling({
+        run: taken(),
+        taking: keeping,
+        liveKeys: ['requester/subject-task_2'],
+        requested: [{ id: 'sandbox_r', key: 'requester/subject-task_3' }],
+      });
+
+      expect(await handler.execute(into())).toMatchObject({
+        outcome: 'claimed',
+        sandboxId: 'sandbox_w',
+        sandboxToken: null,
+        reused: true,
+        work: { kind: 'run', run: { id: 'run_1' } },
+      });
+      expect(claimNext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sandbox: {
+            firstOfLine: 'line_1',
+            avoiding: [
+              WorkingCopyKey.parse('requester/subject-task_2'),
+              WorkingCopyKey.parse('requester/subject-task_3'),
+            ],
+          },
+        }),
+        NOW,
+      );
+      expect(sandboxes.adoptForRun).toHaveBeenCalledWith(
+        'sandbox_w',
+        {
+          workspaceId: 'ws_1',
+          key: taken().workingCopyKey?.value ?? null,
+          hostId: HOST,
+          runId: 'run_1',
+        },
+        NOW,
+      );
+      expect(sandboxes.holdInSandbox).not.toHaveBeenCalled();
+      expect(sandboxes.drain).not.toHaveBeenCalled();
+    });
+
+    it('puts the run back and releases the runner when the warm sandbox could not adopt it', async () => {
+      const { handler, runners, saved } = pulling({
+        run: taken(),
+        taking: keeping,
+        adopts: false,
+      });
+
+      expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
+      expect(saved[saved.length - 1]?.state).toBe('queued');
+      expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
     });
   });
 

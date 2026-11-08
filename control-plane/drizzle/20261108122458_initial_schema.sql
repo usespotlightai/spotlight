@@ -1703,10 +1703,12 @@ CREATE TABLE "sandbox" (
 	"idle_since" timestamp (3) with time zone,
 	"started_at" timestamp (3) with time zone NOT NULL,
 	"gone_at" timestamp (3) with time zone,
+	"warm" jsonb,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "sandbox_host_has_token" CHECK (("sandbox"."host_id" is null) = ("sandbox"."token_hash" is null)),
 	CONSTRAINT "sandbox_host_has_one_credential_source" CHECK (("sandbox"."host_id" is null) = ("sandbox"."pool_id" is null and "sandbox"."trust_id" is null) and ("sandbox"."pool_id" is null or "sandbox"."trust_id" is null)),
-	CONSTRAINT "sandbox_gone_at_matches_state" CHECK (("sandbox"."state" = 'gone') = ("sandbox"."gone_at" is not null))
+	CONSTRAINT "sandbox_gone_at_matches_state" CHECK (("sandbox"."state" = 'gone') = ("sandbox"."gone_at" is not null)),
+	CONSTRAINT "sandbox_warm_has_no_key" CHECK ("sandbox"."warm" is null or "sandbox"."key" is null)
 );
 --> statement-breakpoint
 CREATE TABLE "used_token" (
@@ -2494,6 +2496,7 @@ CREATE INDEX "sandbox_pool_idle_idx" ON "sandbox" USING btree ("pool_id") WHERE 
 CREATE INDEX "sandbox_gone_idx" ON "sandbox" USING btree ("gone_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "sandbox_token_hash_idx" ON "sandbox" USING btree ("token_hash");--> statement-breakpoint
 CREATE INDEX "sandbox_requested_idx" ON "sandbox" USING btree ("workspace_id","started_at") WHERE "sandbox"."host_id" is null and "sandbox"."state" = 'open';--> statement-breakpoint
+CREATE INDEX "sandbox_warm_idx" ON "sandbox" USING btree ("workspace_id","state") WHERE "sandbox"."warm" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_runners_workspace_idx" ON "workspace_runners" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "network_call_waiting_idx" ON "network_call" USING btree ("workspace_id","state","queued_at");--> statement-breakpoint
 CREATE INDEX "network_call_expiring_idx" ON "network_call" USING btree ("state","expires_at");--> statement-breakpoint

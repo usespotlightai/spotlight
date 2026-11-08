@@ -1,3 +1,4 @@
+import { LINE_TAG } from '@runs/application/contracts/run-order.contract';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -176,7 +177,7 @@ export class DispatchTask implements TaskDispatching {
         policy: WorkRequesters.taskPolicy,
         workingCopy: WorkRequesters.taskWorkingCopy(task.id),
         apiGrant: null,
-        tags: { taskId: task.id.value },
+        tags: { taskId: task.id.value, [LINE_TAG]: line.id.value },
         placement: order.placement,
         spec: {
           ...this.ordering.laid(ordered, {

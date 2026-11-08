@@ -52,7 +52,11 @@ import {
   HostRequirementsResponseDto,
   RunnerReleaseResponseDto,
 } from '@runs/presentation/http/dto/host-requirements.response.dto';
-import { ClaimedWorkResponseDto } from '@runs/presentation/http/dto/runner.response.dto';
+import {
+  ClaimedWorkResponseDto,
+  WarmCheckoutResponseDto,
+  WarmSandboxResponseDto,
+} from '@runs/presentation/http/dto/runner.response.dto';
 import { ClaimedWorkHttpMapper } from '@runs/presentation/http/mappers/claimed-work.http.mapper';
 import { HostCallResponseHttpMapper } from '@runs/presentation/http/mappers/host-call-response.http.mapper';
 
@@ -124,7 +128,7 @@ export class HostWorkController {
     summary:
       'Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run',
     description:
-      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs.',
+      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs. A warm sandbox (`work.warm`) has no key: the host clones the line’s repositories from its mirrors and runs their setup, then claims with `sandbox` like any live sandbox, and a task’s first run on that line is claimed into it.',
   })
   @ApiOkResponse({ type: HostClaimResponseDto })
   @ApiConflictResponse({
@@ -194,7 +198,19 @@ export class HostWorkController {
         sandboxToken: claimed.sandboxToken,
         allowedHosts: claimed.allowedHosts,
         reused: false,
-        work: new ClaimedWorkResponseDto('sandbox', null, null),
+        work: new ClaimedWorkResponseDto(
+          'sandbox',
+          null,
+          null,
+          claimed.warm
+            ? new WarmSandboxResponseDto(
+                claimed.warm.line,
+                claimed.warm.checkouts.map(
+                  (each) => new WarmCheckoutResponseDto(each.path, each.setup),
+                ),
+              )
+            : null,
+        ),
       });
     }
 

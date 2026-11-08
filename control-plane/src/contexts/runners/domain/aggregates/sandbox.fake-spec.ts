@@ -40,9 +40,12 @@ export const sandboxTokens = (): TokenIssuer => {
   };
 };
 
+export const WARM_AGE_MS = 24 * 60 * 60_000;
+
 export const DRAIN_POLICY = SandboxDrainPolicy.of({
   graceMs: GRACE_MS,
   editorLimitMs: EDITOR_LIMIT_MS,
+  warmAgeMs: WARM_AGE_MS,
 });
 
 const savedAs = (sandbox: Sandbox, version: number): Sandbox =>
@@ -58,6 +61,7 @@ const savedAs = (sandbox: Sandbox, version: number): Sandbox =>
     idleSince: sandbox.idleSince,
     startedAt: sandbox.startedAt,
     goneAt: sandbox.goneAt,
+    warm: sandbox.warm,
     version,
   });
 
@@ -140,7 +144,10 @@ export const storedSandboxes = (
     requestedIn: vi.fn(async (workspaceId: WorkspaceId, limit: number) =>
       all()
         .filter(
-          (each) => each.isRequested && each.workspaceId.equals(workspaceId),
+          (each) =>
+            each.isRequested &&
+            each.key !== null &&
+            each.workspaceId.equals(workspaceId),
         )
         .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime())
         .slice(0, limit),
@@ -153,6 +160,18 @@ export const storedSandboxes = (
     liveIn: vi.fn(async (workspaceId: WorkspaceId) =>
       all().filter(
         (each) => each.isLive && each.workspaceId.equals(workspaceId),
+      ),
+    ),
+    openWarm: vi.fn(async () => all().filter((each) => each.isWarm)),
+    openWarmIn: vi.fn(async (workspaceId: WorkspaceId) =>
+      all().filter(
+        (each) => each.isWarm && each.workspaceId.equals(workspaceId),
+      ),
+    ),
+    lostWarmSince: vi.fn(async (cutoff: Date) =>
+      all().filter(
+        (each) =>
+          each.lostWhileWarm && each.goneAt !== null && each.goneAt >= cutoff,
       ),
     ),
     holdingRun: vi.fn(async (runId: RunId) =>

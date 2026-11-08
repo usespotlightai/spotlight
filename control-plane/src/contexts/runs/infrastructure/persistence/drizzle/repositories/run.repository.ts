@@ -32,7 +32,7 @@ import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
-import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
+import { LINE_TAG, RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
@@ -43,6 +43,7 @@ import {
 import { placementMatches } from '@runs/infrastructure/persistence/drizzle/placement-matches';
 import { RunSpecPersistence } from '@runs/infrastructure/persistence/drizzle/run-spec.persistence';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { workingCopyArchive } from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -64,6 +65,7 @@ import {
   desc,
   eq,
   gt,
+  gte,
   inArray,
   isNull,
   lt,
@@ -75,6 +77,26 @@ import {
 
 const keyOf = sql`coalesce(${run.workingCopyKey}, '')`;
 
+const avoidingKeys = (avoiding: readonly WorkingCopyKey[]): SQL =>
+  avoiding.length === 0
+    ? sql`true`
+    : sql`${keyOf} NOT IN (${sql.join(
+        avoiding.map((each) => sql`${each.value}`),
+        sql`, `,
+      )})`;
+
+const firstRunOf = (line: string): SQL => sql`(
+  ${run.tags} ->> ${LINE_TAG} = ${line}
+  AND ${run.workingCopyKey} IS NOT NULL
+  AND ${run.restoreArchiveId} IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM ${workingCopyArchive}
+    WHERE ${workingCopyArchive.workspaceId} = ${run.workspaceId}
+      AND ${workingCopyArchive.workingCopyKey} = ${run.workingCopyKey}
+      AND ${workingCopyArchive.completedAt} IS NOT NULL
+  )
+)`;
+
 const routedBy = (routing: SandboxRouting | undefined): SQL => {
   if (!routing) {
     return sql`true`;
@@ -84,12 +106,9 @@ const routedBy = (routing: SandboxRouting | undefined): SQL => {
     return sql`${keyOf} = ${routing.into.value}`;
   }
 
-  return routing.avoiding.length === 0
-    ? sql`true`
-    : sql`${keyOf} NOT IN (${sql.join(
-        routing.avoiding.map((each) => sql`${each.value}`),
-        sql`, `,
-      )})`;
+  return 'firstOfLine' in routing
+    ? sql`(${firstRunOf(routing.firstOfLine)} AND ${avoidingKeys(routing.avoiding)})`
+    : avoidingKeys(routing.avoiding);
 };
 
 type Row = typeof run.$inferSelect;
@@ -268,6 +287,31 @@ export class DrizzleRunRepository implements RunRepository {
         eq(run.workingCopyKey, key.value),
       ),
     );
+
+    return rows.map(toRun);
+  }
+
+  async queuedFirstRuns(
+    workspaceId: WorkspaceId,
+    page: {
+      readonly line: string;
+      readonly avoiding: readonly WorkingCopyKey[];
+      readonly queuedSince: Date;
+      readonly max: number;
+    },
+  ): Promise<readonly Run[]> {
+    const rows = await this.selected()
+      .where(
+        and(
+          eq(run.workspaceId, workspaceId.value),
+          eq(run.state, 'queued'),
+          gte(run.queuedAt, page.queuedSince),
+          firstRunOf(page.line),
+          avoidingKeys(page.avoiding),
+        ),
+      )
+      .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
+      .limit(page.max);
 
     return rows.map(toRun);
   }

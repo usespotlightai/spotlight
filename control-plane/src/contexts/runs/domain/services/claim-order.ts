@@ -20,6 +20,11 @@ const fits = (run: Run, by: Pick<Claimant, 'harnesses' | 'offer'>): boolean =>
   by.harnesses.some((each) => each.equals(run.harness)) &&
   run.placement.matches(by.offer);
 
+const WARM_WAIT_MS = 60_000;
+
+const startsFresh = (run: Run, line: string): boolean =>
+  run.tags.line === line && run.workingCopyKey !== null && run.restore === null;
+
 const routed = (run: Run, routing: SandboxRouting | undefined): boolean => {
   const key = run.workingCopyKey?.value ?? '';
 
@@ -27,9 +32,15 @@ const routed = (run: Run, routing: SandboxRouting | undefined): boolean => {
     return true;
   }
 
-  return 'into' in routing
-    ? key === routing.into.value
-    : !routing.avoiding.some((each) => each.value === key);
+  if ('into' in routing) {
+    return key === routing.into.value;
+  }
+
+  const avoided = routing.avoiding.some((each) => each.value === key);
+
+  return 'firstOfLine' in routing
+    ? !avoided && startsFresh(run, routing.firstOfLine)
+    : !avoided;
 };
 
 const takeable = (run: Run, by: Claimant, now: Date): boolean =>
@@ -82,6 +93,10 @@ export const ClaimOrder = {
   },
 
   forRequested,
+
+  warmWaitSince(now: Date): Date {
+    return new Date(now.getTime() - WARM_WAIT_MS);
+  },
 
   provisionable(queued: QueuedRuns, now: Date, withEgress: boolean): Run[] {
     return queued.waiting.filter(

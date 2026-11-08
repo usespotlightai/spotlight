@@ -229,6 +229,17 @@ export interface SandboxLeaseRecord {
   readonly renewedAt: string;
 }
 
+export interface SandboxWarmRecord {
+  readonly lineId: string;
+  readonly labelGroups: readonly (readonly string[])[];
+  readonly image: string | null;
+  readonly checkouts: readonly {
+    readonly path: string;
+    readonly setup: string | null;
+  }[];
+  readonly shape: string;
+}
+
 export const sandbox = pgTable(
   'sandbox',
   {
@@ -244,6 +255,7 @@ export const sandbox = pgTable(
     idleSince: timestamptz('idle_since'),
     startedAt: timestamptz('started_at').notNull(),
     goneAt: timestamptz('gone_at'),
+    warm: jsonb('warm').$type<SandboxWarmRecord>(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -275,6 +287,13 @@ export const sandbox = pgTable(
     check(
       'sandbox_gone_at_matches_state',
       sql`(${table.state} = 'gone') = (${table.goneAt} is not null)`,
+    ),
+    index('sandbox_warm_idx')
+      .on(table.workspaceId, table.state)
+      .where(sql`${table.warm} is not null`),
+    check(
+      'sandbox_warm_has_no_key',
+      sql`${table.warm} is null or ${table.key} is null`,
     ),
   ],
 );

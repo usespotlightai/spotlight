@@ -11,7 +11,8 @@ import {
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
 import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
-import { eq, inArray } from 'drizzle-orm';
+import { WarmSandboxKeeping } from '@work/application/services/warm-sandbox-keeping.service';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import {
   afterAll,
   afterEach,
@@ -30,6 +31,7 @@ import {
   requestedByTask,
 } from './support/runs';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { seatTeam } from './support/team';
 
 const IMAGE = 'ghcr.io/acme/runner:main';
@@ -77,7 +79,12 @@ describe('sandboxes (e2e)', () => {
   const http = () => served(app);
 
   const queue = async (
-    input: { key?: string; chatId?: string | null; harness?: string } = {},
+    input: {
+      key?: string;
+      chatId?: string | null;
+      harness?: string;
+      line?: string;
+    } = {},
   ) => {
     const id = randomUUID();
 
@@ -86,6 +93,7 @@ describe('sandboxes (e2e)', () => {
       workspaceId,
       harness: input.harness ?? 'dev',
       state: 'queued',
+      tags: input.line ? { lineId: input.line } : {},
       ...requestedFor(input.key ?? `work/task-${id}`),
       spec: {
         command: { executable: 'sh', args: [] },
@@ -544,6 +552,190 @@ describe('sandboxes (e2e)', () => {
       await archive(claimed.body.sandboxId, claimed.body.sandboxToken)
         .read()
         .expect(404);
+    });
+  });
+
+  describe('a warm sandbox', () => {
+    let lineId: string;
+
+    const keep = () => app.get(WarmSandboxKeeping).keep();
+
+    const warmRows = () =>
+      db
+        .select()
+        .from(schema.sandbox)
+        .where(
+          and(
+            eq(schema.sandbox.workspaceId, workspaceId),
+            isNotNull(schema.sandbox.warm),
+          ),
+        );
+
+    const keepsWarm = (count: number) =>
+      db
+        .update(schema.line)
+        .set({ warmSandboxes: count })
+        .where(eq(schema.line.id, lineId));
+
+    const startedWarm = async () => {
+      await keep();
+      const started = await claim().expect(200);
+      const sandboxId: string = started.body.sandboxId;
+      await heartbeat([sandboxId]).expect(200);
+
+      return { started, sandboxId };
+    };
+
+    beforeEach(async () => {
+      lineId = randomUUID();
+      await db.insert(schema.line).values({
+        id: lineId,
+        workspaceId,
+        teamId: workspaceId,
+        key: 'delivery',
+        name: 'Delivery',
+        warmSandboxes: 1,
+      });
+      await insertStations(db, [
+        {
+          id: randomUUID(),
+          workspaceId,
+          lineId,
+          key: 'backlog',
+          name: 'Backlog',
+          position: 0,
+          kind: 'backlog',
+        },
+        {
+          id: randomUUID(),
+          workspaceId,
+          lineId,
+          key: 'completed',
+          name: 'Completed',
+          position: 1,
+          kind: 'completed',
+        },
+      ]);
+      await db.insert(schema.lineRepository).values({
+        lineId,
+        repository: 'acme/widgets',
+        setup: 'npm ci',
+      });
+    });
+
+    it('is requested for a line that keeps one, on no host and with no key', async () => {
+      await keep();
+      await keep();
+
+      const rows = await warmRows();
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        key: null,
+        hostId: null,
+        state: 'open',
+        leases: [],
+        warm: {
+          lineId,
+          checkouts: [{ path: 'widgets', setup: 'npm ci' }],
+        },
+      });
+    });
+
+    it('is started by a host claim with the repositories to clone, and a task’s first run on its line is claimed into it', async () => {
+      const { started, sandboxId } = await startedWarm();
+
+      expect(started.body).toMatchObject({
+        runnerId: null,
+        token: null,
+        sandboxToken: expect.any(String),
+        reused: false,
+        work: {
+          kind: 'sandbox',
+          run: null,
+          check: null,
+          warm: {
+            line: lineId,
+            checkouts: [{ path: 'widgets', setup: 'npm ci' }],
+          },
+        },
+      });
+
+      const first = await queue({ key: 'work/task-warm_1', line: lineId });
+      await claim().expect(204);
+
+      const into = await claim(sandboxId).expect(200);
+
+      expect(into.body).toMatchObject({
+        sandboxId,
+        sandboxToken: null,
+        reused: true,
+        work: { kind: 'run', run: { id: first } },
+      });
+      expect(await sandboxRow(sandboxId)).toMatchObject({
+        key: 'work/task-warm_1',
+        warm: null,
+        leases: [{ kind: 'run', holder: first, renewedAt: expect.any(String) }],
+      });
+    });
+
+    it('takes no later run of a task, nor a run of another line, and a host starts those afresh', async () => {
+      const { sandboxId } = await startedWarm();
+      const archivedAt = new Date();
+      await db.insert(schema.workingCopyArchive).values({
+        id: randomUUID(),
+        workspaceId,
+        workingCopyKey: 'work/task-warm_2',
+        grantedToSandboxId: 'sandbox-earlier',
+        size: 1_024,
+        sha256: SHA256,
+        grantedAt: archivedAt,
+        completedAt: archivedAt,
+      });
+      const later = await queue({ key: 'work/task-warm_2', line: lineId });
+
+      await claim(sandboxId).expect(204);
+
+      const fresh = await claim().expect(200);
+      expect(fresh.body).toMatchObject({
+        reused: false,
+        work: { kind: 'run', run: { id: later } },
+      });
+      expect(fresh.body.sandboxId).not.toBe(sandboxId);
+
+      await queue({ key: 'work/task-warm_3', line: randomUUID() });
+      await claim(sandboxId).expect(204);
+      expect((await sandboxRow(sandboxId))?.key).toBeNull();
+    });
+
+    it('takes no run of another task once a first run adopted it', async () => {
+      const { sandboxId } = await startedWarm();
+      const first = await queue({ key: 'work/task-warm_4', line: lineId });
+      const into = await claim(sandboxId).expect(200);
+      await complete(first, into.body.token);
+      await eventually(async () =>
+        (await sandboxRow(sandboxId))?.idleSince ? true : null,
+      );
+
+      await queue({ key: 'work/task-warm_5', line: lineId });
+
+      await claim(sandboxId).expect(204);
+      expect((await sandboxRow(sandboxId))?.key).toBe('work/task-warm_4');
+    });
+
+    it('drains once its line keeps none', async () => {
+      const { sandboxId } = await startedWarm();
+
+      await keepsWarm(0);
+      await keep();
+
+      expect(await sandboxRow(sandboxId)).toMatchObject({
+        state: 'draining',
+        warm: null,
+      });
+      await expect(heartbeat([sandboxId]).expect(200)).resolves.toMatchObject({
+        body: { drain: [sandboxId] },
+      });
     });
   });
 });

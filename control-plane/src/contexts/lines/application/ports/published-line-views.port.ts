@@ -14,4 +14,6 @@ export interface PublishedLineViewsPort {
   ofTeam(teamId: TeamId): Promise<readonly LineView[]>;
 
   ofWorkspace(workspaceId: WorkspaceId): Promise<readonly LineView[]>;
+
+  keepingWarmSandboxes(): Promise<readonly LineView[]>;
 }

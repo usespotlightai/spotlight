@@ -1,6 +1,8 @@
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
 
+export { LINE_TAG } from '@runs/domain/value-objects/run-tags.vo';
+
 export interface RunPlacementContract {
   readonly labelGroups: readonly (readonly string[])[];
   readonly image: string | null;

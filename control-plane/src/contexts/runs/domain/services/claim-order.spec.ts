@@ -5,6 +5,8 @@ import type { Claimant } from '@runs/domain/value-objects/claimant';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { LINE_TAG, RunTags } from '@runs/domain/value-objects/run-tags.vo';
+import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -39,6 +41,8 @@ const waiting = (
     workspace?: string;
     placement?: string[];
     ordering?: ReturnType<typeof orderedFor.spec>;
+    line?: string;
+    restore?: string;
   } = {},
 ) =>
   Run.enqueue({
@@ -54,6 +58,8 @@ const waiting = (
       resume: {},
     }),
     placement: RunnerPlacement.of(over.placement ?? []),
+    tags: over.line ? RunTags.of({ [LINE_TAG]: over.line }) : RunTags.none(),
+    restore: over.restore ? WorkingCopyArchiveId.of(over.restore) : null,
     now: new Date(over.createdAt ?? '2026-09-17T09:00:00.000Z'),
   });
 
@@ -183,6 +189,43 @@ describe('ClaimOrder', () => {
         sandbox: { into: key },
       }).map((each) => each.id.value),
     ).toEqual(['keyed']);
+  });
+
+  it('routes into a warm sandbox only a run of its line that starts a working copy afresh, away from the keys held', () => {
+    const first = waiting('first', {
+      ordering: orderedFor.spec('first', 'task-1'),
+      line: 'line_1',
+    });
+    const held = waiting('held', {
+      ordering: orderedFor.spec('held', 'task-2'),
+      line: 'line_1',
+    });
+    const restoring = waiting('restoring', {
+      ordering: orderedFor.spec('restoring', 'task-3'),
+      line: 'line_1',
+      restore: 'archive_1',
+    });
+    const elsewhere = waiting('elsewhere', {
+      ordering: orderedFor.spec('elsewhere', 'task-4'),
+      line: 'line_2',
+    });
+    const keyless = waiting('keyless', { line: 'line_1' });
+
+    expect(
+      inOrder([first, held, restoring, elsewhere, keyless], {
+        ...BY,
+        sandbox: {
+          firstOfLine: 'line_1',
+          avoiding: [WorkingCopyKey.of('workspace', 'task-2')],
+        },
+      }).map((each) => each.id.value),
+    ).toEqual(['first']);
+  });
+
+  it('waits a minute for a warm sandbox before another host may take the first run it can take', () => {
+    expect(ClaimOrder.warmWaitSince(NOW)).toEqual(
+      new Date(NOW.getTime() - 60_000),
+    );
   });
 
   describe('with runs reserved for a provisioned runner', () => {

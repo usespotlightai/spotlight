@@ -6,9 +6,11 @@ import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import type { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import type { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
+import type { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -40,6 +42,7 @@ interface State {
   readonly idleSince: Date | null;
   readonly startedAt: Date;
   readonly goneAt: Date | null;
+  readonly warm: WarmPart | null;
   readonly version: number;
 }
 
@@ -71,6 +74,7 @@ export class Sandbox extends EventRecorder {
       idleSince: null,
       startedAt: input.at,
       goneAt: null,
+      warm: null,
       version: 0,
     });
   }
@@ -93,6 +97,30 @@ export class Sandbox extends EventRecorder {
       idleSince: input.at,
       startedAt: input.at,
       goneAt: null,
+      warm: null,
+      version: 0,
+    });
+  }
+
+  static requestWarm(input: {
+    id: SandboxId;
+    workspaceId: WorkspaceId;
+    warm: WarmPart;
+    at: Date;
+  }): Sandbox {
+    return new Sandbox({
+      id: input.id,
+      workspaceId: input.workspaceId,
+      key: null,
+      hostId: null,
+      source: null,
+      tokenHash: null,
+      state: 'open',
+      leases: [],
+      idleSince: input.at,
+      startedAt: input.at,
+      goneAt: null,
+      warm: input.warm,
       version: 0,
     });
   }
@@ -135,6 +163,18 @@ export class Sandbox extends EventRecorder {
       throw new InconsistentStateError(
         'sandbox',
         'is idle while a run holds it, or holds no run and is not idle',
+      );
+    }
+
+    if (
+      state.warm !== null &&
+      (state.key !== null ||
+        state.leases.length > 0 ||
+        state.state === 'draining')
+    ) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'is warm while it has a key, a lease or drains',
       );
     }
 
@@ -213,6 +253,18 @@ export class Sandbox extends EventRecorder {
     return this.state.version;
   }
 
+  get warm(): WarmPart | null {
+    return this.state.warm;
+  }
+
+  get isWarm(): boolean {
+    return this.state.warm !== null && this.isOpen;
+  }
+
+  get lostWhileWarm(): boolean {
+    return this.state.warm !== null && this.state.state === 'gone';
+  }
+
   get isOpen(): boolean {
     return this.state.state === 'open';
   }
@@ -263,6 +315,18 @@ export class Sandbox extends EventRecorder {
     return this.isReadyOn(host, now) && this.isIdle && !host.isStopping;
   }
 
+  takesFirstRunOn(host: RunnerHost, now: Date): boolean {
+    return (
+      this.isWarm &&
+      this.state.leases.length === 0 &&
+      this.takesRunOn(host, now)
+    );
+  }
+
+  warmFits(offer: RunnerOffer): boolean {
+    return this.isRequested && (this.state.warm?.fits(offer) ?? false);
+  }
+
   keptBy(host: RunnerHost): boolean {
     return (
       this.isOpen && this.isOn(host.id) && !(host.isStopping && this.isIdle)
@@ -270,6 +334,33 @@ export class Sandbox extends EventRecorder {
   }
 
   placeOn(host: RunnerHost, tokenHash: TokenHash, at: Date): Sandbox {
+    if (this.state.warm !== null) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'is warm, and starts only on a host that offers its placement',
+      );
+    }
+
+    return this.placedOn(host, tokenHash, at);
+  }
+
+  placeWarmOn(
+    host: RunnerHost,
+    offer: RunnerOffer,
+    tokenHash: TokenHash,
+    at: Date,
+  ): Sandbox {
+    if (!this.warmFits(offer)) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'is not a requested warm sandbox for a placement the host offers',
+      );
+    }
+
+    return this.placedOn(host, tokenHash, at);
+  }
+
+  private placedOn(host: RunnerHost, tokenHash: TokenHash, at: Date): Sandbox {
     if (!this.isRequested) {
       throw new InconsistentStateError(
         'sandbox',
@@ -304,6 +395,21 @@ export class Sandbox extends EventRecorder {
 
     return ownsTheRun && this.takesRunOn(host, at)
       ? this.holdRun(run.runId, at)
+      : this;
+  }
+
+  adoptFor(
+    run: { runId: RunId; workspaceId: WorkspaceId; key: SandboxKey | null },
+    host: RunnerHost,
+    at: Date,
+  ): Sandbox {
+    const adopts =
+      run.key !== null &&
+      this.state.workspaceId.equals(run.workspaceId) &&
+      this.takesFirstRunOn(host, at);
+
+    return adopts
+      ? this.with({ key: run.key, warm: null }).holdRun(run.runId, at)
       : this;
   }
 
@@ -360,7 +466,7 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    if (!this.isOpen) {
+    if (!this.isOpen || this.state.warm !== null) {
       return this;
     }
 
@@ -430,7 +536,7 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    return this.isOpen ? this.with({ state: 'draining' }) : this;
+    return this.isOpen ? this.with({ state: 'draining', warm: null }) : this;
   }
 
   drainedWhenPlaced(): Sandbox {
@@ -442,6 +548,10 @@ export class Sandbox extends EventRecorder {
 
     if (!this.isOpen || idleSince === null) {
       return false;
+    }
+
+    if (this.state.warm !== null) {
+      return now.getTime() - this.state.startedAt.getTime() >= policy.warmAgeMs;
     }
 
     const limit =

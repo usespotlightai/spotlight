@@ -2,6 +2,8 @@ import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.
 
 const NAME = /^[a-z][a-zA-Z0-9]*$/;
 
+export const LINE_TAG = 'lineId';
+
 export class RunTags {
   private constructor(
     private readonly tags: Readonly<Record<string, string>>,
@@ -29,5 +31,9 @@ export class RunTags {
 
   get value(): Readonly<Record<string, string>> {
     return { ...this.tags };
+  }
+
+  get line(): string | null {
+    return this.tags[LINE_TAG] ?? null;
   }
 }

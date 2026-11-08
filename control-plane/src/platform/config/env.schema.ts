@@ -77,6 +77,7 @@ export const envSchema = databaseSchema
     SPOTLIGHT_LONG_POLL_MS: z.coerce.number().int().positive().default(10_000),
     SPOTLIGHT_SANDBOX_GRACE: duration('10m'),
     SPOTLIGHT_EDITOR_LIMIT: duration('12h'),
+    SPOTLIGHT_WARM_SANDBOX_AGE: duration('24h'),
     SPOTLIGHT_MCP_RELIST_SECONDS: z.coerce
       .number()
       .int()

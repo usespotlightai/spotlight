@@ -8,7 +8,11 @@ type Claims = 'any' | 'reserved';
 
 export type SandboxRouting =
   | { readonly into: WorkingCopyKey }
-  | { readonly avoiding: readonly WorkingCopyKey[] };
+  | { readonly avoiding: readonly WorkingCopyKey[] }
+  | {
+      readonly firstOfLine: string;
+      readonly avoiding: readonly WorkingCopyKey[];
+    };
 
 export interface Claimant {
   readonly runner: RunnerId;

@@ -1,4 +1,44 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class WarmCheckoutResponseDto {
+  @ApiProperty({
+    example: 'spotlight',
+    description:
+      'The repository’s name: the host clones it from its mirror at the default branch into this folder of the workspace',
+  })
+  readonly path: string;
+
+  @ApiPropertyOptional({
+    example: 'npm ci',
+    description:
+      'The setup command to run in the clone once it is checked out. Absent when the repository has no setup',
+  })
+  readonly setup?: string;
+
+  constructor(path: string, setup: string | null) {
+    this.path = path;
+
+    if (setup !== null) {
+      this.setup = setup;
+    }
+  }
+}
+
+export class WarmSandboxResponseDto {
+  @ApiProperty({
+    example: '0b6f4f62-3a8e-4c38-9d0e-6a2f6f1c7d21',
+    description: 'The line the warm sandbox is kept for',
+  })
+  readonly line: string;
+
+  @ApiProperty({ type: () => [WarmCheckoutResponseDto] })
+  readonly checkouts: readonly WarmCheckoutResponseDto[];
+
+  constructor(line: string, checkouts: readonly WarmCheckoutResponseDto[]) {
+    this.line = line;
+    this.checkouts = checkouts;
+  }
+}
 
 export class ClaimedCheckStepResponseDto {
   @ApiProperty({
@@ -101,14 +141,26 @@ export class ClaimedWorkResponseDto {
   @ApiProperty({ type: ClaimedCheckResponseDto, nullable: true })
   readonly check: ClaimedCheckResponseDto | null;
 
+  @ApiPropertyOptional({
+    type: () => WarmSandboxResponseDto,
+    description:
+      'Only for a `sandbox` that is warm: clone and set up these repositories before a task’s first run is claimed into it',
+  })
+  readonly warm?: WarmSandboxResponseDto;
+
   constructor(
     kind: 'run' | 'check' | 'sandbox',
     run: ClaimedRunResponseDto | null,
     check: ClaimedCheckResponseDto | null,
+    warm: WarmSandboxResponseDto | null = null,
   ) {
     this.kind = kind;
     this.run = run;
     this.check = check;
+
+    if (warm) {
+      this.warm = warm;
+    }
   }
 }
 

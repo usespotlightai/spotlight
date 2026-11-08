@@ -17,8 +17,12 @@ import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error'
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { EDITOR_LEASE_MS } from '@runners/domain/value-objects/sandbox-lease.vo';
+import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -510,6 +514,97 @@ describe('Sandboxes', () => {
       await service.drainIdle(later(1_000));
 
       expect(stored.get('sandbox_r')?.current).toBe('open');
+    });
+  });
+
+  describe('a warm sandbox', () => {
+    const warmRequested = () =>
+      Sandbox.requestWarm({
+        id: SandboxId.of('sandbox_w'),
+        workspaceId: WORKSPACE,
+        warm: WarmPart.of({
+          lineId: LineId.of('line_1'),
+          placement: RunnerPlacement.of(['gpu']),
+          checkouts: [{ path: 'widgets', setup: 'npm ci' }],
+          shape: 'shape_1',
+        }),
+        at: STARTED_AT,
+      });
+    const GPU = RunnerOffer.of(['gpu']);
+
+    it('is listed as requested and starts on a host whose offer fits, with the repositories to clone', async () => {
+      const { stored, service } = serving({ known: [warmRequested()] });
+
+      expect(await service.requestedWarmIn(WORKSPACE.value)).toEqual([
+        'sandbox_w',
+      ]);
+      expect(
+        await service.startWarm(
+          'sandbox_w',
+          HOST,
+          RunnerOffer.of(['cpu']),
+          STARTED_AT,
+        ),
+      ).toBeNull();
+
+      const started = await service.startWarm(
+        'sandbox_w',
+        HOST,
+        GPU,
+        STARTED_AT,
+      );
+
+      expect(started).toEqual({
+        id: 'sandbox_w',
+        token: expect.any(String),
+        warm: {
+          line: 'line_1',
+          checkouts: [{ path: 'widgets', setup: 'npm ci' }],
+        },
+      });
+      expect(stored.get('sandbox_w')?.isOn(HostId.of(HOST))).toBe(true);
+      expect(await service.requestedWarmIn(WORKSPACE.value)).toEqual([]);
+    });
+
+    it('takes runs for its line once its host reports it, and a first run adopts it', async () => {
+      const { stored, service } = serving({
+        known: [warmRequested()],
+        reported: ['sandbox_w'],
+      });
+      await service.startWarm('sandbox_w', HOST, GPU, STARTED_AT);
+
+      expect(await service.takingRuns('sandbox_w', HOST)).toEqual({
+        id: 'sandbox_w',
+        workspaceId: WORKSPACE.value,
+        warmFor: 'line_1',
+      });
+      expect(await service.readyWarmIn(WORKSPACE.value, STARTED_AT)).toEqual([
+        { id: 'sandbox_w', line: 'line_1' },
+      ]);
+
+      expect(
+        await service.adoptForRun(
+          'sandbox_w',
+          forRun('run_1', 'work/task-task_1'),
+          STARTED_AT,
+        ),
+      ).toBe(true);
+      expect(stored.get('sandbox_w')?.key?.value).toBe('work/task-task_1');
+      expect(stored.get('sandbox_w')?.isWarm).toBe(false);
+      expect(await service.takingRuns('sandbox_w', HOST)).toBeNull();
+      expect(await service.readyWarmIn(WORKSPACE.value, STARTED_AT)).toEqual(
+        [],
+      );
+    });
+
+    it('takes no run before its host reports it', async () => {
+      const { service } = serving({ known: [warmRequested()], reported: [] });
+      await service.startWarm('sandbox_w', HOST, GPU, STARTED_AT);
+
+      expect(await service.takingRuns('sandbox_w', HOST)).toBeNull();
+      expect(
+        await service.adoptForRun('sandbox_w', forRun('run_1'), STARTED_AT),
+      ).toBe(false);
     });
   });
 

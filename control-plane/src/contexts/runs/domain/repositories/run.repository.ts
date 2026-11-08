@@ -37,6 +37,16 @@ export interface RunRepository {
     key: WorkingCopyKey,
   ): Promise<readonly Run[]>;
 
+  queuedFirstRuns(
+    workspaceId: WorkspaceId,
+    page: {
+      readonly line: string;
+      readonly avoiding: readonly WorkingCopyKey[];
+      readonly queuedSince: Date;
+      readonly max: number;
+    },
+  ): Promise<readonly Run[]>;
+
   expiredLeases(now: Date): Promise<readonly Run[]>;
 
   claimedBy(runner: RunnerId): Promise<readonly Run[]>;

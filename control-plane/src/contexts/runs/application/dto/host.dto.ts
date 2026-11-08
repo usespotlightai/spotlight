@@ -1,5 +1,13 @@
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
 
+export interface WarmSandboxStartDto {
+  readonly line: string;
+  readonly checkouts: readonly {
+    readonly path: string;
+    readonly setup: string | null;
+  }[];
+}
+
 export type HostClaimDto =
   | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'nothing' }
@@ -25,4 +33,5 @@ export type HostClaimDto =
       readonly sandboxId: string;
       readonly sandboxToken: string;
       readonly allowedHosts: readonly string[];
+      readonly warm: WarmSandboxStartDto | null;
     };

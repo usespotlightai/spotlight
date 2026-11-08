@@ -1,5 +1,5 @@
 {
-  "id": "33b803f7-74db-430a-a3be-259d3e7c1da0",
+  "id": "e50daddf-ed3f-490f-a059-96d12308b4c4",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -13892,6 +13892,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "warm": {
+          "name": "warm",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -14022,6 +14028,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "sandbox_warm_idx": {
+          "name": "sandbox_warm_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"sandbox\".\"warm\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -14040,6 +14068,10 @@
         "sandbox_gone_at_matches_state": {
           "name": "sandbox_gone_at_matches_state",
           "value": "(\"sandbox\".\"state\" = 'gone') = (\"sandbox\".\"gone_at\" is not null)"
+        },
+        "sandbox_warm_has_no_key": {
+          "name": "sandbox_warm_has_no_key",
+          "value": "\"sandbox\".\"warm\" is null or \"sandbox\".\"key\" is null"
         }
       },
       "isRLSEnabled": false
