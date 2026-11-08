@@ -27,12 +27,33 @@ export class ChecksToolUse implements BuiltInToolUse<TaskToolContext> {
       throw new NoPullRequestError(taskId.value);
     }
 
+    const pullRequests = [first, ...task.laterPullRequests];
+    const read = await Promise.allSettled(
+      pullRequests.map(async (pullRequest) => ({
+        pullRequest: pullRequest.value,
+        ...(await this.checkRuns.failedOn(workspaceId, pullRequest)),
+      })),
+    );
+    const [firstRead] = read;
+
+    if (
+      firstRead?.status === 'rejected' &&
+      read.every((each) => each.status === 'rejected')
+    ) {
+      throw firstRead.reason;
+    }
+
     return {
-      pullRequests: await Promise.all(
-        [first, ...task.laterPullRequests].map(async (pullRequest) => ({
-          pullRequest: pullRequest.value,
-          ...(await this.checkRuns.failedOn(workspaceId, pullRequest)),
-        })),
+      pullRequests: read.map((each, at) =>
+        each.status === 'fulfilled'
+          ? each.value
+          : {
+              pullRequest: pullRequests[at]?.value,
+              error:
+                each.reason instanceof Error
+                  ? each.reason.message
+                  : String(each.reason),
+            },
       ),
     };
   }

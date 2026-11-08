@@ -739,6 +739,24 @@ export class Task extends EventRecorder {
       : this;
   }
 
+  pullRequestReopened(url: PullRequestUrl): Task {
+    if (this.pullRequest?.equals(url)) {
+      return this.pullRequestClosedAt
+        ? this.with({ pullRequestClosedAt: null })
+        : this;
+    }
+
+    return this.laterPullRequests.some(
+      (each) => each.url.equals(url) && each.closedAt !== null,
+    )
+      ? this.with({
+          laterPullRequests: this.laterPullRequests.map((each) =>
+            each.url.equals(url) ? each.reopened() : each,
+          ),
+        })
+      : this;
+  }
+
   get openPullRequests(): readonly PullRequestUrl[] {
     if (this.reviewing || !this.pullRequest) {
       return [];

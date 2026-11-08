@@ -2,6 +2,17 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { describe, expect, it } from 'vitest';
 
 describe('PullRequestUrl', () => {
+  it('is the same pull request whatever the letter case of its repository', () => {
+    const named = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+
+    expect(
+      named.equals(PullRequestUrl.of('https://github.com/Acme/API/pull/7')),
+    ).toBe(true);
+    expect(
+      named.equals(PullRequestUrl.of('https://github.com/acme/api/pull/8')),
+    ).toBe(false);
+  });
+
   it('reads the repository the pull request lives in from the URL', () => {
     const url = PullRequestUrl.of('https://github.com/acme/api/pull/7');
 

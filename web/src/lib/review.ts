@@ -66,7 +66,7 @@ export const threadsOf = (comments: readonly ReviewComment[]): ReviewThread[] =>
 const sameRepository = (one: string, other: string) =>
   one.toLowerCase() === other.toLowerCase();
 
-export const shownInStack = (
+const shownInStack = (
   comment: ReviewComment,
   repository: string | null,
   alone: boolean,

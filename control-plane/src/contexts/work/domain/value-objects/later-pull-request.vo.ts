@@ -15,6 +15,12 @@ export class LaterPullRequest {
     return new LaterPullRequest(url, openedAt, closedAt);
   }
 
+  reopened(): LaterPullRequest {
+    return this.closedAt
+      ? new LaterPullRequest(this.url, this.openedAt, null)
+      : this;
+  }
+
   closed(at: Date): LaterPullRequest {
     return this.closedAt
       ? this

@@ -1420,6 +1420,24 @@ describe('Task, what it is doing', () => {
         ).toBe(task);
       });
 
+      it('counts a pull request open again once it reopens', () => {
+        const task = opened()
+          .pullRequestClosed(url, NOW)
+          .pullRequestClosed(docs, NOW);
+
+        expect(task.pullRequestReopened(docs).openPullRequests).toEqual([docs]);
+        expect(task.pullRequestReopened(url).openPullRequests).toEqual([url]);
+      });
+
+      it('closes a pull request named in another letter case', () => {
+        expect(
+          opened().pullRequestClosed(
+            PullRequestUrl.of('https://github.com/Acme/Docs/pull/3'),
+            NOW,
+          ).openPullRequests,
+        ).toEqual([url]);
+      });
+
       it('records each one it opens', () => {
         const task = added().assignRun(RUN, LINE);
         task.pullEvents();

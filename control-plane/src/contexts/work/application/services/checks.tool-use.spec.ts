@@ -46,7 +46,9 @@ const using = (
   } | null,
 ) => {
   const checkRuns = {
-    failedOn: vi.fn(async () => FAILED),
+    failedOn: vi.fn(
+      async (_workspaceId: WorkspaceId, _pullRequest: PullRequestUrl) => FAILED,
+    ),
     failedInSuite: vi.fn(),
   } satisfies CheckRunsPort;
   const tasks = {
@@ -99,6 +101,33 @@ describe('ChecksToolUse', () => {
       DOCS.value,
     ]);
     expect(checkRuns.failedOn).toHaveBeenCalledWith(CONTEXT.workspaceId, DOCS);
+  });
+
+  it('answers for the other pull requests where GitHub fails for one', async () => {
+    const { tool, checkRuns } = using({
+      pullRequest: PULL_REQUEST,
+      later: [DOCS],
+    });
+    checkRuns.failedOn.mockImplementation(async (_workspaceId, pullRequest) => {
+      if (pullRequest === DOCS) {
+        throw new Error('GitHub did not answer');
+      }
+      return FAILED;
+    });
+
+    expect(await tool.call(CONTEXT)).toEqual({
+      pullRequests: [
+        { pullRequest: PULL_REQUEST.value, ...FAILED },
+        { pullRequest: DOCS.value, error: 'GitHub did not answer' },
+      ],
+    });
+  });
+
+  it('fails where GitHub fails for every pull request', async () => {
+    const { tool, checkRuns } = using({ pullRequest: PULL_REQUEST });
+    checkRuns.failedOn.mockRejectedValue(new Error('GitHub did not answer'));
+
+    await expect(tool.call(CONTEXT)).rejects.toThrow('GitHub did not answer');
   });
 
   it('refuses a task without a pull request', async () => {
