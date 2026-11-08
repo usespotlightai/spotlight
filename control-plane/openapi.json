@@ -30643,8 +30643,13 @@
           },
           "expected": {
             "type": "string",
+            "nullable": true,
             "example": "It answers 409 and sends no invitation.",
-            "description": "The answer that Spotlight expected"
+            "description": "The answer that Spotlight expected; null while the answer is outdated, so it is shown only once the reviewer answers the question as it is asked now"
+          },
+          "outdated": {
+            "type": "boolean",
+            "description": "True when the reviewer answered the question while it expected another answer; the reply and verdict are then the earlier ones, and feedback and expected are null"
           }
         },
         "required": [
@@ -30652,7 +30657,8 @@
           "reply",
           "verdict",
           "feedback",
-          "expected"
+          "expected",
+          "outdated"
         ]
       },
       "LayerQuestionResponseDto": {
@@ -30694,6 +30700,30 @@
           "answered"
         ]
       },
+      "LayerRevisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unchanged",
+              "modified",
+              "added"
+            ],
+            "description": "How the layer compares with the previous stack: unchanged, modified or added"
+          },
+          "previous": {
+            "type": "string",
+            "nullable": true,
+            "example": "c1.l2",
+            "description": "The layer it follows in the previous stack; null when the layer is added"
+          }
+        },
+        "required": [
+          "status",
+          "previous"
+        ]
+      },
       "StackLayerResponseDto": {
         "type": "object",
         "properties": {
@@ -30727,6 +30757,16 @@
             "items": {
               "$ref": "#/components/schemas/LayerQuestionResponseDto"
             }
+          },
+          "revision": {
+            "nullable": true,
+            "description": "How the layer compares with the previous stack; null when the stack follows no previous stack",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerRevisionResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -30735,7 +30775,8 @@
           "summary",
           "hunks",
           "notes",
-          "questions"
+          "questions",
+          "revision"
         ]
       },
       "StackCohortResponseDto": {
@@ -30772,6 +30813,29 @@
           "title",
           "intent",
           "layers"
+        ]
+      },
+      "RemovedLayerResponseDto": {
+        "type": "object",
+        "properties": {
+          "previous": {
+            "type": "string",
+            "example": "c1.l2",
+            "description": "The layer in the previous stack"
+          },
+          "cohort": {
+            "type": "string",
+            "example": "Team invitations"
+          },
+          "title": {
+            "type": "string",
+            "example": "Add the invitation data model"
+          }
+        },
+        "required": [
+          "previous",
+          "cohort",
+          "title"
         ]
       },
       "CheckedStepResponseDto": {
@@ -30879,6 +30943,13 @@
               "$ref": "#/components/schemas/StackCohortResponseDto"
             }
           },
+          "removed": {
+            "description": "Layers of the previous stack that this stack no longer has",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RemovedLayerResponseDto"
+            }
+          },
           "check": {
             "nullable": true,
             "description": "What the check ran and what each step printed",
@@ -30897,6 +30968,7 @@
           "failure",
           "files",
           "cohorts",
+          "removed",
           "check"
         ]
       },

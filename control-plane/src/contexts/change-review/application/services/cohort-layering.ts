@@ -11,6 +11,7 @@ import {
   type DiffFacts,
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
+import type { PreviousStack } from '@change-review/domain/services/previous-stack';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
 import { stackPartOf } from '@change-review/domain/services/stack-part';
@@ -56,16 +57,24 @@ export const layerCohort = async (
     cohort: OutlinedCohort;
     redraft?: RedraftRequest | null;
     redrafting?: StackCohort;
+    previous?: PreviousStack | null;
   },
 ): Promise<CohortLayering> => {
-  const { cohort, repository, redraft, redrafting } = request;
+  const { cohort, repository, redraft, redrafting, previous } = request;
   const part = stackPartOf(request.diff, request.facts, cohort.hunks);
   const usage: ModelCall[] = [];
   let problems: readonly StackProblem[] = [];
 
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const attempt = await attempted(() =>
-      generator.layers({ part, repository, cohort, problems, redraft }),
+      generator.layers({
+        part,
+        repository,
+        cohort,
+        problems,
+        redraft,
+        previous,
+      }),
     );
     const call = attempt.generated ? attempt.answer.usage : attempt.usage;
 

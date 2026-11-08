@@ -8,6 +8,7 @@ import type {
   StoredCohort,
   StoredFacts,
   StoredFile,
+  StoredRemovedLayer,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
@@ -70,6 +71,10 @@ export const changeStack = pgTable(
     redrafting: boolean('redrafting').notNull(),
     pendingJob: boolean('pending_job').notNull(),
     usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
+    previousStackId: text('previous_stack_id'),
+    removedLayers: jsonb('removed_layers')
+      .$type<StoredRemovedLayer[]>()
+      .notNull(),
     jobAttempts: integer('job_attempts').notNull(),
     jobDueAt: timestamptz('job_due_at'),
     version: integer('version').notNull(),

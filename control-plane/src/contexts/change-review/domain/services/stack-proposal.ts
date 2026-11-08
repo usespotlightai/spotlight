@@ -9,6 +9,7 @@ import {
   movedGroups,
   withMovedCodeTogether,
 } from '@change-review/domain/services/moved-code';
+import { PreviousStack } from '@change-review/domain/services/previous-stack';
 import { keptQuestions } from '@change-review/domain/services/shown-questions';
 import {
   changeLayerCount,
@@ -19,6 +20,7 @@ import { stackPartsOf } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
   type LayerDependency,
+  type LayerRevision,
   type ProposedCohort,
   type ProposedLayer,
   type StackCohort,
@@ -56,6 +58,7 @@ const mergedDependencies = (
 const numbered = (
   cohorts: readonly ProposedCohort[],
   facts: DiffFacts,
+  revisions: readonly (readonly LayerRevision[])[] | null,
 ): StackCohort[] => {
   const derived = derivedDependencies(cohorts, facts.links);
 
@@ -91,6 +94,7 @@ const numbered = (
             answer: each.answer.trim(),
             hunks: [...new Set(each.hunks)],
           })),
+          revision: revisions ? (revisions[c]?.[l] ?? null) : null,
         };
       }),
     };
@@ -190,16 +194,23 @@ const accepted = (
     readonly cohorts: readonly ProposedCohort[];
     readonly modelProposal?: readonly ProposedCohort[];
     readonly changeLayersAtLeast?: number;
+    readonly previous?: PreviousStack | null;
   },
-): StackCohort[] =>
-  numbered(
-    checked(
-      input,
-      input.cohorts,
-      { changeLayersAtLeast: input.changeLayersAtLeast, scope: 'stack' },
-      input.modelProposal,
-    ),
-    input.facts,
+): StackCohort[] => {
+  const cohorts = checked(
+    input,
+    input.cohorts,
+    { changeLayersAtLeast: input.changeLayersAtLeast, scope: 'stack' },
+    input.modelProposal,
   );
+
+  if (!input.previous) {
+    return numbered(cohorts, input.facts, null);
+  }
+
+  const revised = PreviousStack.revised(input.previous, cohorts);
+
+  return numbered(revised.cohorts, input.facts, revised.revisions);
+};
 
 export const StackProposal = { checkedCohort, accepted };

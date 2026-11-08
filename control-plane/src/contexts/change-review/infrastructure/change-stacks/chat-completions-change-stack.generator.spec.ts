@@ -1,9 +1,11 @@
 import { factsOf } from '@change-review/domain/services/diff-facts';
+import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
-import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import {
   ChatCompletionsChangeStackGenerator,
   describeProblem,
+  previousStackPrompt,
   redraftPrompt,
 } from '@change-review/infrastructure/change-stacks/chat-completions-change-stack.generator';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
@@ -429,5 +431,115 @@ describe('redraftPrompt', () => {
     );
     expect(text).toContain('cohort 1, layer 1 "Task reads" does not build');
     expect(text).toContain('src/mapper.spec.ts: h2 in layer 2');
+  });
+});
+
+describe('previousStackPrompt', () => {
+  const FACTS = {
+    hunks: [
+      {
+        hunk: HunkId.of('h1'),
+        path: 'src/invite.ts',
+        fileClass: 'source' as const,
+        incidental: false,
+        renamed: false,
+        moved: false,
+        linkable: true,
+        defines: [],
+        outside: [],
+      },
+      {
+        hunk: HunkId.of('h2'),
+        path: 'package-lock.json',
+        fileClass: 'lockfile' as const,
+        incidental: true,
+        renamed: false,
+        moved: false,
+        linkable: false,
+        defines: [],
+        outside: [],
+      },
+    ],
+    links: [],
+    imports: [],
+  };
+  const PREVIOUS = {
+    stackId: ChangeStackId.of('stack-1'),
+    addedHunks: [HunkId.of('h1'), HunkId.of('h2')],
+    pathOfHunk: new Map(),
+    diffUnchanged: false,
+    cohorts: [
+      {
+        kind: 'change' as const,
+        title: 'Invitations',
+        intent: 'Let admins invite people',
+        joinedBecause: null,
+        layers: [
+          {
+            id: LayerId.of('c1.l1'),
+            title: 'Add invite',
+            summary: 'The function',
+            dependsOn: [],
+            hunks: [HunkId.of('h1')],
+            paths: ['src/invite.ts'],
+            fullyKept: true,
+            notes: [],
+            questions: [
+              {
+                question: 'What happens to a member?',
+                answer: 'It answers 409.',
+                hunks: [HunkId.of('h1')],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        kind: 'incidental' as const,
+        title: 'Update lockfiles',
+        intent: 'Incidental',
+        joinedBecause: null,
+        layers: [
+          {
+            id: LayerId.of('c2.l1'),
+            title: 'Update lockfiles',
+            summary: 'Lockfiles',
+            dependsOn: [],
+            hunks: [HunkId.of('h2')],
+            paths: ['package-lock.json'],
+            fullyKept: true,
+            notes: [],
+            questions: [],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('shows the earlier stack, its questions and the changed hunks, without what Spotlight places itself', () => {
+    const text = previousStackPrompt(PREVIOUS, FACTS, 'stack') ?? '';
+
+    expect(text).toContain(
+      'cohort 1 "Invitations": Let admins invite people\nlayer 1 "Add invite" (h1): The function\n  question: What happens to a member?\n  answer: It answers 409.',
+    );
+    expect(text).toContain('These hunks are new or changed since then: h1.');
+    expect(text).not.toContain('lockfiles');
+    expect(text).toContain('word for word');
+  });
+
+  it('shows only cohorts and their hunks to the outline', () => {
+    expect(previousStackPrompt(PREVIOUS, FACTS, 'cohorts')).toContain(
+      'cohort 1 "Invitations" (h1)',
+    );
+  });
+
+  it('shows nothing when no earlier hunk is still there', () => {
+    expect(
+      previousStackPrompt(
+        { ...PREVIOUS, cohorts: PREVIOUS.cohorts.slice(1) },
+        FACTS,
+        'stack',
+      ),
+    ).toBeNull();
   });
 });

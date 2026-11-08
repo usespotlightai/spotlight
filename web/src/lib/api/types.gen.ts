@@ -3813,9 +3813,13 @@ export type QuestionAnswerResponseDto = {
    */
   feedback: string | null;
   /**
-   * The answer that Spotlight expected
+   * The answer that Spotlight expected; null while the answer is outdated, so it is shown only once the reviewer answers the question as it is asked now
    */
-  expected: string;
+  expected: string | null;
+  /**
+   * True when the reviewer answered the question while it expected another answer; the reply and verdict are then the earlier ones, and feedback and expected are null
+   */
+  outdated: boolean;
 };
 
 export type LayerQuestionResponseDto = {
@@ -3831,6 +3835,17 @@ export type LayerQuestionResponseDto = {
   answered: QuestionAnswerResponseDto | null;
 };
 
+export type LayerRevisionResponseDto = {
+  /**
+   * How the layer compares with the previous stack: unchanged, modified or added
+   */
+  status: 'unchanged' | 'modified' | 'added';
+  /**
+   * The layer it follows in the previous stack; null when the layer is added
+   */
+  previous: string | null;
+};
+
 export type StackLayerResponseDto = {
   id: string;
   title: string;
@@ -3844,6 +3859,10 @@ export type StackLayerResponseDto = {
    * Questions that test whether the reviewer understood the layer; empty for incidental changes
    */
   questions: Array<LayerQuestionResponseDto>;
+  /**
+   * How the layer compares with the previous stack; null when the stack follows no previous stack
+   */
+  revision: LayerRevisionResponseDto | null;
 };
 
 export type StackCohortResponseDto = {
@@ -3852,6 +3871,15 @@ export type StackCohortResponseDto = {
   title: string;
   intent: string;
   layers: Array<StackLayerResponseDto>;
+};
+
+export type RemovedLayerResponseDto = {
+  /**
+   * The layer in the previous stack
+   */
+  previous: string;
+  cohort: string;
+  title: string;
 };
 
 export type CheckedStepResponseDto = {
@@ -3885,6 +3913,10 @@ export type ChangeStackResponseDto = {
   failure: string | null;
   files: Array<DiffFileResponseDto>;
   cohorts: Array<StackCohortResponseDto>;
+  /**
+   * Layers of the previous stack that this stack no longer has
+   */
+  removed: Array<RemovedLayerResponseDto>;
   /**
    * What the check ran and what each step printed
    */
