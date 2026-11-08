@@ -103,7 +103,33 @@ func (m *Mirrors) fetch(ctx context.Context, dir string, fetch Fetch) error {
 		return fmt.Errorf("mirror %s/%s: git fetch: %w: %s", fetch.Workspace, fetch.Repository, err, out)
 	}
 
+	if head, ok := defaultBranch(ctx, env, dir, fetch.Remote); ok {
+		if out, err := git(ctx, nil, "--git-dir", dir, "symbolic-ref", "HEAD", head); err != nil {
+			return fmt.Errorf("mirror %s/%s: point HEAD at %s: %w: %s", fetch.Workspace, fetch.Repository, head, err, out)
+		}
+	}
+
 	return nil
+}
+
+func defaultBranch(ctx context.Context, env []string, dir, remote string) (string, bool) {
+	out, err := git(ctx, env, "--git-dir", dir, "ls-remote", "--symref", remote, "HEAD")
+	if err != nil {
+		return "", false
+	}
+
+	for line := range strings.Lines(out) {
+		target, found := strings.CutPrefix(line, "ref: ")
+		if !found {
+			continue
+		}
+		head, name, found := strings.Cut(strings.TrimSpace(target), "\t")
+		if found && name == "HEAD" && strings.HasPrefix(head, "refs/heads/") {
+			return head, true
+		}
+	}
+
+	return "", false
 }
 
 // Prune must run only when no host serves from the mirrors. A git process that still runs will lose its locks.

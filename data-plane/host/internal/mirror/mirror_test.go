@@ -154,3 +154,25 @@ func TestPruneClearsWhatAKilledFetchLeft(t *testing.T) {
 		t.Errorf("the mirror no longer fetches: %v", err)
 	}
 }
+
+func TestAMirrorPointsItsHeadAtTheRemotesDefaultBranch(t *testing.T) {
+	source := upstream(t)
+	run(t, source, "branch", "--quiet", "--move", "main", "trunk")
+	run(t, source, "branch", "--quiet", "feature")
+	mirrors := mirror.At(t.TempDir())
+
+	dir, err := mirrors.Refresh(context.Background(), mirror.Fetch{Workspace: "workspace_1", Repository: "api", Remote: source})
+	if err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+
+	if got := run(t, dir, "symbolic-ref", "HEAD"); got != "refs/heads/trunk" {
+		t.Errorf("the mirror's HEAD is %s, want refs/heads/trunk", got)
+	}
+
+	clone := filepath.Join(t.TempDir(), "api")
+	run(t, t.TempDir(), "clone", "--quiet", dir, clone)
+	if got := run(t, clone, "branch", "--show-current"); got != "trunk" {
+		t.Errorf("a clone of the mirror is on %q, want trunk", got)
+	}
+}
