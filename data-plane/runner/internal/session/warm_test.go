@@ -79,3 +79,27 @@ func TestAWarmSandboxFailsWhenTheHostHasNoMirror(t *testing.T) {
 		t.Error("a sandbox warmed with no mirror")
 	}
 }
+
+func TestAWarmSandboxKeepsItsWorkWhenTheSandboxRestoredNothing(t *testing.T) {
+	source, mirrors := t.TempDir(), t.TempDir()
+	warmGit(t, source, "init", "--quiet", "--initial-branch", "main")
+	writeFile(t, filepath.Join(source, "package-lock.json"), "{}")
+	warmGit(t, source, "add", ".")
+	warmGit(t, source, "commit", "--quiet", "-m", "one")
+	warmGit(t, mirrors, "clone", "--quiet", "--bare", source, filepath.Join(mirrors, "web.git"))
+	space, err := workspace.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sandbox := &Sandbox{space: space}
+
+	if err := sandbox.Warm(context.Background(), protocol.WarmSandbox{
+		Line: "line_1", Checkouts: []protocol.WarmCheckout{{Path: "web", Setup: "true"}},
+	}, WarmOptions{Mirrors: mirrors, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}); err != nil {
+		t.Fatal(err)
+	}
+
+	if sandbox.kept == nil || sandbox.kept.archives {
+		t.Errorf("the first run would restore over the warm work: %+v", sandbox.kept)
+	}
+}
