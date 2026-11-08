@@ -174,6 +174,16 @@ describe('RunnerPools', () => {
       await expect(pools.running(POOL_ID.value, NOW)).resolves.toBe(1);
     });
 
+    it('counts an idle sandbox once while a runner waits to enter it', async () => {
+      const { pools } = pooling(null, {
+        alive: [aRunner({ enters: 'sandbox_1' })],
+        idleSandboxes: [SandboxId.of('sandbox_1')],
+      });
+
+      await expect(pools.roomIn(POOL_ID.value, NOW)).resolves.toBe(1);
+      await expect(pools.running(POOL_ID.value, NOW)).resolves.toBe(1);
+    });
+
     it('is unbounded for a pool without maxRuns', async () => {
       const { pools } = pooling(null, {
         pool: aPullPool(),

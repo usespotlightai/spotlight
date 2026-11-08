@@ -25,6 +25,7 @@ import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
@@ -121,12 +122,14 @@ export const aRunner = (
     running?: RunningImage | null;
     claimWithinMs?: number;
     proxyCredentialHash?: TokenHash | null;
+    enters?: string;
   } = {},
 ): Runner =>
   Runner.start({
     id: RunnerId.of(input.id ?? 'pooled_1'),
     through: input.through ?? aPullPool(),
     host: input.host === null ? null : HostId.of(input.host ?? HOST_ID.value),
+    enters: input.enters ? SandboxId.of(input.enters) : null,
     tokenHash: hashOf('b'),
     egressTokenHash: input.host === null ? null : hashOf('e'),
     proxyCredentialHash: input.proxyCredentialHash ?? null,

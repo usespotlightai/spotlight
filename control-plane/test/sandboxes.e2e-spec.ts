@@ -12,7 +12,7 @@ import {
 } from '@runs/application/ports/working-copy-archive-store.port';
 import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
 import { WarmSandboxKeeping } from '@work/application/services/warm-sandbox-keeping.service';
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import {
   afterAll,
   afterEach,
@@ -311,6 +311,42 @@ describe('sandboxes (e2e)', () => {
     await heartbeat([sandboxId, busy]).expect(200);
     await queue({ key: 'work/task-task_5' });
     await claim(busy).expect(204);
+  });
+
+  it('counts an idle sandbox and the claim that waits in it as one run against maxRuns', async () => {
+    await db
+      .update(schema.runnerPool)
+      .set({ maxRuns: 2 })
+      .where(eq(schema.runnerPool.workspaceId, workspaceId));
+    const sandboxId = await idleAndReady('work/task-task_8');
+    await heartbeat([sandboxId]).expect(200);
+
+    let answered = false;
+    const waiting = claim(sandboxId)
+      .expect(204)
+      .then(() => {
+        answered = true;
+      });
+    await eventually(async () => {
+      const [row] = await db
+        .select({ id: schema.runner.id })
+        .from(schema.runner)
+        .where(
+          and(
+            eq(schema.runner.entersSandboxId, sandboxId),
+            isNull(schema.runner.endedAt),
+          ),
+        );
+
+      return row ?? null;
+    });
+    const runId = await queue({ key: 'work/task-task_9' });
+
+    const other = await claim().expect(200);
+
+    expect(other.body).toMatchObject({ work: { run: { id: runId } } });
+    expect(answered).toBe(false);
+    await waiting;
   });
 
   it('starts a fresh sandbox for the next run of a key once its draining sandbox is gone', async () => {
@@ -640,6 +676,19 @@ describe('sandboxes (e2e)', () => {
           checkouts: [{ path: 'widgets', setup: 'npm ci' }],
         },
       });
+    });
+
+    it('takes no slot of maxRuns while no host started it', async () => {
+      await db
+        .update(schema.runnerPool)
+        .set({ maxRuns: 1 })
+        .where(eq(schema.runnerPool.workspaceId, workspaceId));
+      await keep();
+      const runId = await queue();
+
+      const claimed = await claim().expect(200);
+
+      expect(claimed.body).toMatchObject({ work: { run: { id: runId } } });
     });
 
     it('is started by a host claim with the repositories to clone, and a task’s first run on its line is claimed into it', async () => {

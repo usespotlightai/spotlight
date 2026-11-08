@@ -140,6 +140,7 @@ export const runner = pgTable(
     poolId: text('pool_id'),
     trustId: text('trust_id'),
     hostId: text('host_id'),
+    entersSandboxId: text('enters_sandbox_id'),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
     tokenHash: text('token_hash').notNull(),
     egressTokenHash: text('egress_token_hash'),

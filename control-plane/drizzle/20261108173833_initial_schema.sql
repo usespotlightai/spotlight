@@ -1617,6 +1617,7 @@ CREATE TABLE "runner" (
 	"pool_id" text,
 	"trust_id" text,
 	"host_id" text,
+	"enters_sandbox_id" text,
 	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"token_hash" text NOT NULL,
 	"egress_token_hash" text,

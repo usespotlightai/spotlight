@@ -1,5 +1,5 @@
 {
-  "id": "a6f3d545-6b09-4256-be1e-e462ec1d345c",
+  "id": "86dd1cc9-83a4-4a39-b3d2-17f05110f186",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -13161,6 +13161,12 @@
         },
         "host_id": {
           "name": "host_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "enters_sandbox_id": {
+          "name": "enters_sandbox_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
