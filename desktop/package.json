@@ -6,7 +6,7 @@
   "description": "Spotlight for macOS: the web app in its own window, with native notifications.",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && cp src/connect.html dist/connect.html && mkdir -p dist/assets && cp src/assets/inter.woff2 src/assets/inter-LICENSE.txt dist/assets/",
+    "build": "tsc -p tsconfig.json && cp src/connect.html src/offline.html dist/ && mkdir -p dist/assets && cp src/assets/* dist/assets/",
     "start": "npm run build && electron .",
     "dist": "npm run build && electron-builder --mac --publish never",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -16,6 +16,7 @@
     "pack": "npm run build && electron-builder --mac --dir --publish never -c.mac.notarize=false -c.mac.identity=- -c.mac.hardenedRuntime=false"
   },
   "dependencies": {
+    "@sentry/electron": "8.2.0",
     "electron-updater": "6.8.11"
   },
   "devDependencies": {

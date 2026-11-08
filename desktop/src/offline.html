@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline' file:; script-src 'unsafe-inline'; font-src file:"
+    />
+    <title>Spotlight</title>
+    <link rel="stylesheet" href="assets/spotlight.css" />
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 16px 16px;
+        background: color-mix(in oklab, var(--background) 40%, transparent);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0 0 auto;
+        height: 40px;
+        -webkit-app-region: drag;
+      }
+
+      button {
+        -webkit-app-region: no-drag;
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        max-width: 360px;
+        text-align: center;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted-foreground);
+      }
+
+      strong {
+        color: var(--foreground);
+        font-weight: 500;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main role="alert">
+      <p>Spotlight at <strong id="host"></strong> could not be reached.</p>
+      <p>The app tries again when your Mac is back online.</p>
+      <div class="actions">
+        <button type="button" class="outline" id="retry">Try again</button>
+        <button type="button" class="ghost" id="change">Change address</button>
+      </div>
+    </main>
+    <script>
+      const RETRY_EVERY_MS = 10_000;
+      const query = new URLSearchParams(location.search);
+      const page = query.get('page') ?? '';
+      const retry = document.getElementById('retry');
+
+      try {
+        document.getElementById('host').textContent = new URL(page).host;
+      } catch {
+        document.getElementById('host').textContent = 'this address';
+      }
+
+      const again = () => {
+        retry.disabled = true;
+        location.replace(page);
+      };
+
+      retry.addEventListener('click', again);
+      document
+        .getElementById('change')
+        .addEventListener('click', () => window.spotlightDesktop?.changeAddress?.());
+      window.addEventListener('online', again);
+      setInterval(() => navigator.onLine && again(), RETRY_EVERY_MS);
+    </script>
+  </body>
+</html>

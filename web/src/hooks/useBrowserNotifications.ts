@@ -109,8 +109,9 @@ export function useBrowserNotifications() {
   return {
     key,
     browser,
-    state:
-      key.data !== undefined && browser.data
+    state: desktopApp()
+      ? 'desktop'
+      : key.data !== undefined && browser.data
         ? stateOf(browser.data, publicKey)
         : null,
     turnOn,

@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   app,
   BrowserWindow,
@@ -11,6 +12,9 @@ import {
   shell,
 } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { type Command, tabMenu } from './commands';
+import { withContextMenu } from './context-menu';
+import { saveDownloadsToDownloads } from './downloads';
 import { FRAME_CSS, TRAFFIC_LIGHTS } from './frame';
 import {
   authorizable,
@@ -20,6 +24,12 @@ import {
   pageOf,
   SCHEME,
 } from './links';
+import {
+  openAtLoginOnFirstRun,
+  opensAtLogin,
+  setOpensAtLogin,
+} from './login-item';
+import { ErrorReporting } from './reporting';
 import { SettingsFile } from './settings';
 import {
   DEFAULT_SIZE,
@@ -39,6 +49,9 @@ let pendingLink: string | null = null;
 const APP_ID = 'ai.usespotlight.desktop';
 
 app.setPath('userData', join(app.getPath('appData'), APP_ID));
+
+const reporting = new ErrorReporting(app.getPath('userData'));
+reporting.start();
 
 const settings = new SettingsFile(app.getPath('userData'));
 const windowState = new WindowStateFile(app.getPath('userData'));
@@ -89,6 +102,11 @@ const followLink = (link: string) => {
 };
 
 const REMEMBER_AFTER_MS = 500;
+const ABORTED = -3;
+
+const fromOffline = (frame: { url: string } | null): boolean =>
+  frame !== null &&
+  frame.url.startsWith(pathToFileURL(join(__dirname, 'offline.html')).href);
 
 const remember = (window: BrowserWindow) => {
   if (window.isDestroyed()) {
@@ -148,6 +166,23 @@ const createMain = () => {
       backgroundThrottling: false,
     },
   });
+
+  withContextMenu(window.webContents);
+
+  window.webContents.on(
+    'did-fail-load',
+    (_event, code, _description, url, isMainFrame) => {
+      if (
+        isMainFrame &&
+        code !== ABORTED &&
+        navigationOf(url, origin) === 'inside'
+      ) {
+        void window.loadFile(join(__dirname, 'offline.html'), {
+          query: { page: url },
+        });
+      }
+    },
+  );
 
   window.once('ready-to-show', () => {
     if (saved?.maximized) {
@@ -323,13 +358,35 @@ const openConnect = () => {
   void connect.loadFile(join(__dirname, 'connect.html'));
 };
 
+const sendCommand = (command: Command) => {
+  if (!main) {
+    createMain();
+  }
+
+  if (main) {
+    shown(main);
+    main.webContents.send('spotlight:command', command);
+  }
+};
+
 const menu = (): MenuItemConstructorOptions[] => [
   {
     label: app.name,
     submenu: [
       { role: 'about' },
       { type: 'separator' },
+      {
+        label: 'Settings…',
+        accelerator: 'CmdOrCtrl+,',
+        click: () => sendCommand('settings'),
+      },
       { label: 'Spotlight Address…', click: openConnect },
+      {
+        label: 'Open at Login',
+        type: 'checkbox',
+        checked: opensAtLogin(),
+        click: (item) => setOpensAtLogin(item.checked),
+      },
       {
         label: 'Check for Updates…',
         enabled: app.isPackaged,
@@ -374,8 +431,20 @@ const menu = (): MenuItemConstructorOptions[] => [
       },
     ],
   },
-  { role: 'windowMenu' },
+  tabMenu(sendCommand),
+  {
+    label: 'Window',
+    submenu: [
+      { role: 'minimize' },
+      { role: 'zoom' },
+      { type: 'separator' },
+      { role: 'front' },
+    ],
+  },
 ];
+
+const NOTIFICATION_SETTINGS =
+  'x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=ai.usespotlight.desktop';
 
 const fromSpotlight = (frame: { url: string } | null): boolean =>
   frame !== null && navigationOf(frame.url, origin) === 'inside';
@@ -431,6 +500,24 @@ if (!app.requestSingleInstanceLock()) {
       (theme === 'light' || theme === 'dark' || theme === 'system')
     ) {
       nativeTheme.themeSource = theme;
+    }
+  });
+
+  ipcMain.on('spotlight:change-address', (event) => {
+    if (fromOffline(event.senderFrame)) {
+      openConnect();
+    }
+  });
+
+  ipcMain.on('spotlight:close', (event) => {
+    if (fromSpotlight(event.senderFrame) && main) {
+      main.close();
+    }
+  });
+
+  ipcMain.on('spotlight:notification-settings', (event) => {
+    if (fromSpotlight(event.senderFrame)) {
+      void shell.openExternal(NOTIFICATION_SETTINGS);
     }
   });
 
@@ -502,6 +589,9 @@ if (!app.requestSingleInstanceLock()) {
         permission === 'notifications' && requestingOrigin === origin,
     );
 
+    void reporting.refresh(origin);
+    openAtLoginOnFirstRun(app.getPath('userData'));
+    saveDownloadsToDownloads(session.defaultSession);
     Menu.setApplicationMenu(Menu.buildFromTemplate(menu()));
     createMain();
 

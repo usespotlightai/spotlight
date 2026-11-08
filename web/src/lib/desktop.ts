@@ -4,6 +4,9 @@ export interface DesktopApp {
   show(): void;
   authorize(url: string): void;
   setTheme?(theme: 'light' | 'dark' | 'system'): void;
+  close?(): void;
+  openNotificationSettings?(): void;
+  onCommand?(listener: (command: string) => void): () => void;
 }
 
 declare global {

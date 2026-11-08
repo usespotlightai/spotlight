@@ -6,6 +6,7 @@ import { SettingsSection } from '@/components/features/settings/SettingsSection'
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { RowIcon } from '@/components/shared/RowIcon';
 import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
   type BrowserNotificationState,
@@ -13,9 +14,10 @@ import {
 } from '@/hooks/useBrowserNotifications';
 import { desktopApp, opensInDesktop, storeOpensInDesktop } from '@/lib/desktop';
 
-const DESCRIPTIONS: Record<BrowserNotificationState, string> = {
-  desktop:
-    'On. The desktop app shows new items while it runs, also with its window closed. To turn them off, use the Notifications settings of macOS.',
+const DESCRIPTIONS: Record<
+  Exclude<BrowserNotificationState, 'desktop'>,
+  string
+> = {
   unsupported: 'This browser cannot show notifications.',
   blocked:
     'The browser blocks notifications from Spotlight. To turn them on, allow notifications for this site in the browser settings.',
@@ -26,14 +28,12 @@ const DESCRIPTIONS: Record<BrowserNotificationState, string> = {
 };
 
 const FIXED: ReadonlySet<BrowserNotificationState> = new Set([
-  'desktop',
   'unsupported',
   'blocked',
   'on-while-open',
 ]);
 
 const ON: ReadonlySet<BrowserNotificationState> = new Set([
-  'desktop',
   'on',
   'on-while-open',
 ]);
@@ -89,10 +89,25 @@ export function AccountNotifications() {
         </SettingsSection>
       )}
 
-      {state !== null && (
-        <SettingsSection
-          title={state === 'desktop' ? 'This app' : 'This browser'}
-        >
+      {state === 'desktop' && (
+        <SettingsSection title="This app">
+          <SettingsRow
+            label="New inbox items"
+            leading={<RowIcon icon={Bell} />}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => desktopApp()?.openNotificationSettings?.()}
+            >
+              Open macOS Settings
+            </Button>
+          </SettingsRow>
+        </SettingsSection>
+      )}
+
+      {state !== null && state !== 'desktop' && (
+        <SettingsSection title="This browser">
           <SettingsRow
             label="New inbox items"
             htmlFor="browser-notifications"

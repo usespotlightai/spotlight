@@ -13,6 +13,7 @@ vi.mock('@/hooks/useNotificationStream', () => ({
   useNotificationStream: vi.fn(),
 }));
 vi.mock('@/hooks/useDesktopBadge', () => ({ useDesktopBadge: vi.fn() }));
+vi.mock('@/hooks/useDesktopCommands', () => ({ useDesktopCommands: vi.fn() }));
 
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({

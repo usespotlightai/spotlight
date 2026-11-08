@@ -4,69 +4,19 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src file:"
+      content="default-src 'none'; style-src 'unsafe-inline' file:; script-src 'unsafe-inline'; font-src file:"
     />
     <title>Spotlight address</title>
+    <link rel="stylesheet" href="assets/spotlight.css" />
     <style>
-      @font-face {
-        font-family: "Inter Variable";
-        font-style: normal;
-        font-weight: 100 900;
-        src: url("assets/inter.woff2") format("woff2");
-      }
-
-      :root {
-        color-scheme: light dark;
-        --popover: #fefeff;
-        --foreground: #2f2f31;
-        --muted-foreground: #5b5b5d;
-        --background: #efeff1;
-        --card: #fefeff;
-        --muted: #f3f3f3;
-        --border: #e4e4e6;
-        --input: #d2d2d2;
-        --primary: #5e6ad2;
-        --primary-foreground: #fefeff;
-        --ring: #6d78d5;
-        --destructive: oklch(0.577 0.245 27.325);
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --popover: #1f1f22;
-          --foreground: #e2e3e5;
-          --muted-foreground: #97979a;
-          --background: #0d0d0e;
-          --card: #1b1b1c;
-          --muted: #26262a;
-          --border: #3a3a42;
-          --input: #3f3f47;
-          --primary: #5e69d1;
-          --primary-foreground: #fefeff;
-          --ring: #b0b6ff;
-          --destructive: oklch(0.704 0.191 22.216);
-        }
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
       html,
       body {
-        margin: 0;
         overflow: hidden;
         background: transparent;
       }
 
       body {
         padding: 48px;
-      }
-
-      body {
-        color: var(--foreground);
-        font: 400 13px/20px "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-        -webkit-font-smoothing: antialiased;
       }
 
       form {
@@ -144,41 +94,6 @@
         display: flex;
         justify-content: flex-end;
         gap: 8px;
-      }
-
-      button {
-        height: 28px;
-        padding: 0 10px;
-        border: 1px solid transparent;
-        border-radius: 999px;
-        font: inherit;
-        font-size: 0.8rem;
-        font-weight: 500;
-        outline: none;
-        transition: background-color 120ms;
-      }
-
-      button:focus-visible {
-        box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
-      }
-
-      .outline {
-        border-color: var(--border);
-        background: var(--card);
-        color: var(--foreground);
-      }
-
-      .outline:hover {
-        background: var(--muted);
-      }
-
-      .primary {
-        background: var(--primary);
-        color: var(--primary-foreground);
-      }
-
-      .primary:hover {
-        background: color-mix(in oklab, var(--primary) 80%, transparent);
       }
     </style>
   </head>

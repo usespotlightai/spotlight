@@ -115,25 +115,25 @@ describe('AccountNotifications on the mock API', () => {
     localStorage.clear();
   });
 
-  it('says that the desktop app shows new items, and offers no browser link setting there', async () => {
+  it('opens the macOS notification settings from the desktop app, and offers no browser link setting there', async () => {
     browserWith('granted');
+    const openNotificationSettings = vi.fn();
     Object.assign(window, {
       spotlightDesktop: {
         platform: 'darwin',
         setBadge() {},
         show() {},
         authorize() {},
+        openNotificationSettings,
       },
     });
+    const user = userEvent.setup();
     render(<MockApplication at={notificationsPath(SLUG)} />);
 
-    expect(
-      await screen.findByText(
-        'On. The desktop app shows new items while it runs, also with its window closed. To turn them off, use the Notifications settings of macOS.',
-        undefined,
-        WAIT,
-      ),
-    ).toBeVisible();
+    await user.click(
+      await screen.findByRole('button', { name: 'Open macOS Settings' }, WAIT),
+    );
+    expect(openNotificationSettings).toHaveBeenCalledOnce();
     expect(
       screen.queryByRole('switch', { name: 'Open links in the desktop app' }),
     ).toBeNull();

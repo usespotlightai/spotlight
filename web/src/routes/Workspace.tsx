@@ -16,6 +16,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useAppTabs } from '@/hooks/useAppTabs';
 import { useCommandShortcut } from '@/hooks/useCommandShortcut';
 import { useDesktopBadge } from '@/hooks/useDesktopBadge';
+import { useDesktopCommands } from '@/hooks/useDesktopCommands';
 import { useLastPlace } from '@/hooks/useLastPlace';
 import { useNotificationStream } from '@/hooks/useNotificationStream';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
@@ -37,6 +38,7 @@ export function Workspace() {
   useCommandShortcut(toggleSearch);
   useNotificationStream();
   useDesktopBadge(slug);
+  useDesktopCommands(slug, tabs);
   const strip = (
     <AppTabStrip
       tabs={tabs.tabs}
