@@ -4,6 +4,7 @@ import { listInbox, readInboxItem, readInboxNotice } from '@/lib/api';
 import { entryKey } from '@/lib/inbox';
 
 export const inboxKeys = {
+  all: ['inbox'] as const,
   forWorkspace: (slug?: string) => ['inbox', slug ?? null] as const,
   open: (slug?: string) => ['inbox', slug ?? null, 'open'] as const,
   resolved: (slug?: string) => ['inbox', slug ?? null, 'resolved'] as const,

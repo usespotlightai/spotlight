@@ -3,6 +3,7 @@ import { emailsHandlers } from '@/mocks/handlers/emails';
 import { inboxHandlers } from '@/mocks/handlers/inbox';
 import { insightsHandlers } from '@/mocks/handlers/insights';
 import { membersHandlers } from '@/mocks/handlers/members';
+import { notificationsHandlers } from '@/mocks/handlers/notifications';
 import { settingsHandlers } from '@/mocks/handlers/settings';
 import { shellHandlers } from '@/mocks/handlers/shell';
 import { stationHandlers } from '@/mocks/handlers/station';
@@ -20,4 +21,5 @@ export const handlers = [
   ...settingsHandlers,
   ...membersHandlers,
   ...emailsHandlers,
+  ...notificationsHandlers,
 ];
