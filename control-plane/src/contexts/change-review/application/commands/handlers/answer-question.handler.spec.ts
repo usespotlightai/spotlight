@@ -92,6 +92,7 @@ const answering = (
     earlier?: QuestionAnswer | null;
     answeredMeanwhile?: QuestionAnswer;
     graderAvailable?: boolean;
+    inTask?: readonly QuestionAnswer[];
   } = {},
 ) => {
   const added: QuestionAnswer[] = [];
@@ -128,7 +129,8 @@ const answering = (
       save: async (answer: QuestionAnswer) => {
         saved.push(answer);
       },
-      ofTask: async () => [],
+      ofTask: async () => over.inTask ?? [],
+      ofTaskBy: async () => over.inTask ?? (stored ? [stored] : []),
       ofTeam: async () => [],
       remove: async () => {},
     } satisfies QuestionAnswerRepository,
@@ -284,5 +286,29 @@ describe('AnswerQuestionHandler', () => {
         answer('The integration.'),
       ),
     ).rejects.toMatchObject({ kind: 'upstream-error' });
+  });
+
+  it('refuses an answer the reviewer already gave on the task’s earlier stack', async () => {
+    const { handler: first, added: before } = answering();
+    await first.execute(answer(null));
+
+    const { handler, added } = answering({ inTask: before });
+
+    await expect(handler.execute(answer(null))).rejects.toMatchObject({
+      kind: 'conflict',
+    });
+    expect(added).toEqual([]);
+  });
+
+  it('takes a new answer once the earlier stack expected another answer', async () => {
+    const { handler: first, added: before } = answering();
+    await first.execute(answer(null));
+    const outdated = before[0] as QuestionAnswer;
+    Object.defineProperty(outdated, 'expected', { value: 'The bot signs it.' });
+
+    const { handler, added } = answering({ inTask: [outdated] });
+    await handler.execute(answer(null));
+
+    expect(added[0]?.expected).toBe('The integration signs it.');
   });
 });

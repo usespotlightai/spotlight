@@ -190,6 +190,7 @@ describe('layerCohort', () => {
       id: LayerId.in(CohortId.at(1), l + 1),
       dependsOn: [],
       questions: [],
+      revision: null,
     })),
   };
   const layering = (redrafting?: StackCohort) =>

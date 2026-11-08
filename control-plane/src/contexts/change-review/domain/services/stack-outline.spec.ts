@@ -112,6 +112,7 @@ const storedWith = (layers: number): StackCohort => ({
     hunks: [],
     notes: [],
     questions: [],
+    revision: null,
   })),
 });
 
@@ -320,6 +321,7 @@ describe('StackOutline', () => {
                 },
               ]
             : [],
+        revision: null,
       })),
     };
 

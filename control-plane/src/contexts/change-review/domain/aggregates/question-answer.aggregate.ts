@@ -1,9 +1,15 @@
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidAnswerError } from '@change-review/domain/exceptions/invalid-answer.error';
 import { QuestionAlreadyAnsweredError } from '@change-review/domain/exceptions/question-already-answered.error';
+import {
+  answersQuestion,
+  sharesAnswers,
+} from '@change-review/domain/services/shown-answer';
 import { assertOneOwner } from '@change-review/domain/services/stack-owner';
+import type { AnswerVerdict } from '@change-review/domain/value-objects/answer-verdict.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
+import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type { LayerQuestion } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -16,10 +22,6 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-export const ANSWER_VERDICTS = ['right', 'partly-right', 'missed'] as const;
-
-export type AnswerVerdict = (typeof ANSWER_VERDICTS)[number];
 
 export interface AnswerGrade {
   readonly verdict: AnswerVerdict;
@@ -34,12 +36,6 @@ export interface GradedReply {
 const MAX_REPLY = 4_000;
 
 const MAX_FEEDBACK = 2_000;
-
-export const answersQuestion = (
-  answer: { readonly questionId: QuestionId; readonly asked: string },
-  question: { readonly id: QuestionId; readonly question: string },
-): boolean =>
-  question.id === answer.questionId && question.question === answer.asked;
 
 const replyOf = (raw: string | null): string | null => {
   const reply = raw?.trim() || null;
@@ -78,6 +74,7 @@ export class QuestionAnswer extends EventRecorder {
     readonly taskId: TaskId | null,
     readonly teamId: TeamId | null,
     readonly stackId: ChangeStackId,
+    readonly repository: RepositoryName | null,
     readonly questionId: QuestionId,
     readonly personId: UserId,
     readonly asked: string,
@@ -98,7 +95,10 @@ export class QuestionAnswer extends EventRecorder {
 
   static given(input: {
     id: QuestionAnswerId;
-    stack: Pick<ChangeStack, 'id' | 'workspaceId' | 'taskId' | 'teamId'>;
+    stack: Pick<
+      ChangeStack,
+      'id' | 'workspaceId' | 'taskId' | 'teamId' | 'repository'
+    >;
     question: LayerQuestion;
     personId: UserId;
     reply: string | null;
@@ -116,6 +116,7 @@ export class QuestionAnswer extends EventRecorder {
       stack.taskId,
       stack.teamId,
       stack.id,
+      stack.repository,
       input.question.id,
       input.personId,
       input.question.question,
@@ -135,6 +136,7 @@ export class QuestionAnswer extends EventRecorder {
     taskId: TaskId | null;
     teamId: TeamId | null;
     stackId: ChangeStackId;
+    repository: RepositoryName | null;
     questionId: QuestionId;
     personId: UserId;
     asked: string;
@@ -161,6 +163,7 @@ export class QuestionAnswer extends EventRecorder {
       input.taskId,
       input.teamId,
       input.stackId,
+      input.repository,
       input.questionId,
       input.personId,
       input.asked,
@@ -172,6 +175,24 @@ export class QuestionAnswer extends EventRecorder {
       input.answeredAt,
       input.version,
     );
+  }
+
+  static refuseIfAnsweredIn(
+    answers: readonly QuestionAnswer[],
+    question: LayerQuestion,
+    stack: Pick<ChangeStack, 'id' | 'taskId' | 'repository'>,
+  ): void {
+    const scope = {
+      stackId: stack.id,
+      taskId: stack.taskId,
+      repository: stack.repository,
+    };
+
+    for (const answer of answers) {
+      if (sharesAnswers(answer, scope)) {
+        answer.refuseIfAnswered(question);
+      }
+    }
   }
 
   answers(question: LayerQuestion): boolean {
@@ -203,6 +224,7 @@ export class QuestionAnswer extends EventRecorder {
       this.taskId,
       this.teamId,
       this.stackId,
+      this.repository,
       this.questionId,
       this.personId,
       input.question.question,

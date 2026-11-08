@@ -13,6 +13,7 @@ import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { placedHunks } from '@change-review/domain/services/diff-facts';
 import { DraftedStack } from '@change-review/domain/services/drafted-stack';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
+import { PreviousStack } from '@change-review/domain/services/previous-stack';
 import {
   type RedraftRequest,
   redraftRequestOf,
@@ -34,6 +35,7 @@ import type {
   DraftedCohort,
   LayerQuestion,
   ProposedCohort,
+  RemovedLayer,
   StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
@@ -80,6 +82,25 @@ const assignedHunks = (cohorts: readonly StackCohort[]): string[] =>
   cohorts.flatMap((cohort) =>
     cohort.layers.flatMap((layer) => layer.hunks.map((entry) => entry.hunk)),
   );
+
+const assertRevisedOnlyWithPrevious = (stack: {
+  readonly previous: ChangeStackId | null;
+  readonly cohorts: readonly StackCohort[];
+  readonly removed: readonly RemovedLayer[];
+}): void => {
+  const revised =
+    stack.removed.length > 0 ||
+    stack.cohorts.some((cohort) =>
+      cohort.layers.some((layer) => layer.revision !== null),
+    );
+
+  if (revised && !stack.previous) {
+    throw new InconsistentStateError(
+      'change stack',
+      'is revised, yet follows no previous stack',
+    );
+  }
+};
 
 const assertComplete = (
   progress: StackProgress,
@@ -128,6 +149,11 @@ const assertComplete = (
   }
 };
 
+interface Drafting {
+  readonly modelProposal?: readonly DraftedCohort[];
+  readonly previous?: ChangeStack | null;
+}
+
 export class ChangeStack
   extends EventRecorder
   implements HasPendingJob<ChangeStack>
@@ -149,6 +175,8 @@ export class ChangeStack
     readonly request: CheckRequest | null,
     readonly redrafting: boolean,
     readonly usage: ModelUsage,
+    readonly previous: ChangeStackId | null,
+    readonly removed: readonly RemovedLayer[],
     readonly version: number,
   ) {
     super();
@@ -167,6 +195,7 @@ export class ChangeStack
     diff: Diff;
     facts: StackFacts;
     request: CheckRequest | null;
+    taskStacks?: readonly ChangeStack[];
     now: Date;
   }): ChangeStack {
     if (input.checkouts === 0) {
@@ -183,6 +212,15 @@ export class ChangeStack
     }
     assertOneOwner('change stack', owner);
 
+    const repository = input.repository?.trim()
+      ? RepositoryName.of(input.repository)
+      : null;
+    const previous = PreviousStack.chosenFrom(input.taskStacks ?? [], {
+      id: input.id,
+      taskId: owner.taskId,
+      repository,
+    });
+
     return new ChangeStack(
       input.id,
       input.runId,
@@ -190,7 +228,7 @@ export class ChangeStack
       owner.teamId,
       input.trial,
       input.workspaceId,
-      input.repository?.trim() ? RepositoryName.of(input.repository) : null,
+      repository,
       input.base?.trim() ? baseOf(input.base) : null,
       input.diff,
       input.facts,
@@ -200,6 +238,8 @@ export class ChangeStack
       input.request,
       false,
       ModelUsage.none(),
+      previous?.id ?? null,
+      [],
       0,
     );
   }
@@ -221,10 +261,13 @@ export class ChangeStack
     request: CheckRequest | null;
     redrafting: boolean;
     usage: ModelUsage;
+    previous: ChangeStackId | null;
+    removed: readonly RemovedLayer[];
     version: number;
   }): ChangeStack {
     assertComplete(input.progress, input.diff, input.cohorts);
     assertOneOwner('change stack', input);
+    assertRevisedOnlyWithPrevious(input);
 
     return new ChangeStack(
       input.id,
@@ -243,6 +286,8 @@ export class ChangeStack
       input.request,
       input.redrafting,
       input.usage,
+      input.previous,
+      input.removed,
       input.version,
     );
   }
@@ -395,22 +440,26 @@ export class ChangeStack
   redrafted(
     cohorts: readonly DraftedCohort[],
     now: Date,
-    modelProposal?: readonly DraftedCohort[],
+    options: Drafting = {},
   ): ChangeStack {
     if (!this.redrafting) {
       throw InvalidChangeStackError.because('is not being redrafted');
     }
 
+    const previous = this.previousStack(options.previous);
     const ready = StackProposal.accepted({
       diff: this.diff,
       facts: this.facts,
       cohorts: this.arranged(cohorts),
-      modelProposal: modelProposal && this.arranged(modelProposal),
+      modelProposal:
+        options.modelProposal && this.arranged(options.modelProposal),
       changeLayersAtLeast: changeLayerCount(this.cohorts),
+      previous,
     });
 
     const redrafted = this.with({
       cohorts: ready,
+      removed: previous ? PreviousStack.removedFrom(previous, ready) : [],
       progress: this.progress.complete('ready', now),
       job: PendingJob.fresh(),
       redrafting: false,
@@ -434,19 +483,23 @@ export class ChangeStack
   propose(
     cohorts: readonly DraftedCohort[],
     now: Date,
-    modelProposal?: readonly DraftedCohort[],
+    options: Drafting = {},
   ): ChangeStack {
     this.assertGenerating();
 
+    const previous = this.previousStack(options.previous);
     const ready = StackProposal.accepted({
       diff: this.diff,
       facts: this.facts,
       cohorts: this.arranged(cohorts),
-      modelProposal: modelProposal && this.arranged(modelProposal),
+      modelProposal:
+        options.modelProposal && this.arranged(options.modelProposal),
+      previous,
     });
 
     const completed = this.with({
       cohorts: ready,
+      removed: previous ? PreviousStack.removedFrom(previous, ready) : [],
       progress: this.progress.complete('ready', now),
       job: PendingJob.fresh(),
     });
@@ -455,6 +508,49 @@ export class ChangeStack
     completed.recordReady(now);
     completed.recordTrialSettled();
     return completed;
+  }
+
+  previousStack(
+    previous: ChangeStack | null | undefined,
+  ): PreviousStack | null {
+    if (!this.previous) {
+      if (previous) {
+        throw InvalidChangeStackError.because('follows no previous stack');
+      }
+      return null;
+    }
+    if (previous === undefined) {
+      throw InvalidChangeStackError.because(
+        'must be drafted with the stack it follows, or be told it is gone',
+      );
+    }
+    if (previous && !this.previous.equals(previous.id)) {
+      throw InvalidChangeStackError.because(
+        'can be revised only against the stack it follows',
+      );
+    }
+
+    return previous ? PreviousStack.of(previous, this) : null;
+  }
+
+  reusedFrom(previous: ChangeStack, now: Date): ChangeStack | null {
+    this.assertGenerating();
+    const basis = this.previousStack(previous);
+
+    if (!basis?.diffUnchanged) {
+      return null;
+    }
+
+    try {
+      return this.propose(PreviousStack.reusedCohorts(basis), now, {
+        previous,
+      });
+    } catch (error) {
+      if (error instanceof InvalidChangeStackError) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   private arranged(cohorts: readonly DraftedCohort[]): ProposedCohort[] {
@@ -513,6 +609,7 @@ export class ChangeStack
     job?: PendingJob;
     redrafting?: boolean;
     usage?: ModelUsage;
+    removed?: readonly RemovedLayer[];
   }): ChangeStack {
     const next = new ChangeStack(
       this.id,
@@ -531,6 +628,8 @@ export class ChangeStack
       this.request,
       change.redrafting ?? this.redrafting,
       change.usage ?? this.usage,
+      this.previous,
+      change.removed ?? this.removed,
       this.version,
     );
 

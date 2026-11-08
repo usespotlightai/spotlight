@@ -41,6 +41,27 @@ export interface LayerDependency {
   readonly because: readonly string[];
 }
 
+export const LAYER_REVISION_STATUSES = [
+  'unchanged',
+  'modified',
+  'added',
+] as const;
+
+export type LayerRevisionStatus = (typeof LAYER_REVISION_STATUSES)[number];
+
+export type LayerRevision =
+  | { readonly status: 'added' }
+  | {
+      readonly status: Exclude<LayerRevisionStatus, 'added'>;
+      readonly previous: LayerId;
+    };
+
+export interface RemovedLayer {
+  readonly previous: LayerId;
+  readonly cohort: string;
+  readonly title: string;
+}
+
 interface StackLayer {
   readonly id: LayerId;
   readonly title: string;
@@ -49,6 +70,7 @@ interface StackLayer {
   readonly hunks: readonly StackHunk[];
   readonly notes: readonly FileNote[];
   readonly questions: readonly LayerQuestion[];
+  readonly revision: LayerRevision | null;
 }
 
 export interface StackCohort {

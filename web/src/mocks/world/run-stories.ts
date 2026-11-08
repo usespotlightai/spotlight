@@ -631,6 +631,7 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
           state: 'ready',
           failure: null,
           check: null,
+          removed: [],
           files: changes.map((change, place) =>
             file(
               change.path ?? '',
@@ -651,6 +652,7 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
                 hunks: [{ hunk: `${runId}_h${place + 1}` }],
                 notes: [],
                 questions: [],
+                revision: null,
               })),
             },
           ],
@@ -682,6 +684,7 @@ export const answerStackQuestion = (
       ? 'You are right that it takes long. You missed that writes to invoices wait for it.'
       : null,
     expected: EXPECTED[questionId] ?? 'The answer that the hunks show.',
+    outdated: false,
   };
 
   stackAnswers()[`${stackId}/${questionId}`] = answer;

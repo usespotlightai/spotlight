@@ -1,6 +1,7 @@
 import { Virtualizer } from '@pierre/diffs/react';
 import { LayerDetail } from '@/components/features/changes/LayerDetail';
 import { StackNavCohort } from '@/components/features/changes/StackNavCohort';
+import { StackNavRemoved } from '@/components/features/changes/StackNavRemoved';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
@@ -50,6 +51,7 @@ export function ChangeStackView({
                 onPick={onPick}
               />
             ))}
+            <StackNavRemoved stack={stack} />
           </nav>
         </ScrollArea>
 

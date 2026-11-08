@@ -196,8 +196,27 @@ export const citedBy = (
 
 export const toReadAgain = (layer: StackLayer): boolean =>
   layer.questions.some(
-    (each) => each.answered !== null && each.answered.verdict !== 'right',
+    (each) =>
+      each.answered !== null &&
+      !each.answered.outdated &&
+      each.answered.verdict !== 'right',
   );
+
+export const REVISION_MARKS = {
+  modified: {
+    label: 'Changed',
+    detail: 'This layer changed since the previous stack. Read it again.',
+  },
+  added: {
+    label: 'New',
+    detail: 'This layer is new since the previous stack.',
+  },
+} as const;
+
+export const revisionMarkOf = (layer: StackLayer) =>
+  layer.revision && layer.revision.status !== 'unchanged'
+    ? REVISION_MARKS[layer.revision.status]
+    : null;
 
 export const answeredIn = (
   stacks: RunChangeStacks,

@@ -1,5 +1,5 @@
 {
-  "id": "594a37dc-1a4f-4f46-9733-75997dd5d740",
+  "id": "00e49ea7-11ef-4ba9-84e5-6b8fe6ac1ef6",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -470,6 +470,18 @@
         },
         "usage": {
           "name": "usage",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_stack_id": {
+          "name": "previous_stack_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "removed_layers": {
+          "name": "removed_layers",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
@@ -976,6 +988,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "question_id": {
           "name": "question_id",
