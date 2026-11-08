@@ -15,6 +15,10 @@ import {
   type DispatchSupersededIntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import {
+  INBOX_ITEM_ARRIVED,
+  type InboxItemArrivedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/inbox-item-arrived.integration-event';
+import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
@@ -59,6 +63,7 @@ import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
 import type { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
+import type { InboxItemArrived } from '@work/domain/events/inbox-item-arrived.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
@@ -228,6 +233,20 @@ export const WORK_EVENT_MAPPERS = [
       teamId: event.teamId.value,
       by: event.startedBy.value,
       at: event.at.toISOString(),
+    }),
+  ),
+  mapping<InboxItemArrived>(
+    'inbox.item-arrived',
+    (event): InboxItemArrivedIntegrationEvent => ({
+      kind: INBOX_ITEM_ARRIVED,
+      workspaceId: event.workspaceId.value,
+      teamId: event.teamId.value,
+      personId: event.person.value,
+      itemId: event.itemId,
+      itemKind: event.itemKind,
+      title: event.title,
+      summary: event.summary,
+      askedAt: event.askedAt.toISOString(),
     }),
   ),
 ] as const;

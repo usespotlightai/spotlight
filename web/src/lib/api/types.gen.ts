@@ -3566,6 +3566,39 @@ export type ConnectGitHubRequestDto = {
   installationId: string;
 };
 
+export type PushKeyResponseDto = {
+  /**
+   * The VAPID public key to subscribe with, base64url. Null when this Spotlight sends no Web Push.
+   */
+  publicKey: string | null;
+};
+
+export type PushSubscriptionKeysRequestDto = {
+  /**
+   * The public key of the browser, base64url
+   */
+  p256dh: string;
+  /**
+   * The authentication secret of the browser, base64url
+   */
+  auth: string;
+};
+
+export type PushSubscriptionRequestDto = {
+  /**
+   * The push service address the browser gave
+   */
+  endpoint: string;
+  keys: PushSubscriptionKeysRequestDto;
+};
+
+export type PushUnsubscriptionRequestDto = {
+  /**
+   * The push service address to stop sending to
+   */
+  endpoint: string;
+};
+
 export type TeamSkillResponseDto = {
   key: string;
   description: string;
@@ -15463,6 +15496,105 @@ export type ConnectGitHubResponses = {
 };
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
+
+export type StreamMyNotificationsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/me/notifications/stream';
+};
+
+export type StreamMyNotificationsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type StreamMyNotificationsResponses = {
+  /**
+   * Server-sent events, one per new item
+   */
+  200: unknown;
+};
+
+export type GetPushKeyData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/me/notifications/push-key';
+};
+
+export type GetPushKeyErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type GetPushKeyResponses = {
+  200: PushKeyResponseDto;
+};
+
+export type GetPushKeyResponse = GetPushKeyResponses[keyof GetPushKeyResponses];
+
+export type UnsubscribeFromPushData = {
+  body: PushUnsubscriptionRequestDto;
+  path?: never;
+  query?: never;
+  url: '/me/push-subscriptions';
+};
+
+export type UnsubscribeFromPushErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such push address of yours
+   */
+  404: unknown;
+  /**
+   * The address is not HTTPS on a known push service
+   */
+  422: unknown;
+};
+
+export type UnsubscribeFromPushResponses = {
+  /**
+   * This browser gets no more Web Push
+   */
+  204: void;
+};
+
+export type UnsubscribeFromPushResponse = UnsubscribeFromPushResponses[keyof UnsubscribeFromPushResponses];
+
+export type SubscribeToPushData = {
+  body: PushSubscriptionRequestDto;
+  path?: never;
+  query?: never;
+  url: '/me/push-subscriptions';
+};
+
+export type SubscribeToPushErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The address is not HTTPS on a known push service, or the keys are not valid
+   */
+  422: unknown;
+};
+
+export type SubscribeToPushResponses = {
+  /**
+   * This browser gets Web Push
+   */
+  204: void;
+};
+
+export type SubscribeToPushResponse = SubscribeToPushResponses[keyof SubscribeToPushResponses];
 
 export type ListTeamSkillsData = {
   body?: never;
