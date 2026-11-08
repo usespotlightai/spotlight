@@ -99,6 +99,47 @@ describe('AccountNotifications on the mock API', () => {
     expect(browser.state.endpoint).toBeNull();
   });
 
+  it('keeps the choice to open links in the desktop app for this browser', async () => {
+    browserWith('default');
+    render(<MockApplication at={notificationsPath(SLUG)} />);
+
+    await userEvent.click(
+      await screen.findByRole(
+        'switch',
+        { name: 'Open links in the desktop app' },
+        WAIT,
+      ),
+    );
+
+    expect(localStorage.getItem('spotlight.opens-in-desktop')).toBe('true');
+    localStorage.clear();
+  });
+
+  it('says that the desktop app shows new items, and offers no browser link setting there', async () => {
+    browserWith('granted');
+    Object.assign(window, {
+      spotlightDesktop: {
+        platform: 'darwin',
+        setBadge() {},
+        show() {},
+        authorize() {},
+      },
+    });
+    render(<MockApplication at={notificationsPath(SLUG)} />);
+
+    expect(
+      await screen.findByText(
+        'On. The desktop app shows new items while it runs, also with its window closed. To turn them off, use the Notifications settings of macOS.',
+        undefined,
+        WAIT,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('switch', { name: 'Open links in the desktop app' }),
+    ).toBeNull();
+    Reflect.deleteProperty(window, 'spotlightDesktop');
+  });
+
   it('says what to do when the browser blocks notifications', async () => {
     browserWith('denied');
     render(<MockApplication at={notificationsPath(SLUG)} />);

@@ -1,0 +1,41 @@
+appId: ai.usespotlight.desktop
+productName: Spotlight
+copyright: Copyright © Spotlight
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - package.json
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  enableCookieEncryption: true
+protocols:
+  - name: Spotlight
+    schemes:
+      - spotlight
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
+  artifactName: Spotlight-${version}-mac.${ext}
+  target:
+    - target: dmg
+      arch: universal
+    - target: zip
+      arch: universal
+dmg:
+  artifactName: Spotlight-${version}.dmg
+publish:
+  provider: github
+  owner: usespotlightai
+  repo: spotlight
+  releaseType: release

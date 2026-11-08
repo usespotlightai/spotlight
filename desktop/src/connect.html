@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+    />
+    <title>Spotlight address</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --background: #ffffff;
+        --foreground: #0a0a0a;
+        --muted: #6b6b6b;
+        --border: #e5e5e5;
+        --danger: #c2410c;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --background: #0a0a0a;
+          --foreground: #fafafa;
+          --muted: #a1a1a1;
+          --border: #2a2a2a;
+          --danger: #fb923c;
+        }
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--background);
+        color: var(--foreground);
+        font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+      }
+      h1 { font-size: 15px; margin: 0 0 4px; }
+      p { margin: 0 0 16px; color: var(--muted); }
+      input {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+      }
+      .error { min-height: 20px; margin: 6px 0 12px; color: var(--danger); }
+      .actions { display: flex; justify-content: flex-end; gap: 8px; }
+      button {
+        padding: 5px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+      }
+      button[type="submit"] {
+        background: var(--foreground);
+        color: var(--background);
+        border-color: var(--foreground);
+      }
+    </style>
+  </head>
+  <body>
+    <form id="form">
+      <h1>Spotlight address</h1>
+      <p>The address of the Spotlight that this app opens.</p>
+      <input id="address" name="address"  aria-label="Spotlight address" />
+      <div class="error" id="error" role="alert"></div>
+      <div class="actions">
+        <button type="button" id="cancel">Cancel</button>
+        <button type="submit">Open</button>
+      </div>
+    </form>
+    <script>
+      const form = document.getElementById('form');
+      const input = document.getElementById('address');
+      const error = document.getElementById('error');
+
+      window.spotlightConnect.current().then((address) => {
+        input.value = address;
+        input.focus();
+        input.select();
+      });
+
+      document.getElementById('cancel').addEventListener('click', () =>
+        window.spotlightConnect.cancel(),
+      );
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        error.textContent = '';
+
+        if (!(await window.spotlightConnect.save(input.value))) {
+          error.textContent =
+            'The address is not valid. Use an https address, such as https://spotlight.example.com.';
+        }
+      });
+    </script>
+  </body>
+</html>

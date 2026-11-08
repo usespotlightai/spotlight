@@ -1,4 +1,5 @@
-import { Bell } from 'lucide-react';
+import { AppWindow, Bell } from 'lucide-react';
+import { useState } from 'react';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
@@ -10,8 +11,11 @@ import {
   type BrowserNotificationState,
   useBrowserNotifications,
 } from '@/hooks/useBrowserNotifications';
+import { desktopApp, opensInDesktop, storeOpensInDesktop } from '@/lib/desktop';
 
 const DESCRIPTIONS: Record<BrowserNotificationState, string> = {
+  desktop:
+    'On. The desktop app shows new items while it runs, also with its window closed. To turn them off, use the Notifications settings of macOS.',
   unsupported: 'This browser cannot show notifications.',
   blocked:
     'The browser blocks notifications from Spotlight. To turn them on, allow notifications for this site in the browser settings.',
@@ -22,18 +26,21 @@ const DESCRIPTIONS: Record<BrowserNotificationState, string> = {
 };
 
 const FIXED: ReadonlySet<BrowserNotificationState> = new Set([
+  'desktop',
   'unsupported',
   'blocked',
   'on-while-open',
 ]);
 
 const ON: ReadonlySet<BrowserNotificationState> = new Set([
+  'desktop',
   'on',
   'on-while-open',
 ]);
 
 export function AccountNotifications() {
   const notifications = useBrowserNotifications();
+  const [opensDesktop, setOpensDesktop] = useState(opensInDesktop);
   const { state, turnOn, turnOff } = notifications;
   const changing = turnOn.isPending || turnOff.isPending;
   const refused = turnOn.isError || turnOff.isError;
@@ -62,8 +69,30 @@ export function AccountNotifications() {
         </SettingsSection>
       )}
 
+      {!desktopApp() && (
+        <SettingsSection title="Links">
+          <SettingsRow
+            label="Open links in the desktop app"
+            htmlFor="opens-in-desktop"
+            leading={<RowIcon icon={AppWindow} />}
+            description="A Spotlight link opened in this browser goes to the Spotlight desktop app. The browser asks once before it opens the app."
+          >
+            <Switch
+              id="opens-in-desktop"
+              checked={opensDesktop}
+              onCheckedChange={(checked) => {
+                storeOpensInDesktop(checked);
+                setOpensDesktop(checked);
+              }}
+            />
+          </SettingsRow>
+        </SettingsSection>
+      )}
+
       {state !== null && (
-        <SettingsSection title="This browser">
+        <SettingsSection
+          title={state === 'desktop' ? 'This app' : 'This browser'}
+        >
           <SettingsRow
             label="New inbox items"
             htmlFor="browser-notifications"
