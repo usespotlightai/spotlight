@@ -18,9 +18,12 @@ not need to: what it takes to open one never leaves Spotlight.
 A long body is easier piped in, as `spotlight tools call pull-request --title "…" < body.md`.
 
 Where the line works in several repositories, name the one the change is in
-with `--repository <name>`.
+with `--repository <name>`. A task has one pull request in each repository.
+When you change files in two repositories, call it once for each, and name
+each repository.
 
-One task has one pull request. Calling it again where one is already open
-changes the title and body of that one, and answers with its address. Without
-`--body`, the body stays as it is. Call it again when the branch changes what
-the description says, so that the description stays true.
+Calling it again for a repository where one is already open changes the title
+and body of that one, and answers with its address. Without `--repository`, it
+changes the task's first pull request. Without `--body`, the body stays as it
+is. Call it again when the branch changes what the description says, so that
+the description stays true.

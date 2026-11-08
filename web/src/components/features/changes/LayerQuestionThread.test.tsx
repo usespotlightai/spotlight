@@ -33,6 +33,7 @@ const shown = (question: LayerQuestion, onReveal = vi.fn()) =>
       value={{
         teamId: 'team_1',
         runId: 'run_1',
+        repository: null,
         review: { comments: [] } as unknown as CodeReview,
         threads: [],
         composing: null,
@@ -89,6 +90,7 @@ describe('LayerQuestionThread', () => {
           verdict: 'missed',
           feedback: 'The accept endpoint refuses it with 410.',
           expected: 'It answers 410 and adds no member.',
+          outdated: false,
         },
       },
       onReveal,
@@ -112,5 +114,33 @@ describe('LayerQuestionThread', () => {
       line: 1,
       layerId: 'c1.l2',
     });
+  });
+
+  it('asks again, with the earlier words, once the code changed after the answer', async () => {
+    shown({
+      ...QUESTION,
+      answered: {
+        questionId: 'c1.l2.q1',
+        reply: 'It adds the member.',
+        verdict: 'right',
+        feedback: null,
+        expected: null,
+        outdated: true,
+      },
+    });
+
+    expect(
+      screen.getByText(
+        'The code changed after you answered. Please answer again.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Expected answer/)).toBeNull();
+    expect(screen.queryByText('Right')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Check' }));
+
+    expect(mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ reply: 'It adds the member.' }),
+    );
   });
 });

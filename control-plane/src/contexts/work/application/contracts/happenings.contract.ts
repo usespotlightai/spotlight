@@ -25,6 +25,7 @@ interface MessagePayload {
   readonly from?: number | null;
   readonly to?: number | null;
   readonly reviewComment?: string | null;
+  readonly pullRequest?: string | null;
 }
 
 interface CorrelationKeysPayload {
@@ -81,4 +82,5 @@ export interface Happened {
   readonly opens: OpensPayload | null;
   readonly chat?: StartsChatPayload | null;
   readonly attachments?: readonly InboundAttachment[];
+  readonly closedPullRequest?: string | null;
 }

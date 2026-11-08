@@ -5,6 +5,7 @@ export const REVIEW_READER = Symbol('REVIEW_READER');
 
 export interface ReviewCommentView {
   readonly id: string;
+  readonly repository: string | null;
   readonly path: string;
   readonly side: 'new' | 'old' | null;
   readonly line: number | null;
@@ -26,6 +27,7 @@ export interface ReviewCommentView {
 
 export interface ReviewView {
   readonly id: string;
+  readonly repository: string | null;
   readonly authorId: string | null;
   readonly authorRunId: string | null;
   readonly authorName: string | null;

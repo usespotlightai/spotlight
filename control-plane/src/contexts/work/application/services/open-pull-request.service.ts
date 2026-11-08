@@ -45,8 +45,15 @@ export class OpenPullRequest {
     input: PullRequestInput,
   ): Promise<OpenedPullRequest> {
     const task = await this.found(target.taskId);
+    const line = await this.lines.findByStation(target.stationId);
 
-    const step = task.pullRequestStep;
+    if (!line) {
+      throw new UnknownStationError(target.stationId.value);
+    }
+
+    const named =
+      input.repository === null ? null : RepositoryName.of(input.repository);
+    const step = task.pullRequestStep(named ? line.opening(named) : null);
 
     if (step.kind !== 'open') {
       await this.pullRequests.edit({
@@ -59,15 +66,7 @@ export class OpenPullRequest {
       return { url: step.pullRequest.value };
     }
 
-    const line = await this.lines.findByStation(target.stationId);
-
-    if (!line) {
-      throw new UnknownStationError(target.stationId.value);
-    }
-
-    const repository = line.opening(
-      input.repository === null ? null : RepositoryName.of(input.repository),
-    );
+    const repository = line.opening(named);
     const taskView = await this.taskViews.of(
       target.taskId.value,
       target.runId.value,
@@ -105,8 +104,10 @@ export class OpenPullRequest {
     return this.transaction.inTransaction(async () => {
       const current = await this.found(target.taskId);
 
-      if (current.pullRequest) {
-        return { url: current.pullRequest.value };
+      const already = current.pullRequestIn(repository);
+
+      if (already) {
+        return { url: already.value };
       }
 
       const marked = current.recordPullRequest(

@@ -13,7 +13,7 @@ export const TaskMapper = {
       createdAt: summary.createdAt.toISOString(),
       progress: summary.progress,
       awaitingReview: summary.awaitingReview,
-      pullRequest: summary.pullRequest,
+      pullRequests: summary.pullRequests,
       createdBy: summary.createdBy,
       assignee: summary.assignee,
       note: summary.note

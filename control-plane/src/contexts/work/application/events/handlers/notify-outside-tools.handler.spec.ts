@@ -2,6 +2,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -10,6 +11,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import type { OutboundTaskNotifier } from '@work/application/services/outside-task-notices.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -92,7 +94,7 @@ describe('NotifyOutsideTools', () => {
       new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
     );
 
-    expect(notify).toHaveBeenCalledWith(task, 'task.asked');
+    expect(notify).toHaveBeenCalledWith(task, 'task.asked', null);
   });
 
   it('tells outside tools of a task opened from what they said', async () => {
@@ -111,7 +113,24 @@ describe('NotifyOutsideTools', () => {
       ),
     );
 
-    expect(notify).toHaveBeenCalledWith(task, 'task.opened');
+    expect(notify).toHaveBeenCalledWith(task, 'task.opened', null);
+  });
+
+  it('names the pull request that opened, not the first one of the task', async () => {
+    const { handler, task, notify } = notifying();
+    const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+
+    await handler.on(
+      new PullRequestOpened(
+        task.id,
+        WORKSPACE,
+        TeamId.of('team_1'),
+        docs,
+        new Date(),
+      ),
+    );
+
+    expect(notify).toHaveBeenCalledWith(task, 'task.pull-request-opened', docs);
   });
 
   it('keeps quiet about a task somebody opened here', async () => {

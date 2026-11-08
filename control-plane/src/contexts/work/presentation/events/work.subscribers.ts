@@ -3,6 +3,10 @@ import {
   type HostBecameReadyIntegrationEvent,
 } from '@shared-kernel/application/integration-events/host-became-ready.integration-event';
 import {
+  PULL_REQUEST_REOPENED,
+  type PullRequestReopenedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
+import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
@@ -30,6 +34,7 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -47,6 +52,7 @@ import type { NotifyOutsideTools } from '@work/application/events/handlers/notif
 import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import type { ReopenTaskPullRequest } from '@work/application/events/handlers/reopen-task-pull-request.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import {
   type NewTeam,
@@ -121,6 +127,7 @@ export const workSubscribers = (reactions: {
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
   takenMarks: ReleaseTakenMarks;
+  reopenedPullRequests: ReopenTaskPullRequest;
 }): readonly DomainEventSubscriber[] => [
   subscribing<ToolUsed>(
     'work.fire-hooks-after-tool-used',
@@ -275,6 +282,15 @@ export const workSubscribers = (reactions: {
     ['task.marked'],
     (event) => reactions.takenMarks.on(event),
     { callsOut: true },
+  ),
+  subscribing<PullRequestReopenedIntegrationEvent>(
+    'work.reopen-task-pull-request',
+    [PULL_REQUEST_REOPENED],
+    (event) =>
+      reactions.reopenedPullRequests.on(
+        WorkspaceId.of(event.workspaceId),
+        PullRequestUrl.of(event.pullRequest),
+      ),
   ),
   subscribing<TaskDeleted>(
     'work.delete-inbox-requests-of-deleted-task',

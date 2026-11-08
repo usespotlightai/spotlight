@@ -178,6 +178,7 @@ describe('TaskViews', () => {
       marks: { 'git.pull-request': PULL },
       repositories: ['acme/api', 'acme/web'],
       pullRequest: PULL,
+      pullRequests: [PULL],
       runId: 'run_9',
     });
   });

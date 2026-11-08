@@ -278,7 +278,7 @@ describe('reading what a task’s runs changed', () => {
         id: TaskId.of(taskId),
         workspaceId: WorkspaceId.of('ws_1'),
         reviewedHead: null,
-        pullRequest: null,
+        pullRequests: [],
       } as unknown as Task,
       { repositories: { all: [API, WEB] } } as unknown as LineMap,
     );

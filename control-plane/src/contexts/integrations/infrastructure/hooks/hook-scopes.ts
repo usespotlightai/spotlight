@@ -23,6 +23,7 @@ const TASK: Declared = {
     marks: 'map<string, string>',
     repositories: 'list<string>',
     pullRequest: OUTSIDE,
+    pullRequests: 'list<string>',
   },
 };
 

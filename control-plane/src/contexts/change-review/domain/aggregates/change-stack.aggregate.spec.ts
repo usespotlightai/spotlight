@@ -18,6 +18,7 @@ import type {
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import {
   HunkId,
+  LayerId,
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
@@ -666,12 +667,24 @@ describe('ChangeStack read back from what was stored', () => {
       usage: ModelUsage.none(),
       request: ready().request,
       redrafting: false,
+      previous: null,
+      removed: [],
       version: 1,
       ...over,
     });
 
   it('takes a stack back as it was left', () => {
     expect(stored({}).state).toBe('ready');
+  });
+
+  it('is refused when stored revised against no previous stack', () => {
+    expect(() =>
+      stored({
+        removed: [
+          { previous: LayerId.of('c1.l1'), cohort: 'Old', title: 'Gone' },
+        ],
+      }),
+    ).toThrow(InconsistentStateError);
   });
 
   it('is refused when stored with both a task and a team', () => {

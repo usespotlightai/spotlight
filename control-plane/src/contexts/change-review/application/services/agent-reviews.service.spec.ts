@@ -40,6 +40,9 @@ const reviewing = (
     workspaceId: WORKSPACE,
     teamId: null,
     pullRequest: pullRequest ? PullRequestUrl.of(pullRequest) : null,
+    pullRequests: [pullRequest ? PullRequestUrl.of(pullRequest) : null].filter(
+      (each) => each !== null,
+    ),
     reviewing: reviewsIt,
     currentRunId: null,
   };

@@ -29,6 +29,7 @@ export interface AnchorRow {
   readonly from: number | null;
   readonly to: number | null;
   readonly reviewComment: string | null;
+  readonly pullRequest?: string | null;
 }
 
 export type ApprovalSubjectRow =
@@ -106,6 +107,7 @@ export const task = pgTable(
     sessionId: text('session_id'),
     runnerId: text('runner_id'),
     pullRequest: text('pull_request'),
+    pullRequestClosedAt: timestamptz('pull_request_closed_at'),
     reviewing: boolean('reviewing').notNull().default(false),
     reviewFromOutside: boolean('review_from_outside').notNull().default(false),
     finishedAt: timestamptz('finished_at'),
@@ -235,5 +237,24 @@ export const taskMark = pgTable(
     }).onDelete('cascade'),
     primaryKey({ columns: [table.taskId, table.kind, table.value] }),
     index('task_mark_mark_idx').on(table.workspaceId, table.kind, table.value),
+  ],
+);
+
+export const taskPullRequest = pgTable(
+  'task_pull_request',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    taskId: text('task_id').notNull(),
+    url: text('url').notNull(),
+    openedAt: timestamptz('opened_at').notNull(),
+    closedAt: timestamptz('closed_at'),
+  },
+  (table) => [
+    foreignKey({
+      name: 'task_pull_request_task_fk',
+      columns: [table.workspaceId, table.taskId],
+      foreignColumns: [task.workspaceId, task.id],
+    }).onDelete('cascade'),
+    primaryKey({ columns: [table.taskId, table.url] }),
   ],
 );

@@ -15,12 +15,13 @@ vi.mock('@/hooks/api/useSubmitReview', () => ({
   }),
 }));
 
-const renderWith = (review: CodeReview) =>
+const renderWith = (review: CodeReview, repository: string | null = null) =>
   render(
     <ReviewContext
       value={{
         teamId: 'team_1',
         runId: 'run_1',
+        repository,
         review,
         threads: threadsOf(review.comments),
         composing: null,
@@ -68,9 +69,26 @@ describe('SubmitReviewButton', () => {
       {
         teamId: 'team_1',
         runId: 'run_1',
+        repository: null,
         verdict: 'request-changes',
         body: 'One thing on roles',
       },
+      expect.anything(),
+    );
+  });
+
+  it('submits the review for the repository on screen', async () => {
+    renderWith(REVIEW, 'docs');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Finish review/ }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Submit review' }),
+    );
+
+    expect(submitting).toHaveBeenCalledWith(
+      expect.objectContaining({ repository: 'docs', verdict: 'comment' }),
       expect.anything(),
     );
   });

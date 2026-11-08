@@ -43,7 +43,7 @@ export function WorkspaceMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left outline-none transition-colors hover:bg-border/50 data-[popup-open]:bg-border/50">
+      <DropdownMenuTrigger className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left outline-none transition-colors hover:bg-sidebar-hover data-[popup-open]:bg-sidebar-hover">
         <InitialAvatar
           name={name}
           className="bg-primary text-primary-foreground!"

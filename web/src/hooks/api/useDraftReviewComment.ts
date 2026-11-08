@@ -6,6 +6,7 @@ import type { ReviewSpot } from '@/lib/review';
 type DraftReviewCommentInput = {
   teamId: string;
   runId: string;
+  repository: string | null;
   body: string;
   on: ReviewSpot | { path: string } | { replyTo: string };
 };
@@ -17,12 +18,13 @@ export function useDraftReviewComment() {
     mutationFn: async ({
       teamId,
       runId,
+      repository,
       body,
       on,
     }: DraftReviewCommentInput) => {
       await draftReviewComment({
         path: { teamId, runId },
-        body: { body, ...on },
+        body: { body, ...on, ...(repository ? { repository } : {}) },
         throwOnError: true,
       });
     },

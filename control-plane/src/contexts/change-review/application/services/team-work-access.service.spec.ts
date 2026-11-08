@@ -64,6 +64,7 @@ const access = (
               workspaceId: WORKSPACE,
               teamId: TeamId.of('team_1'),
               pullRequest: null,
+              pullRequests: [],
               reviewing: false,
               currentRunId: null,
               ...over.task,

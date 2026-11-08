@@ -13,6 +13,7 @@ import {
   layerAt,
   patchOf,
   type QuestionAnswer,
+  revisionMarkOf,
   tallyOf,
   toReadAgain,
 } from '@/lib/change-stack';
@@ -30,6 +31,7 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
   repository: null,
   state: 'ready',
   failure: null,
+  removed: [],
   check: null,
   files: [
     {
@@ -90,6 +92,7 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
             { path: 'src/invite.ts', note: 'Adds the invitation model.' },
           ],
           questions: [],
+          revision: null,
         },
         {
           id: 'c1.l2',
@@ -98,6 +101,7 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
           hunks: [{ hunk: 'h3' }, { hunk: 'h2' }],
           notes: [],
           questions: [],
+          revision: null,
         },
       ],
     },
@@ -230,6 +234,7 @@ const MISSED: QuestionAnswer = {
   verdict: 'missed',
   feedback: null,
   expected: 'The invitation routes.',
+  outdated: false,
 };
 
 describe('citedBy', () => {
@@ -275,5 +280,45 @@ describe('answeredIn', () => {
     };
 
     expect(toReadAgain(right)).toBe(false);
+  });
+});
+
+describe('revisionMarkOf', () => {
+  const layer = stack().cohorts[0]?.layers[0] as NonNullable<
+    ReturnType<typeof stack>['cohorts'][number]['layers'][number]
+  >;
+
+  it('marks a layer that changed or is new since the previous stack', () => {
+    expect(
+      revisionMarkOf({
+        ...layer,
+        revision: { status: 'modified', previous: 'c1.l1' },
+      })?.label,
+    ).toBe('Changed');
+    expect(
+      revisionMarkOf({
+        ...layer,
+        revision: { status: 'added', previous: null },
+      })?.label,
+    ).toBe('New');
+  });
+
+  it('marks nothing on an unchanged layer, or a stack that follows no earlier stack', () => {
+    expect(
+      revisionMarkOf({
+        ...layer,
+        revision: { status: 'unchanged', previous: 'c1.l1' },
+      }),
+    ).toBeNull();
+    expect(revisionMarkOf({ ...layer, revision: null })).toBeNull();
+  });
+
+  it('asks nobody to read a layer again for an answer to earlier code', () => {
+    expect(
+      toReadAgain({
+        ...layer,
+        questions: [{ ...ASKED, answered: { ...MISSED, outdated: true } }],
+      }),
+    ).toBe(false);
   });
 });

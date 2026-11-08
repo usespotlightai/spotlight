@@ -1,6 +1,7 @@
 import type { SubmitReviewCommand } from '@change-review/application/commands/submit-review.command';
 import type { SubmitReview } from '@change-review/application/services/submit-review.service';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
@@ -23,6 +24,7 @@ export class SubmitReviewHandler
       return (
         await this.submitting.submit({
           task,
+          repository: RepositoryName.optional(command.repository),
           author,
           verdict: command.verdict,
           body: command.body,

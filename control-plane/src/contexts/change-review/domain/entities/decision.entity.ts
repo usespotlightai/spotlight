@@ -2,7 +2,9 @@ import type { DecisionDispute } from '@change-review/domain/entities/decision-di
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import type { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 export const DECISION_KINDS = [
   'trade-off',
@@ -144,6 +146,12 @@ export class Decision {
 
   covers(path: FilePath): boolean {
     return this.paths.some((each) => each.equals(path));
+  }
+
+  isWithin(repository: Repository): boolean {
+    return this.paths.some((each) =>
+      WorkingCopyPath.of(each.value).isWithin(repository),
+    );
   }
 
   dispute(dispute: DecisionDispute): Decision {

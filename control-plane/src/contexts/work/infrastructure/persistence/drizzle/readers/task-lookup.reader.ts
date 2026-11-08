@@ -15,6 +15,7 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import {
   task,
   taskNote,
+  taskPullRequest,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { asc, eq } from 'drizzle-orm';
 
@@ -35,6 +36,13 @@ export class DrizzleTaskLookupReader implements TaskLookupReaderPort {
       })
       .from(task)
       .where(eq(task.id, taskId.value));
+    const later = row
+      ? await this.context.db
+          .select({ url: taskPullRequest.url })
+          .from(taskPullRequest)
+          .where(eq(taskPullRequest.taskId, row.id))
+          .orderBy(asc(taskPullRequest.openedAt), asc(taskPullRequest.url))
+      : [];
 
     return row
       ? {
@@ -48,6 +56,7 @@ export class DrizzleTaskLookupReader implements TaskLookupReaderPort {
                 })
               : PullRequestLink.opened(PullRequestUrl.of(row.pullRequest))
             : null,
+          laterPullRequests: later.map((each) => PullRequestUrl.of(each.url)),
           currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
         }
       : null;

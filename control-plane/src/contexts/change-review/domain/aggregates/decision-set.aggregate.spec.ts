@@ -344,8 +344,8 @@ describe('a decision set, merged', () => {
     ]).merge(MERGE);
 
     expect(merged.status.isMerged).toBe(true);
-    expect(merged.status.merge?.commit.value).toBe('a'.repeat(40));
-    expect(merged.status.merge?.repository.value).toBe('acme/api');
+    expect(merged.status.merges[0]?.commit.value).toBe('a'.repeat(40));
+    expect(merged.status.merges[0]?.repository.value).toBe('acme/api');
   });
 
   it('merges once', () => {
@@ -373,6 +373,110 @@ describe('a decision set, merged', () => {
         at: NOW,
       }),
     ).toThrow(InvalidDecisionError);
+  });
+});
+
+describe('a decision set, merged in more than one repository', () => {
+  const API = Repository.of('acme/api');
+  const WEB = Repository.of('acme/web');
+  const mergeOf = (repository: Repository, commit: string) =>
+    DecisionMerge.of({ repository, commit: commit.repeat(40), at: NOW });
+
+  const decided = () =>
+    opened()
+      .requestGeneration(FIRST, NOW)
+      .recordGeneration({
+        runId: FIRST,
+        proposed: [
+          proposed({ title: 'Retries uploads', paths: ['api/src/uploads.ts'] }),
+          proposed({ title: 'Polls every second', paths: ['web/src/poll.ts'] }),
+        ],
+        evidence: DecisionEvidence.of({
+          steps: [5],
+          changed: ['api/src/uploads.ts', 'web/src/poll.ts'],
+        }),
+        newId: counting('decision'),
+      });
+
+  const titles = (decisions: readonly Decision[]) =>
+    decisions.map((each) => each.title);
+
+  it('records one merge for each repository, each with its own commit', () => {
+    const merged = decided().merge(mergeOf(API, 'a')).merge(mergeOf(WEB, 'b'));
+
+    expect(
+      merged.status.merges.map((each) => [
+        each.repository.value,
+        each.commit.value,
+      ]),
+    ).toEqual([
+      ['acme/api', 'a'.repeat(40)],
+      ['acme/web', 'b'.repeat(40)],
+    ]);
+    expect(merged.status.mergeIn(WEB)?.commit.value).toBe('b'.repeat(40));
+  });
+
+  it('merges the decisions on a repository’s files only once that repository merges', () => {
+    const apiMerged = decided().merge(mergeOf(API, 'a'));
+
+    expect(titles(apiMerged.mergedIn(API))).toEqual(['Retries uploads']);
+    expect(apiMerged.mergedIn(WEB)).toEqual([]);
+
+    const bothMerged = apiMerged.merge(mergeOf(WEB, 'b'));
+
+    expect(titles(bothMerged.mergedIn(WEB))).toEqual(['Polls every second']);
+    expect(titles(bothMerged.mergedIn(API))).toEqual(['Retries uploads']);
+  });
+
+  it('keeps the first merge of a repository', () => {
+    const merged = decided().merge(mergeOf(API, 'a')).merge(mergeOf(API, 'c'));
+
+    expect(merged.status.merges.map((each) => each.commit.value)).toEqual([
+      'a'.repeat(40),
+    ]);
+  });
+
+  it('takes no later run and is kept once any repository merges', () => {
+    const apiMerged = decided().merge(mergeOf(API, 'a'));
+
+    expect(apiMerged.requestGeneration(SECOND, NOW).hasPendingJob).toBe(false);
+    expect(apiMerged.discardable).toBe(false);
+  });
+
+  it('does not rehydrate two merges into one repository', () => {
+    expect(() =>
+      DecisionStatus.rehydrate({
+        state: 'merged',
+        merges: [mergeOf(API, 'a'), mergeOf(Repository.of('Acme/API'), 'b')],
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+});
+
+describe('a decision set, merged in one repository', () => {
+  it('merges every decision on the repository’s files, and stays merged', () => {
+    const API = Repository.of('acme/api');
+    const merged = opened()
+      .requestGeneration(FIRST, NOW)
+      .recordGeneration({
+        runId: FIRST,
+        proposed: [
+          proposed({ paths: ['api/src/uploads.ts'] }),
+          proposed({ title: 'Second', paths: ['api/src/retry.ts'] }),
+        ],
+        evidence: DecisionEvidence.of({
+          steps: [5],
+          changed: ['api/src/uploads.ts', 'api/src/retry.ts'],
+        }),
+        newId: counting('decision'),
+      })
+      .merge(MERGE);
+
+    expect(merged.status.state).toBe('merged');
+    expect(merged.mergedIn(API)).toEqual(merged.decisions);
+    expect(merged.mergedIn(API)).toHaveLength(2);
+    expect(merged.requestGeneration(SECOND, NOW).hasPendingJob).toBe(false);
+    expect(merged.discardable).toBe(false);
   });
 });
 

@@ -39,8 +39,22 @@ function Shell() {
         activeId={tabs.activeId}
         onSelect={tabs.select}
         onClose={tabs.close}
+        onMove={tabs.move}
         onOpen={tabs.open}
       />
+      <button
+        type="button"
+        onClick={() => {
+          const [first, ...rest] = tabs.tabs;
+          const last = rest.at(-1);
+
+          if (first && last) {
+            tabs.move(first.id, last.id);
+          }
+        }}
+      >
+        Move the first tab to the end
+      </button>
       <TabTitleContext value={tabs.report}>
         <Routes>
           <Route path="/w/:slug/inbox" element={<Page title="Inbox" />} />
@@ -153,6 +167,29 @@ describe('useAppTabs', () => {
     await strip().findByRole('button', { name: 'Inbox' });
 
     expect(strip().queryByRole('button', { name: 'Close Inbox' })).toBeNull();
+  });
+
+  it('moves a tab, and gives back the new order next time round', async () => {
+    const user = userEvent.setup();
+    const first = renderAt('/w/acme/inbox');
+
+    await user.click(tab('New tab'));
+    await user.click(
+      screen.getByRole('button', { name: 'Move the first tab to the end' }),
+    );
+
+    const titles = () =>
+      strip()
+        .getAllByRole('listitem')
+        .map((each) => each.textContent);
+
+    expect(titles()).toEqual(['Agent', 'Inbox']);
+    expect(tab('Agent')).toHaveAttribute('aria-current', 'page');
+
+    first.unmount();
+    renderAt('/w/acme/team/team_1/agent');
+
+    expect(titles()).toEqual(['Agent', 'Inbox']);
   });
 
   it('gives back the tabs next time round', async () => {

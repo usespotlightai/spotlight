@@ -9,12 +9,18 @@ import type {
   ChangeStackReaderPort,
   ChangeStackSummary,
 } from '@change-review/application/ports/change-stack-reader.port';
-import { answersQuestion } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import {
+  type AnswerScope,
+  type GivenAnswer,
+  shownAnswerFor,
+} from '@change-review/domain/services/shown-answer';
+import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
+import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type { CheckedStep } from '@change-review/domain/value-objects/stack-check.vo';
-import { QuestionId } from '@change-review/domain/value-objects/stack-ids';
+import type { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import { isShownForTask } from '@change-review/domain/value-objects/stack-progress.vo';
 import { diffOf } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
 import { toStackCheck } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
@@ -25,9 +31,9 @@ import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/sc
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or } from 'drizzle-orm';
 
 const PROGRESS = {
   state: changeStack.state,
@@ -64,16 +70,28 @@ const checkOf = (check: StackCheck | null, now: Date): StackCheckDto | null => {
   };
 };
 
-type AnswerRow = Pick<
-  typeof questionAnswer.$inferSelect,
-  | 'stackId'
-  | 'questionId'
-  | 'asked'
-  | 'reply'
-  | 'verdict'
-  | 'feedback'
-  | 'expected'
->;
+const ANSWER = {
+  id: questionAnswer.id,
+  stackId: questionAnswer.stackId,
+  taskId: questionAnswer.taskId,
+  repository: questionAnswer.repository,
+  asked: questionAnswer.asked,
+  expected: questionAnswer.expected,
+  reply: questionAnswer.reply,
+  verdict: questionAnswer.verdict,
+  feedback: questionAnswer.feedback,
+  answeredAt: questionAnswer.answeredAt,
+};
+
+type AnswerRow = {
+  [K in keyof typeof ANSWER]: (typeof questionAnswer.$inferSelect)[K];
+};
+
+interface StackScope {
+  readonly id: string;
+  readonly taskId: string | null;
+  readonly repository: string | null;
+}
 
 type StoredLayer = StoredCohort['layers'][number];
 
@@ -100,9 +118,11 @@ const outlinedCohortOf = <L>(
   layers: cohort.layers.map(layerOf),
 });
 
+type StoredQuestion = NonNullable<StoredLayer['questions']>[number];
+
 const cohortDtosOf = (
   cohorts: readonly StoredCohort[],
-  answered: (questionId: string, asked: string) => QuestionAnswerDto | null,
+  answered: (question: StoredQuestion) => QuestionAnswerDto | null,
 ): StackCohortDto[] =>
   cohorts.map((cohort) =>
     outlinedCohortOf(cohort, (layer) => ({
@@ -111,33 +131,59 @@ const cohortDtosOf = (
         id: each.id,
         question: each.question,
         hunks: each.hunks,
-        answered: answered(each.id, each.question),
+        answered: answered(each),
       })),
+      revision: layer.revision
+        ? {
+            status: layer.revision.status,
+            previous: layer.revision.previous ?? null,
+          }
+        : null,
     })),
   );
 
-const answeredFrom =
-  (rows: readonly AnswerRow[], stackId: string) =>
-  (questionId: string, asked: string): QuestionAnswerDto | null => {
-    const row = rows.find(
-      (each) =>
-        each.stackId === stackId &&
-        answersQuestion(
-          { questionId: QuestionId.of(each.questionId), asked: each.asked },
-          { id: QuestionId.of(questionId), question: asked },
-        ),
-    );
+const scopeOf = (stack: StackScope): AnswerScope => ({
+  stackId: ChangeStackId.of(stack.id),
+  taskId: stack.taskId ? TaskId.of(stack.taskId) : null,
+  repository: stack.repository ? RepositoryName.of(stack.repository) : null,
+});
 
-    return row
-      ? {
-          questionId: row.questionId,
-          reply: row.reply,
-          verdict: row.verdict,
-          feedback: row.feedback,
-          expected: row.expected,
-        }
-      : null;
+const givenOf = (row: AnswerRow): GivenAnswer => ({
+  ...scopeOf({
+    id: row.stackId,
+    taskId: row.taskId,
+    repository: row.repository,
+  }),
+  id: QuestionAnswerId.of(row.id),
+  asked: row.asked,
+  expected: row.expected,
+  reply: row.reply,
+  verdict: row.verdict,
+  feedback: row.feedback,
+  answeredAt: row.answeredAt,
+});
+
+const answeredFrom =
+  (rows: readonly AnswerRow[], stack: StackScope) =>
+  (question: StoredQuestion): QuestionAnswerDto | null => {
+    const shown = shownAnswerFor(question, scopeOf(stack), rows.map(givenOf));
+
+    return shown && { questionId: question.id, ...shown };
   };
+
+const inScopeOf = (stacks: readonly StackScope[]) => {
+  const tasks = [
+    ...new Set(stacks.flatMap((stack) => (stack.taskId ? [stack.taskId] : []))),
+  ];
+
+  return or(
+    inArray(
+      questionAnswer.stackId,
+      stacks.map((stack) => stack.id),
+    ),
+    tasks.length > 0 ? inArray(questionAnswer.taskId, tasks) : undefined,
+  );
+};
 
 @Injectable()
 export class DrizzleChangeStackReader implements ChangeStackReaderPort {
@@ -147,6 +193,35 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     taskId: TaskId,
     now: Date,
   ): Promise<ChangeStackSummary | null> {
+    const [latest] = await this.shownForTask(taskId, now, (rows) =>
+      rows.slice(0, 1),
+    );
+
+    return latest ?? null;
+  }
+
+  latestPerRepository(
+    taskId: TaskId,
+    now: Date,
+  ): Promise<ChangeStackSummary[]> {
+    return this.shownForTask(taskId, now, (rows) => {
+      const seen = new Set<string | null>();
+
+      return rows.filter((row) => {
+        const known = seen.has(row.repository);
+
+        seen.add(row.repository);
+
+        return !known;
+      });
+    });
+  }
+
+  private async shownForTask(
+    taskId: TaskId,
+    now: Date,
+    pick: <R extends { repository: string | null }>(newestFirst: R[]) => R[],
+  ): Promise<ChangeStackSummary[]> {
     const rows = await this.context.db
       .select({
         id: changeStack.id,
@@ -159,26 +234,30 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       .from(changeStack)
       .where(eq(changeStack.taskId, taskId.value))
       .orderBy(desc(changeStack.startedAt));
-    const row = rows.find((each) => isShownForTask(each.state));
 
-    if (!row) {
-      return null;
-    }
+    return Promise.all(
+      pick(rows.filter((each) => isShownForTask(each.state))).map(
+        async (row): Promise<ChangeStackSummary> => {
+          const tally = tallyOf(diffOf(row.files).files);
 
-    const tally = tallyOf(diffOf(row.files).files);
-
-    return {
-      id: row.id,
-      runId: RunId.of(row.runId),
-      repository: row.repository,
-      state: row.state,
-      cohorts: row.cohorts.map((cohort) =>
-        outlinedCohortOf(cohort, outlinedLayerOf),
+          return {
+            id: row.id,
+            runId: RunId.of(row.runId),
+            repository: row.repository,
+            state: row.state,
+            cohorts: row.cohorts.map((cohort) =>
+              outlinedCohortOf(cohort, outlinedLayerOf),
+            ),
+            check: checkOf(
+              StackCheck.latestOf(await this.checksOf([row.id])),
+              now,
+            ),
+            added: tally.added,
+            removed: tally.removed,
+          };
+        },
       ),
-      check: checkOf(StackCheck.latestOf(await this.checksOf([row.id])), now),
-      added: tally.added,
-      removed: tally.removed,
-    };
+    );
   }
 
   async ofRun(
@@ -189,9 +268,11 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     const rows = await this.context.db
       .select({
         id: changeStack.id,
+        taskId: changeStack.taskId,
         repository: changeStack.repository,
         files: changeStack.files,
         cohorts: changeStack.cohorts,
+        removedLayers: changeStack.removedLayers,
         ...PROGRESS,
       })
       .from(changeStack)
@@ -201,24 +282,10 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     const answers =
       rows.length > 0
         ? await this.context.db
-            .select({
-              stackId: questionAnswer.stackId,
-              questionId: questionAnswer.questionId,
-              asked: questionAnswer.asked,
-              reply: questionAnswer.reply,
-              verdict: questionAnswer.verdict,
-              feedback: questionAnswer.feedback,
-              expected: questionAnswer.expected,
-            })
+            .select(ANSWER)
             .from(questionAnswer)
             .where(
-              and(
-                inArray(
-                  questionAnswer.stackId,
-                  rows.map((row) => row.id),
-                ),
-                eq(questionAnswer.personId, viewerId.value),
-              ),
+              and(inScopeOf(rows), eq(questionAnswer.personId, viewerId.value)),
             )
         : [];
 
@@ -232,7 +299,12 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       startedAt: row.startedAt.toISOString(),
       completedAt: row.completedAt?.toISOString() ?? null,
       files: row.files,
-      cohorts: cohortDtosOf(row.cohorts, answeredFrom(answers, row.id)),
+      cohorts: cohortDtosOf(row.cohorts, answeredFrom(answers, row)),
+      removed: row.removedLayers.map((each) => ({
+        previous: each.previous,
+        cohort: each.cohort,
+        title: each.title,
+      })),
       check: checkOf(
         StackCheck.latestOf(
           checks.filter((each) => each.stackId.value === row.id),
@@ -248,27 +320,38 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     questionId: QuestionId,
     viewerId: UserId,
   ): Promise<QuestionAnswerDto | null> {
-    const [row] = await this.context.db
+    const [stack] = await this.context.db
       .select({
-        questionId: questionAnswer.questionId,
-        reply: questionAnswer.reply,
-        verdict: questionAnswer.verdict,
-        feedback: questionAnswer.feedback,
-        expected: questionAnswer.expected,
+        id: changeStack.id,
+        taskId: changeStack.taskId,
+        repository: changeStack.repository,
+        cohorts: changeStack.cohorts,
       })
-      .from(questionAnswer)
-      .innerJoin(changeStack, eq(changeStack.id, questionAnswer.stackId))
+      .from(changeStack)
       .where(
         and(
+          eq(changeStack.id, stackId.value),
           eq(changeStack.runId, runId.value),
-          eq(questionAnswer.stackId, stackId.value),
-          eq(questionAnswer.questionId, questionId),
-          eq(questionAnswer.personId, viewerId.value),
         ),
       )
       .limit(1);
+    const question = stack?.cohorts
+      .flatMap((cohort) => cohort.layers)
+      .flatMap((layer) => layer.questions ?? [])
+      .find((each) => each.id === questionId);
 
-    return row ?? null;
+    if (!stack || !question) {
+      return null;
+    }
+
+    const answers = await this.context.db
+      .select(ANSWER)
+      .from(questionAnswer)
+      .where(
+        and(inScopeOf([stack]), eq(questionAnswer.personId, viewerId.value)),
+      );
+
+    return answeredFrom(answers, stack)(question);
   }
 
   private async checksOf(

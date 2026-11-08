@@ -323,6 +323,74 @@ describe('OpenPullRequest', () => {
     expect(saved).toEqual([]);
   });
 
+  it('opens one in another repository the line works, beside the one already open', async () => {
+    const already = task().recordPullRequest(
+      RUN,
+      PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+      NOW,
+      delivery(),
+    );
+    const { open, opened, edited, saved } = opening({
+      repositories: ['acme/api', 'acme/widgets'],
+    });
+
+    const answered = await open(already, requested('widgets'));
+
+    expect(answered.url).toBe('https://github.com/acme/widgets/pull/7');
+    expect(edited).toEqual([]);
+    expect(opened[0]?.repository).toEqual(Repository.of('acme/widgets'));
+    expect(saved[0]?.pullRequests.map((each) => each.value)).toEqual([
+      'https://github.com/acme/api/pull/1',
+      'https://github.com/acme/widgets/pull/7',
+    ]);
+  });
+
+  it('edits the one in the repository the agent names', async () => {
+    const both = task()
+      .recordPullRequest(
+        RUN,
+        PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+        NOW,
+        delivery(),
+      )
+      .recordPullRequest(
+        RUN,
+        PullRequestUrl.of('https://github.com/acme/web/pull/2'),
+        NOW,
+        delivery(),
+      );
+    const { open, opened, edited } = opening({
+      repositories: ['acme/api', 'acme/web'],
+    });
+
+    const answered = await open(both, requested('web', 'what changed'));
+
+    expect(answered.url).toBe('https://github.com/acme/web/pull/2');
+    expect(edited.map((each) => each.pullRequest.value)).toEqual([
+      'https://github.com/acme/web/pull/2',
+    ]);
+    expect(opened).toEqual([]);
+  });
+
+  it('edits the first where the agent names no repository and several are worked', async () => {
+    const already = task().recordPullRequest(
+      RUN,
+      PullRequestUrl.of('https://github.com/acme/api/pull/1'),
+      NOW,
+      delivery(),
+    );
+    const { open, opened, edited } = opening({
+      repositories: ['acme/api', 'acme/web'],
+    });
+
+    await open(already);
+
+    expect(edited.map((each) => each.pullRequest.value)).toEqual([
+      'https://github.com/acme/api/pull/1',
+    ]);
+    expect(opened).toEqual([]);
+  });
+
   it('keeps the body of the one already open where the agent hands over none', async () => {
     const already = task().recordPullRequest(
       RUN,

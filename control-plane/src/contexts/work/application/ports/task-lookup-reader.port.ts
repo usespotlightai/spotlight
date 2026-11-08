@@ -1,3 +1,4 @@
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -12,6 +13,7 @@ export interface TaskLookupReading {
   readonly workspaceId: WorkspaceId;
   readonly stationId: StationId;
   readonly pullRequestLink: PullRequestLink | null;
+  readonly laterPullRequests: readonly PullRequestUrl[];
   readonly currentRunId: RunId | null;
 }
 
