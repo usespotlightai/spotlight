@@ -19,6 +19,7 @@ export interface KeptWarmSandbox {
   readonly workspaceId: string;
   readonly lineId: string;
   readonly fingerprint: string;
+  readonly placed: boolean;
 }
 
 export interface WarmSandboxesPort {

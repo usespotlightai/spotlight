@@ -45,6 +45,7 @@ export class WarmSandboxes implements WarmSandboxesPort {
               workspaceId: sandbox.workspaceId.value,
               lineId: sandbox.warm.lineId.value,
               fingerprint: sandbox.warm.fingerprint,
+              placed: sandbox.isPlaced,
             },
           ]
         : [],

@@ -836,6 +836,8 @@ func (o Options) checkEgress(ctx context.Context, journal *journalWriter) {
 	journal.append(protocol.Event{Type: protocol.EventEgressChecked, Data: checked})
 }
 
+const parallelSetups = 4
+
 func (o Options) setUp(
 	ctx context.Context, dir string, checkouts []protocol.Checkout, done setUps, journal *journalWriter, log *slog.Logger,
 ) []setupFailure {
@@ -854,9 +856,12 @@ func (o Options) setUp(
 	}
 
 	failed := make([]*setupFailure, len(missed))
+	slots := make(chan struct{}, parallelSetups)
 	var installing sync.WaitGroup
 	for i, checkout := range missed {
 		installing.Go(func() {
+			slots <- struct{}{}
+			defer func() { <-slots }()
 			output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.ProxyEnv)
 			if err != nil {
 				log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)

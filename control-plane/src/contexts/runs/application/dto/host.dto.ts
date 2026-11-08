@@ -1,6 +1,6 @@
 import type { ClaimedWorkDto } from '@runs/application/dto/run.dto';
 
-export interface WarmSandboxStartDto {
+interface WarmSandboxStartDto {
   readonly line: string;
   readonly checkouts: readonly {
     readonly path: string;

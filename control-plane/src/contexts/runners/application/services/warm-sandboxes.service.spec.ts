@@ -63,6 +63,7 @@ describe('WarmSandboxes', () => {
         workspaceId: 'ws_1',
         lineId: 'line_1',
         fingerprint: 'fingerprint_1',
+        placed: false,
       },
     ]);
   });

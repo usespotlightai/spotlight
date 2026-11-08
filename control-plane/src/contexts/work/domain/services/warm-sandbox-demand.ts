@@ -8,6 +8,7 @@ export interface KeptWarmSandbox {
   readonly id: string;
   readonly lineId: LineId;
   readonly fingerprint: WarmFingerprint;
+  readonly placed: boolean;
 }
 
 export interface WarmCheckout {
@@ -53,9 +54,9 @@ export const WarmSandboxDemands = {
     for (const line of lines) {
       const fingerprint = WarmFingerprint.ofLine(line);
       const ofLine = input.kept.filter((each) => each.lineId.equals(line.id));
-      const current = ofLine.filter((each) =>
-        each.fingerprint.equals(fingerprint),
-      );
+      const current = ofLine
+        .filter((each) => each.fingerprint.equals(fingerprint))
+        .sort((a, b) => Number(b.placed) - Number(a.placed));
       const wanted = line.warmSandboxes.value;
       const missing = wanted - current.length;
       const backingOff = input.lostRecently.some((each) =>
