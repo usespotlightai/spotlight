@@ -1,9 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -46,18 +50,26 @@ const toNotice = (row: Row): Notice =>
 
 @Injectable()
 export class DrizzleNoticeRepository implements NoticeRepository {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
 
   async add(added: Notice): Promise<void> {
-    try {
-      await this.inserted(added);
-    } catch (error) {
-      if (violates(error, UNIQUE_VIOLATION, 'notice_subject_idx')) {
-        throw new NoticeAlreadySentError(added.subject.value);
+    await this.context.inTransaction(async () => {
+      try {
+        await this.inserted(added);
+      } catch (error) {
+        if (violates(error, UNIQUE_VIOLATION, 'notice_subject_idx')) {
+          throw new NoticeAlreadySentError(added.subject.value);
+        }
+
+        throw error;
       }
 
-      throw error;
-    }
+      await this.events.dispatch(added.pullEvents());
+    });
   }
 
   private async inserted(added: Notice): Promise<void> {
@@ -81,20 +93,24 @@ export class DrizzleNoticeRepository implements NoticeRepository {
   }
 
   async save(saved: Notice): Promise<void> {
-    const written = await this.context.db
-      .update(notice)
-      .set({
-        resolvedAt: saved.resolvedAt,
-        version: saved.version + 1,
-      })
-      .where(
-        and(eq(notice.id, saved.id.value), eq(notice.version, saved.version)),
-      )
-      .returning({ id: notice.id });
+    await this.context.inTransaction(async () => {
+      const written = await this.context.db
+        .update(notice)
+        .set({
+          resolvedAt: saved.resolvedAt,
+          version: saved.version + 1,
+        })
+        .where(
+          and(eq(notice.id, saved.id.value), eq(notice.version, saved.version)),
+        )
+        .returning({ id: notice.id });
 
-    if (written.length === 0) {
-      throw new NoticeVersionConflictError(saved.id.value);
-    }
+      if (written.length === 0) {
+        throw new NoticeVersionConflictError(saved.id.value);
+      }
+
+      await this.events.dispatch(saved.pullEvents());
+    });
   }
 
   async find(id: NoticeId): Promise<Notice | null> {

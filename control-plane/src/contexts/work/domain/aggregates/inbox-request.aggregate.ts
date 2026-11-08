@@ -1,7 +1,10 @@
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import {
   INBOX_REQUEST_FORMS,
   type InboxRequestForm,
@@ -26,7 +29,7 @@ export interface InboxRequestAudience {
   readonly formsForTeamActors: readonly InboxRequestForm[];
 }
 
-export class InboxRequest {
+export class InboxRequest extends EventRecorder {
   private constructor(
     readonly id: InboxRequestId,
     readonly workspaceId: WorkspaceId,
@@ -38,7 +41,9 @@ export class InboxRequest {
     readonly reads: readonly InboxRequestRead[],
     readonly resolvedAt: Date | null,
     readonly version: number,
-  ) {}
+  ) {
+    super();
+  }
 
   static create(input: {
     id: InboxRequestId;
@@ -48,7 +53,7 @@ export class InboxRequest {
     about: InboxRequestSubject;
     now: Date;
   }): InboxRequest {
-    return new InboxRequest(
+    const created = new InboxRequest(
       input.id,
       input.workspaceId,
       input.taskId,
@@ -60,6 +65,9 @@ export class InboxRequest {
       null,
       0,
     );
+    created.opened(input.now);
+
+    return created;
   }
 
   static rehydrate(input: {
@@ -193,7 +201,10 @@ export class InboxRequest {
       return this;
     }
 
-    return this.with({ resolvedAt: now });
+    return this.with(
+      { resolvedAt: now },
+      (event) => !(event instanceof InboxRequestOpened),
+    );
   }
 
   reopen(now: Date): InboxRequest {
@@ -213,14 +224,25 @@ export class InboxRequest {
       null,
       this.version,
     );
+    reopened.inheritEvents(this);
+    reopened.opened(now);
 
     return reopened;
   }
 
-  private with(change: {
-    reads?: readonly InboxRequestRead[];
-    resolvedAt?: Date;
-  }): InboxRequest {
+  private opened(at: Date): void {
+    this.record(
+      new InboxRequestOpened(this.id, this.workspaceId, this.taskId, at),
+    );
+  }
+
+  private with(
+    change: {
+      reads?: readonly InboxRequestRead[];
+      resolvedAt?: Date;
+    },
+    keeps: (event: DomainEvent) => boolean = () => true,
+  ): InboxRequest {
     const next = new InboxRequest(
       this.id,
       this.workspaceId,
@@ -233,6 +255,7 @@ export class InboxRequest {
       change.resolvedAt ?? this.resolvedAt,
       this.version,
     );
+    next.inheritEvents(this, keeps);
 
     return next;
   }

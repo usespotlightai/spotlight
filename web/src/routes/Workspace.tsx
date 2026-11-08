@@ -16,6 +16,7 @@ import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useAppTabs } from '@/hooks/useAppTabs';
 import { useCommandShortcut } from '@/hooks/useCommandShortcut';
 import { useLastPlace } from '@/hooks/useLastPlace';
+import { useNotificationStream } from '@/hooks/useNotificationStream';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
 import { failed, loading } from '@/lib/query';
 import { TabTitleContext } from '@/lib/tab-title';
@@ -33,6 +34,7 @@ export function Workspace() {
   const [searching, setSearching] = useState(false);
   const toggleSearch = useCallback(() => setSearching((open) => !open), []);
   useCommandShortcut(toggleSearch);
+  useNotificationStream();
   const strip = (
     <AppTabStrip
       tabs={tabs.tabs}
