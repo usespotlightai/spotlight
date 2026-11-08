@@ -1,4 +1,4 @@
-export const TITLE_BAR_HEIGHT = 32;
+const TITLE_BAR_HEIGHT = 32;
 
 export const TRAFFIC_LIGHTS = { x: 20, y: 15 };
 

@@ -97,16 +97,19 @@ const followLink = (link: string) => {
     return;
   }
 
-  void main.loadURL(page);
+  void main.loadURL(page).catch(ignored);
   shown(main);
 };
 
 const REMEMBER_AFTER_MS = 500;
 const ABORTED = -3;
 
+const ignored = () => undefined;
+
 const fromOffline = (frame: { url: string } | null): boolean =>
-  frame !== null &&
-  frame.url.startsWith(pathToFileURL(join(__dirname, 'offline.html')).href);
+  (frame?.url ?? '').startsWith(
+    pathToFileURL(join(__dirname, 'offline.html')).href,
+  );
 
 const remember = (window: BrowserWindow) => {
   if (window.isDestroyed()) {
@@ -177,9 +180,11 @@ const createMain = () => {
         code !== ABORTED &&
         navigationOf(url, origin) === 'inside'
       ) {
-        void window.loadFile(join(__dirname, 'offline.html'), {
-          query: { page: url },
-        });
+        void window
+          .loadFile(join(__dirname, 'offline.html'), {
+            query: { page: url },
+          })
+          .catch(ignored);
       }
     },
   );
@@ -200,7 +205,7 @@ const createMain = () => {
 
   window.webContents.on('dom-ready', () => {
     if (navigationOf(window.webContents.getURL(), origin) !== 'blocked') {
-      void window.webContents.insertCSS(FRAME_CSS);
+      void window.webContents.insertCSS(FRAME_CSS).catch(ignored);
     }
   });
 
@@ -241,7 +246,7 @@ const createMain = () => {
 
   const link = pendingLink;
   pendingLink = null;
-  void window.loadURL((link && pageOf(link, origin)) ?? origin);
+  void window.loadURL((link && pageOf(link, origin)) ?? origin).catch(ignored);
 };
 
 let authorizing: BrowserWindow | null = null;
@@ -269,7 +274,7 @@ const authorize = (url: string) => {
     event.preventDefault();
     window.close();
     if (main) {
-      void main.loadURL(to);
+      void main.loadURL(to).catch(ignored);
       shown(main);
     }
   };
@@ -295,7 +300,7 @@ const authorize = (url: string) => {
   });
 
   authorizing = window;
-  void window.loadURL(url);
+  void window.loadURL(url).catch(ignored);
 };
 
 const CONNECT_WIDTH = 440;
@@ -355,7 +360,7 @@ const openConnect = () => {
   connect.on('closed', () => {
     connect = null;
   });
-  void connect.loadFile(join(__dirname, 'connect.html'));
+  void connect.loadFile(join(__dirname, 'connect.html')).catch(ignored);
 };
 
 const sendCommand = (command: Command) => {
@@ -554,7 +559,7 @@ if (!app.requestSingleInstanceLock()) {
 
     origin = saved;
     connect?.close();
-    void main?.loadURL(origin);
+    void main?.loadURL(origin).catch(ignored);
     return true;
   });
 

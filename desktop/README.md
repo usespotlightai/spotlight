@@ -31,10 +31,10 @@ to the release. The installed app updates itself from the latest release.
 
 It needs these repository secrets:
 
-| Secret | Value |
-| --- | --- |
+| Secret                       | Value                                                                 |
+| ---------------------------- | --------------------------------------------------------------------- |
 | `MAC_CERTIFICATE_P12_BASE64` | The Developer ID Application certificate and key, as a base64 `.p12`. |
-| `MAC_CERTIFICATE_PASSWORD` | The password of the `.p12`. |
-| `APPLE_API_KEY_P8` | The App Store Connect API key, the text of the `.p8` file. |
-| `APPLE_API_KEY_ID` | The ID of that key. |
-| `APPLE_API_ISSUER` | The issuer ID of the App Store Connect team. |
+| `MAC_CERTIFICATE_PASSWORD`   | The password of the `.p12`.                                           |
+| `APPLE_API_KEY_P8`           | The App Store Connect API key, the text of the `.p8` file.            |
+| `APPLE_API_KEY_ID`           | The ID of that key.                                                   |
+| `APPLE_API_ISSUER`           | The issuer ID of the App Store Connect team.                          |

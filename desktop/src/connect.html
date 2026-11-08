@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'unsafe-inline' file:; script-src 'unsafe-inline'; font-src file:"
+      content="default-src 'none'; style-src 'unsafe-inline' file:; script-src file:; font-src file:"
     />
     <title>Spotlight address</title>
     <link rel="stylesheet" href="assets/spotlight.css" />
@@ -121,59 +121,6 @@
         <button type="submit" class="primary">Open</button>
       </footer>
     </form>
-    <script>
-      const form = document.getElementById('form');
-      const input = document.getElementById('address');
-      const error = document.getElementById('error');
-
-      const sizeToCard = () =>
-        window.spotlightConnect.fit(
-          Math.ceil(form.getBoundingClientRect().height),
-        );
-
-      document.body.addEventListener('mousedown', (event) => {
-        if (!form.contains(event.target)) {
-          window.spotlightConnect.cancel();
-        }
-      });
-
-      const said = (message) => {
-        error.textContent = message;
-        sizeToCard();
-      };
-
-      window.spotlightConnect.current().then((address) => {
-        input.value = address ?? '';
-        document.fonts.ready.then(sizeToCard);
-        input.focus();
-        input.select();
-      });
-
-      input.addEventListener('input', () => {
-        if (error.textContent) {
-          said('');
-        }
-      });
-
-      document.getElementById('cancel').addEventListener('click', () =>
-        window.spotlightConnect.cancel(),
-      );
-
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-          window.spotlightConnect.cancel();
-        }
-      });
-
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        if (!(await window.spotlightConnect.save(input.value))) {
-          said(
-            'The address must use https, such as https://spotlight.example.com.',
-          );
-        }
-      });
-    </script>
+    <script type="module" src="pages/connect.js"></script>
   </body>
 </html>

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { DesktopBridge } from './bridges';
 
 contextBridge.exposeInMainWorld('spotlightDesktop', {
   platform: process.platform,
@@ -18,4 +19,4 @@ contextBridge.exposeInMainWorld('spotlightDesktop', {
       ipcRenderer.off('spotlight:command', heard);
     };
   },
-});
+} satisfies DesktopBridge);

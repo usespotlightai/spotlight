@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { ConnectBridge } from './bridges';
 
 contextBridge.exposeInMainWorld('spotlightConnect', {
-  current: (): Promise<string> => ipcRenderer.invoke('spotlight:address'),
-  save: (address: string): Promise<boolean> =>
-    ipcRenderer.invoke('spotlight:connect', address),
+  current: () => ipcRenderer.invoke('spotlight:address'),
+  save: (address) => ipcRenderer.invoke('spotlight:connect', address),
   cancel: () => ipcRenderer.send('spotlight:connect-cancel'),
-  fit: (height: number) => ipcRenderer.send('spotlight:connect-fit', height),
-});
+  fit: (height) => ipcRenderer.send('spotlight:connect-fit', height),
+} satisfies ConnectBridge);

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'unsafe-inline' file:; script-src 'unsafe-inline'; font-src file:"
+      content="default-src 'none'; style-src 'unsafe-inline' file:; script-src file:; font-src file:"
     />
     <title>Spotlight</title>
     <link rel="stylesheet" href="assets/spotlight.css" />
@@ -68,29 +68,6 @@
         <button type="button" class="ghost" id="change">Change address</button>
       </div>
     </main>
-    <script>
-      const RETRY_EVERY_MS = 10_000;
-      const query = new URLSearchParams(location.search);
-      const page = query.get('page') ?? '';
-      const retry = document.getElementById('retry');
-
-      try {
-        document.getElementById('host').textContent = new URL(page).host;
-      } catch {
-        document.getElementById('host').textContent = 'this address';
-      }
-
-      const again = () => {
-        retry.disabled = true;
-        location.replace(page);
-      };
-
-      retry.addEventListener('click', again);
-      document
-        .getElementById('change')
-        .addEventListener('click', () => window.spotlightDesktop?.changeAddress?.());
-      window.addEventListener('online', again);
-      setInterval(() => navigator.onLine && again(), RETRY_EVERY_MS);
-    </script>
+    <script type="module" src="pages/offline.js"></script>
   </body>
 </html>
