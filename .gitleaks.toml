@@ -12,4 +12,6 @@ regexes = [
   '''^abc123def456$''',
   '''^spl_0123456789abcd$''',
   '''^Zq8mV2xR7tLk4NcW1pHs9dYb3fGj6aEu$''',
+  '''^tBHItJI5svbpez7KI4CCXg$''',
+  '''^BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U$''',
 ]
