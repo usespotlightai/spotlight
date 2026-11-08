@@ -84,9 +84,10 @@ func writeFile(t *testing.T, path, body string) {
 func TestSetupsThatMissRunAtTheSameTime(t *testing.T) {
 	dir := t.TempDir()
 	waitFor := func(own, other string) string {
-		return "touch ../" + own + ".started; i=0; while [ ! -e ../" + other + ".started ] && [ $i -lt 100 ]; do sleep 0.05; i=$((i+1)); done; test -e ../" + other + ".started"
+		return "touch ../" + own + ".started; i=0; while [ ! -e ../" + other + ".started ] && [ $i -lt 600 ]; do sleep 0.05; i=$((i+1)); done; test -e ../" + other + ".started"
 	}
 	checkouts := []protocol.Checkout{
+		{Path: "cli", Setup: "exit 4"},
 		{Path: "web", Setup: waitFor("web", "api")},
 		{Path: "docs"},
 		{Path: "api", Setup: waitFor("api", "web")},
@@ -101,7 +102,7 @@ func TestSetupsThatMissRunAtTheSameTime(t *testing.T) {
 
 	failures := Options{}.setUp(context.Background(), dir, checkouts, setUps{}, &journalWriter{}, log)
 
-	if len(failures) != 1 || failures[0].path != "infra" {
-		t.Errorf("the setups that wait for each other did not overlap, or the wrong ones failed: %+v", failures)
+	if len(failures) != 2 || failures[0].path != "cli" || failures[1].path != "infra" {
+		t.Errorf("the setups that wait for each other did not overlap, or the failures are not in checkout order: %+v", failures)
 	}
 }
