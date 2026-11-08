@@ -55,8 +55,21 @@ describe('Notice', () => {
   it('reopens once resolved, and leaves an open notice as it is', () => {
     const open = created();
 
-    expect(open.resolve(later(3)).reopen().resolvedAt).toBeNull();
-    expect(open.reopen()).toBe(open);
+    expect(open.resolve(later(3)).reopen(later(4)).resolvedAt).toBeNull();
+    expect(open.reopen(later(4))).toBe(open);
+  });
+
+  it('records that it was raised when it is created and when it reopens', () => {
+    const open = created();
+    expect(open.pullEvents().map((each) => each.kind)).toEqual([
+      'notice.raised',
+    ]);
+
+    const reopened = open.resolve(later(3)).reopen(later(4));
+
+    expect(reopened.pullEvents().map((each) => each.kind)).toEqual([
+      'notice.raised',
+    ]);
   });
 
   it('resolves once', () => {

@@ -26,6 +26,7 @@ export const UPSTREAM_CONTEXTS: Readonly<Record<string, readonly string[]>> = {
   insights: ['change-review', 'memory', 'configuration'],
   replays: ['change-review', 'insights', 'configuration'],
   integrations: ['configuration'],
+  notifications: ['work'],
 };
 
 export const reachableFrom = (context: string): ReadonlySet<string> => {

@@ -11,6 +11,10 @@ const AccountEmails = lazyPage(
   () => import('./routes/AccountEmails.tsx'),
   (module) => module.AccountEmails,
 );
+const AccountNotifications = lazyPage(
+  () => import('./routes/AccountNotifications.tsx'),
+  (module) => module.AccountNotifications,
+);
 
 const AcceptInvite = lazyPage(
   () => import('./routes/AcceptInvite.tsx'),
@@ -216,6 +220,10 @@ export default function App() {
               <Route path="settings">
                 <Route index element={<Navigate to="general" replace />} />
                 <Route path="account/emails" element={<AccountEmails />} />
+                <Route
+                  path="account/notifications"
+                  element={<AccountNotifications />}
+                />
                 <Route path="general" element={<WorkspaceGeneral />} />
                 <Route path="members" element={<WorkspaceMembers />} />
                 <Route path="runners" element={<Runners />} />
