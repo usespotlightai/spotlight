@@ -4,6 +4,7 @@ import { IdentityModule } from '@identity/identity.module';
 import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { NotificationsModule } from '@notifications/notifications.module';
 import { PlatformModule } from '@platform/platform.module';
 import { RunnersModule } from '@runners/runners.module';
 import { RunsModule } from '@runs/runs.module';
@@ -23,6 +24,7 @@ import { ContextBindingsModule } from './context-bindings.module';
     SecretsModule,
     CatalogModule,
     GitHubModule,
+    NotificationsModule,
     ContextBindingsModule,
   ],
 })

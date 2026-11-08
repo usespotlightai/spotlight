@@ -20,6 +20,8 @@ import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
+import { TaskAssigned } from '@work/domain/events/task-assigned.event';
+import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
@@ -621,11 +623,26 @@ export class Task extends EventRecorder {
       throw new NotATeamMemberError();
     }
 
-    return this.with({ assignee: userId });
+    return this.assignedTo(userId);
   }
 
   unassign(): Task {
-    return this.with({ assignee: null });
+    return this.assignedTo(null);
+  }
+
+  private assignedTo(assignee: UserId | null): Task {
+    const unchanged = assignee
+      ? (this.assignee?.equals(assignee) ?? false)
+      : this.assignee === null;
+
+    if (unchanged) {
+      return this;
+    }
+
+    const assigned = this.with({ assignee });
+    assigned.record(new TaskAssigned(this.id, this.workspaceId, assignee));
+
+    return assigned;
   }
 
   recordPullRequest(
@@ -1087,7 +1104,12 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.with(this.appendNote(newNote, 'reopened'));
+    const reopened = this.with(this.appendNote(newNote, 'reopened'));
+    reopened.record(
+      new TaskConversationReopened(this.id, this.workspaceId, newNote.at),
+    );
+
+    return reopened;
   }
 
   passedOn(

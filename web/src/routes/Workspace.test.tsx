@@ -9,6 +9,9 @@ import { quietBrowser } from '@/test/signed-in';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
 vi.mock('@/hooks/api/useSettingUp', () => ({ useSettingUp: vi.fn() }));
+vi.mock('@/hooks/useNotificationStream', () => ({
+  useNotificationStream: vi.fn(),
+}));
 
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({

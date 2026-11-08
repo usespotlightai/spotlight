@@ -64,6 +64,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
+import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
 import {
   RUNNER_READER,
@@ -123,6 +124,10 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import {
+  ERROR_REPORTS,
+  type ErrorReportsPort,
+} from '@shared-kernel/application/ports/error-reports.port';
 import {
   ID_GENERATOR,
   type IdGeneratorPort,
@@ -267,7 +272,10 @@ import {
   type DispatchedRunsPort,
 } from '@work/application/ports/dispatched-runs.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
-import { INBOX_READER } from '@work/application/ports/inbox-reader.port';
+import {
+  INBOX_READER,
+  type InboxReaderPort,
+} from '@work/application/ports/inbox-reader.port';
 import { INBOX_REQUESTS } from '@work/application/ports/inbox-requests.port';
 import {
   INTEGRATION_TOOL_CALLS,
@@ -486,6 +494,7 @@ import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { HistoryAccesses } from '@work/application/services/history-accesses.service';
+import { InboxArrivals } from '@work/application/services/inbox-arrivals.service';
 import { InboxRequestLoader } from '@work/application/services/inbox-request-loader.service';
 import { InboxRequests } from '@work/application/services/inbox-requests.service';
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
@@ -547,6 +556,10 @@ import {
   type InboxRequestRepository,
 } from '@work/domain/repositories/inbox-request.repository';
 import {
+  INBOX_WATCH_REPOSITORY,
+  type InboxWatchRepository,
+} from '@work/domain/repositories/inbox-watch.repository';
+import {
   NOTICE_REPOSITORY,
   type NoticeRepository,
 } from '@work/domain/repositories/notice.repository';
@@ -586,6 +599,7 @@ import { DrizzleWorkRequesterLabels } from '@work/infrastructure/persistence/dri
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { DrizzleInboxRequestRepository } from '@work/infrastructure/persistence/drizzle/repositories/inbox-request.repository';
+import { DrizzleInboxWatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/inbox-watch.repository';
 import { DrizzleNoticeRepository } from '@work/infrastructure/persistence/drizzle/repositories/notice.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleStationDeletionGuard } from '@work/infrastructure/persistence/drizzle/station-deletion.guard';
@@ -593,6 +607,7 @@ import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.st
 import { S3Readiness } from '@work/infrastructure/storage/s3-readiness';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { TaskDraftCollab } from '@work/presentation/collab/task-draft.collab';
+import { inboxArrivalSubscribers } from '@work/presentation/events/inbox-arrivals.subscribers';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { workStationSubscribers } from '@work/presentation/events/work-stations.subscribers';
 import { AttachmentController } from '@work/presentation/http/controllers/attachment.controller';
@@ -610,6 +625,7 @@ import { TurnsWorker } from '@work/presentation/workers/turns.worker';
 const WORK_EVENTS = Symbol('WORK_EVENTS');
 
 const WORK_STATION_EVENTS = Symbol('WORK_STATION_EVENTS');
+const INBOX_ARRIVAL_EVENTS = Symbol('INBOX_ARRIVAL_EVENTS');
 
 export const WORK_CONTROLLERS: readonly Type[] = [
   RunWorkController,
@@ -812,6 +828,58 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   DrizzleNoticeRepository,
 
   { provide: NOTICE_REPOSITORY, useExisting: DrizzleNoticeRepository },
+
+  { provide: INBOX_WATCH_REPOSITORY, useClass: DrizzleInboxWatchRepository },
+
+  {
+    provide: InboxArrivals,
+    inject: [
+      INBOX_WATCH_REPOSITORY,
+      INBOX_READER,
+      WorkAccess,
+      CLOCK,
+      TRANSACTION,
+      LOGGER,
+      ERROR_REPORTS,
+      TELEMETRY,
+    ],
+    useFactory: (
+      watches: InboxWatchRepository,
+      inbox: InboxReaderPort,
+      access: WorkAccess,
+      clock: ClockPort,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+      reports: ErrorReportsPort,
+      telemetry: TelemetryPort,
+    ) =>
+      new InboxArrivals(
+        watches,
+        inbox,
+        access,
+        clock,
+        transaction,
+        logger,
+        reports,
+        telemetry,
+      ),
+  },
+
+  {
+    provide: PendingJobWorker,
+    inject: [InboxArrivals, LOGGER],
+    useFactory: (arrivals: InboxArrivals, logger: LoggerPort) =>
+      new PendingJobWorker([arrivals], logger),
+  },
+
+  {
+    provide: INBOX_ARRIVAL_EVENTS,
+    inject: [EventSubscribers, InboxArrivals],
+    useFactory: (subscribers: EventSubscribers, arrivals: InboxArrivals) => {
+      subscribers.register(inboxArrivalSubscribers(arrivals));
+      return true;
+    },
+  },
 
   {
     provide: Notices,
@@ -2055,6 +2123,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ReopenNoticeCommand, ReopenNoticeHandler, [
     NoticeLoader,
     NOTICE_REPOSITORY,
+    CLOCK,
   ]),
 
   {

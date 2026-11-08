@@ -754,6 +754,18 @@ describe('Task, what it is doing', () => {
       expect(asked.assignedToThem(UserId.of('user_2'))).toBe(true);
       expect(asked.assignedToThem(UserId.of('user_1'))).toBe(false);
     });
+
+    it('records a new assignee once, and nothing when it stays the same', () => {
+      const members = TeamMembers.of([UserId.of('user_2')]);
+      const task = added();
+      task.pullEvents();
+      const assigned = task.assign(UserId.of('user_2'), members);
+
+      expect(assigned.pullEvents().map((each) => each.kind)).toEqual([
+        'task.assigned',
+      ]);
+      expect(assigned.assign(UserId.of('user_2'), members)).toBe(assigned);
+    });
   });
 
   describe('reading what was put to a person', () => {

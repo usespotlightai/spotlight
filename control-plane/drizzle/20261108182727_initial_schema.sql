@@ -1231,6 +1231,16 @@ CREATE TABLE "memory_use" (
 	CONSTRAINT "memory_use_memory_id_run_id_via_pk" PRIMARY KEY("memory_id","run_id","via")
 );
 --> statement-breakpoint
+CREATE TABLE "push_subscription" (
+	"endpoint" text PRIMARY KEY NOT NULL,
+	"person_id" text NOT NULL,
+	"p256dh" text NOT NULL,
+	"auth" text NOT NULL,
+	"created_at" timestamp (3) with time zone NOT NULL,
+	"renewed_at" timestamp (3) with time zone NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "change_judging" (
 	"run_id" text NOT NULL,
 	"attempt" integer NOT NULL,
@@ -2077,6 +2087,18 @@ CREATE TABLE "inbox_request_read" (
 	CONSTRAINT "inbox_request_read_inbox_request_id_user_id_pk" PRIMARY KEY("inbox_request_id","user_id")
 );
 --> statement-breakpoint
+CREATE TABLE "inbox_watch" (
+	"workspace_id" text PRIMARY KEY NOT NULL,
+	"watching" jsonb NOT NULL,
+	"announced" jsonb NOT NULL,
+	"sighted_at" timestamp (3) with time zone,
+	"recount_requested_at" timestamp (3) with time zone,
+	"job_attempts" integer DEFAULT 0 NOT NULL,
+	"job_due_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "inbox_watch_job_attempts_not_negative" CHECK ("inbox_watch"."job_attempts" >= 0)
+);
+--> statement-breakpoint
 CREATE TABLE "notice" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -2443,6 +2465,7 @@ CREATE INDEX "memory_draft_drafting_idx" ON "memory_draft" USING btree ("draftin
 CREATE UNIQUE INDEX "memory_proposal_position_idx" ON "memory_proposal" USING btree ("draft_id","position");--> statement-breakpoint
 CREATE INDEX "memory_proposal_decided_idx" ON "memory_proposal" USING btree ("team_id","state","decided_at");--> statement-breakpoint
 CREATE INDEX "memory_use_run_idx" ON "memory_use" USING btree ("run_id","at");--> statement-breakpoint
+CREATE INDEX "push_subscription_person_idx" ON "push_subscription" USING btree ("person_id");--> statement-breakpoint
 CREATE INDEX "change_judging_pending_idx" ON "change_judging" USING btree ("queued_at") WHERE "change_judging"."pending";--> statement-breakpoint
 CREATE INDEX "change_judging_team_idx" ON "change_judging" USING btree ("team_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "config_pull_request_candidate_idx" ON "config_pull_request" USING btree ("search_id","candidate_id");--> statement-breakpoint
@@ -2550,6 +2573,7 @@ CREATE INDEX "dispatch_based_on_idx" ON "dispatch" USING btree ("based_on_run_id
 CREATE UNIQUE INDEX "inbox_request_about_idx" ON "inbox_request" USING btree ("task_id","form","about");--> statement-breakpoint
 CREATE INDEX "inbox_request_workspace_idx" ON "inbox_request" USING btree ("workspace_id","resolved_at");--> statement-breakpoint
 CREATE INDEX "inbox_request_workspace_opened_idx" ON "inbox_request" USING btree ("workspace_id","opened_at","id");--> statement-breakpoint
+CREATE INDEX "inbox_watch_recount_idx" ON "inbox_watch" USING btree ("recount_requested_at");--> statement-breakpoint
 CREATE INDEX "notice_addressee_idx" ON "notice" USING btree ("workspace_id","addressee_id");--> statement-breakpoint
 CREATE INDEX "notice_team_idx" ON "notice" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "notice_workspace_created_idx" ON "notice" USING btree ("workspace_id","created_at","id");--> statement-breakpoint

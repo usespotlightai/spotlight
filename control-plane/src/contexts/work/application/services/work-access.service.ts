@@ -97,6 +97,28 @@ export class WorkAccess {
     return team ? TeamMembers.of(team.members) : null;
   }
 
+  async memberInboxesIn(workspaceId: WorkspaceId): Promise<InboxScope[]> {
+    const teamsOf = new Map<string, { viewer: UserId; teams: Set<string> }>();
+
+    for (const team of await this.teams.inWorkspace(workspaceId)) {
+      for (const member of team.members) {
+        const entry = teamsOf.get(member.value) ?? {
+          viewer: member,
+          teams: new Set<string>(),
+        };
+        entry.teams.add(team.id.value);
+        teamsOf.set(member.value, entry);
+      }
+    }
+
+    return [...teamsOf.values()].map(({ viewer, teams }) => ({
+      workspaceId: workspaceId.value,
+      viewer,
+      teamsSeen: teams,
+      teamsActedOn: teams,
+    }));
+  }
+
   async inboxOf(slug: string, viewer: UserId): Promise<InboxScope | null> {
     const workspaceId = await this.workspaces.idForSlug(slug);
 

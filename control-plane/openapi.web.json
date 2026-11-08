@@ -3492,6 +3492,114 @@
         ]
       }
     },
+    "/me/notifications/stream": {
+      "get": {
+        "description": "Sends one event for each item that comes into your inbox while the stream is open. Missed events are not sent again.",
+        "operationId": "streamMyNotifications",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Server-sent events, one per new item"
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Watch for new items in your inbox",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/me/notifications/push-key": {
+      "get": {
+        "operationId": "getPushKey",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushKeyResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Get the key that a browser subscribes to Web Push with",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/me/push-subscriptions": {
+      "put": {
+        "description": "Adding the same push service address again renews it. An address that another person added moves to you.",
+        "operationId": "subscribeToPush",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushSubscriptionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "This browser gets Web Push"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "422": {
+            "description": "The address is not HTTPS on a known push service, or the keys are not valid"
+          }
+        },
+        "summary": "Send Web Push about new inbox items to this browser",
+        "tags": [
+          "notifications"
+        ]
+      },
+      "delete": {
+        "operationId": "unsubscribeFromPush",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushUnsubscriptionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "This browser gets no more Web Push"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such push address of yours"
+          },
+          "422": {
+            "description": "The address is not HTTPS on a known push service"
+          }
+        },
+        "summary": "Stop sending Web Push to this browser",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/teams/{teamId}/skills": {
       "get": {
         "operationId": "listTeamSkills",
@@ -10742,6 +10850,68 @@
         },
         "required": [
           "installationId"
+        ]
+      },
+      "PushKeyResponseDto": {
+        "type": "object",
+        "properties": {
+          "publicKey": {
+            "type": "string",
+            "nullable": true,
+            "description": "The VAPID public key to subscribe with, base64url. Null when this Spotlight sends no Web Push."
+          }
+        },
+        "required": [
+          "publicKey"
+        ]
+      },
+      "PushSubscriptionKeysRequestDto": {
+        "type": "object",
+        "properties": {
+          "p256dh": {
+            "type": "string",
+            "description": "The public key of the browser, base64url",
+            "example": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM"
+          },
+          "auth": {
+            "type": "string",
+            "description": "The authentication secret of the browser, base64url",
+            "example": "tBHItJI5svbpez7KI4CCXg"
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
+        ]
+      },
+      "PushSubscriptionRequestDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "The push service address the browser gave",
+            "example": "https://fcm.googleapis.com/fcm/send/c1KrmpTuRm0"
+          },
+          "keys": {
+            "$ref": "#/components/schemas/PushSubscriptionKeysRequestDto"
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys"
+        ]
+      },
+      "PushUnsubscriptionRequestDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "The push service address to stop sending to",
+            "example": "https://fcm.googleapis.com/fcm/send/c1KrmpTuRm0"
+          }
+        },
+        "required": [
+          "endpoint"
         ]
       },
       "TeamSkillResponseDto": {

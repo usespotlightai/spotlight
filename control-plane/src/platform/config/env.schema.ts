@@ -70,6 +70,13 @@ export const envSchema = databaseSchema
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),
     SPOTLIGHT_OUTBOUND_RATE_LIMIT: z.coerce.number().min(1).default(50),
     HOOK_SIGNING_KEY: z.string().min(1).optional(),
+    VAPID_PUBLIC_KEY: unsetWhenEmpty(
+      z.string().regex(/^[A-Za-z0-9_-]{86,88}$/),
+    ),
+    VAPID_PRIVATE_KEY: unsetWhenEmpty(
+      z.string().regex(/^[A-Za-z0-9_-]{42,44}$/),
+    ),
+    VAPID_SUBJECT: unsetWhenEmpty(z.string().regex(/^(mailto:|https:\/\/).+/)),
     OAUTH_CLIENTS: z.string().default('{}'),
     // Lets several control-plane instances share live drafts, run streams, host tunnels, the leader lease and the sign-in rate limit.
     REDIS_URL: z.url({ protocol: /^rediss?$/ }).optional(),
@@ -126,6 +133,20 @@ export const envSchema = databaseSchema
       path: ['SPOTLIGHT_PLATFORM_EGRESS_TOKEN'],
       message:
         'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Set both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
+    },
+  )
+  .refine(
+    (env) =>
+      [env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY, env.VAPID_SUBJECT].every(
+        (each) => each === undefined,
+      ) ||
+      [env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY, env.VAPID_SUBJECT].every(
+        (each) => each !== undefined,
+      ),
+    {
+      path: ['VAPID_PUBLIC_KEY'],
+      message:
+        'goes with VAPID_PRIVATE_KEY and VAPID_SUBJECT. Set all three to send Web Push, or none; generate a key pair with: npx web-push generate-vapid-keys',
     },
   )
   .refine(

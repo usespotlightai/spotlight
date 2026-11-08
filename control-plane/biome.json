@@ -135,7 +135,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The shared kernel’s domain contains identifiers and event plumbing, and depends on nothing else."
+                    "message": "The shared kernel\u2019s domain contains identifiers and event plumbing, and depends on nothing else."
                   }
                 ]
               }
@@ -155,7 +155,7 @@
                 "patterns": [
                   {
                     "group": ["**", "!@shared-kernel/**", "!./**", "!vitest"],
-                    "message": "The shared kernel’s application layer contains the ports and faults every context shares, and depends only on the shared kernel."
+                    "message": "The shared kernel\u2019s application layer contains the ports and faults every context shares, and depends only on the shared kernel."
                   }
                 ]
               }
@@ -188,13 +188,14 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "The platform is technical plumbing shared by every context; it knows no bounded context."
                   },
                   {
                     "group": ["@/contexts/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -247,7 +248,7 @@
                   },
                   {
                     "group": ["@/contexts/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -316,13 +317,14 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'identity' may depend on no other context. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -353,7 +355,8 @@
                       "@catalog/**",
                       "@lines/**",
                       "@runs/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'github' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -368,7 +371,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -399,7 +402,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'secrets' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -414,7 +418,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -445,7 +449,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'catalog' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -460,7 +465,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -490,7 +495,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'lines' may depend on identity, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -509,7 +515,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -537,7 +543,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'runs' may depend on identity, secrets, runners, lines. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -564,7 +571,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -594,7 +601,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'runners' may depend on identity, secrets. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -613,7 +621,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -638,7 +646,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -677,7 +686,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -701,7 +710,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -744,7 +754,75 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/notifications/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: 'notifications' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                  },
+                  {
+                    "group": [
+                      "@work/**",
+                      "@github/**",
+                      "@identity/**",
+                      "!@work/application/ports/**",
+                      "!@work/application/contracts/**",
+                      "!@work/work.module",
+                      "!@github/application/ports/**",
+                      "!@github/application/contracts/**",
+                      "!@github/github.module",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/secrets.module",
+                      "@catalog/**",
+                      "!@catalog/application/ports/**",
+                      "!@catalog/application/contracts/**",
+                      "!@catalog/catalog.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
+                    ],
+                    "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -768,7 +846,8 @@
                       "@integrations/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -811,7 +890,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -836,7 +915,8 @@
                       "@integrations/**",
                       "@change-review/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -875,7 +955,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -898,7 +978,8 @@
                       "@runners/**",
                       "@integrations/**",
                       "@change-review/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -945,7 +1026,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -964,7 +1045,12 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["@runners/**", "@integrations/**", "@memory/**"],
+                    "group": [
+                      "@runners/**",
+                      "@integrations/**",
+                      "@memory/**",
+                      "@notifications/**"
+                    ],
                     "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
@@ -1014,7 +1100,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1038,7 +1124,8 @@
                       "@change-review/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1081,7 +1168,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1107,7 +1194,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'identity' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'identity' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1133,7 +1220,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'github' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'github' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1159,7 +1246,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'secrets' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'secrets' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1185,7 +1272,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'catalog' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'catalog' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1211,7 +1298,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'lines' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'lines' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1237,7 +1324,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'runs' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'runs' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1263,7 +1350,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'runners' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'runners' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1300,7 +1387,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'work' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'work' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1326,7 +1413,33 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'configuration' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'configuration' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/notifications/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@notifications/domain/**",
+                      "!@shared-kernel/domain/**",
+                      "!./**",
+                      "!vitest"
+                    ],
+                    "message": "The domain layer contains the model: 'notifications' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1352,7 +1465,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'change-review' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'change-review' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1378,7 +1491,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'memory' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'memory' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1404,7 +1517,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'insights' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'insights' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1430,7 +1543,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'replays' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'replays' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1456,7 +1569,7 @@
                       "!./**",
                       "!vitest"
                     ],
-                    "message": "The domain layer contains the model: 'integrations' imports its own domain and the shared kernel's domain, and nothing else — no framework, no persistence, no other layer, no other context."
+                    "message": "The domain layer contains the model: 'integrations' imports its own domain and the shared kernel's domain, and nothing else \u2014 no framework, no persistence, no other layer, no other context."
                   }
                 ]
               }
@@ -1488,7 +1601,8 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'identity' may depend on no other context. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1502,7 +1616,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1534,7 +1648,8 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'identity' may depend on no other context. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1544,7 +1659,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1575,7 +1690,8 @@
                       "@catalog/**",
                       "@lines/**",
                       "@runs/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'github' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1598,7 +1714,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1629,7 +1745,8 @@
                       "@catalog/**",
                       "@lines/**",
                       "@runs/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'github' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1648,7 +1765,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1679,7 +1796,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'secrets' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1702,7 +1820,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1733,7 +1851,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'secrets' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1752,7 +1871,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1783,7 +1902,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'catalog' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1806,7 +1926,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1837,7 +1957,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'catalog' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1856,7 +1977,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1886,7 +2007,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'lines' may depend on identity, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1913,7 +2035,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1941,7 +2063,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'runs' may depend on identity, secrets, runners, lines. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -1976,7 +2099,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2006,7 +2129,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'lines' may depend on identity, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2029,7 +2153,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2057,7 +2181,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'runs' may depend on identity, secrets, runners, lines. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2088,7 +2213,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2118,7 +2243,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'runners' may depend on identity, secrets. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2145,7 +2271,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2175,7 +2301,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'runners' may depend on identity, secrets. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2198,7 +2325,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2223,7 +2350,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2270,7 +2398,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2295,7 +2423,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2338,7 +2467,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2362,7 +2491,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2413,7 +2543,83 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/notifications/application/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: 'notifications' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                  },
+                  {
+                    "group": [
+                      "@work/**",
+                      "@github/**",
+                      "@identity/**",
+                      "!@work/application/ports/**",
+                      "!@work/application/contracts/**",
+                      "!@work/work.module",
+                      "!@github/application/ports/**",
+                      "!@github/application/contracts/**",
+                      "!@github/github.module",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/secrets.module",
+                      "@catalog/**",
+                      "!@catalog/application/ports/**",
+                      "!@catalog/application/contracts/**",
+                      "!@catalog/catalog.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
+                    ],
+                    "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
+                  },
+                  {
+                    "group": ["@notifications/infrastructure/**"],
+                    "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
+                  },
+                  {
+                    "group": ["@platform/**"],
+                    "message": "The application layer depends on ports, never on platform plumbing: declare the port here and bind a platform adapter in the context wiring."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2437,7 +2643,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2484,7 +2691,79 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/notifications/presentation/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: 'notifications' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                  },
+                  {
+                    "group": [
+                      "@work/**",
+                      "@github/**",
+                      "@identity/**",
+                      "!@work/application/ports/**",
+                      "!@work/application/contracts/**",
+                      "!@work/work.module",
+                      "!@github/application/ports/**",
+                      "!@github/application/contracts/**",
+                      "!@github/github.module",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/secrets.module",
+                      "@catalog/**",
+                      "!@catalog/application/ports/**",
+                      "!@catalog/application/contracts/**",
+                      "!@catalog/catalog.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
+                    ],
+                    "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
+                  },
+                  {
+                    "group": ["@notifications/infrastructure/**"],
+                    "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2509,7 +2788,8 @@
                       "@integrations/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2556,7 +2836,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2581,7 +2861,8 @@
                       "@integrations/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2624,7 +2905,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2649,7 +2930,8 @@
                       "@integrations/**",
                       "@change-review/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2696,7 +2978,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2721,7 +3003,8 @@
                       "@integrations/**",
                       "@change-review/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2764,7 +3047,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2787,7 +3070,8 @@
                       "@runners/**",
                       "@integrations/**",
                       "@change-review/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2842,7 +3126,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2865,7 +3149,8 @@
                       "@runners/**",
                       "@integrations/**",
                       "@change-review/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -2916,7 +3201,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2935,7 +3220,12 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["@runners/**", "@integrations/**", "@memory/**"],
+                    "group": [
+                      "@runners/**",
+                      "@integrations/**",
+                      "@memory/**",
+                      "@notifications/**"
+                    ],
                     "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
@@ -2993,7 +3283,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3012,7 +3302,12 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["@runners/**", "@integrations/**", "@memory/**"],
+                    "group": [
+                      "@runners/**",
+                      "@integrations/**",
+                      "@memory/**",
+                      "@notifications/**"
+                    ],
                     "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
@@ -3066,7 +3361,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3090,7 +3385,8 @@
                       "@change-review/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3141,7 +3437,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3165,7 +3461,8 @@
                       "@change-review/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3212,7 +3509,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3248,13 +3545,14 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'identity' may depend on no other context. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3289,7 +3587,8 @@
                       "@catalog/**",
                       "@lines/**",
                       "@runs/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'github' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3306,7 +3605,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3341,7 +3640,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'secrets' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3358,7 +3658,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3393,7 +3693,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'catalog' may depend on identity. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3410,7 +3711,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3444,7 +3745,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'lines' may depend on identity, catalog. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3467,7 +3769,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3499,7 +3801,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'runs' may depend on identity, secrets, runners, lines. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3534,7 +3837,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3568,7 +3871,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'runners' may depend on identity, secrets. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3591,7 +3895,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3620,7 +3924,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'work' may depend on identity, github, secrets, catalog, lines, runners, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3673,7 +3978,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3701,7 +4006,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3760,7 +4066,95 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/notifications/infrastructure/**",
+        "src/contexts/notifications/**/*.spec.ts",
+        "src/contexts/notifications/**/*.fake-spec.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: 'notifications' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                  },
+                  {
+                    "group": [
+                      "@work/**",
+                      "@github/**",
+                      "@identity/**",
+                      "!@work/application/ports/**",
+                      "!@work/application/contracts/**",
+                      "!@work/application/dto/**",
+                      "!@work/application/errors/**",
+                      "!@work/work.module",
+                      "!@github/application/ports/**",
+                      "!@github/application/contracts/**",
+                      "!@github/application/dto/**",
+                      "!@github/application/errors/**",
+                      "!@github/github.module",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/application/dto/**",
+                      "!@identity/application/errors/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/application/dto/**",
+                      "!@secrets/application/errors/**",
+                      "!@secrets/secrets.module",
+                      "@catalog/**",
+                      "!@catalog/application/ports/**",
+                      "!@catalog/application/contracts/**",
+                      "!@catalog/application/dto/**",
+                      "!@catalog/application/errors/**",
+                      "!@catalog/catalog.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/errors/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/application/dto/**",
+                      "!@lines/application/errors/**",
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/application/dto/**",
+                      "!@runs/application/errors/**",
+                      "!@runs/runs.module"
+                    ],
+                    "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3788,7 +4182,8 @@
                       "@integrations/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, runners, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3847,7 +4242,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3876,7 +4271,8 @@
                       "@integrations/**",
                       "@change-review/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'memory' may depend on identity, github, secrets, catalog, lines, work, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -3929,7 +4325,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3956,7 +4352,8 @@
                       "@runners/**",
                       "@integrations/**",
                       "@change-review/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -4021,7 +4418,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4044,7 +4441,12 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["@runners/**", "@integrations/**", "@memory/**"],
+                    "group": [
+                      "@runners/**",
+                      "@integrations/**",
+                      "@memory/**",
+                      "@notifications/**"
+                    ],
                     "message": "Context boundary: 'replays' may depend on identity, github, secrets, catalog, lines, work, configuration, change-review, insights, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
@@ -4108,7 +4510,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4136,7 +4538,8 @@
                       "@change-review/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
@@ -4195,7 +4598,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4232,7 +4635,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4269,7 +4672,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4306,7 +4709,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4343,7 +4746,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4380,7 +4783,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4417,7 +4820,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4454,7 +4857,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4491,7 +4894,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4528,7 +4931,44 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/contexts/notifications/domain/**/*.spec.ts",
+        "src/contexts/notifications/domain/**/*.fake-spec.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**",
+                      "!@notifications/domain/**",
+                      "!@shared-kernel/**",
+                      "!@notifications/application/ports/**",
+                      "!@notifications/testing/**",
+                      "!@notifications/*.fake-spec",
+                      "!./**",
+                      "!node:*",
+                      "!vitest"
+                    ],
+                    "message": "A domain spec tests the model: 'notifications' specs import its domain, the shared kernel, its ports and its test fakes, and nothing else."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4565,7 +5005,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4602,7 +5042,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4639,7 +5079,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4676,7 +5116,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4713,7 +5153,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4745,7 +5185,8 @@
                       "@secrets/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'identity' may depend on no other context."
                   },
@@ -4755,7 +5196,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4786,7 +5227,8 @@
                       "@catalog/**",
                       "@lines/**",
                       "@runs/**",
-                      "@secrets/**"
+                      "@secrets/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'github' may depend on identity."
                   },
@@ -4805,7 +5247,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4836,7 +5278,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'secrets' may depend on identity."
                   },
@@ -4855,7 +5298,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4886,7 +5329,8 @@
                       "@integrations/**",
                       "@secrets/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'catalog' may depend on identity."
                   },
@@ -4905,7 +5349,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4935,7 +5379,8 @@
                       "@replays/**",
                       "@integrations/**",
                       "@secrets/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'lines' may depend on identity, catalog."
                   },
@@ -4958,7 +5403,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -4986,7 +5431,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'runs' may depend on identity, secrets, runners, lines."
                   },
@@ -5017,7 +5463,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -5047,7 +5493,8 @@
                       "@integrations/**",
                       "@catalog/**",
                       "@lines/**",
-                      "@runs/**"
+                      "@runs/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'runners' may depend on identity, secrets."
                   },
@@ -5070,7 +5517,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -5095,7 +5542,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'work' may depend on identity, github, secrets, catalog, lines, runners, runs."
                   },
@@ -5138,7 +5586,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -5162,7 +5610,8 @@
                       "@memory/**",
                       "@insights/**",
                       "@replays/**",
-                      "@integrations/**"
+                      "@integrations/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'configuration' may depend on identity, github, secrets, catalog, lines, runners, work, runs."
                   },
@@ -5209,7 +5658,79 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/contexts/notifications/presentation/events/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@configuration/**",
+                      "@change-review/**",
+                      "@memory/**",
+                      "@insights/**",
+                      "@replays/**",
+                      "@integrations/**"
+                    ],
+                    "message": "Context boundary: at this edge 'notifications' may depend on identity, github, secrets, catalog, lines, runners, work, runs."
+                  },
+                  {
+                    "group": [
+                      "@work/**",
+                      "@github/**",
+                      "@identity/**",
+                      "!@work/application/ports/**",
+                      "!@work/application/contracts/**",
+                      "!@work/work.module",
+                      "!@github/application/ports/**",
+                      "!@github/application/contracts/**",
+                      "!@github/github.module",
+                      "!@identity/application/ports/**",
+                      "!@identity/application/contracts/**",
+                      "!@identity/identity.module",
+                      "@secrets/**",
+                      "!@secrets/application/ports/**",
+                      "!@secrets/application/contracts/**",
+                      "!@secrets/secrets.module",
+                      "@catalog/**",
+                      "!@catalog/application/ports/**",
+                      "!@catalog/application/contracts/**",
+                      "!@catalog/catalog.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module",
+                      "@lines/**",
+                      "!@lines/application/ports/**",
+                      "!@lines/application/contracts/**",
+                      "!@lines/lines.module",
+                      "@runs/**",
+                      "!@runs/application/ports/**",
+                      "!@runs/application/contracts/**",
+                      "!@runs/runs.module"
+                    ],
+                    "message": "Context encapsulation: subscribers may read another context's ports and contracts. Its dto, errors, domain and internals stay private."
+                  },
+                  {
+                    "group": ["@notifications/infrastructure/**"],
+                    "message": "The dependency rule: domain, application and presentation depend on ports, never on an adapter. Bind the adapter in the context's wiring."
+                  },
+                  {
+                    "group": ["@/**", "../**"],
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -5234,7 +5755,8 @@
                       "@integrations/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'change-review' may depend on identity, github, secrets, catalog, lines, work, runs."
                   },
@@ -5277,7 +5799,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -5302,7 +5824,8 @@
                       "@integrations/**",
                       "@change-review/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'memory' may depend on identity, github, secrets, catalog, lines, work, runs."
                   },
@@ -5345,7 +5868,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -5368,7 +5891,8 @@
                       "@runners/**",
                       "@integrations/**",
                       "@change-review/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'insights' may depend on identity, github, secrets, catalog, lines, work, configuration, memory, runs."
                   },
@@ -5419,7 +5943,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -5442,7 +5966,8 @@
                       "@runners/**",
                       "@configuration/**",
                       "@integrations/**",
-                      "@memory/**"
+                      "@memory/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'replays' may depend on identity, github, secrets, catalog, lines, work, change-review, insights, runs."
                   },
@@ -5493,7 +6018,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -5517,7 +6042,8 @@
                       "@change-review/**",
                       "@memory/**",
                       "@insights/**",
-                      "@replays/**"
+                      "@replays/**",
+                      "@notifications/**"
                     ],
                     "message": "Context boundary: at this edge 'integrations' may depend on identity, github, secrets, catalog, lines, work, configuration, runs."
                   },
@@ -5564,7 +6090,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/\u2026', '@platform/\u2026'): '@/\u2026' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
