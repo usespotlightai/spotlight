@@ -1,7 +1,9 @@
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import type { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -29,8 +31,10 @@ export interface NoticeAudience {
   readonly unaddressed: boolean;
 }
 
-export class Notice {
-  private constructor(private readonly state: NoticeState) {}
+export class Notice extends EventRecorder {
+  private constructor(private readonly state: NoticeState) {
+    super();
+  }
 
   static create(input: {
     id: NoticeId;
@@ -44,12 +48,15 @@ export class Notice {
     wording: NoticeWording;
     at: Date;
   }): Notice {
-    return new Notice({
+    const created = new Notice({
       ...input,
       createdAt: input.at,
       resolvedAt: null,
       version: 0,
     });
+    created.raised(input.at);
+
+    return created;
   }
 
   static deliverable(
@@ -147,14 +154,37 @@ export class Notice {
   }
 
   resolve(at: Date): Notice {
-    return this.state.resolvedAt
-      ? this
-      : new Notice({ ...this.state, resolvedAt: at });
+    if (this.state.resolvedAt) {
+      return this;
+    }
+
+    const resolved = new Notice({ ...this.state, resolvedAt: at });
+    resolved.inheritEvents(this);
+
+    return resolved;
   }
 
-  reopen(): Notice {
-    return Notice.reopenable(this.state.resolvedAt)
-      ? new Notice({ ...this.state, resolvedAt: null })
-      : this;
+  reopen(at: Date): Notice {
+    if (!Notice.reopenable(this.state.resolvedAt)) {
+      return this;
+    }
+
+    const reopened = new Notice({ ...this.state, resolvedAt: null });
+    reopened.inheritEvents(this);
+    reopened.raised(at);
+
+    return reopened;
+  }
+
+  private raised(at: Date): void {
+    this.record(
+      new NoticeRaised(
+        this.state.id,
+        this.state.workspaceId,
+        this.state.teamId,
+        this.state.addressee,
+        at,
+      ),
+    );
   }
 }

@@ -7,6 +7,9 @@ import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
 import { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
+import { InboxItemArrived } from '@work/domain/events/inbox-item-arrived.event';
+import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
@@ -15,6 +18,8 @@ import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-o
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
+import { TaskAssigned } from '@work/domain/events/task-assigned.event';
+import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
@@ -222,6 +227,11 @@ export const WORK_PAYLOAD_TYPES = [
   TaskActedOn,
   TaskAnswered,
   TaskAsked,
+  TaskAssigned,
+  TaskConversationReopened,
+  InboxRequestOpened,
+  NoticeRaised,
+  InboxItemArrived,
   TaskDeleted,
   TaskFinished,
   TaskRunAssigned,

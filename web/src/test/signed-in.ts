@@ -18,6 +18,8 @@ export const signedInSession = () => ({
 
 class QuietStream {
   onmessage: (() => void) | null = null;
+  addEventListener() {}
+  removeEventListener() {}
   close() {}
 }
 
