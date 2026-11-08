@@ -9,6 +9,6 @@ export const fileThreadOf = (
     (comment) =>
       comment.replyTo === null &&
       comment.anchor.wholeFile &&
-      comment.anchor.path.equals(on.path) &&
+      comment.anchor.sameFileAs(on) &&
       comment.answerable,
   ) ?? null;

@@ -34,7 +34,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     declared: DeclaredTool.of({
       tool: PULL_REQUEST,
       description:
-        'Open a pull request for the branch of this task, or change the title and body of the one it has.',
+        'Open a pull request for the branch of this task in one repository, or change the title and body of the one it has there.',
       inputs: [
         {
           name: 'title',
@@ -71,7 +71,7 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     declared: DeclaredTool.of({
       tool: CHECKS,
       description:
-        'List the failed checks on the pull request of this task, with the failed step and the end of the log of each job from GitHub Actions.',
+        'List the failed checks on each pull request of this task, with the failed step and the end of the log of each job from GitHub Actions.',
       inputs: [],
     }),
   },

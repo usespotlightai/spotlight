@@ -3,6 +3,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
@@ -17,10 +18,12 @@ import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
+import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
@@ -134,7 +137,50 @@ const paused = (stationId: string) =>
     voice: Voice.station(RUN),
   });
 
+const API = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+const DOCS = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+
+const openedTwo = () =>
+  Task.rehydrate({
+    ...taskAt('station_1'),
+    pullRequestLink: PullRequestLink.opened(API),
+    laterPullRequests: [LaterPullRequest.of(DOCS, NOW)],
+  });
+
+const mergedOf = (url: PullRequestUrl): HappeningPayload => ({
+  ...merged,
+  closedPullRequest: url,
+});
+
 describe('ReactionFor.happened', () => {
+  it('keeps a task with another pull request still open where it is, with a note', () => {
+    const outcome = reaction(
+      openedTwo().pullRequestClosed(API, NOW),
+      mergedOf(API),
+    );
+
+    expect(outcome.kind).toBe('stays');
+  });
+
+  it('moves a task once the last of its pull requests merges after another closed unmerged', () => {
+    const outcome = reaction(
+      openedTwo().pullRequestClosed(API, NOW).pullRequestClosed(DOCS, NOW),
+      mergedOf(DOCS),
+    );
+
+    expect(outcome.kind).toBe('moves');
+  });
+
+  it('moves a task once the last of its pull requests merges', () => {
+    const outcome = reaction(
+      openedTwo().pullRequestClosed(API, NOW).pullRequestClosed(DOCS, NOW),
+      mergedOf(DOCS),
+    );
+
+    expect(outcome.kind).toBe('moves');
+    expect(destination(outcome)).toEqual(StationId.of('station_3'));
+  });
+
   it('moves a task with no current run to the station the rule names', () => {
     const outcome = reaction(taskAt('station_1'), commented);
 

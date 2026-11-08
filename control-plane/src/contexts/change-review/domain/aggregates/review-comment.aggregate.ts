@@ -10,6 +10,7 @@ import type { ReviewCommentId } from '@change-review/domain/value-objects/review
 import type { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -230,6 +231,31 @@ export class ReviewComment extends EventRecorder {
     return this.state === 'posted' ? this.github : null;
   }
 
+  get pullRequestOnGitHub(): PullRequestUrl | null {
+    if (!this.github) {
+      return null;
+    }
+
+    let at: URL;
+
+    try {
+      at = new URL(this.github.url);
+    } catch {
+      return null;
+    }
+
+    if (at.protocol !== 'https:') {
+      return null;
+    }
+
+    at.hash = '';
+    at.search = '';
+
+    const pullRequest = PullRequestUrl.of(at.toString());
+
+    return pullRequest.repository ? pullRequest : null;
+  }
+
   replied(input: {
     id: ReviewCommentId;
     body: string;
@@ -300,7 +326,7 @@ export class ReviewComment extends EventRecorder {
   isOwnPostedCopy(anchor: ReviewAnchor, body: string): boolean {
     return (
       this.sentBody !== null &&
-      this.anchor.equals(anchor) &&
+      this.anchor.samePlaceAs(anchor) &&
       body.includes(this.sentBody)
     );
   }

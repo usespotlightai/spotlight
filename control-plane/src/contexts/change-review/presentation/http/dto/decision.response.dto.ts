@@ -126,12 +126,11 @@ export class TaskDecisionsResponseDto {
   readonly status: TaskDecisionsDto['status'];
 
   @ApiProperty({
-    nullable: true,
-    type: DecisionMergeResponseDto,
+    type: [DecisionMergeResponseDto],
     description:
-      'The merge that contains the decisions, after the pull request merges',
+      'One merge for each repository whose pull request merged, oldest first',
   })
-  readonly merge: DecisionMergeResponseDto | null;
+  readonly merges: DecisionMergeResponseDto[];
 
   @ApiProperty({
     type: [DecisionResponseDto],
@@ -143,7 +142,9 @@ export class TaskDecisionsResponseDto {
     this.runId = found.runId;
     this.generating = found.generating;
     this.status = found.status;
-    this.merge = found.merge && new DecisionMergeResponseDto(found.merge);
+    this.merges = found.merges.map(
+      (each) => new DecisionMergeResponseDto(each),
+    );
     this.decisions = found.decisions.map(
       (each) => new DecisionResponseDto(each),
     );

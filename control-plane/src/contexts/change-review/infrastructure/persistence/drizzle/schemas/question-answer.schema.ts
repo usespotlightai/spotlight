@@ -1,7 +1,7 @@
 import {
   ANSWER_VERDICTS,
   type AnswerVerdict,
-} from '@change-review/domain/aggregates/question-answer.aggregate';
+} from '@change-review/domain/value-objects/answer-verdict.vo';
 import type { StoredModelUsage } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import {
@@ -24,6 +24,7 @@ export const questionAnswer = pgTable(
     taskId: text('task_id'),
     teamId: text('team_id'),
     stackId: text('stack_id').notNull(),
+    repository: text('repository'),
     questionId: text('question_id').notNull(),
     personId: text('person_id').notNull(),
     asked: text('asked').notNull(),

@@ -81,6 +81,7 @@ describe('GitHubWebhookProvider', () => {
       message: null,
       ourOwn: false,
       opens: null,
+      closedPullRequest: MERGED.pullRequest,
     });
   });
 
@@ -120,7 +121,7 @@ describe('GitHubWebhookProvider', () => {
     ).toEqual({ body: 'Failed: web / build, gitleaks / secret scan.' });
   });
 
-  it('carries the review comment, and where it is', async () => {
+  it('carries the review comment, where it is, and the pull request it is on', async () => {
     expect(
       (
         await readOne({
@@ -141,6 +142,7 @@ describe('GitHubWebhookProvider', () => {
       from: 10,
       to: 14,
       reviewComment: 'PRRC_1',
+      pullRequest: MERGED.pullRequest,
     });
   });
 

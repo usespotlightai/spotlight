@@ -83,6 +83,7 @@ export const awaitingCheck = async (
     },
     checkPlacement: placement,
     redrafting: false,
+    removedLayers: [],
     pendingJob: false,
     jobAttempts: 0,
     version: 0,

@@ -75,7 +75,13 @@ export function TaskProperties({
           />
         )}
 
-        {task.pullRequest && <TaskPullRequestLink href={task.pullRequest} />}
+        {task.pullRequests.map((href) => (
+          <TaskPullRequestLink
+            key={href}
+            href={href}
+            named={task.pullRequests.length > 1}
+          />
+        ))}
       </section>
     </aside>
   );

@@ -20,6 +20,7 @@ const reviewed = (task: TaskLookup): ReviewedTask => ({
   workspaceId: task.workspaceId,
   teamId: task.teamId,
   pullRequest: task.pullRequest,
+  pullRequests: task.pullRequests,
   reviewing: task.reviewing,
   currentRunId: task.currentRunId,
 });

@@ -18,6 +18,7 @@ export interface SeenTaskDto {
   readonly teamId: string;
   readonly title: string;
   readonly pullRequest: string | null;
+  readonly pullRequests: readonly string[];
   readonly line: string;
   readonly station: string;
   readonly stationKey: string;

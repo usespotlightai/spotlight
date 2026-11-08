@@ -46,7 +46,7 @@ export function SettingsSidebar({
       <div className="flex h-12 shrink-0 items-center">
         <Link
           to={back}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 font-medium text-foreground text-sm outline-none transition-colors hover:bg-border/50"
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 font-medium text-foreground text-sm outline-none transition-colors hover:bg-sidebar-hover"
         >
           <ChevronLeft
             className="size-3.5 shrink-0 text-muted-foreground"

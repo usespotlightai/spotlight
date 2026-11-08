@@ -12,6 +12,7 @@ const task = {
   description: '## Steps\n\nReproduce, then fix.',
   attachments: [],
   createdAt: '2026-08-04T09:15:00.000Z',
+  pullRequests: [],
 };
 
 const worked = vi.fn((): unknown[] => []);

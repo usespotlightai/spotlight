@@ -53,6 +53,9 @@ export class Repository {
   }
 
   equals(other: Repository): boolean {
-    return this.host === other.host && this.value === other.value;
+    return (
+      this.host === other.host &&
+      this.value.toLowerCase() === other.value.toLowerCase()
+    );
   }
 }

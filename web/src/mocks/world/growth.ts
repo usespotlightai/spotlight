@@ -94,7 +94,7 @@ const task = (
   createdAt: hoursAgo(24),
   progress: null,
   awaitingReview: null,
-  pullRequest: null,
+  pullRequests: [],
   createdBy: PRIYA,
   assignee: PRIYA,
   note: null,
@@ -129,7 +129,7 @@ export const GROWTH_TASKS: TaskResponseDto[] = [
     id: 'task_referral',
     title: 'Referral link in the invite email',
     stationId: 'station_shipped',
-    pullRequest: 'https://github.com/acme/web/pull/88',
+    pullRequests: ['https://github.com/acme/web/pull/88'],
     createdAt: hoursAgo(300),
   }),
 ];

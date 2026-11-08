@@ -154,7 +154,7 @@ export const factsWith = (
   records.flatMap((record) => {
     const fact = record.factWith(
       null,
-      PullRequestRecord.latestOwnedOf(
+      PullRequestRecord.taskFactOf(
         pullRequests.filter(
           (each) =>
             record.taskId !== null && each.owner?.taskId.equals(record.taskId),
@@ -373,7 +373,7 @@ export class StationFactsInMemory implements StationFactsPort {
       )?.opening;
       const fact = record.factWith(
         opening ? { by: opening.by, at: opening.at } : null,
-        PullRequestRecord.latestOwnedOf(
+        PullRequestRecord.taskFactOf(
           owned.filter(
             (each) => taskId !== null && each.owner?.taskId.equals(taskId),
           ),

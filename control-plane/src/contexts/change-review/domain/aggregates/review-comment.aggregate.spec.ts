@@ -426,6 +426,31 @@ describe('ReviewComment', () => {
 });
 
 describe('ReviewComment on GitHub', () => {
+  const onGitHub = (url: string) =>
+    ReviewComment.receive({
+      id: ReviewCommentId.of('comment_9'),
+      workspaceId: WorkspaceId.of('workspace_1'),
+      taskId: TaskId.of('task_1'),
+      anchor: ANCHOR,
+      body: 'From GitHub',
+      author: ReviewAuthor.onGitHub('octocat'),
+      inReplyTo: null,
+      github: { id: 7, url },
+      at: NOW,
+    });
+
+  it('names the pull request it was made on', () => {
+    expect(
+      onGitHub('https://github.com/acme/docs/pull/3#discussion_r7')
+        .pullRequestOnGitHub?.value,
+    ).toBe('https://github.com/acme/docs/pull/3');
+  });
+
+  it('names no pull request where its address is not on one', () => {
+    expect(onGitHub('https://github.com/c/7').pullRequestOnGitHub).toBeNull();
+    expect(drafted().pullRequestOnGitHub).toBeNull();
+  });
+
   it('cannot be answered once posted inside a review body, as it has no thread of its own', () => {
     const folded = drafted()
       .submittedIn(ReviewId.of('review_1'))

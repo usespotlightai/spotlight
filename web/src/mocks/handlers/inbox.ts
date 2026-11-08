@@ -482,7 +482,7 @@ const codeReviewOf = (runId: string): CodeReviewResponseDto | undefined => {
   }
 
   const made: CodeReviewResponseDto = {
-    pullRequest: anyTaskOf(taskId)?.pullRequest ?? null,
+    pullRequest: anyTaskOf(taskId)?.pullRequests[0] ?? null,
     comments: [],
     reviews: [],
   };
@@ -501,6 +501,7 @@ const draftedComment = (
 
   return {
     id: nextId('comment'),
+    repository: answering?.repository ?? drafted.repository ?? null,
     path: answering?.path ?? drafted.path ?? '',
     side: answering?.side ?? drafted.side ?? 'new',
     line: answering?.line ?? drafted.line ?? null,
@@ -601,13 +602,20 @@ const reviewHandlers = [
     const id = nextId('review');
 
     for (const comment of review.comments) {
-      if (comment.viewerIsAuthor && comment.state === 'draft') {
+      if (
+        comment.viewerIsAuthor &&
+        comment.state === 'draft' &&
+        (!submitted.repository ||
+          comment.repository === null ||
+          comment.repository === submitted.repository)
+      ) {
         comment.state = 'posted';
         comment.url = `${review.pullRequest}#discussion_${comment.id}`;
       }
     }
     review.reviews.push({
       id,
+      repository: submitted.repository ?? null,
       authorName: SAM.name,
       viewerIsAuthor: true,
       isAgentAuthored: false,

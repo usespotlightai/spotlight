@@ -6,6 +6,7 @@ import type { ReviewVerdict } from '@/lib/review';
 type SubmitReviewInput = {
   teamId: string;
   runId: string;
+  repository: string | null;
   verdict: ReviewVerdict;
   body: string;
 };
@@ -14,10 +15,16 @@ export function useSubmitReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ teamId, runId, verdict, body }: SubmitReviewInput) => {
+    mutationFn: async ({
+      teamId,
+      runId,
+      repository,
+      verdict,
+      body,
+    }: SubmitReviewInput) => {
       await submitReview({
         path: { teamId, runId },
-        body: { verdict, body },
+        body: { verdict, body, ...(repository ? { repository } : {}) },
         throwOnError: true,
       });
     },

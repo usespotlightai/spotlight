@@ -11,7 +11,7 @@ export function SidebarSearch({ onOpen }: SidebarSearchProps) {
       type="button"
       data-slot="sidebar-search"
       onClick={onOpen}
-      className="group/search flex h-7 w-full items-center gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors hover:bg-border/50 hover:text-foreground focus-visible:bg-border/50"
+      className="group/search flex h-7 w-full items-center gap-2 rounded-md px-2 text-muted-foreground text-sm outline-none transition-colors hover:bg-sidebar-hover hover:text-foreground focus-visible:bg-sidebar-hover"
     >
       <Search className="size-3.5 shrink-0" />
       <span className="truncate">Search</span>

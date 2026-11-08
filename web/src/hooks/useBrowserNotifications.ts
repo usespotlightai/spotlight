@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePushKey } from '@/hooks/api/usePushKey';
 import { subscribeToPush, unsubscribeFromPush } from '@/lib/api';
+import { desktopApp } from '@/lib/desktop';
 import {
   currentPushSubscription,
   keysOf,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/notifications';
 
 export type BrowserNotificationState =
+  | 'desktop'
   | 'unsupported'
   | 'blocked'
   | 'off'
@@ -41,6 +43,10 @@ const stateOf = (
   browser: { permission: NotificationPermission; endpoint: string | null },
   publicKey: string | null,
 ): BrowserNotificationState => {
+  if (desktopApp()) {
+    return 'desktop';
+  }
+
   if (!notificationsSupported()) {
     return 'unsupported';
   }
@@ -75,7 +81,7 @@ export function useBrowserNotifications() {
         return;
       }
 
-      if (publicKey && pushSupported()) {
+      if (publicKey && pushSupported() && !desktopApp()) {
         await subscribeToPush({
           body: keysOf(await subscribedPush(publicKey)),
           throwOnError: true,
@@ -103,8 +109,9 @@ export function useBrowserNotifications() {
   return {
     key,
     browser,
-    state:
-      key.data !== undefined && browser.data
+    state: desktopApp()
+      ? 'desktop'
+      : key.data !== undefined && browser.data
         ? stateOf(browser.data, publicKey)
         : null,
     turnOn,

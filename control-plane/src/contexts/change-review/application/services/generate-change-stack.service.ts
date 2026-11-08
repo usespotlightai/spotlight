@@ -76,6 +76,7 @@ export class GenerateChangeStack {
     const id = ChangeStackId.of(this.ids.generate());
     const { diff, sources } = this.reader.read(input.diff);
     const index = await this.indexOf(id, sources);
+    const taskStacks = run.taskId ? await this.stacks.ofTask(run.taskId) : [];
 
     const stack = ChangeStack.startGeneration({
       id,
@@ -90,6 +91,7 @@ export class GenerateChangeStack {
       diff,
       facts: StackFacts.of(factsOf(diff, this.reading, index)),
       request: input.request,
+      taskStacks,
       now: this.clock.now(),
     });
 
@@ -118,14 +120,30 @@ export class GenerateChangeStack {
   }
 
   async generated(stack: ChangeStack): Promise<ChangeStack> {
+    const previous = stack.previous
+      ? await this.stacks.find(stack.previous)
+      : null;
+
     if (!stack.needsModel) {
-      return stack.propose([], this.clock.now());
+      return stack.propose([], this.clock.now(), { previous });
     }
 
-    return exceedsOneCall(stack.facts) ? this.split(stack) : this.whole(stack);
+    const reused = previous && stack.reusedFrom(previous, this.clock.now());
+
+    if (reused) {
+      return reused;
+    }
+
+    return exceedsOneCall(stack.facts)
+      ? this.split(stack, previous)
+      : this.whole(stack, previous);
   }
 
-  private async whole(stack: ChangeStack): Promise<ChangeStack> {
+  private async whole(
+    stack: ChangeStack,
+    previous: ChangeStack | null,
+  ): Promise<ChangeStack> {
+    const basis = stack.previousStack(previous);
     const { diff, facts } = stack;
     let problems: readonly StackProblem[] = [];
     let generating = stack;
@@ -137,6 +155,7 @@ export class GenerateChangeStack {
           repository: stack.repository,
           facts,
           problems,
+          previous: basis,
         }),
       );
 
@@ -153,7 +172,7 @@ export class GenerateChangeStack {
       generating = generating.recordModel(usage);
 
       try {
-        return generating.propose(cohorts, this.clock.now());
+        return generating.propose(cohorts, this.clock.now(), { previous });
       } catch (error) {
         if (!(error instanceof InvalidChangeStackError)) {
           throw error;
@@ -165,7 +184,11 @@ export class GenerateChangeStack {
     return settleBroken(generating, problems, this.clock.now(), this.logger);
   }
 
-  private async split(stack: ChangeStack): Promise<ChangeStack> {
+  private async split(
+    stack: ChangeStack,
+    previous: ChangeStack | null,
+  ): Promise<ChangeStack> {
+    const basis = stack.previousStack(previous);
     const { diff, facts } = stack;
     let problems: readonly StackProblem[] = [];
     let generating = stack;
@@ -178,6 +201,7 @@ export class GenerateChangeStack {
           repository: stack.repository,
           facts,
           problems,
+          previous: basis,
         }),
       );
 
@@ -219,6 +243,7 @@ export class GenerateChangeStack {
               facts,
               repository: stack.repository,
               cohort,
+              previous: basis,
             }),
         ),
         {
@@ -256,11 +281,10 @@ export class GenerateChangeStack {
     }
 
     try {
-      return generating.propose(
-        layered.cohorts,
-        this.clock.now(),
-        layered.proposed,
-      );
+      return generating.propose(layered.cohorts, this.clock.now(), {
+        modelProposal: layered.proposed,
+        previous,
+      });
     } catch (error) {
       if (!(error instanceof InvalidChangeStackError)) {
         throw error;

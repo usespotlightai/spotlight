@@ -62,7 +62,15 @@ export class AnswerQuestionHandler
       const question = stack.question(questionIdOf(command.questionId));
       const personId = UserId.of(command.viewerId);
       const earlier = await this.answers.of(stack.id, question.id, personId);
-      earlier?.refuseIfAnswered(question);
+      QuestionAnswer.refuseIfAnsweredIn(
+        stack.taskId
+          ? await this.answers.ofTaskBy(stack.taskId, personId)
+          : earlier
+            ? [earlier]
+            : [],
+        question,
+        stack,
+      );
 
       const reply = QuestionAnswer.replyOf(command.reply);
 

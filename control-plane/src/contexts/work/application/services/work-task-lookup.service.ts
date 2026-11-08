@@ -65,6 +65,7 @@ export class WorkTaskLookup implements WorkTaskLookupPort {
           workspaceId: task.workspaceId,
           stationId: task.stationId,
           pullRequestLink: task.pullRequestLink,
+          laterPullRequests: task.laterPullRequests.map((each) => each.url),
           currentRunId: task.currentRunId,
         })
       : null;
@@ -93,6 +94,9 @@ export class WorkTaskLookup implements WorkTaskLookupPort {
       workspaceId: task.workspaceId,
       teamId: line?.teamId ?? null,
       pullRequest: task.pullRequestLink?.url ?? null,
+      pullRequests: task.pullRequestLink
+        ? [task.pullRequestLink.url, ...task.laterPullRequests]
+        : [],
       reviewing: task.pullRequestLink?.reviews ?? false,
       fromOutside: task.pullRequestLink?.fromOutside ?? false,
       currentRunId: task.currentRunId,

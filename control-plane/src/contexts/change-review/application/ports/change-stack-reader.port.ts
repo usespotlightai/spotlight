@@ -26,6 +26,8 @@ export interface ChangeStackSummary {
 export interface ChangeStackReaderPort {
   latestForTask(taskId: TaskId, now: Date): Promise<ChangeStackSummary | null>;
 
+  latestPerRepository(taskId: TaskId, now: Date): Promise<ChangeStackSummary[]>;
+
   ofRun(runId: RunId, viewerId: UserId, now: Date): Promise<ChangeStackDto[]>;
 
   answerOf(

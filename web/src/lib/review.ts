@@ -63,6 +63,30 @@ export const threadsOf = (comments: readonly ReviewComment[]): ReviewThread[] =>
       replies: comments.filter((comment) => comment.replyTo === root.id),
     }));
 
+const sameRepository = (one: string, other: string) =>
+  one.toLowerCase() === other.toLowerCase();
+
+const shownInStack = (
+  comment: ReviewComment,
+  repository: string | null,
+  alone: boolean,
+): boolean =>
+  comment.repository === null
+    ? alone || repository === null
+    : repository !== null && sameRepository(comment.repository, repository);
+
+export const reviewOfStack = (
+  review: CodeReview | undefined,
+  repository: string | null,
+  alone: boolean,
+): CodeReview | undefined =>
+  review && {
+    ...review,
+    comments: review.comments.filter((comment) =>
+      shownInStack(comment, repository, alone),
+    ),
+  };
+
 export const fileCommentsOf = (
   comments: readonly ReviewComment[],
   path: string,

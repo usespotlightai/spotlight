@@ -20,7 +20,7 @@ const task = (id: string, stationId: string): Task => ({
   awaitingReview: null,
   createdBy: null,
   assignee: null,
-  pullRequest: null,
+  pullRequests: [],
   note: null,
 });
 

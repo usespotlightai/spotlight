@@ -46,6 +46,7 @@ export interface ReviewedTask {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId | null;
   readonly pullRequest: PullRequestUrl | null;
+  readonly pullRequests: readonly PullRequestUrl[];
   readonly reviewing: boolean;
   readonly currentRunId: RunId | null;
 }

@@ -3,6 +3,7 @@ import { QuestionAnswerVersionConflictError } from '@change-review/domain/except
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { QuestionId } from '@change-review/domain/value-objects/stack-ids';
 import { questionAnswer } from '@change-review/infrastructure/persistence/drizzle/schemas/question-answer.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -34,6 +35,7 @@ const toAnswer = (row: Row): QuestionAnswer =>
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     teamId: row.teamId ? TeamId.of(row.teamId) : null,
     stackId: ChangeStackId.of(row.stackId),
+    repository: row.repository ? RepositoryName.of(row.repository) : null,
     questionId: QuestionId.of(row.questionId),
     personId: UserId.of(row.personId),
     asked: row.asked,
@@ -52,6 +54,7 @@ const toRow = (answer: QuestionAnswer): Row => ({
   taskId: answer.taskId?.value ?? null,
   teamId: answer.teamId?.value ?? null,
   stackId: answer.stackId.value,
+  repository: answer.repository?.value ?? null,
   questionId: answer.questionId,
   personId: answer.personId.value,
   asked: answer.asked,
@@ -137,6 +140,23 @@ export class DrizzleQuestionAnswerRepository
       .select()
       .from(questionAnswer)
       .where(eq(questionAnswer.taskId, taskId.value));
+
+    return rows.map(toAnswer);
+  }
+
+  async ofTaskBy(
+    taskId: TaskId,
+    personId: UserId,
+  ): Promise<readonly QuestionAnswer[]> {
+    const rows = await this.context.db
+      .select()
+      .from(questionAnswer)
+      .where(
+        and(
+          eq(questionAnswer.taskId, taskId.value),
+          eq(questionAnswer.personId, personId.value),
+        ),
+      );
 
     return rows.map(toAnswer);
   }

@@ -215,7 +215,7 @@ const task = (
   createdAt: hoursAgo(24),
   progress: null,
   awaitingReview: null,
-  pullRequest: null,
+  pullRequests: [],
   createdBy: SAM,
   assignee: null,
   note: null,
@@ -266,7 +266,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     awaitingReview: { conversationId: 'task_postgres:0' },
     assignee: MAYA,
     createdAt: hoursAgo(96),
-    pullRequest: 'https://github.com/acme/api/pull/431',
+    pullRequests: ['https://github.com/acme/api/pull/431'],
   }),
   task({
     id: 'task_tokens',
@@ -278,7 +278,7 @@ export const PLATFORM_TASKS: TaskResponseDto[] = [
     id: 'task_search',
     title: 'Speed up workspace search',
     stationId: 'station_completed',
-    pullRequest: 'https://github.com/acme/api/pull/412',
+    pullRequests: ['https://github.com/acme/api/pull/412'],
     createdAt: hoursAgo(400),
   }),
   task({

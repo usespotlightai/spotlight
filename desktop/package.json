@@ -1,0 +1,35 @@
+{
+  "name": "spotlight-desktop",
+  "productName": "Spotlight",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Spotlight for macOS: the web app in its own window, with native notifications.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.pages.json && cp src/connect.html src/offline.html dist/ && mkdir -p dist/assets && cp src/assets/* dist/assets/",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --mac --publish never",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.pages.json --noEmit",
+    "test": "vitest run",
+    "lint": "biome check",
+    "format": "biome format --write",
+    "pack": "npm run build && electron-builder --mac --dir --publish never -c.mac.notarize=false -c.mac.identity=- -c.mac.hardenedRuntime=false",
+    "knip": "knip"
+  },
+  "dependencies": {
+    "@sentry/electron": "8.2.0",
+    "electron-updater": "6.8.11"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@types/node": "^26.6.6",
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0",
+    "knip": "^6.44.2",
+    "typescript": "~7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "electron-winstaller": false
+  }
+}

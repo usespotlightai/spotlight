@@ -6,6 +6,7 @@ export const taskBinding = (
   title: string;
   url: string | null;
   pullRequest: string | null;
+  pullRequests: readonly string[];
   line: string;
   station: string;
   stationKey: string;
@@ -14,6 +15,7 @@ export const taskBinding = (
   title: task.title,
   url: task.url,
   pullRequest: task.pullRequest?.value ?? null,
+  pullRequests: task.pullRequests.map((each) => each.value),
   line: task.line.value,
   station: task.station.value,
   stationKey: task.stationKey.value,

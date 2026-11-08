@@ -28,7 +28,13 @@ export function SubmitReviewButton() {
 
   const send = () =>
     submit.mutate(
-      { teamId: reviewing.teamId, runId: reviewing.runId, verdict, body },
+      {
+        teamId: reviewing.teamId,
+        runId: reviewing.runId,
+        repository: reviewing.repository,
+        verdict,
+        body,
+      },
       {
         onSuccess: () => {
           setOpen(false);

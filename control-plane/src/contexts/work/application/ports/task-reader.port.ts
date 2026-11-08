@@ -30,7 +30,7 @@ export interface TaskSummary {
   readonly createdAt: Date;
   readonly progress: Progress | null;
   readonly awaitingReview: TaskReviewSummary | null;
-  readonly pullRequest: string | null;
+  readonly pullRequests: readonly string[];
   readonly note: TaskNoteSummary | null;
   readonly createdBy: TaskPersonSummary | null;
   readonly assignee: TaskPersonSummary | null;

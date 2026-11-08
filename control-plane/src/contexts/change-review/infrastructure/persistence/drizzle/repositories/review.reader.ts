@@ -21,6 +21,7 @@ export class DrizzleReviewReader implements ReviewReaderPort {
     return this.context.db
       .select({
         id: reviewComment.id,
+        repository: reviewComment.repository,
         path: reviewComment.path,
         side: reviewComment.side,
         line: reviewComment.line,
@@ -48,6 +49,7 @@ export class DrizzleReviewReader implements ReviewReaderPort {
     const rows = await this.context.db
       .select({
         id: review.id,
+        repository: review.repository,
         authorId: review.authorId,
         authorRunId: review.authorRunId,
         authorName: review.authorName,

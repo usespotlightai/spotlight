@@ -31,10 +31,10 @@ export function useInbox(slug: string | undefined) {
   });
 }
 
-export function useResolvedInbox(slug: string | undefined, enabled: boolean) {
+export function useResolvedInbox(slug: string | undefined) {
   return usePagedList({
     queryKey: inboxKeys.resolved(slug),
-    enabled: enabled && Boolean(slug),
+    enabled: Boolean(slug),
     keyOf: entryKey,
     fetchPage: async (before?: string) => {
       const { data } = await listInbox({
