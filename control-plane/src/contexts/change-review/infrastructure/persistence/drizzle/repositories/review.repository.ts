@@ -3,6 +3,7 @@ import { ReviewVersionConflictError } from '@change-review/domain/exceptions/rev
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -29,6 +30,7 @@ const toReview = (row: Row, comments: readonly string[]): Review =>
     id: ReviewId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     taskId: TaskId.of(row.taskId),
+    repository: RepositoryName.optional(row.repository),
     author: ReviewAuthor.rehydrate({
       userId: row.authorId ? UserId.of(row.authorId) : null,
       runId: row.authorRunId ? RunId.of(row.authorRunId) : null,
@@ -53,6 +55,7 @@ const toRow = (aggregate: Review): Row => ({
   id: aggregate.id.value,
   workspaceId: aggregate.workspaceId.value,
   taskId: aggregate.taskId.value,
+  repository: aggregate.repository?.value ?? null,
   authorId: aggregate.author.userId?.value ?? null,
   authorRunId: aggregate.author.runId?.value ?? null,
   authorName: aggregate.author.name.value,

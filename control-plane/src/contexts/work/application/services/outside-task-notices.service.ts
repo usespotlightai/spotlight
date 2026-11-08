@@ -1,3 +1,4 @@
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { BindableTaskEvent } from '@work/application/contracts/bindable-task-events.contract';
 import { HappenedMapper } from '@work/application/mappers/happened.mapper';
 import type { TaskNoticesPort } from '@work/application/ports/task-notices.port';
@@ -6,7 +7,11 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
 
 export interface OutboundTaskNotifier {
-  notify(task: Task, event: BindableTaskEvent): Promise<readonly Mark[]>;
+  notify(
+    task: Task,
+    event: BindableTaskEvent,
+    pullRequest: PullRequestUrl | null,
+  ): Promise<readonly Mark[]>;
 }
 
 export class OutsideTaskNotices implements OutboundTaskNotifier {
@@ -15,11 +20,20 @@ export class OutsideTaskNotices implements OutboundTaskNotifier {
     private readonly notices: TaskNoticesPort,
   ) {}
 
-  async notify(task: Task, event: BindableTaskEvent): Promise<readonly Mark[]> {
+  async notify(
+    task: Task,
+    event: BindableTaskEvent,
+    pullRequest: PullRequestUrl | null,
+  ): Promise<readonly Mark[]> {
     const view = await this.taskViews.of(task);
 
     return view
-      ? (await this.notices.notify(view, event)).map(HappenedMapper.markOf)
+      ? (
+          await this.notices.notify(
+            pullRequest ? { ...view, pullRequest: pullRequest.value } : view,
+            event,
+          )
+        ).map(HappenedMapper.markOf)
       : [];
   }
 }

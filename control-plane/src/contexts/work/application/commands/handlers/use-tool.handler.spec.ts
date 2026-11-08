@@ -264,6 +264,7 @@ const TASK_VIEW: TaskViewDto = {
   marks: {},
   repositories: ['acme/widgets'],
   pullRequest: null,
+  pullRequests: [],
   runId: 'run_1',
 };
 

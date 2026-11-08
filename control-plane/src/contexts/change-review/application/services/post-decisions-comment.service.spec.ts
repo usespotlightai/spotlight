@@ -37,7 +37,7 @@ const generated = (decisions: readonly DecisionDto[]): TaskDecisionsDto => ({
   runId: 'run_1',
   generating: false,
   status: 'proposed',
-  merge: null,
+  merges: [],
   decisions,
 });
 
@@ -56,6 +56,7 @@ const posting = (
         workspaceId: WORKSPACE,
         teamId: TeamId.of('team_1'),
         pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+        pullRequests: [PullRequestUrl.of('https://github.com/acme/api/pull/7')],
         reviewing: false,
         currentRunId: null,
         ...task,
@@ -104,6 +105,67 @@ describe('posting a task’s decisions on its pull request', () => {
     expect(upserted[0]?.body).toContain(
       'https://app.example/tasks/task_1#decisions',
     );
+  });
+
+  it('keeps one comment on each pull request listing the decisions in its repository', async () => {
+    const documented: DecisionDto = {
+      ...LIMITED,
+      id: 'decision_2',
+      title: 'Documents the retry',
+      paths: ['docs/uploads.md'],
+    };
+    const nowhere: DecisionDto = {
+      ...LIMITED,
+      id: 'decision_3',
+      title: 'Keeps the old flag',
+      paths: ['infra/flags.tf'],
+    };
+    const { service, upserted, deleted } = posting(
+      generated([LIMITED, documented, nowhere]),
+      {
+        pullRequests: [
+          PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+          PullRequestUrl.of('https://github.com/acme/Docs/pull/2'),
+          PullRequestUrl.of('https://github.com/acme/web/pull/9'),
+        ],
+      },
+    );
+
+    await service.ofTask(TASK);
+
+    expect(upserted.map((each) => each.pullRequest.value)).toEqual([
+      'https://github.com/acme/api/pull/7',
+      'https://github.com/acme/Docs/pull/2',
+    ]);
+    expect(upserted[0]?.body).toContain('Retries only once');
+    expect(upserted[0]?.body).toContain('Keeps the old flag');
+    expect(upserted[0]?.body).not.toContain('Documents the retry');
+    expect(upserted[1]?.body).toContain('Documents the retry');
+    expect(upserted[1]?.body).toContain('`uploads.md`');
+    expect(upserted[1]?.body).not.toContain('Retries only once');
+    expect(deleted.map((each) => each.pullRequest.value)).toEqual([
+      'https://github.com/acme/web/pull/9',
+    ]);
+  });
+
+  it('rewrites the comment on every pull request, so a decision moves to the pull request of its repository once it opens', async () => {
+    const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/2');
+    const { service, upserted } = posting(
+      generated([LIMITED, { ...LIMITED, id: 'd2', paths: ['docs/a.md'] }]),
+      {
+        pullRequests: [
+          PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+          docs,
+        ],
+      },
+    );
+
+    await service.ofTask(TASK);
+
+    expect(upserted.map((each) => each.pullRequest.value)).toEqual([
+      'https://github.com/acme/api/pull/7',
+      docs.value,
+    ]);
   });
 
   it('deletes the comment when the latest run has no decisions', async () => {

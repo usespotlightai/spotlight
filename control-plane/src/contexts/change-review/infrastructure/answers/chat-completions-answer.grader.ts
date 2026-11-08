@@ -4,7 +4,7 @@ import type {
   GradedAnswer,
   GradingRequest,
 } from '@change-review/application/ports/answer-grader.port';
-import { ANSWER_VERDICTS } from '@change-review/domain/aggregates/question-answer.aggregate';
+import { ANSWER_VERDICTS } from '@change-review/domain/value-objects/answer-verdict.vo';
 import {
   type Fetch,
   JsonSchema,

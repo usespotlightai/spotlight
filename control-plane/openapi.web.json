@@ -9306,11 +9306,15 @@
               }
             ]
           },
-          "pullRequest": {
-            "type": "string",
-            "example": "https://github.com/acme/widgets/pull/7",
-            "nullable": true,
-            "description": "The pull request this task ended in, once one is open"
+          "pullRequests": {
+            "example": [
+              "https://github.com/acme/widgets/pull/7"
+            ],
+            "description": "The pull requests this task ended in, one for each repository, the first opened first",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "createdBy": {
             "nullable": true,
@@ -9353,7 +9357,7 @@
           "createdAt",
           "progress",
           "awaitingReview",
-          "pullRequest",
+          "pullRequests",
           "createdBy",
           "assignee",
           "note"
@@ -11074,8 +11078,13 @@
           },
           "expected": {
             "type": "string",
+            "nullable": true,
             "example": "It answers 409 and sends no invitation.",
-            "description": "The answer that Spotlight expected"
+            "description": "The answer that Spotlight expected; null while the answer is outdated, so it is shown only once the reviewer answers the question as it is asked now"
+          },
+          "outdated": {
+            "type": "boolean",
+            "description": "True when the reviewer answered the question while it expected another answer; the reply and verdict are then the earlier ones, and feedback and expected are null"
           }
         },
         "required": [
@@ -11083,7 +11092,8 @@
           "reply",
           "verdict",
           "feedback",
-          "expected"
+          "expected",
+          "outdated"
         ]
       },
       "LayerQuestionResponseDto": {
@@ -11125,6 +11135,30 @@
           "answered"
         ]
       },
+      "LayerRevisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unchanged",
+              "modified",
+              "added"
+            ],
+            "description": "How the layer compares with the previous stack: unchanged, modified or added"
+          },
+          "previous": {
+            "type": "string",
+            "nullable": true,
+            "example": "c1.l2",
+            "description": "The layer it follows in the previous stack; null when the layer is added"
+          }
+        },
+        "required": [
+          "status",
+          "previous"
+        ]
+      },
       "StackLayerResponseDto": {
         "type": "object",
         "properties": {
@@ -11158,6 +11192,16 @@
             "items": {
               "$ref": "#/components/schemas/LayerQuestionResponseDto"
             }
+          },
+          "revision": {
+            "nullable": true,
+            "description": "How the layer compares with the previous stack; null when the stack follows no previous stack",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LayerRevisionResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -11166,7 +11210,8 @@
           "summary",
           "hunks",
           "notes",
-          "questions"
+          "questions",
+          "revision"
         ]
       },
       "StackCohortResponseDto": {
@@ -11203,6 +11248,29 @@
           "title",
           "intent",
           "layers"
+        ]
+      },
+      "RemovedLayerResponseDto": {
+        "type": "object",
+        "properties": {
+          "previous": {
+            "type": "string",
+            "example": "c1.l2",
+            "description": "The layer in the previous stack"
+          },
+          "cohort": {
+            "type": "string",
+            "example": "Team invitations"
+          },
+          "title": {
+            "type": "string",
+            "example": "Add the invitation data model"
+          }
+        },
+        "required": [
+          "previous",
+          "cohort",
+          "title"
         ]
       },
       "CheckedStepResponseDto": {
@@ -11310,6 +11378,13 @@
               "$ref": "#/components/schemas/StackCohortResponseDto"
             }
           },
+          "removed": {
+            "description": "Layers of the previous stack that this stack no longer has",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RemovedLayerResponseDto"
+            }
+          },
           "check": {
             "nullable": true,
             "description": "What the check ran and what each step printed",
@@ -11328,6 +11403,7 @@
           "failure",
           "files",
           "cohorts",
+          "removed",
           "check"
         ]
       },
@@ -11572,15 +11648,12 @@
               "merged"
             ]
           },
-          "merge": {
-            "nullable": true,
-            "description": "The merge that contains the decisions, after the pull request merges",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DecisionMergeResponseDto"
-              }
-            ]
+          "merges": {
+            "description": "One merge for each repository whose pull request merged, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DecisionMergeResponseDto"
+            }
           },
           "decisions": {
             "description": "Deviations and limitations first",
@@ -11594,7 +11667,7 @@
           "runId",
           "generating",
           "status",
-          "merge",
+          "merges",
           "decisions"
         ]
       },
@@ -11676,6 +11749,12 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "docs",
+            "description": "The repository the file is in; none when it was not named"
           },
           "path": {
             "type": "string",
@@ -11760,6 +11839,7 @@
         },
         "required": [
           "id",
+          "repository",
           "path",
           "side",
           "line",
@@ -11783,6 +11863,12 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "docs",
+            "description": "The repository it reviews; none when it was not named"
           },
           "authorName": {
             "type": "string"
@@ -11824,6 +11910,7 @@
         },
         "required": [
           "id",
+          "repository",
           "authorName",
           "viewerIsAuthor",
           "isAgentAuthored",
@@ -11867,6 +11954,11 @@
           "body": {
             "type": "string",
             "example": "Should invitations expire?"
+          },
+          "repository": {
+            "type": "string",
+            "example": "docs",
+            "description": "The repository the file is in, as the run checked it out; its comments go to that repository’s pull request"
           },
           "path": {
             "type": "string",
@@ -11937,6 +12029,11 @@
           "body": {
             "type": "string",
             "example": "Close; a couple of questions."
+          },
+          "repository": {
+            "type": "string",
+            "example": "docs",
+            "description": "The repository the review is on; it takes that repository’s drafts and goes to its pull request"
           }
         },
         "required": [

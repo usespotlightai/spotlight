@@ -53,6 +53,7 @@ export class AgentReviews implements PullRequestReviewingPort {
     return (
       await this.submitting.submit({
         task: await this.reviewed(on),
+        repository: null,
         author: ReviewAuthor.agent(on.runId),
         verdict: verdict.verdict,
         body: verdict.body ?? '',

@@ -4,7 +4,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { Toaster } from '@/components/ui/toast';
+import { storedTheme } from '@/hooks/useTheme';
 import { client } from '@/lib/api/client.gen';
+import { desktopApp, frameWindow } from '@/lib/desktop';
 import {
   startErrorReporting,
   withGatewayErrorReported,
@@ -24,6 +26,8 @@ if (!root) {
 
 reloadOnStaleBuild();
 refuseStrayFileDrops();
+frameWindow();
+desktopApp()?.setTheme?.(storedTheme());
 
 client.interceptors.error.use(withSentRequest);
 client.interceptors.error.use(withGatewayErrorReported);

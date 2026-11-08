@@ -7,6 +7,7 @@ import { InboxRowSkeleton } from '@/components/features/inbox/InboxRowSkeleton';
 import { InboxSection } from '@/components/features/inbox/InboxSection';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 import { ShowMore } from '@/components/shared/ShowMore';
+import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { DISCLOSURE_MS } from '@/components/shell/layout/Disclosure';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
@@ -55,7 +56,7 @@ export function Inbox() {
     open: sections.isExpanded(id),
     onToggle: () => toggle(id),
   });
-  const resolvedInbox = useResolvedInbox(slug, sections.isExpanded(RESOLVED));
+  const resolvedInbox = useResolvedInbox(slug);
   const open = inbox.data ?? [];
   const opened = new Set(open.map(entryKey));
   const entries = [
@@ -130,8 +131,12 @@ export function Inbox() {
                         label="Resolved"
                         entries={done}
                         count={
-                          resolvedInbox.data &&
-                          `${done.length}${resolvedInbox.more.available ? '+' : ''}`
+                          resolvedInbox.isPending ? (
+                            <SkeletonLine className="w-2" />
+                          ) : (
+                            resolvedInbox.data &&
+                            `${done.length}${resolvedInbox.more.available ? '+' : ''}`
+                          )
                         }
                         {...section(RESOLVED)}
                         after={

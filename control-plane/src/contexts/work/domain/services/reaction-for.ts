@@ -89,6 +89,13 @@ export const ReactionFor = {
         return { kind: 'nothing' };
       }
 
+      if (
+        input.payload.closedPullRequest &&
+        input.task.openPullRequests.length > 0
+      ) {
+        return { kind: 'stays', ...note() };
+      }
+
       if (!destination.id.equals(input.task.stationId)) {
         if (input.task.movableByHappeningTo(input.line, destination.id)) {
           return { kind: 'moves', to: destination, ...note() };

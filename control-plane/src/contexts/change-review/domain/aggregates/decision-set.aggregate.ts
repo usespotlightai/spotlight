@@ -18,6 +18,7 @@ import type { FilePath } from '@change-review/domain/value-objects/file-path.vo'
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -229,11 +230,15 @@ export class DecisionSet
   }
 
   merge(merge: DecisionMerge): DecisionSet {
-    if (this.status.isMerged) {
-      return this;
-    }
+    const status = this.status.merged(merge);
 
-    return this.with({ status: DecisionStatus.merged(merge) });
+    return status === this.status ? this : this.with({ status });
+  }
+
+  mergedIn(repository: Repository): readonly Decision[] {
+    return this.status.mergeIn(repository)
+      ? this.decisions.filter((each) => each.isWithin(repository))
+      : [];
   }
 
   get discardable(): boolean {

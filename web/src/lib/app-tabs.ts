@@ -64,6 +64,22 @@ export const opened = (tabs: AppTabs, id: string, path: string): AppTabs => ({
 export const selected = (tabs: AppTabs, id: string): AppTabs =>
   tabs.tabs.some((tab) => tab.id === id) ? { ...tabs, activeId: id } : tabs;
 
+export const moved = (tabs: AppTabs, id: string, to: string): AppTabs => {
+  const from = tabs.tabs.findIndex((tab) => tab.id === id);
+  const at = tabs.tabs.findIndex((tab) => tab.id === to);
+
+  if (from === -1 || at === -1 || from === at) {
+    return tabs;
+  }
+
+  const rest = tabs.tabs.filter((tab) => tab.id !== id);
+
+  return {
+    ...tabs,
+    tabs: [...rest.slice(0, at), tabs.tabs[from] as AppTab, ...rest.slice(at)],
+  };
+};
+
 export const closed = (tabs: AppTabs, id: string): AppTabs => {
   const at = tabs.tabs.findIndex((tab) => tab.id === id);
 

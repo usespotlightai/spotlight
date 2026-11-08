@@ -22,7 +22,7 @@ export const TaskHttpMapper = {
       dto.awaitingReview
         ? new TaskReviewResponseDto(dto.awaitingReview.conversationId)
         : null,
-      dto.pullRequest,
+      dto.pullRequests,
       dto.createdBy
         ? new TaskPersonResponseDto(
             dto.createdBy.id,

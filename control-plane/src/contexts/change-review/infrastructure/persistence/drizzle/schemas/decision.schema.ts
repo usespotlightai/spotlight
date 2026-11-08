@@ -15,6 +15,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
@@ -34,9 +35,6 @@ export const decisionSet = pgTable(
     jobAttempts: integer('job_attempts').notNull(),
     jobDueAt: timestamptz('job_due_at'),
     status: decisionStatus('status').$type<DecisionStatusValue>().notNull(),
-    mergedRepository: text('merged_repository'),
-    mergedCommit: text('merged_commit'),
-    mergedAt: timestamptz('merged_at'),
     version: integer('version').notNull(),
   },
   (table) => [
@@ -46,9 +44,24 @@ export const decisionSet = pgTable(
     ),
     uniqueIndex('decision_set_task_idx').on(table.taskId),
     index('decision_set_generation_idx').on(table.generationRequestedAt),
-    index('decision_set_merged_idx').on(
-      table.workspaceId,
-      table.mergedRepository,
+    index('decision_set_workspace_idx').on(table.workspaceId),
+  ],
+);
+
+export const decisionSetMerge = pgTable(
+  'decision_set_merge',
+  {
+    setId: text('set_id')
+      .notNull()
+      .references(() => decisionSet.id, { onDelete: 'cascade' }),
+    repository: text('repository').notNull(),
+    commit: text('commit').notNull(),
+    mergedAt: timestamptz('merged_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.setId, table.repository] }),
+    index('decision_set_merge_repository_idx').on(
+      table.repository,
       table.mergedAt,
     ),
   ],

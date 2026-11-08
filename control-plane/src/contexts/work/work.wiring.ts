@@ -220,6 +220,7 @@ import { OrderChatRun } from '@work/application/events/handlers/order-chat-run.h
 import { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import { ProjectLineStations } from '@work/application/events/handlers/project-line-stations.handler';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import { ReopenTaskPullRequest } from '@work/application/events/handlers/reopen-task-pull-request.handler';
 import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import { WelcomeTeam } from '@work/application/events/handlers/welcome-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
@@ -1871,6 +1872,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           toolUsedHooks,
           notices,
           takenMarks: new ReleaseTakenMarks(tasks, transaction),
+          reopenedPullRequests: new ReopenTaskPullRequest(tasks, transaction),
         }),
       ]);
       return true;

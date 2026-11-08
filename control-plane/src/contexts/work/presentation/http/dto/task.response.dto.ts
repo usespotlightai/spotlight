@@ -106,12 +106,12 @@ export class TaskResponseDto {
   readonly awaitingReview: TaskReviewResponseDto | null;
 
   @ApiProperty({
-    example: 'https://github.com/acme/widgets/pull/7',
-    nullable: true,
-    type: String,
-    description: 'The pull request this task ended in, once one is open',
+    example: ['https://github.com/acme/widgets/pull/7'],
+    type: [String],
+    description:
+      'The pull requests this task ended in, one for each repository, the first opened first',
   })
-  readonly pullRequest: string | null;
+  readonly pullRequests: readonly string[];
 
   @ApiProperty({
     type: TaskPersonResponseDto,
@@ -146,7 +146,7 @@ export class TaskResponseDto {
     createdAt: string,
     progress: string | null,
     awaitingReview: TaskReviewResponseDto | null,
-    pullRequest: string | null,
+    pullRequests: readonly string[],
     createdBy: TaskPersonResponseDto | null,
     assignee: TaskPersonResponseDto | null,
     note: TaskNoteResponseDto | null,
@@ -160,7 +160,7 @@ export class TaskResponseDto {
     this.createdAt = createdAt;
     this.progress = progress;
     this.awaitingReview = awaitingReview;
-    this.pullRequest = pullRequest;
+    this.pullRequests = pullRequests;
     this.createdBy = createdBy;
     this.assignee = assignee;
     this.note = note;

@@ -1,17 +1,23 @@
-import { Bell } from 'lucide-react';
+import { AppWindow, Bell } from 'lucide-react';
+import { useState } from 'react';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { RowIcon } from '@/components/shared/RowIcon';
 import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
   type BrowserNotificationState,
   useBrowserNotifications,
 } from '@/hooks/useBrowserNotifications';
+import { desktopApp, opensInDesktop, storeOpensInDesktop } from '@/lib/desktop';
 
-const DESCRIPTIONS: Record<BrowserNotificationState, string> = {
+const DESCRIPTIONS: Record<
+  Exclude<BrowserNotificationState, 'desktop'>,
+  string
+> = {
   unsupported: 'This browser cannot show notifications.',
   blocked:
     'The browser blocks notifications from Spotlight. To turn them on, allow notifications for this site in the browser settings.',
@@ -34,6 +40,7 @@ const ON: ReadonlySet<BrowserNotificationState> = new Set([
 
 export function AccountNotifications() {
   const notifications = useBrowserNotifications();
+  const [opensDesktop, setOpensDesktop] = useState(opensInDesktop);
   const { state, turnOn, turnOff } = notifications;
   const changing = turnOn.isPending || turnOff.isPending;
   const refused = turnOn.isError || turnOff.isError;
@@ -62,7 +69,44 @@ export function AccountNotifications() {
         </SettingsSection>
       )}
 
-      {state !== null && (
+      {!desktopApp() && (
+        <SettingsSection title="Links">
+          <SettingsRow
+            label="Open links in the desktop app"
+            htmlFor="opens-in-desktop"
+            leading={<RowIcon icon={AppWindow} />}
+            description="A Spotlight link opened in this browser goes to the Spotlight desktop app. The browser asks once before it opens the app."
+          >
+            <Switch
+              id="opens-in-desktop"
+              checked={opensDesktop}
+              onCheckedChange={(checked) => {
+                storeOpensInDesktop(checked);
+                setOpensDesktop(checked);
+              }}
+            />
+          </SettingsRow>
+        </SettingsSection>
+      )}
+
+      {state === 'desktop' && (
+        <SettingsSection title="This app">
+          <SettingsRow
+            label="New inbox items"
+            leading={<RowIcon icon={Bell} />}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => desktopApp()?.openNotificationSettings?.()}
+            >
+              Open macOS Settings
+            </Button>
+          </SettingsRow>
+        </SettingsSection>
+      )}
+
+      {state !== null && state !== 'desktop' && (
         <SettingsSection title="This browser">
           <SettingsRow
             label="New inbox items"

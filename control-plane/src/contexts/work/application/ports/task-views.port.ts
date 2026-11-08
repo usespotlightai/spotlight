@@ -10,6 +10,7 @@ export interface TaskViewDto {
   readonly marks: Readonly<Record<string, string>>;
   readonly repositories: readonly string[];
   readonly pullRequest: string | null;
+  readonly pullRequests: readonly string[];
   readonly runId: string | null;
 }
 

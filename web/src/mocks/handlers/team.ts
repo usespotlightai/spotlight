@@ -587,7 +587,7 @@ const chatHandlers = [
           createdAt: now(),
           progress: null,
           awaitingReview: null,
-          pullRequest: null,
+          pullRequests: [],
           createdBy: SAM,
           assignee: null,
           note: null,

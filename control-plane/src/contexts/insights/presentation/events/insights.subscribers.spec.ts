@@ -303,7 +303,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   return {
     records,
     taskPullRequest: async (taskId: string) =>
-      PullRequestRecord.latestOwnedOf(
+      PullRequestRecord.taskFactOf(
         await pullRequests.ownedBy([TaskId.of(taskId)]),
       ),
     judgings,

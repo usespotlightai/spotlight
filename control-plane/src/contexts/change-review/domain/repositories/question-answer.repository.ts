@@ -18,6 +18,11 @@ export interface QuestionAnswerRepository {
 
   ofTask(taskId: TaskId): Promise<readonly QuestionAnswer[]>;
 
+  ofTaskBy(
+    taskId: TaskId,
+    personId: UserId,
+  ): Promise<readonly QuestionAnswer[]>;
+
   ofTeam(teamId: TeamId): Promise<readonly QuestionAnswer[]>;
 
   remove(answer: QuestionAnswer): Promise<void>;

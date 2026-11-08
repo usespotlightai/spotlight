@@ -12,6 +12,8 @@ vi.mock('@/hooks/api/useSettingUp', () => ({ useSettingUp: vi.fn() }));
 vi.mock('@/hooks/useNotificationStream', () => ({
   useNotificationStream: vi.fn(),
 }));
+vi.mock('@/hooks/useDesktopBadge', () => ({ useDesktopBadge: vi.fn() }));
+vi.mock('@/hooks/useDesktopCommands', () => ({ useDesktopCommands: vi.fn() }));
 
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
@@ -277,7 +279,7 @@ describe('Workspace', () => {
 
     renderAt('acme-inc');
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: /./ })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Your teams' }),
     ).not.toBeInTheDocument();
@@ -299,7 +301,7 @@ describe('Workspace', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'The workspace could not be loaded.',
     );
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: /./ })).not.toBeInTheDocument();
     expect(screen.queryByText('section slot')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Workspace not found' }),

@@ -23,8 +23,12 @@ const changes = (runId: string, workingCopyPaths: string[]): RunChanges => ({
 
 const touching = (input: {
   changes: RunChanges[];
-  pullRequest?: PullRequestUrl | null;
-  changedIn?: () => Promise<readonly string[]>;
+  pullRequests?: readonly PullRequestUrl[];
+  changedIn?: (
+    workspaceId: WorkspaceId,
+    repository: Repository,
+    url: PullRequestUrl,
+  ) => Promise<readonly string[]>;
   sleep?: (ms: number, cancelled?: AbortSignal) => Promise<void>;
 }) => {
   const warn = vi.fn();
@@ -46,7 +50,7 @@ const touching = (input: {
     id: TaskId.of('task_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     reviewedHead: null,
-    pullRequest: input.pullRequest ?? null,
+    pullRequests: input.pullRequests ?? [],
   } as unknown as Task;
   const line = { repositories: { all: [API, WEB] } } as unknown as LineMap;
 
@@ -88,18 +92,35 @@ describe('TouchedFiles', () => {
   it('adds the files of the task’s pull request', async () => {
     const { onTask } = touching({
       changes: [],
-      pullRequest: PULL,
+      pullRequests: [PULL],
       changedIn: async () => ['docs/retries.md'],
     });
 
     expect(listed(await onTask())).toEqual(['acme/api:docs/retries.md']);
   });
 
+  it('adds the files of each of the task’s pull requests, in its repository', async () => {
+    const { onTask } = touching({
+      changes: [],
+      pullRequests: [
+        PULL,
+        PullRequestUrl.of('https://github.com/acme/web/pull/2'),
+      ],
+      changedIn: async (_workspaceId, repository) =>
+        repository.equals(API) ? ['src/retry.ts'] : ['src/Retry.tsx'],
+    });
+
+    expect(listed(await onTask())).toEqual([
+      'acme/api:src/retry.ts',
+      'acme/web:src/Retry.tsx',
+    ]);
+  });
+
   it('stops waiting for GitHub once it has answered', async () => {
     let waiting: AbortSignal | undefined;
     const { onTask } = touching({
       changes: [],
-      pullRequest: PULL,
+      pullRequests: [PULL],
       changedIn: async () => ['docs/retries.md'],
       sleep: (_ms, cancelled) => {
         waiting = cancelled;
@@ -115,7 +136,7 @@ describe('TouchedFiles', () => {
   it('goes on without the pull request’s files when GitHub does not send them', async () => {
     const { onTask, warn } = touching({
       changes: [changes('run_1', ['api/src/uploads.ts'])],
-      pullRequest: PULL,
+      pullRequests: [PULL],
       changedIn: async () => {
         throw new Error('GitHub is down');
       },
@@ -128,7 +149,7 @@ describe('TouchedFiles', () => {
   it('goes on without the pull request’s files once GitHub keeps it waiting too long', async () => {
     const { onTask, warn } = touching({
       changes: [changes('run_1', ['api/src/uploads.ts'])],
-      pullRequest: PULL,
+      pullRequests: [PULL],
       changedIn: () => new Promise(() => {}),
       sleep: async () => {},
     });

@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { useBrowserPush } from '@/hooks/useBrowserNotifications';
+import { desktopApp } from '@/lib/desktop';
 import {
   type InboxNotification,
   NOTIFICATION_STREAM_URL,
@@ -41,6 +42,7 @@ export function useNotificationStream() {
     });
 
     shown.onclick = () => {
+      desktopApp()?.show();
       window.focus();
       void navigate(notification.path);
       shown.close();

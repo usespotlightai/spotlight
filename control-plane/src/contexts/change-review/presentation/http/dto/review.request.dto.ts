@@ -4,6 +4,13 @@ export class DraftReviewCommentRequestDto {
   @ApiProperty({ example: 'Should invitations expire?' })
   readonly body!: string;
 
+  @ApiPropertyOptional({
+    example: 'docs',
+    description:
+      'The repository the file is in, as the run checked it out; its comments go to that repository’s pull request',
+  })
+  readonly repository?: string;
+
   @ApiPropertyOptional({ example: 'src/invite.ts' })
   readonly path?: string;
 
@@ -46,4 +53,11 @@ export class SubmitReviewRequestDto {
 
   @ApiPropertyOptional({ example: 'Close; a couple of questions.' })
   readonly body?: string;
+
+  @ApiPropertyOptional({
+    example: 'docs',
+    description:
+      'The repository the review is on; it takes that repository’s drafts and goes to its pull request',
+  })
+  readonly repository?: string;
 }

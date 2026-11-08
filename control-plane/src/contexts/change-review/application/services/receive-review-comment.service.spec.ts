@@ -65,6 +65,7 @@ const receiving = (stored: ReviewComment[] = []) => {
         workspaceId,
         teamId: null,
         pullRequest,
+        pullRequests: [pullRequest],
         reviewing: false,
         currentRunId: null,
       }),
@@ -103,6 +104,7 @@ describe('ReceiveReviewComment', () => {
     expect(stored?.anchor.lines?.line).toBe(12);
     expect(stored?.author.equals(ReviewAuthor.onGitHub('octocat'))).toBe(true);
     expect(stored?.github?.id).toBe(300);
+    expect(stored?.anchor.repository?.value).toBe('web');
   });
 
   it('threads a reply under the comment it answers', async () => {

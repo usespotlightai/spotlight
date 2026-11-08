@@ -32,11 +32,18 @@ export class WorkingCopyPath {
     return new WorkingCopyPath([repository.name, ...parts].join('/'));
   }
 
-  withinRepository(repository: Repository): string {
+  isWithin(repository: Repository): boolean {
     const [checkout, ...within] = this.value.split('/');
 
-    return checkout === repository.name && within.length > 0
-      ? within.join('/')
+    return (
+      within.length > 0 &&
+      checkout?.toLowerCase() === repository.name.toLowerCase()
+    );
+  }
+
+  withinRepository(repository: Repository): string {
+    return this.isWithin(repository)
+      ? this.value.split('/').slice(1).join('/')
       : this.value;
   }
 

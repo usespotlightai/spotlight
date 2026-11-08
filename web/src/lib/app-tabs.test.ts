@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type AppTabs,
   closed,
+  moved,
   newTabPath,
   opened,
   storedTabs,
@@ -26,6 +27,27 @@ const three: AppTabs = {
   ],
   activeId: 'b',
 };
+
+describe('moved', () => {
+  const order = (tabs: AppTabs) => tabs.tabs.map((tab) => tab.id);
+
+  it('moves a tab to the right, to where the other tab was', () => {
+    expect(order(moved(three, 'a', 'c'))).toEqual(['b', 'c', 'a']);
+  });
+
+  it('moves a tab to the left, to where the other tab was', () => {
+    expect(order(moved(three, 'c', 'a'))).toEqual(['c', 'a', 'b']);
+  });
+
+  it('keeps the active tab', () => {
+    expect(moved(three, 'b', 'a').activeId).toBe('b');
+  });
+
+  it('changes nothing for a tab it does not know or a drop on the same tab', () => {
+    expect(moved(three, 'x', 'a')).toBe(three);
+    expect(moved(three, 'a', 'a')).toBe(three);
+  });
+});
 
 describe('closed', () => {
   it('shows the tab to the right of the closed active tab', () => {
