@@ -37,7 +37,7 @@ export interface StackSnapshot {
   readonly cohorts: readonly StackCohort[];
 }
 
-export interface PreviousLayer {
+interface PreviousLayer {
   readonly id: LayerId;
   readonly title: string;
   readonly summary: string;
@@ -52,7 +52,7 @@ export interface PreviousLayer {
   readonly questions: readonly ProposedQuestion[];
 }
 
-export interface PreviousCohort {
+interface PreviousCohort {
   readonly kind: CohortKind;
   readonly title: string;
   readonly intent: string;

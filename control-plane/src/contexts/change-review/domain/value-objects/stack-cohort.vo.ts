@@ -41,11 +41,7 @@ export interface LayerDependency {
   readonly because: readonly string[];
 }
 
-export const LAYER_REVISION_STATUSES = [
-  'unchanged',
-  'modified',
-  'added',
-] as const;
+const LAYER_REVISION_STATUSES = ['unchanged', 'modified', 'added'] as const;
 
 export type LayerRevisionStatus = (typeof LAYER_REVISION_STATUSES)[number];
 

@@ -202,7 +202,7 @@ export const toReadAgain = (layer: StackLayer): boolean =>
       each.answered.verdict !== 'right',
   );
 
-export const REVISION_MARKS = {
+const REVISION_MARKS = {
   modified: {
     label: 'Changed',
     detail: 'This layer changed since the previous stack. Read it again.',
