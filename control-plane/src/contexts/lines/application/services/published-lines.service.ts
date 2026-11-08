@@ -85,6 +85,10 @@ export class PublishedLines implements LinesPort {
     return this.views.ofWorkspace(workspaceId);
   }
 
+  keepingWarmSandboxes(): Promise<readonly LineView[]> {
+    return this.views.keepingWarmSandboxes();
+  }
+
   async preview(request: StationPreviewRequest): Promise<StationPreview> {
     const key = request.stationKey.value;
     const line = await this.lines.find(request.lineId);

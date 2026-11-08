@@ -24,8 +24,10 @@ import { StationDescription } from '@lines/domain/value-objects/station-descript
 import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { StationRoutes } from '@lines/domain/value-objects/station-routes.vo';
 import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 
 export const LINES_PAYLOAD_TYPES = [
+  WarmSandboxCount,
   LineCreated,
   LineDeleted,
   LineUpdated,

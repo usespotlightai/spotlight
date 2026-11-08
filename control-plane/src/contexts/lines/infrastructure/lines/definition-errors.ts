@@ -10,6 +10,7 @@ import { InvalidStationCheckError } from '@lines/domain/exceptions/invalid-stati
 import { InvalidStationColorError } from '@lines/domain/exceptions/invalid-station-color.error';
 import { InvalidStationDescriptionError } from '@lines/domain/exceptions/invalid-station-description.error';
 import { InvalidStationJudgeError } from '@lines/domain/exceptions/invalid-station-judge.error';
+import { InvalidWarmSandboxCountError } from '@lines/domain/exceptions/invalid-warm-sandbox-count.error';
 import { InvalidEffortError } from '@shared-kernel/domain/exceptions/invalid-effort.error';
 import { InvalidHarnessIdError } from '@shared-kernel/domain/exceptions/invalid-harness-id.error';
 import { InvalidHarnessModelError } from '@shared-kernel/domain/exceptions/invalid-harness-model.error';
@@ -42,6 +43,7 @@ const DEFINITION_ERRORS = [
   InvalidStationDescriptionError,
   InvalidStationJudgeError,
   InvalidStationNameError,
+  InvalidWarmSandboxCountError,
 ] as const;
 
 export const refusalOf = (error: unknown): Error => {

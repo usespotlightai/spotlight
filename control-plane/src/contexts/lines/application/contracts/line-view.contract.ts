@@ -122,6 +122,7 @@ export interface LineView {
   readonly name: string;
   readonly role: string | null;
   readonly runners: readonly string[];
+  readonly warmSandboxes: number;
   readonly image: string | null;
   readonly repositories: readonly LineRepositoryView[];
   readonly reviews: ReviewPolicyView | null;

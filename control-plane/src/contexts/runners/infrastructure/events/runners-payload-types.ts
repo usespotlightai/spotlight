@@ -52,6 +52,7 @@ import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { TokenUsage } from '@runners/domain/value-objects/token-usage.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
+import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 
 export const RUNNERS_PAYLOAD_TYPES = [
@@ -93,6 +94,7 @@ export const RUNNERS_PAYLOAD_TYPES = [
   TokenUsage,
   TrustKey,
   TrustedWorkload,
+  WarmPart,
   WorkspaceRunnersId,
   EgressCreated,
   EgressUpdated,

@@ -25,7 +25,13 @@ export interface TrialRequest {
 
 export type TrialOrder = Omit<
   RunOrderContract,
-  'requester' | 'policy' | 'workingCopy' | 'extensions' | 'apiGrant' | 'tags'
+  | 'requester'
+  | 'policy'
+  | 'workingCopy'
+  | 'extensions'
+  | 'apiGrant'
+  | 'tags'
+  | 'line'
 > & { readonly team: string };
 
 export interface TrialCheckout {

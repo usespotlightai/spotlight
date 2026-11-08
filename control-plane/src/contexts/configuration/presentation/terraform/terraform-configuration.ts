@@ -574,6 +574,7 @@ const line = (
       attribute('name', definition.name),
       ...present('role', definition.role),
       ...present('runners', definition.runners),
+      ...present('warm_sandboxes', definition.warmSandboxes || undefined),
       ...definition.repositories.map(repository),
       ...definition.stations.map(station),
       ...definition.reactions.map(reaction),

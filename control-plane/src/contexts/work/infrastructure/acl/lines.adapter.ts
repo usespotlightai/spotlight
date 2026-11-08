@@ -9,10 +9,11 @@ import type {
   StationCandidate,
   StationCandidateRequest,
 } from '@work/application/ports/line-maps.port';
+import type { WarmSandboxLinesPort } from '@work/application/ports/warm-sandbox-lines.port';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { lineMapOf } from '@work/infrastructure/acl/line-map.translation';
 
-export class LinesLineMaps implements LineMapsPort {
+export class LinesLineMaps implements LineMapsPort, WarmSandboxLinesPort {
   constructor(private readonly lines: LinesPort) {}
 
   async find(id: LineId): Promise<LineMap | null> {
@@ -33,6 +34,10 @@ export class LinesLineMaps implements LineMapsPort {
 
   async ofWorkspace(workspaceId: WorkspaceId): Promise<readonly LineMap[]> {
     return (await this.lines.ofWorkspace(workspaceId)).map(lineMapOf);
+  }
+
+  async keepingWarmSandboxes(): Promise<readonly LineMap[]> {
+    return (await this.lines.keepingWarmSandboxes()).map(lineMapOf);
   }
 
   async candidate(request: StationCandidateRequest): Promise<StationCandidate> {

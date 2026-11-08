@@ -42,6 +42,7 @@ export interface RunOrderContract {
   readonly extensions: Readonly<Record<string, JsonValue>>;
   readonly apiGrant: RunApiGrantContract | null;
   readonly tags: Readonly<Record<string, string>>;
+  readonly line: string | null;
   readonly refusal: readonly RunRefusalContract[] | null;
 }
 

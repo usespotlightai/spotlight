@@ -7,15 +7,18 @@ import type { SandboxUpkeepPort } from '@runners/application/ports/sandbox-upkee
 import type {
   AuthenticatedSandbox,
   OpenedSandbox,
+  ReadyWarmSandbox,
   RequestedSandbox,
   SandboxesPort,
   SandboxForRun,
   SandboxTakingRuns,
   StartedSandbox,
+  StartedWarmSandbox,
 } from '@runners/application/ports/sandboxes.port';
 import { reviseSandbox } from '@runners/application/services/sandbox-revisions';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
+import { SandboxKeyTakenError } from '@runners/domain/exceptions/sandbox-key-taken.error';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
@@ -30,7 +33,9 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -125,23 +130,63 @@ export class Sandboxes
     hostId: string,
   ): Promise<SandboxTakingRuns | null> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
-    const host = found?.key ? await this.hosts.find(HostId.of(hostId)) : null;
+    const host = found ? await this.hosts.find(HostId.of(hostId)) : null;
+    const now = this.clock.now();
 
-    if (!found?.key || !host || !found.takesRunOn(host, this.clock.now())) {
+    if (!found || !host) {
       return null;
     }
 
-    return {
-      id: found.id.value,
-      workspaceId: found.workspaceId.value,
-      key: found.key.value,
-    };
+    if (found.key && found.takesRunOn(host, now)) {
+      return {
+        id: found.id.value,
+        workspaceId: found.workspaceId.value,
+        key: found.key.value,
+      };
+    }
+
+    return found.warm && found.takesFirstRunOn(host, now)
+      ? {
+          id: found.id.value,
+          workspaceId: found.workspaceId.value,
+          warmFor: found.warm.lineId.value,
+        }
+      : null;
   }
 
-  async holdInSandbox(
+  holdInSandbox(
     sandboxId: string,
     run: SandboxForRun,
     at: Date,
+  ): Promise<boolean> {
+    return this.heldIn(sandboxId, run, (sandbox, forRun, host) =>
+      sandbox.holdRunFor(forRun, host, at),
+    );
+  }
+
+  adoptForRun(
+    sandboxId: string,
+    run: SandboxForRun,
+    at: Date,
+  ): Promise<boolean> {
+    return this.heldIn(sandboxId, run, (sandbox, forRun, host) =>
+      sandbox.adoptFor(forRun, host, at),
+    );
+  }
+
+  private async heldIn(
+    sandboxId: string,
+    run: SandboxForRun,
+    change: (
+      sandbox: Sandbox,
+      forRun: {
+        runId: RunId;
+        workspaceId: WorkspaceId;
+        key: SandboxKey | null;
+        line: LineId | null;
+      },
+      host: RunnerHost,
+    ) => Sandbox,
   ): Promise<boolean> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
     const host = found ? await this.hosts.find(HostId.of(run.hostId)) : null;
@@ -154,12 +199,21 @@ export class Sandboxes
       runId: RunId.of(run.runId),
       workspaceId: WorkspaceId.of(run.workspaceId),
       key: run.key === null ? null : SandboxKey.of(run.key),
+      line: run.line === null ? null : LineId.of(run.line),
     };
-    const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
-      sandbox.holdRunFor(forRun, host, at),
-    );
+    try {
+      const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
+        change(sandbox, forRun, host),
+      );
 
-    return held?.holdsRun(forRun.runId) ?? false;
+      return held?.holdsRun(forRun.runId) ?? false;
+    } catch (error) {
+      if (error instanceof SandboxKeyTakenError) {
+        return false;
+      }
+
+      throw error;
+    }
   }
 
   async liveKeysIn(workspaceId: string, at: Date): Promise<readonly string[]> {
@@ -283,6 +337,78 @@ export class Sandboxes
     }
 
     return { id: found.id.value, token: issued.token };
+  }
+
+  async requestedWarmIn(workspaceId: string): Promise<readonly string[]> {
+    const warm = await this.sandboxes.openWarmIn(WorkspaceId.of(workspaceId));
+
+    return warm.filter((each) => each.isRequested).map((each) => each.id.value);
+  }
+
+  async startWarm(
+    sandboxId: string,
+    hostId: string,
+    offer: RunnerOffer,
+    at: Date,
+  ): Promise<StartedWarmSandbox | null> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+    const host = found?.warmFits(offer)
+      ? await this.hosts.find(HostId.of(hostId))
+      : null;
+
+    if (!found?.warm || !host) {
+      return null;
+    }
+
+    const issued = this.tokens.issue();
+
+    try {
+      await this.sandboxes.save(
+        found.placeWarmOn(host, offer, TokenHash.of(issued.hash), at),
+      );
+    } catch (error) {
+      if (error instanceof SandboxVersionConflictError) {
+        return null;
+      }
+
+      throw error;
+    }
+
+    this.logger.info(
+      { sandboxId, hostId, lineId: found.warm.lineId.value },
+      'Starting a warm sandbox',
+    );
+
+    return {
+      id: found.id.value,
+      token: issued.token,
+      warm: {
+        line: found.warm.lineId.value,
+        checkouts: found.warm.checkouts.map((each) => ({
+          path: each.path,
+          setup: each.setup,
+        })),
+      },
+    };
+  }
+
+  async readyWarmIn(
+    workspaceId: string,
+    at: Date,
+  ): Promise<readonly ReadyWarmSandbox[]> {
+    const workspace = WorkspaceId.of(workspaceId);
+    const warm = await this.sandboxes.openWarmIn(workspace);
+    const hosts = warm.some((each) => each.isPlaced)
+      ? await this.hosts.inWorkspace(workspace)
+      : [];
+
+    return warm.flatMap((sandbox) => {
+      const host = hosts.find((each) => sandbox.isOn(each.id));
+
+      return sandbox.warm && host && sandbox.takesFirstRunOn(host, at)
+        ? [{ id: sandbox.id.value, line: sandbox.warm.lineId.value }]
+        : [];
+    });
   }
 
   async drain(sandboxId: string): Promise<void> {

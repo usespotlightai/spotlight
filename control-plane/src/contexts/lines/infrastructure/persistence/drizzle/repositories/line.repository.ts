@@ -85,6 +85,7 @@ export class DrizzleLineRepository implements LineRepository {
         search: lineSearchRow(added.search),
         source: sourceRow(added.source),
         runners: [...added.placement.requiredLabels],
+        warmSandboxes: added.warmSandboxes.value,
         version: added.version,
       });
     } catch (error) {
@@ -124,6 +125,7 @@ export class DrizzleLineRepository implements LineRepository {
         search: lineSearchRow(saved.search),
         source: sourceRow(saved.source),
         runners: [...saved.placement.requiredLabels],
+        warmSandboxes: saved.warmSandboxes.value,
       })
       .where(and(eq(line.id, saved.id.value), eq(line.version, saved.version)))
       .returning({ id: line.id })

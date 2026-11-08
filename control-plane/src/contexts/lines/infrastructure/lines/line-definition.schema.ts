@@ -172,6 +172,7 @@ export const lineSchema = z.object({
     sourceSchema.optional(),
   ),
   runners: z.array(z.string()).optional(),
+  warmSandboxes: z.number().optional(),
 });
 
 export type LineFields = z.output<typeof lineSchema>;

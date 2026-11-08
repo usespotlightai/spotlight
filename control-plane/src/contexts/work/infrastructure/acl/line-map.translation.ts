@@ -28,6 +28,7 @@ import { LineRepositories } from '@work/domain/value-objects/line-repositories.v
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { Station } from '@work/domain/value-objects/station.vo';
+import { WarmSandboxQuota } from '@work/domain/value-objects/warm-sandbox-quota.vo';
 
 const optional = <T>(
   value: string | null,
@@ -85,4 +86,5 @@ export const lineMapOf = (view: LineView): LineMap =>
     ),
     reviews: view.reviews && ReviewIntake.of(view.reviews),
     placement: RunnerPlacement.of(view.runners),
+    warmSandboxes: WarmSandboxQuota.of(view.warmSandboxes),
   });

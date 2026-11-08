@@ -6,6 +6,7 @@ import type {
 import type { Claimant } from '@runs/domain/value-objects/claimant';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -36,6 +37,15 @@ export interface RunRepository {
     workspaceId: WorkspaceId,
     key: WorkingCopyKey,
   ): Promise<readonly Run[]>;
+
+  queuedFirstRuns(
+    workspaceId: WorkspaceId,
+    page: {
+      readonly lines: readonly LineId[];
+      readonly avoiding: readonly WorkingCopyKey[];
+      readonly queuedSince: Date;
+    },
+  ): Promise<QueuedRuns>;
 
   expiredLeases(now: Date): Promise<readonly Run[]>;
 

@@ -124,6 +124,7 @@ describe('renderLine', () => {
       key: 'delivery',
       name: 'Delivery',
       repositories: [{ name: 'acme/api' }],
+      warmSandboxes: 0,
       stations: [
         {
           key: 'backlog',
@@ -246,6 +247,11 @@ describe('renderLine', () => {
 
   it('leaves out what a station does not have', () => {
     expect(Object.keys(rendered().stations[0] ?? {})).not.toContain('harness');
+  });
+
+  it('renders how many warm sandboxes a line keeps, 0 where it names none', () => {
+    expect(rendered({ warmSandboxes: 3 }).warmSandboxes).toBe(3);
+    expect(rendered().warmSandboxes).toBe(0);
   });
 
   it('renders where a line and its stations may run, and leaves it out when anywhere', () => {

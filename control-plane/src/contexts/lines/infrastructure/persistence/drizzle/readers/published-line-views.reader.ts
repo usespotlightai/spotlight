@@ -19,7 +19,7 @@ import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { eq, inArray, type SQL } from 'drizzle-orm';
+import { eq, gt, inArray, type SQL } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzlePublishedLineViews implements PublishedLineViewsPort {
@@ -54,6 +54,10 @@ export class DrizzlePublishedLineViews implements PublishedLineViewsPort {
 
   ofWorkspace(workspaceId: WorkspaceId): Promise<readonly LineView[]> {
     return this.viewsWhere(eq(line.workspaceId, workspaceId.value));
+  }
+
+  keepingWarmSandboxes(): Promise<readonly LineView[]> {
+    return this.viewsWhere(gt(line.warmSandboxes, 0));
   }
 
   private async viewsWhere(where: SQL): Promise<readonly LineView[]> {

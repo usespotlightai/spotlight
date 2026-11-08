@@ -123,6 +123,7 @@ export const renderLine = (line: Line): LineDefinition => {
         ...present('setup', each.setup?.value ?? null),
       })),
     ...present('runners', placed(line.placement.requiredLabels)),
+    warmSandboxes: line.warmSandboxes.value,
     stations: line.stations.map(renderStation),
     reactions: [...line.reactions].sort(inReactionOrder).map((each) => ({
       happening: each.happening.value,

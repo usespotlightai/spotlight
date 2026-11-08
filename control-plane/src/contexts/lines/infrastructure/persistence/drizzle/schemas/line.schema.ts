@@ -100,6 +100,7 @@ export const line = pgTable(
     search: jsonb('search').$type<LineSearchRow>(),
     source: jsonb('source').$type<ConfigSourceRow>(),
     runners: jsonb('runners').$type<string[]>().notNull().default([]),
+    warmSandboxes: integer('warm_sandboxes').notNull().default(0),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
     updatedAt: timestamptz('updated_at')

@@ -332,6 +332,20 @@ describe('compileLine', () => {
     ).toBe('runners');
   });
 
+  it('reads how many warm sandboxes a line keeps, 0 where it names none', () => {
+    const compiled = compileLine({ ...DELIVERY, warmSandboxes: 2 });
+    const unnamed = compileLine(DELIVERY);
+
+    expect(compiled.ok && compiled.line.warmSandboxes.value).toBe(2);
+    expect(unnamed.ok && unnamed.line.warmSandboxes.value).toBe(0);
+  });
+
+  it.each([-1, 6, 1.5])('points at warm sandboxes of %d', (warmSandboxes) => {
+    expect(dottedOf(problemsOf({ ...DELIVERY, warmSandboxes })[0]?.field)).toBe(
+      'warmSandboxes',
+    );
+  });
+
   it('reads the threshold a planned change is checked against, filling in what it leaves out', () => {
     const compiled = compileLine({
       ...DELIVERY,

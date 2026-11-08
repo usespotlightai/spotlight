@@ -9,6 +9,7 @@ export class PoolOccupancy {
 
   static of(input: {
     runners: number;
+    entered: readonly SandboxId[];
     idleSandboxes: readonly SandboxId[];
   }): PoolOccupancy {
     if (!Number.isInteger(input.runners) || input.runners < 0) {
@@ -18,7 +19,12 @@ export class PoolOccupancy {
       );
     }
 
-    return new PoolOccupancy(input.runners, [...input.idleSandboxes]);
+    return new PoolOccupancy(
+      input.runners,
+      input.idleSandboxes.filter(
+        (idle) => !input.entered.some((each) => each.equals(idle)),
+      ),
+    );
   }
 
   get idleSandboxes(): number {
