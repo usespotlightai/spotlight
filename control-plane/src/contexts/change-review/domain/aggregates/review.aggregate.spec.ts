@@ -6,6 +6,7 @@ import { ReviewComment } from '@change-review/domain/aggregates/review-comment.a
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -21,12 +22,22 @@ const ADA = UserId.of('user_ada');
 const BOB = UserId.of('user_bob');
 const TASK = TaskId.of('task_1');
 
-const draftBy = (author: UserId, id = 'comment_1', task = TASK) =>
+const draftBy = (
+  author: UserId,
+  id = 'comment_1',
+  task = TASK,
+  repository: string | null = null,
+) =>
   ReviewComment.draft({
     id: ReviewCommentId.of(id),
     workspaceId: WorkspaceId.of('workspace_1'),
     taskId: task,
-    anchor: ReviewAnchor.onLines({ path: 'src/a.ts', side: 'new', line: 3 }),
+    anchor: ReviewAnchor.onLines({
+      repository: RepositoryName.optional(repository),
+      path: 'src/a.ts',
+      side: 'new',
+      line: 3,
+    }),
     body: 'Rename this',
     author: ReviewAuthor.person(author, AuthorName.of('Someone')),
     now: NOW,
@@ -50,11 +61,13 @@ const submit = (over: {
   body?: string;
   drafts?: ReviewComment[];
   author?: ReviewAuthor;
+  repository?: string;
 }) =>
   Review.submit({
     id: ReviewId.of('review_1'),
     workspaceId: WorkspaceId.of('workspace_1'),
     taskId: TASK,
+    repository: RepositoryName.optional(over.repository),
     author: over.author ?? ReviewAuthor.person(ADA, AuthorName.of('Ada')),
     verdict: over.verdict ?? 'comment',
     body: over.body ?? '',
@@ -86,6 +99,35 @@ describe('Review', () => {
         comments: review.comments,
       }),
     ]);
+  });
+
+  it('takes only the drafts of its own repository, and those that name none', () => {
+    const review = submit({
+      repository: 'docs',
+      drafts: [
+        draftBy(ADA, 'comment_web', TASK, 'web'),
+        draftBy(ADA, 'comment_docs', TASK, 'Docs'),
+        draftBy(ADA, 'comment_unnamed'),
+      ],
+    });
+
+    expect(review.repository?.value).toBe('docs');
+    expect(review.comments.map((each) => each.value)).toEqual([
+      'comment_docs',
+      'comment_unnamed',
+    ]);
+  });
+
+  it('takes the drafts of every repository when it names none', () => {
+    const review = submit({
+      drafts: [
+        draftBy(ADA, 'comment_web', TASK, 'web'),
+        draftBy(ADA, 'comment_docs', TASK, 'docs'),
+      ],
+    });
+
+    expect(review.repository).toBeNull();
+    expect(review.comments).toHaveLength(2);
   });
 
   it('leaves out drafts that another review already contains, so a second submit posts nothing twice', () => {

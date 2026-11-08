@@ -18,6 +18,7 @@ export interface TaskLookup {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId | null;
   readonly pullRequest: PullRequestUrl | null;
+  readonly pullRequests: readonly PullRequestUrl[];
   readonly reviewing: boolean;
   readonly fromOutside: boolean;
   readonly currentRunId: RunId | null;

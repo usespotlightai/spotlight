@@ -730,7 +730,8 @@ const pullRequestOfTask = (
   task: TaskResponseDto,
   taskRuns: readonly TaskRunResponseDto[],
 ): PullRequestRecord | null => {
-  if (!task.pullRequest) {
+  const [pullRequest] = task.pullRequests;
+  if (!pullRequest) {
     return null;
   }
   const opener = [...taskRuns]
@@ -743,8 +744,8 @@ const pullRequestOfTask = (
   const answeredAt = reviewer ? answerOf(reviewer) : answerOf(opener);
   const merged = finishedTask(task) && answeredAt !== null;
   const stat = statOf(RUN_CHANGE_STACKS[opener.id] ?? []);
-  const repository = task.pullRequest.split('/').slice(3, 5).join('/');
-  const number = Number(task.pullRequest.split('/').at(-1));
+  const repository = pullRequest.split('/').slice(3, 5).join('/');
+  const number = Number(pullRequest.split('/').at(-1));
 
   return {
     repository,

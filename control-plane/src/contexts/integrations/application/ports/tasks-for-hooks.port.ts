@@ -30,6 +30,7 @@ export interface TaskView {
   readonly marks: Readonly<Record<string, string>>;
   readonly repositories: readonly Repository[];
   readonly pullRequest: PullRequestUrl | null;
+  readonly pullRequests: readonly PullRequestUrl[];
   readonly runId: RunId | null;
   readonly waiting: TaskWaitingView | null;
 }

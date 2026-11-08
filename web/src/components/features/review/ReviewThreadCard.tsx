@@ -77,6 +77,7 @@ export function ReviewThreadCard({
                 {
                   teamId: reviewing.teamId,
                   runId: reviewing.runId,
+                  repository: reviewing.repository,
                   body,
                   on: { replyTo: thread.root.id },
                 },

@@ -13,6 +13,7 @@ import type { ReviewRepository } from '@change-review/domain/repositories/review
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -48,6 +49,7 @@ const MAX_WAITS_FOR_THREAD = 30;
 
 const delivering = (over: {
   pullRequest?: PullRequestUrl | null;
+  pullRequests?: readonly PullRequestUrl[];
   delivery: {
     readonly kind: ReviewDeliveryKind;
     readonly subjectId: string;
@@ -105,11 +107,13 @@ const delivering = (over: {
     dropTask: async () => undefined,
   };
 
+  const pullRequest = over.pullRequest === undefined ? PULL : over.pullRequest;
   const task = {
     id: TASK,
     workspaceId: WORKSPACE,
     teamId: null,
-    pullRequest: over.pullRequest === undefined ? PULL : over.pullRequest,
+    pullRequest,
+    pullRequests: over.pullRequests ?? (pullRequest ? [pullRequest] : []),
     reviewing: false,
     currentRunId: null,
   };
@@ -197,6 +201,7 @@ const submitted = () => {
     id: ReviewId.of('review_1'),
     workspaceId: WORKSPACE,
     taskId: TASK,
+    repository: null,
     author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
     verdict: 'request-changes',
     body: 'A few things',
@@ -265,6 +270,7 @@ describe('DeliverReviews', () => {
       id: ReviewId.of('review_1'),
       workspaceId: WORKSPACE,
       taskId: TASK,
+      repository: null,
       author: agent,
       verdict: 'comment',
       body: 'One thing',
@@ -304,6 +310,7 @@ describe('DeliverReviews', () => {
       id: ReviewId.of('review_2'),
       workspaceId: WORKSPACE,
       taskId: TASK,
+      repository: null,
       author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       verdict: 'comment',
       body: 'Again',
@@ -524,6 +531,7 @@ describe('DeliverReviews', () => {
           id: review.id,
           workspaceId: WORKSPACE,
           taskId: TASK,
+          repository: null,
           author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
           verdict: 'comment',
           body: '',
@@ -622,6 +630,7 @@ describe('DeliverReviews', () => {
       id: ReviewId.of('review_1'),
       workspaceId: WORKSPACE,
       taskId: TASK,
+      repository: null,
       author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
       verdict: 'comment',
       body: '',
@@ -873,5 +882,166 @@ describe('DeliverReviews', () => {
 
     expect(delivered.recorded[0]?.how).toBe('failed');
     expect(delivered.comments.get('comment_1')?.editPending).toBe(false);
+  });
+});
+
+describe('DeliverReviews, on a task with a pull request per repository', () => {
+  const DOCS = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+  const BOTH = [PULL, DOCS] as const;
+  const IN_DOCS = RepositoryName.of('docs');
+
+  const inDocs = (
+    id: string,
+    anchor = ReviewAnchor.onFile('guide.md', IN_DOCS),
+  ) =>
+    ReviewComment.draft({
+      id: ReviewCommentId.of(id),
+      workspaceId: WORKSPACE,
+      taskId: TASK,
+      anchor,
+      body: 'About the guide',
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      now: NOW,
+    });
+
+  it('posts a review on the pull request of its repository', async () => {
+    const { review, claimed } = Review.submit({
+      id: ReviewId.of('review_1'),
+      workspaceId: WORKSPACE,
+      taskId: TASK,
+      repository: IN_DOCS,
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      verdict: 'comment',
+      body: 'Docs read well',
+      drafts: [
+        inDocs(
+          'comment_1',
+          ReviewAnchor.onLines({
+            repository: IN_DOCS,
+            path: 'guide.md',
+            side: 'new',
+            line: 2,
+          }),
+        ),
+        draft('comment_2', 3),
+      ],
+      now: NOW,
+    });
+    const delivered = delivering({
+      pullRequests: BOTH,
+      delivery: { kind: 'review', subjectId: 'review_1', attempts: 0 },
+      reviews: [review],
+      comments: [...claimed],
+    });
+
+    await delivered.service.deliverDue();
+
+    expect(delivered.github.submit).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequest: DOCS }),
+    );
+  });
+
+  it('posts a review that names no repository on the task’s first pull request', async () => {
+    const { review, comments } = submitted();
+    const delivered = delivering({
+      pullRequests: BOTH,
+      delivery: { kind: 'review', subjectId: 'review_1', attempts: 0 },
+      reviews: [review],
+      comments,
+    });
+
+    await delivered.service.deliverDue();
+
+    expect(delivered.github.submit).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequest: PULL }),
+    );
+  });
+
+  it('posts a comment on a whole file on the pull request of its repository', async () => {
+    const delivered = delivering({
+      pullRequests: BOTH,
+      delivery: { kind: 'file', subjectId: 'comment_1', attempts: 0 },
+      comments: [inDocs('comment_1').submittedIn(ReviewId.of('review_1'))],
+    });
+
+    await delivered.service.deliverDue();
+
+    expect(delivered.github.commentOnFile).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequest: DOCS, path: 'guide.md' }),
+    );
+  });
+
+  it('replies, edits and deletes on the pull request of the comment’s repository', async () => {
+    const parent = inDocs('comment_1')
+      .submittedIn(ReviewId.of('review_1'))
+      .postedAs({ id: 77, url: 'https://github.com/c/77' });
+    const reply = parent.replied({
+      id: ReviewCommentId.of('comment_2'),
+      body: 'Done',
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      now: NOW,
+    });
+
+    const replied = delivering({
+      pullRequests: BOTH,
+      delivery: { kind: 'reply', subjectId: 'comment_2', attempts: 0 },
+      comments: [parent, reply],
+    });
+    await replied.service.deliverDue();
+
+    const edited = delivering({
+      pullRequests: BOTH,
+      delivery: { kind: 'edit', subjectId: 'comment_1', attempts: 0 },
+      comments: [parent.edited('Clearer', ADA, NOW)],
+    });
+    await edited.service.deliverDue();
+
+    const deleted = delivering({
+      pullRequests: BOTH,
+      delivery: { kind: 'delete', subjectId: 'comment_1', attempts: 0 },
+      comments: [parent.deleted(ADA)],
+    });
+    await deleted.service.deliverDue();
+
+    expect(replied.github.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequest: DOCS, thread: 77 }),
+    );
+    expect(edited.github.edit).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequest: DOCS, commentId: 77 }),
+    );
+    expect(deleted.github.remove).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequest: DOCS, commentId: 77 }),
+    );
+  });
+
+  it('answers a comment from GitHub on the pull request it came from, whatever its repository says', async () => {
+    const received = ReviewComment.receive({
+      id: ReviewCommentId.of('comment_1'),
+      workspaceId: WORKSPACE,
+      taskId: TASK,
+      anchor: ReviewAnchor.onFile('guide.md', RepositoryName.of('web')),
+      body: 'Why?',
+      author: ReviewAuthor.onGitHub('octocat'),
+      inReplyTo: null,
+      github: { id: 77, url: `${DOCS.value}#discussion_r77` },
+      at: NOW,
+    });
+    const reply = received.replied({
+      id: ReviewCommentId.of('comment_2'),
+      body: 'Because',
+      author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),
+      now: NOW,
+    });
+    const delivered = delivering({
+      pullRequests: BOTH,
+      delivery: { kind: 'reply', subjectId: 'comment_2', attempts: 0 },
+      comments: [received, reply],
+    });
+
+    await delivered.service.deliverDue();
+
+    expect(delivered.github.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequest: DOCS }),
+    );
   });
 });

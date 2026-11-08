@@ -22,6 +22,7 @@ export interface DeliveryFailureDto {
 
 export interface ReviewCommentDto {
   readonly id: string;
+  readonly repository: string | null;
   readonly path: string;
   readonly side: (typeof REVIEW_SIDE_NAMES)[number] | null;
   readonly line: number | null;
@@ -42,6 +43,7 @@ export interface ReviewCommentDto {
 
 export interface ReviewDto {
   readonly id: string;
+  readonly repository: string | null;
   readonly authorName: string;
   readonly viewerIsAuthor: boolean;
   readonly isAgentAuthored: boolean;

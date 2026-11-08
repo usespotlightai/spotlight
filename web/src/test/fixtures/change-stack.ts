@@ -277,6 +277,7 @@ export const REVIEW: CodeReviewResponseDto = {
   comments: [
     {
       id: 'comment_expiry',
+      repository: null,
       path: 'control-plane/src/schemas/invitation.schema.ts',
       side: 'new',
       line: 9,
@@ -296,6 +297,7 @@ export const REVIEW: CodeReviewResponseDto = {
     },
     {
       id: 'comment_expiry_agent',
+      repository: null,
       path: 'control-plane/src/schemas/invitation.schema.ts',
       side: 'new',
       line: 9,
@@ -315,6 +317,7 @@ export const REVIEW: CodeReviewResponseDto = {
     },
     {
       id: 'comment_expiry_reply',
+      repository: null,
       path: 'control-plane/src/schemas/invitation.schema.ts',
       side: 'new',
       line: 9,
@@ -334,6 +337,7 @@ export const REVIEW: CodeReviewResponseDto = {
     },
     {
       id: 'comment_roles',
+      repository: null,
       path: 'control-plane/src/invitations/invitation.controller.ts',
       side: 'new',
       line: 6,

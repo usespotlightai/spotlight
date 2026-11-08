@@ -190,11 +190,16 @@ CREATE TABLE "decision_set" (
 	"job_attempts" integer NOT NULL,
 	"job_due_at" timestamp (3) with time zone,
 	"status" "decision_status" NOT NULL,
-	"merged_repository" text,
-	"merged_commit" text,
-	"merged_at" timestamp (3) with time zone,
 	"version" integer NOT NULL,
 	CONSTRAINT "decision_set_job_attempts_not_negative" CHECK ("decision_set"."job_attempts" >= 0)
+);
+--> statement-breakpoint
+CREATE TABLE "decision_set_merge" (
+	"set_id" text NOT NULL,
+	"repository" text NOT NULL,
+	"commit" text NOT NULL,
+	"merged_at" timestamp (3) with time zone NOT NULL,
+	CONSTRAINT "decision_set_merge_set_id_repository_pk" PRIMARY KEY("set_id","repository")
 );
 --> statement-breakpoint
 CREATE TABLE "question_answer" (
@@ -220,6 +225,7 @@ CREATE TABLE "review" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"task_id" text NOT NULL,
+	"repository" text,
 	"author_id" text,
 	"author_run_id" text,
 	"author_name" text,
@@ -240,6 +246,7 @@ CREATE TABLE "review_comment" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"task_id" text NOT NULL,
+	"repository" text,
 	"path" text NOT NULL,
 	"side" "review_side",
 	"line" integer,
@@ -2145,6 +2152,7 @@ CREATE TABLE "task" (
 	"session_id" text,
 	"runner_id" text,
 	"pull_request" text,
+	"pull_request_closed_at" timestamp (3) with time zone,
 	"reviewing" boolean DEFAULT false NOT NULL,
 	"review_from_outside" boolean DEFAULT false NOT NULL,
 	"finished_at" timestamp (3) with time zone,
@@ -2208,6 +2216,15 @@ CREATE TABLE "task_note" (
 	"acknowledged_at" timestamp (3) with time zone,
 	CONSTRAINT "task_note_task_id_position_pk" PRIMARY KEY("task_id","position"),
 	CONSTRAINT "task_note_position_not_negative" CHECK ("task_note"."position" >= 0)
+);
+--> statement-breakpoint
+CREATE TABLE "task_pull_request" (
+	"workspace_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"url" text NOT NULL,
+	"opened_at" timestamp (3) with time zone NOT NULL,
+	"closed_at" timestamp (3) with time zone,
+	CONSTRAINT "task_pull_request_task_id_url_pk" PRIMARY KEY("task_id","url")
 );
 --> statement-breakpoint
 CREATE TABLE "team_welcome" (
@@ -2281,6 +2298,7 @@ ALTER TABLE "verification" ALTER COLUMN "updated_at" SET DEFAULT now();--> state
 ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbox_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_outbox"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision" ADD CONSTRAINT "decision_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision_dispute" ADD CONSTRAINT "decision_dispute_decision_id_decision_id_fk" FOREIGN KEY ("decision_id") REFERENCES "public"."decision"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "decision_set_merge" ADD CONSTRAINT "decision_set_merge_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "review_included_comment" ADD CONSTRAINT "review_included_comment_review_fk" FOREIGN KEY ("workspace_id","review_id") REFERENCES "public"."review"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "terraform_state_version" ADD CONSTRAINT "terraform_state_version_state_id_terraform_state_id_fk" FOREIGN KEY ("state_id") REFERENCES "public"."terraform_state"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_email" ADD CONSTRAINT "user_email_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2329,6 +2347,7 @@ ALTER TABLE "task" ADD CONSTRAINT "task_station_fk" FOREIGN KEY ("station_id") R
 ALTER TABLE "task_attachment" ADD CONSTRAINT "task_attachment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_mark" ADD CONSTRAINT "task_mark_task_fk" FOREIGN KEY ("workspace_id","task_id") REFERENCES "public"."task"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_note" ADD CONSTRAINT "task_note_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task_pull_request" ADD CONSTRAINT "task_pull_request_task_fk" FOREIGN KEY ("workspace_id","task_id") REFERENCES "public"."task"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "event_delivery_due_idx" ON "event_delivery" USING btree ("due_at");--> statement-breakpoint
 CREATE INDEX "event_delivery_pending_idx" ON "event_delivery" USING btree ("subscriber") WHERE "event_delivery"."delivered_at" is null;--> statement-breakpoint
 CREATE INDEX "catalog_call_workspace_called_idx" ON "catalog_call" USING btree ("workspace_id","called_at");--> statement-breakpoint
@@ -2341,7 +2360,8 @@ CREATE INDEX "decision_paths_idx" ON "decision" USING gin ("paths");--> statemen
 CREATE INDEX "decision_dispute_decision_idx" ON "decision_dispute" USING btree ("decision_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "decision_set_task_idx" ON "decision_set" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "decision_set_generation_idx" ON "decision_set" USING btree ("generation_requested_at");--> statement-breakpoint
-CREATE INDEX "decision_set_merged_idx" ON "decision_set" USING btree ("workspace_id","merged_repository","merged_at");--> statement-breakpoint
+CREATE INDEX "decision_set_workspace_idx" ON "decision_set" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "decision_set_merge_repository_idx" ON "decision_set_merge" USING btree ("repository","merged_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "question_answer_person_idx" ON "question_answer" USING btree ("stack_id","person_id","question_id");--> statement-breakpoint
 CREATE INDEX "question_answer_task_idx" ON "question_answer" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "question_answer_team_idx" ON "question_answer" USING btree ("team_id");--> statement-breakpoint

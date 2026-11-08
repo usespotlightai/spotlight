@@ -75,6 +75,7 @@ import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo'
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import type { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
+import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -168,6 +169,8 @@ export class Task extends EventRecorder {
     readonly version: number = 0,
     readonly awaitedTurn: AwaitedTurn | null = null,
     readonly answeredTurnAt: Date | null = null,
+    readonly laterPullRequests: readonly LaterPullRequest[] = [],
+    readonly pullRequestClosedAt: Date | null = null,
   ) {
     super();
   }
@@ -267,6 +270,8 @@ export class Task extends EventRecorder {
     version: number;
     awaitedTurn?: AwaitedTurn | null;
     answeredTurnAt?: Date | null;
+    laterPullRequests?: readonly LaterPullRequest[];
+    pullRequestClosedAt?: Date | null;
   }): Task {
     if (input.version < 0) {
       throw new InconsistentStateError('task', 'has a negative version');
@@ -280,6 +285,32 @@ export class Task extends EventRecorder {
 
     if (input.notes.some((note, place) => note.position.value !== place)) {
       throw new InconsistentStateError('task', 'has a gap in its trail');
+    }
+
+    if (
+      (input.laterPullRequests ?? []).length > 0 &&
+      (!input.pullRequestLink || input.pullRequestLink.reviews)
+    ) {
+      throw new InconsistentStateError(
+        'task',
+        'has later pull requests but opened no first one',
+      );
+    }
+
+    const opened = [
+      input.pullRequestLink?.url,
+      ...(input.laterPullRequests ?? []).map((each) => each.url),
+    ].flatMap((each) => (each?.repository ? [each.repository] : []));
+
+    if (
+      opened.some((each, at) =>
+        opened.slice(at + 1).some((other) => other.equals(each)),
+      )
+    ) {
+      throw new InconsistentStateError(
+        'task',
+        'has two pull requests in one repository',
+      );
     }
 
     if (input.pullRequestLink?.reviews && !input.pullRequestLink.reviewedHead) {
@@ -316,6 +347,8 @@ export class Task extends EventRecorder {
       input.version,
       input.awaitedTurn ?? null,
       input.answeredTurnAt ?? null,
+      input.laterPullRequests ?? [],
+      input.pullRequestClosedAt ?? null,
     );
 
     if (
@@ -620,13 +653,25 @@ export class Task extends EventRecorder {
   ): Task {
     this.assertNoOtherRun(by, 'open a pull request for it');
 
-    if (this.pullRequest) {
+    if (this.reviewing) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} reviews a pull request. It cannot open one.`,
+      );
+    }
+
+    if (this.pullRequestIn(url.repository)) {
       return this;
     }
 
-    const opened = this.markedBy(Mark.pullRequest(url), at).with({
-      pullRequestLink: PullRequestLink.opened(url),
-    });
+    const marked = this.markedBy(Mark.pullRequest(url), at);
+    const opened = this.pullRequestLink
+      ? marked.with({
+          laterPullRequests: [
+            ...this.laterPullRequests,
+            LaterPullRequest.of(url, at),
+          ],
+        })
+      : marked.with({ pullRequestLink: PullRequestLink.opened(url) });
     opened.record(
       new PullRequestOpened(
         opened.id,
@@ -683,8 +728,85 @@ export class Task extends EventRecorder {
     return this.pullRequestLink?.url ?? null;
   }
 
-  get pullRequestStep(): PullRequestStep {
-    const pullRequest = this.pullRequest;
+  get pullRequests(): readonly PullRequestUrl[] {
+    const first = this.pullRequest;
+
+    return first
+      ? [first, ...this.laterPullRequests.map((each) => each.url)]
+      : [];
+  }
+
+  pullRequestClosed(url: PullRequestUrl, at: Date): Task {
+    if (this.reviewing) {
+      return this;
+    }
+
+    if (this.pullRequest?.equals(url)) {
+      return this.pullRequestClosedAt
+        ? this
+        : this.with({ pullRequestClosedAt: at });
+    }
+
+    return this.laterPullRequests.some((each) => each.url.equals(url))
+      ? this.with({
+          laterPullRequests: this.laterPullRequests.map((each) =>
+            each.url.equals(url) ? each.closed(at) : each,
+          ),
+        })
+      : this;
+  }
+
+  pullRequestReopened(url: PullRequestUrl): Task {
+    if (this.pullRequest?.equals(url)) {
+      return this.pullRequestClosedAt
+        ? this.with({ pullRequestClosedAt: null })
+        : this;
+    }
+
+    return this.laterPullRequests.some(
+      (each) => each.url.equals(url) && each.closedAt !== null,
+    )
+      ? this.with({
+          laterPullRequests: this.laterPullRequests.map((each) =>
+            each.url.equals(url) ? each.reopened() : each,
+          ),
+        })
+      : this;
+  }
+
+  get openPullRequests(): readonly PullRequestUrl[] {
+    if (this.reviewing || !this.pullRequest) {
+      return [];
+    }
+
+    return [
+      ...(this.pullRequestClosedAt ? [] : [this.pullRequest]),
+      ...this.laterPullRequests
+        .filter((each) => each.closedAt === null)
+        .map((each) => each.url),
+    ];
+  }
+
+  pullRequestIn(repository: Repository | null): PullRequestUrl | null {
+    if (!repository) {
+      return this.pullRequest;
+    }
+
+    return (
+      this.pullRequests.find(
+        (each) => each.repository?.equals(repository) ?? false,
+      ) ?? null
+    );
+  }
+
+  pullRequestStep(repository: Repository | null): PullRequestStep {
+    if (this.reviewing) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} reviews a pull request. It cannot open or edit one.`,
+      );
+    }
+
+    const pullRequest = this.pullRequestIn(repository);
 
     return pullRequest ? { kind: 'edit', pullRequest } : { kind: 'open' };
   }
@@ -1199,10 +1321,12 @@ export class Task extends EventRecorder {
     });
   }
 
-  private reviewCommentAt(at: NotePosition): ReviewComment {
-    const reviewComment = at.noteIn(this.notes)?.open
-      ? at.noteIn(this.notes)?.reviewComment
-      : null;
+  private reviewCommentAt(at: NotePosition): {
+    reviewComment: ReviewComment;
+    pullRequest: PullRequestUrl | null;
+  } {
+    const note = at.noteIn(this.notes);
+    const reviewComment = note?.open ? note.reviewComment : null;
 
     if (!reviewComment) {
       throw new InvalidTaskTransitionError(
@@ -1210,7 +1334,10 @@ export class Task extends EventRecorder {
       );
     }
 
-    return reviewComment;
+    return {
+      reviewComment,
+      pullRequest: note?.reviewCommentPullRequest ?? null,
+    };
   }
 
   reviewCommentToReplyFrom(
@@ -1220,9 +1347,11 @@ export class Task extends EventRecorder {
   ): ReviewCommentToReply {
     this.assertNoOtherRun(by, 'reply to a review comment on it');
 
-    const repository = this.pullRequest?.repository ?? null;
+    const commented = this.reviewCommentAt(at);
+    const pullRequest = commented.pullRequest ?? this.pullRequest;
+    const repository = pullRequest?.repository ?? null;
 
-    if (!this.pullRequest || !repository) {
+    if (!pullRequest || !repository) {
       throw new NoRepositoryError();
     }
 
@@ -1233,9 +1362,9 @@ export class Task extends EventRecorder {
     }
 
     return {
-      pullRequest: this.pullRequest,
+      pullRequest,
       repository,
-      reviewComment: this.reviewCommentAt(at),
+      reviewComment: commented.reviewComment,
     };
   }
 
@@ -1795,6 +1924,8 @@ export class Task extends EventRecorder {
     revision?: TaskRevision;
     awaitedTurn?: AwaitedTurn | null;
     answeredTurnAt?: Date | null;
+    laterPullRequests?: readonly LaterPullRequest[];
+    pullRequestClosedAt?: Date | null;
   }): Task {
     const next = new Task(
       this.id,
@@ -1827,6 +1958,10 @@ export class Task extends EventRecorder {
       part.answeredTurnAt !== undefined
         ? part.answeredTurnAt
         : this.answeredTurnAt,
+      part.laterPullRequests ?? this.laterPullRequests,
+      part.pullRequestClosedAt !== undefined
+        ? part.pullRequestClosedAt
+        : this.pullRequestClosedAt,
     );
 
     next.inheritEvents(this);

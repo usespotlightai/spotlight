@@ -67,6 +67,7 @@ export function FileThread({
                 {
                   teamId: reviewing.teamId,
                   runId: reviewing.runId,
+                  repository: reviewing.repository,
                   body,
                   on: { path },
                 },

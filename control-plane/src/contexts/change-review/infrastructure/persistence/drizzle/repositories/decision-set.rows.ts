@@ -1,21 +1,11 @@
-import type { decisionSet } from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
+import type {
+  decisionSet,
+  decisionSetMerge,
+} from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
 
 export type DecisionSetRow = typeof decisionSet.$inferSelect;
 
-export interface MergeRow {
-  readonly repository: string;
-  readonly commit: string;
-  readonly at: Date;
-}
+export type MergeRow = typeof decisionSetMerge.$inferSelect;
 
 export const generationRunOf = (row: DecisionSetRow): string | null =>
   row.generationRunId;
-
-export const mergeRowOf = (row: DecisionSetRow): MergeRow | null =>
-  row.mergedRepository && row.mergedCommit && row.mergedAt
-    ? {
-        repository: row.mergedRepository,
-        commit: row.mergedCommit,
-        at: row.mergedAt,
-      }
-    : null;

@@ -2994,9 +2994,9 @@ export type TaskResponseDto = {
    */
   awaitingReview: TaskReviewResponseDto | null;
   /**
-   * The pull request this task ended in, once one is open
+   * The pull requests this task ended in, one for each repository, the first opened first
    */
-  pullRequest: string | null;
+  pullRequests: Array<string>;
   /**
    * The person who created it. The task comes back to this person
    */
@@ -4026,9 +4026,9 @@ export type TaskDecisionsResponseDto = {
   generating: boolean;
   status: 'proposed' | 'merged';
   /**
-   * The merge that contains the decisions, after the pull request merges
+   * One merge for each repository whose pull request merged, oldest first
    */
-  merge: DecisionMergeResponseDto | null;
+  merges: Array<DecisionMergeResponseDto>;
   /**
    * Deviations and limitations first
    */
@@ -4121,6 +4121,10 @@ export type RecordChangeStackCheckRequestDto = {
 
 export type ReviewCommentResponseDto = {
   id: string;
+  /**
+   * The repository the file is in; none when it was not named
+   */
+  repository: string | null;
   path: string;
   /**
    * Which side of the change its lines are on; none on the whole file
@@ -4168,6 +4172,10 @@ export type ReviewCommentResponseDto = {
 
 export type ReviewResponseDto = {
   id: string;
+  /**
+   * The repository it reviews; none when it was not named
+   */
+  repository: string | null;
   authorName: string;
   viewerIsAuthor: boolean;
   /**
@@ -4192,6 +4200,10 @@ export type CodeReviewResponseDto = {
 
 export type DraftReviewCommentRequestDto = {
   body: string;
+  /**
+   * The repository the file is in, as the run checked it out; its comments go to that repository’s pull request
+   */
+  repository?: string;
   path?: string;
   /**
    * The side of the change the lines are on; none on the whole file
@@ -4222,6 +4234,10 @@ export type EditReviewCommentRequestDto = {
 export type SubmitReviewRequestDto = {
   verdict: 'comment' | 'approve' | 'request-changes';
   body?: string;
+  /**
+   * The repository the review is on; it takes that repository’s drafts and goes to its pull request
+   */
+  repository?: string;
 };
 
 export type ConnectIntegrationRequestDto = {

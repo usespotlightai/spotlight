@@ -30,6 +30,7 @@ import {
 import {
   task,
   taskNote,
+  taskPullRequest,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { and, asc, desc, eq, inArray, ne, type SQL } from 'drizzle-orm';
@@ -112,46 +113,75 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .$dynamic();
     const rows = await (limit === null ? listed : listed.limit(limit));
 
-    const [notes, awaited, attached, people, progressOf] = await Promise.all([
-      this.latestNotes(rows.map((row) => row.id)),
-      awaitedReviewsFor(
-        this.db,
-        rows.map((row) => row.id),
-      ),
-      attachmentsFor(
-        this.db,
-        rows.map((row) => row.id),
-      ),
-      this.people.findMany(
-        rows.flatMap((row) =>
-          [row.createdById, row.assigneeId].flatMap((id) =>
-            id ? [UserId.of(id)] : [],
+    const [notes, pulled, awaited, attached, people, progressOf] =
+      await Promise.all([
+        this.latestNotes(rows.map((row) => row.id)),
+        this.laterPullRequests(rows.map((row) => row.id)),
+        awaitedReviewsFor(
+          this.db,
+          rows.map((row) => row.id),
+        ),
+        attachmentsFor(
+          this.db,
+          rows.map((row) => row.id),
+        ),
+        this.people.findMany(
+          rows.flatMap((row) =>
+            [row.createdById, row.assigneeId].flatMap((id) =>
+              id ? [UserId.of(id)] : [],
+            ),
           ),
         ),
-      ),
-      progressOfCurrentRuns(
-        this.progress,
-        rows.map((row) => row.currentRunId),
-        true,
-      ),
-    ]);
+        progressOfCurrentRuns(
+          this.progress,
+          rows.map((row) => row.currentRunId),
+          true,
+        ),
+      ]);
     const person = (id: string) => ({
       id,
       name: people.get(id)?.name ?? '',
       image: people.get(id)?.image ?? null,
     });
 
-    return rows.map(({ currentRunId, createdById, assigneeId, ...rest }) => ({
-      ...rest,
-      attachments: attachmentsOf(attached, rest.id).own,
-      progress: awaited.has(rest.id) ? null : progressOf(currentRunId),
-      awaitingReview: awaited.has(rest.id)
-        ? { conversationId: awaited.get(rest.id) as string }
-        : null,
-      createdBy: createdById ? person(createdById) : null,
-      assignee: assigneeId ? person(assigneeId) : null,
-      note: notes.get(rest.id) ?? null,
-    }));
+    return rows.map(
+      ({ currentRunId, createdById, assigneeId, pullRequest, ...rest }) => ({
+        ...rest,
+        pullRequests: [
+          ...(pullRequest ? [pullRequest] : []),
+          ...(pulled.get(rest.id) ?? []),
+        ],
+        attachments: attachmentsOf(attached, rest.id).own,
+        progress: awaited.has(rest.id) ? null : progressOf(currentRunId),
+        awaitingReview: awaited.has(rest.id)
+          ? { conversationId: awaited.get(rest.id) as string }
+          : null,
+        createdBy: createdById ? person(createdById) : null,
+        assignee: assigneeId ? person(assigneeId) : null,
+        note: notes.get(rest.id) ?? null,
+      }),
+    );
+  }
+
+  private async laterPullRequests(
+    taskIds: string[],
+  ): Promise<Map<string, string[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.db
+      .select({ taskId: taskPullRequest.taskId, url: taskPullRequest.url })
+      .from(taskPullRequest)
+      .where(inArray(taskPullRequest.taskId, taskIds))
+      .orderBy(asc(taskPullRequest.openedAt), asc(taskPullRequest.url));
+    const later = new Map<string, string[]>();
+
+    for (const row of rows) {
+      later.set(row.taskId, [...(later.get(row.taskId) ?? []), row.url]);
+    }
+
+    return later;
   }
 
   private async latestNotes(

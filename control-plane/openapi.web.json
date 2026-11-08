@@ -9306,11 +9306,15 @@
               }
             ]
           },
-          "pullRequest": {
-            "type": "string",
-            "example": "https://github.com/acme/widgets/pull/7",
-            "nullable": true,
-            "description": "The pull request this task ended in, once one is open"
+          "pullRequests": {
+            "example": [
+              "https://github.com/acme/widgets/pull/7"
+            ],
+            "description": "The pull requests this task ended in, one for each repository, the first opened first",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "createdBy": {
             "nullable": true,
@@ -9353,7 +9357,7 @@
           "createdAt",
           "progress",
           "awaitingReview",
-          "pullRequest",
+          "pullRequests",
           "createdBy",
           "assignee",
           "note"
@@ -11644,15 +11648,12 @@
               "merged"
             ]
           },
-          "merge": {
-            "nullable": true,
-            "description": "The merge that contains the decisions, after the pull request merges",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DecisionMergeResponseDto"
-              }
-            ]
+          "merges": {
+            "description": "One merge for each repository whose pull request merged, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DecisionMergeResponseDto"
+            }
           },
           "decisions": {
             "description": "Deviations and limitations first",
@@ -11666,7 +11667,7 @@
           "runId",
           "generating",
           "status",
-          "merge",
+          "merges",
           "decisions"
         ]
       },
@@ -11748,6 +11749,12 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "docs",
+            "description": "The repository the file is in; none when it was not named"
           },
           "path": {
             "type": "string",
@@ -11832,6 +11839,7 @@
         },
         "required": [
           "id",
+          "repository",
           "path",
           "side",
           "line",
@@ -11855,6 +11863,12 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "docs",
+            "description": "The repository it reviews; none when it was not named"
           },
           "authorName": {
             "type": "string"
@@ -11896,6 +11910,7 @@
         },
         "required": [
           "id",
+          "repository",
           "authorName",
           "viewerIsAuthor",
           "isAgentAuthored",
@@ -11939,6 +11954,11 @@
           "body": {
             "type": "string",
             "example": "Should invitations expire?"
+          },
+          "repository": {
+            "type": "string",
+            "example": "docs",
+            "description": "The repository the file is in, as the run checked it out; its comments go to that repository’s pull request"
           },
           "path": {
             "type": "string",
@@ -12009,6 +12029,11 @@
           "body": {
             "type": "string",
             "example": "Close; a couple of questions."
+          },
+          "repository": {
+            "type": "string",
+            "example": "docs",
+            "description": "The repository the review is on; it takes that repository’s drafts and goes to its pull request"
           }
         },
         "required": [

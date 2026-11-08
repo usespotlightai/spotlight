@@ -8,6 +8,7 @@ import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
 import { InvalidReviewError } from '@change-review/domain/exceptions/invalid-review.error';
 import type { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
+import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import type { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import type { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
@@ -56,6 +57,7 @@ export class Review extends EventRecorder {
     readonly id: ReviewId,
     readonly workspaceId: WorkspaceId,
     readonly taskId: TaskId,
+    readonly repository: RepositoryName | null,
     readonly author: ReviewAuthor,
     readonly verdict: ReviewVerdict,
     readonly body: string,
@@ -82,6 +84,7 @@ export class Review extends EventRecorder {
     id: ReviewId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
+    repository: RepositoryName | null;
     author: ReviewAuthor;
     verdict: string;
     body: string;
@@ -106,7 +109,8 @@ export class Review extends EventRecorder {
         draft.state === 'draft' &&
         draft.reviewId === null &&
         input.author.isSameAs(draft.author) &&
-        draft.taskId.equals(input.taskId),
+        draft.taskId.equals(input.taskId) &&
+        draft.anchor.isIn(input.repository),
     );
 
     if (!hasContent(verdict, body, drafts.length)) {
@@ -121,6 +125,7 @@ export class Review extends EventRecorder {
       input.id,
       input.workspaceId,
       input.taskId,
+      input.repository,
       input.author,
       verdict,
       body,
@@ -153,6 +158,7 @@ export class Review extends EventRecorder {
     id: ReviewId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
+    repository: RepositoryName | null;
     author: ReviewAuthor;
     verdict: ReviewVerdict;
     body: string;
@@ -199,6 +205,7 @@ export class Review extends EventRecorder {
       input.id,
       input.workspaceId,
       input.taskId,
+      input.repository,
       input.author,
       input.verdict,
       input.body,
@@ -323,6 +330,7 @@ export class Review extends EventRecorder {
       this.id,
       this.workspaceId,
       this.taskId,
+      this.repository,
       this.author,
       this.verdict,
       this.body,

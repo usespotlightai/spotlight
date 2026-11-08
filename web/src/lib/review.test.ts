@@ -5,6 +5,7 @@ import {
   linesOf,
   type ReviewComment,
   rangeOf,
+  reviewOfStack,
   samePlace,
   sideOf,
   spotOf,
@@ -15,6 +16,7 @@ import {
 
 const comment = (over: Partial<ReviewComment>): ReviewComment => ({
   id: 'comment_1',
+  repository: null,
   path: 'src/a.ts',
   side: 'new',
   line: 12,
@@ -171,5 +173,32 @@ describe('rangeOf and linesOf', () => {
     expect(rangeOf(spot)).toEqual({ start: 4, end: 9, side: 'additions' });
     expect(linesOf(spot)).toBe('lines 4–9');
     expect(linesOf({ ...spot, startLine: null })).toBe('line 9');
+  });
+});
+
+describe('reviewOfStack', () => {
+  const review = {
+    pullRequest: null,
+    reviews: [],
+    comments: [
+      comment({ id: 'in_web', repository: 'web' }),
+      comment({ id: 'in_docs', repository: 'Docs' }),
+      comment({ id: 'unnamed', repository: null }),
+    ],
+  };
+  const ids = (repository: string | null, alone: boolean) =>
+    reviewOfStack(review, repository, alone)?.comments.map((each) => each.id);
+
+  it('shows only the comments of the stack’s repository, in any case', () => {
+    expect(ids('docs', false)).toEqual(['in_docs']);
+    expect(ids('web', false)).toEqual(['in_web']);
+  });
+
+  it('shows comments that name no repository on a stack that names none', () => {
+    expect(ids(null, false)).toEqual(['unnamed']);
+  });
+
+  it('adds comments that name no repository where the run has one stack, but not those of another repository', () => {
+    expect(ids('web', true)).toEqual(['in_web', 'unnamed']);
   });
 });

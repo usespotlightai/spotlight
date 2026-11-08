@@ -47,6 +47,7 @@ const requesting = (
       workspaceId: WORKSPACE,
       teamId: null,
       pullRequest: null,
+      pullRequests: [],
       reviewing: false,
       currentRunId: null,
       ...over.task,

@@ -36,7 +36,13 @@ export function RunChangeStackPage({
   const { current, stack, layerId, pick, switchTo } = useStackInView(stacks);
 
   return (
-    <ReviewProvider teamId={teamId} runId={runId} review={review}>
+    <ReviewProvider
+      teamId={teamId}
+      runId={runId}
+      repository={stack?.repository ?? null}
+      alone={current.length <= 1}
+      review={review}
+    >
       <DecisionsProvider slug={slug} teamId={teamId} taskId={taskId}>
         <div className="flex min-h-0 flex-1 flex-col">
           <PageHeader

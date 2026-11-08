@@ -254,6 +254,7 @@ describe('deleting the change review of a task', () => {
       id: ReviewId.of('review_deleted'),
       workspaceId: WORKSPACE,
       taskId: TASK,
+      repository: null,
       author,
       verdict: 'comment',
       body: '',

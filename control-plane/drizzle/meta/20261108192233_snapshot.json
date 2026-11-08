@@ -1,5 +1,5 @@
 {
-  "id": "30a4f363-580d-48a6-86dd-0c6f62104010",
+  "id": "133a05e2-726b-4b90-8f84-da605ab3195d",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -859,24 +859,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "merged_repository": {
-          "name": "merged_repository",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "merged_commit": {
-          "name": "merged_commit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "merged_at": {
-          "name": "merged_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -915,23 +897,11 @@
           "method": "btree",
           "with": {}
         },
-        "decision_set_merged_idx": {
-          "name": "decision_set_merged_idx",
+        "decision_set_workspace_idx": {
+          "name": "decision_set_workspace_idx",
           "columns": [
             {
               "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "merged_repository",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "merged_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -953,6 +923,87 @@
           "value": "\"decision_set\".\"job_attempts\" >= 0"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.decision_set_merge": {
+      "name": "decision_set_merge",
+      "schema": "",
+      "columns": {
+        "set_id": {
+          "name": "set_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "commit": {
+          "name": "commit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "merged_at": {
+          "name": "merged_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "decision_set_merge_repository_idx": {
+          "name": "decision_set_merge_repository_idx",
+          "columns": [
+            {
+              "expression": "repository",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "merged_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "decision_set_merge_set_id_decision_set_id_fk": {
+          "name": "decision_set_merge_set_id_decision_set_id_fk",
+          "tableFrom": "decision_set_merge",
+          "tableTo": "decision_set",
+          "columnsFrom": [
+            "set_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "decision_set_merge_set_id_repository_pk": {
+          "name": "decision_set_merge_set_id_repository_pk",
+          "columns": [
+            "set_id",
+            "repository"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.question_answer": {
@@ -1145,6 +1196,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "author_id": {
           "name": "author_id",
           "type": "text",
@@ -1288,6 +1345,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "path": {
           "name": "path",
@@ -17598,6 +17661,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "pull_request_closed_at": {
+          "name": "pull_request_closed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "reviewing": {
           "name": "reviewing",
           "type": "boolean",
@@ -18273,6 +18342,73 @@
           "value": "\"task_note\".\"position\" >= 0"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.task_pull_request": {
+      "name": "task_pull_request",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "task_pull_request_task_fk": {
+          "name": "task_pull_request_task_fk",
+          "tableFrom": "task_pull_request",
+          "tableTo": "task",
+          "columnsFrom": [
+            "workspace_id",
+            "task_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "task_pull_request_task_id_url_pk": {
+          "name": "task_pull_request_task_id_url_pk",
+          "columns": [
+            "task_id",
+            "url"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.team_welcome": {

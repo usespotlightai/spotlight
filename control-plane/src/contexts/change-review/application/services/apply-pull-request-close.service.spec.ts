@@ -74,7 +74,8 @@ const applying = (
             id: TASK,
             workspaceId: WORKSPACE,
             teamId: null,
-            pullRequest: null,
+            pullRequest: MERGED.pullRequest,
+            pullRequests: [MERGED.pullRequest].filter((each) => each !== null),
             reviewing: false,
             currentRunId: null,
             ...over.task,
@@ -108,9 +109,9 @@ describe('applying a pull request close to the decisions of its task', () => {
     await service.closed(MERGED);
 
     expect(stored()?.status.isMerged).toBe(true);
-    expect(stored()?.status.merge?.commit.value).toBe('c'.repeat(40));
-    expect(stored()?.status.merge?.at).toEqual(CLOSED_AT);
-    expect(stored()?.status.merge?.repository.value).toBe('acme/api');
+    expect(stored()?.status.merges[0]?.commit.value).toBe('c'.repeat(40));
+    expect(stored()?.status.merges[0]?.at).toEqual(CLOSED_AT);
+    expect(stored()?.status.merges[0]?.repository.value).toBe('acme/api');
     expect(stored()?.decisions).toHaveLength(1);
   });
 
@@ -122,6 +123,19 @@ describe('applying a pull request close to the decisions of its task', () => {
     expect(stored()).toBeNull();
   });
 
+  it('keeps them when a later pull request of the task closes unmerged', async () => {
+    const { service, stored } = applying();
+
+    await service.closed({
+      ...MERGED,
+      pullRequest: PullRequestUrl.of('https://github.com/acme/docs/pull/3'),
+      repository: Repository.of('acme/docs'),
+      merge: null,
+    });
+
+    expect(stored()?.decisions).toHaveLength(1);
+  });
+
   it('keeps them after they merge, whatever closes later', async () => {
     const { service, stored } = applying();
 
@@ -129,6 +143,33 @@ describe('applying a pull request close to the decisions of its task', () => {
     await service.closed({ ...MERGED, merge: null });
 
     expect(stored()?.status.isMerged).toBe(true);
+  });
+
+  it('records the merge of each repository of the task', async () => {
+    const WEB_PULL = PullRequestUrl.of('https://github.com/acme/web/pull/4');
+    const { service, stored } = applying({
+      task: { pullRequests: [MERGED.pullRequest, WEB_PULL] },
+    });
+
+    await service.closed(MERGED);
+    await service.closed({
+      ...MERGED,
+      pullRequest: WEB_PULL,
+      repository: Repository.of('acme/web'),
+      merge: { commit: 'd'.repeat(40) },
+    });
+
+    expect(
+      stored()?.status.merges.map((each) => [
+        each.repository.value,
+        each.commit.value,
+      ]),
+    ).toEqual([
+      ['acme/api', 'c'.repeat(40)],
+      ['acme/web', 'd'.repeat(40)],
+    ]);
+    expect(stored()?.mergedIn(Repository.of('acme/web'))).toEqual([]);
+    expect(stored()?.mergedIn(Repository.of('acme/api'))).toHaveLength(1);
   });
 
   it('leaves decisions alone for a pull request Spotlight only reviews', async () => {

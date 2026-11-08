@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { unread } from '@work/domain/services/unread';
@@ -170,6 +171,10 @@ export class TaskNote {
 
   get reviewComment(): ReviewComment | null {
     return this.anchor?.reviewComment ?? null;
+  }
+
+  get reviewCommentPullRequest(): PullRequestUrl | null {
+    return this.anchor?.pullRequest ?? null;
   }
 
   get open(): boolean {

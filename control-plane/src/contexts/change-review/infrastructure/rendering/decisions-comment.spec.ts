@@ -7,7 +7,7 @@ const FOUND: TaskDecisionsDto = {
   runId: 'run_1',
   generating: false,
   status: 'proposed',
-  merge: null,
+  merges: [],
   decisions: [
     {
       id: 'decision_1',
