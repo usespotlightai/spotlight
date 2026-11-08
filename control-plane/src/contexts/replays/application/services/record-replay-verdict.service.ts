@@ -1,3 +1,4 @@
+import { reviseReplay } from '@replays/application/services/replay-revisions';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { Unjudged } from '@replays/domain/value-objects/entry-judging.vo';
@@ -67,22 +68,15 @@ export class RecordReplayVerdict {
     );
   }
 
-  private changing(
+  private async changing(
     run: RunId,
     change: (replay: Replay, now: Date) => Replay,
   ): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const replay = await this.replays.ranAs(run);
-
-      if (!replay) {
-        return;
-      }
-
-      const changed = change(replay, this.clock.now());
-
-      if (changed !== replay) {
-        await this.replays.save(changed);
-      }
-    });
+    await reviseReplay(
+      this.replays,
+      this.transaction,
+      () => this.replays.ranAs(run),
+      (replay) => change(replay, this.clock.now()),
+    );
   }
 }

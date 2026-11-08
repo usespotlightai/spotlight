@@ -1,4 +1,5 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
+import { reviseReplay } from '@replays/application/services/replay-revisions';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import {
   ChangeChecks,
@@ -17,57 +18,43 @@ export class RecordReplayChangeReview {
     private readonly clock: ClockPort,
   ) {}
 
-  reviewed(runId: string): Promise<void> {
+  async reviewed(runId: string): Promise<void> {
     const run = RunId.of(runId);
 
-    return this.transaction.inTransaction(async () => {
-      const replay = await this.replays.ranAs(run);
-
-      if (!replay) {
-        return;
-      }
-
-      const reviewed = replay.recordReview(
-        run,
-        ...reviewOf(await this.changes.stacksOf(run)),
-        this.clock.now(),
-      );
-
-      if (reviewed !== replay) {
-        await this.replays.save(reviewed);
-      }
-    });
+    await reviseReplay(
+      this.replays,
+      this.transaction,
+      () => this.replays.ranAs(run),
+      async (replay) =>
+        replay.recordReview(
+          run,
+          ...reviewOf(await this.changes.stacksOf(run)),
+          this.clock.now(),
+        ),
+    );
   }
 
-  rechecked(runId: string): Promise<void> {
+  async rechecked(runId: string): Promise<void> {
     const run = RunId.of(runId);
 
-    return this.transaction.inTransaction(async () => {
-      const replay = await this.replays.ranAs(run);
-
-      if (!replay) {
-        return;
-      }
-
-      const rechecked = replay.recheck(
-        run,
-        ChangeChecks.of(await this.changes.rechecksOf(run)),
-      );
-
-      if (rechecked !== replay) {
-        await this.replays.save(rechecked);
-      }
-    });
+    await reviseReplay(
+      this.replays,
+      this.transaction,
+      () => this.replays.ranAs(run),
+      async (replay) =>
+        replay.recheck(
+          run,
+          ChangeChecks.of(await this.changes.rechecksOf(run)),
+        ),
+    );
   }
 
-  recheckUnavailable(replayId: ReplayId, run: RunId): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const replay = await this.replays.find(replayId);
-      const unchecked = replay?.recheck(run, ChangeChecks.of([]));
-
-      if (replay && unchecked && unchecked !== replay) {
-        await this.replays.save(unchecked);
-      }
-    });
+  async recheckUnavailable(replayId: ReplayId, run: RunId): Promise<void> {
+    await reviseReplay(
+      this.replays,
+      this.transaction,
+      () => this.replays.find(replayId),
+      (replay) => replay.recheck(run, ChangeChecks.of([])),
+    );
   }
 }
