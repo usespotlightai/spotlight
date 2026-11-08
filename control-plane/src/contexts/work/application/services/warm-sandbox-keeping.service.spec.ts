@@ -58,6 +58,7 @@ const keepingWith = (over: { requestFails?: boolean } = {}) => {
         id: 'sandbox_old',
         lineId: line.id,
         fingerprint: WarmFingerprint.of('outdated'),
+        placed: true,
       },
     ]),
     linesLostSince: vi.fn(async () => []),

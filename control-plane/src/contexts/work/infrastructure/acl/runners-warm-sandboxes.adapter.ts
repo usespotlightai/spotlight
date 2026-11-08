@@ -16,6 +16,7 @@ export class RunnersWarmSandboxKeeping implements WarmSandboxKeepingPort {
       id: each.id,
       lineId: LineId.of(each.lineId),
       fingerprint: WarmFingerprint.of(each.fingerprint),
+      placed: each.placed,
     }));
   }
 

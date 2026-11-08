@@ -73,7 +73,8 @@ const keptOf = (
   id: string,
   line: LineMap,
   fingerprint = WarmFingerprint.ofLine(line),
-): KeptWarmSandbox => ({ id, lineId: line.id, fingerprint });
+  placed = true,
+): KeptWarmSandbox => ({ id, lineId: line.id, fingerprint, placed });
 
 const demandOf = (
   lines: readonly LineMap[],
@@ -109,6 +110,20 @@ describe('WarmSandboxDemands', () => {
       demandOf([line], [keptOf('sandbox_1', line), keptOf('sandbox_2', line)])
         .retired,
     ).toEqual(['sandbox_2']);
+  });
+
+  it('retires the extra warm sandboxes no host started before the ones a host started', () => {
+    const line = lineOf({ warm: 1 });
+
+    expect(
+      demandOf(
+        [line],
+        [
+          keptOf('sandbox_1', line, WarmFingerprint.ofLine(line), false),
+          keptOf('sandbox_2', line),
+        ],
+      ).retired,
+    ).toEqual(['sandbox_1']);
   });
 
   it('replaces a warm sandbox whose line changed its repositories, setups, image or placement', () => {
