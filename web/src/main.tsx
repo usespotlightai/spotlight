@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { Toaster } from '@/components/ui/toast';
 import { client } from '@/lib/api/client.gen';
+import { frameWindow } from '@/lib/desktop';
 import {
   startErrorReporting,
   withGatewayErrorReported,
@@ -24,6 +25,7 @@ if (!root) {
 
 reloadOnStaleBuild();
 refuseStrayFileDrops();
+frameWindow();
 
 client.interceptors.error.use(withSentRequest);
 client.interceptors.error.use(withGatewayErrorReported);

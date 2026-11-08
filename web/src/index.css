@@ -443,3 +443,29 @@ body.resizing {
 .dark .code-block .shiki span {
   color: var(--shiki-dark);
 }
+
+html[data-desktop="mac"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: 2.5rem;
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+
+html[data-desktop="mac"]
+  :is(
+    a,
+    button,
+    input,
+    select,
+    textarea,
+    label,
+    [role="button"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="combobox"],
+    [contenteditable="true"]
+  ) {
+  -webkit-app-region: no-drag;
+}

@@ -5,6 +5,7 @@ import {
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
+  nativeTheme,
   session,
   shell,
 } from 'electron';
@@ -21,6 +22,7 @@ import { SettingsFile } from './settings';
 
 const UPDATE_EVERY_MS = 4 * 60 * 60 * 1000;
 const MAX_BADGE = 99;
+const TRAFFIC_LIGHTS = { x: 20, y: 15 };
 
 let main: BrowserWindow | null = null;
 let connect: BrowserWindow | null = null;
@@ -82,10 +84,12 @@ const createMain = () => {
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
-    minWidth: 720,
+    minWidth: 800,
     minHeight: 480,
     title: 'Spotlight',
-    backgroundColor: '#0a0a0a',
+    titleBarStyle: 'hidden',
+    trafficLightPosition: TRAFFIC_LIGHTS,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0d0d0e' : '#efeff1',
     show: false,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),

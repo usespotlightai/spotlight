@@ -17,6 +17,14 @@ const HANDOFF_SKIPPED_KEY = 'spotlight.desktop-handoff-skipped';
 export const desktopApp = (): DesktopApp | null =>
   typeof window === 'undefined' ? null : (window.spotlightDesktop ?? null);
 
+export const framesWindow = (): boolean => desktopApp()?.platform === 'darwin';
+
+export const frameWindow = (): void => {
+  if (framesWindow()) {
+    document.documentElement.dataset.desktop = 'mac';
+  }
+};
+
 export const opensInDesktop = (): boolean => {
   try {
     return localStorage.getItem(OPENS_IN_DESKTOP_KEY) === 'true';

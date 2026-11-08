@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
+import { framesWindow } from '@/lib/desktop';
 import { cn } from '@/lib/utils';
 
 type DashboardLayoutProps = {
@@ -28,6 +29,13 @@ export function DashboardLayout({
         style={{ width }}
         className="relative hidden shrink-0 flex-col px-3 py-2 md:flex"
       >
+        {framesWindow() && (
+          <div
+            aria-hidden
+            className="h-8 shrink-0"
+            data-slot="window-buttons"
+          />
+        )}
         {sidebar}
       </aside>
 
