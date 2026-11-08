@@ -35,6 +35,26 @@ afterEach(() => {
 });
 
 describe('useTheme', () => {
+  it('tells the desktop app the chosen theme, so that its window follows', () => {
+    const setTheme = vi.fn();
+    Object.assign(window, {
+      spotlightDesktop: {
+        platform: 'darwin',
+        setBadge() {},
+        show() {},
+        authorize() {},
+        setTheme,
+      },
+    });
+    const { result } = renderHook(() => useTheme());
+
+    act(() => result.current.setTheme('dark'));
+
+    expect(setTheme).toHaveBeenCalledWith('dark');
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    Reflect.deleteProperty(window, 'spotlightDesktop');
+  });
+
   it('defaults to system', () => {
     const { result } = renderHook(useTheme);
 
