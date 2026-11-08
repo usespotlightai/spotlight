@@ -626,6 +626,7 @@ describe('Sandbox', () => {
       runId: RunId.of('run_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       key: SandboxKey.of('work/task-task_1'),
+      line: LineId.of('line_1'),
     };
 
     it('is requested with no key, no host and no lease', () => {
@@ -689,6 +690,19 @@ describe('Sandbox', () => {
           reporting,
           NOW,
         ).isWarm,
+      ).toBe(true);
+    });
+
+    it('is adopted by no run of another line, or of no line', () => {
+      expect(
+        placed().adoptFor(
+          { ...firstRun, line: LineId.of('line_2') },
+          reporting,
+          NOW,
+        ).isWarm,
+      ).toBe(true);
+      expect(
+        placed().adoptFor({ ...firstRun, line: null }, reporting, NOW).isWarm,
       ).toBe(true);
     });
 

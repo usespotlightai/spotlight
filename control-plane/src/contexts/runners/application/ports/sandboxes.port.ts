@@ -5,6 +5,7 @@ export const SANDBOXES = Symbol('SANDBOXES');
 export interface SandboxForRun {
   readonly workspaceId: string;
   readonly key: string | null;
+  readonly line: string | null;
   readonly hostId: string;
   readonly runId: string;
 }

@@ -6,6 +6,7 @@ import type {
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type {
   SandboxesPort,
+  SandboxForRun,
   SandboxTakingRuns,
   StartedSandbox,
   WarmStart,
@@ -37,6 +38,14 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const CLAIM_WINDOW_MS = 60_000;
+
+const sandboxForRun = (run: Run, host: string): SandboxForRun => ({
+  workspaceId: run.workspaceId.value,
+  key: run.workingCopyKey?.value ?? null,
+  line: run.line?.value ?? null,
+  hostId: host,
+  runId: run.id.value,
+});
 
 const claimantOf = (
   runner: RunnerId,
@@ -274,17 +283,9 @@ export class ClaimHostWorkHandler
     await this.taken.run(run, claimant.runner);
 
     const sandbox = await this.sandboxes
-      .holdForRun(
-        {
-          workspaceId: run.workspaceId.value,
-          key: run.workingCopyKey?.value ?? null,
-          hostId: host,
-          runId: run.id.value,
-        },
-        this.clock.now(),
-      )
+      .holdForRun(sandboxForRun(run, host), this.clock.now())
       .catch(async (error: unknown) => {
-        await this.taken.dropRun(run, claimant.runner);
+        await this.taken.dropRun(run, claimant.runner).catch(() => undefined);
         throw error;
       });
 
@@ -430,36 +431,9 @@ export class ClaimHostWorkHandler
       return null;
     }
 
-    await this.taken.run(found, runner);
-
-    const held = await this.sandboxes
-      .holdInSandbox(
-        into.id,
-        {
-          workspaceId: found.workspaceId.value,
-          key: found.workingCopyKey?.value ?? null,
-          hostId: host,
-          runId: found.id.value,
-        },
-        this.clock.now(),
-      )
-      .catch(async (error: unknown) => {
-        await this.taken.dropRun(found, runner);
-        throw error;
-      });
-
-    if (!held) {
-      await this.taken.dropRun(found, runner);
-      return null;
-    }
-
-    return {
-      kind: 'work',
-      work: claimedRun(found),
-      sandboxId: into.id,
-      sandboxToken: null,
-      reused: true,
-    };
+    return this.heldOrDropped(found, runner, into.id, (forRun, at) =>
+      this.sandboxes.holdInSandbox(into.id, forRun({ host }), at),
+    );
   }
 
   private async claimedIntoWarm(
@@ -496,25 +470,31 @@ export class ClaimHostWorkHandler
       return null;
     }
 
+    return this.heldOrDropped(found, runner, into.id, (forRun, at) =>
+      this.sandboxes.adoptForRun(into.id, forRun({ host }), at),
+    );
+  }
+
+  private async heldOrDropped(
+    found: Run,
+    runner: RunnerId,
+    sandboxId: string,
+    hold: (
+      forRun: (on: { host: string }) => SandboxForRun,
+      at: Date,
+    ) => Promise<boolean>,
+  ): Promise<Claimed | null> {
     await this.taken.run(found, runner);
 
-    const adopted = await this.sandboxes
-      .adoptForRun(
-        into.id,
-        {
-          workspaceId: found.workspaceId.value,
-          key: found.workingCopyKey?.value ?? null,
-          hostId: host,
-          runId: found.id.value,
-        },
-        this.clock.now(),
-      )
-      .catch(async (error: unknown) => {
-        await this.taken.dropRun(found, runner);
-        throw error;
-      });
+    const held = await hold(
+      ({ host }) => sandboxForRun(found, host),
+      this.clock.now(),
+    ).catch(async (error: unknown) => {
+      await this.taken.dropRun(found, runner).catch(() => undefined);
+      throw error;
+    });
 
-    if (!adopted) {
+    if (!held) {
       await this.taken.dropRun(found, runner);
       return null;
     }
@@ -522,7 +502,7 @@ export class ClaimHostWorkHandler
     return {
       kind: 'work',
       work: claimedRun(found),
-      sandboxId: into.id,
+      sandboxId,
       sandboxToken: null,
       reused: true,
     };

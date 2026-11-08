@@ -384,6 +384,7 @@ describe('ClaimHostWorkHandler', () => {
       {
         workspaceId: 'ws_1',
         key: 'requester/subject-task_1',
+        line: null,
         hostId: HOST,
         runId: 'run_1',
       },
@@ -468,6 +469,7 @@ describe('ClaimHostWorkHandler', () => {
         {
           workspaceId: 'ws_1',
           key: 'requester/subject-task_1',
+          line: null,
           hostId: HOST,
           runId: 'run_1',
         },
@@ -821,6 +823,7 @@ describe('ClaimHostWorkHandler', () => {
         {
           workspaceId: 'ws_1',
           key: taken().workingCopyKey?.value ?? null,
+          line: null,
           hostId: HOST,
           runId: 'run_1',
         },

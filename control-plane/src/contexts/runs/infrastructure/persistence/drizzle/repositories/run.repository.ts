@@ -212,13 +212,15 @@ export class DrizzleRunRepository implements RunRepository {
 
     return this.queuedRunsOf(
       rows.map(toRun),
-      by.sandbox !== undefined && 'firstOfLine' in by.sandbox,
+      by.sandbox !== undefined && 'firstOfLine' in by.sandbox
+        ? by.workspaceId
+        : null,
     );
   }
 
   private async queuedRunsOf(
     waiting: readonly Run[],
-    withArchives = false,
+    archivedIn: WorkspaceId | null = null,
   ): Promise<QueuedRuns> {
     return {
       waiting,
@@ -227,20 +229,27 @@ export class DrizzleRunRepository implements RunRepository {
           .filter((each) => each.policy.exclusive)
           .map((each) => each.requester),
       ),
-      archivedKeys: withArchives ? await this.archivedAmong(waiting) : [],
+      archivedKeys: archivedIn
+        ? await this.archivedAmong(archivedIn, waiting)
+        : [],
     };
   }
 
   private async archivedAmong(
+    workspaceId: WorkspaceId,
     waiting: readonly Run[],
   ): Promise<readonly WorkingCopyKey[]> {
-    const keyed = waiting.flatMap((each) =>
-      each.workingCopyKey
-        ? [{ workspaceId: each.workspaceId, key: each.workingCopyKey }]
-        : [],
-    );
+    const keys = [
+      ...new Set(
+        waiting.flatMap((each) =>
+          each.workspaceId.equals(workspaceId) && each.workingCopyKey
+            ? [each.workingCopyKey.value]
+            : [],
+        ),
+      ),
+    ];
 
-    if (keyed.length === 0) {
+    if (keys.length === 0) {
       return [];
     }
 
@@ -249,12 +258,8 @@ export class DrizzleRunRepository implements RunRepository {
       .from(workingCopyArchive)
       .where(
         and(
-          inArray(workingCopyArchive.workspaceId, [
-            ...new Set(keyed.map((each) => each.workspaceId.value)),
-          ]),
-          inArray(workingCopyArchive.workingCopyKey, [
-            ...new Set(keyed.map((each) => each.key.value)),
-          ]),
+          eq(workingCopyArchive.workspaceId, workspaceId.value),
+          inArray(workingCopyArchive.workingCopyKey, keys),
           isNotNull(workingCopyArchive.completedAt),
         ),
       );
@@ -360,7 +365,7 @@ export class DrizzleRunRepository implements RunRepository {
       waiting.push(...rows.map(toRun));
     }
 
-    return this.queuedRunsOf(waiting, true);
+    return this.queuedRunsOf(waiting, workspaceId);
   }
 
   async findById(id: RunId): Promise<Run | null> {

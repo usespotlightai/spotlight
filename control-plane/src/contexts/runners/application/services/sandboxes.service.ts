@@ -33,6 +33,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
@@ -182,6 +183,7 @@ export class Sandboxes
         runId: RunId;
         workspaceId: WorkspaceId;
         key: SandboxKey | null;
+        line: LineId | null;
       },
       host: RunnerHost,
     ) => Sandbox,
@@ -197,6 +199,7 @@ export class Sandboxes
       runId: RunId.of(run.runId),
       workspaceId: WorkspaceId.of(run.workspaceId),
       key: run.key === null ? null : SandboxKey.of(run.key),
+      line: run.line === null ? null : LineId.of(run.line),
     };
     try {
       const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>

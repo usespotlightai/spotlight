@@ -98,6 +98,7 @@ const serving = (
 const forRun = (runId: string, key: string | null = 'task-task_1') => ({
   workspaceId: WORKSPACE.value,
   key,
+  line: 'line_1',
   hostId: HOST,
   runId,
 });

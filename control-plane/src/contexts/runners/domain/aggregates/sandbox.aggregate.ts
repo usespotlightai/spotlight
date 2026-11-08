@@ -9,6 +9,7 @@ import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import type { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
@@ -395,12 +396,19 @@ export class Sandbox extends EventRecorder {
   }
 
   adoptFor(
-    run: { runId: RunId; workspaceId: WorkspaceId; key: SandboxKey | null },
+    run: {
+      runId: RunId;
+      workspaceId: WorkspaceId;
+      key: SandboxKey | null;
+      line: LineId | null;
+    },
     host: RunnerHost,
     at: Date,
   ): Sandbox {
     const adopts =
       run.key !== null &&
+      run.line !== null &&
+      (this.state.warm?.isFor(run.line) ?? false) &&
       this.state.workspaceId.equals(run.workspaceId) &&
       this.takesFirstRunOn(host, at);
 
