@@ -21,6 +21,7 @@ export function DashboardLayout({
     <div
       className={cn(
         'flex h-svh bg-background',
+        framesWindow() && 'bg-background/40',
         resizing && 'cursor-col-resize select-none',
       )}
     >

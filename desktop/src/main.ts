@@ -5,11 +5,11 @@ import {
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
-  nativeTheme,
   session,
   shell,
 } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { FRAME_CSS, TRAFFIC_LIGHTS } from './frame';
 import {
   authorizable,
   deepLinkIn,
@@ -22,7 +22,6 @@ import { SettingsFile } from './settings';
 
 const UPDATE_EVERY_MS = 4 * 60 * 60 * 1000;
 const MAX_BADGE = 99;
-const TRAFFIC_LIGHTS = { x: 20, y: 15 };
 
 let main: BrowserWindow | null = null;
 let connect: BrowserWindow | null = null;
@@ -89,7 +88,9 @@ const createMain = () => {
     title: 'Spotlight',
     titleBarStyle: 'hidden',
     trafficLightPosition: TRAFFIC_LIGHTS,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0d0d0e' : '#efeff1',
+    backgroundColor: '#00000000',
+    vibrancy: 'sidebar',
+    visualEffectState: 'followWindow',
     show: false,
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
@@ -101,6 +102,12 @@ const createMain = () => {
   });
 
   window.once('ready-to-show', () => window.show());
+
+  window.webContents.on('dom-ready', () => {
+    if (navigationOf(window.webContents.getURL(), origin) !== 'blocked') {
+      void window.webContents.insertCSS(FRAME_CSS);
+    }
+  });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (navigationOf(url, origin) !== 'blocked') {
