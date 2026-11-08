@@ -10,6 +10,7 @@ import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
+import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
 import {
   RUNNERS_CONTROLLERS,
   RUNNERS_PROVIDERS,
@@ -28,6 +29,7 @@ import { SecretsModule } from '@secrets/secrets.module';
     RUNNER_POOLS,
     RUNNERS,
     SANDBOXES,
+    WARM_SANDBOXES,
     EDITOR_LEASES,
     RUNNER_AUTHENTICATOR,
     RUNNER_EGRESS,

@@ -37,6 +37,7 @@ const changeOf = (pool: ReturnType<typeof aPullPool>) => {
 
 const occupied = (runners: number, idleSandboxes = 0): PoolOccupancy =>
   PoolOccupancy.of({
+    entered: [],
     runners,
     idleSandboxes: Array.from({ length: idleSandboxes }, (_, index) =>
       SandboxId.of(`sandbox_${index}`),

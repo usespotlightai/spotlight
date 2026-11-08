@@ -43,12 +43,14 @@ import {
 import { placementMatches } from '@runs/infrastructure/persistence/drizzle/placement-matches';
 import { RunSpecPersistence } from '@runs/infrastructure/persistence/drizzle/run-spec.persistence';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
+import { workingCopyArchive } from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -64,7 +66,9 @@ import {
   desc,
   eq,
   gt,
+  gte,
   inArray,
+  isNotNull,
   isNull,
   lt,
   lte,
@@ -75,6 +79,28 @@ import {
 
 const keyOf = sql`coalesce(${run.workingCopyKey}, '')`;
 
+const avoidingKeys = (avoiding: readonly WorkingCopyKey[]): SQL =>
+  avoiding.length === 0
+    ? sql`true`
+    : sql`${keyOf} NOT IN (${sql.join(
+        avoiding.map((each) => sql`${each.value}`),
+        sql`, `,
+      )})`;
+
+const FIRST_RUNS_PER_LINE = 20;
+
+const firstRunOf = (line: LineId): SQL => sql`(
+  ${run.lineId} = ${line.value}
+  AND ${run.workingCopyKey} IS NOT NULL
+  AND ${run.restoreArchiveId} IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM ${workingCopyArchive}
+    WHERE ${workingCopyArchive.workspaceId} = ${run.workspaceId}
+      AND ${workingCopyArchive.workingCopyKey} = ${run.workingCopyKey}
+      AND ${workingCopyArchive.completedAt} IS NOT NULL
+  )
+)`;
+
 const routedBy = (routing: SandboxRouting | undefined): SQL => {
   if (!routing) {
     return sql`true`;
@@ -84,12 +110,9 @@ const routedBy = (routing: SandboxRouting | undefined): SQL => {
     return sql`${keyOf} = ${routing.into.value}`;
   }
 
-  return routing.avoiding.length === 0
-    ? sql`true`
-    : sql`${keyOf} NOT IN (${sql.join(
-        routing.avoiding.map((each) => sql`${each.value}`),
-        sql`, `,
-      )})`;
+  return 'firstOfLine' in routing
+    ? sql`(${firstRunOf(routing.firstOfLine)} AND ${avoidingKeys(routing.avoiding)})`
+    : avoidingKeys(routing.avoiding);
 };
 
 type Row = typeof run.$inferSelect;
@@ -156,7 +179,7 @@ export class DrizzleRunRepository implements RunRepository {
     page: { readonly max: number; readonly after: ClaimCursor | null },
   ): Promise<QueuedRuns> {
     if (by.harnesses.length === 0) {
-      return { waiting: [], leasedRequesters: [] };
+      return { waiting: [], leasedRequesters: [], archivedKeys: [] };
     }
 
     const rows = await this.selected()
@@ -187,10 +210,18 @@ export class DrizzleRunRepository implements RunRepository {
       .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
       .limit(page.max);
 
-    return this.queuedRunsOf(rows.map(toRun));
+    return this.queuedRunsOf(
+      rows.map(toRun),
+      by.sandbox !== undefined && 'firstOfLine' in by.sandbox
+        ? by.workspaceId
+        : null,
+    );
   }
 
-  private async queuedRunsOf(waiting: readonly Run[]): Promise<QueuedRuns> {
+  private async queuedRunsOf(
+    waiting: readonly Run[],
+    archivedIn: WorkspaceId | null = null,
+  ): Promise<QueuedRuns> {
     return {
       waiting,
       leasedRequesters: await this.leasedAmong(
@@ -198,7 +229,42 @@ export class DrizzleRunRepository implements RunRepository {
           .filter((each) => each.policy.exclusive)
           .map((each) => each.requester),
       ),
+      archivedKeys: archivedIn
+        ? await this.archivedAmong(archivedIn, waiting)
+        : [],
     };
+  }
+
+  private async archivedAmong(
+    workspaceId: WorkspaceId,
+    waiting: readonly Run[],
+  ): Promise<readonly WorkingCopyKey[]> {
+    const keys = [
+      ...new Set(
+        waiting.flatMap((each) =>
+          each.workspaceId.equals(workspaceId) && each.workingCopyKey
+            ? [each.workingCopyKey.value]
+            : [],
+        ),
+      ),
+    ];
+
+    if (keys.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .selectDistinct({ key: workingCopyArchive.workingCopyKey })
+      .from(workingCopyArchive)
+      .where(
+        and(
+          eq(workingCopyArchive.workspaceId, workspaceId.value),
+          inArray(workingCopyArchive.workingCopyKey, keys),
+          isNotNull(workingCopyArchive.completedAt),
+        ),
+      );
+
+    return rows.map((row) => WorkingCopyKey.parse(row.key));
   }
 
   async leasedAmong(
@@ -270,6 +336,36 @@ export class DrizzleRunRepository implements RunRepository {
     );
 
     return rows.map(toRun);
+  }
+
+  async queuedFirstRuns(
+    workspaceId: WorkspaceId,
+    page: {
+      readonly lines: readonly LineId[];
+      readonly avoiding: readonly WorkingCopyKey[];
+      readonly queuedSince: Date;
+    },
+  ): Promise<QueuedRuns> {
+    const waiting: Run[] = [];
+
+    for (const line of page.lines) {
+      const rows = await this.selected()
+        .where(
+          and(
+            eq(run.workspaceId, workspaceId.value),
+            eq(run.state, 'queued'),
+            gte(run.queuedAt, page.queuedSince),
+            firstRunOf(line),
+            avoidingKeys(page.avoiding),
+          ),
+        )
+        .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
+        .limit(FIRST_RUNS_PER_LINE);
+
+      waiting.push(...rows.map(toRun));
+    }
+
+    return this.queuedRunsOf(waiting, workspaceId);
   }
 
   async findById(id: RunId): Promise<Run | null> {
@@ -404,6 +500,7 @@ const orderedOf = (added: Run) => {
     restoreArchiveId: added.restore?.value ?? null,
     extensions: added.extensions.value,
     tags: added.tags.value,
+    lineId: added.line?.value ?? null,
     apiGrant: added.apiGrant?.parts ?? null,
   };
 };
@@ -606,6 +703,7 @@ export const toRun = ({ run: row }: Selected): Run =>
       : null,
     extensions: storedAs(row.id, () => RunExtensions.of(row.extensions)),
     tags: storedAs(row.id, () => RunTags.of(row.tags)),
+    line: row.lineId === null ? null : LineId.of(row.lineId),
     apiGrant: apiGrantFrom(row),
     spec: RunSpecPersistence.fromRow(row.spec),
     placement: RunnerPlacement.ofLabelGroups(

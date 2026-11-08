@@ -33,6 +33,7 @@ import {
 } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -105,6 +106,7 @@ export class Runs implements RunsPort {
           : null,
         extensions: RunExtensions.of(order.extensions),
         tags: RunTags.of(order.tags),
+        line: order.line === null ? null : LineId.of(order.line),
         apiGrant: order.apiGrant ? RunApiGrant.of(order.apiGrant) : null,
         placement: RunnerPlacement.ofLabelGroups(
           order.placement.labelGroups,

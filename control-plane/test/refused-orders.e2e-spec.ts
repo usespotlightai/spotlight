@@ -129,6 +129,7 @@ describe('a task run whose order the catalog refuses (e2e)', () => {
       extensions: {},
       apiGrant: null,
       tags: { taskId },
+      line: null,
       refusal: [{ description: DENIED }],
     });
 

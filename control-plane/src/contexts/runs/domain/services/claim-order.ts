@@ -4,6 +4,9 @@ import type {
   SandboxRouting,
 } from '@runs/domain/value-objects/claimant';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
+import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
+import { distinct } from '@shared-kernel/domain/distinct';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
 export interface ClaimCursor {
   readonly priority: number;
@@ -14,25 +17,67 @@ export interface ClaimCursor {
 export interface QueuedRuns {
   readonly waiting: readonly Run[];
   readonly leasedRequesters: readonly RunRequester[];
+  readonly archivedKeys: readonly WorkingCopyKey[];
+}
+
+export interface ReadyWarm {
+  readonly line: LineId;
 }
 
 const fits = (run: Run, by: Pick<Claimant, 'harnesses' | 'offer'>): boolean =>
   by.harnesses.some((each) => each.equals(run.harness)) &&
   run.placement.matches(by.offer);
 
-const routed = (run: Run, routing: SandboxRouting | undefined): boolean => {
+const WARM_WAIT_MS = 60_000;
+
+const hasKey = (
+  key: WorkingCopyKey,
+  keys: readonly WorkingCopyKey[],
+): boolean => keys.some((each) => each.equals(key));
+
+const startsFresh = (
+  run: Run,
+  line: LineId,
+  archived: readonly WorkingCopyKey[],
+): boolean => {
+  const key = run.workingCopyKey;
+
+  return (
+    (run.line?.equals(line) ?? false) &&
+    key !== null &&
+    run.restore === null &&
+    !hasKey(key, archived)
+  );
+};
+
+const routed = (
+  run: Run,
+  routing: SandboxRouting | undefined,
+  archived: readonly WorkingCopyKey[],
+): boolean => {
   const key = run.workingCopyKey?.value ?? '';
 
   if (!routing) {
     return true;
   }
 
-  return 'into' in routing
-    ? key === routing.into.value
-    : !routing.avoiding.some((each) => each.value === key);
+  if ('into' in routing) {
+    return key === routing.into.value;
+  }
+
+  const avoided = routing.avoiding.some((each) => each.value === key);
+
+  return 'firstOfLine' in routing
+    ? !avoided && startsFresh(run, routing.firstOfLine, archived)
+    : !avoided;
 };
 
-const takeable = (run: Run, by: Claimant, now: Date): boolean =>
+const takeable = (
+  run: Run,
+  by: Claimant,
+  now: Date,
+  archived: readonly WorkingCopyKey[],
+): boolean =>
   run.state === 'queued' &&
   run.claimableAt(now) &&
   run.workspaceId.equals(by.workspaceId) &&
@@ -40,7 +85,7 @@ const takeable = (run: Run, by: Claimant, now: Date): boolean =>
     ? run.isReservedAt(now) && (run.reservation?.isFor(by.runner) ?? false)
     : !run.isReservedAt(now) || (run.reservation?.isFor(by.runner) ?? false)) &&
   fits(run, by) &&
-  routed(run, by.sandbox);
+  routed(run, by.sandbox, archived);
 
 const waitsForItsRequester = (
   run: Run,
@@ -83,6 +128,40 @@ export const ClaimOrder = {
 
   forRequested,
 
+  warmWaitSince(now: Date): Date {
+    return new Date(now.getTime() - WARM_WAIT_MS);
+  },
+
+  reservedForWarm(input: {
+    ready: readonly ReadyWarm[];
+    firstRuns: QueuedRuns;
+    avoiding: readonly WorkingCopyKey[];
+    now: Date;
+  }): WorkingCopyKey[] {
+    const since = ClaimOrder.warmWaitSince(input.now);
+    const reserved: WorkingCopyKey[] = [];
+    for (const line of distinct(input.ready.map((each) => each.line))) {
+      const count = input.ready.filter((each) => each.line.equals(line)).length;
+      reserved.push(
+        ...input.firstRuns.waiting
+          .filter(
+            (run) =>
+              run.state === 'queued' &&
+              run.queuedAt >= since &&
+              startsFresh(run, line, input.firstRuns.archivedKeys),
+          )
+          .sort(sooner)
+          .flatMap((run) => (run.workingCopyKey ? [run.workingCopyKey] : []))
+          .filter(
+            (key) => !hasKey(key, input.avoiding) && !hasKey(key, reserved),
+          )
+          .slice(0, count),
+      );
+    }
+
+    return reserved;
+  },
+
   provisionable(queued: QueuedRuns, now: Date, withEgress: boolean): Run[] {
     return queued.waiting.filter(
       (each) =>
@@ -95,7 +174,7 @@ export const ClaimOrder = {
     return candidates.waiting
       .filter(
         (each) =>
-          takeable(each, by, now) &&
+          takeable(each, by, now, candidates.archivedKeys) &&
           !waitsForItsRequester(each, candidates.leasedRequesters),
       )
       .sort(sooner);

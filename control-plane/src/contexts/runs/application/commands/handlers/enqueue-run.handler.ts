@@ -87,6 +87,7 @@ export class EnqueueRunHandler
         extensions: {},
         apiGrant: null,
         tags: {},
+        line: null,
         refusal: null,
       });
 

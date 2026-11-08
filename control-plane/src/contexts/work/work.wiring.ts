@@ -63,6 +63,7 @@ import { ReadinessChecks } from '@platform/health/readiness-checks';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { Leadership } from '@platform/redis/leadership';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
@@ -70,6 +71,10 @@ import {
   RUNNER_READER,
   type RunnerReaderPort,
 } from '@runners/application/ports/runner-reader.port';
+import {
+  WARM_SANDBOXES,
+  type WarmSandboxesPort,
+} from '@runners/application/ports/warm-sandboxes.port';
 import {
   ARCHIVE_HOLDERS,
   type ArchiveHoldersPort,
@@ -403,6 +408,14 @@ import {
   TURN_RETAKES,
   type TurnRetakesPort,
 } from '@work/application/ports/turn-retakes.port';
+import {
+  WARM_SANDBOX_KEEPING,
+  type WarmSandboxKeepingPort,
+} from '@work/application/ports/warm-sandbox-keeping.port';
+import {
+  WARM_SANDBOX_LINES,
+  type WarmSandboxLinesPort,
+} from '@work/application/ports/warm-sandbox-lines.port';
 import { WORK_RUN_LOOKUP } from '@work/application/ports/work-run-lookup.port';
 import {
   WORK_STATIONS,
@@ -540,6 +553,7 @@ import { TraceScopes } from '@work/application/services/trace-scopes.service';
 import { TracesLoader } from '@work/application/services/traces-loader.service';
 import { TrialableRuns } from '@work/application/services/trialable-runs.service';
 import { Turns } from '@work/application/services/turns.service';
+import { WarmSandboxKeeping } from '@work/application/services/warm-sandbox-keeping.service';
 import { WorkAccess } from '@work/application/services/work-access.service';
 import { WorkRunLookup } from '@work/application/services/work-run-lookup.service';
 import { WorkTaskLookup } from '@work/application/services/work-task-lookup.service';
@@ -568,6 +582,7 @@ import {
   type TaskRepository,
 } from '@work/domain/repositories/task.repository';
 import { LinesLineMaps } from '@work/infrastructure/acl/lines.adapter';
+import { RunnersWarmSandboxKeeping } from '@work/infrastructure/acl/runners-warm-sandboxes.adapter';
 import { RunsHarnessCatalogue } from '@work/infrastructure/acl/runs-harness-catalogue';
 import { DrizzleTaskDraftStates } from '@work/infrastructure/collab/drizzle-task-draft-states';
 import { HocuspocusLiveTaskDrafts } from '@work/infrastructure/collab/hocuspocus-live-task-drafts';
@@ -621,6 +636,7 @@ import { TaskController } from '@work/presentation/http/controllers/task.control
 import { ProcessedEventsWorker } from '@work/presentation/workers/processed-events.worker';
 import { ToolUsesWorker } from '@work/presentation/workers/tool-uses.worker';
 import { TurnsWorker } from '@work/presentation/workers/turns.worker';
+import { WarmSandboxesWorker } from '@work/presentation/workers/warm-sandboxes.worker';
 
 const WORK_EVENTS = Symbol('WORK_EVENTS');
 
@@ -1142,6 +1158,36 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         telemetry,
         logger,
       ),
+  },
+
+  {
+    provide: WARM_SANDBOX_KEEPING,
+    inject: [WARM_SANDBOXES],
+    useFactory: (sandboxes: WarmSandboxesPort) =>
+      new RunnersWarmSandboxKeeping(sandboxes),
+  },
+
+  { provide: WARM_SANDBOX_LINES, useExisting: LINE_MAPS },
+
+  {
+    provide: WarmSandboxKeeping,
+    inject: [WARM_SANDBOX_LINES, WARM_SANDBOX_KEEPING, CLOCK, LOGGER],
+    useFactory: (
+      lines: WarmSandboxLinesPort,
+      sandboxes: WarmSandboxKeepingPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new WarmSandboxKeeping(lines, sandboxes, clock, logger),
+  },
+
+  {
+    provide: WarmSandboxesWorker,
+    inject: [WarmSandboxKeeping, Leadership, LOGGER],
+    useFactory: (
+      keeping: WarmSandboxKeeping,
+      leadership: Leadership,
+      logger: LoggerPort,
+    ) => new WarmSandboxesWorker(keeping, leadership, logger),
   },
 
   {

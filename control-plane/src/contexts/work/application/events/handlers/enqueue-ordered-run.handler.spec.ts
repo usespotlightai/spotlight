@@ -56,6 +56,7 @@ const ORDER: RunOrderContract = {
   extensions: {},
   apiGrant: null,
   tags: { taskId: 'task_1' },
+  line: null,
   refusal: null,
 };
 

@@ -13,6 +13,7 @@ export const occupancyOf = async (
 
   return PoolOccupancy.of({
     runners: alive.length,
+    entered: alive.flatMap((each) => (each.enters ? [each.enters] : [])),
     idleSandboxes: await placements.idleInPool(poolId),
   });
 };

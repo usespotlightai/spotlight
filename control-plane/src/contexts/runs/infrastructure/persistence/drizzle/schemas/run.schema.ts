@@ -86,6 +86,7 @@ export const run = pgTable(
       .$type<Readonly<Record<string, string>>>()
       .notNull()
       .default({}),
+    lineId: text('line_id'),
     apiGrant: jsonb('api_grant').$type<RunApiGrantParts>(),
     orderFingerprint: text('order_fingerprint'),
     state: runState('state').notNull(),
@@ -156,6 +157,9 @@ export const run = pgTable(
       table.requesterKind,
       table.requesterId,
     ),
+    index('run_queued_line_idx')
+      .on(table.workspaceId, table.lineId)
+      .where(sql`${table.lineId} is not null and ${table.state} = 'queued'`),
     index('run_working_copy_key_idx').on(
       table.workspaceId,
       table.workingCopyKey,

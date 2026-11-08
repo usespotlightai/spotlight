@@ -6220,7 +6220,7 @@
     },
     "/hosts/claim": {
       "post": {
-        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs.",
+        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a working copy key that a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the newest archive of its working copy key and waits for runs. A warm sandbox (`work.warm`) has no key: the host clones the line’s repositories from its mirrors and runs their setup, then claims with `sandbox` like any live sandbox, and a task’s first run on that line is claimed into it.",
         "operationId": "claimHostWork",
         "parameters": [
           {
@@ -23954,6 +23954,44 @@
           "steps"
         ]
       },
+      "WarmCheckoutResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "spotlight",
+            "description": "The repository’s name: the host clones it from its mirror at the default branch into this folder of the workspace"
+          },
+          "setup": {
+            "type": "string",
+            "example": "npm ci",
+            "description": "The setup command to run in the clone once it is checked out. Absent when the repository has no setup"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "WarmSandboxResponseDto": {
+        "type": "object",
+        "properties": {
+          "line": {
+            "type": "string",
+            "example": "0b6f4f62-3a8e-4c38-9d0e-6a2f6f1c7d21",
+            "description": "The line the warm sandbox is kept for"
+          },
+          "checkouts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WarmCheckoutResponseDto"
+            }
+          }
+        },
+        "required": [
+          "line",
+          "checkouts"
+        ]
+      },
       "ClaimedWorkResponseDto": {
         "type": "object",
         "properties": {
@@ -23981,6 +24019,14 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/ClaimedCheckResponseDto"
+              }
+            ]
+          },
+          "warm": {
+            "description": "Only for a `sandbox` that is warm: clone and set up these repositories before a task’s first run is claimed into it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WarmSandboxResponseDto"
               }
             ]
           }

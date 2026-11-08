@@ -54,6 +54,7 @@ import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -294,6 +295,36 @@ describe('Runners', () => {
         ),
       ).resolves.toEqual({ outcome: 'full' });
       expect(added).toEqual([]);
+    });
+
+    it('starts one beside an idle sandbox and the runner that waits to enter it, as they take one slot', async () => {
+      const { service, added } = running(aPullPool({ maxRuns: 2 }), {
+        alive: [aRunner({ enters: 'sandbox_1' })],
+        sandboxes: [idleSandbox()],
+      });
+
+      await expect(
+        service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
+      ).resolves.toMatchObject({ outcome: 'started' });
+      expect(added).toHaveLength(1);
+      expect(added[0].enters).toBeNull();
+    });
+
+    it('records the sandbox a runner starts to enter', async () => {
+      const { service, added } = running(aPullPool({ maxRuns: 1 }), {
+        sandboxes: [idleSandbox()],
+      });
+
+      await service.start(
+        THROUGH_POOL,
+        HOST,
+        IMAGE,
+        STARTED_AT,
+        CLAIM_BY,
+        'sandbox_1',
+      );
+
+      expect(added[0].enters).toEqual(SandboxId.of('sandbox_1'));
     });
 
     it('lets another idle sandbox of the pool keep its slot when a runner enters one', async () => {

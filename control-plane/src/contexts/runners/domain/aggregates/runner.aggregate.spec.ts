@@ -17,6 +17,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
+import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const later = (ms: number): Date => new Date(STARTED_AT.getTime() + ms);
@@ -175,6 +176,16 @@ describe('Runner', () => {
 
   it('is started with no host when a pool provisioned it', () => {
     expect(aRunner({ host: null }).hostId).toBeNull();
+  });
+
+  it('records the sandbox it enters, which only a runner on a host can enter', () => {
+    expect(aRunner({ enters: 'sandbox_1' }).enters).toEqual(
+      SandboxId.of('sandbox_1'),
+    );
+    expect(aRunner().enters).toBeNull();
+    expect(() => aRunner({ host: null, enters: 'sandbox_1' })).toThrow(
+      InconsistentStateError,
+    );
   });
 
   it('is not started for a pool that is deleted, a trust that is deleted, nor with no time to claim', () => {
