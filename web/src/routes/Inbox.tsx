@@ -131,10 +131,11 @@ export function Inbox() {
                         label="Resolved"
                         entries={done}
                         count={
-                          resolvedInbox.data ? (
-                            `${done.length}${resolvedInbox.more.available ? '+' : ''}`
-                          ) : (
+                          resolvedInbox.isPending ? (
                             <SkeletonLine className="w-2" />
+                          ) : (
+                            resolvedInbox.data &&
+                            `${done.length}${resolvedInbox.more.available ? '+' : ''}`
                           )
                         }
                         {...section(RESOLVED)}

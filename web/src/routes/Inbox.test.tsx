@@ -11,6 +11,7 @@ const resolve = vi.fn();
 const reopen = vi.fn();
 const resolvedOnes = vi.fn();
 const moreResolved = vi.fn();
+const resolvedPending = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -23,7 +24,7 @@ vi.mock('@/hooks/api/useInbox', () => ({
   }),
   useResolvedInbox: () => ({
     data: resolvedOnes(),
-    isPending: resolvedOnes() === undefined,
+    isPending: resolvedPending(),
     errorUpdateCount: 0,
     isFetching: false,
     refetch,
@@ -115,6 +116,7 @@ describe('Inbox', () => {
     failing.mockReturnValue(false);
     resolvedOnes.mockReturnValue([]);
     moreResolved.mockReturnValue(false);
+    resolvedPending.mockReturnValue(false);
     refetch.mockClear();
     resolve.mockClear();
     reopen.mockClear();
@@ -466,14 +468,27 @@ describe('Inbox', () => {
       expect(section).toHaveTextContent('2+');
     });
 
-    it('shows no count until the resolved entries arrive', () => {
+    it('shows a placeholder count until the resolved entries arrive', () => {
+      waiting.mockReturnValue([item()]);
+      resolvedOnes.mockReturnValue(undefined);
+      resolvedPending.mockReturnValue(true);
+      renderAt('/w/acme/inbox');
+
+      const section = screen.getByRole('button', { name: /Resolved/ });
+
+      expect(section.querySelector('span[aria-hidden]')).not.toBeNull();
+      expect(section).toHaveTextContent(/^Resolved$/);
+    });
+
+    it('counts what it has, with no placeholder, when the resolved entries fail', () => {
       waiting.mockReturnValue([item()]);
       resolvedOnes.mockReturnValue(undefined);
       renderAt('/w/acme/inbox');
 
-      expect(
-        screen.getByRole('button', { name: /Resolved/ }),
-      ).not.toHaveTextContent('0');
+      const section = screen.getByRole('button', { name: /Resolved/ });
+
+      expect(section.querySelector('span[aria-hidden]')).toBeNull();
+      expect(section).toHaveTextContent('0');
     });
 
     it('stays, counting none, when nothing is resolved', () => {
