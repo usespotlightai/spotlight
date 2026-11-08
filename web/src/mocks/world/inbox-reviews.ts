@@ -25,6 +25,7 @@ const comment = (
   over: Partial<ReviewCommentResponseDto> &
     Pick<ReviewCommentResponseDto, 'id' | 'path' | 'body' | 'createdAt'>,
 ): ReviewCommentResponseDto => ({
+  repository: null,
   side: 'new',
   line: null,
   startLine: null,
@@ -84,6 +85,7 @@ export const seedCodeReviews = (): Record<string, CodeReviewResponseDto> => {
       reviews: [
         {
           id: 'review_code_review_station',
+          repository: null,
           authorName: 'Spotlight',
           viewerIsAuthor: false,
           isAgentAuthored: true,
@@ -101,6 +103,7 @@ export const seedCodeReviews = (): Record<string, CodeReviewResponseDto> => {
       reviews: [
         {
           id: 'review_search_sam',
+          repository: null,
           authorName: SAM.name,
           viewerIsAuthor: true,
           isAgentAuthored: false,
@@ -120,7 +123,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
     runId: POSTGRES_RUN,
     generating: false,
     status: 'proposed',
-    merge: null,
+    merges: [],
     decisions: [
       {
         id: 'decision_one_statement',
@@ -175,11 +178,13 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
     runId: SEARCH_RUN,
     generating: false,
     status: 'merged',
-    merge: {
-      repository: 'acme/api',
-      commit: '8f3c2a1d4b6e9f0a7c5d3e1b2a4f6c8d0e9b7a51',
-      at: minutesAfter(runEnded('run_search_3'), 35),
-    },
+    merges: [
+      {
+        repository: 'acme/api',
+        commit: '8f3c2a1d4b6e9f0a7c5d3e1b2a4f6c8d0e9b7a51',
+        at: minutesAfter(runEnded('run_search_3'), 35),
+      },
+    ],
     decisions: [
       {
         id: 'decision_trigram',
@@ -197,7 +202,7 @@ export const seedDecisions = (): Record<string, TaskDecisionsResponseDto> => ({
     runId: null,
     generating: true,
     status: 'proposed',
-    merge: null,
+    merges: [],
     decisions: [],
   },
 });
@@ -206,6 +211,6 @@ export const noDecisions = (): TaskDecisionsResponseDto => ({
   runId: null,
   generating: false,
   status: 'proposed',
-  merge: null,
+  merges: [],
   decisions: [],
 });

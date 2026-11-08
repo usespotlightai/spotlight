@@ -45,14 +45,19 @@ export class RedraftChangeStack {
       return stack.stopRedrafting();
     }
 
+    const previous = stack.previous
+      ? await this.stacks.find(stack.previous)
+      : null;
+
     return exceedsOneCall(stack.facts)
-      ? this.byCohort(stack, redraft)
-      : this.whole(stack, redraft);
+      ? this.byCohort(stack, redraft, previous)
+      : this.whole(stack, redraft, previous);
   }
 
   private async whole(
     stack: ChangeStack,
     redraft: RedraftRequest,
+    previous: ChangeStack | null,
   ): Promise<ChangeStack> {
     const { diff, facts } = stack;
     let problems: readonly StackProblem[] = [];
@@ -82,7 +87,7 @@ export class RedraftChangeStack {
       redrafting = redrafting.recordModel(usage);
 
       try {
-        return redrafting.redrafted(cohorts, this.clock.now());
+        return redrafting.redrafted(cohorts, this.clock.now(), { previous });
       } catch (error) {
         if (!(error instanceof InvalidChangeStackError)) {
           throw error;
@@ -97,6 +102,7 @@ export class RedraftChangeStack {
   private async byCohort(
     stack: ChangeStack,
     redraft: RedraftRequest,
+    previous: ChangeStack | null,
   ): Promise<ChangeStack> {
     let redrafting = stack;
     const layered = combined(
@@ -156,11 +162,10 @@ export class RedraftChangeStack {
     }
 
     try {
-      return redrafting.redrafted(
-        layered.cohorts,
-        this.clock.now(),
-        layered.proposed,
-      );
+      return redrafting.redrafted(layered.cohorts, this.clock.now(), {
+        modelProposal: layered.proposed,
+        previous,
+      });
     } catch (error) {
       if (!(error instanceof InvalidChangeStackError)) {
         throw error;

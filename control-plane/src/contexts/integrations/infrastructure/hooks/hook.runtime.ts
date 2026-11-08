@@ -55,6 +55,7 @@ const taskSeen = (instance: HookEventInstance) => ({
   marks: instance.task.marks,
   repositories: instance.task.repositories.map((each) => each.value),
   pullRequest: instance.task.pullRequest?.value ?? null,
+  pullRequests: instance.task.pullRequests.map((each) => each.value),
 });
 
 const eventSeen = (instance: HookEventInstance) => ({

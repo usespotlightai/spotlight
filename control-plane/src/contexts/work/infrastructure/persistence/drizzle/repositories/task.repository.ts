@@ -39,6 +39,7 @@ import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo'
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
+import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -66,10 +67,12 @@ import {
   taskAttachment,
   taskMark,
   taskNote,
+  taskPullRequest,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
   and,
+  asc,
   eq,
   gt,
   inArray,
@@ -184,6 +187,7 @@ const toTask = (
   notes: NoteRow[],
   attachments: AttachmentRow[],
   marks: MarkRow[],
+  laterPullRequests: LaterPullRequestRow[],
 ): Task =>
   Task.rehydrate({
     attachments: toAttachments(attachments, null),
@@ -228,10 +232,25 @@ const toTask = (
           })
         : PullRequestLink.opened(PullRequestUrl.of(row.pullRequest))
       : null,
+    pullRequestClosedAt: row.pullRequestClosedAt,
     heldMarks: marks.map((each) =>
       HeldMark.of(Mark.of(each.kind, each.value), each.heldSince),
     ),
+    laterPullRequests: laterPullRequests.map((each) =>
+      LaterPullRequest.of(
+        PullRequestUrl.of(each.url),
+        each.openedAt,
+        each.closedAt,
+      ),
+    ),
   });
+
+interface LaterPullRequestRow {
+  readonly taskId: string;
+  readonly url: string;
+  readonly openedAt: Date;
+  readonly closedAt: Date | null;
+}
 
 interface MarkRow {
   readonly taskId: string;
@@ -276,6 +295,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         proposedInPosition: added.proposedIn?.position.value ?? null,
         assigneeId: added.assignee?.value ?? null,
         pullRequest: added.pullRequest?.value ?? null,
+        pullRequestClosedAt: added.pullRequestClosedAt,
         reviewing: added.reviewing,
         reviewFromOutside: added.fromOutside,
         finishedAt: added.finishedAt,
@@ -291,6 +311,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeNotes(added);
     await this.writeAttachments(added);
     await this.writeMarks(added);
+    await this.writeLaterPullRequests(added);
   }
 
   async save(saved: Task): Promise<void> {
@@ -343,6 +364,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           sessionId: saved.session?.value ?? null,
           runnerId: saved.claimedBy?.value ?? null,
           pullRequest: saved.pullRequest?.value ?? null,
+          pullRequestClosedAt: saved.pullRequestClosedAt,
           reviewing: saved.reviewing,
           reviewFromOutside: saved.fromOutside,
           finishedAt: saved.finishedAt,
@@ -369,6 +391,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     await this.writeNotes(saved);
     await this.writeAttachments(saved);
     await this.writeMarks(saved);
+    await this.writeLaterPullRequests(saved);
   }
 
   private async writeMarks(written: Task): Promise<void> {
@@ -407,6 +430,52 @@ export class DrizzleTaskRepository implements TaskRepository {
       });
   }
 
+  private async writeLaterPullRequests(written: Task): Promise<void> {
+    if (written.laterPullRequests.length === 0) {
+      return;
+    }
+
+    await this.context.db
+      .insert(taskPullRequest)
+      .values(
+        written.laterPullRequests.map((each) => ({
+          workspaceId: written.workspaceId.value,
+          taskId: written.id.value,
+          url: each.url.value,
+          openedAt: each.openedAt,
+          closedAt: each.closedAt,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: [taskPullRequest.taskId, taskPullRequest.url],
+        set: { closedAt: sql`excluded.closed_at` },
+      });
+  }
+
+  private async laterPullRequestsFor(
+    taskIds: string[],
+  ): Promise<Map<string, LaterPullRequestRow[]>> {
+    if (taskIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.context.db
+      .select({
+        taskId: taskPullRequest.taskId,
+        url: taskPullRequest.url,
+        openedAt: taskPullRequest.openedAt,
+        closedAt: taskPullRequest.closedAt,
+      })
+      .from(taskPullRequest)
+      .where(inArray(taskPullRequest.taskId, taskIds))
+      .orderBy(asc(taskPullRequest.openedAt), asc(taskPullRequest.url));
+
+    return rows.reduce((opened, row) => {
+      opened.set(row.taskId, [...(opened.get(row.taskId) ?? []), row]);
+      return opened;
+    }, new Map<string, LaterPullRequestRow[]>());
+  }
+
   private async marksFor(taskIds: string[]): Promise<Map<string, MarkRow[]>> {
     if (taskIds.length === 0) {
       return new Map();
@@ -433,6 +502,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     const notes = await this.notesFor(ids);
     const attachments = await this.attachmentsFor(ids);
     const marks = await this.marksFor(ids);
+    const later = await this.laterPullRequestsFor(ids);
 
     return rows.map((each) =>
       toTask(
@@ -440,6 +510,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         notes.get(each.id) ?? [],
         attachments.get(each.id) ?? [],
         marks.get(each.id) ?? [],
+        later.get(each.id) ?? [],
       ),
     );
   }

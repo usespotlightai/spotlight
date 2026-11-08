@@ -3,6 +3,7 @@ import {
   type ConnectIntegrationRequestDto,
   connectIntegration,
 } from '@/lib/api';
+import { desktopApp } from '@/lib/desktop';
 
 type Connecting = ConnectIntegrationRequestDto & { integration: string };
 
@@ -18,7 +19,13 @@ export function useConnectIntegration(teamId: string | undefined) {
       return data;
     },
     onSuccess: (data) => {
-      window.location.href = data.url;
+      const app = desktopApp();
+
+      if (app) {
+        app.authorize(data.url);
+      } else {
+        window.location.href = data.url;
+      }
     },
   });
 }

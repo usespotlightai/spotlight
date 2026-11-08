@@ -41,6 +41,9 @@ export const taskViewOf = (fields: TaskViewFields = {}): LinkedTaskView => {
     pullRequest: fields.pullRequest
       ? PullRequestUrl.of(fields.pullRequest)
       : null,
+    pullRequests: fields.pullRequest
+      ? [PullRequestUrl.of(fields.pullRequest)]
+      : [],
     runId: runId === null ? null : RunId.of(runId),
     waiting: null,
   };

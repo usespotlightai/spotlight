@@ -13,6 +13,7 @@ import {
   factsOf,
   fileRows,
   progressOf,
+  removedOf,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
 import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -87,6 +88,10 @@ const toChangeStack = (row: Row): ChangeStack =>
       : null,
     redrafting: row.redrafting,
     usage: ModelUsage.rehydrate(row.usage),
+    previous: row.previousStackId
+      ? ChangeStackId.of(row.previousStackId)
+      : null,
+    removed: removedOf(row.removedLayers),
     version: row.version,
   });
 
@@ -131,6 +136,8 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       redrafting: added.redrafting,
       pendingJob: added.hasPendingJob,
       usage: usageRow(added.usage),
+      previousStackId: added.previous?.value ?? null,
+      removedLayers: added.removed.map((each) => ({ ...each })),
       version: added.version,
     });
   }
@@ -156,6 +163,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         redrafting: saved.redrafting,
         pendingJob: saved.hasPendingJob,
         usage: usageRow(saved.usage),
+        removedLayers: saved.removed.map((each) => ({ ...each })),
       })
       .where(
         and(

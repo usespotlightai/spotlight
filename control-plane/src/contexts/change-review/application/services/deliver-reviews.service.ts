@@ -10,11 +10,18 @@ import {
   type ReviewPostingPort,
   SPOTLIGHT_POSTER,
 } from '@change-review/application/ports/review-posting.port';
-import type { WorkPort } from '@change-review/application/ports/work.port';
+import type {
+  ReviewedTask,
+  WorkPort,
+} from '@change-review/application/ports/work.port';
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import {
+  pullRequestOfComment,
+  pullRequestOfReview,
+} from '@change-review/domain/services/pull-request-routing';
 import { DeliveryAttempts } from '@change-review/domain/value-objects/delivery-attempts.vo';
 import {
   DeliveryFailure,
@@ -25,6 +32,7 @@ import type { WorkspaceConnectionsPort } from '@github/application/ports/workspa
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
 const AT_A_TIME = 10;
 
@@ -58,6 +66,11 @@ class DeliveryFailed extends Error {
     this.failure = DeliveryFailure.of(code);
   }
 }
+
+type Poster = (
+  author: ReviewAuthor,
+  pullRequest: PullRequestUrl | null,
+) => Promise<PostingTarget>;
 
 const failureOf = (error: unknown): DeliveryFailure =>
   error instanceof DeliveryFailed || error instanceof ReviewPostingFailedError
@@ -199,22 +212,28 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       throw new DeliveryFailed('not-connected');
     }
 
-    const on = async (author: ReviewAuthor): Promise<PostingTarget> => ({
-      workspaceId: task.workspaceId,
-      pullRequest: task.pullRequest as NonNullable<typeof task.pullRequest>,
-      by: author.userId
-        ? {
-            kind: 'person',
-            userId: author.userId,
-            name:
-              (await this.people.find(author.userId))?.name ??
-              author.name.value,
-          }
-        : SPOTLIGHT_POSTER,
-    });
+    const on: Poster = async (author, pullRequest) => {
+      if (!pullRequest) {
+        throw new NoPullRequestYet();
+      }
+
+      return {
+        workspaceId: task.workspaceId,
+        pullRequest,
+        by: author.userId
+          ? {
+              kind: 'person',
+              userId: author.userId,
+              name:
+                (await this.people.find(author.userId))?.name ??
+                author.name.value,
+            }
+          : SPOTLIGHT_POSTER,
+      };
+    };
 
     if (delivery.kind === 'review') {
-      await this.postReview(delivery, on);
+      await this.postReview(delivery, task, on);
       return;
     }
 
@@ -227,12 +246,15 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    const target = await on(comment.author);
-
     if (delivery.kind === 'reply') {
-      await this.postReply(delivery, comment, target);
+      await this.postReply(delivery, comment, task, on);
       return;
     }
+
+    const target = await on(
+      comment.author,
+      pullRequestOfComment(task, comment),
+    );
 
     if (delivery.kind === 'file') {
       await this.postOnFile(delivery, comment, target);
@@ -255,12 +277,16 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    await this.github.remove({ ...target, commentId: comment.github.id });
+    await this.github.remove({
+      ...target,
+      commentId: comment.github.id,
+    });
   }
 
   private async postReview(
     delivery: Extract<LeasedReviewDelivery, { kind: 'review' }>,
-    on: (author: ReviewAuthor) => Promise<PostingTarget>,
+    task: ReviewedTask,
+    on: Poster,
   ): Promise<void> {
     const review = await this.reviews.find(delivery.subject);
 
@@ -281,7 +307,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       return;
     }
 
-    const author = await on(review.author);
+    const author = await on(review.author, pullRequestOfReview(task, review));
     const submitted = await this.sent(delivery, () =>
       this.github.submit({
         ...author,
@@ -347,7 +373,8 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
   private async postReply(
     delivery: LeasedReviewDelivery,
     reply: ReviewComment,
-    target: PostingTarget,
+    task: ReviewedTask,
+    on: Poster,
   ): Promise<void> {
     if (!reply.sending) {
       return;
@@ -374,6 +401,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       throw new DeliveryFailed('parent-never-on-github');
     }
 
+    const target = await on(reply.author, pullRequestOfComment(task, parent));
     const posted = await this.sent(delivery, () =>
       this.github.reply({
         ...target,

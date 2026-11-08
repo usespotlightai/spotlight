@@ -102,7 +102,7 @@ export const workHandlers: RequestHandler[] = [
         createdAt: new Date().toISOString(),
         progress: null,
         awaitingReview: null,
-        pullRequest: null,
+        pullRequests: [],
         createdBy: SAM,
         assignee: null,
         note: null,

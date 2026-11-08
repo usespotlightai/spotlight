@@ -6,7 +6,10 @@ import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/driz
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
+import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
@@ -71,5 +74,60 @@ describe('the tasks the board reads for a team', () => {
     const listed = await board.listForTeam(teamId, { state: 'board' });
 
     expect(listed?.items.map((each) => each.title)).toEqual(['Ship the thing']);
+  });
+});
+
+describe('the pull requests of a task', () => {
+  it('keeps one in each repository, the first opened first', async () => {
+    const { owner, teamId, stationId, line } = await createTeam(
+      db,
+      tasks,
+      `pulls-${randomUUID()}`,
+    );
+    const api = PullRequestUrl.of('https://github.com/acme/api/pull/7');
+    const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+    const work = Task.add({
+      line,
+      at: stationId,
+      title: TaskTitle.of('Ship the thing'),
+      rank: TaskRank.between(null, null),
+      createdBy: owner,
+      now: NOW,
+      newId: () => randomUUID(),
+    });
+
+    await tasks.add(
+      Task.rehydrate({
+        id: work.id,
+        workspaceId: work.workspaceId,
+        stationId: work.stationId,
+        title: work.title,
+        branch: work.branch,
+        description: null,
+        rank: work.rank,
+        currentRunId: null,
+        session: null,
+        claimedBy: null,
+        notes: [],
+        createdAt: NOW,
+        originStationId: null,
+        createdBy: owner,
+        openedFrom: work.openedFrom,
+        pullRequestLink: PullRequestLink.opened(api),
+        laterPullRequests: [LaterPullRequest.of(docs, NOW)],
+        finishedAt: null,
+        revision: work.revision,
+        version: 0,
+      }),
+    );
+
+    const stored = await tasks.find(work.id);
+    const listed = await board.findInTeam(teamId, work.id);
+
+    expect(stored?.pullRequests.map((each) => each.value)).toEqual([
+      api.value,
+      docs.value,
+    ]);
+    expect(listed?.pullRequests).toEqual([api.value, docs.value]);
   });
 });

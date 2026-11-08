@@ -2,6 +2,7 @@ import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer
 import { InvalidAnswerError } from '@change-review/domain/exceptions/invalid-answer.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type { LayerQuestion } from '@change-review/domain/value-objects/stack-cohort.vo';
 import {
   HunkId,
@@ -30,6 +31,7 @@ const given = (
       workspaceId: WorkspaceId.of('workspace-1'),
       taskId: TaskId.of('task-1'),
       teamId: null,
+      repository: null,
     },
     question: QUESTION,
     personId: UserId.of('user-1'),
@@ -122,5 +124,30 @@ describe('QuestionAnswer', () => {
     expect(again.verdict).toBe('right');
     expect(again.feedback).toBeNull();
     expect(again.usage.calls).toBe(1);
+  });
+
+  it('stops answering a question once its expected answer changes', () => {
+    expect(
+      given(null).answers({ ...QUESTION, answer: 'Nobody signs it.' }),
+    ).toBe(false);
+  });
+
+  it('is refused while the person answered the question on another stack of the task and repository', () => {
+    const answer = given(null);
+    const elsewhere = {
+      id: ChangeStackId.of('stack-2'),
+      taskId: TaskId.of('task-1'),
+      repository: null,
+    };
+
+    expect(() =>
+      QuestionAnswer.refuseIfAnsweredIn([answer], QUESTION, elsewhere),
+    ).toThrow('You already answered this question.');
+    expect(() =>
+      QuestionAnswer.refuseIfAnsweredIn([answer], QUESTION, {
+        ...elsewhere,
+        repository: RepositoryName.of('api'),
+      }),
+    ).not.toThrow();
   });
 });

@@ -38,7 +38,7 @@ export interface TaskDecisionsDto {
   readonly runId: string | null;
   readonly generating: boolean;
   readonly status: (typeof DECISION_STATUS_NAMES)[number];
-  readonly merge: DecisionMergeDto | null;
+  readonly merges: readonly DecisionMergeDto[];
   readonly decisions: readonly DecisionDto[];
 }
 
@@ -55,6 +55,6 @@ export const NO_DECISIONS: TaskDecisionsDto = {
   runId: null,
   generating: false,
   status: 'proposed',
-  merge: null,
+  merges: [],
   decisions: [],
 };

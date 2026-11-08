@@ -172,16 +172,16 @@ export class ProjectRunFacts implements RunFactsMaintenance {
     const owned = await this.pullRequests.ownedBy(taskIds);
     const projected = new Set<string>();
 
-    const latest = taskIds.flatMap((taskId) => {
-      const current = PullRequestRecord.latestOwnedOf(
+    const combined = taskIds.flatMap((taskId) => {
+      const current = PullRequestRecord.taskFactOf(
         owned.filter((each) => each.owner?.taskId.equals(taskId)),
       );
       return current ? [current] : [];
     });
 
-    await this.facts.putTaskPullRequests(latest);
+    await this.facts.putTaskPullRequests(combined);
 
-    for (const each of latest) {
+    for (const each of combined) {
       projected.add(each.taskId.value);
     }
 
@@ -252,7 +252,7 @@ export class ProjectRunFacts implements RunFactsMaintenance {
       );
       const fact = record.factWith(
         openings.get(key) ?? null,
-        PullRequestRecord.latestOwnedOf(owned.get(key) ?? []),
+        PullRequestRecord.taskFactOf(owned.get(key) ?? []),
       );
 
       return fact ? [fact] : [];

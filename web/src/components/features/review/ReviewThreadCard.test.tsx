@@ -36,6 +36,7 @@ const within_ = (review: CodeReview, children: ReactNode) => (
       value={{
         teamId: 'team_1',
         runId: 'run_1',
+        repository: null,
         review,
         threads: threadsOf(review.comments),
         composing: null,
@@ -123,6 +124,7 @@ describe('ReviewThreadCard', () => {
       {
         teamId: 'team_1',
         runId: 'run_1',
+        repository: null,
         body: 'Agreed',
         on: { replyTo: 'comment_expiry' },
       },

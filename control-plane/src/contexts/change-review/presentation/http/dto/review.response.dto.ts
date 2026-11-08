@@ -11,6 +11,14 @@ export class ReviewCommentResponseDto {
   @ApiProperty()
   readonly id: string;
 
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'docs',
+    description: 'The repository the file is in; none when it was not named',
+  })
+  readonly repository: string | null;
+
   @ApiProperty({ example: 'src/invite.ts' })
   readonly path: string;
 
@@ -83,6 +91,7 @@ export class ReviewCommentResponseDto {
 
   constructor(fields: Omit<ReviewCommentResponseDto, never>) {
     this.id = fields.id;
+    this.repository = fields.repository;
     this.path = fields.path;
     this.side = fields.side;
     this.line = fields.line;
@@ -105,6 +114,14 @@ export class ReviewCommentResponseDto {
 export class ReviewResponseDto {
   @ApiProperty()
   readonly id: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'docs',
+    description: 'The repository it reviews; none when it was not named',
+  })
+  readonly repository: string | null;
 
   @ApiProperty()
   readonly authorName: string;
@@ -132,6 +149,7 @@ export class ReviewResponseDto {
 
   constructor(fields: Omit<ReviewResponseDto, never>) {
     this.id = fields.id;
+    this.repository = fields.repository;
     this.authorName = fields.authorName;
     this.viewerIsAuthor = fields.viewerIsAuthor;
     this.isAgentAuthored = fields.isAgentAuthored;

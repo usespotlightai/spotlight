@@ -4,7 +4,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { type LocatedLayer, toReadAgain } from '@/lib/change-stack';
+import {
+  type LocatedLayer,
+  revisionMarkOf,
+  toReadAgain,
+} from '@/lib/change-stack';
 import { cn } from '@/lib/utils';
 
 type StackNavLayerProps = {
@@ -22,6 +26,8 @@ export function StackNavLayer({
   active,
   onPick,
 }: StackNavLayerProps) {
+  const revised = revisionMarkOf(located.layer);
+
   return (
     <li>
       <button
@@ -56,6 +62,14 @@ export function StackNavLayer({
               {files} {files === 1 ? 'file' : 'files'}
             </span>
             <DiffStat added={tally.added} removed={tally.removed} />
+            {revised && (
+              <Tooltip>
+                <TooltipTrigger render={<span>{revised.label}</span>} />
+                <TooltipContent className="text-xs">
+                  {revised.detail}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {toReadAgain(located.layer) && (
               <Tooltip>
                 <TooltipTrigger

@@ -316,10 +316,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
   }
 
   private async receivedBy(
-    task: Task,
+    received: Task,
     happened: ReceivedHappening,
     attachments: readonly Attachment[],
   ): Promise<void> {
+    const merged = happened.payload.closedPullRequest;
+    const task = merged
+      ? received.pullRequestClosed(merged, this.clock.now())
+      : received;
     const line = await this.lines.findByStation(task.stationId);
 
     if (!line) {
@@ -343,6 +347,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
     );
 
     if (!updated) {
+      if (task !== received) {
+        await this.tasks.save(task);
+      }
+
       this.skipped('no-rule-matched', happened, {
         workspaceId: task.workspaceId.value,
         teamId: line.teamId.value,

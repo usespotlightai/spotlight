@@ -13,7 +13,9 @@ import {
   DiffHunkResponseDto,
   FileNoteResponseDto,
   LayerQuestionResponseDto,
+  LayerRevisionResponseDto,
   QuestionAnswerResponseDto,
+  RemovedLayerResponseDto,
   RunChangeStacksResponseDto,
   StackCheckResponseDto,
   StackCohortResponseDto,
@@ -37,6 +39,7 @@ const answerOf = (answer: QuestionAnswerDto): QuestionAnswerResponseDto =>
     answer.verdict,
     answer.feedback,
     answer.expected,
+    answer.outdated,
   );
 
 const checkOf = (check: StackCheckDto): StackCheckResponseDto =>
@@ -102,9 +105,18 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
                       each.answered && answerOf(each.answered),
                     ),
                 ),
+                layer.revision &&
+                  new LayerRevisionResponseDto(
+                    layer.revision.status,
+                    layer.revision.previous,
+                  ),
               ),
           ),
         ),
+    ),
+    stack.removed.map(
+      (each) =>
+        new RemovedLayerResponseDto(each.previous, each.cohort, each.title),
     ),
     stack.check && checkOf(stack.check),
   );

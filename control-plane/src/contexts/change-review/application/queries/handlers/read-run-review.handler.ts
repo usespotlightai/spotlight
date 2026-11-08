@@ -104,6 +104,7 @@ export class ReadRunReviewHandler
         comments: comments.map(
           ({ view, author }): ReviewCommentDto => ({
             id: view.id,
+            repository: view.repository,
             path: view.path,
             side: view.side,
             line: view.line,
@@ -131,6 +132,7 @@ export class ReadRunReviewHandler
 
             return {
               id: review.id,
+              repository: review.repository,
               authorName: author.userId
                 ? AuthorName.of(person?.name ?? null).value
                 : author.name.value,

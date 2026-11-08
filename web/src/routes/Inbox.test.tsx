@@ -9,6 +9,9 @@ const failing = vi.fn();
 const refetch = vi.fn();
 const resolve = vi.fn();
 const reopen = vi.fn();
+const resolvedOnes = vi.fn();
+const moreResolved = vi.fn();
+const resolvedPending = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -20,12 +23,12 @@ vi.mock('@/hooks/api/useInbox', () => ({
     refetch,
   }),
   useResolvedInbox: () => ({
-    data: [],
-    isPending: false,
+    data: resolvedOnes(),
+    isPending: resolvedPending(),
     errorUpdateCount: 0,
     isFetching: false,
     refetch,
-    more: { available: false, loading: false, load: vi.fn() },
+    more: { available: moreResolved(), loading: false, load: vi.fn() },
   }),
 }));
 
@@ -111,6 +114,9 @@ describe('Inbox', () => {
     localStorage.clear();
     waiting.mockReturnValue([item()]);
     failing.mockReturnValue(false);
+    resolvedOnes.mockReturnValue([]);
+    moreResolved.mockReturnValue(false);
+    resolvedPending.mockReturnValue(false);
     refetch.mockClear();
     resolve.mockClear();
     reopen.mockClear();
@@ -435,6 +441,54 @@ describe('Inbox', () => {
         'aria-expanded',
         'true',
       );
+    });
+
+    it('counts the first page of resolved entries while collapsed', () => {
+      waiting.mockReturnValue([item()]);
+      resolvedOnes.mockReturnValue([
+        item({
+          id: 'task_3:0',
+          taskId: 'task_3',
+          resolved: true,
+          section: 'resolved',
+        }),
+        item({
+          id: 'task_4:0',
+          taskId: 'task_4',
+          resolved: true,
+          section: 'resolved',
+        }),
+      ]);
+      moreResolved.mockReturnValue(true);
+      renderAt('/w/acme/inbox');
+
+      const section = screen.getByRole('button', { name: /Resolved/ });
+
+      expect(section).toHaveAttribute('aria-expanded', 'false');
+      expect(section).toHaveTextContent('2+');
+    });
+
+    it('shows a placeholder count until the resolved entries arrive', () => {
+      waiting.mockReturnValue([item()]);
+      resolvedOnes.mockReturnValue(undefined);
+      resolvedPending.mockReturnValue(true);
+      renderAt('/w/acme/inbox');
+
+      const section = screen.getByRole('button', { name: /Resolved/ });
+
+      expect(section.querySelector('span[aria-hidden]')).not.toBeNull();
+      expect(section).toHaveTextContent(/^Resolved$/);
+    });
+
+    it('counts what it has, with no placeholder, when the resolved entries fail', () => {
+      waiting.mockReturnValue([item()]);
+      resolvedOnes.mockReturnValue(undefined);
+      renderAt('/w/acme/inbox');
+
+      const section = screen.getByRole('button', { name: /Resolved/ });
+
+      expect(section.querySelector('span[aria-hidden]')).toBeNull();
+      expect(section).toHaveTextContent('0');
     });
 
     it('stays, counting none, when nothing is resolved', () => {

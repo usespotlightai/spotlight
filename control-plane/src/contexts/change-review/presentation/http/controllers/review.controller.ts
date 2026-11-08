@@ -114,6 +114,7 @@ export class ReviewController {
     const id = await this.commandBus.execute<DraftReviewCommentCommand, string>(
       new DraftReviewCommentCommand(teamId, runId, user.id, body.body ?? '', {
         replyTo: body.replyTo ?? null,
+        repository: body.repository ?? null,
         path: body.path ?? '',
         side: body.side ?? null,
         line: body.line ?? null,
@@ -204,6 +205,7 @@ export class ReviewController {
         user.id,
         body.verdict ?? '',
         body.body ?? '',
+        body.repository ?? null,
       ),
     );
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { desktopApp } from '@/lib/desktop';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -9,7 +10,7 @@ const DARK_QUERY = '(prefers-color-scheme: dark)';
 export const isTheme = (value: unknown): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system';
 
-const readStored = (): Theme => {
+export const storedTheme = (): Theme => {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
     return isTheme(stored) ? stored : 'system';
@@ -31,7 +32,7 @@ const applyTheme = (theme: Theme) => {
 };
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(readStored);
+  const [theme, setThemeState] = useState<Theme>(storedTheme);
 
   useEffect(() => {
     applyTheme(theme);
@@ -47,6 +48,7 @@ export function useTheme() {
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
     store(next);
+    desktopApp()?.setTheme?.(next);
   }, []);
 
   return { theme, setTheme };

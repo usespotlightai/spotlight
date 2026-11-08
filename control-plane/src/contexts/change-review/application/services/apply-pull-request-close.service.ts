@@ -1,6 +1,9 @@
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
-import { keepsDecisions } from '@change-review/domain/services/decision-policy';
+import {
+  discardsDecisionsOnClose,
+  keepsDecisions,
+} from '@change-review/domain/services/decision-policy';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -51,7 +54,10 @@ export class ApplyPullRequestClose {
             }),
           ),
         );
-      } else if (set.discardable) {
+      } else if (
+        set.discardable &&
+        discardsDecisionsOnClose(task, closed.pullRequest)
+      ) {
         await this.sets.remove(set);
       }
     });

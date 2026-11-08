@@ -57,6 +57,19 @@ export class PullRequestUrl {
   }
 
   equals(other: PullRequestUrl): boolean {
-    return this.value === other.value;
+    if (this.value === other.value) {
+      return true;
+    }
+
+    const repository = this.repository;
+    const theirs = other.repository;
+
+    return (
+      repository !== null &&
+      theirs !== null &&
+      repository.equals(theirs) &&
+      this.number !== null &&
+      this.number === other.number
+    );
   }
 }

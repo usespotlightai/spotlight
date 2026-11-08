@@ -39,6 +39,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -217,6 +218,7 @@ const generating = (
     layers?: (request: CohortLayersRequest) => readonly ProposedLayer[] | Error;
     index?: SymbolIndexerPort['index'];
     logger?: LoggerPort;
+    ids?: () => string;
   } = {},
 ) => {
   const saved: ChangeStack[] = [];
@@ -245,7 +247,13 @@ const generating = (
       [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
     nextDueJob: async () => null,
     ofRun: async () => [],
-    ofTask: async () => [],
+    ofTask: async (taskId) => [
+      ...new Map(
+        saved
+          .filter((each) => each.taskId?.equals(taskId))
+          .map((each) => [each.id.value, each]),
+      ).values(),
+    ],
     ofTeam: async () => [],
     remove: async () => undefined,
   };
@@ -287,7 +295,7 @@ const generating = (
     READER,
     READING,
     { index: over.index ?? (async () => NO_INDEX) },
-    { generate: () => 'stack-1' },
+    { generate: over.ids ?? (() => 'stack-1') },
     {
       now: () => new Date('2026-09-16T10:00:00Z'),
       sleep: async () => undefined,
@@ -1128,5 +1136,88 @@ describe('the problems a broken stack is settled with', () => {
       'h47 is code moved from h46, so they belong in the same layer',
       'joins layers, leaving 5 where there were 6',
     ]);
+  });
+});
+describe('for a task that had a stack before', () => {
+  const TASK_RUN = {
+    ...RUN,
+    taskId: TaskId.of('task-1'),
+    teamOfRun: null,
+  };
+  const CHANGED = written(
+    changed('schema.ts', ['before'], ['invitation table']),
+    changed('api.ts', ['before'], ['POST /invitations, 409 for members']),
+    changed('docs.ts', [], ['How to invite']),
+  );
+  const CHANGED_PATHS = ['schema.ts', 'api.ts', 'docs.ts'];
+  const counted = () => {
+    let made = 0;
+    return () => {
+      made += 1;
+      return `stack-${made}`;
+    };
+  };
+  const twice = async (
+    second: string,
+    answers: (readonly ProposedCohort[])[],
+  ) => {
+    const generation = generating({ ids: counted(), answers });
+    const input = { repository: 'web', base: null, request: null };
+
+    const first = await generation.service.begin(TASK_RUN, {
+      ...input,
+      diff: DIFF,
+    });
+    await generation.stacks.save(await generation.service.generated(first));
+    const next = await generation.service.begin(TASK_RUN, {
+      ...input,
+      diff: second,
+    });
+    const done = await generation.service.generated(next);
+
+    return { ...generation, next, done };
+  };
+
+  it('reuses the earlier stack without a model call when the diff is the same', async () => {
+    const { next, done, requests } = await twice(DIFF, [
+      [cohort(['h1', 'h2'])],
+    ]);
+
+    expect(next.previous?.value).toBe('stack-1');
+    expect(requests).toHaveLength(1);
+    expect(done.state).toBe('ready');
+    expect(done.cohorts[0]?.layers[0]?.revision).toEqual({
+      status: 'unchanged',
+      previous: 'c1.l1',
+    });
+  });
+
+  it('tells the model what the earlier stack kept and which hunks changed', async () => {
+    const { done, requests } = await twice(CHANGED, [
+      [cohort(['h1', 'h2'])],
+      [cohort(['h1', 'h2', 'h3'], CHANGED_PATHS)],
+    ]);
+
+    expect(requests[1]?.previous).toMatchObject({
+      stackId: { value: 'stack-1' },
+      addedHunks: ['h2', 'h3'],
+      diffUnchanged: false,
+    });
+    expect(done.cohorts[0]?.layers[0]?.revision).toEqual({
+      status: 'modified',
+      previous: 'c1.l1',
+    });
+  });
+
+  it('follows no earlier stack for a team’s run', async () => {
+    const team = generating({ ids: counted() });
+    const input = { diff: DIFF, repository: 'web', base: null, request: null };
+
+    await team.stacks.save(
+      await team.service.generated(await team.service.begin(RUN, input)),
+    );
+    const stack = await team.service.begin(RUN, input);
+
+    expect(stack.previous).toBeNull();
   });
 });

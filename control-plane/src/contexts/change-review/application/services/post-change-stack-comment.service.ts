@@ -4,7 +4,9 @@ import type { ReviewLinksPort } from '@change-review/application/ports/review-li
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { WorkspacesPort } from '@change-review/application/ports/workspaces.port';
+import { latestPerPullRequest } from '@change-review/domain/services/pull-request-routing';
 import { actsOutsideSpotlight } from '@change-review/domain/services/trial-isolation';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type { PullRequestCommentsPort } from '@github/application/ports/pull-request-comments.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -33,36 +35,48 @@ export class PostChangeStackComment implements StickyCommentPosterPort {
 
   async ofTask(taskId: TaskId): Promise<void> {
     const task = await this.work.task(taskId);
-    const repository = task?.pullRequest?.repository ?? null;
 
-    if (!task?.pullRequest || !repository) {
+    if (!task?.pullRequest || !task.teamId) {
       return;
     }
 
-    const latest = await this.stacks.latestForTask(taskId, this.clock.now());
-    const slug = latest ? await this.workspaces.slugOf(task.workspaceId) : null;
+    const shares = latestPerPullRequest(
+      task,
+      await this.stacks.latestPerRepository(taskId, this.clock.now()),
+      (stack) => RepositoryName.optional(stack.repository),
+    ).flatMap(({ pullRequest, items: [latest] }) => {
+      const repository = pullRequest.repository;
 
-    if (latest?.state !== 'ready' || !slug || !task.teamId) {
-      return;
-    }
-
-    if (!(await this.connections.isConnected(task.workspaceId))) {
-      return;
-    }
-
-    await this.comments.upsert({
-      workspaceId: task.workspaceId,
-      repository,
-      pullRequest: task.pullRequest,
-      marker: this.bodies.changeStackMarker,
-      body: this.bodies.changeStack(
-        latest,
-        this.links.changeStackOf({
-          slug,
-          teamId: task.teamId,
-          runId: latest.runId,
-        }),
-      ),
+      return latest?.state === 'ready' && repository
+        ? [{ pullRequest, repository, latest }]
+        : [];
     });
+
+    if (shares.length === 0) {
+      return;
+    }
+
+    const slug = await this.workspaces.slugOf(task.workspaceId);
+
+    if (!slug || !(await this.connections.isConnected(task.workspaceId))) {
+      return;
+    }
+
+    for (const { pullRequest, repository, latest } of shares) {
+      await this.comments.upsert({
+        workspaceId: task.workspaceId,
+        repository,
+        pullRequest,
+        marker: this.bodies.changeStackMarker,
+        body: this.bodies.changeStack(
+          latest,
+          this.links.changeStackOf({
+            slug,
+            teamId: task.teamId,
+            runId: latest.runId,
+          }),
+        ),
+      });
+    }
   }
 }

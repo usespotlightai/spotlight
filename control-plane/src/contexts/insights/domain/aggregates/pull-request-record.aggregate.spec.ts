@@ -236,17 +236,86 @@ describe('PullRequestRecord', () => {
     expect(noted().seenAs(seenOf()).forTask).toBeNull();
   });
 
-  it('takes the latest pull request a task opened as the task’s own', () => {
-    const first = noted().assignOwner(OWNER);
-    const second = PullRequestRecord.noted(
-      WorkspaceId.of('ws_1'),
-      PullRequestUrl.of('https://github.com/acme/api/pull/8'),
-    ).assignOwner({ ...OWNER, openedAt: LATER });
+  describe('for a task with pull requests in several repositories', () => {
+    const EARLIER_MERGE = new Date('2026-09-28T11:00:00.000Z');
+    const LATEST_MERGE = new Date('2026-09-28T12:00:00.000Z');
 
-    expect(
-      PullRequestRecord.latestOwnedOf([first, second])?.pullRequest.value,
-    ).toBe('https://github.com/acme/api/pull/8');
-    expect(PullRequestRecord.latestOwnedOf([])).toBeNull();
+    const inRepository = (
+      repository: string,
+      openedAt: Date,
+      seen: Parameters<typeof seenOf>[0] = {},
+    ) =>
+      PullRequestRecord.noted(
+        WorkspaceId.of('ws_1'),
+        PullRequestUrl.of(`https://github.com/acme/${repository}/pull/1`),
+      )
+        .assignOwner({ ...OWNER, openedAt })
+        .seenAs(seenOf(seen));
+
+    it('is the one pull request as it is when the task has only one', () => {
+      const only = inRepository('api', OPENED_AT, {
+        state: 'merged',
+        closedAt: LATER,
+        firstReviewAt: SEEN_AT,
+      });
+
+      expect(PullRequestRecord.taskFactOf([only])).toEqual(only.forTask);
+      expect(PullRequestRecord.taskFactOf([])).toBeNull();
+    });
+
+    it('is open while any of them is open, shown by the newest open one', () => {
+      const merged = inRepository('api', LATER, {
+        state: 'merged',
+        closedAt: LATEST_MERGE,
+        firstReviewAt: LATER,
+      });
+      const open = inRepository('web', OPENED_AT, {
+        firstReviewAt: SEEN_AT,
+      });
+
+      expect(PullRequestRecord.taskFactOf([merged, open])).toMatchObject({
+        pullRequest: open.pullRequest,
+        state: 'open',
+        openedAt: OPENED_AT,
+        firstReviewAt: SEEN_AT,
+        closedAt: null,
+      });
+    });
+
+    it('is merged at the latest merge once all of them are merged', () => {
+      const first = inRepository('api', OPENED_AT, {
+        state: 'merged',
+        closedAt: LATEST_MERGE,
+      });
+      const second = inRepository('web', LATER, {
+        state: 'merged',
+        closedAt: EARLIER_MERGE,
+      });
+
+      expect(PullRequestRecord.taskFactOf([first, second])).toMatchObject({
+        pullRequest: second.pullRequest,
+        state: 'merged',
+        openedAt: OPENED_AT,
+        closedAt: LATEST_MERGE,
+      });
+    });
+
+    it('is closed when none is open and one closed without a merge', () => {
+      const merged = inRepository('api', OPENED_AT, {
+        state: 'merged',
+        closedAt: LATEST_MERGE,
+      });
+      const closed = inRepository('web', LATER, {
+        state: 'closed',
+        closedAt: EARLIER_MERGE,
+      });
+
+      expect(PullRequestRecord.taskFactOf([merged, closed])).toMatchObject({
+        state: 'closed',
+        openedAt: OPENED_AT,
+        closedAt: LATEST_MERGE,
+      });
+    });
   });
 
   it('says when a task takes it, when GitHub’s view changes and when it closes for its task', () => {

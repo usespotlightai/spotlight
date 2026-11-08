@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline' file:; script-src file:; font-src file:"
+    />
+    <title>Spotlight address</title>
+    <link rel="stylesheet" href="assets/spotlight.css" />
+    <style>
+      html,
+      body {
+        overflow: hidden;
+        background: transparent;
+      }
+
+      body {
+        padding: 48px;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        border-radius: 14px;
+        background: var(--popover);
+        box-shadow:
+          0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+          0 9px 48px #00000014,
+          0 6px 24px #0000001a,
+          0 1px 1px #0000000a;
+      }
+
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 1;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted-foreground);
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      label {
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 500;
+      }
+
+      input {
+        height: 32px;
+        width: 100%;
+        padding: 0 10px;
+        border: 0.5px solid var(--border);
+        border-radius: 8px;
+        background: var(--background);
+        color: var(--foreground);
+        font: inherit;
+        outline: none;
+      }
+
+      input:focus-visible {
+        border-color: var(--input);
+      }
+
+      .error {
+        margin: 0;
+        color: var(--destructive);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .error:empty {
+        display: none;
+      }
+
+      footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <form id="form">
+      <header>
+        <h1>Spotlight address</h1>
+        <p>The app opens the Spotlight at this address.</p>
+      </header>
+
+      <div class="field">
+        <label for="address">Address</label>
+        <input
+          id="address"
+          name="address"
+          spellcheck="false"
+          autocomplete="url"
+          placeholder="https://spotlight.example.com"
+        />
+        <p class="error" id="error" role="alert"></p>
+      </div>
+
+      <footer>
+        <button type="button" class="outline" id="cancel">Cancel</button>
+        <button type="submit" class="primary">Open</button>
+      </footer>
+    </form>
+    <script type="module" src="pages/connect.js"></script>
+  </body>
+</html>

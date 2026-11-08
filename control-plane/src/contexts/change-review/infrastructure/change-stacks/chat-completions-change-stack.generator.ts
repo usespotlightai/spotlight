@@ -16,6 +16,7 @@ import {
   linkFact,
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
+import type { PreviousStack } from '@change-review/domain/services/previous-stack';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
@@ -287,6 +288,71 @@ export const redraftPrompt = (request: RedraftRequest): string =>
     ),
   ].join('\n\n');
 
+type PreviousScope = 'stack' | 'cohorts' | 'layers';
+
+const PREVIOUS_ASKS: Record<PreviousScope, string> = {
+  stack: `Keep its cohorts, layers, their order, titles and summaries wherever their hunks are still in the diff. Put each new or changed hunk in the layer where it belongs, or in a new layer when no layer fits. Change a layer's title or summary only when its changes make the old one wrong.
+For each question, keep the question and its answer word for word when the answer is still right. Change only the answer when the changes make it wrong. Remove a question that the changes make pointless, and add a question only where a layer is new or changed.`,
+  cohorts: `Keep its cohorts, their order and titles wherever their hunks are still in the diff. Put each new or changed hunk in the cohort where it belongs, or in a new cohort when no cohort fits.`,
+  layers: `Keep its layers, their order, titles and summaries wherever their hunks are still in this cohort. Put each new or changed hunk in the layer where it belongs, or in a new layer when no layer fits. Change a layer's title or summary only when its changes make the old one wrong.
+For each question, keep the question and its answer word for word when the answer is still right. Change only the answer when the changes make it wrong. Remove a question that the changes make pointless, and add a question only where a layer is new or changed.`,
+};
+
+export const previousStackPrompt = (
+  previous: PreviousStack,
+  facts: DiffFacts,
+  scope: PreviousScope,
+): string | null => {
+  const shown = new Set<string>(placedHunks(facts));
+  const cohorts = previous.cohorts
+    .map((cohort) => ({
+      ...cohort,
+      layers: cohort.layers
+        .map((layer) => ({
+          ...layer,
+          hunks: layer.hunks.filter((hunk) => shown.has(hunk)),
+        }))
+        .filter((layer) => layer.hunks.length > 0),
+    }))
+    .filter((cohort) => cohort.layers.length > 0);
+
+  if (cohorts.length === 0) {
+    return null;
+  }
+
+  const added = previous.addedHunks.filter((hunk) => shown.has(hunk));
+
+  const listed = cohorts.map((cohort, c) => {
+    if (scope === 'cohorts') {
+      return `cohort ${c + 1} "${cohort.title}" (${cohort.layers.flatMap((layer) => layer.hunks).join(', ')})`;
+    }
+
+    const layers = cohort.layers.map((layer, l) =>
+      [
+        `layer ${l + 1} "${layer.title}" (${layer.hunks.join(', ')}): ${layer.summary}`,
+        ...layer.questions.map(
+          (each) => `  question: ${each.question}\n  answer: ${each.answer}`,
+        ),
+      ].join('\n'),
+    );
+
+    return scope === 'layers'
+      ? layers.join('\n')
+      : [`cohort ${c + 1} "${cohort.title}": ${cohort.intent}`, ...layers].join(
+          '\n',
+        );
+  });
+
+  return [
+    `A reviewer already read an earlier version of this change, in the previous stack. Its ${scope === 'cohorts' ? 'cohorts' : 'stack'}, with each hunk named by its id in this diff:`,
+    listed.join('\n\n'),
+    added.length > 0
+      ? `These hunks are new or changed since then: ${added.join(', ')}.`
+      : 'No hunk is new or changed since then.',
+    PREVIOUS_ASKS[scope],
+  ].join('\n\n');
+};
+
 const REMEDIES: Partial<Record<StackProblemCode, string>> = {
   unconnected: 'split it, or set joinedBecause',
   'joined-layers':
@@ -317,11 +383,13 @@ export class ChatCompletionsChangeStackGenerator
     facts,
     problems,
     redraft,
+    previous,
   }: ChangeStackGenerationRequest): Promise<GeneratedChangeStack> {
     const { answer, usage } = await this.request(STACK, SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
       `The diff, as ${placedIn(facts)} hunks to place:`,
       described(diff, facts),
+      previous ? previousStackPrompt(previous, facts, 'stack') : null,
       redraft ? redraftPrompt(redraft) : null,
       problemsPrompt(problems, 'stack for this diff'),
     ]);
@@ -340,11 +408,13 @@ export class ChatCompletionsChangeStackGenerator
     repository,
     facts,
     problems,
+    previous,
   }: ChangeStackGenerationRequest): Promise<GeneratedOutline> {
     const { answer, usage } = await this.request(OUTLINE, OUTLINE_SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
       `The diff, as ${placedIn(facts)} hunks to place:`,
       described(diff, facts),
+      previous ? previousStackPrompt(previous, facts, 'cohorts') : null,
       problemsPrompt(problems, 'set of cohorts for this diff'),
     ]);
 
@@ -360,12 +430,14 @@ export class ChatCompletionsChangeStackGenerator
     cohort,
     problems,
     redraft,
+    previous,
   }: CohortLayersRequest): Promise<GeneratedLayers> {
     const { answer, usage } = await this.request(LAYERS, LAYERS_SYSTEM, [
       repository ? `Repository: ${repository.value}` : null,
       `The cohort, of kind "${cohort.kind}": ${cohort.title}. ${cohort.intent}`,
       `The cohort's diff, as ${placedIn(part.facts)} hunks to place:`,
       described(part.diff, part.facts),
+      previous ? previousStackPrompt(previous, part.facts, 'layers') : null,
       redraft ? redraftPrompt(redraft) : null,
       problemsPrompt(problems, 'set of layers for this cohort'),
     ]);
