@@ -460,3 +460,7 @@ html[data-desktop="mac"],
 html[data-desktop="mac"] body {
   background-color: transparent;
 }
+
+html[data-desktop="mac"] [data-slot="dialog-overlay"] {
+  backdrop-filter: none;
+}
