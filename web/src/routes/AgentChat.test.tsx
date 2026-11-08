@@ -108,19 +108,22 @@ const planning = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const renderChat = () =>
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/w/acme/team/team_1/agent/chat_1']}>
-        <Routes>
-          <Route
-            path="/w/:slug/team/:teamId/agent/:chatId"
-            element={<AgentChat />}
-          />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+const client = new QueryClient();
+
+const page = () => (
+  <QueryClientProvider client={client}>
+    <MemoryRouter initialEntries={['/w/acme/team/team_1/agent/chat_1']}>
+      <Routes>
+        <Route
+          path="/w/:slug/team/:teamId/agent/:chatId"
+          element={<AgentChat />}
+        />
+      </Routes>
+    </MemoryRouter>
+  </QueryClientProvider>
+);
+
+const renderChat = () => render(page());
 
 describe('AgentChat', () => {
   beforeEach(() => {
@@ -154,6 +157,25 @@ describe('AgentChat', () => {
         screen.queryByText('Help me plan the retries.'),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it('keeps the page and the draft while the journal of a new run loads', async () => {
+    chat.mockReturnValue(planning({ runId: 'run_1' }));
+    const { rerender } = renderChat();
+    const box = screen.getByRole('textbox', { name: 'Message the agent' });
+    await write(box, 'Draft');
+
+    chat.mockReturnValue(planning({ runId: 'run_2' }));
+    journal.mockReturnValue(undefined);
+    rerender(page());
+
+    expect(
+      screen.queryByRole('status', { name: 'Loading the chat' }),
+    ).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Message the agent' })).toBe(
+      box,
+    );
+    expect(box).toHaveTextContent('Draft');
   });
 
   describe('when it could not be loaded', () => {
