@@ -31,6 +31,7 @@ const cohort = (
     hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: [],
     questions: [],
+    revision: null,
   })),
 });
 

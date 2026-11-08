@@ -149,6 +149,7 @@ describe('answers to the questions of a change stack', () => {
       verdict: 'missed',
       feedback: 'The integration signs it.',
       expected: 'The integration signs it.',
+      outdated: false,
     });
     expect((await questionsFor(BEA))?.[0]?.answered).toBeNull();
 

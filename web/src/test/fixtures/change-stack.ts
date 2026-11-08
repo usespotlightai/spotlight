@@ -12,6 +12,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
   state: 'ready',
   failure: null,
   check: null,
+  removed: [],
   files: [
     {
       path: 'control-plane/src/schemas/invitation.schema.ts',
@@ -157,6 +158,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
             },
           ],
           questions: [],
+          revision: null,
         },
         {
           id: 'c1.l2',
@@ -175,6 +177,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
             },
           ],
           questions: [],
+          revision: null,
         },
         {
           id: 'c1.l3',
@@ -189,6 +192,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
             },
           ],
           questions: [],
+          revision: null,
         },
       ],
     },
@@ -205,6 +209,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
           hunks: [{ hunk: 'h5' }],
           notes: [],
           questions: [],
+          revision: null,
         },
       ],
     },

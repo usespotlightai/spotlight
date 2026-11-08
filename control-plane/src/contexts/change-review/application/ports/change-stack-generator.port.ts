@@ -1,5 +1,6 @@
 import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import type { PreviousStack } from '@change-review/domain/services/previous-stack';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
 import type { StackPart } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
@@ -20,6 +21,7 @@ export interface ChangeStackGenerationRequest {
   readonly facts: DiffFacts;
   readonly problems: readonly StackProblem[];
   readonly redraft?: RedraftRequest | null;
+  readonly previous?: PreviousStack | null;
 }
 
 export interface GeneratedChangeStack {
@@ -33,6 +35,7 @@ export interface CohortLayersRequest {
   readonly cohort: OutlinedCohort;
   readonly problems: readonly StackProblem[];
   readonly redraft?: RedraftRequest | null;
+  readonly previous?: PreviousStack | null;
 }
 
 export interface GeneratedOutline {

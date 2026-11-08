@@ -21,6 +21,12 @@ export const ANSWER_VERDICT_NAMES = [
   'missed',
 ] as const;
 
+export const LAYER_REVISION_STATUS_NAMES = [
+  'unchanged',
+  'modified',
+  'added',
+] as const;
+
 export const DIFF_FILE_STATUS_NAMES = [
   'added',
   'deleted',
@@ -50,7 +56,19 @@ export interface QuestionAnswerDto {
   readonly reply: string | null;
   readonly verdict: (typeof ANSWER_VERDICT_NAMES)[number];
   readonly feedback: string | null;
-  readonly expected: string;
+  readonly expected: string | null;
+  readonly outdated: boolean;
+}
+
+interface LayerRevisionDto {
+  readonly status: (typeof LAYER_REVISION_STATUS_NAMES)[number];
+  readonly previous: string | null;
+}
+
+interface RemovedLayerDto {
+  readonly previous: string;
+  readonly cohort: string;
+  readonly title: string;
 }
 
 interface LayerQuestionDto {
@@ -76,6 +94,7 @@ interface StackLayerDto {
     readonly note: string;
   }[];
   readonly questions: readonly LayerQuestionDto[];
+  readonly revision: LayerRevisionDto | null;
 }
 
 export interface StackCohortDto {
@@ -87,7 +106,7 @@ export interface StackCohortDto {
 }
 
 export interface OutlinedCohortDto extends Omit<StackCohortDto, 'layers'> {
-  readonly layers: readonly Omit<StackLayerDto, 'questions'>[];
+  readonly layers: readonly Omit<StackLayerDto, 'questions' | 'revision'>[];
 }
 
 export interface CheckedStepDto {
@@ -121,6 +140,7 @@ export interface ChangeStackDto {
   readonly completedAt: string | null;
   readonly files: readonly DiffFileDto[];
   readonly cohorts: readonly StackCohortDto[];
+  readonly removed: readonly RemovedLayerDto[];
   readonly check: StackCheckDto | null;
 }
 

@@ -3,6 +3,7 @@ import {
   CHANGE_STACK_STATE_NAMES,
   COHORT_KIND_NAMES,
   DIFF_FILE_STATUS_NAMES,
+  LAYER_REVISION_STATUS_NAMES,
   STACK_CHECK_STATUS_NAMES,
 } from '@change-review/application/dto/change-stack.dto';
 import { ApiProperty } from '@nestjs/swagger';
@@ -124,23 +125,80 @@ export class QuestionAnswerResponseDto {
   readonly feedback: string | null;
 
   @ApiProperty({
+    nullable: true,
+    type: String,
     example: 'It answers 409 and sends no invitation.',
-    description: 'The answer that Spotlight expected',
+    description:
+      'The answer that Spotlight expected; null while the answer is outdated, so it is shown only once the reviewer answers the question as it is asked now',
   })
-  readonly expected: string;
+  readonly expected: string | null;
+
+  @ApiProperty({
+    description:
+      'True when the reviewer answered the question while it expected another answer; the reply and verdict are then the earlier ones, and feedback and expected are null',
+  })
+  readonly outdated: boolean;
 
   constructor(
     questionId: string,
     reply: string | null,
     verdict: 'right' | 'partly-right' | 'missed',
     feedback: string | null,
-    expected: string,
+    expected: string | null,
+    outdated: boolean,
   ) {
     this.questionId = questionId;
     this.reply = reply;
     this.verdict = verdict;
     this.feedback = feedback;
     this.expected = expected;
+    this.outdated = outdated;
+  }
+}
+
+export class LayerRevisionResponseDto {
+  @ApiProperty({
+    enum: LAYER_REVISION_STATUS_NAMES,
+    description:
+      'How the layer compares with the previous stack: unchanged, modified or added',
+  })
+  readonly status: (typeof LAYER_REVISION_STATUS_NAMES)[number];
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'c1.l2',
+    description:
+      'The layer it follows in the previous stack; null when the layer is added',
+  })
+  readonly previous: string | null;
+
+  constructor(
+    status: (typeof LAYER_REVISION_STATUS_NAMES)[number],
+    previous: string | null,
+  ) {
+    this.status = status;
+    this.previous = previous;
+  }
+}
+
+export class RemovedLayerResponseDto {
+  @ApiProperty({
+    example: 'c1.l2',
+    description: 'The layer in the previous stack',
+  })
+  readonly previous: string;
+
+  @ApiProperty({ example: 'Team invitations' })
+  readonly cohort: string;
+
+  @ApiProperty({ example: 'Add the invitation data model' })
+  readonly title: string;
+
+  constructor(previous: string, cohort: string, title: string) {
+    this.previous = previous;
+    this.cohort = cohort;
+    this.title = title;
   }
 }
 
@@ -222,6 +280,14 @@ export class StackLayerResponseDto {
   })
   readonly questions: readonly LayerQuestionResponseDto[];
 
+  @ApiProperty({
+    type: LayerRevisionResponseDto,
+    nullable: true,
+    description:
+      'How the layer compares with the previous stack; null when the stack follows no previous stack',
+  })
+  readonly revision: LayerRevisionResponseDto | null;
+
   constructor(
     id: string,
     title: string,
@@ -229,6 +295,7 @@ export class StackLayerResponseDto {
     hunks: readonly StackHunkResponseDto[],
     notes: readonly FileNoteResponseDto[],
     questions: readonly LayerQuestionResponseDto[],
+    revision: LayerRevisionResponseDto | null,
   ) {
     this.id = id;
     this.title = title;
@@ -236,6 +303,7 @@ export class StackLayerResponseDto {
     this.hunks = hunks;
     this.notes = notes;
     this.questions = questions;
+    this.revision = revision;
   }
 }
 
@@ -354,6 +422,13 @@ export class ChangeStackResponseDto {
   readonly cohorts: readonly StackCohortResponseDto[];
 
   @ApiProperty({
+    type: RemovedLayerResponseDto,
+    isArray: true,
+    description: 'Layers of the previous stack that this stack no longer has',
+  })
+  readonly removed: readonly RemovedLayerResponseDto[];
+
+  @ApiProperty({
     type: StackCheckResponseDto,
     nullable: true,
     description: 'What the check ran and what each step printed',
@@ -367,6 +442,7 @@ export class ChangeStackResponseDto {
     failure: string | null,
     files: readonly DiffFileResponseDto[],
     cohorts: readonly StackCohortResponseDto[],
+    removed: readonly RemovedLayerResponseDto[],
     check: StackCheckResponseDto | null,
   ) {
     this.id = id;
@@ -375,6 +451,7 @@ export class ChangeStackResponseDto {
     this.failure = failure;
     this.files = files;
     this.cohorts = cohorts;
+    this.removed = removed;
     this.check = check;
   }
 }
