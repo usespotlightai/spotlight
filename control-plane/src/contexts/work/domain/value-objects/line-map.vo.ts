@@ -11,7 +11,6 @@ import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-plac
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type {
@@ -24,6 +23,7 @@ import type { RepositoryName } from '@work/domain/value-objects/repository-name.
 import type { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import type { ReviewRequestReceived } from '@work/domain/value-objects/review-request.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
+import { WarmSandboxQuota } from '@work/domain/value-objects/warm-sandbox-quota.vo';
 
 export interface LineMapInput {
   readonly id: LineId;
@@ -37,7 +37,7 @@ export interface LineMapInput {
   readonly repositories?: LineRepositories;
   readonly reviews?: ReviewIntake | null;
   readonly placement?: RunnerPlacement;
-  readonly warmSandboxes?: WarmSandboxCount;
+  readonly warmSandboxes?: WarmSandboxQuota;
   readonly welcomesTeams?: boolean;
 }
 
@@ -73,7 +73,7 @@ export class LineMap {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewIntake | null,
     readonly placement: RunnerPlacement,
-    readonly warmSandboxes: WarmSandboxCount,
+    readonly warmSandboxes: WarmSandboxQuota,
     readonly welcomesTeams: boolean,
   ) {}
 
@@ -99,7 +99,7 @@ export class LineMap {
       input.repositories ?? LineRepositories.none(),
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
-      input.warmSandboxes ?? WarmSandboxCount.NONE,
+      input.warmSandboxes ?? WarmSandboxQuota.NONE,
       input.welcomesTeams ?? false,
     );
   }

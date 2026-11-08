@@ -31,6 +31,7 @@ import type {
   StrandedStation,
   TaskCounts,
 } from '@lines/domain/value-objects/stranded-station';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -45,7 +46,6 @@ import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-plac
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface LineLayout {

@@ -1,5 +1,5 @@
-import { InvalidWarmSandboxCountError } from '@shared-kernel/domain/exceptions/invalid-warm-sandbox-count.error';
-import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
+import { InvalidWarmSandboxCountError } from '@lines/domain/exceptions/invalid-warm-sandbox-count.error';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('WarmSandboxCount', () => {

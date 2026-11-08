@@ -54,7 +54,6 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const SHARED_KERNEL_PAYLOAD_TYPES = [
@@ -94,7 +93,6 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   TokenHash,
   TokenPrincipal,
   UserId,
-  WarmSandboxCount,
   WorkspaceId,
   ProvisionFailure,
   Provisioning,

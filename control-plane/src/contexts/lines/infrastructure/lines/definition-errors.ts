@@ -10,6 +10,7 @@ import { InvalidStationCheckError } from '@lines/domain/exceptions/invalid-stati
 import { InvalidStationColorError } from '@lines/domain/exceptions/invalid-station-color.error';
 import { InvalidStationDescriptionError } from '@lines/domain/exceptions/invalid-station-description.error';
 import { InvalidStationJudgeError } from '@lines/domain/exceptions/invalid-station-judge.error';
+import { InvalidWarmSandboxCountError } from '@lines/domain/exceptions/invalid-warm-sandbox-count.error';
 import { InvalidEffortError } from '@shared-kernel/domain/exceptions/invalid-effort.error';
 import { InvalidHarnessIdError } from '@shared-kernel/domain/exceptions/invalid-harness-id.error';
 import { InvalidHarnessModelError } from '@shared-kernel/domain/exceptions/invalid-harness-model.error';
@@ -19,7 +20,6 @@ import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid
 import { InvalidRunnerImageError } from '@shared-kernel/domain/exceptions/invalid-runner-image.error';
 import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/invalid-runner-placement.error';
 import { InvalidStationNameError } from '@shared-kernel/domain/exceptions/invalid-station-name.error';
-import { InvalidWarmSandboxCountError } from '@shared-kernel/domain/exceptions/invalid-warm-sandbox-count.error';
 
 const DEFINITION_ERRORS = [
   InvalidAgentPromptError,

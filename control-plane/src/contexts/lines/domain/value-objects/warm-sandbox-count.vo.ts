@@ -1,4 +1,4 @@
-import { InvalidWarmSandboxCountError } from '@shared-kernel/domain/exceptions/invalid-warm-sandbox-count.error';
+import { InvalidWarmSandboxCountError } from '@lines/domain/exceptions/invalid-warm-sandbox-count.error';
 
 const MOST = 5;
 

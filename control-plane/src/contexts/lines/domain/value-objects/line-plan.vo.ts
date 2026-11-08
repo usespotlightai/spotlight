@@ -30,6 +30,7 @@ import type { StationCheck } from '@lines/domain/value-objects/station-check.vo'
 import type { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import type { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -43,7 +44,6 @@ import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo'
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
-import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 
 export interface StationPlan {
   readonly key: StationKey;

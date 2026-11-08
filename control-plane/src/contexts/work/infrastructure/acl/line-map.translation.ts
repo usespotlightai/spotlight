@@ -21,7 +21,6 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
-import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -29,6 +28,7 @@ import { LineRepositories } from '@work/domain/value-objects/line-repositories.v
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { Station } from '@work/domain/value-objects/station.vo';
+import { WarmSandboxQuota } from '@work/domain/value-objects/warm-sandbox-quota.vo';
 
 const optional = <T>(
   value: string | null,
@@ -86,5 +86,5 @@ export const lineMapOf = (view: LineView): LineMap =>
     ),
     reviews: view.reviews && ReviewIntake.of(view.reviews),
     placement: RunnerPlacement.of(view.runners),
-    warmSandboxes: WarmSandboxCount.of(view.warmSandboxes),
+    warmSandboxes: WarmSandboxQuota.of(view.warmSandboxes),
   });

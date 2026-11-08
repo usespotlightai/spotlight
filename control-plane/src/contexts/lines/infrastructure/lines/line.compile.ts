@@ -33,6 +33,7 @@ import { StationCheck } from '@lines/domain/value-objects/station-check.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 import { refusalOf } from '@lines/infrastructure/lines/definition-errors';
 import {
   type LineFields,
@@ -58,7 +59,6 @@ import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
-import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 
 type StationDefinition = LineFields['stations'][number];
 
