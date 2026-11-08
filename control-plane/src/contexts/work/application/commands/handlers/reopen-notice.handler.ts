@@ -1,4 +1,5 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { ReopenNoticeCommand } from '@work/application/commands/reopen-notice.command';
 import type { NoticeLoader } from '@work/application/services/notice-loader.service';
@@ -10,6 +11,7 @@ export class ReopenNoticeHandler
   constructor(
     private readonly loader: NoticeLoader,
     private readonly notices: NoticeRepository,
+    private readonly clock: ClockPort,
   ) {}
 
   async execute(command: ReopenNoticeCommand): Promise<void> {
@@ -19,7 +21,7 @@ export class ReopenNoticeHandler
         command.slug,
         command.reopenedBy,
       );
-      const reopened = notice.reopen();
+      const reopened = notice.reopen(this.clock.now());
 
       if (reopened !== notice) {
         await this.notices.save(reopened);
