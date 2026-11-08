@@ -65,18 +65,22 @@ export class ArrivalDeliveries {
     }
 
     const payload = JSON.stringify(notification);
-    const failures: unknown[] = [];
+    const outcomes = await Promise.allSettled(
+      subscriptions.map((each) => this.pushedTo(each, payload, item.personId)),
+    );
+    const failures = outcomes.flatMap((each) =>
+      each.status === 'rejected' ? [each.reason] : [],
+    );
 
-    for (const subscription of subscriptions) {
-      try {
-        await this.pushedTo(subscription, payload, item.personId);
-      } catch (error) {
-        failures.push(error);
-      }
+    for (const failure of failures) {
+      this.logger.warn(
+        { personId: item.personId, err: failure },
+        'A push to a browser failed',
+      );
     }
 
     if (failures.length > 0) {
-      throw failures[0];
+      throw new AggregateError(failures, 'Pushes to some browsers failed');
     }
   }
 

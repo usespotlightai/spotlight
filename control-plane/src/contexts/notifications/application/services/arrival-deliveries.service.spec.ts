@@ -57,7 +57,11 @@ const deliveriesWith = (input: {
   const workspaces = {
     slugOf: async () => 'acme',
   } as unknown as WorkspaceReaderPort;
-  const logger = { info: () => {} } as unknown as LoggerPort;
+  const logger = {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  } as unknown as LoggerPort;
 
   return {
     deliveries: new ArrivalDeliveries(
@@ -140,7 +144,9 @@ describe('ArrivalDeliveries', () => {
     });
     send.mockRejectedValueOnce(new Error('The push service answered 503'));
 
-    await expect(deliveries.pushed(ITEM)).rejects.toThrow('answered 503');
+    await expect(deliveries.pushed(ITEM)).rejects.toThrow(
+      'Pushes to some browsers failed',
+    );
     expect(send).toHaveBeenCalledTimes(2);
   });
 

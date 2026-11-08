@@ -20,6 +20,7 @@ import type { InboxSighting } from '@work/domain/value-objects/inbox-sighting.vo
 
 const RECOUNTS_AT_ONCE = 2;
 const REQUEST_ATTEMPTS = 5;
+const INBOXES_AT_ONCE = 4;
 
 const sightingOf = (
   scope: InboxScope,
@@ -135,14 +136,17 @@ export class InboxArrivals implements PendingJobsPort {
     const scopes = await this.access.memberInboxesIn(watch.workspaceId);
     const sightings: InboxSighting[] = [];
 
-    for (const scope of scopes) {
-      for (const entry of await this.inbox.open(scope)) {
-        const sighting = sightingOf(scope, entry);
+    for (let at = 0; at < scopes.length; at += INBOXES_AT_ONCE) {
+      const batch = scopes.slice(at, at + INBOXES_AT_ONCE);
+      const read = await Promise.all(
+        batch.map(async (scope) =>
+          (await this.inbox.open(scope)).flatMap(
+            (entry) => sightingOf(scope, entry) ?? [],
+          ),
+        ),
+      );
 
-        if (sighting) {
-          sightings.push(sighting);
-        }
-      }
+      sightings.push(...read.flat());
     }
 
     const people = scopes.map((each) => ({

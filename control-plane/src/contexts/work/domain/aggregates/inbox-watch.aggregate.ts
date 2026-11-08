@@ -234,7 +234,7 @@ export class InboxWatch
   private recountAfterReadingAt(readAt: Date): Recount | null {
     const recount = this.state.recount;
 
-    return recount && recount.requestedAt > readAt
+    return recount && recount.requestedAt >= readAt
       ? { requestedAt: recount.requestedAt, job: PendingJob.fresh() }
       : null;
   }

@@ -133,6 +133,21 @@ describe('InboxWatch', () => {
     expect(read(leased, at(3), []).hasPendingJob).toBe(false);
   });
 
+  it('keeps a recount due when it was asked for at the moment the read began', () => {
+    const leased = watched().recountRequested(at(2)).leaseJob(at(2));
+
+    expect(read(leased.recountRequested(at(3)), at(3), []).hasPendingJob).toBe(
+      true,
+    );
+  });
+
+  it('keeps its keys free of characters a database cannot store', () => {
+    const watch = read(watched(), at(1), [sighting('a', at(0))]);
+
+    expect(JSON.stringify(watch.watching)).not.toContain('\\u0000');
+    expect(watch.watching.every((each) => !each.includes('\u0000'))).toBe(true);
+  });
+
   it('takes a silent baseline of a team that a watched person joins', () => {
     const joined = read(
       watched(),

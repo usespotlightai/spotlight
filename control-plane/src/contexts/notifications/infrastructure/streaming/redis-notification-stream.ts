@@ -28,12 +28,20 @@ export class RedisNotificationStream implements NotificationStreamPort {
     private readonly logger: LoggerPort,
   ) {
     subscriber.on('message', (channel, message) => {
-      if (channel.startsWith(CHANNEL)) {
-        this.local.publish(
-          channel.slice(CHANNEL.length),
-          JSON.parse(message) as NotificationDto,
-        );
+      if (!channel.startsWith(CHANNEL)) {
+        return;
       }
+
+      let notification: NotificationDto;
+
+      try {
+        notification = JSON.parse(message) as NotificationDto;
+      } catch (error) {
+        this.logger.warn({ err: error }, 'Reading a notification');
+        return;
+      }
+
+      this.local.publish(channel.slice(CHANNEL.length), notification);
     });
   }
 

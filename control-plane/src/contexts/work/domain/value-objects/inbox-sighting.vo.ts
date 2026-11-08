@@ -32,7 +32,7 @@ export interface InboxWatcher {
 }
 
 export const watcherKey = (person: string, teamId: string): string =>
-  `${person}\u0000${teamId}`;
+  `${person}/${teamId}`;
 
 export const announcementKey = (person: string, itemId: string): string =>
-  `${person}\u0000${itemId}`;
+  `${person}/${itemId}`;
