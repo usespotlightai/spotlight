@@ -1,7 +1,7 @@
 const SUMMARY_LENGTH = 240;
 
 export const SKIPPED_OFF_SCREEN =
-  '-mx-3 px-3 [content-visibility:auto] [contain-intrinsic-block-size:auto_160px]';
+  '-mx-5 px-5 [content-visibility:auto] [contain-intrinsic-block-size:auto_160px]';
 
 export const oneLineOf = (text: string): string =>
   text
