@@ -45,6 +45,7 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { inArray } from 'drizzle-orm';
 
@@ -121,6 +122,7 @@ const toLine = (
     search: lineSearchOf(line.search),
     source: line.source ? ConfigSource.of(line.source) : null,
     placement: RunnerPlacement.of(line.runners),
+    warmSandboxes: WarmSandboxCount.of(line.warmSandboxes),
     repositories,
     version: line.version,
   });

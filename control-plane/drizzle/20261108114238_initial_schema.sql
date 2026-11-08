@@ -1071,6 +1071,7 @@ CREATE TABLE "line" (
 	"search" jsonb,
 	"source" jsonb,
 	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"warm_sandboxes" integer DEFAULT 0 NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,

@@ -21,6 +21,7 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
@@ -85,4 +86,5 @@ export const lineMapOf = (view: LineView): LineMap =>
     ),
     reviews: view.reviews && ReviewIntake.of(view.reviews),
     placement: RunnerPlacement.of(view.runners),
+    warmSandboxes: WarmSandboxCount.of(view.warmSandboxes),
   });

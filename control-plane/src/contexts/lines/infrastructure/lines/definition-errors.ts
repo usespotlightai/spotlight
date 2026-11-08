@@ -19,6 +19,7 @@ import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid
 import { InvalidRunnerImageError } from '@shared-kernel/domain/exceptions/invalid-runner-image.error';
 import { InvalidRunnerPlacementError } from '@shared-kernel/domain/exceptions/invalid-runner-placement.error';
 import { InvalidStationNameError } from '@shared-kernel/domain/exceptions/invalid-station-name.error';
+import { InvalidWarmSandboxCountError } from '@shared-kernel/domain/exceptions/invalid-warm-sandbox-count.error';
 
 const DEFINITION_ERRORS = [
   InvalidAgentPromptError,
@@ -42,6 +43,7 @@ const DEFINITION_ERRORS = [
   InvalidStationDescriptionError,
   InvalidStationJudgeError,
   InvalidStationNameError,
+  InvalidWarmSandboxCountError,
 ] as const;
 
 export const refusalOf = (error: unknown): Error => {

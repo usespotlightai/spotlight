@@ -58,6 +58,7 @@ import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 
 type StationDefinition = LineFields['stations'][number];
 
@@ -541,6 +542,20 @@ export const compileLine = (input: unknown): ParsedLine => {
     );
   }
 
+  let warmSandboxes = WarmSandboxCount.NONE;
+
+  try {
+    warmSandboxes = WarmSandboxCount.of(definition.warmSandboxes ?? 0);
+  } catch (error) {
+    problems.push(
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(['warmSandboxes']),
+        reason: reasoned(error),
+      }),
+    );
+  }
+
   const stations: StationPlan[] = [];
 
   for (const [at, station] of definition.stations.entries()) {
@@ -573,6 +588,7 @@ export const compileLine = (input: unknown): ParsedLine => {
         repositories,
         reviews,
         placement,
+        warmSandboxes,
         replayCheck,
         search,
         source,

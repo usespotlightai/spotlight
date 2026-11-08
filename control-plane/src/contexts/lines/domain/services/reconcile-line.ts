@@ -103,6 +103,7 @@ const assemble = (
     repositories: plan.repositories.entries,
     reviews: plan.reviews,
     placement: plan.placement,
+    warmSandboxes: plan.warmSandboxes,
     replayCheck: plan.replayCheck,
     search: plan.search,
     source: plan.source,

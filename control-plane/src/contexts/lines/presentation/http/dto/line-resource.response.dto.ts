@@ -25,6 +25,7 @@ export class LineResourceResponseDto extends ResourceResponseDto {
       key: 'delivery',
       name: 'Delivery',
       repositories: [],
+      warmSandboxes: 0,
       stations: [
         {
           key: 'backlog',

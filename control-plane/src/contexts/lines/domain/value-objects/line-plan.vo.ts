@@ -43,6 +43,7 @@ import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo'
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
+import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 
 export interface StationPlan {
   readonly key: StationKey;
@@ -108,6 +109,7 @@ export class LinePlan {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
+    readonly warmSandboxes: WarmSandboxCount,
     readonly replayCheck: ReplayCheckPolicy | null,
     readonly search: LineSearchPolicy | null,
     readonly source: ConfigSource | null,
@@ -122,6 +124,7 @@ export class LinePlan {
     repositories?: readonly LineRepositoryConfig[];
     reviews?: ReviewPolicy | null;
     placement?: RunnerPlacement;
+    warmSandboxes?: WarmSandboxCount;
     replayCheck?: ReplayCheckPolicy | null;
     search?: LineSearchPolicy | null;
     source?: ConfigSource | null;
@@ -229,6 +232,7 @@ export class LinePlan {
       repositories,
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
+      input.warmSandboxes ?? WarmSandboxCount.NONE,
       input.replayCheck ?? null,
       input.search ?? null,
       input.source ?? null,

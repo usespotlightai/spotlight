@@ -45,6 +45,7 @@ import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-plac
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WarmSandboxCount } from '@shared-kernel/domain/value-objects/warm-sandbox-count.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface LineLayout {
@@ -56,6 +57,7 @@ export interface LineLayout {
   readonly repositories?: readonly LineRepositoryConfig[];
   readonly reviews?: ReviewPolicy | null;
   readonly placement?: RunnerPlacement;
+  readonly warmSandboxes?: WarmSandboxCount;
   readonly replayCheck?: ReplayCheckPolicy | null;
   readonly search?: LineSearchPolicy | null;
   readonly source?: ConfigSource | null;
@@ -80,6 +82,7 @@ export class Line extends EventRecorder {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
+    readonly warmSandboxes: WarmSandboxCount,
     readonly replayCheck: ReplayCheckPolicy | null,
     readonly search: LineSearchPolicy | null,
     readonly source: ConfigSource | null,
@@ -247,6 +250,7 @@ export class Line extends EventRecorder {
       repositories,
       layout.reviews ?? null,
       layout.placement ?? RunnerPlacement.anywhere(),
+      layout.warmSandboxes ?? WarmSandboxCount.NONE,
       layout.replayCheck ?? null,
       layout.search ?? null,
       layout.source ?? null,
@@ -347,6 +351,7 @@ export class Line extends EventRecorder {
       this.repositories,
       this.reviews,
       this.placement,
+      this.warmSandboxes,
       this.replayCheck,
       this.search,
       this.source,
@@ -394,6 +399,7 @@ export class Line extends EventRecorder {
         repositories: part.repositories ?? this.repositories.entries,
         reviews: part.reviews !== undefined ? part.reviews : this.reviews,
         placement: part.placement ?? this.placement,
+        warmSandboxes: part.warmSandboxes ?? this.warmSandboxes,
         replayCheck:
           part.replayCheck !== undefined ? part.replayCheck : this.replayCheck,
         search: part.search !== undefined ? part.search : this.search,
