@@ -29,7 +29,6 @@
               }
             }
           ],
-          "glass" : false,
           "image-name" : "Mark.svg",
           "name" : "Mark",
           "position" : {
@@ -42,10 +41,10 @@
         }
       ],
       "shadow" : {
-        "kind" : "none",
-        "opacity" : 0
+        "kind" : "neutral",
+        "opacity" : 0.5
       },
-      "specular" : false,
+      "specular" : true,
       "translucency" : {
         "enabled" : false,
         "value" : 0
