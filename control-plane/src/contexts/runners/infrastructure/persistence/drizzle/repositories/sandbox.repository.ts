@@ -8,6 +8,7 @@ import {
   SANDBOX_STATES,
   Sandbox,
 } from '@runners/domain/aggregates/sandbox.aggregate';
+import { SandboxKeyTakenError } from '@runners/domain/exceptions/sandbox-key-taken.error';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
@@ -75,7 +76,7 @@ const warmOf = (record: SandboxWarmRecord | null): WarmPart | null =>
           record.image === null ? null : RunnerImage.of(record.image),
         ),
         checkouts: record.checkouts,
-        shape: record.shape,
+        fingerprint: record.fingerprint,
       })
     : null;
 
@@ -89,7 +90,7 @@ const warmRecordOf = (warm: WarmPart | null): SandboxWarmRecord | null =>
           path: each.path,
           setup: each.setup,
         })),
-        shape: warm.shape,
+        fingerprint: warm.fingerprint,
       }
     : null;
 
@@ -179,7 +180,7 @@ export class DrizzleSandboxRepository implements SandboxRepository {
         )
         .catch((error: unknown) => {
           if (violates(error, UNIQUE_VIOLATION, 'sandbox_open_key_idx')) {
-            throw new SandboxVersionConflictError(saved.id.value);
+            throw new SandboxKeyTakenError(saved.id.value);
           }
 
           throw error;

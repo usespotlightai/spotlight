@@ -605,7 +605,7 @@ describe('Sandbox', () => {
       lineId: LineId.of('line_1'),
       placement: RunnerPlacement.of(['gpu']),
       checkouts: [{ path: 'widgets', setup: 'npm ci' }],
-      shape: 'shape_1',
+      fingerprint: 'fingerprint_1',
     });
     const fitting = RunnerOffer.of(['gpu', 'linux']);
     const requested = () =>

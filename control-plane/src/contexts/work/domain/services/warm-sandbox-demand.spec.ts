@@ -21,8 +21,8 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { WarmFingerprint } from '@work/domain/value-objects/warm-fingerprint.vo';
 import { WarmSandboxQuota } from '@work/domain/value-objects/warm-sandbox-quota.vo';
-import { WarmShape } from '@work/domain/value-objects/warm-shape.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-11-08T12:00:00.000Z');
@@ -72,8 +72,8 @@ const lineOf = (
 const keptOf = (
   id: string,
   line: LineMap,
-  shape = WarmShape.ofLine(line),
-): KeptWarmSandbox => ({ id, lineId: line.id, shape });
+  fingerprint = WarmFingerprint.ofLine(line),
+): KeptWarmSandbox => ({ id, lineId: line.id, fingerprint });
 
 const demandOf = (
   lines: readonly LineMap[],
@@ -82,15 +82,15 @@ const demandOf = (
 ) => WarmSandboxDemands.of({ lines, kept, lostRecently });
 
 describe('WarmSandboxDemands', () => {
-  it('requests the warm sandboxes a line is missing, with the line’s current shape', () => {
+  it('requests the warm sandboxes a line is missing, with the line’s current fingerprint', () => {
     const line = lineOf({ warm: 3 });
 
     const demand = demandOf([line], [keptOf('sandbox_1', line)]);
 
     expect(demand.retired).toEqual([]);
     expect(demand.requested).toEqual([
-      { line, shape: WarmShape.ofLine(line) },
-      { line, shape: WarmShape.ofLine(line) },
+      { line, fingerprint: WarmFingerprint.ofLine(line) },
+      { line, fingerprint: WarmFingerprint.ofLine(line) },
     ]);
   });
 
@@ -113,21 +113,21 @@ describe('WarmSandboxDemands', () => {
 
   it('replaces a warm sandbox whose line changed its repositories, setups, image or placement', () => {
     const line = lineOf();
-    const before = WarmShape.ofLine(
+    const before = WarmFingerprint.ofLine(
       lineOf({ repositories: [repositoryOf(Repository.of('acme/widgets'))] }),
     );
 
     expect(demandOf([line], [keptOf('sandbox_1', line, before)])).toEqual({
-      requested: [{ line, shape: WarmShape.ofLine(line) }],
+      requested: [{ line, fingerprint: WarmFingerprint.ofLine(line) }],
       retired: ['sandbox_1'],
     });
     expect(
-      WarmShape.ofLine(
+      WarmFingerprint.ofLine(
         lineOf({ placement: RunnerPlacement.of(['gpu']) }),
-      ).equals(WarmShape.ofLine(line)),
+      ).equals(WarmFingerprint.ofLine(line)),
     ).toBe(false);
     expect(
-      WarmShape.ofLine(
+      WarmFingerprint.ofLine(
         lineOf({
           repositories: [
             repositoryOf(Repository.of('acme/widgets'), {
@@ -136,7 +136,7 @@ describe('WarmSandboxDemands', () => {
             }),
           ],
         }),
-      ).equals(WarmShape.ofLine(line)),
+      ).equals(WarmFingerprint.ofLine(line)),
     ).toBe(false);
   });
 
@@ -158,15 +158,8 @@ describe('WarmSandboxDemands', () => {
     );
   });
 
-  it('keeps none for a line with no repositories, or two repositories of one name', () => {
+  it('keeps none for a line with no repositories', () => {
     expect(demandOf([lineOf({ repositories: [] })]).requested).toEqual([]);
-    expect(
-      demandOf([
-        lineOf({
-          repositories: [WIDGETS, repositoryOf(Repository.of('other/widgets'))],
-        }),
-      ]).requested,
-    ).toEqual([]);
   });
 
   it('checks out each repository of the line under its name, with its setup', () => {

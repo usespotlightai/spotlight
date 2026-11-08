@@ -1792,6 +1792,7 @@ CREATE TABLE "run" (
 	"restore_archive_id" text,
 	"extensions" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"tags" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"line_id" text,
 	"api_grant" jsonb,
 	"order_fingerprint" text,
 	"state" "run_state" NOT NULL,
@@ -2508,6 +2509,7 @@ CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority",
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_requester_idx" ON "run" USING btree ("requester_owner","requester_kind","requester_id");--> statement-breakpoint
+CREATE INDEX "run_queued_line_idx" ON "run" USING btree ("workspace_id","line_id") WHERE "run"."line_id" is not null and "run"."state" = 'queued';--> statement-breakpoint
 CREATE INDEX "run_working_copy_key_idx" ON "run" USING btree ("workspace_id","working_copy_key");--> statement-breakpoint
 CREATE INDEX "run_team_idx" ON "run" USING btree ("team_id","created_at");--> statement-breakpoint
 CREATE INDEX "run_created_idx" ON "run" USING btree ("created_at","id");--> statement-breakpoint

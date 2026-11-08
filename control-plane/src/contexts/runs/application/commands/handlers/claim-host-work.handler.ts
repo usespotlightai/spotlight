@@ -31,6 +31,8 @@ import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import { distinct } from '@shared-kernel/domain/distinct';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -343,31 +345,21 @@ export class ClaimHostWorkHandler
     avoiding: readonly WorkingCopyKey[],
   ): Promise<readonly WorkingCopyKey[]> {
     const now = this.clock.now();
-    const ready = await this.sandboxes.readyWarmIn(workspaceId.value, now);
-    const lines = new Map<string, number>();
+    const ready = (
+      await this.sandboxes.readyWarmIn(workspaceId.value, now)
+    ).map((each) => ({ line: LineId.of(each.line) }));
 
-    for (const each of ready) {
-      lines.set(each.line, (lines.get(each.line) ?? 0) + 1);
+    if (ready.length === 0) {
+      return [];
     }
 
-    const waiting: WorkingCopyKey[] = [];
+    const firstRuns = await this.runs.queuedFirstRuns(workspaceId, {
+      lines: distinct(ready.map((each) => each.line)),
+      avoiding,
+      queuedSince: ClaimOrder.warmWaitSince(now),
+    });
 
-    for (const [line, count] of lines) {
-      const first = await this.runs.queuedFirstRuns(workspaceId, {
-        line,
-        avoiding,
-        queuedSince: ClaimOrder.warmWaitSince(now),
-        max: count,
-      });
-
-      waiting.push(
-        ...first.flatMap((each) =>
-          each.workingCopyKey ? [each.workingCopyKey] : [],
-        ),
-      );
-    }
-
-    return waiting;
+    return ClaimOrder.reservedForWarm({ ready, firstRuns, avoiding, now });
   }
 
   private async startedWarm(
@@ -440,16 +432,21 @@ export class ClaimHostWorkHandler
 
     await this.taken.run(found, runner);
 
-    const held = await this.sandboxes.holdInSandbox(
-      into.id,
-      {
-        workspaceId: found.workspaceId.value,
-        key: found.workingCopyKey?.value ?? null,
-        hostId: host,
-        runId: found.id.value,
-      },
-      this.clock.now(),
-    );
+    const held = await this.sandboxes
+      .holdInSandbox(
+        into.id,
+        {
+          workspaceId: found.workspaceId.value,
+          key: found.workingCopyKey?.value ?? null,
+          hostId: host,
+          runId: found.id.value,
+        },
+        this.clock.now(),
+      )
+      .catch(async (error: unknown) => {
+        await this.taken.dropRun(found, runner);
+        throw error;
+      });
 
     if (!held) {
       await this.taken.dropRun(found, runner);
@@ -483,7 +480,7 @@ export class ClaimHostWorkHandler
       ];
       const run = await this.claims.next(
         claimantOf(runner, registered, {
-          firstOfLine: into.warmFor,
+          firstOfLine: LineId.of(into.warmFor),
           avoiding: held.map((each) => WorkingCopyKey.parse(each)),
         }),
         now,
@@ -501,16 +498,21 @@ export class ClaimHostWorkHandler
 
     await this.taken.run(found, runner);
 
-    const adopted = await this.sandboxes.adoptForRun(
-      into.id,
-      {
-        workspaceId: found.workspaceId.value,
-        key: found.workingCopyKey?.value ?? null,
-        hostId: host,
-        runId: found.id.value,
-      },
-      this.clock.now(),
-    );
+    const adopted = await this.sandboxes
+      .adoptForRun(
+        into.id,
+        {
+          workspaceId: found.workspaceId.value,
+          key: found.workingCopyKey?.value ?? null,
+          hostId: host,
+          runId: found.id.value,
+        },
+        this.clock.now(),
+      )
+      .catch(async (error: unknown) => {
+        await this.taken.dropRun(found, runner);
+        throw error;
+      });
 
     if (!adopted) {
       await this.taken.dropRun(found, runner);

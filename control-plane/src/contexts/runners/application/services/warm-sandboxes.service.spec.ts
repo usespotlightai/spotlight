@@ -20,7 +20,7 @@ const ORDER = {
   lineId: 'line_1',
   placement: { labelGroups: [['gpu']], image: null },
   checkouts: [{ path: 'widgets', setup: 'npm ci' }],
-  shape: 'shape_1',
+  fingerprint: 'fingerprint_1',
 };
 
 const keeping = () => {
@@ -50,7 +50,7 @@ const keeping = () => {
 };
 
 describe('WarmSandboxes', () => {
-  it('requests a warm sandbox for a line on no host, and lists it as kept with its shape', async () => {
+  it('requests a warm sandbox for a line on no host, and lists it as kept with its fingerprint', async () => {
     const { stored, service } = keeping();
 
     await service.request(ORDER, NOW);
@@ -62,7 +62,7 @@ describe('WarmSandboxes', () => {
         id: 'sandbox_w1',
         workspaceId: 'ws_1',
         lineId: 'line_1',
-        shape: 'shape_1',
+        fingerprint: 'fingerprint_1',
       },
     ]);
   });

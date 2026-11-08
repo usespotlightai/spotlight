@@ -33,6 +33,7 @@ import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
@@ -147,7 +148,11 @@ const pulling = (
   const runs = {
     newestWithKey: vi.fn(async () => over.newest ?? null),
     queuedWithKey: vi.fn(async () => over.queuedForKey ?? []),
-    queuedFirstRuns: vi.fn(async () => over.firstRuns ?? []),
+    queuedFirstRuns: vi.fn(async () => ({
+      waiting: over.firstRuns ?? [],
+      leasedRequesters: [],
+      archivedKeys: [],
+    })),
     findById: vi.fn(async () => over.run ?? null),
     save: vi.fn(async (run: Run) => {
       saved.push(run);
@@ -511,6 +516,20 @@ describe('ClaimHostWorkHandler', () => {
       expect(runners.start).not.toHaveBeenCalled();
     });
 
+    it('puts the run back and releases the runner when holding the run in the sandbox fails', async () => {
+      const { handler, runners, saved, sandboxes } = pulling({
+        run: taken(),
+        taking: live,
+      });
+      sandboxes.holdInSandbox.mockRejectedValueOnce(
+        new Error('sandboxes down'),
+      );
+
+      await expect(handler.execute(into())).rejects.toThrow('sandboxes down');
+      expect(saved[saved.length - 1]?.state).toBe('queued');
+      expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
+    });
+
     it('puts the run back and releases the runner when the sandbox took another run or drained meanwhile', async () => {
       const { handler, runners, saved } = pulling({
         run: taken(),
@@ -678,6 +697,8 @@ describe('ClaimHostWorkHandler', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('claude-code'),
         ...orderedFor.holdingTurn('task_9', 0),
+        line: LineId.of('line_1'),
+        now: NOW,
         spec: RunSpec.of({
           command: { executable: 'claude-agent-acp', args: [] },
           briefing: 'start the task',
@@ -750,10 +771,9 @@ describe('ClaimHostWorkHandler', () => {
       expect(runs.queuedFirstRuns).toHaveBeenCalledWith(
         WorkspaceId.of('ws_1'),
         {
-          line: 'line_1',
+          lines: [LineId.of('line_1')],
           avoiding: [WorkingCopyKey.parse('requester/subject-task_2')],
           queuedSince: new Date(NOW.getTime() - 60_000),
-          max: 1,
         },
       );
       expect(claimNext).toHaveBeenCalledWith(
@@ -787,7 +807,7 @@ describe('ClaimHostWorkHandler', () => {
       expect(claimNext).toHaveBeenCalledWith(
         expect.objectContaining({
           sandbox: {
-            firstOfLine: 'line_1',
+            firstOfLine: LineId.of('line_1'),
             avoiding: [
               WorkingCopyKey.parse('requester/subject-task_2'),
               WorkingCopyKey.parse('requester/subject-task_3'),
@@ -808,6 +828,18 @@ describe('ClaimHostWorkHandler', () => {
       );
       expect(sandboxes.holdInSandbox).not.toHaveBeenCalled();
       expect(sandboxes.drain).not.toHaveBeenCalled();
+    });
+
+    it('puts the run back and releases the runner when adopting the warm sandbox fails', async () => {
+      const { handler, runners, saved, sandboxes } = pulling({
+        run: taken(),
+        taking: keeping,
+      });
+      sandboxes.adoptForRun.mockRejectedValueOnce(new Error('sandboxes down'));
+
+      await expect(handler.execute(into())).rejects.toThrow('sandboxes down');
+      expect(saved[saved.length - 1]?.state).toBe('queued');
+      expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
     });
 
     it('puts the run back and releases the runner when the warm sandbox could not adopt it', async () => {

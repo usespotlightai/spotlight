@@ -1,8 +1,6 @@
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
 
-export { LINE_TAG } from '@runs/domain/value-objects/run-tags.vo';
-
 export interface RunPlacementContract {
   readonly labelGroups: readonly (readonly string[])[];
   readonly image: string | null;
@@ -44,6 +42,7 @@ export interface RunOrderContract {
   readonly extensions: Readonly<Record<string, JsonValue>>;
   readonly apiGrant: RunApiGrantContract | null;
   readonly tags: Readonly<Record<string, string>>;
+  readonly line: string | null;
   readonly refusal: readonly RunRefusalContract[] | null;
 }
 

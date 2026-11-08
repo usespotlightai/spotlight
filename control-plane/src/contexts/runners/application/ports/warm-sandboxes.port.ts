@@ -11,14 +11,14 @@ export interface WarmSandboxOrder {
     readonly path: string;
     readonly setup: string | null;
   }[];
-  readonly shape: string;
+  readonly fingerprint: string;
 }
 
 export interface KeptWarmSandbox {
   readonly id: string;
   readonly workspaceId: string;
   readonly lineId: string;
-  readonly shape: string;
+  readonly fingerprint: string;
 }
 
 export interface WarmSandboxesPort {

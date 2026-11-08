@@ -6,7 +6,7 @@ import {
   type WarmSandboxRequest,
   warmCheckoutsOf,
 } from '@work/domain/services/warm-sandbox-demand';
-import { WarmShape } from '@work/domain/value-objects/warm-shape.vo';
+import { WarmFingerprint } from '@work/domain/value-objects/warm-fingerprint.vo';
 
 export class RunnersWarmSandboxKeeping implements WarmSandboxKeepingPort {
   constructor(private readonly sandboxes: WarmSandboxesPort) {}
@@ -15,7 +15,7 @@ export class RunnersWarmSandboxKeeping implements WarmSandboxKeepingPort {
     return (await this.sandboxes.kept()).map((each) => ({
       id: each.id,
       lineId: LineId.of(each.lineId),
-      shape: WarmShape.of(each.shape),
+      fingerprint: WarmFingerprint.of(each.fingerprint),
     }));
   }
 
@@ -25,7 +25,7 @@ export class RunnersWarmSandboxKeeping implements WarmSandboxKeepingPort {
     );
   }
 
-  request({ line, shape }: WarmSandboxRequest, at: Date): Promise<void> {
+  request({ line, fingerprint }: WarmSandboxRequest, at: Date): Promise<void> {
     const placement = line.runsIn;
 
     return this.sandboxes.request(
@@ -37,7 +37,7 @@ export class RunnersWarmSandboxKeeping implements WarmSandboxKeepingPort {
           image: placement.image?.value ?? null,
         },
         checkouts: warmCheckoutsOf(line),
-        shape: shape.value,
+        fingerprint: fingerprint.value,
       },
       at,
     );

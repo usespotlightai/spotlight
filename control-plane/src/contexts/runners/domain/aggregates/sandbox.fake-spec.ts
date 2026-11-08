@@ -6,6 +6,7 @@ import {
   aSandboxReport,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
+import { SandboxKeyTakenError } from '@runners/domain/exceptions/sandbox-key-taken.error';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
@@ -122,6 +123,19 @@ export const storedSandboxes = (
     save: vi.fn(async (saved: Sandbox) => {
       if (stored.get(saved.id.value)?.version !== saved.version) {
         throw new SandboxVersionConflictError(saved.id.value);
+      }
+      if (
+        saved.isOpen &&
+        saved.key !== null &&
+        all().some(
+          (each) =>
+            !each.id.equals(saved.id) &&
+            each.isOpen &&
+            each.workspaceId.equals(saved.workspaceId) &&
+            each.key?.equals(saved.key as SandboxKey),
+        )
+      ) {
+        throw new SandboxKeyTakenError(saved.id.value);
       }
       stored.set(saved.id.value, savedAs(saved, saved.version + 1));
     }),

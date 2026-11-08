@@ -962,6 +962,7 @@ describe('an order under a run id Runs already knows', () => {
       extensions: {},
       apiGrant: null,
       tags: {},
+      line: null,
       refusal: null,
     };
 

@@ -1,5 +1,6 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
+import type { Leadership } from '@platform/redis/leadership';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import {
   WARM_SANDBOXES_EVERY_MS,
@@ -13,6 +14,7 @@ export class WarmSandboxesWorker implements OnModuleDestroy {
 
   constructor(
     private readonly keeping: WarmSandboxKeeping,
+    private readonly leadership: Leadership,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -23,7 +25,7 @@ export class WarmSandboxesWorker implements OnModuleDestroy {
 
   @Interval(WARM_SANDBOXES_EVERY_MS)
   async tick(): Promise<void> {
-    if (this.#ticking || this.#stopped) {
+    if (this.#ticking || this.#stopped || !this.leadership.held()) {
       return;
     }
 

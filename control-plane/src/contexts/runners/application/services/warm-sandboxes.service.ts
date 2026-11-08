@@ -26,7 +26,7 @@ const warmPartOf = (order: WarmSandboxOrder): WarmPart =>
         : RunnerImage.of(order.placement.image),
     ),
     checkouts: order.checkouts,
-    shape: order.shape,
+    fingerprint: order.fingerprint,
   });
 
 export class WarmSandboxes implements WarmSandboxesPort {
@@ -44,7 +44,7 @@ export class WarmSandboxes implements WarmSandboxesPort {
               id: sandbox.id.value,
               workspaceId: sandbox.workspaceId.value,
               lineId: sandbox.warm.lineId.value,
-              shape: sandbox.warm.shape,
+              fingerprint: sandbox.warm.fingerprint,
             },
           ]
         : [],

@@ -16,8 +16,8 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { WarmFingerprint } from '@work/domain/value-objects/warm-fingerprint.vo';
 import { WarmSandboxQuota } from '@work/domain/value-objects/warm-sandbox-quota.vo';
-import { WarmShape } from '@work/domain/value-objects/warm-shape.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-11-08T12:00:00.000Z');
@@ -57,7 +57,7 @@ const keepingWith = (over: { requestFails?: boolean } = {}) => {
       {
         id: 'sandbox_old',
         lineId: line.id,
-        shape: WarmShape.of('outdated'),
+        fingerprint: WarmFingerprint.of('outdated'),
       },
     ]),
     linesLostSince: vi.fn(async () => []),
@@ -95,7 +95,7 @@ describe('WarmSandboxKeeping', () => {
     expect(sandboxes.retire).toHaveBeenCalledWith('sandbox_old');
     expect(sandboxes.request).toHaveBeenCalledTimes(2);
     expect(sandboxes.request).toHaveBeenCalledWith(
-      { line, shape: WarmShape.ofLine(line) },
+      { line, fingerprint: WarmFingerprint.ofLine(line) },
       NOW,
     );
   });

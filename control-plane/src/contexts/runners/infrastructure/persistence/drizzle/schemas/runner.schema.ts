@@ -237,7 +237,7 @@ export interface SandboxWarmRecord {
     readonly path: string;
     readonly setup: string | null;
   }[];
-  readonly shape: string;
+  readonly fingerprint: string;
 }
 
 export const sandbox = pgTable(

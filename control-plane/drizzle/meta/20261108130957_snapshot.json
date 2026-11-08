@@ -1,5 +1,5 @@
 {
-  "id": "e50daddf-ed3f-490f-a059-96d12308b4c4",
+  "id": "a6f3d545-6b09-4256-be1e-e462ec1d345c",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -14711,6 +14711,12 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
+        "line_id": {
+          "name": "line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "api_grant": {
           "name": "api_grant",
           "type": "jsonb",
@@ -15046,6 +15052,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_queued_line_idx": {
+          "name": "run_queued_line_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"run\".\"line_id\" is not null and \"run\".\"state\" = 'queued'",
           "concurrently": false,
           "method": "btree",
           "with": {}

@@ -32,7 +32,7 @@ import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
-import { LINE_TAG, RunTags } from '@runs/domain/value-objects/run-tags.vo';
+import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
@@ -50,6 +50,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -67,6 +68,7 @@ import {
   gt,
   gte,
   inArray,
+  isNotNull,
   isNull,
   lt,
   lte,
@@ -85,8 +87,10 @@ const avoidingKeys = (avoiding: readonly WorkingCopyKey[]): SQL =>
         sql`, `,
       )})`;
 
-const firstRunOf = (line: string): SQL => sql`(
-  ${run.tags} ->> ${LINE_TAG} = ${line}
+const FIRST_RUNS_PER_LINE = 20;
+
+const firstRunOf = (line: LineId): SQL => sql`(
+  ${run.lineId} = ${line.value}
   AND ${run.workingCopyKey} IS NOT NULL
   AND ${run.restoreArchiveId} IS NULL
   AND NOT EXISTS (
@@ -175,7 +179,7 @@ export class DrizzleRunRepository implements RunRepository {
     page: { readonly max: number; readonly after: ClaimCursor | null },
   ): Promise<QueuedRuns> {
     if (by.harnesses.length === 0) {
-      return { waiting: [], leasedRequesters: [] };
+      return { waiting: [], leasedRequesters: [], archivedKeys: [] };
     }
 
     const rows = await this.selected()
@@ -206,10 +210,16 @@ export class DrizzleRunRepository implements RunRepository {
       .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
       .limit(page.max);
 
-    return this.queuedRunsOf(rows.map(toRun));
+    return this.queuedRunsOf(
+      rows.map(toRun),
+      by.sandbox !== undefined && 'firstOfLine' in by.sandbox,
+    );
   }
 
-  private async queuedRunsOf(waiting: readonly Run[]): Promise<QueuedRuns> {
+  private async queuedRunsOf(
+    waiting: readonly Run[],
+    withArchives = false,
+  ): Promise<QueuedRuns> {
     return {
       waiting,
       leasedRequesters: await this.leasedAmong(
@@ -217,7 +227,39 @@ export class DrizzleRunRepository implements RunRepository {
           .filter((each) => each.policy.exclusive)
           .map((each) => each.requester),
       ),
+      archivedKeys: withArchives ? await this.archivedAmong(waiting) : [],
     };
+  }
+
+  private async archivedAmong(
+    waiting: readonly Run[],
+  ): Promise<readonly WorkingCopyKey[]> {
+    const keyed = waiting.flatMap((each) =>
+      each.workingCopyKey
+        ? [{ workspaceId: each.workspaceId, key: each.workingCopyKey }]
+        : [],
+    );
+
+    if (keyed.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .selectDistinct({ key: workingCopyArchive.workingCopyKey })
+      .from(workingCopyArchive)
+      .where(
+        and(
+          inArray(workingCopyArchive.workspaceId, [
+            ...new Set(keyed.map((each) => each.workspaceId.value)),
+          ]),
+          inArray(workingCopyArchive.workingCopyKey, [
+            ...new Set(keyed.map((each) => each.key.value)),
+          ]),
+          isNotNull(workingCopyArchive.completedAt),
+        ),
+      );
+
+    return rows.map((row) => WorkingCopyKey.parse(row.key));
   }
 
   async leasedAmong(
@@ -294,26 +336,31 @@ export class DrizzleRunRepository implements RunRepository {
   async queuedFirstRuns(
     workspaceId: WorkspaceId,
     page: {
-      readonly line: string;
+      readonly lines: readonly LineId[];
       readonly avoiding: readonly WorkingCopyKey[];
       readonly queuedSince: Date;
-      readonly max: number;
     },
-  ): Promise<readonly Run[]> {
-    const rows = await this.selected()
-      .where(
-        and(
-          eq(run.workspaceId, workspaceId.value),
-          eq(run.state, 'queued'),
-          gte(run.queuedAt, page.queuedSince),
-          firstRunOf(page.line),
-          avoidingKeys(page.avoiding),
-        ),
-      )
-      .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
-      .limit(page.max);
+  ): Promise<QueuedRuns> {
+    const waiting: Run[] = [];
 
-    return rows.map(toRun);
+    for (const line of page.lines) {
+      const rows = await this.selected()
+        .where(
+          and(
+            eq(run.workspaceId, workspaceId.value),
+            eq(run.state, 'queued'),
+            gte(run.queuedAt, page.queuedSince),
+            firstRunOf(line),
+            avoidingKeys(page.avoiding),
+          ),
+        )
+        .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
+        .limit(FIRST_RUNS_PER_LINE);
+
+      waiting.push(...rows.map(toRun));
+    }
+
+    return this.queuedRunsOf(waiting, true);
   }
 
   async findById(id: RunId): Promise<Run | null> {
@@ -448,6 +495,7 @@ const orderedOf = (added: Run) => {
     restoreArchiveId: added.restore?.value ?? null,
     extensions: added.extensions.value,
     tags: added.tags.value,
+    lineId: added.line?.value ?? null,
     apiGrant: added.apiGrant?.parts ?? null,
   };
 };
@@ -650,6 +698,7 @@ export const toRun = ({ run: row }: Selected): Run =>
       : null,
     extensions: storedAs(row.id, () => RunExtensions.of(row.extensions)),
     tags: storedAs(row.id, () => RunTags.of(row.tags)),
+    line: row.lineId === null ? null : LineId.of(row.lineId),
     apiGrant: apiGrantFrom(row),
     spec: RunSpecPersistence.fromRow(row.spec),
     placement: RunnerPlacement.ofLabelGroups(

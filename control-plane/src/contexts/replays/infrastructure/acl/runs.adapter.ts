@@ -100,6 +100,7 @@ const trialOrderOf = (run: RunId, trial: WorkTrialRun): RunOrderContract => {
     },
     apiGrant: null,
     tags: {},
+    line: null,
   };
 };
 
@@ -164,6 +165,7 @@ export class Runs implements RunsPort {
         extensions: { search: {} },
         apiGrant: null,
         tags: {},
+        line: null,
         refusal: null,
       }),
     );

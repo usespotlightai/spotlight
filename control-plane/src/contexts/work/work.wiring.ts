@@ -63,6 +63,7 @@ import { ReadinessChecks } from '@platform/health/readiness-checks';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { Leadership } from '@platform/redis/leadership';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
 import {
@@ -1112,9 +1113,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: WarmSandboxesWorker,
-    inject: [WarmSandboxKeeping, LOGGER],
-    useFactory: (keeping: WarmSandboxKeeping, logger: LoggerPort) =>
-      new WarmSandboxesWorker(keeping, logger),
+    inject: [WarmSandboxKeeping, Leadership, LOGGER],
+    useFactory: (
+      keeping: WarmSandboxKeeping,
+      leadership: Leadership,
+      logger: LoggerPort,
+    ) => new WarmSandboxesWorker(keeping, leadership, logger),
   },
 
   {

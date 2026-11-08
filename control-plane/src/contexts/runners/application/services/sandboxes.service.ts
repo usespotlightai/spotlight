@@ -18,6 +18,7 @@ import type {
 import { reviseSandbox } from '@runners/application/services/sandbox-revisions';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
+import { SandboxKeyTakenError } from '@runners/domain/exceptions/sandbox-key-taken.error';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
@@ -197,11 +198,19 @@ export class Sandboxes
       workspaceId: WorkspaceId.of(run.workspaceId),
       key: run.key === null ? null : SandboxKey.of(run.key),
     };
-    const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
-      change(sandbox, forRun, host),
-    );
+    try {
+      const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
+        change(sandbox, forRun, host),
+      );
 
-    return held?.holdsRun(forRun.runId) ?? false;
+      return held?.holdsRun(forRun.runId) ?? false;
+    } catch (error) {
+      if (error instanceof SandboxKeyTakenError) {
+        return false;
+      }
+
+      throw error;
+    }
   }
 
   async liveKeysIn(workspaceId: string, at: Date): Promise<readonly string[]> {

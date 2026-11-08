@@ -316,11 +316,7 @@ export class Sandbox extends EventRecorder {
   }
 
   takesFirstRunOn(host: RunnerHost, now: Date): boolean {
-    return (
-      this.isWarm &&
-      this.state.leases.length === 0 &&
-      this.takesRunOn(host, now)
-    );
+    return this.isWarm && this.takesRunOn(host, now);
   }
 
   warmFits(offer: RunnerOffer): boolean {

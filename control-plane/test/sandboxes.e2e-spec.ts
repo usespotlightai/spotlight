@@ -93,7 +93,7 @@ describe('sandboxes (e2e)', () => {
       workspaceId,
       harness: input.harness ?? 'dev',
       state: 'queued',
-      tags: input.line ? { lineId: input.line } : {},
+      lineId: input.line ?? null,
       ...requestedFor(input.key ?? `work/task-${id}`),
       spec: {
         command: { executable: 'sh', args: [] },

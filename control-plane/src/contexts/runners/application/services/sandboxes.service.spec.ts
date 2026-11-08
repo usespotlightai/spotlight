@@ -526,7 +526,7 @@ describe('Sandboxes', () => {
           lineId: LineId.of('line_1'),
           placement: RunnerPlacement.of(['gpu']),
           checkouts: [{ path: 'widgets', setup: 'npm ci' }],
-          shape: 'shape_1',
+          fingerprint: 'fingerprint_1',
         }),
         at: STARTED_AT,
       });
@@ -595,6 +595,26 @@ describe('Sandboxes', () => {
       expect(await service.readyWarmIn(WORKSPACE.value, STARTED_AT)).toEqual(
         [],
       );
+    });
+
+    it('is not adopted, and stays warm, by a run whose key another open sandbox has', async () => {
+      const { stored, service } = serving({
+        known: [
+          warmRequested(),
+          placed('sandbox_k', { key: 'work/task-task_1' }),
+        ],
+        reported: ['sandbox_w', 'sandbox_k'],
+      });
+      await service.startWarm('sandbox_w', HOST, GPU, STARTED_AT);
+
+      expect(
+        await service.adoptForRun(
+          'sandbox_w',
+          forRun('run_2', 'work/task-task_1'),
+          STARTED_AT,
+        ),
+      ).toBe(false);
+      expect(stored.get('sandbox_w')?.isWarm).toBe(true);
     });
 
     it('takes no run before its host reports it', async () => {

@@ -137,6 +137,7 @@ export class DispatchChat implements ChatDispatching {
           }
         : null,
       tags: {},
+      line: null,
       placement,
       refusals: [],
       spec: {

@@ -111,8 +111,8 @@ import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+import { WarmFingerprint } from '@work/domain/value-objects/warm-fingerprint.vo';
 import { WarmSandboxQuota } from '@work/domain/value-objects/warm-sandbox-quota.vo';
-import { WarmShape } from '@work/domain/value-objects/warm-shape.vo';
 import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
 export const WORK_PAYLOAD_TYPES = [
@@ -184,7 +184,7 @@ export const WORK_PAYLOAD_TYPES = [
   TraceReference,
   Voice,
   WarmSandboxQuota,
-  WarmShape,
+  WarmFingerprint,
   DraftGeneration,
   InboxRequestId,
   NoticeId,

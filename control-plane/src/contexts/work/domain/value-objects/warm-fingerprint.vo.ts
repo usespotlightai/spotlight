@@ -2,24 +2,24 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-export class WarmShape {
-  private readonly kind = 'warm-shape';
+export class WarmFingerprint {
+  private readonly kind = 'warm-fingerprint';
 
   private constructor(readonly value: string) {}
 
-  static of(raw: string): WarmShape {
-    return new WarmShape(raw);
+  static of(raw: string): WarmFingerprint {
+    return new WarmFingerprint(raw);
   }
 
-  static ofLine(line: LineMap): WarmShape {
+  static ofLine(line: LineMap): WarmFingerprint {
     const placement = line.runsIn;
 
-    return new WarmShape(
+    return new WarmFingerprint(
       JSON.stringify({
         repositories: line.repositories.entries
           .map((each) => ({
             repository: each.repository.value,
-            setup: each.setup,
+            setup: each.setup?.trim() || null,
           }))
           .sort((a, b) => byText(a.repository, b.repository)),
         labelGroups: placement.labelGroups
@@ -30,7 +30,7 @@ export class WarmShape {
     );
   }
 
-  equals(other: WarmShape): boolean {
+  equals(other: WarmFingerprint): boolean {
     return this.kind === other.kind && this.value === other.value;
   }
 }

@@ -14,14 +14,14 @@ export class WarmPart {
     readonly lineId: LineId,
     readonly placement: RunnerPlacement,
     readonly checkouts: readonly WarmCheckout[],
-    readonly shape: string,
+    readonly fingerprint: string,
   ) {}
 
   static of(input: {
     lineId: LineId;
     placement: RunnerPlacement;
     checkouts: readonly WarmCheckout[];
-    shape: string;
+    fingerprint: string;
   }): WarmPart {
     const paths = input.checkouts.map((each) => each.path.trim());
 
@@ -39,8 +39,8 @@ export class WarmPart {
       );
     }
 
-    if (input.shape.trim().length === 0) {
-      throw new InconsistentStateError('warm sandbox', 'needs a shape');
+    if (input.fingerprint.trim().length === 0) {
+      throw new InconsistentStateError('warm sandbox', 'needs a fingerprint');
     }
 
     return new WarmPart(
@@ -50,7 +50,7 @@ export class WarmPart {
         path: each.path.trim(),
         setup: each.setup?.trim() || null,
       })),
-      input.shape,
+      input.fingerprint,
     );
   }
 
