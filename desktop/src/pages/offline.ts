@@ -9,22 +9,26 @@ declare global {
 
 const RETRY_EVERY_MS = 10_000;
 
-const hostOf = (page: string): string => {
+const webPage = (value: string | null): URL | null => {
   try {
-    return new URL(page).host;
+    const url = new URL(value ?? '');
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url : null;
   } catch {
-    return 'this address';
+    return null;
   }
 };
 
-const page = new URLSearchParams(location.search).get('page') ?? '';
+const page = webPage(new URLSearchParams(location.search).get('page'));
 const retry = element('retry', HTMLButtonElement);
 
-element('host', HTMLElement).textContent = hostOf(page);
+element('host', HTMLElement).textContent = page?.host ?? 'this address';
 
 const again = () => {
+  if (!page) {
+    return;
+  }
   retry.disabled = true;
-  location.replace(page);
+  location.replace(page.href);
 };
 
 retry.addEventListener('click', again);
