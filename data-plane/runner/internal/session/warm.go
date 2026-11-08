@@ -37,6 +37,9 @@ func (s *Sandbox) Warm(ctx context.Context, warm protocol.WarmSandbox, opts Warm
 		}
 	}
 
+	if s.kept != nil {
+		s.kept.archives = false
+	}
 	if s.setUp == nil {
 		s.setUp = setUps{}
 	}

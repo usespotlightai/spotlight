@@ -39,12 +39,16 @@ func TestAWarmSandboxSetsUpOnceSoTheFirstRunSkipsSetup(t *testing.T) {
 	installs := filepath.Join(t.TempDir(), "installs")
 	setup := "echo installed >> " + installs
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	sandbox := &Sandbox{space: space}
+	sandbox := &Sandbox{space: space, kept: &kept{archives: true}}
 
 	if err := sandbox.Warm(context.Background(), protocol.WarmSandbox{
 		Line: "line_1", Checkouts: []protocol.WarmCheckout{{Path: "web", Setup: setup}},
 	}, WarmOptions{Mirrors: mirrors, Log: log}); err != nil {
 		t.Fatal(err)
+	}
+
+	if sandbox.kept.archives {
+		t.Error("a warm sandbox that no run took would archive its working copy")
 	}
 
 	journal := &journalWriter{}
