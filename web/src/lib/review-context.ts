@@ -4,6 +4,7 @@ import type { CodeReview, ReviewSpot, ReviewThread } from '@/lib/review';
 export interface Reviewing {
   readonly teamId: string;
   readonly runId: string;
+  readonly repository: string | null;
   readonly review: CodeReview | undefined;
   readonly threads: readonly ReviewThread[];
   readonly composing: ReviewSpot | null;

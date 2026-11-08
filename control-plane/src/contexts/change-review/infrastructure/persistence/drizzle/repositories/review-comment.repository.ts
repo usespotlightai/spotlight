@@ -4,6 +4,7 @@ import type { ReviewCommentRepository } from '@change-review/domain/repositories
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -25,8 +26,10 @@ import { and, asc, eq } from 'drizzle-orm';
 type Row = typeof reviewComment.$inferSelect;
 
 const anchorOf = (row: Row): ReviewAnchor => {
+  const repository = RepositoryName.optional(row.repository);
+
   if (row.side === null && row.line === null && row.startLine === null) {
-    return ReviewAnchor.onFile(row.path);
+    return ReviewAnchor.onFile(row.path, repository);
   }
 
   if (row.side === null || row.line === null) {
@@ -37,6 +40,7 @@ const anchorOf = (row: Row): ReviewAnchor => {
   }
 
   return ReviewAnchor.onLines({
+    repository,
     path: row.path,
     side: row.side,
     line: row.line,
@@ -79,6 +83,7 @@ const toRow = (comment: ReviewComment): Row => ({
   id: comment.id.value,
   workspaceId: comment.workspaceId.value,
   taskId: comment.taskId.value,
+  repository: comment.anchor.repository?.value ?? null,
   path: comment.anchor.path.value,
   side: comment.anchor.lines?.side ?? null,
   line: comment.anchor.lines?.line ?? null,

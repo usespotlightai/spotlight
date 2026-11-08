@@ -147,6 +147,35 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
     taskId: TaskId,
     now: Date,
   ): Promise<ChangeStackSummary | null> {
+    const [latest] = await this.shownForTask(taskId, now, (rows) =>
+      rows.slice(0, 1),
+    );
+
+    return latest ?? null;
+  }
+
+  latestPerRepository(
+    taskId: TaskId,
+    now: Date,
+  ): Promise<ChangeStackSummary[]> {
+    return this.shownForTask(taskId, now, (rows) => {
+      const seen = new Set<string | null>();
+
+      return rows.filter((row) => {
+        const known = seen.has(row.repository);
+
+        seen.add(row.repository);
+
+        return !known;
+      });
+    });
+  }
+
+  private async shownForTask(
+    taskId: TaskId,
+    now: Date,
+    pick: <R extends { repository: string | null }>(newestFirst: R[]) => R[],
+  ): Promise<ChangeStackSummary[]> {
     const rows = await this.context.db
       .select({
         id: changeStack.id,
@@ -159,26 +188,30 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       .from(changeStack)
       .where(eq(changeStack.taskId, taskId.value))
       .orderBy(desc(changeStack.startedAt));
-    const row = rows.find((each) => isShownForTask(each.state));
 
-    if (!row) {
-      return null;
-    }
+    return Promise.all(
+      pick(rows.filter((each) => isShownForTask(each.state))).map(
+        async (row): Promise<ChangeStackSummary> => {
+          const tally = tallyOf(diffOf(row.files).files);
 
-    const tally = tallyOf(diffOf(row.files).files);
-
-    return {
-      id: row.id,
-      runId: RunId.of(row.runId),
-      repository: row.repository,
-      state: row.state,
-      cohorts: row.cohorts.map((cohort) =>
-        outlinedCohortOf(cohort, outlinedLayerOf),
+          return {
+            id: row.id,
+            runId: RunId.of(row.runId),
+            repository: row.repository,
+            state: row.state,
+            cohorts: row.cohorts.map((cohort) =>
+              outlinedCohortOf(cohort, outlinedLayerOf),
+            ),
+            check: checkOf(
+              StackCheck.latestOf(await this.checksOf([row.id])),
+              now,
+            ),
+            added: tally.added,
+            removed: tally.removed,
+          };
+        },
       ),
-      check: checkOf(StackCheck.latestOf(await this.checksOf([row.id])), now),
-      added: tally.added,
-      removed: tally.removed,
-    };
+    );
   }
 
   async ofRun(

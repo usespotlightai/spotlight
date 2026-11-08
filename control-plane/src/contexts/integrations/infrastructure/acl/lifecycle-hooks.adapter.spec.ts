@@ -24,6 +24,7 @@ const TASK: TaskViewDto = {
   marks: {},
   repositories: ['acme/api'],
   pullRequest: null,
+  pullRequests: [],
   runId: 'run_1',
 };
 

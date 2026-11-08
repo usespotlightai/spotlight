@@ -5,5 +5,6 @@ export class SubmitReviewCommand {
     readonly viewerId: string,
     readonly verdict: string,
     readonly body: string,
+    readonly repository: string | null,
   ) {}
 }

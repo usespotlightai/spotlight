@@ -125,7 +125,9 @@ const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({
   createdAt: new Date(task.openedAt).toISOString(),
   progress: null,
   awaitingReview: null,
-  pullRequest: task.pullRequest ? pullRequestUrlOf(task.teamId, task.id) : null,
+  pullRequests: task.pullRequest
+    ? [pullRequestUrlOf(task.teamId, task.id)].filter((url) => url !== null)
+    : [],
   createdBy: personOf(task.openedBy),
   assignee: null,
   note: null,

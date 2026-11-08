@@ -2,9 +2,13 @@ import { GitPullRequest } from 'lucide-react';
 
 type TaskPullRequestLinkProps = {
   href: string;
+  named: boolean;
 };
 
-export function TaskPullRequestLink({ href }: TaskPullRequestLinkProps) {
+const repositoryOf = (href: string): string =>
+  new URL(href).pathname.split('/').slice(1, 3).join('/') || href;
+
+export function TaskPullRequestLink({ href, named }: TaskPullRequestLinkProps) {
   return (
     <a
       href={href}
@@ -17,7 +21,9 @@ export function TaskPullRequestLink({ href }: TaskPullRequestLinkProps) {
         aria-hidden
       />
 
-      <span className="truncate text-foreground">Pull request</span>
+      <span className="truncate text-foreground">
+        {named ? `Pull request in ${repositoryOf(href)}` : 'Pull request'}
+      </span>
     </a>
   );
 }

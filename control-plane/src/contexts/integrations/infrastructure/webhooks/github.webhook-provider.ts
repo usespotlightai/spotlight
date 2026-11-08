@@ -99,6 +99,7 @@ const messageOf = (event: PullRequestActivity): Happened['message'] =>
         from: event.reviewComment.from,
         to: event.reviewComment.to,
         reviewComment: event.reviewComment.id,
+        pullRequest: event.pullRequest,
       }
     : null;
 
@@ -168,6 +169,10 @@ const reported = (
     message: messageOf(event) ?? failedChecksOf(event),
     ourOwn: event.ignoredAsBot,
     opens: null,
+    closedPullRequest:
+      activity === 'merged' || activity === 'closed-unmerged'
+        ? (event.pullRequest ?? null)
+        : null,
   };
 };
 

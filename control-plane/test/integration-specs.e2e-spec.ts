@@ -165,6 +165,7 @@ describe('an integration providing tools from an API spec (e2e)', () => {
     teamId: workspaceId,
     title: 'Drain the queue',
     pullRequest: null,
+    pullRequests: [],
     line: 'delivery',
     station: 'Implementation',
     stationKey: 'implementation',

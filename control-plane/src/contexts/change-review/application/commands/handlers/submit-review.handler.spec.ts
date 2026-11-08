@@ -81,7 +81,7 @@ const submitting = (over: { racing?: boolean } = {}) => {
 };
 
 const command = () =>
-  new SubmitReviewCommand('team_1', 'run_1', ADA.value, 'comment', '');
+  new SubmitReviewCommand('team_1', 'run_1', ADA.value, 'comment', '', null);
 
 describe('SubmitReviewHandler', () => {
   it('claims the drafts for the review it submits', async () => {

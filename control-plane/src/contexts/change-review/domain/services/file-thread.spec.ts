@@ -1,6 +1,7 @@
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { fileThreadOf } from '@change-review/domain/services/file-thread';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
@@ -57,5 +58,22 @@ describe('a file’s thread', () => {
         ON_FILE,
       ),
     ).toBeNull();
+  });
+
+  it('is never the same file in another repository', () => {
+    const inDocs = ReviewAnchor.onFile(
+      'src/invite.ts',
+      RepositoryName.of('docs'),
+    );
+
+    expect(
+      fileThreadOf(
+        [posted('comment_1', inDocs)],
+        ReviewAnchor.onFile('src/invite.ts', RepositoryName.of('web')),
+      ),
+    ).toBeNull();
+    expect(fileThreadOf([posted('comment_1', inDocs)], inDocs)?.id.value).toBe(
+      'comment_1',
+    );
   });
 });

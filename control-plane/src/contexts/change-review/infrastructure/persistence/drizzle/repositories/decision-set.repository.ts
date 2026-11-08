@@ -13,12 +13,13 @@ import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import {
   type DecisionSetRow,
   generationRunOf,
-  mergeRowOf,
+  type MergeRow,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.rows';
 import {
   decision,
   decisionDispute,
   decisionSet,
+  decisionSetMerge,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -61,20 +62,20 @@ const generationOf = (row: DecisionSetRow): DecisionGeneration | null => {
   });
 };
 
-const statusOf = (row: DecisionSetRow): DecisionStatus => {
-  const merge = mergeRowOf(row);
-
-  return DecisionStatus.rehydrate({
+const statusOf = (
+  row: DecisionSetRow,
+  merges: readonly MergeRow[],
+): DecisionStatus =>
+  DecisionStatus.rehydrate({
     state: row.status,
-    merge: merge
-      ? DecisionMerge.rehydrate({
-          repository: Repository.of(merge.repository),
-          commit: merge.commit,
-          at: merge.at,
-        })
-      : null,
+    merges: merges.map((each) =>
+      DecisionMerge.rehydrate({
+        repository: Repository.of(each.repository),
+        commit: each.commit,
+        at: each.mergedAt,
+      }),
+    ),
   });
-};
 
 const toDecision = (
   row: DecisionRow,
@@ -105,6 +106,7 @@ const toDecisionSet = (
   row: DecisionSetRow,
   decisions: readonly DecisionRow[],
   disputes: readonly DisputeRow[],
+  merges: readonly MergeRow[],
 ): DecisionSet =>
   DecisionSet.rehydrate({
     id: DecisionSetId.of(row.id),
@@ -115,7 +117,7 @@ const toDecisionSet = (
       .sort((a, b) => a.position - b.position)
       .map((each) => toDecision(each, disputes)),
     generation: generationOf(row),
-    status: statusOf(row),
+    status: statusOf(row, merges),
     version: row.version,
   });
 
@@ -126,10 +128,15 @@ const columnsOf = (set: DecisionSet) => ({
   jobAttempts: set.generation?.job.attempts ?? 0,
   jobDueAt: set.generation?.job.nextAttemptAt ?? null,
   status: set.status.state,
-  mergedRepository: set.status.merge?.repository.value ?? null,
-  mergedCommit: set.status.merge?.commit.value ?? null,
-  mergedAt: set.status.merge?.at ?? null,
 });
+
+const mergeRows = (set: DecisionSet) =>
+  set.status.merges.map((each) => ({
+    setId: set.id.value,
+    repository: each.repository.value,
+    commit: each.commit.value,
+    mergedAt: each.at,
+  }));
 
 const decisionRows = (set: DecisionSet) =>
   set.decisions.map((each, position) => ({
@@ -162,6 +169,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
         ...columnsOf(added),
       });
       await this.decisionsReplaced(added);
+      await this.mergesReplaced(added);
       await this.events.dispatch(added.pullEvents());
     });
   }
@@ -184,6 +192,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
       }
 
       await this.decisionsReplaced(saved);
+      await this.mergesReplaced(saved);
       await this.events.dispatch(saved.pullEvents());
     });
   }
@@ -206,6 +215,18 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
 
       await this.events.dispatch(set.pullEvents());
     });
+  }
+
+  private async mergesReplaced(set: DecisionSet): Promise<void> {
+    await this.context.db
+      .delete(decisionSetMerge)
+      .where(eq(decisionSetMerge.setId, set.id.value));
+
+    const rows = mergeRows(set);
+
+    if (rows.length > 0) {
+      await this.context.db.insert(decisionSetMerge).values(rows);
+    }
   }
 
   private async decisionsReplaced(set: DecisionSet): Promise<void> {
@@ -283,6 +304,11 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
             .orderBy(asc(decisionDispute.at))
         : [];
 
-    return toDecisionSet(row, decisions, disputes);
+    const merges = await this.context.db
+      .select()
+      .from(decisionSetMerge)
+      .where(eq(decisionSetMerge.setId, row.id));
+
+    return toDecisionSet(row, decisions, disputes, merges);
   }
 }

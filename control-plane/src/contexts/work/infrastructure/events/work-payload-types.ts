@@ -67,6 +67,7 @@ import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
+import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
@@ -145,6 +146,7 @@ export const WORK_PAYLOAD_TYPES = [
   TargetStation,
   DeferredMove,
   PullRequestLink,
+  LaterPullRequest,
   PullRequestTitle,
   CiSetup,
   ConfigFolder,

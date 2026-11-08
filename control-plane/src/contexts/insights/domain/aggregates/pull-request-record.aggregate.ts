@@ -5,6 +5,7 @@ import { PullRequestReleased } from '@insights/domain/events/pull-request-releas
 import { PullRequestReviewTaskAdded } from '@insights/domain/events/pull-request-review-task-added.event';
 import { PullRequestSeen } from '@insights/domain/events/pull-request-seen.event';
 import { InvalidPullRequestRecordError } from '@insights/domain/exceptions/invalid-pull-request-record.error';
+import { taskPullRequestOf } from '@insights/domain/services/task-pull-request';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { TaskPullRequestFact } from '@insights/domain/value-objects/run-fact.vo';
@@ -76,21 +77,15 @@ export class PullRequestRecord extends EventRecorder {
     );
   }
 
-  static latestOwnedOf(
+  static taskFactOf(
     records: readonly PullRequestRecord[],
   ): TaskPullRequestFact | null {
-    const [latest] = records
-      .flatMap((each) => {
+    return taskPullRequestOf(
+      records.flatMap((each) => {
         const owned = each.forTask;
         return owned ? [owned] : [];
-      })
-      .sort(
-        (one, other) =>
-          other.openedAt.getTime() - one.openedAt.getTime() ||
-          other.pullRequest.value.localeCompare(one.pullRequest.value),
-      );
-
-    return latest ?? null;
+      }),
+    );
   }
 
   static rehydrate(input: {

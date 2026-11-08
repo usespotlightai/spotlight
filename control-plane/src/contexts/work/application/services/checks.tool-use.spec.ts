@@ -37,7 +37,14 @@ const FAILED = {
   ],
 };
 
-const using = (task: { pullRequest: PullRequestUrl | null } | null) => {
+const DOCS = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
+
+const using = (
+  task: {
+    pullRequest: PullRequestUrl | null;
+    later?: readonly PullRequestUrl[];
+  } | null,
+) => {
   const checkRuns = {
     failedOn: vi.fn(async () => FAILED),
     failedInSuite: vi.fn(),
@@ -49,6 +56,7 @@ const using = (task: { pullRequest: PullRequestUrl | null } | null) => {
             pullRequestLink: task.pullRequest
               ? PullRequestLink.opened(task.pullRequest)
               : null,
+            laterPullRequests: task.later ?? [],
           }
         : null,
     ),
@@ -66,13 +74,31 @@ describe('ChecksToolUse', () => {
     const { tool, checkRuns } = using({ pullRequest: PULL_REQUEST });
 
     expect(await tool.call(CONTEXT)).toEqual({
-      pullRequest: 'https://github.com/acme/api/pull/7',
-      ...FAILED,
+      pullRequests: [
+        { pullRequest: 'https://github.com/acme/api/pull/7', ...FAILED },
+      ],
     });
     expect(checkRuns.failedOn).toHaveBeenCalledWith(
       CONTEXT.workspaceId,
       PULL_REQUEST,
     );
+  });
+
+  it('answers for each pull request of the task, the first first', async () => {
+    const { tool, checkRuns } = using({
+      pullRequest: PULL_REQUEST,
+      later: [DOCS],
+    });
+
+    const answered = (await tool.call(CONTEXT)) as {
+      pullRequests: { pullRequest: string }[];
+    };
+
+    expect(answered.pullRequests.map((each) => each.pullRequest)).toEqual([
+      PULL_REQUEST.value,
+      DOCS.value,
+    ]);
+    expect(checkRuns.failedOn).toHaveBeenCalledWith(CONTEXT.workspaceId, DOCS);
   });
 
   it('refuses a task without a pull request', async () => {
