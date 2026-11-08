@@ -213,7 +213,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		}
 	}
 
-	opts.setUp(ctx, space.Dir, run.Spec.Checkouts, journal, log)
+	unready := opts.setUp(ctx, space.Dir, run.Spec.Checkouts, journal, log)
 
 	if err := lifecycle.advance(WorkspaceReady); err != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -359,6 +359,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		harness:   harness,
 		sessionID: sessionID,
 		joined:    joined,
+		unready:   unready,
 		journal:   journal,
 		control:   opts.Journal,
 		archiver:  archiver,
@@ -832,7 +833,8 @@ func (o Options) checkEgress(ctx context.Context, journal *journalWriter) {
 
 func (o Options) setUp(
 	ctx context.Context, dir string, checkouts []protocol.Checkout, journal *journalWriter, log *slog.Logger,
-) {
+) []setupFailure {
+	var failures []setupFailure
 	for _, checkout := range checkouts {
 		if checkout.Setup == "" {
 			continue
@@ -841,12 +843,14 @@ func (o Options) setUp(
 		output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.ProxyEnv)
 		if err != nil {
 			log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
+			failures = append(failures, setupFailure{path: checkout.Path, command: checkout.Setup, err: err, output: output})
 			output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetup failed for %s. Error: %v", output, checkout.Path, err))
 		}
 		if output != "" {
 			journal.append(protocol.Event{Type: protocol.EventOutput, Message: setupStep, Data: []byte(output)})
 		}
 	}
+	return failures
 }
 
 type journalWriter struct {

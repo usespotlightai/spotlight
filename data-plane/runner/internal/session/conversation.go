@@ -17,6 +17,7 @@ type conversation struct {
 	harness      *acp.Client
 	sessionID    string
 	joined       []string
+	unready      []setupFailure
 	journal      *journalWriter
 	control      Journal
 	archiver     *archiver
@@ -38,6 +39,10 @@ type lostRun interface {
 }
 
 func (c *conversation) opening(ctx context.Context) string {
+	return unreadyNote(c.unready) + c.request(ctx)
+}
+
+func (c *conversation) request(ctx context.Context) string {
 	briefing := c.run.Spec.Briefing
 	if !c.run.Spec.Resume.ResumeSession {
 		return briefing
