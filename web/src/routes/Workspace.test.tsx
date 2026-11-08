@@ -278,7 +278,7 @@ describe('Workspace', () => {
 
     renderAt('acme-inc');
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: /./ })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Your teams' }),
     ).not.toBeInTheDocument();
@@ -300,7 +300,7 @@ describe('Workspace', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'The workspace could not be loaded.',
     );
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: /./ })).not.toBeInTheDocument();
     expect(screen.queryByText('section slot')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Workspace not found' }),

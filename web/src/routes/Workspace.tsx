@@ -43,6 +43,7 @@ export function Workspace() {
       activeId={tabs.activeId}
       onSelect={tabs.select}
       onClose={tabs.close}
+      onMove={tabs.move}
       onOpen={tabs.open}
     />
   );
