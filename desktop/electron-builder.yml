@@ -20,7 +20,7 @@ protocols:
       - spotlight
 mac:
   category: public.app-category.developer-tools
-  icon: build/icon.png
+  icon: build/Spotlight.icon
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist

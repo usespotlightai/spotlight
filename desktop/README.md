@@ -17,6 +17,12 @@ select **Spotlight → Spotlight Address…**.
 `npm run pack` builds an unsigned app in `release/mac-arm64` with an ad-hoc
 signature, so that it starts on Apple silicon.
 
+## Icon
+
+`build/Spotlight.icon` is an Icon Composer document with a light and a dark
+appearance. Open it in Icon Composer, which comes with Xcode 26. Building the
+app needs Xcode 26, because `actool` compiles the icon.
+
 ## Release
 
 The `desktop` job in `.github/workflows/release.yml` builds a universal app,

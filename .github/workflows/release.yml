@@ -119,6 +119,14 @@ jobs:
           npm install -g npm@11.19.1
           npm ci --ignore-scripts
 
+      - name: Use Xcode 26 for the Icon Composer icon
+        working-directory: .
+        run: |
+          xcode=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$xcode" ] || { echo "::error::No Xcode 26 on this runner; actool needs it for build/Spotlight.icon."; exit 1; }
+          sudo xcode-select -s "$xcode"
+          xcrun actool --version | grep -A1 short-bundle-version
+
       - name: Set the version
         env:
           TAG: ${{ needs.release-please.outputs.tag }}
