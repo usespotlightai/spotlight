@@ -4,96 +4,259 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src file:"
     />
     <title>Spotlight address</title>
     <style>
+      @font-face {
+        font-family: "Inter Variable";
+        font-style: normal;
+        font-weight: 100 900;
+        src: url("assets/inter.woff2") format("woff2");
+      }
+
       :root {
         color-scheme: light dark;
-        --background: #ffffff;
-        --foreground: #0a0a0a;
-        --muted: #6b6b6b;
-        --border: #e5e5e5;
-        --danger: #c2410c;
+        --popover: #fefeff;
+        --foreground: #2f2f31;
+        --muted-foreground: #5b5b5d;
+        --background: #efeff1;
+        --card: #fefeff;
+        --muted: #f3f3f3;
+        --border: #e4e4e6;
+        --input: #d2d2d2;
+        --primary: #5e6ad2;
+        --primary-foreground: #fefeff;
+        --ring: #6d78d5;
+        --destructive: oklch(0.577 0.245 27.325);
       }
+
       @media (prefers-color-scheme: dark) {
         :root {
-          --background: #0a0a0a;
-          --foreground: #fafafa;
-          --muted: #a1a1a1;
-          --border: #2a2a2a;
-          --danger: #fb923c;
+          --popover: #1f1f22;
+          --foreground: #e2e3e5;
+          --muted-foreground: #97979a;
+          --background: #0d0d0e;
+          --card: #1b1b1c;
+          --muted: #26262a;
+          --border: #3a3a42;
+          --input: #3f3f47;
+          --primary: #5e69d1;
+          --primary-foreground: #fefeff;
+          --ring: #b0b6ff;
+          --destructive: oklch(0.704 0.191 22.216);
         }
       }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
       body {
         margin: 0;
-        padding: 24px;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      body {
+        padding: 48px;
+      }
+
+      body {
+        color: var(--foreground);
+        font: 400 13px/20px "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        border-radius: 14px;
+        background: var(--popover);
+        box-shadow:
+          0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+          0 9px 48px #00000014,
+          0 6px 24px #0000001a,
+          0 1px 1px #0000000a;
+      }
+
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 1;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted-foreground);
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      label {
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 500;
+      }
+
+      input {
+        height: 32px;
+        width: 100%;
+        padding: 0 10px;
+        border: 0.5px solid var(--border);
+        border-radius: 8px;
         background: var(--background);
         color: var(--foreground);
-        font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
-      }
-      h1 { font-size: 15px; margin: 0 0 4px; }
-      p { margin: 0 0 16px; color: var(--muted); }
-      input {
-        box-sizing: border-box;
-        width: 100%;
-        padding: 6px 8px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        background: transparent;
-        color: inherit;
         font: inherit;
+        outline: none;
       }
-      .error { min-height: 20px; margin: 6px 0 12px; color: var(--danger); }
-      .actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+      input:focus-visible {
+        border-color: var(--input);
+      }
+
+      .error {
+        margin: 0;
+        color: var(--destructive);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .error:empty {
+        display: none;
+      }
+
+      footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
       button {
-        padding: 5px 12px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        background: transparent;
-        color: inherit;
+        height: 28px;
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: 999px;
         font: inherit;
+        font-size: 0.8rem;
+        font-weight: 500;
+        outline: none;
+        transition: background-color 120ms;
       }
-      button[type="submit"] {
-        background: var(--foreground);
-        color: var(--background);
-        border-color: var(--foreground);
+
+      button:focus-visible {
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+      }
+
+      .outline {
+        border-color: var(--border);
+        background: var(--card);
+        color: var(--foreground);
+      }
+
+      .outline:hover {
+        background: var(--muted);
+      }
+
+      .primary {
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+
+      .primary:hover {
+        background: color-mix(in oklab, var(--primary) 80%, transparent);
       }
     </style>
   </head>
   <body>
     <form id="form">
-      <h1>Spotlight address</h1>
-      <p>The address of the Spotlight that this app opens.</p>
-      <input id="address" name="address"  aria-label="Spotlight address" />
-      <div class="error" id="error" role="alert"></div>
-      <div class="actions">
-        <button type="button" id="cancel">Cancel</button>
-        <button type="submit">Open</button>
+      <header>
+        <h1>Spotlight address</h1>
+        <p>The app opens the Spotlight at this address.</p>
+      </header>
+
+      <div class="field">
+        <label for="address">Address</label>
+        <input
+          id="address"
+          name="address"
+          spellcheck="false"
+          autocomplete="url"
+          placeholder="https://spotlight.example.com"
+        />
+        <p class="error" id="error" role="alert"></p>
       </div>
+
+      <footer>
+        <button type="button" class="outline" id="cancel">Cancel</button>
+        <button type="submit" class="primary">Open</button>
+      </footer>
     </form>
     <script>
       const form = document.getElementById('form');
       const input = document.getElementById('address');
       const error = document.getElementById('error');
 
+      const sizeToCard = () =>
+        window.spotlightConnect.fit(
+          Math.ceil(form.getBoundingClientRect().height),
+        );
+
+      document.body.addEventListener('mousedown', (event) => {
+        if (!form.contains(event.target)) {
+          window.spotlightConnect.cancel();
+        }
+      });
+
+      const said = (message) => {
+        error.textContent = message;
+        sizeToCard();
+      };
+
       window.spotlightConnect.current().then((address) => {
-        input.value = address;
+        input.value = address ?? '';
+        document.fonts.ready.then(sizeToCard);
         input.focus();
         input.select();
+      });
+
+      input.addEventListener('input', () => {
+        if (error.textContent) {
+          said('');
+        }
       });
 
       document.getElementById('cancel').addEventListener('click', () =>
         window.spotlightConnect.cancel(),
       );
 
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          window.spotlightConnect.cancel();
+        }
+      });
+
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        error.textContent = '';
 
         if (!(await window.spotlightConnect.save(input.value))) {
-          error.textContent =
-            'The address is not valid. Use an https address, such as https://spotlight.example.com.';
+          said(
+            'The address must use https, such as https://spotlight.example.com.',
+          );
         }
       });
     </script>

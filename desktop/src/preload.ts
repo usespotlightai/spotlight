@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld('spotlightDesktop', {
   setBadge: (count: number) => ipcRenderer.send('spotlight:badge', count),
   show: () => ipcRenderer.send('spotlight:show'),
   authorize: (url: string) => ipcRenderer.send('spotlight:authorize', url),
+  setTheme: (theme: string) => ipcRenderer.send('spotlight:theme', theme),
 });

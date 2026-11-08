@@ -3,6 +3,7 @@ export interface DesktopApp {
   setBadge(count: number): void;
   show(): void;
   authorize(url: string): void;
+  setTheme?(theme: 'light' | 'dark' | 'system'): void;
 }
 
 declare global {

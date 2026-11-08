@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld('spotlightConnect', {
   save: (address: string): Promise<boolean> =>
     ipcRenderer.invoke('spotlight:connect', address),
   cancel: () => ipcRenderer.send('spotlight:connect-cancel'),
+  fit: (height: number) => ipcRenderer.send('spotlight:connect-fit', height),
 });

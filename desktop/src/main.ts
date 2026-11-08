@@ -5,6 +5,8 @@ import {
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
+  nativeTheme,
+  screen,
   session,
   shell,
 } from 'electron';
@@ -19,6 +21,12 @@ import {
   SCHEME,
 } from './links';
 import { SettingsFile } from './settings';
+import {
+  DEFAULT_SIZE,
+  MINIMUM_SIZE,
+  restorable,
+  WindowStateFile,
+} from './window-state';
 
 const UPDATE_EVERY_MS = 4 * 60 * 60 * 1000;
 const MAX_BADGE = 99;
@@ -33,6 +41,7 @@ const APP_ID = 'ai.usespotlight.desktop';
 app.setPath('userData', join(app.getPath('appData'), APP_ID));
 
 const settings = new SettingsFile(app.getPath('userData'));
+const windowState = new WindowStateFile(app.getPath('userData'));
 let origin = settings.origin();
 
 const checkForUpdates = () => {
@@ -79,12 +88,51 @@ const followLink = (link: string) => {
   shown(main);
 };
 
+const REMEMBER_AFTER_MS = 500;
+
+const remember = (window: BrowserWindow) => {
+  if (window.isDestroyed()) {
+    return;
+  }
+
+  windowState.write({
+    bounds: window.getNormalBounds(),
+    maximized: window.isMaximized(),
+    fullScreen: window.isFullScreen(),
+  });
+};
+
+const rememberPlaceOf = (window: BrowserWindow) => {
+  let pending: NodeJS.Timeout | undefined;
+  const soon = () => {
+    clearTimeout(pending);
+    pending = setTimeout(() => remember(window), REMEMBER_AFTER_MS);
+  };
+
+  window.on('resize', soon);
+  window.on('move', soon);
+
+  for (const change of [
+    'maximize',
+    'unmaximize',
+    'enter-full-screen',
+    'leave-full-screen',
+  ] as const) {
+    window.on(change as 'maximize', () => remember(window));
+  }
+
+  window.on('closed', () => clearTimeout(pending));
+};
+
 const createMain = () => {
+  const saved = restorable(
+    windowState.read(),
+    screen.getAllDisplays().map((each) => each.workArea),
+  );
   const window = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 800,
-    minHeight: 480,
+    ...(saved?.bounds ?? DEFAULT_SIZE),
+    minWidth: MINIMUM_SIZE.width,
+    minHeight: MINIMUM_SIZE.height,
     title: 'Spotlight',
     titleBarStyle: 'hidden',
     trafficLightPosition: TRAFFIC_LIGHTS,
@@ -101,7 +149,19 @@ const createMain = () => {
     },
   });
 
-  window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => {
+    if (saved?.maximized) {
+      window.maximize();
+    }
+
+    window.show();
+
+    if (saved?.fullScreen) {
+      window.setFullScreen(true);
+    }
+  });
+
+  rememberPlaceOf(window);
 
   window.webContents.on('dom-ready', () => {
     if (navigationOf(window.webContents.getURL(), origin) !== 'blocked') {
@@ -130,6 +190,8 @@ const createMain = () => {
   });
 
   window.on('close', (event) => {
+    remember(window);
+
     if (!quitting && process.platform === 'darwin') {
       event.preventDefault();
       window.hide();
@@ -201,6 +263,31 @@ const authorize = (url: string) => {
   void window.loadURL(url);
 };
 
+const CONNECT_WIDTH = 440;
+const CONNECT_SHADOW = 48;
+const CONNECT_FROM_TOP = 0.28;
+
+const fitConnect = (window: BrowserWindow, height: number) => {
+  const area = main?.getBounds() ?? window.getBounds();
+  const x = Math.round(
+    area.x + (area.width - CONNECT_WIDTH) / 2 - CONNECT_SHADOW,
+  );
+  const y = Math.round(
+    area.y + area.height * CONNECT_FROM_TOP - height / 2 - CONNECT_SHADOW,
+  );
+
+  window.setBounds({
+    x,
+    y,
+    width: CONNECT_WIDTH + 2 * CONNECT_SHADOW,
+    height: height + 2 * CONNECT_SHADOW,
+  });
+
+  if (!window.isVisible()) {
+    window.show();
+  }
+};
+
 const openConnect = () => {
   if (connect) {
     shown(connect);
@@ -208,14 +295,19 @@ const openConnect = () => {
   }
 
   connect = new BrowserWindow({
-    width: 440,
-    height: 230,
+    width: CONNECT_WIDTH + 2 * CONNECT_SHADOW,
+    height: 300,
+    useContentSize: true,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
     resizable: false,
     minimizable: false,
     maximizable: false,
+    fullscreenable: false,
+    show: false,
     title: 'Spotlight address',
     parent: main ?? undefined,
-    modal: main !== null,
     webPreferences: {
       preload: join(__dirname, 'connect-preload.js'),
       contextIsolation: true,
@@ -333,6 +425,15 @@ if (!app.requestSingleInstanceLock()) {
     app.setBadgeCount(Math.max(0, Math.min(MAX_BADGE, Math.floor(count))));
   });
 
+  ipcMain.on('spotlight:theme', (event, theme: unknown) => {
+    if (
+      fromSpotlight(event.senderFrame) &&
+      (theme === 'light' || theme === 'dark' || theme === 'system')
+    ) {
+      nativeTheme.themeSource = theme;
+    }
+  });
+
   ipcMain.on('spotlight:show', (event) => {
     if (fromSpotlight(event.senderFrame) && main) {
       shown(main);
@@ -368,6 +469,18 @@ if (!app.requestSingleInstanceLock()) {
     connect?.close();
     void main?.loadURL(origin);
     return true;
+  });
+
+  ipcMain.on('spotlight:connect-fit', (event, height: unknown) => {
+    if (
+      connect &&
+      fromConnect(event.sender) &&
+      typeof height === 'number' &&
+      height > 0 &&
+      height < 600
+    ) {
+      fitConnect(connect, Math.ceil(height));
+    }
   });
 
   ipcMain.on('spotlight:connect-cancel', (event) => {

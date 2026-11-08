@@ -6,7 +6,7 @@
   "description": "Spotlight for macOS: the web app in its own window, with native notifications.",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && cp src/connect.html dist/connect.html",
+    "build": "tsc -p tsconfig.json && cp src/connect.html dist/connect.html && mkdir -p dist/assets && cp src/assets/inter.woff2 src/assets/inter-LICENSE.txt dist/assets/",
     "start": "npm run build && electron .",
     "dist": "npm run build && electron-builder --mac --publish never",
     "typecheck": "tsc -p tsconfig.json --noEmit",
