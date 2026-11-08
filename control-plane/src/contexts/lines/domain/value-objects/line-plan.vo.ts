@@ -30,6 +30,7 @@ import type { StationCheck } from '@lines/domain/value-objects/station-check.vo'
 import type { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import type { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -108,6 +109,7 @@ export class LinePlan {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
+    readonly warmSandboxes: WarmSandboxCount,
     readonly replayCheck: ReplayCheckPolicy | null,
     readonly search: LineSearchPolicy | null,
     readonly source: ConfigSource | null,
@@ -122,6 +124,7 @@ export class LinePlan {
     repositories?: readonly LineRepositoryConfig[];
     reviews?: ReviewPolicy | null;
     placement?: RunnerPlacement;
+    warmSandboxes?: WarmSandboxCount;
     replayCheck?: ReplayCheckPolicy | null;
     search?: LineSearchPolicy | null;
     source?: ConfigSource | null;
@@ -229,6 +232,7 @@ export class LinePlan {
       repositories,
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
+      input.warmSandboxes ?? WarmSandboxCount.NONE,
       input.replayCheck ?? null,
       input.search ?? null,
       input.source ?? null,

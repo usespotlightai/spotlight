@@ -112,6 +112,7 @@ import {
   type SandboxUpkeepPort,
 } from '@runners/application/ports/sandbox-upkeep.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
+import { WARM_SANDBOXES } from '@runners/application/ports/warm-sandboxes.port';
 import { ImportEgressHandler } from '@runners/application/queries/handlers/import-egress.handler';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
 import { ImportRunnerTrustHandler } from '@runners/application/queries/handlers/import-runner-trust.handler';
@@ -154,6 +155,7 @@ import { RunnerTokens } from '@runners/application/services/runner-tokens.servic
 import { Runners } from '@runners/application/services/runners.service';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
+import { WarmSandboxes } from '@runners/application/services/warm-sandboxes.service';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-definitions';
@@ -388,6 +390,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
         SandboxDrainPolicy.of({
           graceMs: env.SPOTLIGHT_SANDBOX_GRACE,
           editorLimitMs: env.SPOTLIGHT_EDITOR_LIMIT,
+          warmAgeMs: env.SPOTLIGHT_WARM_SANDBOX_AGE,
         }),
         ids,
         tokens,
@@ -398,6 +401,15 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   { provide: SANDBOXES, useExisting: Sandboxes },
   { provide: EDITOR_SANDBOXES, useExisting: Sandboxes },
   { provide: SANDBOX_UPKEEP, useExisting: Sandboxes },
+  {
+    provide: WARM_SANDBOXES,
+    inject: [DrizzleSandboxRepository, ID_GENERATOR, LOGGER],
+    useFactory: (
+      sandboxes: DrizzleSandboxRepository,
+      ids: IdGeneratorPort,
+      logger: LoggerPort,
+    ) => new WarmSandboxes(sandboxes, ids, logger),
+  },
   {
     provide: HostAdmission,
     inject: [RUNNER_AUTHENTICATOR, DrizzleRunnerHostRepository],

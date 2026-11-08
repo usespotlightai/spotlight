@@ -48,6 +48,7 @@ const ORDER: RunOrderContract = {
   extensions: {},
   apiGrant: null,
   tags: { taskId: 'task_1' },
+  line: null,
   refusal: null,
 };
 
@@ -76,6 +77,7 @@ const ISOLATED: RunOrderContract = {
   restore: { archive: 'archive_1' },
   extensions: { replay: { archive: 'archive_1', movesOnAfter: ['spec'] } },
   tags: {},
+  line: null,
 };
 
 const inMemory = () => {

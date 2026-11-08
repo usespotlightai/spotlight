@@ -1096,6 +1096,10 @@ func (h *Host) mountMirrors(ctx context.Context, assignment protocol.Assignment,
 		return nil
 	}
 
+	if warm := assignment.Work.Warm; warm != nil {
+		return h.warmMirrors(*warm)
+	}
+
 	runID, repositories := proxiedRepositories(assignment.Work)
 
 	budget, cancel := context.WithTimeout(ctx, mirrorWait)
@@ -1159,6 +1163,20 @@ func (h *Host) mirrored(ctx, budget context.Context, runID, repository, token st
 	}
 
 	return "", false
+}
+
+func (h *Host) warmMirrors(warm protocol.WarmSandbox) []sandbox.Mount {
+	var mounts []sandbox.Mount
+	for _, checkout := range warm.Checkouts {
+		if dir, ok := h.mirrors.Dir(h.workspace, checkout.Path); ok {
+			mounts = append(mounts, sandbox.Mount{
+				Source: dir, Target: MirrorRoot + "/" + checkout.Path + ".git", ReadOnly: true,
+			})
+		}
+	}
+	slices.SortFunc(mounts, func(a, b sandbox.Mount) int { return strings.Compare(a.Target, b.Target) })
+
+	return mounts
 }
 
 func proxiedRepositories(work protocol.ClaimResponse) (string, []string) {

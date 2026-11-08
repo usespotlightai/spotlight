@@ -36,5 +36,7 @@ export interface LinesPort {
 
   ofWorkspace(workspaceId: WorkspaceId): Promise<readonly LineView[]>;
 
+  keepingWarmSandboxes(): Promise<readonly LineView[]>;
+
   preview(request: StationPreviewRequest): Promise<StationPreview>;
 }

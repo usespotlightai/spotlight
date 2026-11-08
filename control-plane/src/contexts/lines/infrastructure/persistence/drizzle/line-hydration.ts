@@ -13,6 +13,7 @@ import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { StationRoutes } from '@lines/domain/value-objects/station-routes.vo';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 import {
   line,
   lineReaction,
@@ -121,6 +122,7 @@ const toLine = (
     search: lineSearchOf(line.search),
     source: line.source ? ConfigSource.of(line.source) : null,
     placement: RunnerPlacement.of(line.runners),
+    warmSandboxes: WarmSandboxCount.of(line.warmSandboxes),
     repositories,
     version: line.version,
   });

@@ -1066,6 +1066,25 @@ export type ClaimedCheckResponseDto = {
   steps: Array<ClaimedCheckStepResponseDto>;
 };
 
+export type WarmCheckoutResponseDto = {
+  /**
+   * The repository’s name: the host clones it from its mirror at the default branch into this folder of the workspace
+   */
+  path: string;
+  /**
+   * The setup command to run in the clone once it is checked out. Absent when the repository has no setup
+   */
+  setup?: string;
+};
+
+export type WarmSandboxResponseDto = {
+  /**
+   * The line the warm sandbox is kept for
+   */
+  line: string;
+  checkouts: Array<WarmCheckoutResponseDto>;
+};
+
 export type ClaimedWorkResponseDto = {
   /**
    * `sandbox` is only for a host claim: start a sandbox with no run in it
@@ -1073,6 +1092,10 @@ export type ClaimedWorkResponseDto = {
   kind: 'run' | 'check' | 'sandbox';
   run: ClaimedRunResponseDto | null;
   check: ClaimedCheckResponseDto | null;
+  /**
+   * Only for a `sandbox` that is warm: clone and set up these repositories before a task’s first run is claimed into it
+   */
+  warm?: WarmSandboxResponseDto;
 };
 
 export type RenewLeaseResponseDto = {

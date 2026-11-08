@@ -1,5 +1,5 @@
 {
-  "id": "133a05e2-726b-4b90-8f84-da605ab3195d",
+  "id": "7798c819-1b2d-4715-822a-bf53fdc3aea7",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -8603,6 +8603,13 @@
           "notNull": true,
           "default": "'[]'::jsonb"
         },
+        "warm_sandboxes": {
+          "name": "warm_sandboxes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -13311,6 +13318,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "enters_sandbox_id": {
+          "name": "enters_sandbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "labels": {
           "name": "labels",
           "type": "jsonb",
@@ -14038,6 +14051,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "warm": {
+          "name": "warm",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -14168,6 +14187,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "sandbox_warm_idx": {
+          "name": "sandbox_warm_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"sandbox\".\"warm\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -14186,6 +14227,10 @@
         "sandbox_gone_at_matches_state": {
           "name": "sandbox_gone_at_matches_state",
           "value": "(\"sandbox\".\"state\" = 'gone') = (\"sandbox\".\"gone_at\" is not null)"
+        },
+        "sandbox_warm_has_no_key": {
+          "name": "sandbox_warm_has_no_key",
+          "value": "\"sandbox\".\"warm\" is null or \"sandbox\".\"key\" is null"
         }
       },
       "isRLSEnabled": false
@@ -14825,6 +14870,12 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
+        "line_id": {
+          "name": "line_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "api_grant": {
           "name": "api_grant",
           "type": "jsonb",
@@ -15160,6 +15211,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_queued_line_idx": {
+          "name": "run_queued_line_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"run\".\"line_id\" is not null and \"run\".\"state\" = 'queued'",
           "concurrently": false,
           "method": "btree",
           "with": {}

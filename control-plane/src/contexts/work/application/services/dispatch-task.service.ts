@@ -177,6 +177,7 @@ export class DispatchTask implements TaskDispatching {
         workingCopy: WorkRequesters.taskWorkingCopy(task.id),
         apiGrant: null,
         tags: { taskId: task.id.value },
+        line: line.id,
         placement: order.placement,
         spec: {
           ...this.ordering.laid(ordered, {

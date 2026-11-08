@@ -15,6 +15,7 @@ const DELIVERY: LineDefinition = {
     { name: 'acme/api', image: 'ghcr.io/acme/api:main', setup: 'npm ci' },
   ],
   runners: ['build-1', 'vpc-internal'],
+  warmSandboxes: 2,
   stations: [
     {
       key: 'backlog',
@@ -111,6 +112,7 @@ const REVIEW: LineDefinition = {
   name: 'Review',
   role: 'review',
   repositories: [{ name: 'acme/api' }],
+  warmSandboxes: 0,
   stations: [
     {
       key: 'backlog',

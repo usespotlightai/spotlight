@@ -7,6 +7,7 @@ import type {
 } from '@runs/application/contracts/run-order.contract';
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -35,6 +36,7 @@ export const runOrderOf = (parts: {
   readonly workingCopy: RunWorkingCopyContract;
   readonly apiGrant: RunApiGrantContract | null;
   readonly tags: Readonly<Record<string, string>>;
+  readonly line: LineId | null;
   readonly refusals: readonly RefusalReason[];
 }): RunOrderContract => ({
   runId: parts.id.value,
@@ -53,6 +55,7 @@ export const runOrderOf = (parts: {
   extensions: {},
   apiGrant: parts.apiGrant,
   tags: parts.tags,
+  line: parts.line?.value ?? null,
   refusal:
     parts.refusals.length > 0
       ? parts.refusals.map((each) => ({ description: each.description }))

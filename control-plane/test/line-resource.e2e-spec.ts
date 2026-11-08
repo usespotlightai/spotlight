@@ -172,7 +172,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
     expect(made.body).toMatchObject({
       key: DELIVERY.key,
-      definition: { key: DELIVERY.key, name: DELIVERY.name },
+      definition: { key: DELIVERY.key, name: DELIVERY.name, warmSandboxes: 0 },
     });
     expect(Object.keys(station).sort()).toEqual(
       expect.arrayContaining([
@@ -413,6 +413,56 @@ describe('a line, created through the resource API (e2e)', () => {
 
       expect(rejected.status).toBe(422);
       expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
+    }
+  });
+
+  it('stores how many warm sandboxes a line keeps, 0 where it names none', async () => {
+    const plain = await create(DELIVERY);
+    const unset = await served(app)
+      .get(fixture.item(plain.body.id))
+      .set(TEST_USER_HEADER, fixture.admin);
+    const made = await change(plain.body.id, plain.body.version, {
+      ...DELIVERY,
+      warmSandboxes: 3,
+    });
+    const read = await served(app)
+      .get(fixture.item(made.body.id))
+      .set(TEST_USER_HEADER, fixture.admin);
+    const changed = await change(made.body.id, made.body.version, {
+      ...DELIVERY,
+      warmSandboxes: 5,
+    });
+    const cleared = await change(
+      changed.body.id,
+      changed.body.version,
+      DELIVERY,
+    );
+    const fresh = await create({
+      ...DELIVERY,
+      key: 'warm',
+      role: undefined,
+      warmSandboxes: 2,
+    });
+
+    expect(plain.status).toBe(201);
+    expect(plain.body.definition.warmSandboxes).toBe(0);
+    expect(unset.body.definition.warmSandboxes).toBe(0);
+    expect(made.status).toBe(200);
+    expect(fresh.status).toBe(201);
+    expect(fresh.body.definition.warmSandboxes).toBe(2);
+    expect(read.body.definition.warmSandboxes).toBe(3);
+    expect(changed.body.definition.warmSandboxes).toBe(5);
+    expect(cleared.body.definition.warmSandboxes).toBe(0);
+  });
+
+  it('rejects warm sandboxes outside 0 to 5 at its field', async () => {
+    for (const warmSandboxes of [6, -1]) {
+      const rejected = await create({ ...DELIVERY, warmSandboxes });
+
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([
+        expect.objectContaining({ path: 'warmSandboxes' }),
+      ]);
     }
   });
 

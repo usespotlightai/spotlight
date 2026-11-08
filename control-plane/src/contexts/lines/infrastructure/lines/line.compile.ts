@@ -33,6 +33,7 @@ import { StationCheck } from '@lines/domain/value-objects/station-check.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { StationDescription } from '@lines/domain/value-objects/station-description.vo';
 import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 import { refusalOf } from '@lines/infrastructure/lines/definition-errors';
 import {
   type LineFields,
@@ -541,6 +542,20 @@ export const compileLine = (input: unknown): ParsedLine => {
     );
   }
 
+  let warmSandboxes = WarmSandboxCount.NONE;
+
+  try {
+    warmSandboxes = WarmSandboxCount.of(definition.warmSandboxes ?? 0);
+  } catch (error) {
+    problems.push(
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(['warmSandboxes']),
+        reason: reasoned(error),
+      }),
+    );
+  }
+
   const stations: StationPlan[] = [];
 
   for (const [at, station] of definition.stations.entries()) {
@@ -573,6 +588,7 @@ export const compileLine = (input: unknown): ParsedLine => {
         repositories,
         reviews,
         placement,
+        warmSandboxes,
         replayCheck,
         search,
         source,

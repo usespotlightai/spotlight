@@ -31,6 +31,7 @@ import type {
   StrandedStation,
   TaskCounts,
 } from '@lines/domain/value-objects/stranded-station';
+import { WarmSandboxCount } from '@lines/domain/value-objects/warm-sandbox-count.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -56,6 +57,7 @@ export interface LineLayout {
   readonly repositories?: readonly LineRepositoryConfig[];
   readonly reviews?: ReviewPolicy | null;
   readonly placement?: RunnerPlacement;
+  readonly warmSandboxes?: WarmSandboxCount;
   readonly replayCheck?: ReplayCheckPolicy | null;
   readonly search?: LineSearchPolicy | null;
   readonly source?: ConfigSource | null;
@@ -80,6 +82,7 @@ export class Line extends EventRecorder {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
+    readonly warmSandboxes: WarmSandboxCount,
     readonly replayCheck: ReplayCheckPolicy | null,
     readonly search: LineSearchPolicy | null,
     readonly source: ConfigSource | null,
@@ -247,6 +250,7 @@ export class Line extends EventRecorder {
       repositories,
       layout.reviews ?? null,
       layout.placement ?? RunnerPlacement.anywhere(),
+      layout.warmSandboxes ?? WarmSandboxCount.NONE,
       layout.replayCheck ?? null,
       layout.search ?? null,
       layout.source ?? null,
@@ -347,6 +351,7 @@ export class Line extends EventRecorder {
       this.repositories,
       this.reviews,
       this.placement,
+      this.warmSandboxes,
       this.replayCheck,
       this.search,
       this.source,
@@ -394,6 +399,7 @@ export class Line extends EventRecorder {
         repositories: part.repositories ?? this.repositories.entries,
         reviews: part.reviews !== undefined ? part.reviews : this.reviews,
         placement: part.placement ?? this.placement,
+        warmSandboxes: part.warmSandboxes ?? this.warmSandboxes,
         replayCheck:
           part.replayCheck !== undefined ? part.replayCheck : this.replayCheck,
         search: part.search !== undefined ? part.search : this.search,

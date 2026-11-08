@@ -494,6 +494,7 @@ export const RunOrdersMapper = {
         extensions: jsonOf(order.extensions, 'extensions'),
         apiGrant: apiGrantJson(order.apiGrant),
         tags: { ...order.tags },
+        line: order.line,
         refusal: refusalJson(order.refusal),
       },
     });
@@ -520,6 +521,7 @@ export const RunOrdersMapper = {
       extensions: objectAt(stored.extensions, 'extensions'),
       apiGrant: apiGrantOf(stored.apiGrant),
       tags: textRecordAt(stored.tags, 'tags'),
+      line: stored.line === null ? null : textAt(stored.line, 'line'),
       refusal: refusalOf(stored.refusal),
     };
   },

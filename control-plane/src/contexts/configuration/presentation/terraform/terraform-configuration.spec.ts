@@ -37,11 +37,12 @@ const mainOf = (configuration: ExportableConfigurationDto): string =>
     .join('\n');
 
 const LINE_RESOURCE = `resource "spotlight_line" "core_delivery" {
-  team_id = spotlight_team.core.id
-  key     = "delivery"
-  name    = "Delivery"
-  role    = "delivery"
-  runners = ["build-1", "vpc-internal"]
+  team_id        = spotlight_team.core.id
+  key            = "delivery"
+  name           = "Delivery"
+  role           = "delivery"
+  runners        = ["build-1", "vpc-internal"]
+  warm_sandboxes = 2
 
   repository {
     name  = "acme/api"
@@ -484,12 +485,21 @@ describe('workspaceTerraform', () => {
       resourceOf('line', 'core/delivery'),
     ).hcl;
 
-    expect(line).toContain('  runners = ["build-1", "vpc-internal"]\n');
+    expect(line).toContain('  runners        = ["build-1", "vpc-internal"]\n');
     expect(line).toContain('    runners   = ["gpu"]\n');
     expect(mainOf(CONFIGURATION)).not.toContain('spotlight_runner.');
     expect(fileOf(CONFIGURATION, 'variables.tf')).not.toMatch(
       /variable "runner_[^p]/,
     );
+  });
+
+  it('writes the warm sandboxes of a line only when it keeps any warm', () => {
+    expect(
+      resourceHcl(CONFIGURATION, resourceOf('line', 'core/delivery')).hcl,
+    ).toContain('  warm_sandboxes = 2\n');
+    expect(
+      resourceHcl(CONFIGURATION, resourceOf('line', 'core/review')).hcl,
+    ).not.toContain('warm_sandboxes');
   });
 
   it('writes an OIDC trust with its claims only when it names any', () => {

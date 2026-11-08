@@ -6,6 +6,7 @@ import {
   aSandboxReport,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
+import { SandboxKeyTakenError } from '@runners/domain/exceptions/sandbox-key-taken.error';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
@@ -40,9 +41,12 @@ export const sandboxTokens = (): TokenIssuer => {
   };
 };
 
+export const WARM_AGE_MS = 24 * 60 * 60_000;
+
 export const DRAIN_POLICY = SandboxDrainPolicy.of({
   graceMs: GRACE_MS,
   editorLimitMs: EDITOR_LIMIT_MS,
+  warmAgeMs: WARM_AGE_MS,
 });
 
 const savedAs = (sandbox: Sandbox, version: number): Sandbox =>
@@ -58,6 +62,7 @@ const savedAs = (sandbox: Sandbox, version: number): Sandbox =>
     idleSince: sandbox.idleSince,
     startedAt: sandbox.startedAt,
     goneAt: sandbox.goneAt,
+    warm: sandbox.warm,
     version,
   });
 
@@ -119,6 +124,19 @@ export const storedSandboxes = (
       if (stored.get(saved.id.value)?.version !== saved.version) {
         throw new SandboxVersionConflictError(saved.id.value);
       }
+      if (
+        saved.isOpen &&
+        saved.key !== null &&
+        all().some(
+          (each) =>
+            !each.id.equals(saved.id) &&
+            each.isOpen &&
+            each.workspaceId.equals(saved.workspaceId) &&
+            each.key?.equals(saved.key as SandboxKey),
+        )
+      ) {
+        throw new SandboxKeyTakenError(saved.id.value);
+      }
       stored.set(saved.id.value, savedAs(saved, saved.version + 1));
     }),
     find: vi.fn(async (id: SandboxId) => stored.get(id.value) ?? null),
@@ -140,7 +158,10 @@ export const storedSandboxes = (
     requestedIn: vi.fn(async (workspaceId: WorkspaceId, limit: number) =>
       all()
         .filter(
-          (each) => each.isRequested && each.workspaceId.equals(workspaceId),
+          (each) =>
+            each.isRequested &&
+            each.key !== null &&
+            each.workspaceId.equals(workspaceId),
         )
         .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime())
         .slice(0, limit),
@@ -153,6 +174,18 @@ export const storedSandboxes = (
     liveIn: vi.fn(async (workspaceId: WorkspaceId) =>
       all().filter(
         (each) => each.isLive && each.workspaceId.equals(workspaceId),
+      ),
+    ),
+    openWarm: vi.fn(async () => all().filter((each) => each.isWarm)),
+    openWarmIn: vi.fn(async (workspaceId: WorkspaceId) =>
+      all().filter(
+        (each) => each.isWarm && each.workspaceId.equals(workspaceId),
+      ),
+    ),
+    lostWarmSince: vi.fn(async (cutoff: Date) =>
+      all().filter(
+        (each) =>
+          each.lostWhileWarm && each.goneAt !== null && each.goneAt >= cutoff,
       ),
     ),
     holdingRun: vi.fn(async (runId: RunId) =>

@@ -26,6 +26,12 @@ export interface SandboxRepository {
 
   liveIn(workspaceId: WorkspaceId): Promise<readonly Sandbox[]>;
 
+  openWarm(): Promise<readonly Sandbox[]>;
+
+  openWarmIn(workspaceId: WorkspaceId): Promise<readonly Sandbox[]>;
+
+  lostWarmSince(cutoff: Date): Promise<readonly Sandbox[]>;
+
   holdingRun(runId: RunId): Promise<readonly Sandbox[]>;
 
   idleSince(cutoff: Date): Promise<readonly Sandbox[]>;

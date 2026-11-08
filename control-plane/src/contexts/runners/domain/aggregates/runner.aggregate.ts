@@ -16,6 +16,7 @@ import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.v
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
+import type { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -39,6 +40,7 @@ interface State {
   readonly workspaceId: WorkspaceId;
   readonly source: CredentialSource;
   readonly hostId: HostId | null;
+  readonly enters: SandboxId | null;
   readonly labels: RunnerLabels;
   readonly tokenHash: TokenHash;
   readonly egressTokenHash: TokenHash | null;
@@ -65,6 +67,7 @@ export class Runner extends EventRecorder {
     id: RunnerId;
     through: RunnerPool | RunnerTrust;
     host: HostId | null;
+    enters: SandboxId | null;
     tokenHash: TokenHash;
     egressTokenHash: TokenHash | null;
     proxyCredentialHash: TokenHash | null;
@@ -91,6 +94,13 @@ export class Runner extends EventRecorder {
       );
     }
 
+    if (input.enters !== null && input.host === null) {
+      throw new InconsistentStateError(
+        'runner',
+        'enters a sandbox but has no host',
+      );
+    }
+
     if (input.claimBy.getTime() <= input.at.getTime()) {
       throw new InconsistentStateError(
         'runner',
@@ -104,6 +114,7 @@ export class Runner extends EventRecorder {
         workspaceId: through.workspaceId,
         source: CredentialSource.ofId(through.id),
         hostId: input.host,
+        enters: input.enters,
         labels: through.labels,
         tokenHash: input.tokenHash,
         egressTokenHash: input.egressTokenHash,
@@ -150,6 +161,10 @@ export class Runner extends EventRecorder {
 
   get hostId(): HostId | null {
     return this.state.hostId;
+  }
+
+  get enters(): SandboxId | null {
+    return this.state.enters;
   }
 
   get labels(): RunnerLabels {

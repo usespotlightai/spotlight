@@ -363,9 +363,20 @@ const (
 )
 
 type ClaimResponse struct {
-	Kind  string      `json:"kind"`
-	Run   *Run        `json:"run"`
-	Check *StackCheck `json:"check"`
+	Kind  string       `json:"kind"`
+	Run   *Run         `json:"run"`
+	Check *StackCheck  `json:"check"`
+	Warm  *WarmSandbox `json:"warm,omitempty"`
+}
+
+type WarmSandbox struct {
+	Line      string         `json:"line"`
+	Checkouts []WarmCheckout `json:"checkouts"`
+}
+
+type WarmCheckout struct {
+	Path  string `json:"path"`
+	Setup string `json:"setup,omitempty"`
 }
 
 type Assignment struct {

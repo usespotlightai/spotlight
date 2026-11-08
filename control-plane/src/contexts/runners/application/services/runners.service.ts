@@ -163,11 +163,15 @@ export class Runners implements RunnersPort {
     const runnerId = RunnerId.of(this.ids.generate());
     const issued = this.tokens.issue();
     const egress = this.tokens.issue();
+    const entering: Entering | null = into
+      ? { sandbox: SandboxId.of(into), host: hostId }
+      : null;
     const starting: Starting = (through) =>
       Runner.start({
         id: runnerId,
         through,
         host: hostId,
+        enters: entering?.sandbox ?? null,
         tokenHash: TokenHash.of(issued.hash),
         egressTokenHash: TokenHash.of(egress.hash),
         proxyCredentialHash: null,
@@ -176,9 +180,6 @@ export class Runners implements RunnersPort {
         at,
         claimBy,
       });
-    const entering: Entering | null = into
-      ? { sandbox: SandboxId.of(into), host: hostId }
-      : null;
     const began =
       source.kind === 'trust'
         ? await this.beganThroughTrust(
@@ -223,6 +224,7 @@ export class Runners implements RunnersPort {
           id: request.runnerId,
           through,
           host: null,
+          enters: null,
           tokenHash: TokenHash.of(issued.hash),
           egressTokenHash: null,
           proxyCredentialHash: credential

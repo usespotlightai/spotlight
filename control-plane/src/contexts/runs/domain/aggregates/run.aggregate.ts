@@ -49,6 +49,7 @@ import type {
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
@@ -105,6 +106,7 @@ export interface RunOrdered {
   readonly restore: WorkingCopyArchiveId | null;
   readonly extensions: RunExtensions;
   readonly tags: RunTags;
+  readonly line: LineId | null;
   readonly apiGrant: RunApiGrant | null;
 }
 
@@ -181,6 +183,7 @@ export class Run extends EventRecorder {
     restore?: WorkingCopyArchiveId | null;
     extensions?: RunExtensions;
     tags?: RunTags;
+    line?: LineId | null;
     apiGrant?: RunApiGrant | null;
     spec: RunSpec;
     placement?: RunnerPlacement;
@@ -245,6 +248,7 @@ export class Run extends EventRecorder {
     restore?: WorkingCopyArchiveId | null;
     extensions?: RunExtensions;
     tags?: RunTags;
+    line?: LineId | null;
     apiGrant?: RunApiGrant | null;
   }): RunOrdered {
     return {
@@ -254,6 +258,7 @@ export class Run extends EventRecorder {
       restore: input.restore ?? null,
       extensions: input.extensions ?? RunExtensions.none(),
       tags: input.tags ?? RunTags.none(),
+      line: input.line ?? null,
       apiGrant: input.apiGrant ?? null,
     };
   }
@@ -269,6 +274,7 @@ export class Run extends EventRecorder {
     restore?: WorkingCopyArchiveId | null;
     extensions?: RunExtensions;
     tags?: RunTags;
+    line?: LineId | null;
     apiGrant?: RunApiGrant | null;
     spec: RunSpec;
     placement?: RunnerPlacement;
@@ -470,6 +476,10 @@ export class Run extends EventRecorder {
 
   get tags(): RunTags {
     return this.ordered.tags;
+  }
+
+  get line(): LineId | null {
+    return this.ordered.line;
   }
 
   get apiGrant(): RunApiGrant | null {

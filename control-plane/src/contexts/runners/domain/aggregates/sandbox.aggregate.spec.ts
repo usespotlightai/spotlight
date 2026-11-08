@@ -10,6 +10,7 @@ import {
   EDITOR_LIMIT_MS,
   GRACE_MS,
   tokenHashOf,
+  WARM_AGE_MS,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { UnknownHostError } from '@runners/domain/exceptions/unknown-host.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
@@ -20,8 +21,12 @@ import {
   EDITOR_LEASE_MS,
   SandboxLease,
 } from '@runners/domain/value-objects/sandbox-lease.vo';
+import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -71,6 +76,7 @@ const withLeases = (leases: SandboxLease[], idleSince: Date | null) => {
     idleSince,
     startedAt: sandbox.startedAt,
     goneAt: null,
+    warm: null,
     version: 0,
   });
 };
@@ -448,6 +454,7 @@ describe('Sandbox', () => {
           idleSince: sandbox.idleSince,
           startedAt: sandbox.startedAt,
           goneAt: null,
+          warm: null,
           version: 0,
         }),
       ).toThrow(InconsistentStateError);
@@ -464,6 +471,7 @@ describe('Sandbox', () => {
           idleSince: sandbox.idleSince,
           startedAt: sandbox.startedAt,
           goneAt: null,
+          warm: null,
           version: 0,
         }),
       ).toThrow(InconsistentStateError);
@@ -579,6 +587,7 @@ describe('Sandbox', () => {
           idleSince: requested.idleSince,
           startedAt: requested.startedAt,
           goneAt: null,
+          warm: null,
           version: 0,
         }).holdsEditor(editor('conn_1')),
       ).toBe(true);
@@ -588,6 +597,182 @@ describe('Sandbox', () => {
       const drained = idle().drain();
 
       expect(drained.holdEditor(editor('conn_1'), later(1_000))).toBe(drained);
+    });
+  });
+
+  describe('a warm sandbox', () => {
+    const warmPart = WarmPart.of({
+      lineId: LineId.of('line_1'),
+      placement: RunnerPlacement.of(['gpu']),
+      checkouts: [{ path: 'widgets', setup: 'npm ci' }],
+      fingerprint: 'fingerprint_1',
+    });
+    const fitting = RunnerOffer.of(['gpu', 'linux']);
+    const requested = () =>
+      Sandbox.requestWarm({
+        id: SandboxId.of('sandbox_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        warm: warmPart,
+        at: STARTED_AT,
+      });
+    const placed = () =>
+      requested().placeWarmOn(
+        reporting,
+        fitting,
+        tokenHashOf('sandbox_1'),
+        STARTED_AT,
+      );
+    const firstRun = {
+      runId: RunId.of('run_1'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      key: SandboxKey.of('work/task-task_1'),
+      line: LineId.of('line_1'),
+    };
+
+    it('is requested with no key, no host and no lease', () => {
+      const sandbox = requested();
+
+      expect(sandbox.key).toBeNull();
+      expect(sandbox.isRequested).toBe(true);
+      expect(sandbox.isWarm).toBe(true);
+      expect(sandbox.leases).toEqual([]);
+      expect(sandbox.warm).toBe(warmPart);
+    });
+
+    it('starts only on a host that offers its placement', () => {
+      expect(requested().warmFits(fitting)).toBe(true);
+      expect(requested().warmFits(RunnerOffer.of(['linux']))).toBe(false);
+      expect(() =>
+        requested().placeWarmOn(
+          reporting,
+          RunnerOffer.of(['linux']),
+          tokenHashOf('sandbox_1'),
+          STARTED_AT,
+        ),
+      ).toThrow(InconsistentStateError);
+      expect(() =>
+        requested().placeOn(reporting, tokenHashOf('sandbox_1'), STARTED_AT),
+      ).toThrow(InconsistentStateError);
+      expect(placed().isOn(HOST)).toBe(true);
+      expect(placed().isIdle).toBe(true);
+    });
+
+    it('takes a first run once ready, and the run’s key adopts it', () => {
+      const adopted = placed().adoptFor(firstRun, reporting, NOW);
+
+      expect(placed().takesFirstRunOn(reporting, NOW)).toBe(true);
+      expect(adopted.key).toEqual(firstRun.key);
+      expect(adopted.warm).toBeNull();
+      expect(adopted.isWarm).toBe(false);
+      expect(adopted.holdsRun(firstRun.runId)).toBe(true);
+      expect(adopted.isIdle).toBe(false);
+    });
+
+    it('is adopted at most once, and never while it starts, by a keyless run or by another workspace', () => {
+      const adopted = placed().adoptFor(firstRun, reporting, NOW);
+      const again = adopted
+        .releaseRun(firstRun.runId, later(2_000))
+        .adoptFor(
+          { ...firstRun, runId: RunId.of('run_2'), key: SandboxKey.of('x') },
+          reporting,
+          later(3_000),
+        );
+
+      expect(again.key).toEqual(firstRun.key);
+      expect(again.holdsRun(RunId.of('run_2'))).toBe(false);
+      expect(placed().adoptFor(firstRun, silent, NOW)).toEqual(placed());
+      expect(
+        placed().adoptFor({ ...firstRun, key: null }, reporting, NOW).key,
+      ).toBeNull();
+      expect(
+        placed().adoptFor(
+          { ...firstRun, workspaceId: WorkspaceId.of('ws_2') },
+          reporting,
+          NOW,
+        ).isWarm,
+      ).toBe(true);
+    });
+
+    it('is adopted by no run of another line, or of no line', () => {
+      expect(
+        placed().adoptFor(
+          { ...firstRun, line: LineId.of('line_2') },
+          reporting,
+          NOW,
+        ).isWarm,
+      ).toBe(true);
+      expect(
+        placed().adoptFor({ ...firstRun, line: null }, reporting, NOW).isWarm,
+      ).toBe(true);
+    });
+
+    it('takes no editor while it waits for its first run', () => {
+      const sandbox = placed();
+
+      expect(sandbox.holdEditor(editor('conn_1'), NOW)).toBe(sandbox);
+    });
+
+    it('stays past the idle grace, and drains at the warm age counted from its start', () => {
+      const sandbox = placed();
+
+      expect(sandbox.drainedWhenDue(DRAIN_POLICY, later(GRACE_MS * 2))).toBe(
+        sandbox,
+      );
+
+      const drained = sandbox.drainedWhenDue(DRAIN_POLICY, later(WARM_AGE_MS));
+
+      expect(drained.current).toBe('draining');
+      expect(drained.warm).toBeNull();
+      expect(drained.lost(later(WARM_AGE_MS + 1)).lostWhileWarm).toBe(false);
+    });
+
+    it('is lost, still warm, when it never reached a host before the warm age', () => {
+      const lost = requested().drainedWhenDue(DRAIN_POLICY, later(WARM_AGE_MS));
+
+      expect(lost.current).toBe('gone');
+      expect(lost.lostWhileWarm).toBe(true);
+    });
+
+    it('counts as lost while warm when its host drops it before a run adopts it', () => {
+      expect(placed().droppedBy(HOST, NOW).lostWhileWarm).toBe(true);
+      expect(
+        placed()
+          .adoptFor(firstRun, reporting, NOW)
+          .droppedBy(HOST, later(2_000)).lostWhileWarm,
+      ).toBe(false);
+    });
+
+    it('cannot be warm with a key, a lease or while it drains', () => {
+      const sandbox = placed();
+      const state = {
+        id: sandbox.id,
+        workspaceId: sandbox.workspaceId,
+        key: null,
+        hostId: sandbox.hostId,
+        source: sandbox.source,
+        tokenHash: sandbox.tokenHash,
+        state: sandbox.current,
+        leases: sandbox.leases,
+        idleSince: sandbox.idleSince,
+        startedAt: sandbox.startedAt,
+        goneAt: null,
+        warm: warmPart,
+        version: 0,
+      };
+
+      expect(Sandbox.rehydrate(state).isWarm).toBe(true);
+      expect(() =>
+        Sandbox.rehydrate({ ...state, key: SandboxKey.of('work/task-task_1') }),
+      ).toThrow(InconsistentStateError);
+      expect(() => Sandbox.rehydrate({ ...state, state: 'draining' })).toThrow(
+        InconsistentStateError,
+      );
+      expect(() =>
+        Sandbox.rehydrate({
+          ...state,
+          leases: [SandboxLease.of(editor('conn_1'), NOW)],
+        }),
+      ).toThrow(InconsistentStateError);
     });
   });
 });
