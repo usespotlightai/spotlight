@@ -850,7 +850,9 @@ describe('ReactToHappenings', () => {
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
-      expect(saved?.pullEvents().map((each) => each.kind)).toEqual([]);
+      expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
+        'task.noted',
+      ]);
       expect(dispatched).toHaveLength(0);
     });
 
@@ -890,7 +892,9 @@ describe('ReactToHappenings', () => {
         'message',
       ]);
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
-      expect(saved?.pullEvents()).toEqual([]);
+      expect(saved?.pullEvents().map((each) => each.kind)).toEqual([
+        'task.noted',
+      ]);
       expect(dispatched).toHaveLength(0);
     });
 

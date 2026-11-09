@@ -47,13 +47,31 @@ export const autoSearched = async (app: INestApplication): Promise<void> => {
   await start();
 };
 
+const databases = new WeakMap<INestApplication, string>();
+
 export const openApp = async (
   overriding: (
     module: TestingModuleBuilder,
     env: Env,
   ) => TestingModuleBuilder = (module) => module,
+  options: {
+    readonly env?: Partial<Env>;
+    readonly sharingDatabaseOf?: INestApplication;
+  } = {},
 ): Promise<INestApplication> => {
-  const env = { ...parseEnv(), DATABASE_URL: await clonedDatabase('app') };
+  const shared = options.sharingDatabaseOf
+    ? databases.get(options.sharingDatabaseOf)
+    : undefined;
+
+  if (options.sharingDatabaseOf && !shared) {
+    throw new Error('Share the database of an app opened with openApp');
+  }
+
+  const env = {
+    ...parseEnv(),
+    ...options.env,
+    DATABASE_URL: shared ?? (await clonedDatabase('app')),
+  };
   const compiled = await overriding(
     Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(SESSION_READER)
@@ -71,8 +89,13 @@ export const openApp = async (
 
   app.close = async () => {
     await closed();
-    await droppedDatabase(env.DATABASE_URL);
+
+    if (!shared) {
+      await droppedDatabase(env.DATABASE_URL);
+    }
   };
+
+  databases.set(app, env.DATABASE_URL);
 
   await app.listen(0, '127.0.0.1');
 

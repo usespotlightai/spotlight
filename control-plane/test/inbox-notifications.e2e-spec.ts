@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { NotificationDto } from '@notifications/application/dto/notification.dto';
 import {
-  NOTIFICATION_STREAM,
-  type NotificationStreamPort,
-} from '@notifications/application/ports/notification-stream.port';
+  LIVE_FEED,
+  type LiveFeedPort,
+  personChannel,
+} from '@platform/live/live-feed.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
@@ -56,8 +57,12 @@ describe('notifications about new inbox items', () => {
   it('streams a new notice to the person it is for, once', async () => {
     const seen: NotificationDto[] = [];
     const stop = app
-      .get<NotificationStreamPort>(NOTIFICATION_STREAM)
-      .subscribe(team.owner.value, (each) => seen.push(each));
+      .get<LiveFeedPort>(LIVE_FEED)
+      .subscribe([personChannel(team.owner.value)], (message) => {
+        if (message.type === 'notification') {
+          seen.push(message.data as unknown as NotificationDto);
+        }
+      });
 
     try {
       await noticeAbout('drift-1', 'The station drifted');

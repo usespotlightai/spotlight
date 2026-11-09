@@ -6,6 +6,8 @@ import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { ChangeNotices, messageOfNotice } from '@platform/live/change-notices';
+import { LIVE_FEED, type LiveFeedPort } from '@platform/live/live-feed.port';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -44,6 +46,8 @@ export class EventOutbox implements DomainEventDispatcher {
     types: PayloadTypes,
     private readonly mappers: IntegrationEventMappers,
     private readonly projections: EventProjections,
+    private readonly notices: ChangeNotices,
+    @Inject(LIVE_FEED) private readonly live: LiveFeedPort,
     @Inject(ID_GENERATOR) private readonly ids: IdGeneratorPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
     private readonly causes: CauseCarrier,
@@ -79,37 +83,21 @@ export class EventOutbox implements DomainEventDispatcher {
         await this.projections.project(event);
       }
 
-      for (const event of events.flatMap((each) => [
-        each,
-        ...this.mappers.of(each, at),
-      ])) {
-        const id = this.ids.generate();
-        const listening = this.subscribers.listeningTo(event.kind);
-        const payload = this.#codec.encode(event);
+      for (const event of events) {
+        const published = this.mappers.of(event, at);
+        const publishes = published.some(
+          (each) => this.subscribers.listeningTo(each.kind).length > 0,
+        );
 
-        await this.context.db.insert(eventOutbox).values({
-          id,
-          kind: event.kind,
-          payload,
+        await this.stored(event, publishes, {
+          at,
           cause,
           traceparent,
-          recordedAt: at,
-        });
-        recorded.push({
-          eventId: id,
-          kind: event.kind,
-          ...idsOf(payload),
-          subscribers: listening.length,
+          recorded,
         });
 
-        if (listening.length > 0) {
-          await this.context.db.insert(eventDelivery).values(
-            listening.map((each) => ({
-              eventId: id,
-              subscriber: each.name,
-              dueAt: at,
-            })),
-          );
+        for (const each of published) {
+          await this.stored(each, false, { at, cause, traceparent, recorded });
         }
       }
 
@@ -124,11 +112,76 @@ export class EventOutbox implements DomainEventDispatcher {
           });
         }
 
+        this.published(events);
+
         for (const then of this.#recorded) {
           then();
         }
       });
     });
+  }
+
+  private async stored(
+    event: DomainEvent,
+    publishes: boolean,
+    context: {
+      readonly at: Date;
+      readonly cause: unknown;
+      readonly traceparent: string | null;
+      readonly recorded: Record<string, unknown>[];
+    },
+  ): Promise<void> {
+    const listening = this.subscribers.listeningTo(event.kind);
+    const payload = this.#codec.encode(event);
+    const kept = listening.length > 0 || publishes;
+    const id = kept ? this.ids.generate() : null;
+
+    context.recorded.push({
+      eventId: id,
+      kind: event.kind,
+      ...idsOf(payload),
+      subscribers: listening.length,
+    });
+
+    if (!id) {
+      return;
+    }
+
+    await this.context.db.insert(eventOutbox).values({
+      id,
+      kind: event.kind,
+      payload,
+      cause: context.cause,
+      traceparent: context.traceparent,
+      recordedAt: context.at,
+    });
+
+    if (listening.length > 0) {
+      await this.context.db.insert(eventDelivery).values(
+        listening.map((each) => ({
+          eventId: id,
+          subscriber: each.name,
+          dueAt: context.at,
+        })),
+      );
+    }
+  }
+
+  private published(events: readonly DomainEvent[]): void {
+    const notices = this.notices.of(events, (name, error) =>
+      this.logger.error({ err: error, notice: name }, 'Noticing a change'),
+    );
+
+    for (const notice of notices) {
+      try {
+        this.live.publish(notice.channel, messageOfNotice(notice));
+      } catch (error) {
+        this.logger.warn(
+          { err: error, channel: notice.channel },
+          'Publishing a live change',
+        );
+      }
+    }
   }
 
   decode(payload: unknown): DomainEvent {

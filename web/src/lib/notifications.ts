@@ -12,8 +12,6 @@ export interface InboxNotification {
 export const notificationsPath = (slug: string): string =>
   `${settingsPath(slug)}/account/notifications`;
 
-export const NOTIFICATION_STREAM_URL = '/api/me/notifications/stream';
-
 const WORKER_URL = '/sw.js';
 
 export const pushSupported = (): boolean =>

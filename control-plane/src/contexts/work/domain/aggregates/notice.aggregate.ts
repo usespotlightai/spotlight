@@ -4,6 +4,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
+import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
 import type { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -160,6 +161,14 @@ export class Notice extends EventRecorder {
 
     const resolved = new Notice({ ...this.state, resolvedAt: at });
     resolved.inheritEvents(this);
+    resolved.record(
+      new NoticeResolved(
+        this.state.id,
+        this.state.workspaceId,
+        this.state.addressee,
+        at,
+      ),
+    );
 
     return resolved;
   }

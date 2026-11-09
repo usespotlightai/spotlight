@@ -1,3 +1,4 @@
+import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import {
   WORKSPACE_READER,
   type WorkspaceReaderPort,
@@ -17,6 +18,8 @@ import {
 } from '@notifications/application/ports/web-push.port';
 import { GetPushKeyQuery } from '@notifications/application/queries/get-push-key.query';
 import { GetPushKeyHandler } from '@notifications/application/queries/handlers/get-push-key.handler';
+import { WatchedWorkspacesHandler } from '@notifications/application/queries/handlers/watched-workspaces.handler';
+import { WatchedWorkspacesQuery } from '@notifications/application/queries/watched-workspaces.query';
 import { ArrivalDeliveries } from '@notifications/application/services/arrival-deliveries.service';
 import {
   PUSH_SUBSCRIPTION_REPOSITORY,
@@ -27,17 +30,17 @@ import {
   pushServiceGuard,
   VapidWebPush,
 } from '@notifications/infrastructure/push/vapid-web-push';
-import { InMemoryNotificationStream } from '@notifications/infrastructure/streaming/in-memory-notification-stream';
-import { RedisNotificationStream } from '@notifications/infrastructure/streaming/redis-notification-stream';
+import { LiveNotificationStream } from '@notifications/infrastructure/streaming/live-notification-stream';
 import { notificationsSubscribers } from '@notifications/presentation/events/notifications.subscribers';
+import { LiveController } from '@notifications/presentation/http/controllers/live.controller';
 import { NotificationsController } from '@notifications/presentation/http/controllers/notifications.controller';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
+import { LIVE_FEED, type LiveFeedPort } from '@platform/live/live-feed.port';
 import type { OutboundGuard } from '@platform/outbound/outbound-guard';
-import { RedisConnection } from '@platform/redis/redis-connection';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import {
   LOGGER,
@@ -49,6 +52,7 @@ const PUSH_SERVICE_GUARD = Symbol('PUSH_SERVICE_GUARD');
 
 export const NOTIFICATIONS_CONTROLLERS: readonly Type[] = [
   NotificationsController,
+  LiveController,
 ];
 
 export const NOTIFICATIONS_PROVIDERS: readonly Provider[] = [
@@ -59,17 +63,9 @@ export const NOTIFICATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: NOTIFICATION_STREAM,
-    inject: [RedisConnection, LOGGER],
-    useFactory: (
-      redis: RedisConnection,
-      logger: LoggerPort,
-    ): NotificationStreamPort => {
-      const pubSub = redis.pubSub();
-
-      return pubSub
-        ? new RedisNotificationStream(pubSub.client, pubSub.subscriber, logger)
-        : new InMemoryNotificationStream();
-    },
+    inject: [LIVE_FEED],
+    useFactory: (feed: LiveFeedPort): NotificationStreamPort =>
+      new LiveNotificationStream(feed),
   },
 
   { provide: PUSH_SERVICE_GUARD, useFactory: pushServiceGuard },
@@ -132,4 +128,9 @@ export const NOTIFICATIONS_PROVIDERS: readonly Provider[] = [
   ),
 
   ...bindQueryHandler(GetPushKeyQuery, GetPushKeyHandler, [WEB_PUSH]),
+
+  ...bindQueryHandler(WatchedWorkspacesQuery, WatchedWorkspacesHandler, [
+    WORKSPACE_READER,
+    WORKSPACE_ACCESS,
+  ]),
 ];

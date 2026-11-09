@@ -13886,25 +13886,6 @@
         ]
       }
     },
-    "/me/notifications/stream": {
-      "get": {
-        "description": "Sends one event for each item that comes into your inbox while the stream is open. Missed events are not sent again.",
-        "operationId": "streamMyNotifications",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Server-sent events, one per new item"
-          },
-          "401": {
-            "description": "No valid session"
-          }
-        },
-        "summary": "Watch for new items in your inbox",
-        "tags": [
-          "notifications"
-        ]
-      }
-    },
     "/me/notifications/push-key": {
       "get": {
         "operationId": "getPushKey",
@@ -13989,6 +13970,25 @@
           }
         },
         "summary": "Stop sending Web Push to this browser",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/me/live": {
+      "get": {
+        "description": "Sends \"ready\" first, then \"changed\" with a topic and ids for each change in a workspace you may view, and \"notification\" for each new item in your inbox. \"changed\" with the topic \"workspaces\" means you joined a workspace: open a new stream to watch it. \"resync\" means some changes were missed: fetch everything again. After about 10 minutes the server sends \"reopen\", then closes the stream 15 seconds later: open a new stream before it closes and no change is missed. Missed events are not sent again.",
+        "operationId": "watchLive",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Server-sent events"
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Watch for changes in your workspaces and new inbox items",
         "tags": [
           "notifications"
         ]

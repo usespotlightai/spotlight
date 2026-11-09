@@ -159,7 +159,9 @@ describe('NotifyChannel', () => {
     const chat = started();
     const { handler, notify } = notifying(chat);
 
-    await handler.onChatRunAssigned(new ChatRunAssigned(chat.id, RUN, []));
+    await handler.onChatRunAssigned(
+      new ChatRunAssigned(chat.id, WORKSPACE, chat.startedBy, RUN, []),
+    );
 
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ body: '', chatId: 'chat_1', proposals: [] }),
@@ -207,7 +209,9 @@ describe('NotifyChannel', () => {
     const chat = started();
     const { handler, notify } = notifying(chat);
 
-    await handler.onRunNotStarted(new ChatRunNotStarted(chat.id, RUN));
+    await handler.onRunNotStarted(
+      new ChatRunNotStarted(chat.id, WORKSPACE, chat.startedBy, RUN),
+    );
 
     expect(notify.mock.calls[0]?.[0].body).toBe(ChannelReplies.failed);
   });
@@ -229,7 +233,9 @@ describe('NotifyChannel', () => {
         ProposalOrigin.of({ chatId: chat.id, position: SECOND }),
       ),
     );
-    await handler.onProposalDismissed(new ProposalDismissed(chat.id, SECOND));
+    await handler.onProposalDismissed(
+      new ProposalDismissed(chat.id, WORKSPACE, chat.startedBy, SECOND),
+    );
 
     expect(
       notify.mock.calls.map((call) => [call[0].body, call[0].taskId]),

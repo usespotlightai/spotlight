@@ -15,6 +15,13 @@
       "when": 1794167860027,
       "tag": "20261108195740_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794239359747,
+      "tag": "20261109154919_event_outbox_recorded_at",
+      "breakpoints": true
     }
   ]
 }
