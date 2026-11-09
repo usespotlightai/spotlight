@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useChat } from '@/hooks/api/useChat';
 import { useChatJournal } from '@/hooks/api/useChatJournal';
 import { useChatRefresh } from '@/hooks/api/useChatRefresh';
+import { useMarkChatReadOnView } from '@/hooks/api/useMarkChatReadOnView';
 import { useAgentChatTrail } from '@/hooks/useAgentChatTrail';
 import { notFound } from '@/lib/error';
 import { JournalDemandContext } from '@/lib/journal-demand';
@@ -26,6 +27,7 @@ export function AgentChat() {
   const journal = useChatJournal(teamId, chatId, [chat?.runId]);
 
   useChatRefresh(chatId, chat);
+  useMarkChatReadOnView(slug, chat);
 
   const [openedId, setOpenedId] = useState<string>();
   if (chat && !loading(journal) && openedId !== chat.id) {

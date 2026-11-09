@@ -77,6 +77,8 @@ export const chat = pgTable(
     sessionId: text('session_id'),
     runnerId: text('runner_id'),
     workingCopyReleasedAt: timestamptz('working_copy_released_at'),
+    resolvedAt: timestamptz('resolved_at'),
+    readAt: timestamptz('read_at'),
     version: integer('version').notNull().default(0),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
     updatedAt: timestamptz('updated_at')

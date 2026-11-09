@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatKeys } from '@/hooks/api/useChats';
+import { inboxKeys } from '@/hooks/api/useInbox';
 import { taskKeys } from '@/hooks/api/useTasks';
 import { acceptProposal } from '@/lib/api';
 
@@ -21,6 +22,7 @@ export function useAcceptProposal() {
     },
     onSuccess: (_accepted, { teamId, chatId }) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
+      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
       void queryClient.invalidateQueries({
         queryKey: taskKeys.forTeam(teamId),
       });

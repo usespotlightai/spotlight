@@ -46,6 +46,12 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 
+const markRead = vi.fn();
+
+vi.mock('@/hooks/api/useMarkInboxChatRead', () => ({
+  useMarkInboxChatRead: () => ({ mutate: markRead }),
+}));
+
 const send = vi.fn();
 
 vi.mock('@/hooks/api/useSendChatMessage', () => ({
@@ -130,6 +136,7 @@ describe('AgentChat', () => {
     chat.mockReturnValue(planning());
     chatError.mockReturnValue(null);
     refetch.mockReset();
+    markRead.mockReset();
     journal.mockReturnValue([]);
   });
 
@@ -332,5 +339,11 @@ describe('AgentChat', () => {
       expect.objectContaining({ model: 'opus', effort: 'high' }),
       expect.anything(),
     );
+  });
+
+  it('marks the chat read when it opens', () => {
+    renderChat();
+
+    expect(markRead).toHaveBeenCalledWith({ slug: 'acme', chatId: 'chat_1' });
   });
 });

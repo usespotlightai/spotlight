@@ -159,6 +159,9 @@ import { CarryGitCallCommand } from '@work/application/commands/carry-git-call.c
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
+  MarkChatReadCommand,
+  ReopenChatCommand,
+  ResolveChatCommand,
   SendChatMessageCommand,
   StartChatCommand,
   StopChatCommand,
@@ -180,13 +183,16 @@ import { DismissProposalHandler } from '@work/application/commands/handlers/dism
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantRunAttachmentUploadHandler } from '@work/application/commands/handlers/grant-run-attachment-upload.handler';
 import { KeepTaskDraftHandler } from '@work/application/commands/handlers/keep-task-draft.handler';
+import { MarkChatReadHandler } from '@work/application/commands/handlers/mark-chat-read.handler';
 import { MarkConversationReadHandler } from '@work/application/commands/handlers/mark-conversation-read.handler';
 import { MarkInboxRequestReadHandler } from '@work/application/commands/handlers/mark-inbox-request-read.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
+import { ReopenChatHandler } from '@work/application/commands/handlers/reopen-chat.handler';
 import { ReopenConversationHandler } from '@work/application/commands/handlers/reopen-conversation.handler';
 import { ReopenInboxRequestHandler } from '@work/application/commands/handlers/reopen-inbox-request.handler';
 import { ReopenNoticeHandler } from '@work/application/commands/handlers/reopen-notice.handler';
 import { ReplyToReviewCommentHandler } from '@work/application/commands/handlers/reply-to-review-comment.handler';
+import { ResolveChatHandler } from '@work/application/commands/handlers/resolve-chat.handler';
 import { ResolveConversationHandler } from '@work/application/commands/handlers/resolve-conversation.handler';
 import { ResolveInboxRequestHandler } from '@work/application/commands/handlers/resolve-inbox-request.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
@@ -2351,6 +2357,25 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ChatLoader,
     CHAT_REPOSITORY,
     CLOCK,
+  ]),
+
+  ...bindCommandHandler(ResolveChatCommand, ResolveChatHandler, [
+    ChatLoader,
+    CHAT_REPOSITORY,
+    CLOCK,
+    LOGGER,
+  ]),
+  ...bindCommandHandler(ReopenChatCommand, ReopenChatHandler, [
+    ChatLoader,
+    CHAT_REPOSITORY,
+    CLOCK,
+    LOGGER,
+  ]),
+  ...bindCommandHandler(MarkChatReadCommand, MarkChatReadHandler, [
+    ChatLoader,
+    CHAT_REPOSITORY,
+    CLOCK,
+    LOGGER,
   ]),
 
   ...bindCommandHandler(

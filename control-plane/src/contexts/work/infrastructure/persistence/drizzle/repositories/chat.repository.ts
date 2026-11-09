@@ -192,6 +192,8 @@ const toChat = (
     session: row.sessionId ? HarnessSession.of(row.sessionId) : null,
     claimedBy: row.runnerId ? RunnerId.of(row.runnerId) : null,
     createdAt: row.createdAt,
+    resolvedAt: row.resolvedAt,
+    readAt: row.readAt,
     version: row.version,
   });
 
@@ -237,6 +239,8 @@ export class DrizzleChatRepository implements ChatRepository {
       workingCopyReleasedAt: added.workingCopyRelease.releasedAt,
       runnerId: added.claimedBy?.value ?? null,
       createdAt: added.createdAt,
+      resolvedAt: added.resolvedAt,
+      readAt: added.readAt,
     });
 
     if (added.marks.length > 0) {
@@ -286,6 +290,8 @@ export class DrizzleChatRepository implements ChatRepository {
         sessionId: saved.session?.value ?? null,
         workingCopyReleasedAt: saved.workingCopyRelease.releasedAt,
         runnerId: saved.claimedBy?.value ?? null,
+        resolvedAt: saved.resolvedAt,
+        readAt: saved.readAt,
       })
       .where(and(eq(chat.id, saved.id.value), eq(chat.version, saved.version)))
       .returning({ id: chat.id });

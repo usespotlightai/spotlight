@@ -92,6 +92,8 @@ export class Chat extends EventRecorder {
     readonly session: HarnessSession | null,
     readonly claimedBy: RunnerId | null,
     readonly createdAt: Date,
+    readonly resolvedAt: Date | null,
+    readonly readAt: Date | null,
     readonly version: number,
   ) {
     super();
@@ -154,6 +156,8 @@ export class Chat extends EventRecorder {
       null,
       null,
       input.now,
+      null,
+      null,
       0,
     );
 
@@ -188,6 +192,8 @@ export class Chat extends EventRecorder {
     session: HarnessSession | null;
     claimedBy: RunnerId | null;
     createdAt: Date;
+    resolvedAt: Date | null;
+    readAt: Date | null;
     version: number;
   }): Chat {
     if (
@@ -204,6 +210,10 @@ export class Chat extends EventRecorder {
       Chat.distinct(input.repositories).length !== input.repositories.length
     ) {
       throw new InconsistentStateError('chat', 'names a repository twice');
+    }
+
+    if (input.resolvedAt && input.resolvedAt < input.createdAt) {
+      throw new InconsistentStateError('chat', 'was resolved before it began');
     }
 
     const setUpIn = input.setup?.repository ?? null;
@@ -233,6 +243,8 @@ export class Chat extends EventRecorder {
       input.session,
       input.claimedBy,
       input.createdAt,
+      input.resolvedAt,
+      input.readAt,
       input.version,
     );
   }
@@ -267,6 +279,32 @@ export class Chat extends EventRecorder {
 
   get running(): boolean {
     return this.currentRunId !== null;
+  }
+
+  get inboxRunning(): boolean {
+    return this.running || this.wantsFollowUp;
+  }
+
+  resolve(by: UserId, at: Date): Chat {
+    this.assertStarter(by);
+
+    return this.resolvedAt ? this : this.with({ resolvedAt: at, readAt: at });
+  }
+
+  reopen(by: UserId): Chat {
+    this.assertStarter(by);
+
+    return this.resolvedAt ? this.with({ resolvedAt: null }) : this;
+  }
+
+  markRead(by: UserId, at: Date): Chat {
+    this.assertStarter(by);
+
+    const readAt = this.readAt;
+    const stale =
+      readAt === null || this.messages.some((message) => message.at > readAt);
+
+    return stale ? this.with({ readAt: at }) : this;
   }
 
   hasCurrentRun(runId: RunId): boolean {
@@ -529,10 +567,9 @@ export class Chat extends EventRecorder {
       return { chat: this.runEndedWithoutSession(runId), followsUp: false };
     }
 
-    const recorded = this.endRun(runId).recordSession(
-      ending.session,
-      ending.claimedBy,
-    );
+    const recorded = this.endRun(runId)
+      .recordSession(ending.session, ending.claimedBy)
+      .with({ resolvedAt: null });
 
     recorded.record(
       new ChatRunEnded(this.id, this.workspaceId, this.startedBy, runId, true),
@@ -614,7 +651,10 @@ export class Chat extends EventRecorder {
       ...input,
       position: this.proposalPositionFor(input.runId),
     });
-    const proposed = this.with({ messages: [...this.messages, message] });
+    const proposed = this.with({
+      messages: [...this.messages, message],
+      resolvedAt: null,
+    });
 
     proposed.record(
       new TaskProposed(
@@ -677,8 +717,12 @@ export class Chat extends EventRecorder {
     const became = this.replaceProposal(
       this.proposalAt(position).createdAs(taskId, at),
     );
+    const settled =
+      became.openProposals.length === 0
+        ? became.with({ resolvedAt: at, readAt: at })
+        : became;
 
-    became.record(
+    settled.record(
       new ProposalBecameTask(
         this.id,
         this.workspaceId,
@@ -688,7 +732,7 @@ export class Chat extends EventRecorder {
       ),
     );
 
-    return became;
+    return settled;
   }
 
   recordAcceptanceFailure(position: MessagePosition): Chat {
@@ -783,6 +827,8 @@ export class Chat extends EventRecorder {
     session?: HarnessSession | null;
     claimedBy?: RunnerId | null;
     setup?: ConfigFolder | null;
+    resolvedAt?: Date | null;
+    readAt?: Date | null;
   }): Chat {
     const next = new Chat(
       this.id,
@@ -802,6 +848,8 @@ export class Chat extends EventRecorder {
       part.session !== undefined ? part.session : this.session,
       part.claimedBy !== undefined ? part.claimedBy : this.claimedBy,
       this.createdAt,
+      part.resolvedAt !== undefined ? part.resolvedAt : this.resolvedAt,
+      part.readAt !== undefined ? part.readAt : this.readAt,
       this.version,
     );
 

@@ -32,6 +32,7 @@ import {
 } from '@/mocks/world/past-work';
 import { SAM } from '@/mocks/world/people';
 import { journalOfTaskRun, journalRunsOfTask } from '@/mocks/world/run-stories';
+import { teamChats } from '@/mocks/world/team-chats';
 
 type Params = Record<string, string | readonly string[] | undefined>;
 
@@ -47,6 +48,12 @@ const itemOf = (id: string): InboxConversation | undefined =>
   inboxStore().entries.find(
     (entry): entry is InboxConversation =>
       entry.kind === 'task' && entry.id === id,
+  );
+
+const chatOf = (id: string) =>
+  inboxStore().entries.find(
+    (entry): entry is Extract<InboxEntry, { kind: 'chat' }> =>
+      entry.kind === 'chat' && entry.id === id,
   );
 
 const taskOf = (taskId: string) => {
@@ -314,6 +321,46 @@ const conversationHandlers = [
       return noContent();
     },
   ),
+
+  api.post('/workspaces/:slug/inbox/chats/:chatId/read', ({ params }) => {
+    const chatId = param(params, 'chatId');
+    const chat = chatOf(chatId);
+    const known = Object.values(teamChats()).some((chats) =>
+      chats.some((each) => each.chat.id === chatId),
+    );
+
+    if (!isOurs(params) || (!chat && !known)) {
+      return notFound();
+    }
+    if (chat) {
+      chat.unread = false;
+    }
+
+    return noContent();
+  }),
+
+  api.post('/workspaces/:slug/inbox/chats/:chatId/resolve', ({ params }) => {
+    const chat = chatOf(param(params, 'chatId'));
+
+    if (!isOurs(params) || !chat) {
+      return notFound();
+    }
+    chat.resolved = true;
+    chat.unread = false;
+
+    return noContent();
+  }),
+
+  api.post('/workspaces/:slug/inbox/chats/:chatId/reopen', ({ params }) => {
+    const chat = chatOf(param(params, 'chatId'));
+
+    if (!isOurs(params) || !chat) {
+      return notFound();
+    }
+    chat.resolved = false;
+
+    return noContent();
+  }),
 
   api.post('/workspaces/:slug/inbox/notices/:noticeId/reopen', ({ params }) => {
     const notice = inboxStore().entries.find(
