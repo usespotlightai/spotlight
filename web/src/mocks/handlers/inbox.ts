@@ -32,6 +32,7 @@ import {
 } from '@/mocks/world/past-work';
 import { SAM } from '@/mocks/world/people';
 import { journalOfTaskRun, journalRunsOfTask } from '@/mocks/world/run-stories';
+import { teamChats } from '@/mocks/world/team-chats';
 
 type Params = Record<string, string | readonly string[] | undefined>;
 
@@ -322,12 +323,18 @@ const conversationHandlers = [
   ),
 
   api.post('/workspaces/:slug/inbox/chats/:chatId/read', ({ params }) => {
-    const chat = chatOf(param(params, 'chatId'));
+    const chatId = param(params, 'chatId');
+    const chat = chatOf(chatId);
+    const known = Object.values(teamChats()).some((chats) =>
+      chats.some((each) => each.chat.id === chatId),
+    );
 
-    if (!isOurs(params) || !chat) {
+    if (!isOurs(params) || (!chat && !known)) {
       return notFound();
     }
-    chat.unread = false;
+    if (chat) {
+      chat.unread = false;
+    }
 
     return noContent();
   }),
