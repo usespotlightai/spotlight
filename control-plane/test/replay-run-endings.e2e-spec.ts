@@ -271,7 +271,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     ).toEqual({ succeeded: false, reasons: [['asked-a-person', null]] });
   });
 
-  it('leaves a run that handed its work to a person for review to its judge', async () => {
+  it('leaves a run that handed its work to a person for review to its judge, not as asked', async () => {
     expect(
       await storedAfter((run) =>
         run.complete(
@@ -284,7 +284,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
           NOW,
         ),
       ),
-    ).toEqual({ succeeded: null, reasons: [] });
+    ).toEqual({ succeeded: null, reasons: [['nothing-judges', null]] });
   });
 
   it('stores a run that failed before its agent received it as unscored', async () => {
