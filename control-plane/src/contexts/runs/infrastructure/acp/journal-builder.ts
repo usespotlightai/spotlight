@@ -898,11 +898,7 @@ export class JournalBuilder {
 
     this.flushText();
 
-    const step = bare(
-      'lost',
-      `${tasks.join('; ')} with the sandbox`,
-      event.at,
-    );
+    const step = bare('lost', `${tasks.join('; ')} with the sandbox`, event.at);
     step.status = 'failed';
     this.#steps.push(step);
   }

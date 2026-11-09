@@ -51,9 +51,8 @@ describe('shownStep', () => {
 
   it('shows background work that stopped with the run', () => {
     expect(
-      shownStep(
-        step({ kind: 'lost', text: 'npx vitest run with the sandbox' }),
-      ).label,
+      shownStep(step({ kind: 'lost', text: 'npx vitest run with the sandbox' }))
+        .label,
     ).toBe('Stopped npx vitest run with the sandbox');
   });
 
