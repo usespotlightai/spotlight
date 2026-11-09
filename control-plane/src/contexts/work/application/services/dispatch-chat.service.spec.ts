@@ -196,9 +196,11 @@ const placementOf = (order: RunOrderContract): RunnerPlacement =>
 
 const dispatched = (chat: Chat, runId: RunId) => {
   const assigned = chat.assignRun(runId, NOW);
-  const [event] = assigned.pullEvents();
+  const event = assigned
+    .pullEvents()
+    .find((each) => each instanceof ChatRunAssigned) as ChatRunAssigned;
 
-  return { chat: assigned, handed: (event as ChatRunAssigned).acknowledged };
+  return { chat: assigned, handed: event.acknowledged };
 };
 
 describe('DispatchChat', () => {

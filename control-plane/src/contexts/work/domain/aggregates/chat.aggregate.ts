@@ -13,13 +13,20 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
+import { ChatCiSetUp } from '@work/domain/events/chat-ci-set-up.event';
 import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
+import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
+import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
+import { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptance-failed.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
+import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
+import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
@@ -362,14 +369,18 @@ export class Chat extends EventRecorder {
     this.assertStarter(input.by);
     Chat.assertNoForeignTraces(this.teamId, input.traces ?? []);
 
-    return this.with({
-      messages: [
-        ...this.messages,
-        ChatMessage.sent({ ...input, position: this.nextPosition }),
-      ],
+    const position = this.nextPosition;
+    const sent = this.with({
+      messages: [...this.messages, ChatMessage.sent({ ...input, position })],
       model: input.model,
       effort: input.effort,
     });
+
+    sent.record(
+      new ChatMessageSent(this.id, this.workspaceId, position, input.by),
+    );
+
+    return sent;
   }
 
   get setupPullRequestStep(): PullRequestStep {
@@ -405,7 +416,11 @@ export class Chat extends EventRecorder {
       );
     }
 
-    return this.with({ setup: this.setup.withCi(ci) });
+    const setUp = this.with({ setup: this.setup.withCi(ci) });
+
+    setUp.record(new ChatCiSetUp(this.id, this.workspaceId, this.startedBy));
+
+    return setUp;
   }
 
   openSetup(runId: RunId, pullRequest: PullRequestUrl, at: Date): Chat {
@@ -427,6 +442,7 @@ export class Chat extends EventRecorder {
       new SetupPullRequestOpened(
         this.id,
         this.workspaceId,
+        this.startedBy,
         this.teamId,
         pullRequest,
         at,
@@ -451,6 +467,8 @@ export class Chat extends EventRecorder {
     assigned.record(
       new ChatRunAssigned(
         this.id,
+        this.workspaceId,
+        this.startedBy,
         runId,
         this.unacknowledged.map((message) => message.position),
       ),
@@ -464,12 +482,13 @@ export class Chat extends EventRecorder {
       return this;
     }
 
-    return this.with({
-      currentRunId: null,
-      messages: this.messages.map((message) =>
-        message.wasAcknowledgedBy(runId) ? message.unacknowledge() : message,
-      ),
-    });
+    const ended = this.releasedFrom(runId);
+
+    ended.record(
+      new ChatRunEnded(this.id, this.workspaceId, this.startedBy, runId, false),
+    );
+
+    return ended;
   }
 
   runNotStarted(runId: RunId): Chat {
@@ -477,11 +496,22 @@ export class Chat extends EventRecorder {
       return this;
     }
 
-    const next = this.runEndedWithoutSession(runId);
+    const next = this.releasedFrom(runId);
 
-    next.record(new ChatRunNotStarted(this.id, runId));
+    next.record(
+      new ChatRunNotStarted(this.id, this.workspaceId, this.startedBy, runId),
+    );
 
     return next;
+  }
+
+  private releasedFrom(runId: RunId): Chat {
+    return this.with({
+      currentRunId: null,
+      messages: this.messages.map((message) =>
+        message.wasAcknowledgedBy(runId) ? message.unacknowledge() : message,
+      ),
+    });
   }
 
   runEnded(
@@ -502,6 +532,10 @@ export class Chat extends EventRecorder {
     const recorded = this.endRun(runId).recordSession(
       ending.session,
       ending.claimedBy,
+    );
+
+    recorded.record(
+      new ChatRunEnded(this.id, this.workspaceId, this.startedBy, runId, true),
     );
 
     return { chat: recorded, followsUp: recorded.wantsFollowUp };
@@ -525,13 +559,29 @@ export class Chat extends EventRecorder {
       return this;
     }
 
-    return this.with({
-      messages: this.messages.map((message) =>
-        message.position.isAtOrBefore(position)
-          ? message.acknowledge(runId, at)
-          : message,
+    const messages = this.messages.map((message) =>
+      message.position.isAtOrBefore(position)
+        ? message.acknowledge(runId, at)
+        : message,
+    );
+
+    if (messages.every((message, index) => message === this.messages[index])) {
+      return this;
+    }
+
+    const acknowledged = this.with({ messages });
+
+    acknowledged.record(
+      new ChatMessagesAcknowledged(
+        this.id,
+        this.workspaceId,
+        this.startedBy,
+        runId,
+        position,
       ),
-    });
+    );
+
+    return acknowledged;
   }
 
   stoppableBy(by: UserId): RunId {
@@ -564,7 +614,19 @@ export class Chat extends EventRecorder {
       ...input,
       position: this.proposalPositionFor(input.runId),
     });
-    return this.with({ messages: [...this.messages, message] });
+    const proposed = this.with({ messages: [...this.messages, message] });
+
+    proposed.record(
+      new TaskProposed(
+        this.id,
+        this.workspaceId,
+        this.startedBy,
+        message.position,
+        input.runId,
+      ),
+    );
+
+    return proposed;
   }
 
   proposalPositionFor(runId: RunId): MessagePosition {
@@ -612,13 +674,36 @@ export class Chat extends EventRecorder {
   }
 
   proposalBecame(position: MessagePosition, taskId: TaskId, at: Date): Chat {
-    return this.replaceProposal(
+    const became = this.replaceProposal(
       this.proposalAt(position).createdAs(taskId, at),
     );
+
+    became.record(
+      new ProposalBecameTask(
+        this.id,
+        this.workspaceId,
+        this.startedBy,
+        position,
+        taskId,
+      ),
+    );
+
+    return became;
   }
 
   recordAcceptanceFailure(position: MessagePosition): Chat {
-    return this.replaceProposal(this.proposalAt(position).reopen());
+    const reopened = this.replaceProposal(this.proposalAt(position).reopen());
+
+    reopened.record(
+      new ProposalAcceptanceFailed(
+        this.id,
+        this.workspaceId,
+        this.startedBy,
+        position,
+      ),
+    );
+
+    return reopened;
   }
 
   dismiss(position: MessagePosition, by: UserId, at: Date): Chat {
@@ -626,7 +711,14 @@ export class Chat extends EventRecorder {
 
     const next = this.replaceProposal(this.proposalAt(position).dismiss(at));
 
-    next.record(new ProposalDismissed(this.id, position));
+    next.record(
+      new ProposalDismissed(
+        this.id,
+        this.workspaceId,
+        this.startedBy,
+        position,
+      ),
+    );
 
     return next;
   }
@@ -725,6 +817,7 @@ export class Chat extends EventRecorder {
       new ChatDeleted(
         this.id,
         this.workspaceId,
+        this.startedBy,
         this.teamId,
         this.currentRunId,
       ),

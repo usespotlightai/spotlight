@@ -3,6 +3,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { requestedBy } from '@work/application/ports/runs.fake-spec';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
@@ -24,6 +25,7 @@ describe('workSubscribers', () => {
       new SetupPullRequestOpened(
         ChatId.of('chat_1'),
         WorkspaceId.of('ws_1'),
+        UserId.of('user_1'),
         TeamId.of('team_1'),
         PullRequestUrl.of('https://github.com/acme/infra/pull/12'),
         new Date('2026-10-11T09:00:00.000Z'),

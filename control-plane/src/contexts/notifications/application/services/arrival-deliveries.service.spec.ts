@@ -1,5 +1,6 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { NotificationDto } from '@notifications/application/dto/notification.dto';
+import type { NotificationStreamPort } from '@notifications/application/ports/notification-stream.port';
 import type {
   WebPushPort,
   WebPushTarget,
@@ -12,7 +13,6 @@ import { PushSubscription } from '@notifications/domain/aggregates/push-subscrip
 import type { PushSubscriptionRepository } from '@notifications/domain/repositories/push-subscription.repository';
 import { PushEndpoint } from '@notifications/domain/value-objects/push-endpoint.vo';
 import { PushKeys } from '@notifications/domain/value-objects/push-keys.vo';
-import { InMemoryNotificationStream } from '@notifications/infrastructure/streaming/in-memory-notification-stream';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -40,7 +40,15 @@ const deliveriesWith = (input: {
   outcome?: 'delivered' | 'gone';
   subscriptions?: PushSubscription[];
 }) => {
-  const stream = new InMemoryNotificationStream();
+  const published: { personId: string; notification: NotificationDto }[] = [];
+  const stream: NotificationStreamPort = {
+    publish: (personId, notification) =>
+      published.push({ personId, notification }),
+  };
+  const seenBy = (personId: string): NotificationDto[] =>
+    published
+      .filter((each) => each.personId === personId)
+      .map((each) => each.notification);
   const send = vi.fn(
     async (target: WebPushTarget, _payload: string) =>
       input.outcome ?? 'delivered',
@@ -71,7 +79,7 @@ const deliveriesWith = (input: {
       workspaces,
       logger,
     ),
-    stream,
+    seenBy,
     send,
     remove,
   };
@@ -79,13 +87,11 @@ const deliveriesWith = (input: {
 
 describe('ArrivalDeliveries', () => {
   it('streams the item to the person with a link to it in their inbox', async () => {
-    const { deliveries, stream } = deliveriesWith({});
-    const seen: NotificationDto[] = [];
-    stream.subscribe('user_1', (each) => seen.push(each));
+    const { deliveries, seenBy } = deliveriesWith({});
 
     await deliveries.streamed(ITEM);
 
-    expect(seen).toEqual([
+    expect(seenBy('user_1')).toEqual([
       {
         id: 'task_1:0',
         kind: 'task',
@@ -98,13 +104,11 @@ describe('ArrivalDeliveries', () => {
   });
 
   it('links a notice to its own page', async () => {
-    const { deliveries, stream } = deliveriesWith({});
-    const seen: NotificationDto[] = [];
-    stream.subscribe('user_1', (each) => seen.push(each));
+    const { deliveries, seenBy } = deliveriesWith({});
 
     await deliveries.streamed({ ...ITEM, itemKind: 'notice', itemId: 'ntc_1' });
 
-    expect(seen[0]?.path).toBe('/w/acme/inbox/notices/ntc_1');
+    expect(seenBy('user_1')[0]?.path).toBe('/w/acme/inbox/notices/ntc_1');
   });
 
   it('pushes to each browser of the person', async () => {

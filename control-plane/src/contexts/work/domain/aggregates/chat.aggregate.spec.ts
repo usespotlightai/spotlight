@@ -17,10 +17,17 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
+import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
+import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
+import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
+import { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptance-failed.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
+import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
+import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
@@ -413,7 +420,9 @@ describe('Chat', () => {
       })
       .assignRun(RunId.of('run_2'), LATER);
 
-    const [event] = assigned.pullEvents();
+    const event = assigned
+      .pullEvents()
+      .find((each) => each instanceof ChatRunAssigned);
 
     expect(event).toBeInstanceOf(ChatRunAssigned);
     expect(
@@ -911,6 +920,96 @@ describe('Chat', () => {
 
       expect(again.setup?.pullRequest?.equals(URL)).toBe(true);
       expect(again.pullEvents()).toEqual([]);
+    });
+  });
+  describe('saying what changed', () => {
+    const WORKSPACE = WorkspaceId.of('ws_1');
+    const RUN = RunId.of('run_1');
+
+    it('says a message was sent', () => {
+      const sent = started().addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And then?'),
+        at: LATER,
+      });
+
+      expect(sent.pullEvents().slice(-1)[0]).toEqual(
+        new ChatMessageSent(sent.id, WORKSPACE, SECOND, LEON),
+      );
+    });
+
+    it('says a run ended, and whether it kept its session', () => {
+      expect(working().runEndedWithoutSession(RUN).pullEvents()).toEqual([
+        new ChatRunEnded(working().id, WORKSPACE, LEON, RUN, false),
+      ]);
+      expect(
+        working()
+          .runEnded(RUN, {
+            session: HarnessSession.of('session_1'),
+            claimedBy: null,
+          })
+          .chat.pullEvents(),
+      ).toEqual([new ChatRunEnded(working().id, WORKSPACE, LEON, RUN, true)]);
+    });
+
+    it('says only that a run did not start, not that it ended', () => {
+      expect(working().runNotStarted(RUN).pullEvents()).toEqual([
+        new ChatRunNotStarted(working().id, WORKSPACE, LEON, RUN),
+      ]);
+    });
+
+    it('says messages were acknowledged once, not again', () => {
+      const asked = working().addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And then?'),
+        at: LATER,
+      });
+      asked.pullEvents();
+      const acknowledged = asked.acknowledgeUpTo(RUN, SECOND, LATER);
+
+      expect(acknowledged.pullEvents()).toEqual([
+        new ChatMessagesAcknowledged(asked.id, WORKSPACE, LEON, RUN, SECOND),
+      ]);
+      expect(
+        acknowledged.acknowledgeUpTo(RUN, SECOND, LATER).pullEvents(),
+      ).toEqual([]);
+    });
+
+    it('says a task was proposed, and what became of the proposal', () => {
+      const proposed = working().propose({
+        runId: RUN,
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off exponentially'),
+        description: null,
+        at: LATER,
+      });
+
+      expect(proposed.pullEvents()).toEqual([
+        new TaskProposed(proposed.id, WORKSPACE, LEON, SECOND, RUN),
+      ]);
+
+      const accepted = proposing().accept(SECOND, LEON, LATER);
+      accepted.pullEvents();
+
+      expect(
+        accepted
+          .proposalBecame(SECOND, TaskId.of('task_1'), LATER)
+          .pullEvents(),
+      ).toEqual([
+        new ProposalBecameTask(
+          accepted.id,
+          WORKSPACE,
+          LEON,
+          SECOND,
+          TaskId.of('task_1'),
+        ),
+      ]);
+      expect(accepted.recordAcceptanceFailure(SECOND).pullEvents()).toEqual([
+        new ProposalAcceptanceFailed(accepted.id, WORKSPACE, LEON, SECOND),
+      ]);
     });
   });
 });

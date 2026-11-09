@@ -155,7 +155,7 @@ const problemsOfKind = (
 
 const registrationViolations = (
   file: SourceFile,
-  callee: 'subscribing' | 'projecting',
+  callee: 'subscribing' | 'projecting' | 'noticing',
 ): Violation[] => {
   const context = contextOf(file.path);
 
@@ -207,12 +207,21 @@ const registrationViolations = (
   });
 };
 
-const SUBSCRIBER_MEMBERS = ['name', 'kinds', 'handle'];
+const HAND_BUILT = [
+  {
+    members: ['name', 'kinds', 'handle'],
+    says: 'builds a subscriber without subscribing or projecting',
+  },
+  {
+    members: ['name', 'kinds', 'notices'],
+    says: 'builds a change notice without noticing',
+  },
+];
 
 const handBuiltSubscribers = (file: SourceFile): Violation[] =>
-  descendants(file.tree, ts.isObjectLiteralExpression)
-    .filter((literal) =>
-      SUBSCRIBER_MEMBERS.every((member) =>
+  descendants(file.tree, ts.isObjectLiteralExpression).flatMap((literal) =>
+    HAND_BUILT.filter(({ members }) =>
+      members.every((member) =>
         literal.properties.some(
           (property) =>
             property.name !== undefined &&
@@ -220,13 +229,17 @@ const handBuiltSubscribers = (file: SourceFile): Violation[] =>
             property.name.text === member,
         ),
       ),
-    )
-    .map((literal) => ({
-      key: `${file.path}: builds a subscriber without subscribing or projecting`,
+    ).map(({ says }) => ({
+      key: `${file.path}: ${says}`,
       at: at(file, literal),
-    }));
+    })),
+  );
 
-const SUBSCRIBER_TYPES = new Set(['DomainEventSubscriber', 'EventProjection']);
+const SUBSCRIBER_TYPES = new Set([
+  'DomainEventSubscriber',
+  'EventProjection',
+  'ChangeNoticeMapper',
+]);
 
 const subscriberClasses = (file: SourceFile): Violation[] =>
   descendants(file.tree, ts.isClassLike)
@@ -244,7 +257,7 @@ const subscriberClasses = (file: SourceFile): Violation[] =>
       at: at(file, declaration),
     }));
 
-const REGISTRATIONS = new Set(['subscribing', 'projecting']);
+const REGISTRATIONS = new Set(['subscribing', 'projecting', 'noticing']);
 
 const memberRegistrations = (file: SourceFile): Violation[] =>
   descendants(file.tree, ts.isCallExpression)
@@ -261,6 +274,7 @@ const memberRegistrations = (file: SourceFile): Violation[] =>
 export const eventSubscriptionsIn = (file: SourceFile): Violation[] => [
   ...registrationViolations(file, 'subscribing'),
   ...registrationViolations(file, 'projecting'),
+  ...registrationViolations(file, 'noticing'),
   ...handBuiltSubscribers(file),
   ...subscriberClasses(file),
   ...memberRegistrations(file),

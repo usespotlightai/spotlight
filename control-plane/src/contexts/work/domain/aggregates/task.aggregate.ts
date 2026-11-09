@@ -19,18 +19,31 @@ import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
+import { TaskApprovalClaimed } from '@work/domain/events/task-approval-claimed.event';
+import { TaskApprovalReturned } from '@work/domain/events/task-approval-returned.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskAssigned } from '@work/domain/events/task-assigned.event';
+import { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskDraftSent } from '@work/domain/events/task-draft-sent.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
+import { TaskMarkReleased } from '@work/domain/events/task-mark-released.event';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
+import { TaskNoted } from '@work/domain/events/task-noted.event';
+import { TaskNotesAcknowledged } from '@work/domain/events/task-notes-acknowledged.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
+import { TaskPullRequestClosed } from '@work/domain/events/task-pull-request-closed.event';
+import { TaskPullRequestReopened } from '@work/domain/events/task-pull-request-reopened.event';
+import { TaskReordered } from '@work/domain/events/task-reordered.event';
 import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { TaskRunEnded } from '@work/domain/events/task-run-ended.event';
+import { TaskSessionKept } from '@work/domain/events/task-session-kept.event';
+import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
 import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
@@ -446,9 +459,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.with(
-      this.appendNote(newNote, 'message', DeferredMove.moveTo(to)),
-    );
+    return this.noted(newNote, 'message', DeferredMove.moveTo(to));
   }
 
   get deferredMoveTo(): StationId | null {
@@ -599,7 +610,17 @@ export class Task extends EventRecorder {
   }
 
   reorderTo(rank: TaskRank): Task {
-    return this.with({ rank });
+    if (this.rank.equals(rank)) {
+      return this;
+    }
+
+    const reordered = this.with({ rank });
+
+    reordered.record(
+      new TaskReordered(this.id, this.workspaceId, this.stationId, rank),
+    );
+
+    return reordered;
   }
 
   placeAt(
@@ -744,22 +765,36 @@ export class Task extends EventRecorder {
     if (this.pullRequest?.equals(url)) {
       return this.pullRequestClosedAt
         ? this
-        : this.with({ pullRequestClosedAt: at });
+        : this.with({ pullRequestClosedAt: at }).closedPullRequest(url);
     }
 
-    return this.laterPullRequests.some((each) => each.url.equals(url))
+    return this.laterPullRequests.some(
+      (each) => each.url.equals(url) && each.closedAt === null,
+    )
       ? this.with({
           laterPullRequests: this.laterPullRequests.map((each) =>
             each.url.equals(url) ? each.closed(at) : each,
           ),
-        })
+        }).closedPullRequest(url)
       : this;
+  }
+
+  private closedPullRequest(url: PullRequestUrl): Task {
+    this.record(new TaskPullRequestClosed(this.id, this.workspaceId, url));
+
+    return this;
+  }
+
+  private reopenedPullRequest(url: PullRequestUrl): Task {
+    this.record(new TaskPullRequestReopened(this.id, this.workspaceId, url));
+
+    return this;
   }
 
   pullRequestReopened(url: PullRequestUrl): Task {
     if (this.pullRequest?.equals(url)) {
       return this.pullRequestClosedAt
-        ? this.with({ pullRequestClosedAt: null })
+        ? this.with({ pullRequestClosedAt: null }).reopenedPullRequest(url)
         : this;
     }
 
@@ -770,7 +805,7 @@ export class Task extends EventRecorder {
           laterPullRequests: this.laterPullRequests.map((each) =>
             each.url.equals(url) ? each.reopened() : each,
           ),
-        })
+        }).reopenedPullRequest(url)
       : this;
   }
 
@@ -832,7 +867,11 @@ export class Task extends EventRecorder {
       throw new DraftAlreadySentError(this.id.value);
     }
 
-    return this.with({ draftGeneration: generation.next() });
+    const sent = this.with({ draftGeneration: generation.next() });
+
+    sent.record(new TaskDraftSent(this.id, this.workspaceId, generation));
+
+    return sent;
   }
 
   get marks(): readonly Mark[] {
@@ -861,9 +900,17 @@ export class Task extends EventRecorder {
   }
 
   releaseMark(mark: Mark): Task {
-    return this.holdsMark(mark)
-      ? this.with({ marks: this.heldMarks.filter((each) => !each.is(mark)) })
-      : this;
+    if (!this.holdsMark(mark)) {
+      return this;
+    }
+
+    const released = this.with({
+      marks: this.heldMarks.filter((each) => !each.is(mark)),
+    });
+
+    released.record(new TaskMarkReleased(this.id, this.workspaceId, mark));
+
+    return released;
   }
 
   get running(): boolean {
@@ -926,7 +973,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.with(this.appendNote(newNote, 'message'));
+    return this.noted(newNote, 'message');
   }
 
   receiveMessage(by: RunId, newNote: NewNote, at: StationId | null): Task {
@@ -1071,7 +1118,7 @@ export class Task extends EventRecorder {
       );
     }
 
-    return this.with(this.appendNote(newNote, 'passed'));
+    return this.noted(newNote, 'passed');
   }
 
   resolveAt(from: NotePosition, newNote: NewNote): Task {
@@ -1198,13 +1245,21 @@ export class Task extends EventRecorder {
   }
 
   dropUnstartedRun(runId: RunId): Task {
-    return this.hasCurrentRun(runId) ? this.with({ currentRunId: null }) : this;
+    return this.hasCurrentRun(runId) ? this.endedRun(runId) : this;
   }
 
   leaveRun(runId: RunId, at: Date): Task {
     return this.hasCurrentRun(runId)
-      ? this.with({ currentRunId: null }).acknowledgeNotesAt(at)
+      ? this.endedRun(runId).acknowledgeNotesAt(at)
       : this;
+  }
+
+  private endedRun(runId: RunId): Task {
+    const ended = this.with({ currentRunId: null });
+
+    ended.record(new TaskRunEnded(this.id, this.workspaceId, runId));
+
+    return ended;
   }
 
   private acknowledgeNotesAt(at: Date): Task {
@@ -1218,7 +1273,21 @@ export class Task extends EventRecorder {
     session: HarnessSession,
     claimedBy: RunnerId | null,
   ): Task {
-    return this.hasCurrentRun(by) ? this.with({ session, claimedBy }) : this;
+    if (
+      !this.hasCurrentRun(by) ||
+      (this.session?.equals(session) &&
+        (claimedBy === null
+          ? this.claimedBy === null
+          : (this.claimedBy?.equals(claimedBy) ?? false)))
+    ) {
+      return this;
+    }
+
+    const kept = this.with({ session, claimedBy });
+
+    kept.record(new TaskSessionKept(this.id, this.workspaceId, by));
+
+    return kept;
   }
 
   resume(): Resume {
@@ -1273,12 +1342,19 @@ export class Task extends EventRecorder {
 
   read(from: NotePosition, at: Date): Task {
     const read = this.conversationAt(from);
+    const notes = this.notes.map((note) =>
+      read.some((each) => each.equals(note)) ? note.read(at) : note,
+    );
 
-    return this.with({
-      notes: this.notes.map((note) =>
-        read.some((each) => each.equals(note)) ? note.read(at) : note,
-      ),
-    });
+    if (notes.every((note, index) => note === this.notes[index])) {
+      return this;
+    }
+
+    const seen = this.with({ notes });
+
+    seen.record(new TaskConversationRead(this.id, this.workspaceId, from));
+
+    return seen;
   }
 
   private conversationAt(from: NotePosition): readonly TaskNote[] {
@@ -1376,7 +1452,7 @@ export class Task extends EventRecorder {
   ): Task {
     this.reviewCommentToReplyFrom(by, from, at);
 
-    const replied = this.with(this.appendNote(newNote, 'message'));
+    const replied = this.noted(newNote, 'message');
 
     return replied.with({
       notes: replied.notes.map((note) =>
@@ -1405,11 +1481,21 @@ export class Task extends EventRecorder {
   }
 
   private acknowledgedUpTo(position: NotePosition, at: Date): Task {
-    return this.with({
-      notes: this.notes.map((note) =>
-        note.position.isAtOrBefore(position) ? note.acknowledge(at) : note,
-      ),
-    });
+    const notes = this.notes.map((note) =>
+      note.position.isAtOrBefore(position) ? note.acknowledge(at) : note,
+    );
+
+    if (notes.every((note, index) => note === this.notes[index])) {
+      return this;
+    }
+
+    const acknowledged = this.with({ notes });
+
+    acknowledged.record(
+      new TaskNotesAcknowledged(this.id, this.workspaceId, position),
+    );
+
+    return acknowledged;
   }
 
   askedAbout(newNote: NewNote, by: RunId | null): Task {
@@ -1447,7 +1533,14 @@ export class Task extends EventRecorder {
       ? recorded
       : recorded.putToAPerson(runId, turn.note);
 
-    return asked.with({ awaitedTurn: turn.turn, answeredTurnAt: null });
+    const awaiting = asked.with({
+      awaitedTurn: turn.turn,
+      answeredTurnAt: null,
+    });
+
+    awaiting.record(new TaskTurnAwaited(this.id, this.workspaceId, turn.turn));
+
+    return awaiting;
   }
 
   get lastPersonNoteAt(): Date | null {
@@ -1566,7 +1659,7 @@ export class Task extends EventRecorder {
 
     return (
       free.awaitingReview
-        ? free.with(free.appendNote(reported, 'message'))
+        ? free.noted(reported, 'message')
         : free.askedAbout(reported, by)
     ).failing(following, by, newNote.at, line.teamId);
   }
@@ -1625,7 +1718,7 @@ export class Task extends EventRecorder {
 
     if (current?.approval.grantedFor(needed.askedOf)) {
       return {
-        task: this.withApprovalAt(current.at, (note) => note.approvalClaimed()),
+        task: this.claimedApprovalAt(current.at),
         check: {
           kind: 'approved',
           claimed: current.at,
@@ -1706,7 +1799,11 @@ export class Task extends EventRecorder {
   }
 
   returnApproval(at: NotePosition): Task {
-    return this.withApprovalAt(at, (note) => note.returnApproval());
+    const returned = this.withApprovalAt(at, (note) => note.returnApproval());
+
+    returned.record(new TaskApprovalReturned(this.id, this.workspaceId, at));
+
+    return returned;
   }
 
   approvalFor(subject: ApprovalSubject): CurrentApproval | null {
@@ -1766,11 +1863,9 @@ export class Task extends EventRecorder {
       );
     }
 
-    const noted = this.with(
-      this.appendNote(
-        decision ? { ...newNote, form: 'decision' } : newNote,
-        'answered',
-      ),
+    const noted = this.noted(
+      decision ? { ...newNote, form: 'decision' } : newNote,
+      'answered',
     );
     const acknowledged = noted.running
       ? noted
@@ -1821,6 +1916,14 @@ export class Task extends EventRecorder {
           ),
         )
       : answered;
+  }
+
+  private claimedApprovalAt(at: NotePosition): Task {
+    const claimed = this.withApprovalAt(at, (note) => note.approvalClaimed());
+
+    claimed.record(new TaskApprovalClaimed(this.id, this.workspaceId, at));
+
+    return claimed;
   }
 
   private withApprovalAt(
@@ -1878,6 +1981,21 @@ export class Task extends EventRecorder {
         `Task ${this.id.value} is already at station ${stationId.value}.`,
       );
     }
+  }
+
+  private noted(
+    newNote: NewNote,
+    kind: TaskNoteKind,
+    deferredMove: DeferredMove | null = null,
+  ): Task {
+    const noted = this.with(this.appendNote(newNote, kind, deferredMove));
+    const added = NotePosition.lastIn(noted.notes);
+
+    if (added) {
+      noted.record(new TaskNoted(this.id, this.workspaceId, added, kind));
+    }
+
+    return noted;
   }
 
   private appendNote(

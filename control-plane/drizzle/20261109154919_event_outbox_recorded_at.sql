@@ -1,0 +1,1 @@
+CREATE INDEX "event_outbox_recorded_at_idx" ON "event_outbox" USING btree ("recorded_at");

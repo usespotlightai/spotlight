@@ -1,11 +1,20 @@
+import { RunAskedAPerson } from '@runs/domain/events/run-asked-a-person.event';
 import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
+import { RunClaimed } from '@runs/domain/events/run-claimed.event';
 import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
 import { RunProvisionFailed } from '@runs/domain/events/run-provision-failed.event';
+import { RunRequeued } from '@runs/domain/events/run-requeued.event';
 import { RunReservationDropped } from '@runs/domain/events/run-reservation-dropped.event';
+import { RunReserved } from '@runs/domain/events/run-reserved.event';
+import { RunResumed } from '@runs/domain/events/run-resumed.event';
+import { RunStarted } from '@runs/domain/events/run-started.event';
+import { RunStartingPointRecorded } from '@runs/domain/events/run-starting-point-recorded.event';
+import { RunStopRequested } from '@runs/domain/events/run-stop-requested.event';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
+import { RunUnclaimed } from '@runs/domain/events/run-unclaimed.event';
 import { RunUsageRecorded } from '@runs/domain/events/run-usage-recorded.event';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';
@@ -98,4 +107,13 @@ export const RUNS_PAYLOAD_TYPES = [
   RunPaused,
   RunProvisionFailed,
   RunReservationDropped,
+  RunClaimed,
+  RunReserved,
+  RunRequeued,
+  RunUnclaimed,
+  RunStarted,
+  RunStartingPointRecorded,
+  RunAskedAPerson,
+  RunStopRequested,
+  RunResumed,
 ] as const;

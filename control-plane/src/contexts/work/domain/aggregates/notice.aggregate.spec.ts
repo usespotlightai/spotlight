@@ -59,7 +59,7 @@ describe('Notice', () => {
     expect(open.reopen(later(4))).toBe(open);
   });
 
-  it('records that it was raised when it is created and when it reopens', () => {
+  it('records that it was raised, resolved and raised again when it reopens', () => {
     const open = created();
     expect(open.pullEvents().map((each) => each.kind)).toEqual([
       'notice.raised',
@@ -68,6 +68,7 @@ describe('Notice', () => {
     const reopened = open.resolve(later(3)).reopen(later(4));
 
     expect(reopened.pullEvents().map((each) => each.kind)).toEqual([
+      'notice.resolved',
       'notice.raised',
     ]);
   });

@@ -28,6 +28,28 @@ describe('event subscriptions', () => {
     ).toEqual([]);
   });
 
+  it('lets change notices map only own domain events', () => {
+    expect(
+      problemsIn(`import { noticing } from '@platform/live/change-notices';
+        import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
+        noticing('memory.a', ['memory.used'], notice);
+        noticing('memory.b', ['task.opened', TASK_DELETED], notice);`),
+    ).toEqual([
+      'memory.b hears the domain event task.opened of work',
+      'memory.b hears the integration event work.task-deleted.v1 outside a subscriber',
+    ]);
+  });
+
+  it('finds a change notice built by hand or registered through a member', () => {
+    expect(
+      problemsIn(`const custom = { name: 'memory.a', kinds: ['memory.used'], notices };
+        mappers.noticing('memory.b', ['memory.used'], notice);`),
+    ).toEqual([
+      'builds a change notice without noticing',
+      'calls mappers.noticing, which the check cannot follow',
+    ]);
+  });
+
   it('finds a subscriber built by hand and a kind it cannot resolve', () => {
     expect(
       problemsIn(`import { subscribing } from '${SUBSCRIBER}';

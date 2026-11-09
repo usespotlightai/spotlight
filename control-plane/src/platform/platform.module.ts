@@ -19,6 +19,8 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { OutboxRetention } from '@platform/events/outbox-retention';
+import { OutboxRetentionWorker } from '@platform/events/outbox-retention.worker';
 import { PayloadTypes } from '@platform/events/payload-types';
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@platform/events/shared-kernel-payload-types';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
@@ -37,6 +39,11 @@ import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
 import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempotent-creates';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
+import { ChangeNotices } from '@platform/live/change-notices';
+import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
+import { LIVE_FEED } from '@platform/live/live-feed.port';
+import { LIVE_RANDOM, LiveStreams } from '@platform/live/live-streams';
+import { RedisLiveFeed } from '@platform/live/redis-live-feed';
 import { LoggingModule } from '@platform/logging/logging.module';
 import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import { OutboundCalls } from '@platform/outbound/outbound-calls';
@@ -158,12 +165,28 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     EventSubscribers,
     IntegrationEventMappers,
     EventProjections,
+    ChangeNotices,
+    {
+      provide: LIVE_FEED,
+      inject: [RedisConnection, LOGGER],
+      useFactory: (redis: RedisConnection, logger: LoggerPort) => {
+        const pubSub = redis.pubSub();
+
+        return pubSub
+          ? new RedisLiveFeed(pubSub.client, pubSub.subscriber, logger)
+          : new InMemoryLiveFeed();
+      },
+    },
+    { provide: LIVE_RANDOM, useValue: Math.random },
+    LiveStreams,
     EventOutbox,
     ApiConventions,
     ForbiddenActs,
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
+    OutboxRetention,
+    OutboxRetentionWorker,
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },
@@ -202,6 +225,9 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     EventSubscribers,
     IntegrationEventMappers,
     EventProjections,
+    ChangeNotices,
+    LIVE_FEED,
+    LiveStreams,
     EventOutbox,
     ApiConventions,
     ForbiddenActs,

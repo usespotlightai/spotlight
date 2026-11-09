@@ -1,9 +1,12 @@
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { RunClaimed } from '@runs/domain/events/run-claimed.event';
 import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
+import { RunRequeued } from '@runs/domain/events/run-requeued.event';
 import { RunReservationDropped } from '@runs/domain/events/run-reservation-dropped.event';
+import { RunUnclaimed } from '@runs/domain/events/run-unclaimed.event';
 import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.error';
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { RunActsOnlyOnItselfError } from '@runs/domain/exceptions/run-acts-only-on-itself.error';
@@ -55,8 +58,13 @@ const queued = () =>
     spec: aSpec('sh'),
   });
 
+const quiet = (run: Run): Run => {
+  run.pullEvents();
+  return run;
+};
+
 const claimed = (by = runner(), when = noon) =>
-  queued().claim(claimer(by), when);
+  quiet(queued().claim(claimer(by), when));
 
 const lostAndRequeued = (run: Run) =>
   run.expireLease(run.leaseExpiresAt as Date);
@@ -750,7 +758,9 @@ describe('Run', () => {
       expect(unclaimed.attempt.equals(before.attempt)).toBe(true);
       expect(unclaimed.requeueCount).toEqual(before.requeueCount);
       expect(unclaimed.claimableAt(noon)).toBe(true);
-      expect(unclaimed.pullEvents()).toEqual([]);
+      expect(unclaimed.pullEvents()).toEqual([
+        new RunUnclaimed(RunId.of('run_1'), WorkspaceId.of('ws_1'), runner()),
+      ]);
     });
 
     it('ends as stopped, not back on the queue, when someone asked it to stop', () => {
@@ -794,7 +804,9 @@ describe('Run', () => {
       expect(back.claimedBy).toBeNull();
       expect(back.leaseExpiresAt).toBeNull();
       expect(back.attempt.number).toBe(1);
-      expect(back.pullEvents()).toEqual([]);
+      expect(back.pullEvents()).toEqual([
+        new RunRequeued(RunId.of('run_1'), WorkspaceId.of('ws_1'), runner()),
+      ]);
     });
 
     it('is not claimed again until its back-off has passed', () => {
@@ -1085,7 +1097,7 @@ describe('Run', () => {
   describe('waiting for a runner provisioned for it', () => {
     const later = (ms: number) => new Date(noon.getTime() + ms);
     const reserved = () =>
-      queued().reservedFor(runner('pooled_1'), PoolId.of('burst'), noon);
+      quiet(queued().reservedFor(runner('pooled_1'), PoolId.of('burst'), noon));
 
     it('reserves itself for the provisioned runner for five minutes', () => {
       const run = reserved();
@@ -1135,6 +1147,11 @@ describe('Run', () => {
           WorkspaceId.of('ws_1'),
           runner('pooled_1'),
         ),
+        new RunClaimed(
+          RunId.of('run_1'),
+          WorkspaceId.of('ws_1'),
+          runner('runner_9'),
+        ),
       ]);
     });
 
@@ -1144,7 +1161,13 @@ describe('Run', () => {
       expect(run.state).toBe('claimed');
       expect(run.claimedBy?.value).toBe('pooled_1');
       expect(run.reservation).toBeNull();
-      expect(run.pullEvents()).toEqual([]);
+      expect(run.pullEvents()).toEqual([
+        new RunClaimed(
+          RunId.of('run_1'),
+          WorkspaceId.of('ws_1'),
+          runner('pooled_1'),
+        ),
+      ]);
     });
 
     it('knows its reservation expired only once it is behind it while still queued', () => {
@@ -1203,9 +1226,9 @@ describe('Run', () => {
     const failedAgain = (run: Run) => {
       const due = run.provisioning.nextAttemptAt ?? noon;
 
-      return run
-        .reservedFor(pooled, PoolId.of('burst'), due)
-        .provisionFailed(pooled, failure, due);
+      return quiet(
+        run.reservedFor(pooled, PoolId.of('burst'), due),
+      ).provisionFailed(pooled, failure, due);
     };
 
     it('stays queued, unreserved and backs off before the next try', () => {

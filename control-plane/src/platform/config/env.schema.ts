@@ -78,7 +78,7 @@ export const envSchema = databaseSchema
     ),
     VAPID_SUBJECT: unsetWhenEmpty(z.string().regex(/^(mailto:|https:\/\/).+/)),
     OAUTH_CLIENTS: z.string().default('{}'),
-    // Lets several control-plane instances share live drafts, run streams, host tunnels, the leader lease and the sign-in rate limit.
+    // Lets several control-plane instances share live drafts, run streams, live changes, host tunnels, the leader lease and the sign-in rate limit.
     REDIS_URL: z.url({ protocol: /^rediss?$/ }).optional(),
     SPOTLIGHT_INSTANCE_URL: z.url({ protocol: /^http$/ }).optional(),
     SPOTLIGHT_LONG_POLL_MS: z.coerce.number().int().positive().default(10_000),

@@ -9,9 +9,8 @@ import { quietBrowser } from '@/test/signed-in';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
 vi.mock('@/hooks/api/useSettingUp', () => ({ useSettingUp: vi.fn() }));
-vi.mock('@/hooks/useNotificationStream', () => ({
-  useNotificationStream: vi.fn(),
-}));
+vi.mock('@/hooks/useLiveStream', () => ({ useLiveStream: vi.fn() }));
+vi.mock('@/hooks/useInboxNotifier', () => ({ useInboxNotifier: vi.fn() }));
 vi.mock('@/hooks/useDesktopBadge', () => ({ useDesktopBadge: vi.fn() }));
 vi.mock('@/hooks/useDesktopCommands', () => ({ useDesktopCommands: vi.fn() }));
 

@@ -1,17 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { listTaskRuns } from '@/lib/api';
+import { useLivePoll } from '@/lib/live';
 
-const taskRunKeys = {
+export const taskRunKeys = {
   forTask: (taskId?: string) => ['runs', 'task', taskId ?? null] as const,
 };
 
 const POLL_MS = 10_000;
 
 export function useTaskRuns(teamId: string | undefined, taskId?: string) {
+  const livePollMs = useLivePoll(POLL_MS);
+
   return useQuery({
     queryKey: taskRunKeys.forTask(taskId),
     enabled: Boolean(teamId && taskId),
-    refetchInterval: POLL_MS,
+    refetchInterval: livePollMs,
     queryFn: async () => {
       const { data } = await listTaskRuns({
         path: { teamId: teamId as string, taskId: taskId as string },

@@ -85,6 +85,15 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     defaults:
       run:
         working-directory: control-plane
@@ -130,6 +139,7 @@ jobs:
       - name: e2e tests behind PgBouncer
         env:
           SPOTLIGHT_E2E_POOLER_URL: postgres://postgres:postgres@127.0.0.1:6432/postgres
+          SPOTLIGHT_E2E_REDIS_URL: redis://127.0.0.1:6379
         run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
 
       - name: PgBouncer logs

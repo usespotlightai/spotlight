@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { readTaskTrace } from '@/lib/api';
 
-const taskTraceKeys = {
+export const taskTraceKeys = {
   forTask: (taskId?: string) => ['trace', 'task', taskId ?? null] as const,
 };
 

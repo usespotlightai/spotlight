@@ -2219,7 +2219,9 @@ describe('Task and the happenings received while it has a current run', () => {
     expect(noted.stationId).toEqual(HERE);
     expect(noted.currentRunId).toEqual(RUN);
     expect(noted.deferredMoveTo).toEqual(SPEC);
-    expect(noted.pullEvents()).toEqual([]);
+    expect(noted.pullEvents().map((event) => event.kind)).toEqual([
+      'task.noted',
+    ]);
   });
 
   it('defers only the latest move', () => {
@@ -2508,7 +2510,9 @@ describe('Task and the happenings received while it has a current run', () => {
         to: null,
       });
       expect(noted.deferredMoveTo).toEqual(SPEC);
-      expect(noted.pullEvents()).toEqual([]);
+      expect(noted.pullEvents().map((event) => event.kind)).toEqual([
+        'task.noted',
+      ]);
     });
 
     it('cannot be moved by a happening to a station other than the completed one', () => {
