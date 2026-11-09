@@ -98,10 +98,15 @@ export function useChatMessage(
     [draft],
   );
   const sharedAttachments = shared?.attachments;
+  const draftName = shared?.name;
   const generation = shared?.generation;
   const synced = shared?.synced;
   const sentText = shared?.sentText;
-  const seen = useRef({ generation: 0, synced: false });
+  const seen = useRef<{
+    name: string | null;
+    generation: number;
+    synced: boolean;
+  }>({ name: null, generation: 0, synced: false });
   const clearSent = useCallback((body: string) => {
     editor.current?.update(
       () => {
@@ -143,16 +148,24 @@ export function useChatMessage(
   );
 
   // A new generation means the draft was sent: every writer clears the sent text, so it goes even when the sender's tab closed.
+  // Only within one synced draft: an edit to a draft that has not synced yet reaches the server as a new paragraph.
   useEffect(() => {
-    if (generation === undefined) {
+    if (draftName === undefined || generation === undefined) {
       return;
     }
 
-    if (seen.current.synced && seen.current.generation !== generation) {
+    const before = seen.current;
+
+    if (
+      before.name === draftName &&
+      before.synced &&
+      synced &&
+      before.generation !== generation
+    ) {
       clearSent(sentText ?? '');
     }
-    seen.current = { generation, synced: synced ?? false };
-  }, [generation, synced, sentText, clearSent]);
+    seen.current = { name: draftName, generation, synced: synced ?? false };
+  }, [draftName, generation, synced, sentText, clearSent]);
 
   useEffect(() => {
     draft?.save({
