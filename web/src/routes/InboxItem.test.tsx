@@ -749,7 +749,9 @@ describe('InboxItem', () => {
 
       renderItem();
 
-      for (const worked of screen.getAllByRole('button', { name: /^Worked/ })) {
+      for (const worked of screen.getAllByRole('button', {
+        name: /^Work(ed|ing)/,
+      })) {
         await userEvent.click(worked);
       }
 

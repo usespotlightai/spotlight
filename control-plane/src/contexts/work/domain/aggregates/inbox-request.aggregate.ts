@@ -4,7 +4,9 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked-read.event';
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import {
   INBOX_REQUEST_FORMS,
   type InboxRequestForm,
@@ -189,11 +191,24 @@ export class InboxRequest extends EventRecorder {
   }
 
   readBy(viewer: UserId, now: Date): InboxRequest {
-    return this.unreadBy(viewer)
-      ? this.with({
-          reads: [...this.reads, InboxRequestRead.of({ by: viewer, at: now })],
-        })
-      : this;
+    if (!this.unreadBy(viewer)) {
+      return this;
+    }
+
+    const read = this.with({
+      reads: [...this.reads, InboxRequestRead.of({ by: viewer, at: now })],
+    });
+
+    read.record(
+      new InboxRequestMarkedRead(
+        this.id,
+        this.workspaceId,
+        this.taskId,
+        viewer,
+      ),
+    );
+
+    return read;
   }
 
   resolve(now: Date): InboxRequest {
@@ -201,10 +216,16 @@ export class InboxRequest extends EventRecorder {
       return this;
     }
 
-    return this.with(
+    const resolved = this.with(
       { resolvedAt: now },
       (event) => !(event instanceof InboxRequestOpened),
     );
+
+    resolved.record(
+      new InboxRequestResolved(this.id, this.workspaceId, this.taskId, now),
+    );
+
+    return resolved;
   }
 
   reopen(now: Date): InboxRequest {

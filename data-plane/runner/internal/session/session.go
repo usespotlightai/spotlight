@@ -382,7 +382,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 			return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
 		},
 		escalated: &escalated,
-		handOver:  handingOver(opts, run, space.Dir, bases, log),
+		handOver:  func(ctx context.Context) { opts.generateStacks(ctx, run, space.Dir, bases, log) },
 		heartbeat: opts.heartbeat(),
 		waitLimit: opts.BackgroundWait,
 		keepLost: func(tasks []workspace.LostTask) {
@@ -404,25 +404,10 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	}
 
 	lifecycle.note(AgentExited, log)
-	if !replays(run) {
-		opts.generateStacks(ctx, run, space.Dir, bases, log)
-	}
 	lifecycle.note(Drained, log)
 
 	log.Info("run finished", "state", lifecycle.state)
 	return nil
-}
-
-func handingOver(
-	opts Options, run protocol.Run, dir string, bases map[string]string, log *slog.Logger,
-) func(context.Context) {
-	if !replays(run) {
-		return nil
-	}
-
-	return func(ctx context.Context) {
-		opts.generateStacks(ctx, run, dir, bases, log)
-	}
 }
 
 func replays(run protocol.Run) bool {

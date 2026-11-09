@@ -342,6 +342,11 @@ process.stdin.on("data", (chunk) => {
 
 func stalling(t *testing.T) string {
 	t.Helper()
+	return stallingAfter(t, "")
+}
+
+func stallingAfter(t *testing.T, doing string) string {
+	t.Helper()
 
 	script := `#!/usr/bin/env node
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
@@ -355,6 +360,7 @@ process.stdin.on("data", (chunk) => {
     const msg = JSON.parse(line);
     if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
     if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
+    if (msg.method === "session/prompt") { ` + doing + ` }
   }
 });
 `

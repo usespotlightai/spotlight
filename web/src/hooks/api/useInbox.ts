@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { usePagedList } from '@/hooks/api/usePagedList';
 import { listInbox, readInboxItem, readInboxNotice } from '@/lib/api';
 import { entryKey } from '@/lib/inbox';
+import { useLivePoll } from '@/lib/live';
 
 export const inboxKeys = {
   all: ['inbox'] as const,
@@ -17,10 +18,12 @@ export const inboxKeys = {
 const POLL_MS = 10_000;
 
 export function useInbox(slug: string | undefined) {
+  const livePollMs = useLivePoll(POLL_MS);
+
   return useQuery({
     queryKey: inboxKeys.open(slug),
     enabled: Boolean(slug),
-    refetchInterval: POLL_MS,
+    refetchInterval: livePollMs,
     queryFn: async () => {
       const { data } = await listInbox({
         path: { slug: slug as string },
@@ -51,10 +54,12 @@ export function useInboxItem(
   slug: string | undefined,
   itemId: string | undefined,
 ) {
+  const livePollMs = useLivePoll(POLL_MS);
+
   return useQuery({
     queryKey: inboxKeys.item(slug, itemId),
     enabled: Boolean(slug && itemId),
-    refetchInterval: POLL_MS,
+    refetchInterval: livePollMs,
     queryFn: async () => {
       const { data } = await readInboxItem({
         path: { slug: slug as string, itemId: itemId as string },

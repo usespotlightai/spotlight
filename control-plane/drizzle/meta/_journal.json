@@ -19,8 +19,15 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1794224057209,
-      "tag": "20261109113417_chat_inbox_state",
+      "when": 1794239359747,
+      "tag": "20261109154919_event_outbox_recorded_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794243362155,
+      "tag": "20261109165602_chat_inbox_state",
       "breakpoints": true
     }
   ]

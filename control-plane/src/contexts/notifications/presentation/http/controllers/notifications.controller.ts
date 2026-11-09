@@ -5,11 +5,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Inject,
-  type MessageEvent,
   NotFoundException,
   Put,
-  Sse,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -17,17 +14,12 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiProduces,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { SubscribeToPushCommand } from '@notifications/application/commands/subscribe-to-push.command';
 import { UnsubscribeFromPushCommand } from '@notifications/application/commands/unsubscribe-from-push.command';
-import {
-  NOTIFICATION_STREAM,
-  type NotificationStreamPort,
-} from '@notifications/application/ports/notification-stream.port';
 import { GetPushKeyQuery } from '@notifications/application/queries/get-push-key.query';
 import { PushKeyResponseDto } from '@notifications/presentation/http/dto/push-key.response.dto';
 import {
@@ -36,9 +28,6 @@ import {
 } from '@notifications/presentation/http/dto/push-subscription.request.dto';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import { interval, map, merge, Observable } from 'rxjs';
-
-const KEEPALIVE_MS = 20_000;
 
 @ApiTags('notifications')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -47,32 +36,7 @@ export class NotificationsController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-    @Inject(NOTIFICATION_STREAM)
-    private readonly stream: NotificationStreamPort,
   ) {}
-
-  @Sse('notifications/stream')
-  @ApiOperation({
-    operationId: 'streamMyNotifications',
-    summary: 'Watch for new items in your inbox',
-    description:
-      'Sends one event for each item that comes into your inbox while the stream is open. Missed events are not sent again.',
-  })
-  @ApiProduces('text/event-stream')
-  @ApiOkResponse({ description: 'Server-sent events, one per new item' })
-  watch(@CurrentUser() user: AuthenticatedUser): Observable<MessageEvent> {
-    const arrivals = new Observable<MessageEvent>((subscriber) =>
-      this.stream.subscribe(user.id, (notification) =>
-        subscriber.next({ type: 'notification', data: notification }),
-      ),
-    );
-
-    const keepalive = interval(KEEPALIVE_MS).pipe(
-      map((): MessageEvent => ({ type: 'keepalive', data: '' })),
-    );
-
-    return merge(arrivals, keepalive);
-  }
 
   @Get('notifications/push-key')
   @ApiOperation({

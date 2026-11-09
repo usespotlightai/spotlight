@@ -3,7 +3,7 @@ import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
 import { ChatPersonMessage } from '@/components/features/agent/ChatPersonMessage';
 import { ChatProposal } from '@/components/features/agent/ChatProposal';
-import { ChatWork } from '@/components/features/agent/ChatWork';
+import { StepsWork } from '@/components/features/inbox/conversation/StepsWork';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { Turn } from '@/components/shared/Turn';
@@ -139,7 +139,7 @@ export function ChatThread({
                         )}
 
                         {moment.kind === 'worked' && (
-                          <ChatWork
+                          <StepsWork
                             steps={moment.steps}
                             live={
                               chat.progress === 'in-progress' &&

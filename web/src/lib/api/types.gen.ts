@@ -15696,27 +15696,6 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
-export type StreamMyNotificationsData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/me/notifications/stream';
-};
-
-export type StreamMyNotificationsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type StreamMyNotificationsResponses = {
-  /**
-   * Server-sent events, one per new item
-   */
-  200: unknown;
-};
-
 export type GetPushKeyData = {
   body?: never;
   path?: never;
@@ -15794,6 +15773,27 @@ export type SubscribeToPushResponses = {
 };
 
 export type SubscribeToPushResponse = SubscribeToPushResponses[keyof SubscribeToPushResponses];
+
+export type WatchLiveData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/me/live';
+};
+
+export type WatchLiveErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type WatchLiveResponses = {
+  /**
+   * Server-sent events
+   */
+  200: unknown;
+};
 
 export type ListTeamSkillsData = {
   body?: never;

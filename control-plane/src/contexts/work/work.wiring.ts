@@ -60,6 +60,7 @@ import { IntegrationEventMappers } from '@platform/events/integration-event-mapp
 import { PayloadTypes } from '@platform/events/payload-types';
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import { ReadinessChecks } from '@platform/health/readiness-checks';
+import { ChangeNotices } from '@platform/live/change-notices';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -639,6 +640,7 @@ import { InboxController } from '@work/presentation/http/controllers/inbox.contr
 import { OnboardingController } from '@work/presentation/http/controllers/onboarding.controller';
 import { RunWorkController } from '@work/presentation/http/controllers/run-work.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
+import { WORK_CHANGE_NOTICES } from '@work/presentation/live/work.change-notices';
 import { ProcessedEventsWorker } from '@work/presentation/workers/processed-events.worker';
 import { ToolUsesWorker } from '@work/presentation/workers/tool-uses.worker';
 import { TurnsWorker } from '@work/presentation/workers/turns.worker';
@@ -1081,8 +1083,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: S3Readiness,
     inject: [ReadinessChecks, ENV],
     useFactory: (checks: ReadinessChecks, env: Env) => {
-      const { store, bucket } = s3ClientsOf(env);
-      const s3 = new S3Readiness(store, bucket);
+      const { store, bucket, keys } = s3ClientsOf(env);
+      const s3 = new S3Readiness(store, bucket, keys);
       checks.register(s3);
       return s3;
     },
@@ -1818,6 +1820,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [
       PayloadTypes,
       IntegrationEventMappers,
+      ChangeNotices,
       EventSubscribers,
       ID_GENERATOR,
       CLOCK,
@@ -1846,6 +1849,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     useFactory: (
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
+      changeNotices: ChangeNotices,
       subscribers: EventSubscribers,
       ids: IdGeneratorPort,
       clock: ClockPort,
@@ -1873,6 +1877,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
+      changeNotices.register(WORK_CHANGE_NOTICES);
       subscribers.register([
         ...workSubscribers({
           handOver: new HandOver(tasks, lines, routing, journals, readings),

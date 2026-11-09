@@ -32,6 +32,7 @@ import { describe, expect, it, vi } from 'vitest';
 const authorizing = (allowed: boolean, member = true) =>
   ({
     mayView: vi.fn(),
+    viewableOf: vi.fn(),
     inWorkspace: vi.fn(),
     inWorkspaceOfTeam: vi.fn(async () =>
       member

@@ -1,5 +1,5 @@
 {
-  "id": "f3e6e34e-77c9-4179-9ba4-a42f539de51a",
+  "id": "cda43a5c-4400-4198-a20f-f9377ab37a1d",
   "prevId": "7798c819-1b2d-4715-822a-bf53fdc3aea7",
   "version": "7",
   "dialect": "postgresql",
@@ -162,7 +162,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "event_outbox_recorded_at_idx": {
+          "name": "event_outbox_recorded_at_idx",
+          "columns": [
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -16376,18 +16392,6 @@
         },
         "working_copy_released_at": {
           "name": "working_copy_released_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "resolved_at": {
-          "name": "resolved_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "read_at": {
-          "name": "read_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false

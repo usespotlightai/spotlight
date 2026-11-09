@@ -1,6 +1,7 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import { recordingRuns } from '@work/application/ports/runs.fake-spec';
@@ -21,6 +22,7 @@ const deletedChat = (runId: RunId | null) =>
   new ChatDeleted(
     ChatId.of('chat_1'),
     WorkspaceId.of('ws_1'),
+    UserId.of('user_1'),
     TeamId.of('team_1'),
     runId,
   );

@@ -1,5 +1,9 @@
+import { ChatCiSetUp } from '@work/domain/events/chat-ci-set-up.event';
 import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
+import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
+import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
@@ -8,27 +12,46 @@ import { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
 import { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { InboxItemArrived } from '@work/domain/events/inbox-item-arrived.event';
+import { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked-read.event';
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import { NoticeRaised } from '@work/domain/events/notice-raised.event';
+import { NoticeResolved } from '@work/domain/events/notice-resolved.event';
+import { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptance-failed.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
+import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
+import { TaskApprovalClaimed } from '@work/domain/events/task-approval-claimed.event';
+import { TaskApprovalReturned } from '@work/domain/events/task-approval-returned.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskAssigned } from '@work/domain/events/task-assigned.event';
+import { TaskConversationRead } from '@work/domain/events/task-conversation-read.event';
 import { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskDraftSent } from '@work/domain/events/task-draft-sent.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
+import { TaskMarkReleased } from '@work/domain/events/task-mark-released.event';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
+import { TaskNoted } from '@work/domain/events/task-noted.event';
+import { TaskNotesAcknowledged } from '@work/domain/events/task-notes-acknowledged.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
+import { TaskProposed } from '@work/domain/events/task-proposed.event';
+import { TaskPullRequestClosed } from '@work/domain/events/task-pull-request-closed.event';
+import { TaskPullRequestReopened } from '@work/domain/events/task-pull-request-reopened.event';
+import { TaskReordered } from '@work/domain/events/task-reordered.event';
 import { TaskRunAssigned } from '@work/domain/events/task-run-assigned.event';
 import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { TaskRunEnded } from '@work/domain/events/task-run-ended.event';
+import { TaskSessionKept } from '@work/domain/events/task-session-kept.event';
+import { TaskTurnAwaited } from '@work/domain/events/task-turn-awaited.event';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
@@ -209,6 +232,13 @@ export const WORK_PAYLOAD_TYPES = [
   CoAuthors,
   ChatRunAssigned,
   ChatRunNotStarted,
+  ChatCiSetUp,
+  ChatMessageSent,
+  ChatMessagesAcknowledged,
+  ChatRunEnded,
+  ProposalAcceptanceFailed,
+  ProposalBecameTask,
+  TaskProposed,
   ChatStarted,
   ProposalAccepted,
   SetupPullRequestOpened,
@@ -227,6 +257,19 @@ export const WORK_PAYLOAD_TYPES = [
   HistoryAccess,
   ReviewRequest,
   TaskFailed,
+  TaskNoted,
+  TaskReordered,
+  TaskPullRequestClosed,
+  TaskPullRequestReopened,
+  TaskConversationRead,
+  TaskNotesAcknowledged,
+  TaskRunEnded,
+  TaskSessionKept,
+  TaskDraftSent,
+  TaskMarkReleased,
+  TaskApprovalReturned,
+  TaskApprovalClaimed,
+  TaskTurnAwaited,
   TaskPassed,
   TaskActedOn,
   TaskAnswered,
@@ -235,6 +278,9 @@ export const WORK_PAYLOAD_TYPES = [
   TaskConversationReopened,
   InboxRequestOpened,
   NoticeRaised,
+  NoticeResolved,
+  InboxRequestResolved,
+  InboxRequestMarkedRead,
   InboxItemArrived,
   TaskDeleted,
   TaskFinished,

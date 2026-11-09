@@ -14,8 +14,14 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import {
+  OUTBOX_RETENTION_MS,
+  OutboxRetention,
+} from '@platform/events/outbox-retention';
 import { PayloadTypes } from '@platform/events/payload-types';
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@platform/events/shared-kernel-payload-types';
+import { ChangeNotices } from '@platform/live/change-notices';
+import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -32,7 +38,7 @@ import {
   changeActorIn,
 } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
@@ -147,6 +153,8 @@ const outboxWith = () => {
     types,
     mappers,
     projections,
+    new ChangeNotices(),
+    new InMemoryLiveFeed(),
     { generate: () => randomUUID() },
     clock,
     causation,
@@ -439,5 +447,107 @@ describe('the event outbox', () => {
 
       expect((await deliveryOf(eventId))?.deliveredAt).not.toBeNull();
     });
+  });
+});
+
+describe('the rows the event outbox keeps', () => {
+  const kindsRecorded = async (kinds: readonly string[]) =>
+    (
+      await database.db
+        .select({ kind: eventOutbox.kind })
+        .from(eventOutbox)
+        .where(inArray(eventOutbox.kind, [...kinds]))
+    ).map((each) => each.kind);
+
+  it('keeps no row for an event nobody hears, but still projects it', async () => {
+    const { outbox } = outboxWith();
+
+    await outbox.record([
+      new Reconfigured(
+        ConfigurationChange.updated(
+          { resource: 'team', id: 'team-unheard', key: 'unheard' },
+          changeActorIn('ws_unheard', actorFor('user_unheard')),
+        ),
+      ),
+    ]);
+
+    expect(await kindsRecorded(['bell.reconfigured'])).toEqual([]);
+    expect(
+      await database.db
+        .select({ key: configurationChange.key })
+        .from(configurationChange)
+        .where(eq(configurationChange.workspaceId, 'ws_unheard')),
+    ).toEqual([{ key: 'unheard' }]);
+  });
+
+  it('keeps a row for an event that is heard or published', async () => {
+    const { outbox } = outboxWith();
+    const before = (
+      await kindsRecorded(['bell.rang', 'bell.published-rang.v1'])
+    ).length;
+
+    await outbox.record([new Rang(Marker.of('kept'))]);
+
+    expect(
+      (await kindsRecorded(['bell.rang', 'bell.published-rang.v1'])).length,
+    ).toBe(before + 2);
+  });
+
+  it('deletes delivered events after a week, and keeps pending and dead-lettered ones', async () => {
+    const at = new Date('2026-11-01T00:00:00.000Z');
+    const old = new Date(at.getTime() - OUTBOX_RETENTION_MS - 1);
+    const recent = new Date(at.getTime() - OUTBOX_RETENTION_MS + 60_000);
+    const event = async (
+      recordedAt: Date,
+      deliveries: { deliveredAt: Date | null; deadLetteredAt: Date | null }[],
+    ) => {
+      const id = randomUUID();
+      await database.db.insert(eventOutbox).values({
+        id,
+        kind: 'bell.retained',
+        payload: {},
+        recordedAt,
+      });
+      for (const [index, each] of deliveries.entries()) {
+        await database.db.insert(eventDelivery).values({
+          eventId: id,
+          subscriber: `test.retained-${index}`,
+          dueAt: recordedAt,
+          ...each,
+        });
+      }
+      return id;
+    };
+    const delivered = { deliveredAt: old, deadLetteredAt: null };
+    const pending = { deliveredAt: null, deadLetteredAt: null };
+    const deadLettered = { deliveredAt: null, deadLetteredAt: old };
+
+    const oldDelivered = await event(old, [delivered, delivered]);
+    const oldPartly = await event(old, [delivered, pending]);
+    const oldDead = await event(old, [deadLettered]);
+    const recentDelivered = await event(recent, [delivered]);
+
+    const deleted = await new OutboxRetention(context, {
+      now: () => at,
+    } as ClockPort).sweep();
+
+    const left = (
+      await database.db
+        .select({ id: eventOutbox.id })
+        .from(eventOutbox)
+        .where(eq(eventOutbox.kind, 'bell.retained'))
+    ).map((each) => each.id);
+
+    expect(deleted).toBeGreaterThanOrEqual(1);
+    expect(left).not.toContain(oldDelivered);
+    expect(left).toEqual(
+      expect.arrayContaining([oldPartly, oldDead, recentDelivered]),
+    );
+    expect(
+      await database.db
+        .select({ subscriber: eventDelivery.subscriber })
+        .from(eventDelivery)
+        .where(eq(eventDelivery.eventId, oldDelivered)),
+    ).toEqual([]);
   });
 });

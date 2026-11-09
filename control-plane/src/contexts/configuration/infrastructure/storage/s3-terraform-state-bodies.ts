@@ -9,8 +9,9 @@ import type {
   StateBodyAt,
   TerraformStateBodiesPort,
 } from '@configuration/application/ports/terraform-state-bodies.port';
+import type { KeyOverlay } from '@platform/storage/key-overlay';
 import type { S3Clients } from '@platform/storage/s3-clients';
-import { missing } from '@platform/storage/s3-clients';
+import { missing } from '@platform/storage/s3-objects';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const CONTENT_TYPE = 'application/json';
@@ -24,17 +25,19 @@ const keyOf = (at: StateBodyAt): string =>
 export class S3TerraformStateBodies implements TerraformStateBodiesPort {
   private readonly store: S3Client;
   private readonly bucket: string;
+  private readonly keys: KeyOverlay;
 
   constructor(clients: S3Clients) {
     this.store = clients.store;
     this.bucket = clients.bucket;
+    this.keys = clients.keys;
   }
 
   async put(at: StateBodyAt, body: Uint8Array, md5: string): Promise<void> {
     await this.store.send(
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: keyOf(at),
+        Key: this.keys.writeKey(keyOf(at)),
         Body: body,
         ContentType: CONTENT_TYPE,
         ContentMD5: Buffer.from(md5, 'hex').toString('base64'),
@@ -43,16 +46,17 @@ export class S3TerraformStateBodies implements TerraformStateBodiesPort {
   }
 
   async read(at: StateBodyAt): Promise<Uint8Array | null> {
-    const object = await this.store
-      .send(
-        new GetObjectCommand({
-          Bucket: this.bucket,
-          Key: keyOf(at),
-        }),
-      )
-      .catch(missing);
+    for (const key of this.keys.readKeys(keyOf(at))) {
+      const object = await this.store
+        .send(new GetObjectCommand({ Bucket: this.bucket, Key: key }))
+        .catch(missing);
 
-    return object?.Body ? object.Body.transformToByteArray() : null;
+      if (object?.Body) {
+        return object.Body.transformToByteArray();
+      }
+    }
+
+    return null;
   }
 
   async remove(at: readonly StateBodyAt[]): Promise<void> {
@@ -64,7 +68,9 @@ export class S3TerraformStateBodies implements TerraformStateBodiesPort {
       new DeleteObjectsCommand({
         Bucket: this.bucket,
         Delete: {
-          Objects: at.map((each) => ({ Key: keyOf(each) })),
+          Objects: at.map((each) => ({
+            Key: this.keys.writeKey(keyOf(each)),
+          })),
           Quiet: true,
         },
       }),
@@ -78,7 +84,7 @@ export class S3TerraformStateBodies implements TerraformStateBodiesPort {
       const listed = await this.store.send(
         new ListObjectsV2Command({
           Bucket: this.bucket,
-          Prefix: prefixOf(workspaceId),
+          Prefix: this.keys.writeKey(prefixOf(workspaceId)),
           ContinuationToken: token,
         }),
       );
