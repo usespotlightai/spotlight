@@ -42,6 +42,7 @@ const (
 	heartbeatEvery  = 20 * time.Second
 	readyBeat       = 90 * time.Second
 	refreshEvery    = time.Minute
+	imageGrace      = 15 * time.Minute
 	leaseEvery      = 20 * time.Second
 	stopGrace       = 30 * time.Second
 	mirrorWait      = 15 * time.Second
@@ -107,6 +108,7 @@ type Options struct {
 	Updates        Updates
 	AutoUpdate     bool
 	RefreshEvery   time.Duration
+	ImageGrace     time.Duration
 	LeaseEvery     time.Duration
 	HeartbeatEvery time.Duration
 	EgressWait     time.Duration
@@ -150,6 +152,8 @@ type Host struct {
 	beat     atomic.Int64
 	stopping atomic.Bool
 
+	imaging sync.RWMutex
+
 	mu           sync.Mutex
 	served       map[string]*served
 	disallowed   []string
@@ -160,6 +164,8 @@ type Host struct {
 	failures     map[string]int
 	egressIs     string
 	egressFor    string
+	handedOut    map[string]time.Time
+	repositories map[string]bool
 	updateAfter  time.Time
 	updated      bool
 	restarting   bool
@@ -182,6 +188,8 @@ func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors
 		held:         map[string]*held{},
 		claimBackoff: map[string]time.Time{},
 		failures:     map[string]int{},
+		handedOut:    map[string]time.Time{},
+		repositories: map[string]bool{},
 	}
 	h.live.Store(new(settingsOf(opts)))
 

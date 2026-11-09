@@ -162,6 +162,53 @@ func (e *Engine) Pull(ctx context.Context, image, auth string) error {
 	}
 }
 
+func (e *Engine) Images(ctx context.Context) ([]sandbox.Image, error) {
+	var listed []struct {
+		ID          string `json:"Id"`
+		RepoTags    []string
+		RepoDigests []string
+		Size        int64
+	}
+	if _, err := e.call(ctx, http.MethodGet, "/images/json", nil, &listed); err != nil {
+		return nil, fmt.Errorf("list images: %w", err)
+	}
+
+	found := make([]sandbox.Image, 0, len(listed))
+	for _, each := range listed {
+		tags := slices.DeleteFunc(each.RepoTags, func(tag string) bool { return tag == "<none>:<none>" })
+		digests := slices.DeleteFunc(each.RepoDigests, func(digest string) bool { return digest == "<none>@<none>" })
+		found = append(found, sandbox.Image{ID: each.ID, Tags: tags, Digests: digests, Size: each.Size})
+	}
+
+	return found, nil
+}
+
+func (e *Engine) Remove(ctx context.Context, image string) error {
+	status, err := e.call(ctx, http.MethodDelete, "/images/"+image, nil, nil)
+	switch {
+	case status == http.StatusNotFound:
+		return nil
+	case status == http.StatusConflict:
+		return fmt.Errorf("remove image %s: %w: %w", image, sandbox.ErrInUse, err)
+	case err != nil:
+		return fmt.Errorf("remove image %s: %w", image, err)
+	}
+
+	return nil
+}
+
+func (e *Engine) Used(ctx context.Context, image string) (bool, error) {
+	filters, _ := json.Marshal(map[string][]string{"ancestor": {image}})
+	query := url.Values{"all": {"1"}, "filters": {string(filters)}}
+
+	var listed []struct{ Id string }
+	if _, err := e.call(ctx, http.MethodGet, "/containers/json?"+query.Encode(), nil, &listed); err != nil {
+		return false, fmt.Errorf("list the containers of image %s: %w", image, err)
+	}
+
+	return len(listed) > 0, nil
+}
+
 func reference(image string) (string, string) {
 	if strings.Contains(image, "@") {
 		return image, ""
