@@ -15,6 +15,12 @@ export class AttachmentId {
     return new AttachmentId(value);
   }
 
+  static parsed(raw: string): AttachmentId | null {
+    const value = raw.trim();
+
+    return ID.test(value) ? new AttachmentId(value) : null;
+  }
+
   equals(other: AttachmentId): boolean {
     return this.value === other.value;
   }

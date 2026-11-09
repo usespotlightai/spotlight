@@ -8,6 +8,7 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 
 export class ReadAttachmentHandler
   implements QueryHandlerPort<ReadAttachmentQuery, string | null>
@@ -26,9 +27,22 @@ export class ReadAttachmentHandler
         this.attachments.find(query.attachmentId),
       ]);
 
+      const wanted = query.download ? 'saved' : 'shown';
+
+      if (!workspaceId) {
+        return null;
+      }
+
+      if (!found) {
+        const id = AttachmentId.parsed(query.attachmentId);
+
+        return id
+          ? await this.files.linkPending(workspaceId, id, wanted)
+          : null;
+      }
+
       if (
-        !workspaceId ||
-        found?.workspaceId !== workspaceId.value ||
+        found.workspaceId !== workspaceId.value ||
         (found.holder.kind === 'chat' &&
           !(await this.access.opensChat(
             {
@@ -44,7 +58,7 @@ export class ReadAttachmentHandler
       return await this.files.link(
         WorkspaceId.of(found.workspaceId),
         Attachment.rehydrate(found),
-        query.download ? 'saved' : 'shown',
+        wanted,
       );
     } catch (error) {
       rethrowAsApplicationError(error);

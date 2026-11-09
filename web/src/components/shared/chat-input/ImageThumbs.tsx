@@ -1,10 +1,10 @@
-import { Image, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
-import type { PendingAttachment } from '@/lib/attachment';
+import type { ImageAttachment } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
 
 type ImageThumbsProps = {
-  images: readonly PendingAttachment[];
+  images: readonly ImageAttachment[];
   onRemove: (key: string) => void;
 };
 
@@ -21,22 +21,15 @@ export function ImageThumbs({ images, onRemove }: ImageThumbsProps) {
           className="group relative size-14 overflow-hidden rounded-lg border border-border"
           title={image.state === 'failed' ? image.problem : image.name}
         >
-          {!image.image && (
-            <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
-              <Image aria-hidden className="size-4" />
-            </span>
-          )}
-          {image.image && (
-            <ImagePreview
-              image={image.image}
-              name={image.name}
-              className={cn(
-                'size-full object-cover',
-                image.state === 'uploading' && 'animate-pulse opacity-60',
-                image.state === 'failed' && 'opacity-40',
-              )}
-            />
-          )}
+          <ImagePreview
+            source={image.imageSource}
+            name={image.name}
+            className={cn(
+              'size-full object-cover',
+              image.state === 'uploading' && 'animate-pulse opacity-60',
+              image.state === 'failed' && 'opacity-40',
+            )}
+          />
           <button
             type="button"
             onClick={() => onRemove(image.key)}

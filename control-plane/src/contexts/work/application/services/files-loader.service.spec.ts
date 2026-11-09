@@ -25,6 +25,7 @@ const store = () =>
     taken: vi.fn(),
     copy: vi.fn(),
     link: vi.fn(),
+    linkPending: vi.fn(),
     open: vi.fn(),
   }) satisfies AttachmentStorePort;
 

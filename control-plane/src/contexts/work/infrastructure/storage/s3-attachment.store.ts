@@ -47,6 +47,17 @@ const decoded = (name: string | undefined, fallback: string): string => {
   }
 };
 
+const described = (
+  id: AttachmentId,
+  head: HeadObjectCommandOutput,
+): Attachment =>
+  Attachment.of({
+    id: id.value,
+    name: decoded(head.Metadata?.[NAME], id.value),
+    contentType: head.ContentType,
+    size: head.ContentLength ?? -1,
+  });
+
 export class S3AttachmentStore implements AttachmentStorePort {
   private readonly store: S3Client;
   private readonly signer: S3Client;
@@ -118,12 +129,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
           throw new InvalidAttachmentError('was not uploaded by this run');
         }
 
-        return Attachment.of({
-          id: id.value,
-          name: decoded(head.Metadata?.[NAME], id.value),
-          contentType: head.ContentType,
-          size: head.ContentLength ?? -1,
-        });
+        return described(id, head);
       }),
     );
   }
@@ -163,13 +169,35 @@ export class S3AttachmentStore implements AttachmentStorePort {
     );
   }
 
-  async link(
+  link(
     workspaceId: WorkspaceId,
     file: Attachment,
     wanted: Wanted,
   ): Promise<string> {
     this.assertBucket();
 
+    return this.signed(keyOf(workspaceId, file.id), file, wanted);
+  }
+
+  async linkPending(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+    wanted: Wanted,
+  ): Promise<string | null> {
+    this.assertBucket();
+
+    const head = await this.pending(workspaceId, id);
+
+    return head
+      ? this.signed(pendingKeyOf(workspaceId, id), described(id, head), wanted)
+      : null;
+  }
+
+  private signed(
+    key: string,
+    file: Attachment,
+    wanted: Wanted,
+  ): Promise<string> {
     // Non-image files and SVG files download and do not render, so they cannot run as pages.
     const shown =
       wanted === 'shown' && file.image && file.contentType !== 'image/svg+xml';
@@ -178,7 +206,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       this.signer,
       new GetObjectCommand({
         Bucket: this.bucket,
-        Key: keyOf(workspaceId, file.id),
+        Key: key,
         ResponseContentType: file.contentType,
         ResponseContentDisposition: `${shown ? 'inline' : 'attachment'}; filename*=UTF-8''${encoded(file.name)}`,
       }),

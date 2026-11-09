@@ -1,7 +1,6 @@
 import type { HarnessResponseDto } from '@/lib/api';
-import type { PendingAttachment } from '@/lib/attachment';
+import { type PendingAttachment, uploadedImage } from '@/lib/attachment';
 import type { Reference } from '@/lib/chat-input';
-import { fileOfThumbnail } from '@/lib/thumbnail';
 
 export const CHAT_DRAFTS_KEY = 'spotlight.chat-drafts';
 
@@ -16,7 +15,6 @@ export type DraftAttachment = {
   readonly size: number;
   readonly image: boolean;
   readonly uploadedAt: number;
-  readonly thumbnail: string | null;
 };
 
 export type DraftSettings = {
@@ -56,8 +54,7 @@ const isAttachment = (value: unknown): value is DraftAttachment =>
   isText(value.name) &&
   typeof value.size === 'number' &&
   typeof value.image === 'boolean' &&
-  typeof value.uploadedAt === 'number' &&
-  (value.thumbnail === null || isText(value.thumbnail));
+  typeof value.uploadedAt === 'number';
 
 const optionalText = (value: unknown): value is string | undefined =>
   value === undefined || isText(value);
@@ -169,16 +166,14 @@ export const validSettings = (
 };
 
 export const restoredAttachments = (
+  slug: string,
   saved: readonly DraftAttachment[],
 ): PendingAttachment[] =>
   saved.map((each) => ({
     key: each.key,
     name: each.name,
     size: each.size,
-    image:
-      each.image && each.thumbnail
-        ? fileOfThumbnail(each.thumbnail, each.name)
-        : null,
+    imageSource: uploadedImage(slug, each.id, each.image),
     state: 'ready',
     id: each.id,
     uploadedAt: each.uploadedAt,
