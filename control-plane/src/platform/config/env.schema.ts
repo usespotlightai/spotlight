@@ -93,6 +93,7 @@ export const envSchema = databaseSchema
     SPOTLIGHT_CATALOG_URL: z.url().default('https://catalog.usespotlight.ai'),
     SPOTLIGHT_CATALOG_TOKEN: z.string().min(1).optional(),
     S3_BUCKET: z.string().min(1),
+    S3_KEY_PREFIX: z.string().optional(),
     S3_REGION: z.string().default('us-east-1'),
     S3_ENDPOINT: z.url().optional(),
     S3_PUBLIC_ENDPOINT: z.url().optional(),
