@@ -8,7 +8,7 @@ const SUMMARY_LINES = 40;
 
 const SUMMARY_CHARACTERS = 2_000;
 
-const DETAILED = 5;
+const CHECKS_DETAILED = 5;
 
 const headOf = (summary: string): string =>
   summary
@@ -17,7 +17,7 @@ const headOf = (summary: string): string =>
     .join('\n')
     .slice(0, SUMMARY_CHARACTERS);
 
-const tailOf = (log: string): string =>
+const lastLogLines = (log: string): string =>
   log.trimEnd().split('\n').slice(-LOG_LINES).join('\n').slice(-LOG_CHARACTERS);
 
 const fenced = (text: string): string => {
@@ -31,7 +31,7 @@ const fenced = (text: string): string => {
 };
 
 const detailOf = (check: FailedCheck): string | null => {
-  const log = check.log?.trim() ? tailOf(check.log) : null;
+  const log = check.log?.trim() ? lastLogLines(check.log) : null;
   const summary = check.summary?.trim() ? headOf(check.summary.trim()) : null;
 
   if (!check.step && !log && !summary) {
@@ -57,8 +57,8 @@ export const failedChecksMessage = (
     ? [
         `Failed: ${checks.map((check) => check.name).join(', ')}.`,
         ...checks
-          .slice(0, DETAILED)
           .map(detailOf)
-          .filter((each) => each !== null),
+          .filter((each) => each !== null)
+          .slice(0, CHECKS_DETAILED),
       ].join('\n\n')
     : null;

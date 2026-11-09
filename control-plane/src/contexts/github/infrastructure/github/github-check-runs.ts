@@ -35,7 +35,7 @@ const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: matches terminal control codes
 const TERMINAL_CODE = /\u001b\[[\d;?]*[A-Za-z]/g;
 
-const ERROR = '##[error]';
+const ERROR_ANNOTATION = '##[error]';
 
 interface CheckRun {
   readonly id: number;
@@ -97,7 +97,7 @@ const lastOf = async (
 const throughLastError = (lines: readonly string[]): readonly string[] => {
   const fromEnd = [...lines]
     .reverse()
-    .findIndex((line) => line.startsWith(ERROR));
+    .findIndex((line) => line.startsWith(ERROR_ANNOTATION));
 
   return fromEnd === -1 ? lines : lines.slice(0, lines.length - fromEnd);
 };

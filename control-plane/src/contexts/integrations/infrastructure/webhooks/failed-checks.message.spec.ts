@@ -70,6 +70,17 @@ describe('failedChecksMessage', () => {
     expect(body).not.toContain('**job 5**');
   });
 
+  it('details the first five checks it knows more about, wherever they are in the list', () => {
+    const bare = Array.from({ length: 5 }, (_, at) =>
+      check({ name: `scan ${at}` }),
+    );
+    const body =
+      failedChecksMessage([...bare, check({ name: 'web', step: 'Build' })]) ??
+      '';
+
+    expect(body).toContain('**web** failed at the step "Build".');
+  });
+
   it('fences a log that has fences of its own', () => {
     expect(failedChecksMessage([check({ log: '```js\nx\n```' })])).toBe(
       'Failed: web.\n\n**web** failed. The end of its log:\n\n````text\n```js\nx\n```\n````',
