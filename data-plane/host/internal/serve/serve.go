@@ -152,6 +152,8 @@ type Host struct {
 	beat     atomic.Int64
 	stopping atomic.Bool
 
+	imaging sync.RWMutex
+
 	mu           sync.Mutex
 	served       map[string]*served
 	disallowed   []string

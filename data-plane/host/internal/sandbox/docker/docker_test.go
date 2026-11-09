@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"slices"
 	"strconv"
@@ -175,6 +176,13 @@ func TestAnImageASandboxUsesIsNotRemovedAndOneNothingUsesIs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
+	const second = "spotlight-test-image:second"
+	if _, err := engine.call(ctx, http.MethodPost, "/images/"+pulled.ID+"/tag?repo=spotlight-test-image&tag=second", nil, nil); err != nil {
+		t.Fatalf("tag: %v", err)
+	}
+	if used, err := engine.Used(ctx, pulled.ID); err != nil || !used {
+		t.Fatalf("an image a sandbox uses answered used %v: %v", used, err)
+	}
 	if err := engine.Remove(ctx, pulled.ID); !errors.Is(err, sandbox.ErrInUse) {
 		t.Fatalf("removing an image a sandbox uses answered %v", err)
 	}
@@ -182,8 +190,13 @@ func TestAnImageASandboxUsesIsNotRemovedAndOneNothingUsesIs(t *testing.T) {
 	if err := engine.Destroy(ctx, id); err != nil {
 		t.Fatalf("destroy: %v", err)
 	}
-	if err := engine.Remove(ctx, image); err != nil {
-		t.Fatalf("remove: %v", err)
+	if used, err := engine.Used(ctx, pulled.ID); err != nil || used {
+		t.Fatalf("an image no sandbox uses answered used %v: %v", used, err)
+	}
+	for _, tag := range []string{second, image} {
+		if err := engine.Remove(ctx, tag); err != nil {
+			t.Fatalf("remove %s: %v", tag, err)
+		}
 	}
 	if err := engine.Remove(ctx, pulled.ID); err != nil {
 		t.Errorf("removing a removed image answered %v", err)

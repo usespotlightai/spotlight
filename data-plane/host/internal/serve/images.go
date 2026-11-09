@@ -125,6 +125,11 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 }
 
 func (h *Host) removeUnusedImages(ctx context.Context) {
+	if !h.imaging.TryLock() {
+		return
+	}
+	defer h.imaging.Unlock()
+
 	found, err := h.engine.Images(ctx)
 	if err != nil {
 		h.log.Warn("could not list images to remove the ones it no longer serves", "error", err)
@@ -189,6 +194,13 @@ func pulledInto(image sandbox.Image, repositories map[string]bool) bool {
 }
 
 func (h *Host) removeImage(ctx context.Context, image sandbox.Image) error {
+	used, err := h.engine.Used(ctx, image.ID)
+	if err != nil {
+		return err
+	}
+	if used {
+		return sandbox.ErrInUse
+	}
 	for _, tag := range image.Tags {
 		if err := h.engine.Remove(ctx, tag); err != nil {
 			return err
@@ -301,6 +313,9 @@ func (h *Host) servedAs(image string) (examined, bool) {
 }
 
 func (h *Host) pulled(ctx context.Context, image string) (sandbox.Image, error) {
+	h.imaging.RLock()
+	defer h.imaging.RUnlock()
+
 	got, err := h.fetched(ctx, image)
 	if err == nil {
 		h.mu.Lock()

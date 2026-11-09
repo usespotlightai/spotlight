@@ -51,6 +51,7 @@ type fakeEngine struct {
 	auths     []string
 	dangling  []sandbox.Image
 	removed   []string
+	untagged  []string
 	failStart bool
 	failProbe bool
 	failPull  bool
@@ -266,6 +267,7 @@ func (e *fakeEngine) Remove(_ context.Context, image string) error {
 	if e.runsFrom(id) && (image == id || !e.referenced(id, image)) {
 		return sandbox.ErrInUse
 	}
+	e.untagged = append(e.untagged, image)
 
 	if image != id {
 		delete(e.images, image)
@@ -282,6 +284,12 @@ func (e *fakeEngine) Remove(_ context.Context, image string) error {
 	e.dangling = slices.DeleteFunc(e.dangling, func(each sandbox.Image) bool { return each.ID == id })
 	e.removed = append(e.removed, id)
 	return nil
+}
+
+func (e *fakeEngine) Used(_ context.Context, image string) (bool, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.runsFrom(image), nil
 }
 
 func (e *fakeEngine) runsFrom(id string) bool {
@@ -1666,13 +1674,20 @@ func TestRemovesTheImageATagMovedFromOnceNothingRunsIt(t *testing.T) {
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 	running := engine.workSandboxes()[0]
 	first := "sha256:" + strings.Repeat("a", 64)
+	engine.set(func(e *fakeEngine) {
+		e.images["runner:previous"] = imageAt("runner", strings.Repeat("a", 64))
+		e.images["runner:older"] = imageAt("runner", strings.Repeat("a", 64))
+	})
 
 	engine.set(func(e *fakeEngine) { e.pullTo["runner:1"] = imageAt("runner", strings.Repeat("b", 64)) })
 	pool.work <- assignment("runner_2")
 	eventually(t, "a sandbox from the moved tag", func() bool { return len(engine.workSandboxes()) == 2 })
 	time.Sleep(100 * time.Millisecond)
-	if removed := engine.imagesRemoved(); len(removed) != 0 {
-		t.Fatalf("removed %v while a sandbox runs from it", removed)
+	engine.mu.Lock()
+	removed, untagged := slices.Clone(engine.removed), slices.Clone(engine.untagged)
+	engine.mu.Unlock()
+	if len(removed)+len(untagged) != 0 {
+		t.Fatalf("removed %v and untagged %v while a sandbox runs from it", removed, untagged)
 	}
 
 	engine.finish(running)

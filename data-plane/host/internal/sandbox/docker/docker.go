@@ -197,6 +197,18 @@ func (e *Engine) Remove(ctx context.Context, image string) error {
 	return nil
 }
 
+func (e *Engine) Used(ctx context.Context, image string) (bool, error) {
+	filters, _ := json.Marshal(map[string][]string{"ancestor": {image}})
+	query := url.Values{"all": {"1"}, "filters": {string(filters)}}
+
+	var listed []struct{ Id string }
+	if _, err := e.call(ctx, http.MethodGet, "/containers/json?"+query.Encode(), nil, &listed); err != nil {
+		return false, fmt.Errorf("list the containers of image %s: %w", image, err)
+	}
+
+	return len(listed) > 0, nil
+}
+
 func reference(image string) (string, string) {
 	if strings.Contains(image, "@") {
 		return image, ""

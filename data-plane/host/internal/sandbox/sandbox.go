@@ -59,6 +59,7 @@ type Engine interface {
 	Pull(ctx context.Context, image, auth string) error
 	Images(ctx context.Context) ([]Image, error)
 	Remove(ctx context.Context, image string) error
+	Used(ctx context.Context, image string) (bool, error)
 	Start(ctx context.Context, spec Spec) (string, error)
 	Put(ctx context.Context, id string, file File) error
 	Signal(ctx context.Context, id, signal string) error
