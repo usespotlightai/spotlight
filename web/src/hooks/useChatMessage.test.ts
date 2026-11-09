@@ -69,5 +69,8 @@ describe('useChatMessage in a shared draft', () => {
 
     expect(result.current.outgoing.attachments).toEqual(['att_2']);
     expect(result.current.images.map((each) => each.name)).toEqual(['a.png']);
+    expect(result.current.images[0]?.imageSource).toEqual({
+      url: '/api/workspaces/acme/attachments/att_2',
+    });
   });
 });

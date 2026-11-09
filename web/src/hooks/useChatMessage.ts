@@ -23,8 +23,10 @@ import type { SharedDraft } from '@/hooks/useSharedDraft';
 import {
   allowFileDrop,
   dropFiles,
+  hasImage,
   type PendingAttachment,
   pasteFiles,
+  uploadedImage,
 } from '@/lib/attachment';
 import { restoredAttachments } from '@/lib/chat-draft';
 import {
@@ -33,7 +35,6 @@ import {
   targetStationIdIn,
   type Written,
 } from '@/lib/chat-input';
-import { thumbnailOf } from '@/lib/thumbnail';
 
 // Keeps the first paragraph and empties it, so writers who clear at the same time delete the same nodes and add none.
 const $clearDraft = () => {
@@ -62,9 +63,8 @@ export function useChatMessage(
   const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const restored = useMemo(
-    () => restoredAttachments(draft?.content?.attachments ?? []),
-    [draft],
+  const [restored] = useState(() =>
+    restoredAttachments(slug, draft?.content?.attachments ?? []),
   );
   const files = useAttachments(
     slug,
@@ -78,7 +78,7 @@ export function useChatMessage(
         id: ready.id,
         name: ready.name,
         size: ready.size,
-        image: ready.image !== null,
+        image: ready.imageSource !== null,
       });
       setHandedOver((all) => new Set([...all, ready.key]));
     },
@@ -97,15 +97,6 @@ export function useChatMessage(
     },
     [draft],
   );
-  const thumbnails = useState(
-    () =>
-      new Map(
-        (draft?.content?.attachments ?? []).map((each) => [
-          each.key,
-          each.thumbnail,
-        ]),
-      ),
-  )[0];
   const sharedAttachments = shared?.attachments;
   const generation = shared?.generation;
   const synced = shared?.synced;
@@ -128,33 +119,27 @@ export function useChatMessage(
     ),
   );
   const traced = written.references.filter((each) => each.kind === 'trace');
-  const { attachments, pictured } = useMemo(() => {
+  const attachments = useMemo(() => {
     const byKey = new Map(files.attachments.map((each) => [each.key, each]));
-    const theirs = sharedAttachments ?? [];
 
-    return {
-      attachments: [
-        ...files.attachments.filter((each) => !handedOver.has(each.key)),
-        ...theirs.map(
-          (each): PendingAttachment => ({
-            key: each.key,
-            name: each.name,
-            size: each.size,
-            image: byKey.get(each.key)?.image ?? null,
-            state: 'ready',
-            id: each.id,
-          }),
-        ),
-      ],
-      pictured: new Set(
-        theirs.flatMap((each) => (each.image ? [each.key] : [])),
+    return [
+      ...files.attachments.filter((each) => !handedOver.has(each.key)),
+      ...(sharedAttachments ?? []).map(
+        (each): PendingAttachment => ({
+          key: each.key,
+          name: each.name,
+          size: each.size,
+          imageSource:
+            byKey.get(each.key)?.imageSource ??
+            uploadedImage(slug, each.id, each.image),
+          state: 'ready',
+          id: each.id,
+        }),
       ),
-    };
-  }, [files.attachments, sharedAttachments, handedOver]);
-  const shown = (each: PendingAttachment) =>
-    each.image !== null || pictured.has(each.key);
+    ];
+  }, [files.attachments, sharedAttachments, handedOver, slug]);
   const included = attachments.filter(
-    (each) => shown(each) || placed.has(each.key),
+    (each) => hasImage(each) || placed.has(each.key),
   );
 
   // A new generation means the draft was sent: every writer clears the sent text, so it goes even when the sender's tab closed.
@@ -170,49 +155,23 @@ export function useChatMessage(
   }, [generation, synced, sentText, clearSent]);
 
   useEffect(() => {
-    if (!draft) {
-      return;
-    }
-
-    let current = true;
-    const ready = files.attachments.flatMap((each) =>
-      each.state === 'ready' ? [each] : [],
-    );
-
-    Promise.all(
-      ready.map(async (each) => {
-        if (each.image && !thumbnails.has(each.key)) {
-          thumbnails.set(each.key, await thumbnailOf(each.image));
-        }
-
-        return { each, thumbnail: thumbnails.get(each.key) ?? null };
-      }),
-    ).then((done) => {
-      if (current) {
-        draft.save({
-          attachments: done.flatMap(({ each, thumbnail }) =>
-            each.image && !thumbnail
-              ? []
-              : [
-                  {
-                    key: each.key,
-                    id: each.id,
-                    name: each.name,
-                    size: each.size,
-                    image: each.image !== null,
-                    uploadedAt: each.uploadedAt ?? Date.now(),
-                    thumbnail,
-                  },
-                ],
-          ),
-        });
-      }
+    draft?.save({
+      attachments: files.attachments.flatMap((each) =>
+        each.state === 'ready' && each.uploadedAt !== undefined
+          ? [
+              {
+                key: each.key,
+                id: each.id,
+                name: each.name,
+                size: each.size,
+                image: each.imageSource !== null,
+                uploadedAt: each.uploadedAt,
+              },
+            ]
+          : [],
+      ),
     });
-
-    return () => {
-      current = false;
-    };
-  }, [draft, files.attachments, thumbnails]);
+  }, [draft, files.attachments]);
 
   const outgoing: Outgoing = {
     body: written.text.trim(),
@@ -229,7 +188,7 @@ export function useChatMessage(
   );
 
   const attach = (picked: readonly File[]) => {
-    const added = files.add(picked).filter((each) => each.image === null);
+    const added = files.add(picked).filter((each) => each.imageSource === null);
 
     if (added.length === 0) {
       return;
@@ -272,7 +231,7 @@ export function useChatMessage(
       outgoing.traces.length === 0 &&
       outgoing.targetStation === null,
     uploading: included.some((each) => each.state === 'uploading'),
-    images: attachments.filter(shown),
+    images: attachments.filter(hasImage),
     states,
     attach,
     clear,

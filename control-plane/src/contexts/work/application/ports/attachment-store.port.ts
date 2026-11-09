@@ -56,5 +56,11 @@ export interface AttachmentStorePort {
     wanted: Wanted,
   ): Promise<string>;
 
+  linkPending(
+    workspaceId: WorkspaceId,
+    id: AttachmentId,
+    wanted: Wanted,
+  ): Promise<string | null>;
+
   open(workspaceId: WorkspaceId, file: Attachment): Promise<AttachmentContent>;
 }

@@ -15,7 +15,6 @@ const attachment = (uploadedAt = Date.now()) => ({
   size: 2,
   image: false,
   uploadedAt,
-  thumbnail: null,
 });
 
 const flushed = () => act(() => vi.advanceTimersByTime(500));

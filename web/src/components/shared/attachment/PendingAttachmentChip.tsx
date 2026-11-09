@@ -21,9 +21,9 @@ export function PendingAttachmentChip({
       <LoaderCircle className="size-4 animate-spin" aria-label="Uploading" />
     ) : failed ? (
       <CircleAlert className="size-4 text-destructive" aria-hidden />
-    ) : attachment.image ? (
+    ) : attachment.imageSource ? (
       <ImagePreview
-        image={attachment.image}
+        source={attachment.imageSource}
         name={attachment.name}
         className="size-full object-cover"
       />

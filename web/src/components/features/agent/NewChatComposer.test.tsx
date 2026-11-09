@@ -16,10 +16,6 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [{ fullName: 'acme/api' }] }),
 }));
-vi.mock('@/lib/thumbnail', async (original) => ({
-  ...(await original<typeof import('@/lib/thumbnail')>()),
-  thumbnailOf: () => Promise.resolve('data:image/jpeg;base64,AAAA'),
-}));
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: () => Promise.resolve({ id: 'attachment_1' }),
 }));
@@ -420,13 +416,10 @@ describe('NewChatComposer', () => {
 
       expect(within(box()).getByText('agent.json')).toBeInTheDocument();
       expect(
-        within(screen.getByRole('list', { name: 'Images' })).getByRole(
-          'button',
-          {
-            name: 'View shot.png',
-          },
-        ),
-      ).toBeInTheDocument();
+        within(screen.getByRole('list', { name: 'Images' }))
+          .getByRole('button', { name: 'View shot.png' })
+          .querySelector('img'),
+      ).toHaveAttribute('src', '/api/workspaces/acme/attachments/attachment_1');
 
       await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -451,7 +444,6 @@ describe('NewChatComposer', () => {
             size: 2,
             image: false,
             uploadedAt: Date.now() - 21 * 60 * 60 * 1000,
-            thumbnail: null,
           },
         ],
       });

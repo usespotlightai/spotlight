@@ -12,6 +12,18 @@ import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: vi.fn(
+    async (
+      _client: unknown,
+      command: {
+        input: { Key?: string; ResponseContentDisposition?: string };
+      },
+    ) =>
+      `signed ${command.input.Key} ${command.input.ResponseContentDisposition}`,
+  ),
+}));
+
 const WORKSPACE = WorkspaceId.of('ws_1');
 const FILE = Attachment.of({
   id: 'file_1',
@@ -135,6 +147,35 @@ describe('S3AttachmentStore', () => {
       await expect(
         store.received(WORKSPACE, [AttachmentId.of('file_1')]),
       ).rejects.toThrow('was never uploaded');
+    });
+  });
+
+  describe('link', () => {
+    it('signs the stored file to show an image inline', async () => {
+      const { store } = bucketWith([STORED]);
+
+      expect(await store.link(WORKSPACE, FILE, 'shown')).toBe(
+        `signed ${STORED} inline; filename*=UTF-8''queue.png`,
+      );
+    });
+  });
+
+  describe('linkPending', () => {
+    it('signs a pending upload with the name and type it was uploaded with', async () => {
+      const { store } = bucketWith([PENDING]);
+
+      expect(
+        await store.linkPending(WORKSPACE, AttachmentId.of('file_1'), 'saved'),
+      ).toBe(`signed ${PENDING} attachment; filename*=UTF-8''queue.png`);
+    });
+
+    it('links nothing when no upload is pending under the workspace', async () => {
+      const { send, store } = bucketWith([STORED]);
+
+      expect(
+        await store.linkPending(WORKSPACE, AttachmentId.of('file_1'), 'shown'),
+      ).toBeNull();
+      expect(sent(send)).toEqual([['HeadObjectCommand', PENDING]]);
     });
   });
 
