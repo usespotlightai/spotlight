@@ -8,6 +8,11 @@ import type {
 import type { CalledStep } from '@runs/domain/services/tool-attribution';
 import { AgentTurns } from '@runs/domain/value-objects/agent-turns.vo';
 import {
+  type BackgroundWork,
+  isWaitEnded,
+  type WaitEnded,
+} from '@runs/domain/value-objects/background-work';
+import {
   AGENT_REMINDED,
   AGENT_STOPPED,
   BACKGROUND_LOST,
@@ -222,14 +227,14 @@ interface RefusedCall {
   readonly toolCallId?: unknown;
 }
 
-interface BackgroundTask {
-  readonly kind?: unknown;
-  readonly description?: unknown;
-}
-
-const WAIT_ENDINGS: Readonly<
-  Record<string, { status: string; detail: (still: string) => string | null }>
+const WAIT_ENDS: Readonly<
+  Record<
+    WaitEnded,
+    { status: string; detail: (still: string) => string | null }
+  >
 > = {
+  settled: { status: 'completed', detail: () => null },
+  'handed-over': { status: 'completed', detail: () => null },
   limit: {
     status: 'completed',
     detail: (still) => `Still running at the wait limit: ${still}`,
@@ -239,33 +244,20 @@ const WAIT_ENDINGS: Readonly<
   gone: { status: 'failed', detail: () => 'The agent stopped.' },
 };
 
-const endingIn = (data: string | null): string | null => {
+const backgroundIn = (data: string | null): BackgroundWork | null => {
   try {
-    const parsed = JSON.parse(decoded(data ?? '')) as { ended?: unknown };
-    return typeof parsed?.ended === 'string' ? parsed.ended : null;
+    const parsed = JSON.parse(decoded(data ?? '')) as BackgroundWork;
+    return typeof parsed === 'object' && parsed !== null ? parsed : null;
   } catch {
     return null;
   }
 };
 
-const tasksIn = (data: string | null): string[] => {
-  try {
-    const parsed = JSON.parse(decoded(data ?? '')) as {
-      tasks?: BackgroundTask[];
-    };
-    return (parsed?.tasks ?? []).flatMap((task) => {
-      const named =
-        typeof task?.description === 'string' && task.description.trim()
-          ? task.description.trim()
-          : typeof task?.kind === 'string'
-            ? task.kind
-            : '';
-      return named ? [named] : [];
-    });
-  } catch {
-    return [];
-  }
-};
+const tasksIn = (data: string | null): string[] =>
+  (backgroundIn(data)?.tasks ?? []).flatMap((task) => {
+    const named = task?.description?.trim() || task?.kind || '';
+    return named ? [named] : [];
+  });
 
 const SUBAGENT_STATUSES: Readonly<Record<string, string>> = {
   running: 'running',
@@ -883,7 +875,8 @@ export class JournalBuilder {
       return;
     }
 
-    const ending = WAIT_ENDINGS[endingIn(event.data) ?? ''];
+    const ended = backgroundIn(event.data)?.ended;
+    const ending = isWaitEnded(ended) ? WAIT_ENDS[ended] : null;
     step.status = ending?.status ?? 'completed';
     step.endedAt = event.at;
     step.detail = ending?.detail(tasksIn(event.data).join('; ')) ?? null;

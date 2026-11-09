@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/runner/internal/acp"
 	"usespotlight.ai/data-plane/runner/internal/workspace"
 )
 
@@ -46,7 +45,7 @@ const resumeAfterLostRunner = "The runner working on this was lost before your t
 const turnEndedWithoutHandover = "Your turn ended without a handover. The run ends when your next turn ends. " +
 	"Hand over with `spotlight handover`. To ask a person, hand over to `review`."
 
-func reminder(still []acp.BackgroundItem) string {
+func reminder(still []protocol.BackgroundTask) string {
 	if len(still) == 0 {
 		return turnEndedWithoutHandover
 	}
@@ -55,10 +54,10 @@ func reminder(still []acp.BackgroundItem) string {
 		"Wait for them in this turn, stop them, or hand over with `spotlight handover`. To ask a person, hand over to `review`."
 }
 
-func lostOf(items []acp.BackgroundItem) []workspace.LostTask {
+func lostOf(items []protocol.BackgroundTask) []workspace.LostTask {
 	tasks := make([]workspace.LostTask, 0, len(items))
 	for _, item := range items {
-		tasks = append(tasks, workspace.LostTask{Kind: item.Kind, Description: item.Description})
+		tasks = append(tasks, workspace.LostTask{Kind: string(item.Kind), Description: item.Description})
 	}
 	return tasks
 }
@@ -129,7 +128,7 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 	steered, resent, nudged := false, false, false
 	var waitUntil time.Time
 
-	c.harness.Watch(func(update acp.Update) {
+	c.harness.Watch(func(update Update) {
 		c.updates.Add(1)
 		c.journal.append(protocol.Event{Type: protocol.EventOutput, Data: update.Raw})
 	})
@@ -173,19 +172,17 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 			return -1
 		}
 
-		c.log.Info("turn finished", "stopReason", result.StopReason)
+		c.log.Info("turn finished", "stopReason", result.Reason)
 
 		// A harness can end the turn immediately after a cancel and not read the prompt.
-		if steered && !resent && updates == 0 && result.StopReason == "end_turn" {
+		if steered && !resent && updates == 0 && result.End == TurnEnded {
 			c.log.Info("the harness did not read the message; sending it again")
 			resent = true
 			continue
 		}
-		steered, resent = result.StopReason == "cancelled", false
+		steered, resent = result.End == TurnCancelled, false
 
-		if result.StopReason != "end_turn" &&
-			result.StopReason != "max_tokens" &&
-			result.StopReason != "cancelled" {
+		if result.End == TurnFailed {
 			return 1
 		}
 
@@ -195,7 +192,7 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 			continue
 		}
 
-		if nudged || result.StopReason == "cancelled" || !c.owesHandover() {
+		if nudged || result.End == TurnCancelled || !c.owesHandover() {
 			return 0
 		}
 
@@ -227,13 +224,14 @@ type waited struct {
 	stop    bool
 	gone    bool
 	message string
-	still   []acp.BackgroundItem
+	still   []protocol.BackgroundTask
 }
 
 func (c *conversation) waitForBackground(ctx context.Context, until time.Time) waited {
 	started := c.harness.Current()
 	if len(started.Background) > 0 {
-		c.recordBackground(protocol.EventBackgroundWait, started.Background, until, "")
+		deadline := until.UTC()
+		c.recordBackground(protocol.EventBackgroundWait, protocol.BackgroundWork{Tasks: started.Background, Until: &deadline})
 	}
 
 	for {
@@ -243,45 +241,44 @@ func (c *conversation) waitForBackground(ctx context.Context, until time.Time) w
 
 		switch {
 		case work.Gone:
-			c.settledBackground(started, "gone")
+			c.settledBackground(started, protocol.WaitGone)
 			return waited{gone: true}
 		case c.stopWasRequested(), ctx.Err() != nil, c.escalated.Load(), c.leaseLost.Load():
-			c.settledBackground(started, "stopped")
+			c.settledBackground(started, protocol.WaitStopped)
 			return waited{stop: true}
 		case !c.owesHandover():
-			c.settledBackground(started, "handed-over")
+			c.settledBackground(started, protocol.WaitHandedOver)
 			return waited{}
 		case settled:
-			c.settledBackground(started, "settled")
+			c.settledBackground(started, protocol.WaitSettled)
 			return waited{still: work.Background}
 		case !time.Now().Before(until):
 			c.log.Info("background work still runs at the wait limit", "tasks", len(work.Background))
-			c.settledBackground(started, "limit")
+			c.settledBackground(started, protocol.WaitLimit)
 			return waited{still: work.Background}
 		}
 
 		if message, received := c.pollMessages(ctx); received {
-			c.settledBackground(started, "message")
+			c.settledBackground(started, protocol.WaitMessage)
 			return waited{message: message}
 		}
 	}
 }
 
-func (c *conversation) recordBackground(kind protocol.EventType, items []acp.BackgroundItem, until time.Time, ended string) {
-	payload := map[string]any{"tasks": items}
-	if !until.IsZero() {
-		payload["until"] = until.UTC()
+func (c *conversation) recordBackground(kind protocol.EventType, work protocol.BackgroundWork) {
+	if work.Tasks == nil {
+		work.Tasks = []protocol.BackgroundTask{}
 	}
-	if ended != "" {
-		payload["ended"] = ended
-	}
-	raw, _ := json.Marshal(payload)
+	raw, _ := json.Marshal(work)
 	c.journal.append(protocol.Event{Type: kind, Data: raw})
 }
 
-func (c *conversation) settledBackground(started acp.Work, ended string) {
+func (c *conversation) settledBackground(started Work, ended protocol.WaitEnded) {
 	if len(started.Background) > 0 {
-		c.recordBackground(protocol.EventBackgroundDone, c.harness.Current().Background, time.Time{}, ended)
+		c.recordBackground(protocol.EventBackgroundDone, protocol.BackgroundWork{
+			Tasks: c.harness.Current().Background,
+			Ended: ended,
+		})
 	}
 }
 
@@ -343,7 +340,7 @@ func (c *conversation) complete(ctx context.Context, exitCode int) error {
 func (c *conversation) leaveLostBehind() {
 	still := c.harness.Current().Background
 	if len(still) > 0 {
-		c.recordBackground(protocol.EventBackgroundLost, still, time.Time{}, "")
+		c.recordBackground(protocol.EventBackgroundLost, protocol.BackgroundWork{Tasks: still})
 	}
 	if c.keepLost != nil {
 		c.keepLost(lostOf(still))

@@ -66,7 +66,7 @@ func (c *Client) onNotification(method string, params json.RawMessage) {
 
 	if method == claudeCodeFrame {
 		if !replaying {
-			c.work.take(params)
+			c.work.apply(claudeCodeWork(params))
 		}
 		return
 	}

@@ -632,3 +632,48 @@ func TestSettlingStopsAtTheDeadline(t *testing.T) {
 		t.Fatalf("settled=%v %+v", settled, work)
 	}
 }
+
+func TestClaudeCodeTaskTypesBecomeSpotlightKinds(t *testing.T) {
+	client, err := acp.Start(context.Background(), acp.Options{
+		Executable: pretend(t, `
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/prompt") {
+      send({ jsonrpc: "2.0", method: "_claude/sdkMessage", params: { sessionId: "s", message: { type: "system",
+        subtype: "background_tasks_changed", tasks: [
+          { task_id: "1", task_type: "local_bash", description: "tests" },
+          { task_id: "2", task_type: "local_agent", description: "explore" },
+          { task_id: "3", task_type: "monitor", description: "watch" },
+          { task_id: "4", task_type: "workflow", description: "flow" } ] } } });
+      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
+    }
+  }
+});
+`),
+		Root: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+
+	if _, err := client.Prompt(context.Background(), "s", "go"); err != nil {
+		t.Fatal(err)
+	}
+
+	var kinds []string
+	for _, task := range client.Current().Background {
+		kinds = append(kinds, string(task.Kind))
+	}
+	if !reflect.DeepEqual(kinds, []string{"command", "subagent", "monitor", "other"}) {
+		t.Fatalf("kinds %v", kinds)
+	}
+}

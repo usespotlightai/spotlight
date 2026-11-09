@@ -2,32 +2,31 @@ package acp
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
+
+	"usespotlight.ai/data-plane/protocol"
 )
 
-const claudeCodeFrame = "_claude/sdkMessage"
-
 const settleQuiet = 5 * time.Second
-
-type BackgroundItem struct {
-	ID          string `json:"id"`
-	Kind        string `json:"kind"`
-	Description string `json:"description"`
-}
 
 type Work struct {
 	Seen       bool
 	Gone       bool
-	Background []BackgroundItem
+	Background []protocol.BackgroundTask
+}
+
+type workChange struct {
+	reported bool
+	state    string
+	tasks    *[]protocol.BackgroundTask
 }
 
 type workState struct {
 	mu        sync.Mutex
 	seen      bool
 	state     string
-	live      []BackgroundItem
+	live      []protocol.BackgroundTask
 	changedAt time.Time
 	changed   chan struct{}
 	quiet     time.Duration
@@ -49,42 +48,20 @@ func (w *workState) changedLocked() {
 	w.changed = make(chan struct{})
 }
 
-func (w *workState) take(params json.RawMessage) {
-	var frame struct {
-		Message struct {
-			Type    string `json:"type"`
-			Subtype string `json:"subtype"`
-			State   string `json:"state"`
-			Tasks   []struct {
-				TaskID      string `json:"task_id"`
-				TaskType    string `json:"task_type"`
-				Description string `json:"description"`
-				Ambient     bool   `json:"ambient"`
-			} `json:"tasks"`
-		} `json:"message"`
-	}
-	if json.Unmarshal(params, &frame) != nil || frame.Message.Type != "system" {
+func (w *workState) apply(change workChange) {
+	if !change.reported {
 		return
 	}
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	switch frame.Message.Subtype {
-	case "session_state_changed":
-		w.seen = true
-		w.state = frame.Message.State
-	case "background_tasks_changed":
-		w.seen = true
-		w.live = w.live[:0]
-		for _, task := range frame.Message.Tasks {
-			if task.Ambient {
-				continue
-			}
-			w.live = append(w.live, BackgroundItem{ID: task.TaskID, Kind: task.TaskType, Description: task.Description})
-		}
-	default:
-		return
+	w.seen = true
+	if change.state != "" {
+		w.state = change.state
+	}
+	if change.tasks != nil {
+		w.live = append(w.live[:0], (*change.tasks)...)
 	}
 	w.changedLocked()
 }
@@ -92,7 +69,7 @@ func (w *workState) take(params json.RawMessage) {
 func (w *workState) now() Work {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return Work{Seen: w.seen, Background: append([]BackgroundItem(nil), w.live...)}
+	return Work{Seen: w.seen, Background: append([]protocol.BackgroundTask(nil), w.live...)}
 }
 
 func (w *workState) settle(ctx context.Context, done <-chan struct{}) (Work, bool) {

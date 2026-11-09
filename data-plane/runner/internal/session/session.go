@@ -364,7 +364,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 
 	talk := &conversation{
 		run:       run,
-		harness:   harness,
+		harness:   overACP(harness),
 		sessionID: sessionID,
 		joined:    joined,
 		unready:   unready,
