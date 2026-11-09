@@ -21,6 +21,7 @@ export interface JudgeRequest {
   readonly hunksLeftOut: number;
   readonly reference: ReferenceChange | null;
   readonly guidanceRequested: boolean;
+  readonly replayed: boolean;
 }
 
 export interface JudgeAnswer {
