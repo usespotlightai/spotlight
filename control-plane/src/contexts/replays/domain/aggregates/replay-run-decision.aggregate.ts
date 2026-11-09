@@ -4,6 +4,7 @@ import type { ReplayRunDecided } from '@replays/domain/value-objects/replay-run-
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { HANDOVER_TO_A_PERSON } from '@shared-kernel/domain/value-objects/handover-word';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,12 +44,17 @@ const sameTrial = (one: DecidedTrial, other: DecidedTrial): boolean =>
       one.fingerprint.equals(other.fingerprint)) &&
   one.movesOnAfter.equals(other.movesOnAfter);
 
+const handsOverForReview = (ending: ReplayRunEnding): boolean =>
+  ending.next?.toLowerCase() === HANDOVER_TO_A_PERSON;
+
 export const replayAskedAPerson = (
   ending: ReplayRunEnding,
   decision: ReplayRunDecision | null,
 ): boolean =>
   ending.askedAPerson ||
-  (decision ? decision.askedAPersonAfter(ending) : ending.handsOver);
+  (decision
+    ? decision.askedAPersonAfter(ending)
+    : ending.handsOver && !handsOverForReview(ending));
 
 export class ReplayRunDecision {
   private constructor(
@@ -149,7 +155,7 @@ export class ReplayRunDecision {
   }
 
   askedAPersonAfter(ending: ReplayRunEnding): boolean {
-    if (!ending.handsOver) {
+    if (!ending.handsOver || handsOverForReview(ending)) {
       return false;
     }
 
