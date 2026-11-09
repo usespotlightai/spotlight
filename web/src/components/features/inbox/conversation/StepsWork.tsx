@@ -1,12 +1,12 @@
 import { StepsDisclosure } from '@/components/features/inbox/conversation/StepsDisclosure';
 import type { JournalStep } from '@/lib/inbox';
 
-type ChatWorkProps = {
+type StepsWorkProps = {
   steps: readonly JournalStep[];
   live: boolean;
 };
 
-export function ChatWork({ steps, live }: ChatWorkProps) {
+export function StepsWork({ steps, live }: StepsWorkProps) {
   return (
     <StepsDisclosure
       steps={steps}
