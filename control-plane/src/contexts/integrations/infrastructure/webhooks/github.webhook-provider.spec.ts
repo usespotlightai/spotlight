@@ -109,16 +109,35 @@ describe('GitHubWebhookProvider', () => {
     ]);
   });
 
-  it('names the checks that failed', async () => {
+  it('names the checks that failed, with the failed step and the end of the log', async () => {
     expect(
       (
         await readOne({
           ...MERGED,
           activity: 'checks-failed',
-          failedChecks: ['web / build', 'gitleaks / secret scan'],
+          failedChecks: [
+            {
+              name: 'web / build',
+              step: 'React Doctor',
+              summary: null,
+              log: 'src/routes/AgentChat.tsx:32\n##[error]Process completed with exit code 1.',
+            },
+            {
+              name: 'gitleaks / secret scan',
+              step: null,
+              summary: null,
+              log: null,
+            },
+          ],
         })
       ).message,
-    ).toEqual({ body: 'Failed: web / build, gitleaks / secret scan.' });
+    ).toEqual({
+      body: [
+        'Failed: web / build, gitleaks / secret scan.',
+        '**web / build** failed at the step "React Doctor". The end of its log:',
+        '```text\nsrc/routes/AgentChat.tsx:32\n##[error]Process completed with exit code 1.\n```',
+      ].join('\n\n'),
+    });
   });
 
   it('carries the review comment, where it is, and the pull request it is on', async () => {

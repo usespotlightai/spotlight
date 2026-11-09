@@ -28,6 +28,13 @@ export interface CheckSuite {
   readonly repository: string;
 }
 
+export interface FailedCheck {
+  readonly name: string;
+  readonly step: string | null;
+  readonly summary: string | null;
+  readonly log: string | null;
+}
+
 export interface PullRequestActivity {
   readonly activity: PullRequestActivityKind;
   readonly branch: string | null;
@@ -37,5 +44,5 @@ export interface PullRequestActivity {
   readonly reviewComment: PullRequestReviewComment | null;
   readonly ignoredAsBot: boolean;
   readonly checkSuite: CheckSuite | null;
-  readonly failedChecks: readonly string[];
+  readonly failedChecks: readonly FailedCheck[];
 }

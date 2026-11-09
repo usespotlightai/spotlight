@@ -14,6 +14,7 @@ import {
   type ReviewTrigger,
 } from '@integrations/domain/services/pull-request-happenings';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
+import { failedChecksMessage } from '@integrations/infrastructure/webhooks/failed-checks.message';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
@@ -86,10 +87,11 @@ const RAISED: Readonly<Record<ReportedActivity, HappeningDeclaration>> = {
   }),
 };
 
-const failedChecksOf = (event: PullRequestActivity): Happened['message'] =>
-  event.failedChecks.length > 0
-    ? { body: `Failed: ${event.failedChecks.join(', ')}.` }
-    : null;
+const failedChecksOf = (event: PullRequestActivity): Happened['message'] => {
+  const body = failedChecksMessage(event.failedChecks);
+
+  return body ? { body } : null;
+};
 
 const messageOf = (event: PullRequestActivity): Happened['message'] =>
   event.reviewComment

@@ -226,15 +226,126 @@ describe('GitHubCheckRuns', () => {
     });
   });
 
-  it('names the failed checks of a check suite', async () => {
-    github();
+  describe('the failed checks of a check suite', () => {
+    it('reads each failed check with its failed step and the end of its log', async () => {
+      github();
 
-    expect(
-      await new GitHubCheckRuns(access).failedInSuite(
+      const failed = await new GitHubCheckRuns(access).failedInSuite(
         WORKSPACE,
         Repository.of('acme/api'),
         42,
-      ),
-    ).toEqual(['web / build', 'CodeQL']);
+      );
+
+      expect(failed.map(({ name, step }) => ({ name, step }))).toEqual([
+        { name: 'web / build', step: 'Build' },
+        { name: 'CodeQL', step: null },
+      ]);
+      expect(failed[0]?.log).toContain('error TS2322');
+      expect(failed[1]?.summary).toBe('1 new alert\n\nUse of a weak hash.');
+    });
+
+    it('still names a failed job when GitHub cannot be reached for its step or log', async () => {
+      github({ unreachable: true });
+
+      const [first] = await new GitHubCheckRuns(access).failedInSuite(
+        WORKSPACE,
+        Repository.of('acme/api'),
+        42,
+      );
+
+      expect(first).toMatchObject({
+        name: 'web / build',
+        step: null,
+        log: null,
+      });
+    });
+  });
+
+  describe('the log of a failed job', () => {
+    const logged = async (log: string): Promise<string | null> => {
+      vi.stubGlobal('fetch', async (url: string) =>
+        url.endsWith('/logs')
+          ? new Response(log)
+          : url.endsWith('/actions/jobs/11')
+            ? answering(200, { steps: [] })
+            : answering(200, RUNS),
+      );
+
+      const [first] = await new GitHubCheckRuns(access).failedInSuite(
+        WORKSPACE,
+        Repository.of('acme/api'),
+        42,
+      );
+
+      return first?.log ?? null;
+    };
+
+    it('ends at the last error, without the clean-up after the failed step', async () => {
+      expect(
+        await logged(
+          [
+            '2026-11-08T23:19:40.0000000Z \u001b[31m✖ Ref mutated during render\u001b[39m',
+            '2026-11-08T23:19:41.0000000Z ##[error]Process completed with exit code 1.',
+            '2026-11-08T23:19:42.0000000Z Post job cleanup.',
+            '2026-11-08T23:19:43.0000000Z [command]/usr/bin/git version',
+          ].join('\n'),
+        ),
+      ).toBe(
+        '✖ Ref mutated during render\n##[error]Process completed with exit code 1.',
+      );
+    });
+
+    it('keeps the whole end when the log names no error', async () => {
+      expect(await logged('one\ntwo')).toBe('one\ntwo');
+    });
+
+    it('removes terminal control codes', async () => {
+      expect(await logged('\u001b[1G\u001b[Kadded 3 packages\u001b[?25l')).toBe(
+        'added 3 packages',
+      );
+    });
+
+    it('is the same for the checks tool on a pull request', async () => {
+      vi.stubGlobal('fetch', async (url: string) =>
+        url.endsWith('/logs')
+          ? new Response('failed\n##[error]exit 1\nPost job cleanup.')
+          : url.endsWith('/pulls/7')
+            ? answering(200, { head: { sha: 'abc123' } })
+            : url.endsWith('/actions/jobs/11')
+              ? answering(200, { steps: [] })
+              : answering(200, RUNS),
+      );
+
+      const { failed } = await new GitHubCheckRuns(access).failedOn(
+        WORKSPACE,
+        PULL_REQUEST,
+      );
+
+      expect(failed[0]?.log).toBe('failed\n##[error]exit 1');
+    });
+  });
+
+  describe('which logs it reads', () => {
+    it('reads the logs of the first five Actions jobs, whatever fails before them', async () => {
+      const other = Array.from({ length: 5 }, (_, at) => ({
+        id: 200 + at,
+        name: `scan ${at}`,
+        conclusion: 'failure',
+        app: { slug: 'sonarcloud' },
+      }));
+      github({
+        runs: { total_count: 6, check_runs: [...other, RUNS.check_runs[0]] },
+      } as never);
+
+      const { failed } = await new GitHubCheckRuns(access).failedOn(
+        WORKSPACE,
+        PULL_REQUEST,
+      );
+
+      expect(failed[failed.length - 1]).toMatchObject({
+        name: 'web / build',
+        step: 'Build',
+      });
+    });
   });
 });

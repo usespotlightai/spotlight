@@ -74,11 +74,18 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       return workspaceId
         ? {
             ...activity,
-            failedChecks: await this.checkRuns.failedInSuite(
-              workspaceId,
-              Repository.of(suite.repository),
-              suite.id,
-            ),
+            failedChecks: (
+              await this.checkRuns.failedInSuite(
+                workspaceId,
+                Repository.of(suite.repository),
+                suite.id,
+              )
+            ).map(({ name, step, summary, log }) => ({
+              name,
+              step,
+              summary,
+              log,
+            })),
           }
         : activity;
     } catch (error) {
