@@ -54,7 +54,7 @@ const UNREPLAYABLE: Readonly<Record<UnreplayableReason, string>> = {
 
 const FAILURES: Readonly<Record<RunFailureCode, string>> = {
   exited: 'the agent stopped with an error',
-  unprepared: 'the working-copy setup failed before the agent started',
+  unprepared: 'the run failed before the agent started',
   refused: 'the config is not allowed in a replay',
   unprovisioned: 'no runner was available',
   'start-gate-unanswered': 'start gates did not answer',

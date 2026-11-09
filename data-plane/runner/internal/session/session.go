@@ -354,10 +354,11 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	log.Info("agent started", "executable", run.Spec.Command.Executable, "cwd", cwd)
 
 	sessionID, err := open(ctx, harness, run.Spec.Resume.SessionID, log)
-	if err == nil {
-		err = configure(ctx, harness, sessionID, run.Spec.Command.SessionOptions, log)
-	}
 	if err != nil {
+		leave()
+		return unopened(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	}
+	if err := configure(ctx, harness, sessionID, run.Spec.Command.SessionOptions, log); err != nil {
 		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
@@ -724,7 +725,19 @@ func setupFailed(
 	log *slog.Logger,
 	cause error,
 ) error {
-	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, true)
+	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, preparing(cause), true)
+}
+
+func unopened(
+	ctx context.Context,
+	runID string,
+	journal *journalWriter,
+	lifecycle *progress,
+	reporter Journal,
+	log *slog.Logger,
+	cause error,
+) error {
+	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, starting(cause), true)
 }
 
 func finish(
@@ -736,7 +749,7 @@ func finish(
 	log *slog.Logger,
 	cause error,
 ) error {
-	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, false)
+	return failed(ctx, runID, journal, lifecycle, reporter, log, cause, starting(cause), false)
 }
 
 func failed(
@@ -747,14 +760,14 @@ func failed(
 	reporter Journal,
 	log *slog.Logger,
 	cause error,
-	beforeHandover bool,
+	message string,
+	setupFailed bool,
 ) error {
 	if err := lifecycle.advance(Errored); err != nil {
 		log.Warn("could not mark the run failed", "error", err)
 	}
 
 	telemetry.Report(cause, telemetry.Tags{"run": runID})
-	message := failureOf(cause, beforeHandover)
 
 	journal.append(protocol.Event{
 		Type:    protocol.EventFailed,
@@ -765,7 +778,7 @@ func failed(
 	if err := reporter.Complete(ctx, runID, protocol.Completion{
 		ExitCode:    -1,
 		Failed:      true,
-		SetupFailed: beforeHandover,
+		SetupFailed: setupFailed,
 		Message:     message,
 	}); err != nil {
 		log.Warn("could not report the failure", "error", err)
@@ -774,10 +787,11 @@ func failed(
 	return cause
 }
 
-func failureOf(cause error, beforeHandover bool) string {
-	if beforeHandover {
-		return "The runner couldn't prepare the run. Error: " + cause.Error()
-	}
+func preparing(cause error) string {
+	return "The runner couldn't prepare the run. Error: " + cause.Error()
+}
+
+func starting(cause error) string {
 	return "The runner couldn't start the agent. Error: " + cause.Error()
 }
 
