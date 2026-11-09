@@ -495,7 +495,7 @@ describe('InboxItem', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('opens a turn of its own at each message of a person', async () => {
+  it('opens a turn of its own at each message of a person', () => {
     waiting.mockReturnValue(
       item([
         note({ body: 'Triage wrote this.' }),
@@ -512,9 +512,6 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    await userEvent.click(
-      screen.getByRole('button', { name: /Triage wrote this\./ }),
-    );
     const turns = screen.getAllByRole('list');
 
     expect(turns).toHaveLength(2);
@@ -523,7 +520,7 @@ describe('InboxItem', () => {
     expect(turns[1]).toHaveTextContent('And Triage answered.');
   });
 
-  it('opens a turn of its own at each message from outside', async () => {
+  it('opens a turn of its own at each message from outside', () => {
     waiting.mockReturnValue(
       item([
         note({ body: 'Triage wrote this.' }),
@@ -539,9 +536,6 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    await userEvent.click(
-      screen.getByRole('button', { name: /Triage wrote this\./ }),
-    );
     const turns = screen.getAllByRole('list');
 
     expect(turns).toHaveLength(2);

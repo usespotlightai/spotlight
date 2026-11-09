@@ -1,15 +1,13 @@
 import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
-import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
-import { Turn, type TurnSummary } from '@/components/shared/Turn';
+import { Turn } from '@/components/shared/Turn';
 import { useArrivals } from '@/hooks/useArrivals';
-import { useOpenTurns } from '@/hooks/useOpenTurns';
-import { type ApprovalAnswer, titleOf } from '@/lib/approval';
+import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
 import {
   ARRIVING,
@@ -24,9 +22,6 @@ import {
 } from '@/lib/inbox';
 import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
-import { stationShare } from '@/lib/station';
-import { useStepAnchors } from '@/lib/step-anchors';
-import { keptOpen, oneLineOf, stepsCounted } from '@/lib/turns';
 import { cn } from '@/lib/utils';
 
 interface NoteTurn {
@@ -66,46 +61,6 @@ const marksIn = (item: ConversationItem): Set<number> => {
   }
 
   return marked;
-};
-
-const waitsOrFailed = (note: Note): boolean =>
-  note.approval?.status === 'pending' ||
-  note.connection?.met === false ||
-  note.form === 'failure';
-
-const stepsOf = (notes: readonly Note[], workedBy: WorkedBy) =>
-  notes.flatMap((note) =>
-    (workedBy.get(note.position) ?? []).flatMap((journal) => journal.steps),
-  );
-
-const summaryOf = (
-  notes: readonly Note[],
-  stationCount: number,
-  workedBy: WorkedBy,
-): TurnSummary | null => {
-  const last = notes[notes.length - 1];
-
-  if (!last) {
-    return null;
-  }
-
-  const steps = stepsOf(notes, workedBy).length;
-
-  return {
-    icon: (
-      <StationIcon
-        share={stationShare(last.stationPosition, stationCount)}
-        color={last.stationColor}
-      />
-    ),
-    lead: last.station,
-    text: oneLineOf(
-      last.approval
-        ? `${titleOf(last.approval)}: ${last.approval.name}`
-        : last.body,
-    ),
-    count: steps > 0 ? stepsCounted(steps) : undefined,
-  };
 };
 
 const CLOSE = 80;
@@ -156,7 +111,6 @@ export function Conversation({
   afterRun,
 }: ConversationProps) {
   const marked = marksIn(item);
-  const anchors = useStepAnchors();
   const turns = turnsOf(item);
   const workedBy: WorkedBy = new Map(
     item.notes.map((note) => [
@@ -164,20 +118,6 @@ export function Conversation({
       workedOn(worked, item.notes, note.runId, note.at),
     ]),
   );
-  const kept = keptOpen(
-    turns.map((turn) => ({
-      filled: turn.notes.length > 0,
-      holds:
-        turn.notes.some(
-          (note) => note.position === openAt || waitsOrFailed(note),
-        ) ||
-        (anchors.focused !== null &&
-          stepsOf(turn.notes, workedBy).some(
-            (step) => anchors.anchorOf(step) === anchors.focused,
-          )),
-    })),
-  );
-  const opened = useOpenTurns(item.id, kept);
   const arrived = useArrivals(
     item.id,
     item.notes.map((note) => note.position),
@@ -277,18 +217,10 @@ export function Conversation({
             return null;
           }
 
-          const summary =
-            kept[at] || turn.notes.length === 0
-              ? null
-              : summaryOf(turn.notes, item.station.count, workedBy);
-
           return (
             <Turn
               // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
               key={at}
-              summary={summary}
-              open={opened.isOpen(at)}
-              onToggle={() => opened.toggle(at)}
               head={
                 <>
                   {turn.prompt && marked.has(turn.prompt.position) && (
@@ -313,9 +245,7 @@ export function Conversation({
                 </>
               }
             >
-              <ol
-                className={cn('flex flex-col gap-6', summary ? 'mt-4' : 'mt-6')}
-              >
+              <ol className="mt-6 flex flex-col gap-6">
                 {turn.notes.map((note, place) => {
                   const before = turn.notes[place - 1];
                   const closesRun =

@@ -13,7 +13,6 @@ import {
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { stretchesOf } from '@/lib/journal-step';
 import { teamSectionPath } from '@/lib/team';
-import { oneLineOf, stepsCounted } from '@/lib/turns';
 
 export type Chat = ChatResponseDto;
 
@@ -187,34 +186,6 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
   }
 
   return cut.filter((turn) => turn.message || turn.moments.length > 0);
-};
-
-export const waitsOnDecision = (turn: ChatTurn): boolean =>
-  turn.moments.some(
-    (moment) => moment.kind === 'proposed' && moment.proposal.state === 'open',
-  );
-
-export const turnSummaryOf = (
-  turn: ChatTurn,
-): { readonly text: string; readonly count?: string } => {
-  const steps = turn.moments.reduce(
-    (all, moment) => all + (moment.kind === 'worked' ? moment.steps.length : 0),
-    0,
-  );
-  const said = turn.moments.findLast(
-    (moment) => moment.kind === 'answered' || moment.kind === 'proposed',
-  );
-  const text =
-    said?.kind === 'answered'
-      ? said.text
-      : said?.kind === 'proposed'
-        ? `Proposed ${said.proposal.title}`
-        : 'Worked';
-
-  return {
-    text: oneLineOf(text),
-    count: steps > 0 ? stepsCounted(steps) : undefined,
-  };
 };
 
 export const runsOfTurn = (turn: ChatTurn | undefined): string[] =>

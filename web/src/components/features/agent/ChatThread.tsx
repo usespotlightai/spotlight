@@ -9,19 +9,15 @@ import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { Turn } from '@/components/shared/Turn';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useJournalSight } from '@/hooks/useJournalSight';
-import { useOpenTurns } from '@/hooks/useOpenTurns';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import {
   type Chat,
   type ChatMoment,
   momentsOf,
   runsOfTurn,
-  turnSummaryOf,
   turnsOf,
-  waitsOnDecision,
 } from '@/lib/chat';
 import { type RunJournal, STICKY_AT_TOP } from '@/lib/inbox';
-import { keptOpen } from '@/lib/turns';
 import { cn } from '@/lib/utils';
 
 type ChatThreadProps = {
@@ -49,13 +45,6 @@ export function ChatThread({
     (found, moment) => (moment.kind === 'worked' ? moment : found),
     null,
   );
-  const kept = keptOpen(
-    turns.map((turn) => ({
-      filled: turn.moments.length > 0,
-      holds: waitsOnDecision(turn),
-    })),
-  );
-  const opened = useOpenTurns(chat.id, kept);
 
   return (
     <ScrollArea
@@ -72,10 +61,6 @@ export function ChatThread({
           {turns.map((turn, at) => {
             const last = at === turns.length - 1;
             const progress = last ? chat.progress : null;
-            const summary =
-              kept[at] || turn.moments.length === 0
-                ? null
-                : turnSummaryOf(turn);
 
             return (
               <Turn
@@ -83,9 +68,6 @@ export function ChatThread({
                 key={at}
                 ref={sight(runsOfTurn(turn))}
                 className={cn(at > 0 && 'mt-6')}
-                summary={summary}
-                open={opened.isOpen(at)}
-                onToggle={() => opened.toggle(at)}
                 head={
                   turn.message && (
                     <div className={STICKY_AT_TOP}>
@@ -100,12 +82,7 @@ export function ChatThread({
                 }
               >
                 {(turn.moments.length > 0 || progress) && (
-                  <ol
-                    className={cn(
-                      'flex flex-col gap-6',
-                      summary ? 'mt-4' : 'mt-6',
-                    )}
-                  >
+                  <ol className="mt-6 flex flex-col gap-6">
                     {turn.moments.map((moment, place) => (
                       <li
                         // biome-ignore lint/suspicious/noArrayIndexKey: the position of a moment identifies it, because new moments go only at the end
