@@ -20,6 +20,8 @@ const MAX_PAGES = 10;
 
 const SUITE_TIMEOUT_MS = 5_000;
 
+const SUITE_DETAILS_TIMEOUT_MS = 30_000;
+
 const LOGS_READ = 5;
 
 const LOG_LINES = 200;
@@ -29,6 +31,11 @@ const LOG_CHARACTERS = 16_000;
 const LOG_KEPT_WHILE_READING = LOG_CHARACTERS * 4;
 
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/;
+
+// biome-ignore lint/suspicious/noControlCharactersInRegex: matches terminal control codes
+const TERMINAL_CODE = /\u001b\[[\d;?]*[A-Za-z]/g;
+
+const ERROR_ANNOTATION = '##[error]';
 
 interface CheckRun {
   readonly id: number;
@@ -57,6 +64,16 @@ interface Job {
 const failed = (runs: readonly CheckRun[]): readonly CheckRun[] =>
   runs.filter((run) => FAILED.includes(run.conclusion ?? ''));
 
+const fromActions = (run: CheckRun): boolean => run.app?.slug === ACTIONS;
+
+const withLogs = (
+  runs: readonly CheckRun[],
+): readonly { run: CheckRun; withLog: boolean }[] => {
+  const logged = runs.filter(fromActions).slice(0, LOGS_READ);
+
+  return runs.map((run) => ({ run, withLog: logged.includes(run) }));
+};
+
 const summaryOf = (run: CheckRun): string | null =>
   [run.output?.title, run.output?.summary]
     .filter((each): each is string => Boolean(each?.trim()))
@@ -77,10 +94,20 @@ const lastOf = async (
   return kept + decoder.decode();
 };
 
+const throughLastError = (lines: readonly string[]): readonly string[] => {
+  const fromEnd = [...lines]
+    .reverse()
+    .findIndex((line) => line.startsWith(ERROR_ANNOTATION));
+
+  return fromEnd === -1 ? lines : lines.slice(0, lines.length - fromEnd);
+};
+
 const tailOf = (log: string): string =>
-  log
-    .split('\n')
-    .map((line) => line.replace(TIMESTAMP, ''))
+  throughLastError(
+    log
+      .split('\n')
+      .map((line) => line.replace(TIMESTAMP, '').replace(TERMINAL_CODE, '')),
+  )
     .slice(-LOG_LINES)
     .join('\n')
     .slice(-LOG_CHARACTERS);
@@ -117,8 +144,8 @@ export class GitHubCheckRuns implements CheckRunsPort {
     return {
       commit: head.sha,
       failed: await Promise.all(
-        runs.map((run, index) =>
-          this.detailed(repository, run, token, index < LOGS_READ),
+        withLogs(runs).map(({ run, withLog }) =>
+          this.detailed(repository, run, token, withLog),
         ),
       ),
     };
@@ -128,15 +155,23 @@ export class GitHubCheckRuns implements CheckRunsPort {
     workspaceId: WorkspaceId,
     repository: Repository,
     suite: number,
-  ): Promise<readonly string[]> {
-    const runs = await this.runs(
-      `${this.at(repository)}/check-suites/${suite}/check-runs`,
-      await this.tokenFor(workspaceId),
-      `GitHub would not list the checks of suite ${suite} in ${repository.value}`,
-      { signal: AbortSignal.timeout(SUITE_TIMEOUT_MS) },
+  ): Promise<readonly FailedCheckDto[]> {
+    const token = await this.tokenFor(workspaceId);
+    const runs = failed(
+      await this.runs(
+        `${this.at(repository)}/check-suites/${suite}/check-runs`,
+        token,
+        `GitHub would not list the checks of suite ${suite} in ${repository.value}`,
+        { signal: AbortSignal.timeout(SUITE_TIMEOUT_MS) },
+      ),
     );
+    const details = { signal: AbortSignal.timeout(SUITE_DETAILS_TIMEOUT_MS) };
 
-    return failed(runs).map((run) => run.name);
+    return Promise.all(
+      withLogs(runs).map(({ run, withLog }) =>
+        this.detailed(repository, run, token, withLog, details),
+      ),
+    );
   }
 
   private async runs(
@@ -174,12 +209,12 @@ export class GitHubCheckRuns implements CheckRunsPort {
     run: CheckRun,
     token: string,
     withLog: boolean,
+    init: RequestInit = {},
   ): Promise<FailedCheckDto> {
-    const fromActions = withLog && run.app?.slug === ACTIONS;
-    const [step, log] = fromActions
+    const [step, log] = withLog
       ? await Promise.all([
-          this.failedStep(repository, run.id, token).catch(() => null),
-          this.log(repository, run.id, token).catch(() => null),
+          this.failedStep(repository, run.id, token, init).catch(() => null),
+          this.log(repository, run.id, token, init).catch(() => null),
         ])
       : [null, null];
 
@@ -197,10 +232,12 @@ export class GitHubCheckRuns implements CheckRunsPort {
     repository: Repository,
     job: number,
     token: string,
+    init: RequestInit,
   ): Promise<string | null> {
     const response = await call(
       `${this.at(repository)}/actions/jobs/${job}`,
       token,
+      init,
     );
 
     if (!response.ok) {
@@ -219,10 +256,12 @@ export class GitHubCheckRuns implements CheckRunsPort {
     repository: Repository,
     job: number,
     token: string,
+    init: RequestInit,
   ): Promise<string | null> {
     const response = await call(
       `${this.at(repository)}/actions/jobs/${job}/logs`,
       token,
+      init,
     );
 
     return response.ok ? tailOf(await lastOf(response.body)) : null;

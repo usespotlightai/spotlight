@@ -1,4 +1,7 @@
-import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
+import type {
+  CheckRunsPort,
+  FailedCheckDto,
+} from '@github/application/ports/check-runs.port';
 import type {
   ParsedDelivery,
   WebhookEvent,
@@ -59,13 +62,22 @@ const CLOSED: WebhookEvent = {
   closedAt: null,
 };
 
+const BUILD_FAILED: FailedCheckDto = {
+  name: 'web / build',
+  conclusion: 'failure',
+  url: 'https://github.com/acme/api/actions/runs/1/job/11',
+  step: 'Build',
+  summary: null,
+  log: 'src/app.ts(3,1): error TS2322',
+};
+
 const hooks = (
   parsed: ParsedDelivery,
   over: {
     connected?: boolean;
     signs?: boolean;
     closed?: () => Promise<void>;
-    failedInSuite?: () => Promise<readonly string[]>;
+    failedInSuite?: () => Promise<readonly FailedCheckDto[]>;
   } = {},
 ) => {
   const connected = over.connected ?? true;
@@ -93,7 +105,7 @@ const hooks = (
   } as unknown as LoggerPort;
   const checkRuns = {
     failedOn: vi.fn(),
-    failedInSuite: vi.fn(over.failedInSuite ?? (async () => ['web / build'])),
+    failedInSuite: vi.fn(over.failedInSuite ?? (async () => [BUILD_FAILED])),
   } satisfies CheckRunsPort;
   const sync = {
     updateDetails: vi.fn(async () => {}),
@@ -197,7 +209,7 @@ describe('GitHubWebhooks', () => {
       },
     };
 
-    it('asks GitHub which checks of the suite failed', async () => {
+    it('asks GitHub which checks of the suite failed, at which step, and how their logs end', async () => {
       const { service, checkRuns } = hooks({
         installation: '158876513',
         events: [FAILED],
@@ -205,7 +217,14 @@ describe('GitHubWebhooks', () => {
 
       const [read] = await service.activityIn(DELIVERY);
 
-      expect(read?.failedChecks).toEqual(['web / build']);
+      expect(read?.failedChecks).toEqual([
+        {
+          name: 'web / build',
+          step: 'Build',
+          summary: null,
+          log: 'src/app.ts(3,1): error TS2322',
+        },
+      ]);
       expect(checkRuns.failedInSuite).toHaveBeenCalledWith(
         WORKSPACE,
         Repository.of('acme/api'),

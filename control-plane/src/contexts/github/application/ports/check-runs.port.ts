@@ -28,5 +28,5 @@ export interface CheckRunsPort {
     workspaceId: WorkspaceId,
     repository: Repository,
     suite: number,
-  ): Promise<readonly string[]>;
+  ): Promise<readonly FailedCheckDto[]>;
 }
