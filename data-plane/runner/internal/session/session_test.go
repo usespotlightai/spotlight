@@ -1522,6 +1522,56 @@ func TestAnAgentThatCannotStartIsNoFailureOfPreparation(t *testing.T) {
 	}
 }
 
+func TestAHarnessThatCannotOpenASessionIsAFailureOfPreparation(t *testing.T) {
+	written := &journal{}
+	_ = session.Execute(context.Background(), protocol.Run{
+		ID:   "run_1",
+		Spec: protocol.Spec{Command: protocol.Command{Executable: sessionless(t)}},
+	}, session.Options{
+		Workspace: t.TempDir(),
+		Journal:   written,
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	if written.done == nil || !written.done.Failed || !written.done.SetupFailed {
+		t.Fatalf("completion %+v, want it failed before the agent could work", written.done)
+	}
+	if !strings.HasPrefix(written.done.Message, "The runner couldn't start the agent. Error: open a session:") {
+		t.Fatalf("message %q, want it to name the session that did not open", written.done.Message)
+	}
+}
+
+func sessionless(t *testing.T) string {
+	t.Helper()
+
+	script := `#!/usr/bin/env node
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id,
+                                             error: { code: -32603, message: "Internal error: ENOSPC" } });
+  }
+});
+`
+
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "harness")
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func stoppedAgent(event protocol.Event) bool {
 	return event.Type == protocol.EventAgentStopped
 }
