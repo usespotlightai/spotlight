@@ -29,7 +29,8 @@ func claudeCodeWork(params json.RawMessage) workChange {
 
 	switch frame.Message.Subtype {
 	case "session_state_changed":
-		return workChange{reported: true, state: frame.Message.State}
+		busy := frame.Message.State != "idle"
+		return workChange{reported: true, busy: &busy}
 	case "background_tasks_changed":
 		tasks := []protocol.BackgroundTask{}
 		for _, task := range frame.Message.Tasks {

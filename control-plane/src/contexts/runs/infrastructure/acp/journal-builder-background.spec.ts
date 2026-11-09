@@ -142,6 +142,27 @@ describe('JournalBuilder, background work', () => {
     });
   });
 
+  it('reads what it can of a background payload of the wrong shape', () => {
+    const builder = read(
+      entry(BACKGROUND_WAITING, null, {
+        tasks: [{ description: 7, kind: 'command' }, null, 'text'],
+      }),
+      entry(BACKGROUND_SETTLED, null, { tasks: 'none', ended: 'later' }),
+      entry(BACKGROUND_LOST, null, { tasks: { id: 't1' } }),
+    );
+
+    expect(shown(builder)).toEqual([
+      {
+        kind: 'waited',
+        text: 'command',
+        status: 'completed',
+        detail: null,
+        input: null,
+        output: null,
+      },
+    ]);
+  });
+
   it('shows the background work that stopped with the run', () => {
     const builder = read(entry(BACKGROUND_LOST, null, { tasks: tests }));
 

@@ -18,14 +18,14 @@ type Work struct {
 
 type workChange struct {
 	reported bool
-	state    string
+	busy     *bool
 	tasks    *[]protocol.BackgroundTask
 }
 
 type workState struct {
 	mu        sync.Mutex
 	seen      bool
-	state     string
+	busy      bool
 	live      []protocol.BackgroundTask
 	changedAt time.Time
 	changed   chan struct{}
@@ -33,7 +33,7 @@ type workState struct {
 }
 
 func newWorkState(quiet time.Duration) *workState {
-	return &workState{state: "idle", changed: make(chan struct{}), quiet: quiet, changedAt: time.Now()}
+	return &workState{changed: make(chan struct{}), quiet: quiet, changedAt: time.Now()}
 }
 
 func (w *workState) touch() {
@@ -57,8 +57,8 @@ func (w *workState) apply(change workChange) {
 	defer w.mu.Unlock()
 
 	w.seen = true
-	if change.state != "" {
-		w.state = change.state
+	if change.busy != nil {
+		w.busy = *change.busy
 	}
 	if change.tasks != nil {
 		w.live = append(w.live[:0], (*change.tasks)...)
@@ -85,7 +85,7 @@ func (w *workState) settle(ctx context.Context, done <-chan struct{}) (Work, boo
 			w.mu.Unlock()
 			return Work{}, true
 		}
-		busy := w.state != "idle" || len(w.live) > 0
+		busy := w.busy || len(w.live) > 0
 		left := w.quiet - time.Since(w.changedAt)
 		changed := w.changed
 		w.mu.Unlock()

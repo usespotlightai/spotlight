@@ -8,11 +8,6 @@ import type {
 import type { CalledStep } from '@runs/domain/services/tool-attribution';
 import { AgentTurns } from '@runs/domain/value-objects/agent-turns.vo';
 import {
-  type BackgroundWork,
-  isWaitEnded,
-  type WaitEnded,
-} from '@runs/domain/value-objects/background-work';
-import {
   AGENT_REMINDED,
   AGENT_STOPPED,
   BACKGROUND_LOST,
@@ -30,6 +25,10 @@ import { Money } from '@runs/domain/value-objects/money.vo';
 import type { SpentReading } from '@runs/domain/value-objects/run-usage.vo';
 import type { StepKind } from '@runs/domain/value-objects/step-kind';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
+import {
+  backgroundWorkIn,
+  type WaitEnded,
+} from '@runs/infrastructure/acp/background-work';
 import { type Content, diffIn } from '@runs/infrastructure/acp/content';
 import {
   type FrameReader,
@@ -244,20 +243,8 @@ const WAIT_ENDS: Readonly<
   gone: { status: 'failed', detail: () => 'The agent stopped.' },
 };
 
-const backgroundIn = (data: string | null): BackgroundWork | null => {
-  try {
-    const parsed = JSON.parse(decoded(data ?? '')) as BackgroundWork;
-    return typeof parsed === 'object' && parsed !== null ? parsed : null;
-  } catch {
-    return null;
-  }
-};
-
-const tasksIn = (data: string | null): string[] =>
-  (backgroundIn(data)?.tasks ?? []).flatMap((task) => {
-    const named = task?.description?.trim() || task?.kind || '';
-    return named ? [named] : [];
-  });
+const tasksIn = (data: string | null): readonly string[] =>
+  backgroundWorkIn(data).tasks;
 
 const SUBAGENT_STATUSES: Readonly<Record<string, string>> = {
   running: 'running',
@@ -875,8 +862,8 @@ export class JournalBuilder {
       return;
     }
 
-    const ended = backgroundIn(event.data)?.ended;
-    const ending = isWaitEnded(ended) ? WAIT_ENDS[ended] : null;
+    const { ended } = backgroundWorkIn(event.data);
+    const ending = ended ? WAIT_ENDS[ended] : null;
     step.status = ending?.status ?? 'completed';
     step.endedAt = event.at;
     step.detail = ending?.detail(tasksIn(event.data).join('; ')) ?? null;
