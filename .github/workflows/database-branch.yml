@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   delete:
@@ -31,9 +32,15 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH: ${{ github.event.pull_request.head.ref }}
+          REPO_TOKEN: ${{ github.token }}
         run: |
+          others="$(GH_TOKEN="${REPO_TOKEN}" gh pr list --repo "${GITHUB_REPOSITORY}" --state open --head "${BRANCH}" --json number --jq 'length')"
+          if [ "${others}" != 0 ]; then
+            echo "Another open pull request uses \`${BRANCH}\`, so its preview data stays." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
           gh workflow run delete-database-branch.yml \
             --repo "${{ github.repository_owner }}/infrastructure" \
             --ref main \
             -f branch="${BRANCH}"
-          echo "Requested the deletion of the staging database branch of \`${BRANCH}\`." >> "${GITHUB_STEP_SUMMARY}"
+          echo "Requested the deletion of the preview data of \`${BRANCH}\`." >> "${GITHUB_STEP_SUMMARY}"

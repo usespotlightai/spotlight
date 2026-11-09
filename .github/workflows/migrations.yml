@@ -29,10 +29,14 @@ jobs:
           node-version: 24
 
       - name: Fetch the base branch
-        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch --no-tags --depth=1 origin "${BASE_REF}"
 
       - name: Check the migrations
-        run: npm run migrations:check -- "origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: npm run migrations:check -- "origin/${BASE_REF}"
 
   rehearse:
     name: migrations run on a copy of staging
@@ -51,7 +55,9 @@ jobs:
           repositories: infrastructure
 
       # Rehearse Migrations holds the PlanetScale token, so it runs in the
-      # infrastructure repository. This job waits for its result.
+      # infrastructure repository. This job waits for its result. Contract:
+      # that workflow's run-name ends in "(<request>)", which is how this job
+      # finds the run.
       - name: Rehearse on a copy of staging
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -75,6 +81,10 @@ jobs:
                 exit 0
               fi
               echo "::error::The migrations failed on a copy of staging. The error is in ${url}"
+              exit 1
+            fi
+            if [ -z "${run}" ] && [ $((SECONDS - started)) -gt 300 ]; then
+              echo "::error::No Rehearse Migrations run with a title ending in (${REQUEST}) after 5 minutes. Check that its run-name in ${INFRA} still ends in (<request>)."
               exit 1
             fi
             if [ $((SECONDS - started)) -gt 2700 ]; then
