@@ -148,7 +148,7 @@ describe('JournalBuilder, background work', () => {
     expect(shown(builder)).toEqual([
       {
         kind: 'lost',
-        text: 'npx vitest run when the run ended',
+        text: 'npx vitest run with the sandbox',
         status: 'failed',
         detail: null,
         input: null,

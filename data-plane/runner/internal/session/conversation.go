@@ -75,7 +75,7 @@ func lostNote(tasks []workspace.LostTask) string {
 	if len(tasks) == 0 {
 		return ""
 	}
-	return "These background tasks stopped when the last run ended: " + described(tasks) + ". Run them again if you still need them.\n\n"
+	return "These background tasks stopped when your last sandbox stopped: " + described(tasks) + ". Run them again if you still need them.\n\n"
 }
 
 func described(tasks []workspace.LostTask) string {

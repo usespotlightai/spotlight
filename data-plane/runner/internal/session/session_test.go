@@ -1780,14 +1780,14 @@ func TestTheNextRunHearsWhichBackgroundTasksStopped(t *testing.T) {
 		o.sandbox, o.root = sandbox, root
 	})
 
-	if got := said(t, written); !strings.Contains(got, "These background tasks stopped when the last run ended: npx vitest run.") {
+	if got := said(t, written); !strings.Contains(got, "These background tasks stopped when your last sandbox stopped: npx vitest run.") {
 		t.Fatalf("the agent said %q", got)
 	}
 	third := run(t, backgrounding(t, "never"), func(o *runOptions) {
 		o.briefing = "after that"
 		o.sandbox, o.root = sandbox, root
 	})
-	if got := said(t, third); strings.Contains(got, "stopped when the last run ended") {
+	if got := said(t, third); strings.Contains(got, "stopped when your last sandbox stopped") {
 		t.Errorf("the note came twice: %q", got)
 	}
 }

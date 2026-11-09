@@ -52,9 +52,9 @@ describe('shownStep', () => {
   it('shows background work that stopped with the run', () => {
     expect(
       shownStep(
-        step({ kind: 'lost', text: 'npx vitest run when the run ended' }),
+        step({ kind: 'lost', text: 'npx vitest run with the sandbox' }),
       ).label,
-    ).toBe('Stopped npx vitest run when the run ended');
+    ).toBe('Stopped npx vitest run with the sandbox');
   });
 
   it('shows the reminder to hand over with its words', () => {

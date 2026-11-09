@@ -900,7 +900,7 @@ export class JournalBuilder {
 
     const step = bare(
       'lost',
-      `${tasks.join('; ')} when the run ended`,
+      `${tasks.join('; ')} with the sandbox`,
       event.at,
     );
     step.status = 'failed';

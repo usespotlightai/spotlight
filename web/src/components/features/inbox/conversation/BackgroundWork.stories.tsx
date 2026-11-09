@@ -189,7 +189,7 @@ export const StoppedAtTheLimit: Story = {
           }),
           step(1880, {
             kind: 'lost',
-            text: 'npx vitest run when the run ended',
+            text: 'npx vitest run with the sandbox',
             status: 'failed',
             ms: 0,
           }),
