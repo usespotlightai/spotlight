@@ -1,0 +1,39 @@
+name: Database branch
+
+# A Deploy to the preview gives the pull request's branch a copy of the staging
+# database in PlanetScale and a prefix for its files in the bucket. When the
+# pull request closes, Delete Database Branch in usespotlightai/infrastructure
+# deletes both. A branch that never ran in the preview is not an error there.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  delete:
+    name: delete the preview data of the branch
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate an infrastructure repository token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: infrastructure
+
+      - name: Start Delete Database Branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          gh workflow run delete-database-branch.yml \
+            --repo "${{ github.repository_owner }}/infrastructure" \
+            --ref main \
+            -f branch="${BRANCH}"
+          echo "Requested the deletion of the staging database branch of \`${BRANCH}\`." >> "${GITHUB_STEP_SUMMARY}"

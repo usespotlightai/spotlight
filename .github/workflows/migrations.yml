@@ -1,0 +1,85 @@
+name: migrations
+
+# Staging runs develop and keeps its data, so a migration on develop never
+# changes, and a new one runs after all of them.
+on:
+  pull_request:
+    paths:
+      - control-plane/drizzle/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  order:
+    name: migrations keep develop's and come after them
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: control-plane
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Fetch the base branch
+        run: git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+
+      - name: Check the migrations
+        run: npm run migrations:check -- "origin/${{ github.base_ref }}"
+
+  rehearse:
+    name: migrations run on a copy of staging
+    needs: order
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Generate an infrastructure repository token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: infrastructure
+
+      # Rehearse Migrations holds the PlanetScale token, so it runs in the
+      # infrastructure repository. This job waits for its result.
+      - name: Rehearse on a copy of staging
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          INFRA: ${{ github.repository_owner }}/infrastructure
+          SHA: ${{ github.event.pull_request.head.sha }}
+          REQUEST: pr${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          gh workflow run rehearse-migrations.yml --repo "${INFRA}" --ref main -f ref="${SHA}" -f request="${REQUEST}"
+
+          started="${SECONDS}"
+          while :; do
+            run="$(gh run list --repo "${INFRA}" --workflow rehearse-migrations.yml --limit 30 \
+              --json displayTitle,status,conclusion,url \
+              --jq "[.[] | select(.displayTitle | endswith(\"(${REQUEST})\"))][0] // empty")"
+            if [ -n "${run}" ] && [ "$(jq -r '.status' <<< "${run}")" = completed ]; then
+              url="$(jq -r '.url' <<< "${run}")"
+              conclusion="$(jq -r '.conclusion' <<< "${run}")"
+              echo "Rehearse Migrations: ${conclusion}, ${url}" >> "${GITHUB_STEP_SUMMARY}"
+              if [ "${conclusion}" = success ]; then
+                echo "The migrations ran on a copy of staging: ${url}"
+                exit 0
+              fi
+              echo "::error::The migrations failed on a copy of staging. The error is in ${url}"
+              exit 1
+            fi
+            if [ $((SECONDS - started)) -gt 2700 ]; then
+              echo "::error::Rehearse Migrations did not finish in 45 minutes.${run:+ $(jq -r '.url' <<< "${run}")}"
+              exit 1
+            fi
+            sleep 20
+          done

@@ -1075,8 +1075,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: S3Readiness,
     inject: [ReadinessChecks, ENV],
     useFactory: (checks: ReadinessChecks, env: Env) => {
-      const { store, bucket } = s3ClientsOf(env);
-      const s3 = new S3Readiness(store, bucket);
+      const { store, bucket, keys } = s3ClientsOf(env);
+      const s3 = new S3Readiness(store, bucket, keys);
       checks.register(s3);
       return s3;
     },
