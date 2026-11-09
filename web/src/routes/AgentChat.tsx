@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router';
 import { AgentChatSkeleton } from '@/components/features/agent/AgentChatSkeleton';
 import { ChatComposer } from '@/components/features/agent/ChatComposer';
@@ -26,6 +27,11 @@ export function AgentChat() {
 
   useChatRefresh(chatId, chat);
 
+  const [openedId, setOpenedId] = useState<string>();
+  if (chat && !loading(journal) && openedId !== chat.id) {
+    setOpenedId(chat.id);
+  }
+
   const { trail, forward } = useTrail(
     useAgentChatTrail(slug, teamId, chat?.title),
   );
@@ -34,7 +40,7 @@ export function AgentChat() {
     return null;
   }
 
-  if (loading(thread) || (chat && loading(journal))) {
+  if (loading(thread) || (chat && openedId !== chat.id && loading(journal))) {
     return <AgentChatSkeleton />;
   }
 
