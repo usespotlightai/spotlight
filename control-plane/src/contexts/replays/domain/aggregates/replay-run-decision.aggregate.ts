@@ -4,7 +4,7 @@ import type { ReplayRunDecided } from '@replays/domain/value-objects/replay-run-
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { HANDOVER_TO_A_PERSON } from '@shared-kernel/domain/value-objects/handover-word';
+import { requestsAPerson } from '@shared-kernel/domain/value-objects/handover-word';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -45,7 +45,7 @@ const sameTrial = (one: DecidedTrial, other: DecidedTrial): boolean =>
   one.movesOnAfter.equals(other.movesOnAfter);
 
 const handsOverForReview = (ending: ReplayRunEnding): boolean =>
-  ending.next?.toLowerCase() === HANDOVER_TO_A_PERSON;
+  requestsAPerson(ending.next);
 
 export const replayAskedAPerson = (
   ending: ReplayRunEnding,
