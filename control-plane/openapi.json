@@ -13977,7 +13977,7 @@
     },
     "/me/live": {
       "get": {
-        "description": "Sends \"ready\" first, then \"changed\" with a topic and ids for each change in a workspace you may view, and \"notification\" for each new item in your inbox. \"resync\" means some changes were missed: fetch everything again. The server closes the stream after about 10 minutes. Missed events are not sent again.",
+        "description": "Sends \"ready\" first, then \"changed\" with a topic and ids for each change in a workspace you may view, and \"notification\" for each new item in your inbox. \"changed\" with the topic \"workspaces\" means you joined a workspace: open a new stream to watch it. \"resync\" means some changes were missed: fetch everything again. After about 10 minutes the server sends \"reopen\", then closes the stream 15 seconds later: open a new stream before it closes and no change is missed. Missed events are not sent again.",
         "operationId": "watchLive",
         "parameters": [],
         "responses": {

@@ -14,6 +14,7 @@ import { Observable, type Subscriber } from 'rxjs';
 export const KEEPALIVE_MS = 20_000;
 export const LIFETIME_MS = 10 * 60_000;
 export const LIFETIME_SPREAD_MS = 2 * 60_000;
+export const HANDOVER_MS = 15_000;
 const RETRY_MS = 1_000;
 
 export const LIVE_RANDOM = Symbol('LIVE_RANDOM');
@@ -39,8 +40,13 @@ export class LiveStreams implements BeforeApplicationShutdown {
         () => subscriber.next({ type: 'keepalive', data: {} }),
         KEEPALIVE_MS,
       );
+      let ending: ReturnType<typeof setTimeout> | undefined;
       const lifetime = setTimeout(
-        () => subscriber.complete(),
+        () => {
+          subscriber.next({ type: 'reopen', data: {} });
+          ending = setTimeout(() => subscriber.complete(), HANDOVER_MS);
+          ending.unref();
+        },
         LIFETIME_MS + Math.floor(this.random() * LIFETIME_SPREAD_MS),
       );
 
@@ -51,6 +57,7 @@ export class LiveStreams implements BeforeApplicationShutdown {
         detach();
         clearInterval(keepalive);
         clearTimeout(lifetime);
+        clearTimeout(ending);
         this.#open.delete(subscriber);
       };
     });

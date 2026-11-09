@@ -1,6 +1,7 @@
 import type { MessageEvent } from '@nestjs/common';
 import { InMemoryLiveFeed } from '@platform/live/in-memory-live-feed';
 import {
+  HANDOVER_MS,
   KEEPALIVE_MS,
   LIFETIME_MS,
   LIFETIME_SPREAD_MS,
@@ -66,10 +67,19 @@ describe('LiveStreams', () => {
     expect(heard[heard.length - 1]?.type).toBe('keepalive');
   });
 
-  it('ends after its lifetime, spread so streams do not all end together', () => {
+  it('asks for a new stream after its lifetime, spread so streams do not all end together, and keeps passing changes on until it ends', () => {
     const { ended, feed, heard } = watching(0.5);
 
     vi.advanceTimersByTime(LIFETIME_MS + LIFETIME_SPREAD_MS / 2 - 1);
+    expect(heard.some((each) => each.type === 'reopen')).toBe(false);
+
+    vi.advanceTimersByTime(1);
+    expect(heard).toContainEqual({ type: 'reopen', data: {} });
+
+    feed.publish('workspace:ws_1', { type: 'changed', data: {} });
+    expect(heard[heard.length - 1]?.type).toBe('changed');
+
+    vi.advanceTimersByTime(HANDOVER_MS - 1);
     expect(ended()).toBe(false);
 
     vi.advanceTimersByTime(1);

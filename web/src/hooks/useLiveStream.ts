@@ -60,10 +60,39 @@ export const queriesTouchedBy = (change: LiveChange): QueryKey[] => {
       ];
     case 'inbox':
       return [inboxKeys.all];
+    case 'workspaces':
+      return [];
   }
 };
 
 const keyOf = (key: QueryKey): string => JSON.stringify(key);
+
+type Listeners = Readonly<
+  Record<string, (event: MessageEvent<string>) => void>
+>;
+
+interface LiveConnection {
+  readonly stream: EventSource;
+  close(): void;
+}
+
+const connected = (listeners: Listeners): LiveConnection => {
+  const stream = new EventSource(LIVE_URL, { withCredentials: true });
+
+  for (const [type, listener] of Object.entries(listeners)) {
+    stream.addEventListener(type, listener);
+  }
+
+  return {
+    stream,
+    close: () => {
+      for (const [type, listener] of Object.entries(listeners)) {
+        stream.removeEventListener(type, listener);
+      }
+      stream.close();
+    },
+  };
+};
 
 export function useLiveStream(
   onNotification: (notification: InboxNotification) => void,
@@ -77,7 +106,9 @@ export function useLiveStream(
     }
 
     const pending = new Map<string, QueryKey>();
-    let stream: EventSource | null = null;
+    let current: LiveConnection | null = null;
+    let replacing: LiveConnection | null = null;
+    let rejoining = false;
     let flushing: ReturnType<typeof setTimeout> | undefined;
     let reopening: ReturnType<typeof setTimeout> | undefined;
     let reopenMs = REOPEN_MS;
@@ -103,11 +134,30 @@ export function useLiveStream(
       void queryClient.invalidateQueries();
     };
 
-    const ready = () => {
+    const replace = (rejoin: boolean) => {
+      if (rejoin) {
+        rejoining = true;
+      }
+
+      if (!replacing) {
+        replacing = open();
+      }
+    };
+
+    const ready = (connection: LiveConnection) => {
       setLive(true);
       reopenMs = REOPEN_MS;
 
-      if (readyBefore) {
+      if (connection === replacing) {
+        current?.close();
+        current = connection;
+        replacing = null;
+
+        if (rejoining) {
+          rejoining = false;
+          refetchEverything();
+        }
+      } else if (readyBefore) {
         refetchEverything();
       } else {
         invalidated(LIVE_POLLED);
@@ -123,11 +173,18 @@ export function useLiveStream(
         return;
       }
 
+      if (change.topic === 'workspaces') {
+        replace(true);
+        return;
+      }
+
       for (const queryKey of queriesTouchedBy(change)) {
         pending.set(keyOf(queryKey), queryKey);
       }
 
-      flushing ??= setTimeout(flush, LIVE_BATCH_MS);
+      if (flushing === undefined) {
+        flushing = setTimeout(flush, LIVE_BATCH_MS);
+      }
     };
 
     const notification = (event: MessageEvent<string>) => {
@@ -138,31 +195,53 @@ export function useLiveStream(
       }
     };
 
-    const lost = () => {
+    const lost = (connection: LiveConnection) => {
+      if (connection === replacing) {
+        if (connection.stream.readyState === EventSource.CLOSED) {
+          connection.close();
+          replacing = null;
+        }
+        return;
+      }
+
       setLive(false);
 
-      if (stream?.readyState === EventSource.CLOSED) {
-        stream.close();
-        reopening = setTimeout(open, reopenMs);
+      if (connection.stream.readyState !== EventSource.CLOSED) {
+        return;
+      }
+
+      connection.close();
+      current = replacing;
+      replacing = null;
+
+      if (!current) {
+        reopening = setTimeout(() => {
+          current = open();
+        }, reopenMs);
         reopenMs = Math.min(reopenMs * 2, REOPEN_LIMIT_MS);
       }
     };
 
-    const open = () => {
-      stream = new EventSource(LIVE_URL, { withCredentials: true });
-      stream.addEventListener('ready', ready);
-      stream.addEventListener('changed', changed);
-      stream.addEventListener('resync', refetchEverything);
-      stream.addEventListener('notification', notification);
-      stream.addEventListener('error', lost);
-    };
+    function open(): LiveConnection {
+      const connection: LiveConnection = connected({
+        ready: () => ready(connection),
+        changed,
+        resync: refetchEverything,
+        reopen: () => replace(false),
+        notification,
+        error: () => lost(connection),
+      });
 
-    open();
+      return connection;
+    }
+
+    current = open();
 
     return () => {
       clearTimeout(flushing);
       clearTimeout(reopening);
-      stream?.close();
+      current?.close();
+      replacing?.close();
       setLive(false);
     };
   }, [queryClient]);

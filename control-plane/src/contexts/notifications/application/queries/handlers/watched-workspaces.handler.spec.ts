@@ -5,16 +5,19 @@ import { WatchedWorkspacesQuery } from '@notifications/application/queries/watch
 import { describe, expect, it } from 'vitest';
 
 describe('WatchedWorkspacesHandler', () => {
-  it('watches only the workspaces the person may view', async () => {
+  it('watches only the workspaces the person may view, checked in one lookup', async () => {
     const workspaces = {
       listForMember: async () => [
         { id: 'ws_1', name: 'Acme', slug: 'acme', role: 'member' },
         { id: 'ws_2', name: 'Gone', slug: 'gone', role: 'member' },
       ],
     } as unknown as WorkspaceReaderPort;
+    const asked: string[][] = [];
     const access = {
-      mayView: async (_viewer: unknown, workspace: { value: string }) =>
-        workspace.value === 'ws_1',
+      viewableOf: async (_viewer: unknown, ids: { value: string }[]) => {
+        asked.push(ids.map((each) => each.value));
+        return ids.filter((each) => each.value === 'ws_1');
+      },
     } as unknown as WorkspaceAccessPort;
 
     expect(
@@ -22,5 +25,6 @@ describe('WatchedWorkspacesHandler', () => {
         new WatchedWorkspacesQuery('user_1'),
       ),
     ).toEqual(['ws_1']);
+    expect(asked).toEqual([['ws_1', 'ws_2']]);
   });
 });

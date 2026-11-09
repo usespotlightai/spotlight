@@ -169,6 +169,57 @@ describe('useLiveStream', () => {
     expect(streams[1]?.url).toBe('/api/me/live');
   });
 
+  it('hands over to a new stream when asked, with nothing fetched again', () => {
+    const { invalidated, stream } = watching();
+    act(() => stream.send('ready'));
+    invalidated.mockClear();
+
+    act(() => stream.send('reopen'));
+    expect(streams).toHaveLength(2);
+    expect(stream.closed).toBe(false);
+
+    const next = streams[1] as Stream;
+    act(() => next.send('ready'));
+
+    expect(stream.closed).toBe(true);
+    expect(next.closed).toBe(false);
+    expect(invalidated).not.toHaveBeenCalled();
+    expect(isLive()).toBe(true);
+  });
+
+  it('watches a workspace the person joined with a new stream, then fetches everything', () => {
+    const { invalidated, stream } = watching();
+    act(() => stream.send('ready'));
+    invalidated.mockClear();
+
+    act(() =>
+      stream.send('changed', {
+        topic: 'workspaces',
+        ids: { workspaceId: 'ws_2' },
+      }),
+    );
+    expect(streams).toHaveLength(2);
+
+    act(() => (streams[1] as Stream).send('ready'));
+
+    expect(stream.closed).toBe(true);
+    expect(invalidated.mock.calls).toEqual([[]]);
+  });
+
+  it('falls back to the new stream when the old one ends before the handover', () => {
+    const { invalidated, stream } = watching();
+    act(() => stream.send('ready'));
+    act(() => stream.send('reopen'));
+    invalidated.mockClear();
+
+    stream.readyState = Stream.CLOSED;
+    act(() => stream.send('error'));
+    act(() => (streams[1] as Stream).send('ready'));
+
+    expect(streams).toHaveLength(2);
+    expect(invalidated.mock.calls).toEqual([[]]);
+  });
+
   it('refreshes the inbox and shows the item when this browser has no Web Push', () => {
     const { invalidated, stream } = watching();
 

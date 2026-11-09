@@ -40,6 +40,11 @@ export interface TeamPermissions extends WorkspacePermissions {
 export interface WorkspaceAccessPort {
   mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean>;
 
+  viewableOf(
+    viewer: UserId,
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly WorkspaceId[]>;
+
   inWorkspace(
     slug: string,
     viewer: UserId,

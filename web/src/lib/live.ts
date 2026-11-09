@@ -6,7 +6,7 @@ const LIVE_POLL_MS = 60_000;
 
 export const LIVE_BATCH_MS = 150;
 
-const LIVE_TOPICS = ['chat', 'task', 'run', 'inbox'] as const;
+const LIVE_TOPICS = ['chat', 'task', 'run', 'inbox', 'workspaces'] as const;
 
 type LiveTopic = (typeof LIVE_TOPICS)[number];
 

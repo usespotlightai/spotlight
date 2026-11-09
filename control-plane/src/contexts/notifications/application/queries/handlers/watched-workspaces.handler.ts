@@ -16,14 +16,11 @@ export class WatchedWorkspacesHandler
   async execute(query: WatchedWorkspacesQuery): Promise<readonly string[]> {
     const person = UserId.of(query.personId);
     const listed = await this.workspaces.listForMember(person);
-    const viewable = await Promise.all(
-      listed.map(async (each) =>
-        (await this.access.mayView(person, WorkspaceId.of(each.id)))
-          ? [each.id]
-          : [],
-      ),
+    const viewable = await this.access.viewableOf(
+      person,
+      listed.map((each) => WorkspaceId.of(each.id)),
     );
 
-    return viewable.flat();
+    return viewable.map((each) => each.value);
   }
 }
