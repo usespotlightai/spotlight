@@ -10,11 +10,14 @@ import (
 var (
 	ErrGone    = errors.New("no such sandbox")
 	ErrNoImage = errors.New("no such image")
+	ErrInUse   = errors.New("the image is in use")
 )
 
 type Image struct {
 	ID      string
+	Tags    []string
 	Digests []string
+	Size    int64
 }
 
 type Spec struct {
@@ -54,6 +57,8 @@ type Engine interface {
 	Describe(ctx context.Context) (string, error)
 	Inspect(ctx context.Context, image string) (Image, error)
 	Pull(ctx context.Context, image, auth string) error
+	Images(ctx context.Context) ([]Image, error)
+	Remove(ctx context.Context, image string) error
 	Start(ctx context.Context, spec Spec) (string, error)
 	Put(ctx context.Context, id string, file File) error
 	Signal(ctx context.Context, id, signal string) error

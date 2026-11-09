@@ -137,6 +137,62 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 	}
 }
 
+func TestAnImageASandboxUsesIsNotRemovedAndOneNothingUsesIs(t *testing.T) {
+	engine, err := Connect("")
+	if err != nil {
+		t.Skip("no container runtime: ", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	if _, err := engine.Describe(ctx); err != nil {
+		t.Skip("container runtime unreachable: ", err)
+	}
+
+	const image = "busybox:1.35"
+	if err := engine.Pull(ctx, image, ""); err != nil {
+		t.Skip("cannot pull a test image: ", err)
+	}
+	pulled, err := engine.Inspect(ctx, image)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+
+	listed, err := engine.Images(ctx)
+	if err != nil {
+		t.Fatalf("images: %v", err)
+	}
+	i := slices.IndexFunc(listed, func(each sandbox.Image) bool { return each.ID == pulled.ID })
+	if i < 0 || !slices.Contains(listed[i].Tags, image) || len(listed[i].Digests) == 0 || listed[i].Size == 0 {
+		t.Fatalf("listed %+v, not the pulled image with its tag, digest and size", listed)
+	}
+
+	id, err := engine.Start(ctx, sandbox.Spec{Image: pulled.ID, Args: []string{"true"}})
+	if id != "" {
+		defer func() { _ = engine.Destroy(context.Background(), id) }()
+	}
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if err := engine.Remove(ctx, pulled.ID); !errors.Is(err, sandbox.ErrInUse) {
+		t.Fatalf("removing an image a sandbox uses answered %v", err)
+	}
+
+	if err := engine.Destroy(ctx, id); err != nil {
+		t.Fatalf("destroy: %v", err)
+	}
+	if err := engine.Remove(ctx, image); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if err := engine.Remove(ctx, pulled.ID); err != nil {
+		t.Errorf("removing a removed image answered %v", err)
+	}
+	if _, err := engine.Inspect(ctx, image); !errors.Is(err, sandbox.ErrNoImage) {
+		t.Errorf("the image is still there: %v", err)
+	}
+}
+
 func TestLayingAFileLeavesItsParentsAsTheImageHasThem(t *testing.T) {
 	engine, err := Connect("")
 	if err != nil {

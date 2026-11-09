@@ -49,6 +49,8 @@ type fakeEngine struct {
 	pullTo    map[string]sandbox.Image
 	pulls     []string
 	auths     []string
+	dangling  []sandbox.Image
+	removed   []string
 	failStart bool
 	failProbe bool
 	failPull  bool
@@ -213,8 +215,88 @@ func (e *fakeEngine) Pull(_ context.Context, image, auth string) error {
 		name, _, _ := strings.Cut(image, ":")
 		pulled = imageAt(name, strings.Repeat("a", 64))
 	}
+	if before, ok := e.images[image]; ok && before.ID != pulled.ID && !e.referenced(before.ID, image) {
+		e.dangling = append(e.dangling, sandbox.Image{ID: before.ID, Digests: before.Digests})
+	}
 	e.images[image] = pulled
 	return nil
+}
+
+func (e *fakeEngine) referenced(id, except string) bool {
+	for ref, each := range e.images {
+		if ref != except && each.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *fakeEngine) Images(context.Context) ([]sandbox.Image, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	byID := map[string]*sandbox.Image{}
+	var order []string
+	for ref, each := range e.images {
+		found, ok := byID[each.ID]
+		if !ok {
+			found = &sandbox.Image{ID: each.ID, Digests: slices.Clone(each.Digests)}
+			byID[each.ID] = found
+			order = append(order, each.ID)
+		}
+		if !strings.Contains(ref, "@") {
+			found.Tags = append(found.Tags, ref)
+		}
+	}
+	listed := slices.Clone(e.dangling)
+	for _, id := range order {
+		listed = append(listed, *byID[id])
+	}
+	return listed, nil
+}
+
+func (e *fakeEngine) Remove(_ context.Context, image string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	id := image
+	if each, ok := e.images[image]; ok {
+		id = each.ID
+	}
+	if e.runsFrom(id) && (image == id || !e.referenced(id, image)) {
+		return sandbox.ErrInUse
+	}
+
+	if image != id {
+		delete(e.images, image)
+		if !e.referenced(id, "") {
+			e.dangling = append(e.dangling, sandbox.Image{ID: id})
+		}
+		return nil
+	}
+	for ref, each := range e.images {
+		if each.ID == id {
+			delete(e.images, ref)
+		}
+	}
+	e.dangling = slices.DeleteFunc(e.dangling, func(each sandbox.Image) bool { return each.ID == id })
+	e.removed = append(e.removed, id)
+	return nil
+}
+
+func (e *fakeEngine) runsFrom(id string) bool {
+	for sandboxID, spec := range e.started {
+		if spec.Image == id && !slices.Contains(e.destroyed, sandboxID) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *fakeEngine) imagesRemoved() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.removed)
 }
 
 func (e *fakeEngine) Start(_ context.Context, spec sandbox.Spec) (string, error) {
@@ -1571,6 +1653,56 @@ func TestLooksInsideAgainWhenATagMovesAndFailsARunItsHarnessLeft(t *testing.T) {
 		return len(each.Harnesses) == 1 && each.Harnesses[0].ID == "codex" &&
 			each.Digest == "runner@sha256:"+strings.Repeat("b", 64)
 	})
+}
+
+func TestRemovesTheImageATagMovedFromOnceNothingRunsIt(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.ImageGrace = time.Millisecond
+	opts.Capacity = 2
+	serving(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	running := engine.workSandboxes()[0]
+	first := "sha256:" + strings.Repeat("a", 64)
+
+	engine.set(func(e *fakeEngine) { e.pullTo["runner:1"] = imageAt("runner", strings.Repeat("b", 64)) })
+	pool.work <- assignment("runner_2")
+	eventually(t, "a sandbox from the moved tag", func() bool { return len(engine.workSandboxes()) == 2 })
+	time.Sleep(100 * time.Millisecond)
+	if removed := engine.imagesRemoved(); len(removed) != 0 {
+		t.Fatalf("removed %v while a sandbox runs from it", removed)
+	}
+
+	engine.finish(running)
+	eventually(t, "the old image removed", func() bool { return slices.Equal(engine.imagesRemoved(), []string{first}) })
+	if _, err := engine.Inspect(context.Background(), "runner:1"); err != nil {
+		t.Errorf("removed the image it serves: %v", err)
+	}
+}
+
+func TestLeavesImagesItDidNotPull(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.images["runner:dev"] = sandbox.Image{ID: "sha256:built-here"}
+	engine.images["ghcr.io/acme/tool:2"] = imageAt("ghcr.io/acme/tool", strings.Repeat("d", 64))
+	engine.images["runner:other"] = sandbox.Image{
+		ID:      "sha256:shared",
+		Digests: []string{"runner@sha256:" + strings.Repeat("e", 64), "ghcr.io/acme/runner@sha256:" + strings.Repeat("e", 64)},
+	}
+	opts := options(t)
+	opts.ImageGrace = time.Millisecond
+	serving(t, opts, engine, pool)
+
+	eventually(t, "the image served", func() bool {
+		_, ok := pool.reported("runner:1")
+		return ok
+	})
+	time.Sleep(200 * time.Millisecond)
+
+	if removed := engine.imagesRemoved(); len(removed) != 0 {
+		t.Errorf("removed %v, which it never pulled or another repository holds", removed)
+	}
 }
 
 func TestRunsTheCopyItHasWhenAPullFails(t *testing.T) {
