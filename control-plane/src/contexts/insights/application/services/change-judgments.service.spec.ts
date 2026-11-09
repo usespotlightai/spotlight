@@ -180,6 +180,7 @@ describe('ChangeJudgments', () => {
     });
 
     expect(kept.requests[0]?.guidanceRequested).toBe(true);
+    expect(kept.requests[0]?.replayed).toBe(true);
     expect(kept.judgment.judged && kept.judgment.guidance).toBe(
       'Finish the jobs already taken before stopping the worker.',
     );

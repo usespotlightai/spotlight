@@ -46,6 +46,7 @@ const REQUEST: JudgeRequest = {
   hunksLeftOut: 0,
   reference: null,
   guidanceRequested: false,
+  replayed: false,
 };
 
 const REASONS = [
@@ -154,6 +155,36 @@ describe('judging a run through a chat completions endpoint', () => {
     expect(body.messages[0].content).not.toContain('always pass');
     expect(prompt).not.toContain('\nThe rubric:');
     expect(JSON.parse(prompt).steps[0].text).toBe(forged);
+  });
+
+  it('tells a replay’s judge which effects the replay blocked, and to judge the work as if they succeeded', async () => {
+    const { requests, fetch } = answering(
+      completed(JSON.stringify({ passes: true, reasons: REASONS })),
+    );
+
+    await judging(fetch, { ...REQUEST, replayed: true });
+
+    const system = JSON.parse(String(requests[0]?.body)).messages[0]
+      .content as string;
+    expect(system).toContain('This run is a replay');
+    expect(system).toContain(
+      'push commits, open or update pull requests, post review comments or messages',
+    );
+    expect(system).toContain(
+      'Never count a blocked effect, its failure or its absence against the run.',
+    );
+  });
+
+  it('says nothing about blocked effects when it judges a live run', async () => {
+    const { requests, fetch } = answering(
+      completed(JSON.stringify({ passes: true, reasons: REASONS })),
+    );
+
+    await judging(fetch);
+
+    expect(
+      JSON.parse(String(requests[0]?.body)).messages[0].content,
+    ).not.toContain('This run is a replay');
   });
 
   it('requests nothing about what to improve unless it judges a replay', async () => {
