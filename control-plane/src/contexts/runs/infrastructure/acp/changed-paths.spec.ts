@@ -26,10 +26,23 @@ const diffed = (toolCallId: string, ...paths: (string | null)[]) =>
     ],
   });
 
-const read = (...data: string[]) => {
+const connected = (protocol: string, attempt = 1) => ({
+  type: 'harness.connected',
+  message: protocol,
+  data: null,
+  attempt,
+});
+
+type Row = ReturnType<typeof connected> | string;
+
+const read = (...rows: Row[]) => {
   const changed = new ChangedPaths();
-  for (const each of data) {
-    changed.take(each);
+  for (const each of rows) {
+    changed.take(
+      typeof each === 'string'
+        ? { type: 'output', message: null, data: each, attempt: 1 }
+        : each,
+    );
   }
   return changed.paths();
 };
@@ -72,6 +85,57 @@ describe('ChangedPaths', () => {
         diffed('call_1', null),
       ),
     ).toEqual([]);
+  });
+
+  it('reads the frames of an ACP v1 connection', () => {
+    expect(
+      read(
+        connected('acp/1'),
+        called('call_1'),
+        diffed('call_1', '/runs/run_1/api/src/uploads.ts'),
+      ),
+    ).toEqual(['/runs/run_1/api/src/uploads.ts']);
+  });
+
+  it('reads no frames of a protocol it does not know', () => {
+    expect(
+      read(
+        connected('acp/9'),
+        called('call_1'),
+        diffed('call_1', '/runs/run_1/api/src/uploads.ts'),
+      ),
+    ).toEqual([]);
+  });
+
+  it('reads each attempt with the protocol of its own connection', () => {
+    const changed = new ChangedPaths();
+    changed.take(connected('acp/9', 1));
+    changed.take({
+      type: 'output',
+      message: null,
+      data: called('call_1'),
+      attempt: 1,
+    });
+    changed.take({
+      type: 'output',
+      message: null,
+      data: diffed('call_1', '/runs/run_1/api/src/lost.ts'),
+      attempt: 1,
+    });
+    changed.take({
+      type: 'output',
+      message: null,
+      data: called('call_2'),
+      attempt: 2,
+    });
+    changed.take({
+      type: 'output',
+      message: null,
+      data: diffed('call_2', '/runs/run_1/api/src/kept.ts'),
+      attempt: 2,
+    });
+
+    expect(changed.paths()).toEqual(['/runs/run_1/api/src/kept.ts']);
   });
 
   it('passes over updates to calls it never saw made, and what it cannot read', () => {

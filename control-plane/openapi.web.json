@@ -7418,7 +7418,11 @@
               "thought",
               "tool",
               "planned",
-              "hook"
+              "hook",
+              "subagent",
+              "waited",
+              "lost",
+              "reminded"
             ]
           },
           "text": {

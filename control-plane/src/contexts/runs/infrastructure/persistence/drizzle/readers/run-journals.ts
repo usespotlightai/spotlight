@@ -6,6 +6,7 @@ import type {
   RunJournal,
 } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalsPort } from '@runs/application/ports/run-journals.port';
+import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
 import { isJournalledAttempt } from '@runs/domain/value-objects/run-journalled-attempts';
 import { ChangedPaths } from '@runs/infrastructure/acp/changed-paths';
 import { JournalBuilder } from '@runs/infrastructure/acp/journal-builder';
@@ -23,6 +24,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  or,
   type SQL,
   sql,
 } from 'drizzle-orm';
@@ -96,9 +98,14 @@ export class DrizzleRunJournals implements RunJournalsPort {
     const outputs = await this.journalled(
       and(
         inArray(runJournalEntry.runId, ids),
-        eq(runJournalEntry.type, 'output'),
-        isNull(runJournalEntry.message),
-        isNotNull(runJournalEntry.data),
+        or(
+          and(
+            eq(runJournalEntry.type, 'output'),
+            isNull(runJournalEntry.message),
+            isNotNull(runJournalEntry.data),
+          ),
+          eq(runJournalEntry.type, HARNESS_CONNECTED),
+        ),
       ) as SQL,
       [
         asc(run.createdAt),
@@ -112,7 +119,7 @@ export class DrizzleRunJournals implements RunJournalsPort {
 
     for (const row of outputs) {
       const paths = changed.get(row.runId) ?? new ChangedPaths();
-      paths.take(row.data ?? '');
+      paths.take(row);
       changed.set(row.runId, paths);
       checkouts.set(
         row.runId,

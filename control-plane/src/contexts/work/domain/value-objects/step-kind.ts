@@ -4,6 +4,10 @@ export const STEP_KINDS = [
   'tool',
   'planned',
   'hook',
+  'subagent',
+  'waited',
+  'lost',
+  'reminded',
 ] as const;
 
 export type StepKind = (typeof STEP_KINDS)[number];

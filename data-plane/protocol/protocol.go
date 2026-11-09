@@ -262,6 +262,11 @@ const (
 	EventToolRefused      EventType = "tool.refused"
 	EventEgressChecked    EventType = "egress.checked"
 	EventAgentStopped     EventType = "agent.stopped"
+	EventHarnessConnected EventType = "harness.connected"
+	EventAgentReminded    EventType = "agent.reminded"
+	EventBackgroundWait   EventType = "background.waiting"
+	EventBackgroundDone   EventType = "background.settled"
+	EventBackgroundLost   EventType = "background.lost"
 )
 
 type Event struct {
