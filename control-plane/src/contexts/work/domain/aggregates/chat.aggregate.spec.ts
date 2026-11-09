@@ -824,6 +824,124 @@ describe('Chat', () => {
     );
   });
 
+  describe('in the inbox', () => {
+    const SESSION = HarnessSession.of('session_1');
+    const ended = (chat: Chat) =>
+      chat.runEnded(RunId.of('run_1'), { session: SESSION, claimedBy: null })
+        .chat;
+    const accepted = (chat: Chat) =>
+      chat
+        .accept(SECOND, LEON, LATER)
+        .proposalBecame(SECOND, TaskId.of('task_1'), LATER);
+
+    it('is running while a run works and while its first message waits for one', () => {
+      expect(started().inboxRunning).toBe(true);
+      expect(working().inboxRunning).toBe(true);
+      expect(ended(working()).inboxRunning).toBe(false);
+    });
+
+    it('is unread until the person reads the proposal the agent made', () => {
+      expect(started().unread).toBe(false);
+      expect(proposing().unread).toBe(true);
+      expect(proposing().markRead(LEON, LATER).unread).toBe(false);
+    });
+
+    it('becomes unread again for a proposal made after it was read', () => {
+      const read = working().markRead(LEON, NOW);
+
+      expect(
+        read.propose({
+          runId: RunId.of('run_1'),
+          placement: ProposalPlacement.of({
+            lineId: LineId.of('line_1'),
+            stationId: StationId.of('station_1'),
+          }),
+          title: TaskTitle.of('Back off exponentially'),
+          description: null,
+          at: LATER,
+        }).unread,
+      ).toBe(true);
+    });
+
+    it('resolves and reopens by hand, only for the person who started it', () => {
+      const resolved = started().resolve(LEON, LATER);
+
+      expect(resolved.resolvedAt).toEqual(LATER);
+      expect(resolved.readAt).toEqual(LATER);
+      expect(resolved.resolve(LEON, new Date('2026-09-15T09:00:00.000Z'))).toBe(
+        resolved,
+      );
+      expect(resolved.reopen(LEON).resolvedAt).toBeNull();
+      expect(started().reopen(LEON).resolvedAt).toBeNull();
+      expect(() => started().resolve(STRANGER, LATER)).toThrow(
+        NotTheChatStarterError,
+      );
+      expect(() => resolved.reopen(STRANGER)).toThrow(NotTheChatStarterError);
+      expect(() => started().markRead(STRANGER, LATER)).toThrow(
+        NotTheChatStarterError,
+      );
+    });
+
+    it('resolves itself when the last open proposal became a task', () => {
+      const created = accepted(proposing());
+
+      expect(created.resolvedAt).toEqual(LATER);
+      expect(created.unread).toBe(false);
+    });
+
+    it('stays open while another proposal waits', () => {
+      const twice = proposing().propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Cap the delay'),
+        description: null,
+        at: LATER,
+      });
+
+      expect(accepted(twice).resolvedAt).toBeNull();
+    });
+
+    it('stays unresolved when a proposal is dismissed', () => {
+      expect(proposing().dismiss(SECOND, LEON, LATER).resolvedAt).toBeNull();
+    });
+
+    it('does not resolve while a proposal is accepted but its task is not made', () => {
+      expect(proposing().accept(SECOND, LEON, LATER).resolvedAt).toBeNull();
+    });
+
+    it('opens again when the agent proposes after it was resolved', () => {
+      expect(
+        working()
+          .resolve(LEON, NOW)
+          .propose({
+            runId: RunId.of('run_1'),
+            placement: ProposalPlacement.of({
+              lineId: LineId.of('line_1'),
+              stationId: StationId.of('station_1'),
+            }),
+            title: TaskTitle.of('Back off exponentially'),
+            description: null,
+            at: LATER,
+          }).resolvedAt,
+      ).toBeNull();
+    });
+
+    it('opens again when a run ends after it was resolved', () => {
+      expect(ended(working().resolve(LEON, NOW)).resolvedAt).toBeNull();
+    });
+
+    it('keeps its resolution when a run ends without a session', () => {
+      const failed = working()
+        .resolve(LEON, NOW)
+        .runEnded(RunId.of('run_1'), { session: null, claimedBy: null }).chat;
+
+      expect(failed.resolvedAt).toEqual(NOW);
+    });
+  });
+
   describe('setting up configuration', () => {
     const settingUp = () =>
       Chat.start({

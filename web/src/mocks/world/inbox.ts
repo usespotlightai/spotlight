@@ -1,4 +1,5 @@
 import type {
+  InboxChatResponseDto,
   InboxItemViewResponseDto,
   InboxNoticeResponseDto,
   InboxRunResponseDto,
@@ -35,7 +36,13 @@ type StoredNotice = Omit<InboxNoticeResponseDto, Shown>;
 
 type StoredRun = Omit<InboxRunResponseDto, Shown>;
 
-export type InboxEntry = InboxConversation | StoredNotice | StoredRun;
+type StoredChat = Omit<InboxChatResponseDto, Shown>;
+
+export type InboxEntry =
+  | InboxConversation
+  | StoredNotice
+  | StoredRun
+  | StoredChat;
 
 const sectionOf = (entry: InboxEntry): InboxNoticeResponseDto['section'] => {
   if (entry.unread) {
@@ -46,7 +53,8 @@ const sectionOf = (entry: InboxEntry): InboxNoticeResponseDto['section'] => {
   }
 
   return entry.kind === 'run' ||
-    (entry.kind === 'task' && entry.progress !== null)
+    ((entry.kind === 'task' || entry.kind === 'chat') &&
+      entry.progress !== null)
     ? 'running'
     : 'open';
 };
@@ -55,7 +63,7 @@ const reopenableOf = (entry: InboxEntry): boolean => {
   if (entry.kind === 'run' || !entry.resolved) {
     return false;
   }
-  if (entry.kind === 'notice' || entry.inboxRequest) {
+  if (entry.kind === 'notice' || entry.kind === 'chat' || entry.inboxRequest) {
     return true;
   }
 
@@ -518,6 +526,42 @@ const RUNNING = (): StoredRun[] => [
   runningOn('task_retries', PLATFORM_ID, 'run_retries_3'),
 ];
 
+const CHATS = (): StoredChat[] => [
+  {
+    kind: 'chat',
+    id: 'chat_retries',
+    teamId: PLATFORM_ID,
+    title: 'Why do retries pile up?',
+    progress: null,
+    openProposals: 3,
+    askedAt: hoursAgo(2.5),
+    unread: true,
+    resolved: false,
+  },
+  {
+    kind: 'chat',
+    id: 'chat_rate_limits',
+    teamId: PLATFORM_ID,
+    title: 'Rate limiting for the public API',
+    progress: 'in-progress',
+    openProposals: 0,
+    askedAt: hoursAgo(0.3),
+    unread: false,
+    resolved: false,
+  },
+  {
+    kind: 'chat',
+    id: 'chat_quarter',
+    teamId: PLATFORM_ID,
+    title: 'What should the platform team take on next quarter?',
+    progress: null,
+    openProposals: 0,
+    askedAt: daysAgo(2),
+    unread: false,
+    resolved: true,
+  },
+];
+
 export const freshInbox = (): InboxEntry[] => [setupItem(hoursAgo(0.1), false)];
 
 export const seedInbox = (): InboxEntry[] => [
@@ -526,5 +570,6 @@ export const seedInbox = (): InboxEntry[] => [
   ...INBOX_REQUESTS(),
   ...RESOLVED_CONVERSATIONS(),
   ...RUNNING(),
+  ...CHATS(),
   setupItem(daysAgo(190), true),
 ];

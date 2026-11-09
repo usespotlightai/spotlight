@@ -49,6 +49,12 @@ const itemOf = (id: string): InboxConversation | undefined =>
       entry.kind === 'task' && entry.id === id,
   );
 
+const chatOf = (id: string) =>
+  inboxStore().entries.find(
+    (entry): entry is Extract<InboxEntry, { kind: 'chat' }> =>
+      entry.kind === 'chat' && entry.id === id,
+  );
+
 const taskOf = (taskId: string) => {
   const teamId = teamOfTask(taskId);
 
@@ -314,6 +320,40 @@ const conversationHandlers = [
       return noContent();
     },
   ),
+
+  api.post('/workspaces/:slug/inbox/chats/:chatId/read', ({ params }) => {
+    const chat = chatOf(param(params, 'chatId'));
+
+    if (!isOurs(params) || !chat) {
+      return notFound();
+    }
+    chat.unread = false;
+
+    return noContent();
+  }),
+
+  api.post('/workspaces/:slug/inbox/chats/:chatId/resolve', ({ params }) => {
+    const chat = chatOf(param(params, 'chatId'));
+
+    if (!isOurs(params) || !chat) {
+      return notFound();
+    }
+    chat.resolved = true;
+    chat.unread = false;
+
+    return noContent();
+  }),
+
+  api.post('/workspaces/:slug/inbox/chats/:chatId/reopen', ({ params }) => {
+    const chat = chatOf(param(params, 'chatId'));
+
+    if (!isOurs(params) || !chat) {
+      return notFound();
+    }
+    chat.resolved = false;
+
+    return noContent();
+  }),
 
   api.post('/workspaces/:slug/inbox/notices/:noticeId/reopen', ({ params }) => {
     const notice = inboxStore().entries.find(

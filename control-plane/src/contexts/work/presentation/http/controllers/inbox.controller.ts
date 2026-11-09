@@ -27,6 +27,11 @@ import {
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { AnswerConversationCommand } from '@work/application/commands/answer-conversation.command';
+import {
+  MarkChatReadCommand,
+  ReopenChatCommand,
+  ResolveChatCommand,
+} from '@work/application/commands/chat.commands';
 import { MarkConversationReadCommand } from '@work/application/commands/mark-conversation-read.command';
 import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
 import { ReopenConversationCommand } from '@work/application/commands/reopen-conversation.command';
@@ -60,6 +65,7 @@ import {
 import { AnswerInboxItemRequestDto } from '@work/presentation/http/dto/inbox.request.dto';
 import {
   INBOX_PAGE_SCHEMA,
+  InboxChatResponseDto,
   type InboxEntryResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
@@ -126,6 +132,10 @@ const entryResponse = (entry: InboxEntryDto): InboxEntryResponseDto => {
     return new InboxNoticeResponseDto(entry);
   }
 
+  if (entry.kind === 'chat') {
+    return new InboxChatResponseDto(entry);
+  }
+
   return entry.kind === 'run'
     ? new InboxRunResponseDto(entry)
     : new InboxItemResponseDto(taskItemFields(entry));
@@ -133,6 +143,7 @@ const entryResponse = (entry: InboxEntryDto): InboxEntryResponseDto => {
 
 @ApiTags('inbox')
 @ApiExtraModels(
+  InboxChatResponseDto,
   InboxItemResponseDto,
   InboxNoticeResponseDto,
   InboxRunResponseDto,
@@ -467,6 +478,57 @@ export class InboxController {
     await this.commandBus.execute(
       new ReopenNoticeCommand(noticeId, slug, user.id),
     );
+  }
+
+  @Post('chats/:chatId/resolve')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'resolveInboxChat',
+    summary: 'Resolve an agent chat without acting on it',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'chatId', type: String })
+  @ApiNoContentResponse({ description: 'It is resolved' })
+  @ApiNotFoundResponse({ description: 'No such chat for this caller' })
+  async resolveInboxChat(
+    @Param('chatId') chatId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new ResolveChatCommand(chatId, user.id));
+  }
+
+  @Post('chats/:chatId/reopen')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'reopenInboxChat',
+    summary: 'Reopen a resolved agent chat',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'chatId', type: String })
+  @ApiNoContentResponse({ description: 'It is open again' })
+  @ApiNotFoundResponse({ description: 'No such chat for this caller' })
+  async reopenInboxChat(
+    @Param('chatId') chatId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new ReopenChatCommand(chatId, user.id));
+  }
+
+  @Post('chats/:chatId/read')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'markInboxChatRead',
+    summary: 'Mark an agent chat as seen',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'chatId', type: String })
+  @ApiNoContentResponse({ description: 'It is no longer unread' })
+  @ApiNotFoundResponse({ description: 'No such chat for this caller' })
+  async markInboxChatRead(
+    @Param('chatId') chatId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new MarkChatReadCommand(chatId, user.id));
   }
 
   @Get('tasks/:taskId/journal')

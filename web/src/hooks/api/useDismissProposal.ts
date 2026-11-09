@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatKeys } from '@/hooks/api/useChats';
+import { inboxKeys } from '@/hooks/api/useInbox';
 import { dismissProposal } from '@/lib/api';
 
 type DismissProposalInput = {
@@ -18,7 +19,10 @@ export function useDismissProposal() {
         throwOnError: true,
       });
     },
-    onSuccess: (_dismissed, { chatId }) =>
-      queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) }),
+    onSuccess: (_dismissed, { chatId }) => {
+      void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
+
+      return queryClient.invalidateQueries({ queryKey: chatKeys.one(chatId) });
+    },
   });
 }

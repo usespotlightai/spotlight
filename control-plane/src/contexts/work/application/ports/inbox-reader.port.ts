@@ -156,10 +156,25 @@ export interface InboxRunSummary {
   readonly reopenable: false;
 }
 
+export interface InboxChatSummary {
+  readonly kind: 'chat';
+  readonly id: string;
+  readonly teamId: string;
+  readonly title: string;
+  readonly progress: Progress | null;
+  readonly openProposals: number;
+  readonly askedAt: Date;
+  readonly unread: boolean;
+  readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
+}
+
 export type InboxEntrySummary =
   | InboxItemSummary
   | InboxNoticeSummary
-  | InboxRunSummary;
+  | InboxRunSummary
+  | InboxChatSummary;
 
 export const INBOX_READER = Symbol('INBOX_READER');
 

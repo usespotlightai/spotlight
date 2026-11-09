@@ -2,18 +2,26 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { patchInboxEntry } from '@/hooks/api/inboxEntryPatch';
 import { inboxKeys } from '@/hooks/api/useInbox';
 import {
+  resolveInboxChat,
   resolveInboxItem,
   resolveInboxNotice,
   resolveInboxRequest,
 } from '@/lib/api';
-import type { InboxItem, InboxNotice } from '@/lib/inbox';
+import type { ResolvableEntry } from '@/lib/inbox';
 
 type ResolveInboxEntryInput = {
   slug: string;
-  entry: InboxItem | InboxNotice;
+  entry: ResolvableEntry;
 };
 
 const resolving = ({ slug, entry }: ResolveInboxEntryInput) => {
+  if (entry.kind === 'chat') {
+    return resolveInboxChat({
+      path: { slug, chatId: entry.id },
+      throwOnError: true,
+    });
+  }
+
   if (entry.kind === 'notice') {
     return resolveInboxNotice({
       path: { slug, noticeId: entry.id },

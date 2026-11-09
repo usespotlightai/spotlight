@@ -13,6 +13,7 @@ type InboxRowFrameProps = {
   preview: string;
   badge?: ReactNode;
   action?: ReactNode;
+  onOpen?: () => void;
 };
 
 export function InboxRowFrame({
@@ -24,6 +25,7 @@ export function InboxRowFrame({
   preview,
   badge,
   action,
+  onOpen,
 }: InboxRowFrameProps) {
   const trail = useForwardTrail();
 
@@ -31,6 +33,7 @@ export function InboxRowFrame({
     <div className="group/row relative flex items-start gap-2 rounded-md px-2 py-2 transition-colors hover:bg-accent has-[a[aria-current=page]]:bg-accent has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring/50">
       <NavLink
         to={to}
+        onClick={onOpen}
         state={trail.length > 0 ? { trail } : undefined}
         className="flex min-w-0 flex-1 flex-col gap-0.5 outline-none after:absolute after:inset-0 after:rounded-md"
       >

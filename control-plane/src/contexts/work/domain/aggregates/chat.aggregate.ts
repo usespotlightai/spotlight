@@ -85,6 +85,8 @@ export class Chat extends EventRecorder {
     readonly session: HarnessSession | null,
     readonly claimedBy: RunnerId | null,
     readonly createdAt: Date,
+    readonly resolvedAt: Date | null,
+    readonly readAt: Date | null,
     readonly version: number,
   ) {
     super();
@@ -147,6 +149,8 @@ export class Chat extends EventRecorder {
       null,
       null,
       input.now,
+      null,
+      null,
       0,
     );
 
@@ -181,6 +185,8 @@ export class Chat extends EventRecorder {
     session: HarnessSession | null;
     claimedBy: RunnerId | null;
     createdAt: Date;
+    resolvedAt: Date | null;
+    readAt: Date | null;
     version: number;
   }): Chat {
     if (
@@ -197,6 +203,10 @@ export class Chat extends EventRecorder {
       Chat.distinct(input.repositories).length !== input.repositories.length
     ) {
       throw new InconsistentStateError('chat', 'names a repository twice');
+    }
+
+    if (input.resolvedAt && input.resolvedAt < input.createdAt) {
+      throw new InconsistentStateError('chat', 'was resolved before it began');
     }
 
     const setUpIn = input.setup?.repository ?? null;
@@ -226,6 +236,8 @@ export class Chat extends EventRecorder {
       input.session,
       input.claimedBy,
       input.createdAt,
+      input.resolvedAt,
+      input.readAt,
       input.version,
     );
   }
@@ -260,6 +272,35 @@ export class Chat extends EventRecorder {
 
   get running(): boolean {
     return this.currentRunId !== null;
+  }
+
+  get inboxRunning(): boolean {
+    return this.running || this.wantsFollowUp;
+  }
+
+  get unread(): boolean {
+    return this.messages.some(
+      (message) =>
+        message.author === null && (!this.readAt || message.at > this.readAt),
+    );
+  }
+
+  resolve(by: UserId, at: Date): Chat {
+    this.assertStarter(by);
+
+    return this.resolvedAt ? this : this.with({ resolvedAt: at, readAt: at });
+  }
+
+  reopen(by: UserId): Chat {
+    this.assertStarter(by);
+
+    return this.resolvedAt ? this.with({ resolvedAt: null }) : this;
+  }
+
+  markRead(by: UserId, at: Date): Chat {
+    this.assertStarter(by);
+
+    return this.with({ readAt: at });
   }
 
   hasCurrentRun(runId: RunId): boolean {
@@ -499,10 +540,9 @@ export class Chat extends EventRecorder {
       return { chat: this.runEndedWithoutSession(runId), followsUp: false };
     }
 
-    const recorded = this.endRun(runId).recordSession(
-      ending.session,
-      ending.claimedBy,
-    );
+    const recorded = this.endRun(runId)
+      .recordSession(ending.session, ending.claimedBy)
+      .with({ resolvedAt: null });
 
     return { chat: recorded, followsUp: recorded.wantsFollowUp };
   }
@@ -564,7 +604,10 @@ export class Chat extends EventRecorder {
       ...input,
       position: this.proposalPositionFor(input.runId),
     });
-    return this.with({ messages: [...this.messages, message] });
+    return this.with({
+      messages: [...this.messages, message],
+      resolvedAt: null,
+    });
   }
 
   proposalPositionFor(runId: RunId): MessagePosition {
@@ -612,9 +655,13 @@ export class Chat extends EventRecorder {
   }
 
   proposalBecame(position: MessagePosition, taskId: TaskId, at: Date): Chat {
-    return this.replaceProposal(
+    const created = this.replaceProposal(
       this.proposalAt(position).createdAs(taskId, at),
     );
+
+    return created.openProposals.length === 0
+      ? created.with({ resolvedAt: at, readAt: at })
+      : created;
   }
 
   recordAcceptanceFailure(position: MessagePosition): Chat {
@@ -691,6 +738,8 @@ export class Chat extends EventRecorder {
     session?: HarnessSession | null;
     claimedBy?: RunnerId | null;
     setup?: ConfigFolder | null;
+    resolvedAt?: Date | null;
+    readAt?: Date | null;
   }): Chat {
     const next = new Chat(
       this.id,
@@ -710,6 +759,8 @@ export class Chat extends EventRecorder {
       part.session !== undefined ? part.session : this.session,
       part.claimedBy !== undefined ? part.claimedBy : this.claimedBy,
       this.createdAt,
+      part.resolvedAt !== undefined ? part.resolvedAt : this.resolvedAt,
+      part.readAt !== undefined ? part.readAt : this.readAt,
       this.version,
     );
 

@@ -5,7 +5,7 @@ import {
   entryKey,
   type InboxEntry,
   type InboxItem,
-  type InboxNotice,
+  type ResolvableEntry,
 } from '@/lib/inbox';
 
 type EntryPatch = Pick<InboxItem, 'resolved' | 'section' | 'reopenable'> &
@@ -14,7 +14,7 @@ type EntryPatch = Pick<InboxItem, 'resolved' | 'section' | 'reopenable'> &
 export const patchInboxEntry = (
   queryClient: QueryClient,
   slug: string,
-  entry: InboxItem | InboxNotice,
+  entry: ResolvableEntry,
   patch: EntryPatch,
 ): (() => void) => {
   const key = entryKey(entry);
