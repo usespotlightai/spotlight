@@ -322,18 +322,19 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 	}
 
 	err := r.sandbox.Execute(running, run, session.Options{
-		Workspace:    r.cfg.Workspace,
-		Journal:      journal,
-		Log:          r.log,
-		AgentUser:    r.agentUser,
-		Author:       r.cfg.Author,
-		Mirrors:      os.Getenv("SPOTLIGHT_MIRRORS"),
-		ControlPlane: r.cfg.URL,
-		Token:        client.Token(),
-		Transport:    r.transport,
-		ProxyEnv:     r.proxyEnv,
-		Enforced:     r.enforced(),
-		Unready:      r.unready,
+		Workspace:      r.cfg.Workspace,
+		Journal:        journal,
+		Log:            r.log,
+		AgentUser:      r.agentUser,
+		Author:         r.cfg.Author,
+		Mirrors:        os.Getenv("SPOTLIGHT_MIRRORS"),
+		ControlPlane:   r.cfg.URL,
+		Token:          client.Token(),
+		Transport:      r.transport,
+		ProxyEnv:       r.proxyEnv,
+		Enforced:       r.enforced(),
+		Unready:        r.unready,
+		BackgroundWait: r.cfg.BackgroundWait,
 	})
 	if err == nil {
 		return

@@ -8,8 +8,13 @@ import type {
 import type { CalledStep } from '@runs/domain/services/tool-attribution';
 import { AgentTurns } from '@runs/domain/value-objects/agent-turns.vo';
 import {
+  AGENT_REMINDED,
   AGENT_STOPPED,
+  BACKGROUND_LOST,
+  BACKGROUND_SETTLED,
+  BACKGROUND_WAITING,
   EGRESS_CHECKED,
+  HARNESS_CONNECTED,
   HOOK_CALLED,
   PROVISION_FAILED,
   RUN_PAUSED,
@@ -20,7 +25,16 @@ import { Money } from '@runs/domain/value-objects/money.vo';
 import type { SpentReading } from '@runs/domain/value-objects/run-usage.vo';
 import type { StepKind } from '@runs/domain/value-objects/step-kind';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
+import {
+  backgroundWorkIn,
+  type WaitEnded,
+} from '@runs/infrastructure/acp/background-work';
 import { type Content, diffIn } from '@runs/infrastructure/acp/content';
+import {
+  type FrameReader,
+  frameReaderFor,
+  type HarnessNotification,
+} from '@runs/infrastructure/acp/frame-reader';
 import {
   callEndingOf,
   harnessToolOf,
@@ -51,25 +65,7 @@ const priced = (
     ? Money.maybe(cost.amount, cost.currency)
     : null;
 
-interface AcpNotification {
-  sessionId?: string;
-  update?: {
-    _meta?: { claudeCode?: { toolName?: unknown } };
-    sessionUpdate?: string;
-    toolCallId?: string;
-    title?: string;
-    status?: string;
-    kind?: string;
-    used?: number;
-    size?: number;
-    cost?: { amount?: number; currency?: string };
-    locations?: { path?: string; line?: number }[];
-    rawInput?: unknown;
-    rawOutput?: unknown;
-    entries?: { content?: string; priority?: string; status?: string }[];
-    content?: Content;
-  };
-}
+type AcpNotification = HarnessNotification;
 
 const unfenced = (text: string): string => {
   const lines = text.split('\n');
@@ -230,6 +226,69 @@ interface RefusedCall {
   readonly toolCallId?: unknown;
 }
 
+const WAIT_ENDS: Readonly<
+  Record<
+    WaitEnded,
+    { status: string; detail: (still: string) => string | null }
+  >
+> = {
+  settled: { status: 'completed', detail: () => null },
+  'handed-over': { status: 'completed', detail: () => null },
+  limit: {
+    status: 'completed',
+    detail: (still) => `Still running at the wait limit: ${still}`,
+  },
+  message: { status: 'completed', detail: () => 'A person sent a message.' },
+  stopped: { status: 'completed', detail: () => 'The run stopped waiting.' },
+  gone: { status: 'failed', detail: () => 'The agent stopped.' },
+};
+
+const tasksIn = (data: string | null): readonly string[] =>
+  backgroundWorkIn(data).tasks;
+
+const SUBAGENT_STATUSES: Readonly<Record<string, string>> = {
+  running: 'running',
+  requires_action: 'running',
+};
+
+const subagentStatusOf = (
+  state: NonNullable<AcpNotification['update']>['state'],
+): string | null => {
+  if (!state?.state) {
+    return null;
+  }
+  if (state.state !== 'idle') {
+    return SUBAGENT_STATUSES[state.state] ?? null;
+  }
+  return state.stopReason === 'error' || state.stopReason === 'cancelled'
+    ? 'failed'
+    : 'completed';
+};
+
+const blocksOf = (content: Content | undefined): string =>
+  Array.isArray(content)
+    ? content
+        .map((block) =>
+          typeof (block as { text?: unknown })?.text === 'string'
+            ? (block as { text: string }).text
+            : '',
+        )
+        .filter(Boolean)
+        .join('\n')
+        .trim()
+    : '';
+
+const transcriptOf = (steps: readonly JournalStep[]): string | null =>
+  steps
+    .flatMap((step) => {
+      if (step.kind === 'tool') {
+        return [`- ${step.text}`];
+      }
+      return step.kind === 'message' && step.text ? [step.text] : [];
+    })
+    .join('\n')
+    .slice(0, DETAIL_LIMIT) || null;
+
 export class JournalBuilder {
   #steps: Building[] = [];
   #hooks: JournalStep[] = [];
@@ -249,6 +308,9 @@ export class JournalBuilder {
   #agentStopped: Date | null = null;
   #closed: Date | null = null;
   #seen: Date | null = null;
+  #reader: FrameReader | null = frameReaderFor(null);
+  #subagents = new Map<string, { at: number; journal: JournalBuilder }>();
+  #waiting: Building | null = null;
 
   constructor(began: Date | null = null) {
     this.#opened = began;
@@ -289,6 +351,21 @@ export class JournalBuilder {
       case AGENT_STOPPED:
         this.#agentStopped = event.at;
         break;
+      case HARNESS_CONNECTED:
+        this.#reader = frameReaderFor(event.message);
+        break;
+      case AGENT_REMINDED:
+        this.reminded(event);
+        break;
+      case BACKGROUND_WAITING:
+        this.waited(event);
+        break;
+      case BACKGROUND_SETTLED:
+        this.settled(event);
+        break;
+      case BACKGROUND_LOST:
+        this.lost(event);
+        break;
       default:
         break;
     }
@@ -309,13 +386,13 @@ export class JournalBuilder {
   }
 
   private onNotification(data: string, at: Date): void {
-    let notification: AcpNotification;
-    try {
-      notification = JSON.parse(decoded(data)) as AcpNotification;
-    } catch {
-      return;
+    const notification = this.#reader?.read(data);
+    if (notification) {
+      this.notified(notification, at);
     }
+  }
 
+  private notified(notification: AcpNotification, at: Date): void {
     const update = notification.update;
     if (!update?.sessionUpdate) {
       return;
@@ -325,7 +402,26 @@ export class JournalBuilder {
     this.#last = at;
     this.#notifiedAt.push(at);
 
+    if (update.sessionUpdate === 'session_message') {
+      this.messaged(update);
+    }
+
+    const subagent = notification.sessionId
+      ? this.subagentOwning(notification.sessionId)
+      : undefined;
+    if (subagent) {
+      subagent.journal.notified(notification, at);
+      const step = this.#steps[subagent.at];
+      if (step) {
+        step.endedAt = at;
+      }
+      return;
+    }
+
     switch (update.sessionUpdate) {
+      case 'subagent_update':
+        this.subagent(update, at);
+        break;
       case 'agent_message_chunk':
         this.addText('message', textOf(update.content), at);
         break;
@@ -458,12 +554,16 @@ export class JournalBuilder {
         ({
           startedAt,
           endedAt,
-          id: _id,
+          id,
           named: _named,
           workingAt: _workingAt,
           ...step
         }) => ({
           ...step,
+          detail:
+            step.kind === 'subagent' && id !== null
+              ? transcriptOf(this.#subagents.get(id)?.journal.steps() ?? [])
+              : step.detail,
           ms: endedAt.getTime() - startedAt.getTime(),
           startedAt,
         }),
@@ -476,9 +576,14 @@ export class JournalBuilder {
 
     const turns = this.turns();
 
-    return this.#steps.flatMap((step) =>
-      step.kind === 'tool' ? [this.calledOf(step, turns)] : [],
-    );
+    return [
+      ...this.#steps.flatMap((step) =>
+        step.kind === 'tool' ? [this.calledOf(step, turns)] : [],
+      ),
+      ...[...this.#subagents.values()].flatMap(({ journal }) =>
+        journal.calls(),
+      ),
+    ];
   }
 
   private calledOf(step: Building, turns: AgentTurns | null): CalledStep {
@@ -535,7 +640,12 @@ export class JournalBuilder {
   }
 
   spentBySession(): ReadonlyMap<string, SpentReading> {
-    return this.#spentBySession;
+    return new Map([
+      ...this.#spentBySession,
+      ...[...this.#subagents.values()].flatMap(({ journal }) => [
+        ...journal.spentBySession(),
+      ]),
+    ]);
   }
 
   tokens(): Tokens {
@@ -650,6 +760,127 @@ export class JournalBuilder {
           ? step.endedAt
           : at,
     };
+  }
+
+  private owns(sessionId: string): boolean {
+    return this.subagentOwning(sessionId) !== undefined;
+  }
+
+  private subagentOwning(
+    sessionId: string,
+  ): { at: number; journal: JournalBuilder } | undefined {
+    return (
+      this.#subagents.get(sessionId) ??
+      [...this.#subagents.values()].find(({ journal }) =>
+        journal.owns(sessionId),
+      )
+    );
+  }
+
+  private subagent(
+    update: NonNullable<AcpNotification['update']>,
+    at: Date,
+  ): void {
+    const id = update.sessionId;
+    if (!id) {
+      return;
+    }
+
+    this.flushText();
+
+    const known = this.#subagents.get(id);
+    const step = known ? this.#steps[known.at] : undefined;
+    if (step) {
+      step.text = update.title ?? update.description ?? step.text;
+      step.status = subagentStatusOf(update.state) ?? step.status;
+      step.endedAt = at;
+      return;
+    }
+
+    const started = bare(
+      'subagent',
+      update.title ?? update.description ?? 'a subagent',
+      at,
+    );
+    started.id = id;
+    started.status = subagentStatusOf(update.state) ?? 'running';
+    this.#steps.push(started);
+    this.#subagents.set(id, {
+      at: this.#steps.length - 1,
+      journal: new JournalBuilder(at),
+    });
+  }
+
+  private messaged(update: NonNullable<AcpNotification['update']>): void {
+    const text = blocksOf(update.content);
+    if (!text) {
+      return;
+    }
+
+    const to = update.recipientSessionId
+      ? this.#subagents.get(update.recipientSessionId)
+      : undefined;
+    const from = update.senderSessionId
+      ? this.#subagents.get(update.senderSessionId)
+      : undefined;
+    const toStep = to ? this.#steps[to.at] : undefined;
+    const fromStep = from ? this.#steps[from.at] : undefined;
+
+    if (toStep && toStep.input === null) {
+      toStep.input = text.slice(0, DETAIL_LIMIT);
+    }
+    if (fromStep && !to) {
+      fromStep.output = text.slice(0, DETAIL_LIMIT);
+    }
+  }
+
+  private reminded(event: Journalled): void {
+    this.flushText();
+
+    const step = bare('reminded', 'the agent to hand over', event.at);
+    step.detail = event.message;
+    this.#steps.push(step);
+  }
+
+  private waited(event: Journalled): void {
+    const tasks = tasksIn(event.data);
+    if (tasks.length === 0) {
+      return;
+    }
+
+    this.flushText();
+
+    const step = bare('waited', tasks.join('; '), event.at);
+    step.status = 'running';
+    this.#steps.push(step);
+    this.#waiting = step;
+  }
+
+  private settled(event: Journalled): void {
+    const step = this.#waiting;
+    if (!step) {
+      return;
+    }
+
+    const { ended } = backgroundWorkIn(event.data);
+    const ending = ended ? WAIT_ENDS[ended] : null;
+    step.status = ending?.status ?? 'completed';
+    step.endedAt = event.at;
+    step.detail = ending?.detail(tasksIn(event.data).join('; ')) ?? null;
+    this.#waiting = null;
+  }
+
+  private lost(event: Journalled): void {
+    const tasks = tasksIn(event.data);
+    if (tasks.length === 0) {
+      return;
+    }
+
+    this.flushText();
+
+    const step = bare('lost', `${tasks.join('; ')} with the sandbox`, event.at);
+    step.status = 'failed';
+    this.#steps.push(step);
   }
 
   private flushText(): void {

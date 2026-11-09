@@ -1,6 +1,7 @@
 package acp
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
+	"time"
 
 	"usespotlight.ai/data-plane/runner/internal/account"
 )
@@ -20,8 +22,10 @@ type Client struct {
 	nextID  int
 	waiting map[int]chan response
 
-	answer   Permission
-	watching func(Update)
+	answer    Permission
+	watching  func(Update)
+	replaying bool
+	work      *workState
 
 	root    string
 	meta    json.RawMessage
@@ -76,14 +80,15 @@ const (
 type Permission func(ctx context.Context, asked Asked) Verdict
 
 type Options struct {
-	Executable string
-	Args       []string
-	Env        map[string]string
-	Root       string
-	RunAs      *account.User
-	Answer     Permission
-	Session    json.RawMessage
-	McpServers []McpServer
+	Executable  string
+	Args        []string
+	Env         map[string]string
+	Root        string
+	RunAs       *account.User
+	Answer      Permission
+	Session     json.RawMessage
+	McpServers  []McpServer
+	SettleQuiet time.Duration
 }
 
 func Start(ctx context.Context, opts Options) (*Client, error) {
@@ -123,6 +128,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		life:    life,
 		end:     end,
 		done:    make(chan struct{}),
+		work:    newWorkState(cmp.Or(opts.SettleQuiet, settleQuiet)),
 	}
 
 	go client.read(stdout)
@@ -163,10 +169,38 @@ func (c *Client) NewSession(ctx context.Context) (string, error) {
 }
 
 func (c *Client) Resume(ctx context.Context, sessionID string) error {
+	c.mu.Lock()
+	c.replaying = true
+	c.mu.Unlock()
+
+	defer func() {
+		c.mu.Lock()
+		c.replaying = false
+		c.mu.Unlock()
+	}()
+
 	return c.call(ctx, "session/load", c.opening(map[string]any{
 		"sessionId": sessionID,
 		"cwd":       c.root,
 	}), nil)
+}
+
+func (c *Client) Protocol() string {
+	return Protocol
+}
+
+func (c *Client) Watch(saw func(Update)) {
+	c.mu.Lock()
+	c.watching = saw
+	c.mu.Unlock()
+}
+
+func (c *Client) Settle(ctx context.Context) (Work, bool) {
+	return c.work.settle(ctx, c.done)
+}
+
+func (c *Client) Current() Work {
+	return c.work.now()
 }
 
 func (c *Client) SetConfigOption(ctx context.Context, sessionID, id, value string) error {
@@ -191,21 +225,8 @@ func (c *Client) opening(params map[string]any) map[string]any {
 	return params
 }
 
-func (c *Client) Prompt(
-	ctx context.Context,
-	sessionID string,
-	text string,
-	saw func(Update),
-) (Result, error) {
-	c.mu.Lock()
-	c.watching = saw
-	c.mu.Unlock()
-
-	defer func() {
-		c.mu.Lock()
-		c.watching = nil
-		c.mu.Unlock()
-	}()
+func (c *Client) Prompt(ctx context.Context, sessionID string, text string) (Result, error) {
+	c.work.touch()
 
 	var out Result
 	err := c.call(ctx, "session/prompt", map[string]any{

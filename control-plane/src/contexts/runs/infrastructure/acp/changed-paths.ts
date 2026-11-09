@@ -1,27 +1,35 @@
-import { type Content, diffIn } from '@runs/infrastructure/acp/content';
-import { decoded } from '@runs/infrastructure/journal/journalled';
-
-interface AcpNotification {
-  update?: {
-    sessionUpdate?: string;
-    toolCallId?: string;
-    content?: Content;
-  };
-}
+import { HARNESS_CONNECTED } from '@runs/domain/value-objects/journal-entry-type';
+import { diffIn } from '@runs/infrastructure/acp/content';
+import {
+  type FrameReader,
+  frameReaderFor,
+} from '@runs/infrastructure/acp/frame-reader';
+import type { Journalled } from '@runs/infrastructure/journal/journalled';
 
 export class ChangedPaths {
+  #reader: FrameReader | null = frameReaderFor(null);
+  #attempt: number | null = null;
   #calls = new Map<string, number>();
   #changes: (string | null)[] = [];
 
-  take(data: string): void {
-    let notification: AcpNotification;
-    try {
-      notification = JSON.parse(decoded(data)) as AcpNotification;
-    } catch {
+  take(
+    event: Pick<Journalled, 'type' | 'message' | 'data'> & {
+      readonly attempt: number;
+    },
+  ): void {
+    if (event.attempt !== this.#attempt) {
+      this.#attempt = event.attempt;
+      this.#reader = frameReaderFor(null);
+    }
+    if (event.type === HARNESS_CONNECTED) {
+      this.#reader = frameReaderFor(event.message);
+      return;
+    }
+    if (event.type !== 'output' || event.message || !event.data) {
       return;
     }
 
-    const update = notification?.update;
+    const update = this.#reader?.read(event.data)?.update;
     const id = update?.toolCallId;
 
     if (!id) {

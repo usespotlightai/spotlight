@@ -4,8 +4,11 @@ import "encoding/json"
 
 const Version = 1
 
+const Protocol = "acp/1"
+
 type Capabilities struct {
-	Fs FsCapabilities `json:"fs"`
+	Fs        FsCapabilities `json:"fs"`
+	Subagents struct{}       `json:"subagents"`
 }
 
 type FsCapabilities struct {

@@ -67,20 +67,22 @@ const (
 )
 
 type Options struct {
-	Workspace    string
-	Journal      Journal
-	Log          *slog.Logger
-	AgentUser    *account.User
-	Author       prepare.Author
-	Mirrors      string
-	ControlPlane string
-	Token        string
-	SetupTimeout time.Duration
-	Heartbeat    time.Duration
-	Transport    http.RoundTripper
-	ProxyEnv     map[string]string
-	Enforced     func(ctx context.Context) bool
-	Unready      error
+	Workspace      string
+	Journal        Journal
+	Log            *slog.Logger
+	AgentUser      *account.User
+	Author         prepare.Author
+	Mirrors        string
+	ControlPlane   string
+	Token          string
+	SetupTimeout   time.Duration
+	Heartbeat      time.Duration
+	Transport      http.RoundTripper
+	ProxyEnv       map[string]string
+	Enforced       func(ctx context.Context) bool
+	Unready        error
+	BackgroundWait time.Duration
+	SettleQuiet    time.Duration
 }
 
 type Sandbox struct {
@@ -325,14 +327,15 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	maps.Copy(env, opts.ProxyEnv)
 
 	harness, err := acp.Start(ctx, acp.Options{
-		Executable: run.Spec.Command.Executable,
-		Args:       run.Spec.Command.Args,
-		Env:        env,
-		Root:       cwd,
-		RunAs:      opts.AgentUser,
-		Answer:     answerPermissions(run, opts.Journal, journal, &escalated, log),
-		Session:    run.Spec.HarnessSetup.Session,
-		McpServers: serversOf(run.Spec.HarnessSetup.McpServers),
+		Executable:  run.Spec.Command.Executable,
+		Args:        run.Spec.Command.Args,
+		Env:         env,
+		Root:        cwd,
+		RunAs:       opts.AgentUser,
+		Answer:      answerPermissions(run, opts.Journal, journal, &escalated, log),
+		Session:     run.Spec.HarnessSetup.Session,
+		McpServers:  serversOf(run.Spec.HarnessSetup.McpServers),
+		SettleQuiet: opts.SettleQuiet,
 	})
 	if err != nil {
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("start agent: %w", err))
@@ -361,7 +364,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 
 	talk := &conversation{
 		run:       run,
-		harness:   harness,
+		harness:   overACP(harness),
 		sessionID: sessionID,
 		joined:    joined,
 		unready:   unready,
@@ -381,9 +384,17 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		escalated: &escalated,
 		handOver:  handingOver(opts, run, space.Dir, bases, log),
 		heartbeat: opts.heartbeat(),
-		log:       log,
-		stopped:   make(chan struct{}),
+		waitLimit: opts.BackgroundWait,
+		keepLost: func(tasks []workspace.LostTask) {
+			if err := space.KeepLostBackground(tasks); err != nil {
+				log.Warn("could not keep the list of background tasks that stopped", "error", err)
+			}
+		},
+		lost:    space.TakeLostBackground(),
+		log:     log,
+		stopped: make(chan struct{}),
 	}
+	journal.record(ctx, protocol.Event{Type: protocol.EventHarnessConnected, Message: harness.Protocol()})
 
 	stopLeasing()
 	err = talk.work(ctx, talk.opening(ctx))

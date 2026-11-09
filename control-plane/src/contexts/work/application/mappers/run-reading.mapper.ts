@@ -44,6 +44,10 @@ const STEP_KINDS: Record<JournalStep['kind'], StepKind> = {
   tool: 'tool',
   planned: 'planned',
   hook: 'hook',
+  subagent: 'subagent',
+  waited: 'waited',
+  lost: 'lost',
+  reminded: 'reminded',
 };
 
 export const RunReadingMapper = {

@@ -2160,7 +2160,7 @@ export type StepChangeResponseDto = {
 };
 
 export type JournalStepResponseDto = {
-  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook';
+  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook' | 'subagent' | 'waited' | 'lost' | 'reminded';
   text: string;
   status: string | null;
   /**

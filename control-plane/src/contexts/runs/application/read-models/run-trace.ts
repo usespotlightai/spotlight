@@ -64,12 +64,19 @@ const at = (when: Date): number => when.getTime();
 const ending = (from: Date, ms: number): Date =>
   new Date(at(from) + Math.max(ms, 0));
 
+const OVERHEAD_KINDS: ReadonlySet<JournalStep['kind']> = new Set([
+  'hook',
+  'planned',
+  'waited',
+  'reminded',
+]);
+
 const categoryOf = (step: JournalStep): Category => {
   if (faulted(step.status)) {
     return 'failed';
   }
 
-  return step.kind === 'hook' || step.kind === 'planned' ? 'overhead' : 'agent';
+  return OVERHEAD_KINDS.has(step.kind) ? 'overhead' : 'agent';
 };
 
 const named = (step: JournalStep): string => {

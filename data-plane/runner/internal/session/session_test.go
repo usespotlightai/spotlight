@@ -1,6 +1,7 @@
 package session_test
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -405,6 +406,9 @@ type runOptions struct {
 	proxyEnv    map[string]string
 	enforced    func(context.Context) bool
 	stopOnce    string
+	wait        time.Duration
+	quiet       time.Duration
+	log         *slog.Logger
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -456,13 +460,15 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			Checkouts:     settings.checkouts,
 		},
 	}, session.Options{
-		Workspace: settings.root,
-		Journal:   written,
-		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
-		AgentUser: settings.agentUser,
-		Heartbeat: settings.heartbeat,
-		ProxyEnv:  settings.proxyEnv,
-		Enforced:  settings.enforced,
+		Workspace:      settings.root,
+		Journal:        written,
+		Log:            cmp.Or(settings.log, slog.New(slog.NewTextHandler(io.Discard, nil))),
+		AgentUser:      settings.agentUser,
+		Heartbeat:      settings.heartbeat,
+		ProxyEnv:       settings.proxyEnv,
+		Enforced:       settings.enforced,
+		BackgroundWait: settings.wait,
+		SettleQuiet:    settings.quiet,
 	})
 	if err != nil && settings.stopOnce == "" {
 		t.Fatalf("execute: %v", err)
@@ -1512,4 +1518,320 @@ func TestAnAgentThatCannotStartIsNoFailureOfPreparation(t *testing.T) {
 
 func stoppedAgent(event protocol.Event) bool {
 	return event.Type == protocol.EventAgentStopped
+}
+
+const promptText = `const prompt = msg.params.prompt.map((block) => block.text).join("");`
+
+func handingOverWhen(condition string) string {
+	return promptText + ` if (` + condition + `) { execSync(` + "`" + `node -e '
+      fetch(process.env.SPOTLIGHT_AGENT_API_URL, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
+        body: JSON.stringify({ next: "review", note: "done" }),
+      }).then(() => process.exit(0));
+    '` + "`" + `); } output = "[" + prompt + "]";`
+}
+
+func prompts(t *testing.T, written *journal) []string {
+	t.Helper()
+
+	var said strings.Builder
+	for _, event := range written.typed(protocol.EventOutput) {
+		var update struct {
+			Update struct {
+				SessionUpdate string `json:"sessionUpdate"`
+				Content       struct {
+					Text string `json:"text"`
+				} `json:"content"`
+			} `json:"update"`
+		}
+		if json.Unmarshal(event.Data, &update) == nil && update.Update.SessionUpdate == "agent_message_chunk" {
+			said.WriteString(update.Update.Content.Text)
+		}
+	}
+
+	output := said.String()
+	if !strings.HasPrefix(output, "[") || !strings.HasSuffix(output, "]") {
+		t.Fatalf("the agent wrote %q", output)
+	}
+	return strings.Split(output[1:len(output)-1], "][")
+}
+
+func TestATurnThatEndsWithoutAHandoverIsAskedOnceForOne(t *testing.T) {
+	written := run(t, harness(t, handingOverWhen("false"), "end_turn"), func(o *runOptions) {
+		o.briefing = "do the work"
+		o.handover = []string{"code-review", "review"}
+	})
+
+	got := prompts(t, written)
+	if len(got) != 2 || got[0] != "do the work" || !strings.Contains(got[1], "without a handover") {
+		t.Fatalf("the agent got %q", got)
+	}
+	if written.done == nil || written.done.Handover != nil {
+		t.Errorf("completion %+v", written.done)
+	}
+}
+
+func TestAHandoverMadeAfterTheReminderGoesIntoTheCompletion(t *testing.T) {
+	written := run(t, harness(t, handingOverWhen(`prompt.includes("without a handover")`), "end_turn"),
+		func(o *runOptions) {
+			o.briefing = "do the work"
+			o.handover = []string{"code-review", "review"}
+		})
+
+	if got := prompts(t, written); len(got) != 2 {
+		t.Fatalf("the agent got %q", got)
+	}
+	if handover := written.done.Handover; handover == nil || handover.Next != "review" {
+		t.Fatalf("handover %+v", handover)
+	}
+}
+
+func TestATurnThatHandsOverIsNotReminded(t *testing.T) {
+	written := run(t, harness(t, handingOverWhen("true"), "end_turn"), func(o *runOptions) {
+		o.briefing = "do the work"
+		o.handover = []string{"code-review", "review"}
+	})
+
+	if got := prompts(t, written); len(got) != 1 {
+		t.Fatalf("the agent got %q", got)
+	}
+	if handover := written.done.Handover; handover == nil || handover.Next != "review" {
+		t.Fatalf("handover %+v", handover)
+	}
+}
+
+func TestARunWithNowhereToHandOverIsNotReminded(t *testing.T) {
+	written := run(t, harness(t, handingOverWhen("false"), "end_turn"),
+		func(o *runOptions) { o.briefing = "chat with me" })
+
+	if got := prompts(t, written); len(got) != 1 {
+		t.Fatalf("the agent got %q", got)
+	}
+}
+
+func TestAPersonsMessageGetsItsOwnReminder(t *testing.T) {
+	written := run(t, harness(t, handingOverWhen("false"), "end_turn"), func(o *runOptions) {
+		o.briefing = "do the work"
+		o.handover = []string{"code-review", "review"}
+		o.messages = [][]protocol.Message{nil, {{Position: 1, Body: "one more thing"}}}
+	})
+
+	got := prompts(t, written)
+	if len(got) != 4 || got[2] != "one more thing" || !strings.Contains(got[3], "without a handover") {
+		t.Fatalf("the agent got %q", got)
+	}
+}
+
+func TestTheReminderIsInTheJournal(t *testing.T) {
+	written := run(t, harness(t, handingOverWhen("false"), "end_turn"),
+		func(o *runOptions) { o.handover = []string{"review"} })
+
+	reminded := written.typed(protocol.EventAgentReminded)
+	if len(reminded) != 1 || !strings.Contains(reminded[0].Message, "without a handover") {
+		t.Fatalf("reminded %+v", reminded)
+	}
+}
+
+func backgrounding(t *testing.T, finish string) string {
+	t.Helper()
+
+	script := `#!/usr/bin/env node
+const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
+const frame = (message) => send({ jsonrpc: "2.0", method: "_claude/sdkMessage",
+  params: { sessionId: "session_opened", message: { type: "system", ...message } } });
+const state = (value) => frame({ subtype: "session_state_changed", state: value });
+const tasks = (list) => frame({ subtype: "background_tasks_changed", tasks: list });
+const say = (text) => send({ jsonrpc: "2.0", method: "session/update",
+  params: { sessionId: "session_opened", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text } } } });
+const handOver = () => fetch(process.env.SPOTLIGHT_AGENT_API_URL, {
+  method: "POST",
+  headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
+  body: JSON.stringify({ next: "review", note: "tests passed" }),
+});
+let buffered = "";
+process.stdin.on("data", (chunk) => {
+  buffered += chunk.toString();
+  const lines = buffered.split("\n");
+  buffered = lines.pop();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const msg = JSON.parse(line);
+    if (msg.method === "initialize") send({ jsonrpc: "2.0", id: msg.id, result: { protocolVersion: 1 } });
+    if (msg.method === "session/new") send({ jsonrpc: "2.0", id: msg.id, result: { sessionId: "session_opened" } });
+    if (msg.method !== "session/prompt") continue;
+    const prompt = msg.params.prompt.map((block) => block.text).join("");
+    state("running");
+    if (!prompt.includes("do the work")) {
+      say("[" + prompt + "]");
+      send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
+      state("idle");
+      continue;
+    }
+    tasks([{ task_id: "t1", task_type: "local_bash", description: "npx vitest run" },
+           { task_id: "t2", task_type: "dream", description: "housekeeping", ambient: true }]);
+    say("started the tests");
+    send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
+    state("idle");
+    if ("` + finish + `" === "dies") setTimeout(() => process.exit(0), 100);
+    if ("` + finish + `" === "wakes") {
+      setTimeout(async () => {
+        tasks([]);
+        state("running");
+        say("the tests passed");
+        await handOver();
+        state("idle");
+      }, 300);
+    }
+  }
+});
+`
+
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "harness")
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func backgroundOptions(o *runOptions) {
+	o.briefing = "do the work"
+	o.handover = []string{"code-review", "review"}
+	o.wait = 3 * time.Second
+	o.quiet = 100 * time.Millisecond
+	o.heartbeat = 50 * time.Millisecond
+}
+
+func said(t *testing.T, written *journal) string {
+	t.Helper()
+
+	var all strings.Builder
+	for _, event := range written.typed(protocol.EventOutput) {
+		var update struct {
+			Update struct {
+				SessionUpdate string `json:"sessionUpdate"`
+				Content       struct {
+					Text string `json:"text"`
+				} `json:"content"`
+			} `json:"update"`
+		}
+		if json.Unmarshal(event.Data, &update) == nil && update.Update.SessionUpdate == "agent_message_chunk" {
+			all.WriteString(update.Update.Content.Text + "|")
+		}
+	}
+	return all.String()
+}
+
+func TestTheRunWaitsForBackgroundWorkThatWakesTheAgent(t *testing.T) {
+	written := run(t, backgrounding(t, "wakes"), backgroundOptions)
+
+	if got := said(t, written); got != "started the tests|the tests passed|" {
+		t.Fatalf("the agent said %q", got)
+	}
+	if handover := written.done.Handover; handover == nil || handover.Note != "tests passed" {
+		t.Fatalf("handover %+v", handover)
+	}
+	waiting := written.typed(protocol.EventBackgroundWait)
+	if len(waiting) != 1 || !strings.Contains(string(waiting[0].Data), "npx vitest run") ||
+		strings.Contains(string(waiting[0].Data), "housekeeping") {
+		t.Errorf("waiting %+v", waiting)
+	}
+	if settled := written.typed(protocol.EventBackgroundDone); len(settled) != 1 {
+		t.Errorf("settled %+v", settled)
+	}
+	if lost := written.typed(protocol.EventBackgroundLost); len(lost) != 0 {
+		t.Errorf("lost %+v", lost)
+	}
+}
+
+func TestBackgroundWorkStillRunningAtTheLimitIsNamedInTheReminder(t *testing.T) {
+	written := run(t, backgrounding(t, "never"), func(o *runOptions) {
+		backgroundOptions(o)
+		o.wait = 300 * time.Millisecond
+	})
+
+	got := said(t, written)
+	if !strings.Contains(got, "These background tasks still run: npx vitest run.") || strings.Contains(got, "housekeeping") {
+		t.Fatalf("the agent said %q", got)
+	}
+	if written.done == nil || written.done.Handover != nil {
+		t.Errorf("completion %+v", written.done)
+	}
+	if lost := written.typed(protocol.EventBackgroundLost); len(lost) != 1 {
+		t.Errorf("lost %+v", lost)
+	}
+}
+
+func TestTheNextRunHearsWhichBackgroundTasksStopped(t *testing.T) {
+	sandbox := new(session.Sandbox)
+	root := t.TempDir()
+
+	run(t, backgrounding(t, "never"), func(o *runOptions) {
+		backgroundOptions(o)
+		o.wait = 200 * time.Millisecond
+		o.sandbox, o.root = sandbox, root
+	})
+	written := run(t, backgrounding(t, "never"), func(o *runOptions) {
+		o.briefing = "next station"
+		o.sandbox, o.root = sandbox, root
+	})
+
+	if got := said(t, written); !strings.Contains(got, "These background tasks stopped when your last sandbox stopped: npx vitest run.") {
+		t.Fatalf("the agent said %q", got)
+	}
+	third := run(t, backgrounding(t, "never"), func(o *runOptions) {
+		o.briefing = "after that"
+		o.sandbox, o.root = sandbox, root
+	})
+	if got := said(t, third); strings.Contains(got, "stopped when your last sandbox stopped") {
+		t.Errorf("the note came twice: %q", got)
+	}
+}
+
+func TestAPersonsMessageDuringTheWaitGoesToTheAgent(t *testing.T) {
+	written := run(t, backgrounding(t, "never"), func(o *runOptions) {
+		backgroundOptions(o)
+		o.wait = time.Second
+		o.messages = [][]protocol.Message{nil, nil, nil, {{Position: 1, Body: "stop waiting"}}}
+	})
+
+	got := said(t, written)
+	if !strings.HasPrefix(got, "started the tests|[stop waiting]|[Your turn ended without a handover.") {
+		t.Fatalf("the agent said %q", got)
+	}
+	if strings.Count(got, "without a handover") != 1 {
+		t.Errorf("reminded more than once: %q", got)
+	}
+}
+
+func TestTheProtocolOfTheHarnessIsJournalled(t *testing.T) {
+	written := run(t, harness(t, `output = "worked";`, "end_turn"))
+
+	connected := written.typed(protocol.EventHarnessConnected)
+	if len(connected) != 1 || connected[0].Message != "acp/1" {
+		t.Fatalf("connected %+v", connected)
+	}
+}
+
+func TestAnAgentThatStopsDuringTheWaitFailsTheRunAtOnce(t *testing.T) {
+	began := time.Now()
+	written := run(t, backgrounding(t, "dies"), func(o *runOptions) {
+		backgroundOptions(o)
+		o.wait = time.Minute
+	})
+
+	if took := time.Since(began); took > 20*time.Second {
+		t.Errorf("the run waited %s for an agent that had stopped", took)
+	}
+	if written.done == nil || !written.done.Failed {
+		t.Fatalf("completion %+v", written.done)
+	}
+	settled := written.typed(protocol.EventBackgroundDone)
+	if len(settled) != 1 || !strings.Contains(string(settled[0].Data), `"ended":"gone"`) {
+		t.Errorf("settled %+v", settled)
+	}
 }

@@ -17,6 +17,17 @@ const KIND_VERBS = new Map<JournalStep['kind'], string>([
   ['thought', 'Thought'],
   ['planned', 'Planned'],
   ['hook', 'Ran'],
+  ['subagent', 'Delegated'],
+  ['waited', 'Waited for'],
+  ['lost', 'Stopped'],
+  ['reminded', 'Reminded'],
+]);
+
+const PROSE_KINDS = new Set<JournalStep['kind']>([
+  'thought',
+  'planned',
+  'subagent',
+  'reminded',
 ]);
 
 const verbFor = (step: JournalStep): string =>
@@ -31,7 +42,19 @@ export interface ShownStep {
   readonly terminal: boolean;
 }
 
+const delegatedOf = (step: JournalStep): string | null =>
+  [
+    step.input && `Asked: ${step.input}`,
+    step.detail,
+    step.output && `Answered: ${step.output}`,
+  ]
+    .filter(Boolean)
+    .join('\n\n') || null;
+
 const bodyOf = (step: JournalStep, detail: string): string | null => {
+  if (step.kind === 'subagent') {
+    return delegatedOf(step);
+  }
   if (step.kind !== 'thought') {
     return step.detail;
   }
@@ -40,7 +63,7 @@ const bodyOf = (step: JournalStep, detail: string): string | null => {
 };
 
 export const shownStep = (step: JournalStep): ShownStep => {
-  const prose = step.kind === 'thought' || step.kind === 'planned';
+  const prose = PROSE_KINDS.has(step.kind);
   const detail = prose ? (step.text.split('\n')[0] ?? '') : step.text;
   const keyword = verbFor(step);
 

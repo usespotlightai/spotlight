@@ -112,6 +112,10 @@ describe('one harness profile, told to each harness in its own terms', () => {
       });
       expect(setup.session).toEqual({
         claudeCode: {
+          emitRawSDKMessages: [
+            { type: 'system', subtype: 'session_state_changed' },
+            { type: 'system', subtype: 'background_tasks_changed' },
+          ],
           options: {
             managedSettings: {
               permissions: {
