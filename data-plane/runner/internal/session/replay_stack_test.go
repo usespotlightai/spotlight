@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/gitproxy"
@@ -179,5 +180,37 @@ func TestATaskRunHandsOverItsChangeBeforeItsTurnIsReported(t *testing.T) {
 	}
 	if len(written.generated) != 1 || !strings.Contains(written.generated[0].diff, "+drain()") {
 		t.Errorf("generated %+v, want the run's change", written.generated)
+	}
+}
+
+func TestAStoppedTaskRunHandsOverNoChange(t *testing.T) {
+	served := servingGit(t, "run_1")
+	written := &journal{stopAfter: 1}
+
+	err := session.Execute(context.Background(), protocol.Run{
+		ID: "run_1",
+		Spec: protocol.Spec{
+			Command:   protocol.Command{Executable: stallingAfter(t, `require("node:fs").writeFileSync("api/queue.js", "drain()\n");`)},
+			Resume:    protocol.Resume{Key: "task-1"},
+			Checkouts: []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
+			Diffs:     true,
+		},
+	}, session.Options{
+		Workspace:    t.TempDir(),
+		Journal:      written,
+		Log:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+		ControlPlane: served.url,
+		Token:        "runner-token",
+		Heartbeat:    20 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	if written.done == nil || !written.done.Stopped {
+		t.Fatalf("completed %+v, want a stopped run", written.done)
+	}
+	if len(written.generated) != 0 {
+		t.Errorf("generated %d stacks for a stopped run", len(written.generated))
 	}
 }
