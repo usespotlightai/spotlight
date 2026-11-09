@@ -135,15 +135,20 @@ func writeHistory(dir string, history protocol.History) error {
 			return fmt.Errorf("Spotlight named two candidates %q", candidate.CandidateName)
 		}
 		named[folded] = true
-		replayed := map[string]bool{}
+		type repeated struct {
+			original string
+			repeat   int
+		}
+		replayed := map[repeated]bool{}
 		for _, run := range candidate.Runs {
 			if !protocol.OneSegment(run.Original) {
 				return fmt.Errorf("Spotlight named a replayed run %q", run.Original)
 			}
-			if replayed[run.Original] {
-				return fmt.Errorf("Spotlight named run %q twice among candidate %s's replays", run.Original, candidate.CandidateName)
+			at := repeated{run.Original, run.Repeat}
+			if replayed[at] {
+				return fmt.Errorf("Spotlight named run %q repeat %d twice among candidate %s's replays", run.Original, run.Repeat, candidate.CandidateName)
 			}
-			replayed[run.Original] = true
+			replayed[at] = true
 		}
 	}
 
