@@ -150,7 +150,7 @@ func TestAReplayHandsOverItsChangeBeforeItEndsFromABaseItsCheckCanFetch(t *testi
 	}
 }
 
-func TestATaskRunStillHandsOverItsChangeAfterItsTurnIsReported(t *testing.T) {
+func TestATaskRunHandsOverItsChangeBeforeItsTurnIsReported(t *testing.T) {
 	served := servingGit(t, "run_1")
 	written := &journal{}
 
@@ -174,7 +174,10 @@ func TestATaskRunStillHandsOverItsChangeAfterItsTurnIsReported(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	if got := strings.Join(written.calls, ","); !strings.HasSuffix(got, "complete,generate") {
-		t.Errorf("called %s, want the stack generated after the turn was reported", got)
+	if got := strings.Join(written.calls, ","); !strings.HasSuffix(got, "generate,complete") {
+		t.Errorf("called %s, want the stack generated while the runner still holds the run", got)
+	}
+	if len(written.generated) != 1 || !strings.Contains(written.generated[0].diff, "+drain()") {
+		t.Errorf("generated %+v, want the run's change", written.generated)
 	}
 }

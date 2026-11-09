@@ -404,22 +404,16 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	}
 
 	lifecycle.note(AgentExited, log)
-	if !replays(run) {
-		opts.generateStacks(ctx, run, space.Dir, bases, log)
-	}
 	lifecycle.note(Drained, log)
 
 	log.Info("run finished", "state", lifecycle.state)
 	return nil
 }
 
+// The change stack is posted before the turn is reported: reporting the turn ends the runner's claim on the run.
 func handingOver(
 	opts Options, run protocol.Run, dir string, bases map[string]string, log *slog.Logger,
 ) func(context.Context) {
-	if !replays(run) {
-		return nil
-	}
-
 	return func(ctx context.Context) {
 		opts.generateStacks(ctx, run, dir, bases, log)
 	}
