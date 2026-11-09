@@ -840,27 +840,29 @@ describe('Chat', () => {
       expect(ended(working()).inboxRunning).toBe(false);
     });
 
-    it('is unread until the person reads the proposal the agent made', () => {
-      expect(started().unread).toBe(false);
-      expect(proposing().unread).toBe(true);
-      expect(proposing().markRead(LEON, LATER).unread).toBe(false);
+    it('saves a read marker only when a message is newer than the last one', () => {
+      const read = proposing().markRead(LEON, LATER);
+
+      expect(read.readAt).toEqual(LATER);
+      expect(read.markRead(LEON, new Date('2026-09-15T10:00:00.000Z'))).toBe(
+        read,
+      );
     });
 
-    it('becomes unread again for a proposal made after it was read', () => {
+    it('moves the read marker forward for a proposal made after it', () => {
       const read = working().markRead(LEON, NOW);
+      const proposed = read.propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off exponentially'),
+        description: null,
+        at: LATER,
+      });
 
-      expect(
-        read.propose({
-          runId: RunId.of('run_1'),
-          placement: ProposalPlacement.of({
-            lineId: LineId.of('line_1'),
-            stationId: StationId.of('station_1'),
-          }),
-          title: TaskTitle.of('Back off exponentially'),
-          description: null,
-          at: LATER,
-        }).unread,
-      ).toBe(true);
+      expect(proposed.markRead(LEON, LATER).readAt).toEqual(LATER);
     });
 
     it('resolves and reopens by hand, only for the person who started it', () => {
@@ -886,7 +888,7 @@ describe('Chat', () => {
       const created = accepted(proposing());
 
       expect(created.resolvedAt).toEqual(LATER);
-      expect(created.unread).toBe(false);
+      expect(created.readAt).toEqual(LATER);
     });
 
     it('stays open while another proposal waits', () => {

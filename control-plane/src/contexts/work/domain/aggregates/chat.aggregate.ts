@@ -278,13 +278,6 @@ export class Chat extends EventRecorder {
     return this.running || this.wantsFollowUp;
   }
 
-  get unread(): boolean {
-    return this.messages.some(
-      (message) =>
-        message.author === null && (!this.readAt || message.at > this.readAt),
-    );
-  }
-
   resolve(by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
@@ -300,7 +293,11 @@ export class Chat extends EventRecorder {
   markRead(by: UserId, at: Date): Chat {
     this.assertStarter(by);
 
-    return this.with({ readAt: at });
+    const readAt = this.readAt;
+    const stale =
+      readAt === null || this.messages.some((message) => message.at > readAt);
+
+    return stale ? this.with({ readAt: at }) : this;
   }
 
   hasCurrentRun(runId: RunId): boolean {

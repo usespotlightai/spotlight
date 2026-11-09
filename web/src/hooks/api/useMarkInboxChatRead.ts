@@ -11,6 +11,8 @@ export function useMarkInboxChatRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    retry: 1,
+
     mutationFn: async ({ slug, chatId }: MarkInboxChatReadInput) => {
       await markInboxChatRead({ path: { slug, chatId }, throwOnError: true });
     },
