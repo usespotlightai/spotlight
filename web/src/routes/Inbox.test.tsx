@@ -123,6 +123,7 @@ const tree = (path: string) => (
     <Routes>
       <Route path="/w/:slug/inbox" element={<Inbox />}>
         <Route path=":itemId" element={<p>the conversation</p>} />
+        <Route path="teams/:teamId/chats/:chatId" element={<p>the chat</p>} />
       </Route>
     </Routes>
   </MemoryRouter>
@@ -144,13 +145,13 @@ describe('Inbox', () => {
   });
 
   describe('chats', () => {
-    it('lists a chat that waits for its starter under Open, linking to the chat', () => {
+    it('lists a chat that waits for its starter under Open, linking to it in the inbox', () => {
       waiting.mockReturnValue([chat({ openProposals: 2, unread: true })]);
       renderAt('/w/acme/inbox');
 
       expect(
         screen.getByRole('link', { name: /Why do retries pile up\?/ }),
-      ).toHaveAttribute('href', '/w/acme/team/team_1/agent/chat_1');
+      ).toHaveAttribute('href', '/w/acme/inbox/teams/team_1/chats/chat_1');
       expect(
         screen.getByText('2 task proposals waiting for you.'),
       ).toBeVisible();
@@ -191,6 +192,19 @@ describe('Inbox', () => {
         slug: 'acme',
         chatId: 'chat_1',
       });
+    });
+
+    it('opens a chat beside the list', async () => {
+      waiting.mockReturnValue([chat()]);
+      renderAt('/w/acme/inbox');
+
+      const row = screen.getByRole('link', {
+        name: /Why do retries pile up\?/,
+      });
+      await userEvent.click(row);
+
+      expect(screen.getByText('the chat')).toBeVisible();
+      expect(row).toHaveAttribute('aria-current', 'page');
     });
 
     it('resolves and unresolves a chat by hand', async () => {
