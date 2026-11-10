@@ -50,6 +50,13 @@ const concludedEvent = (replay: Replay) =>
     runOf(replay.id.value, 0),
   );
 
+const concludedOwn = async () =>
+  pairing().concluded(
+    concludedEvent(
+      (await memory.replayRepository.find(ReplayId.of('replay_1'))) as Replay,
+    ),
+  );
+
 beforeEach(async () => {
   memory = new InMemoryReplays();
   insights = new FakeInsights();
@@ -122,7 +129,7 @@ describe('PairReplayEntries', () => {
   it('requests a side-by-side judging only for tasks people accepted a change for', async () => {
     insights.accepted.delete('original_1');
 
-    await pairing().paired(ReplayId.of('replay_1'));
+    await concludedOwn();
 
     const wanted = memory.events.filter(
       (each): each is ReplaySideBySideJudgingRequested =>
@@ -136,7 +143,7 @@ describe('PairReplayEntries', () => {
   it('requests nothing for a replay with no baseline to be set beside', async () => {
     memory.replays.delete('baseline_1');
 
-    await pairing().paired(ReplayId.of('replay_1'));
+    await concludedOwn();
 
     expect(memory.events).toEqual([]);
   });
@@ -144,7 +151,7 @@ describe('PairReplayEntries', () => {
 
 describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
   const wanted = async () => {
-    await pairing().paired(ReplayId.of('replay_1'));
+    await concludedOwn();
 
     return memory.events.find(
       (each): each is ReplaySideBySideJudgingRequested =>

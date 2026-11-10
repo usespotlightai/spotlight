@@ -887,7 +887,6 @@ export const sideBySideJudging = pgTable(
     claims: jsonb('claims').$type<string[]>().notNull(),
     passThreshold: doublePrecision('pass_threshold').notNull(),
     referenceRunId: text('reference_run_id').notNull(),
-    maxAttempts: integer('most_attempts').notNull(),
     shownOrder: pairOrder('shown_order').notNull(),
     queuedAt: timestamptz('queued_at').notNull(),
     pending: boolean('pending').notNull(),

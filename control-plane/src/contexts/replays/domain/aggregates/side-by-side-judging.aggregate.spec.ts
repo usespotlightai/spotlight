@@ -17,7 +17,7 @@ const RUN = RunId.of('replay_1');
 
 const AGAINST = RunId.of('replay_2');
 
-const queued = (maxAttempts = 2) =>
+const queued = () =>
   SideBySideJudging.requested({
     runId: RUN,
     otherRunId: AGAINST,
@@ -25,7 +25,6 @@ const queued = (maxAttempts = 2) =>
     teamId: TeamId.of('team_1'),
     criteria: JudgeCriteria.of({ rubric: null, claims: ['It drains.'] }),
     reference: RunId.of('original_1'),
-    maxAttempts,
     now: NOW,
   });
 
@@ -54,7 +53,6 @@ describe('SideBySideJudging', () => {
         teamId: TeamId.of('team_1'),
         criteria: JudgeCriteria.of({ rubric: 'Good?' }),
         reference: RunId.of('original_1'),
-        maxAttempts: 2,
         now: NOW,
       }),
     ).toThrow(InvalidJudgingError);
@@ -109,16 +107,17 @@ describe('SideBySideJudging', () => {
     ).toThrow(InvalidJudgingError);
   });
 
-  it('gives up once it used its attempts', () => {
-    const [event] = queued(1)
-      .leaseJob(NOW)
-      .recordJudgment(
-        {
-          judged: false,
-          failure: 'ungrounded',
-        },
-        NOW,
-      )
+  it('tries twice, then gives up', () => {
+    const ungrounded = { judged: false, failure: 'ungrounded' } as const;
+    const once = queued().leaseJob(NOW).recordJudgment(ungrounded, NOW);
+
+    expect(once.hasPendingJob).toBe(true);
+    expect(once.pullEvents()).toEqual([]);
+
+    const due = once.job?.nextAttemptAt ?? NOW;
+    const [event] = once
+      .leaseJob(due)
+      .recordJudgment(ungrounded, due)
       .pullEvents() as SideBySideJudgingFailed[];
 
     expect(event?.failure.code).toBe('ungrounded');

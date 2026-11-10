@@ -44,7 +44,6 @@ const toSideBySideJudging = (row: Row): SideBySideJudging =>
       passThreshold: row.passThreshold,
     }),
     reference: RunId.of(row.referenceRunId),
-    maxAttempts: row.maxAttempts,
     order: row.shownOrder,
     queuedAt: row.queuedAt,
     job: row.pending
@@ -103,7 +102,6 @@ export class DrizzleSideBySideJudgingRepository
           claims: [...added.criteria.claims],
           passThreshold: added.criteria.passThreshold,
           referenceRunId: added.reference.value,
-          maxAttempts: added.maxAttempts,
           shownOrder: added.order,
           queuedAt: added.queuedAt,
           version: added.version,

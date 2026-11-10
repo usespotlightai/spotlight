@@ -16,7 +16,6 @@ export interface SideBySideJudgingRequest {
   readonly teamId: TeamId;
   readonly criteria: JudgeCriteria;
   readonly reference: RunId;
-  readonly maxAttempts: number;
 }
 
 export type SideBySideJudgingAnswer = 'requested' | 'unavailable';
@@ -43,7 +42,6 @@ export class RequestSideBySideJudging {
       teamId: request.teamId,
       criteria: request.criteria,
       reference: request.reference,
-      maxAttempts: request.maxAttempts,
       now: this.clock.now(),
     });
 

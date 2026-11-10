@@ -18,6 +18,8 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+const ATTEMPTS = 2;
+
 interface State {
   readonly runId: RunId;
   readonly otherRunId: RunId;
@@ -25,7 +27,6 @@ interface State {
   readonly teamId: TeamId;
   readonly criteria: JudgeCriteria;
   readonly reference: RunId;
-  readonly maxAttempts: number;
   readonly order: PairOrder;
   readonly queuedAt: Date;
   readonly job: PendingJob | null;
@@ -52,14 +53,8 @@ export class SideBySideJudging
     teamId: TeamId;
     criteria: JudgeCriteria;
     reference: RunId;
-    maxAttempts: number;
     now: Date;
   }): SideBySideJudging {
-    if (!Number.isInteger(input.maxAttempts) || input.maxAttempts < 1) {
-      throw new InvalidJudgingError(
-        'attempts must be from 1 to the number paid for',
-      );
-    }
     if (
       input.runId.equals(input.otherRunId) ||
       input.reference.equals(input.runId) ||
@@ -77,7 +72,6 @@ export class SideBySideJudging
       teamId: input.teamId,
       criteria: input.criteria,
       reference: input.reference,
-      maxAttempts: input.maxAttempts,
       order: pairOrderOf(input.runId, input.otherRunId),
       queuedAt: input.now,
       job: PendingJob.fresh(),
@@ -130,10 +124,6 @@ export class SideBySideJudging
 
   get reference(): RunId {
     return this.state.reference;
-  }
-
-  get maxAttempts(): number {
-    return this.state.maxAttempts;
   }
 
   get order(): PairOrder {
@@ -201,7 +191,7 @@ export class SideBySideJudging
     }
 
     const next =
-      job.attempts < this.state.maxAttempts
+      job.attempts < ATTEMPTS
         ? failure.retry.nextAttemptAt(job.attempts, failure.at)
         : null;
 

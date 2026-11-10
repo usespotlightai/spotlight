@@ -990,7 +990,7 @@ describe('probing a set', () => {
     expect(entries()[1]?.secondJudging?.pending).toBe(true);
   });
 
-  it('records the second verdict beside the first, and a second judging that failed, charging nothing for either', async () => {
+  it('records the second verdict beside the first, and a second judging that failed', async () => {
     await calibrated();
     const judging = new RecordReplayVerdict(
       memory.replayRepository,

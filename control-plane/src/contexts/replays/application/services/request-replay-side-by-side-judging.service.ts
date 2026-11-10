@@ -5,8 +5,6 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { judgingRequestOf } from '@replays/domain/services/judging-request';
 
-const PAIR_ATTEMPTS = 2;
-
 export class RequestReplaySideBySideJudging {
   constructor(
     private readonly replays: ReplayRepository,
@@ -33,7 +31,6 @@ export class RequestReplaySideBySideJudging {
           teamId: replay.teamId,
           criteria: judging.criteria,
           reference: event.original,
-          maxAttempts: PAIR_ATTEMPTS,
         })
       : judging.failure;
 

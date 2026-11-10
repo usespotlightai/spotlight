@@ -248,7 +248,7 @@ describe('Replay, set side by side with its baseline', () => {
     expect(() => judging('baseline_1')).toThrow(InvalidReplayError);
   });
 
-  it('records the verdict at no charge against its ceiling, without changing whether the run succeeded', () => {
+  it('records the verdict without changing whether the run succeeded', () => {
     const requested = concludedAll(judging('replay_1')).pairAgainst(
       concludedAll(baseline()).asPairingReference,
       everyOriginal,

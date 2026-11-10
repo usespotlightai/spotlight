@@ -1283,7 +1283,7 @@ describe('Replay', () => {
       ]);
     });
 
-    it('records the second verdicts and rechecks beside the first, says where they agree, and charges nothing for the second judging', () => {
+    it('records the second verdicts and rechecks beside the first, and says where they agree', () => {
       const replay = calibrated();
       const spentBefore = replay.spent.amount;
       const answered = replay

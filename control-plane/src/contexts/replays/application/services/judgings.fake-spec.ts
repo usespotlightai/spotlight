@@ -172,7 +172,6 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
         teamId: judging.teamId,
         criteria: judging.criteria,
         reference: judging.reference,
-        maxAttempts: judging.maxAttempts,
         order: judging.order,
         queuedAt: judging.queuedAt,
         job: judging.job,
