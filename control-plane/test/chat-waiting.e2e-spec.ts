@@ -83,7 +83,7 @@ const waitingOf = async (viewer: string, chat: Chat) => {
     limit: 20,
   });
 
-  return page.items.find((each) => each.id === chat.id.value)?.waitingForYou;
+  return page.items.find((each) => each.id === chat.id.value);
 };
 
 describe('agent chat summaries tell whether the chat waits for the person (e2e)', () => {
@@ -92,7 +92,8 @@ describe('agent chat summaries tell whether the chat waits for the person (e2e)'
     const chat = repliedTo(startedBy(viewer));
     await chats.add(chat);
 
-    expect(await waitingOf(viewer, chat)).toBe(true);
+    expect((await waitingOf(viewer, chat))?.waitingForYou).toBe(true);
+    expect((await waitingOf(viewer, chat))?.progress).toBeNull();
   });
 
   it('waits when a proposal is unread, even while a run works', async () => {
@@ -100,7 +101,7 @@ describe('agent chat summaries tell whether the chat waits for the person (e2e)'
     const chat = proposedBy(startedBy(viewer));
     await chats.add(chat);
 
-    expect(await waitingOf(viewer, chat)).toBe(true);
+    expect((await waitingOf(viewer, chat))?.waitingForYou).toBe(true);
   });
 
   it('does not wait while a run works and nothing is unread', async () => {
@@ -108,15 +109,17 @@ describe('agent chat summaries tell whether the chat waits for the person (e2e)'
     const chat = startedBy(viewer).assignRun(RunId.of(randomUUID()), START);
     await chats.add(chat);
 
-    expect(await waitingOf(viewer, chat)).toBe(false);
+    expect((await waitingOf(viewer, chat))?.waitingForYou).toBe(false);
   });
 
-  it('does not wait while the opening message has no answer yet', async () => {
+  it('is queued, not waiting, while the opening message has no run yet', async () => {
     const viewer = `user_${randomUUID()}`;
     const chat = startedBy(viewer);
     await chats.add(chat);
+    const summary = await waitingOf(viewer, chat);
 
-    expect(await waitingOf(viewer, chat)).toBe(false);
+    expect(summary?.waitingForYou).toBe(false);
+    expect(summary?.progress).toBe('queued');
   });
 
   it('does not wait once the chat is resolved', async () => {
@@ -124,7 +127,7 @@ describe('agent chat summaries tell whether the chat waits for the person (e2e)'
     const chat = repliedTo(startedBy(viewer)).resolve(UserId.of(viewer), START);
     await chats.add(chat);
 
-    expect(await waitingOf(viewer, chat)).toBe(false);
+    expect((await waitingOf(viewer, chat))?.waitingForYou).toBe(false);
   });
 
   it('gives the same flag when one chat is read', async () => {

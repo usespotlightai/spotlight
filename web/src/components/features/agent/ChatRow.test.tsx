@@ -50,6 +50,13 @@ describe('ChatRow', () => {
     expect(screen.queryByText('In progress')).not.toBeInTheDocument();
   });
 
+  it('shows "Queued" when a message has no run yet and nothing waits', () => {
+    showing({ progress: 'queued' });
+
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+    expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
+  });
+
   it('shows no pill for a chat that is neither', () => {
     showing({});
 

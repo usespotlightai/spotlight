@@ -67,7 +67,12 @@ const summaryOf = (
   setup: row.setup ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
-  progress: progressOf(row.currentRunId),
+  progress:
+    row.currentRunId === null
+      ? facts.waiting
+        ? 'queued'
+        : null
+      : progressOf(row.currentRunId),
   waitingForYou:
     chatSectionOf({
       ...facts,
