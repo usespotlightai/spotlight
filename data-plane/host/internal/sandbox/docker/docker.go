@@ -615,13 +615,30 @@ func (e *Engine) Unnetwork(ctx context.Context, id string) error {
 	return nil
 }
 
-func (e *Engine) Networks(ctx context.Context, key, value string) ([]string, error) {
+func (e *Engine) Networks(ctx context.Context, key, value string) ([]sandbox.Network, error) {
 	filters, _ := json.Marshal(map[string][]string{"label": {key + "=" + value}})
 	query := url.Values{"filters": {string(filters)}}
 
-	var listed []struct{ Id string }
+	var listed []struct{ Id, Name string }
 	if _, err := e.call(ctx, http.MethodGet, "/networks?"+query.Encode(), nil, &listed); err != nil {
 		return nil, fmt.Errorf("list sandbox networks: %w", err)
+	}
+
+	networks := make([]sandbox.Network, 0, len(listed))
+	for _, each := range listed {
+		networks = append(networks, sandbox.Network{ID: each.Id, Name: each.Name})
+	}
+
+	return networks, nil
+}
+
+func (e *Engine) Attached(ctx context.Context, network string) ([]string, error) {
+	filters, _ := json.Marshal(map[string][]string{"network": {network}})
+	query := url.Values{"all": {"1"}, "filters": {string(filters)}}
+
+	var listed []struct{ Id string }
+	if _, err := e.call(ctx, http.MethodGet, "/containers/json?"+query.Encode(), nil, &listed); err != nil {
+		return nil, fmt.Errorf("list a network's containers: %w", err)
 	}
 
 	ids := make([]string, 0, len(listed))
