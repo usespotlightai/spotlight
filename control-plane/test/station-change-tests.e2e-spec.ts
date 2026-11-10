@@ -313,8 +313,19 @@ describe('the improve-station chat testing its change', () => {
       'finished',
     );
     await proposalReplayOf(id);
+    await drained(() => ({ score: 1, cost: 0.1 }));
     await eventually(async () => {
-      await drained(() => ({ score: 1, cost: 0.1 }));
+      await app.get(AdvanceSearches).processDue();
+      await judged();
+      const row = await searchRow(id);
+
+      return (
+        row?.state === 'finished' ||
+        (row?.state === 'holding-out' && row.heldOut.length > 0)
+      );
+    }, WITHIN);
+    await drained(() => ({ score: 1, cost: 0.1 }));
+    await eventually(async () => {
       await app.get(AdvanceSearches).processDue();
       await judged();
       return (await searchState(id)) === 'finished';
