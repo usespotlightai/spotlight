@@ -815,10 +815,17 @@ const journalledRunsOf = (taskId: string): TaskRunResponseDto[] =>
     .filter((run) => run.state !== 'queued');
 
 export const journalRunsOfTask = (taskId: string): JournalledRunResponseDto[] =>
-  journalledRunsOf(taskId).map((run) => ({
-    runId: run.id,
-    createdAt: run.startedAt,
-  }));
+  journalledRunsOf(taskId).map((run) => {
+    const steps = journalOf(run).steps;
+    const messageCount = steps.filter((step) => step.kind === 'message').length;
+
+    return {
+      runId: run.id,
+      createdAt: run.startedAt,
+      stepCount: steps.length - messageCount,
+      messageCount,
+    };
+  });
 
 export const journalOfTaskRun = (
   taskId: string,

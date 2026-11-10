@@ -2926,6 +2926,8 @@ export type AnswerInboxItemRequestDto = {
 export type JournalledRunResponseDto = {
   runId: string;
   createdAt: string;
+  stepCount: number;
+  messageCount: number;
 };
 
 export type RunMarksResponseDto = {

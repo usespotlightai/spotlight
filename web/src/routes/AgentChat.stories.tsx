@@ -19,6 +19,7 @@ const meta = {
         chat_small_prs: 'Improving a station',
         chat_pasted_log: 'Long message',
         chat_long: 'Long conversation',
+        chat_steps_unloaded: 'Older steps still loading',
       }),
     },
   }),
@@ -42,4 +43,8 @@ export const LongMessage: StoryObj<typeof meta> = {
 
 export const LongConversation: StoryObj<typeof meta> = {
   args: { chat: 'chat_long' },
+};
+
+export const StepsLoading: StoryObj<typeof meta> = {
+  args: { chat: 'chat_steps_unloaded' },
 };

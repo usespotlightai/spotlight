@@ -10,6 +10,7 @@ import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizz
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import { endingFor } from './support/run-ended';
 import { runFactsOver, runJournalsOver } from './support/run-facts';
 import { aDispatch, aTurn, requestedByTask } from './support/runs';
@@ -34,7 +35,7 @@ beforeAll(async () => {
   traces = new DrizzleRunnerTraceReader(
     db,
     reader,
-    new DrizzleRunJournalReader(db, runJournalsOver(db)),
+    new DrizzleRunJournalReader(db, runJournalsOver(db), silentLogger),
   );
 }, 60_000);
 

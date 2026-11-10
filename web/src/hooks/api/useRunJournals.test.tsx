@@ -15,6 +15,8 @@ const sourceOf = (journal: (runId: string) => Promise<RunJournal[]>) =>
       ['run_1', 'run_2', 'run_3'].map((runId, at) => ({
         runId,
         createdAt: new Date(Date.UTC(2026, 10, 1, at)).toISOString(),
+        stepCount: 1,
+        messageCount: 0,
       })),
     journal,
   }) satisfies JournalSource;

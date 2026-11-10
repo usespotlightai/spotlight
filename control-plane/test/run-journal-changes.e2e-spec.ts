@@ -18,6 +18,7 @@ import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzl
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { silentLogger } from './support/logger';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 
@@ -30,7 +31,11 @@ beforeAll(async () => {
   database = await openDatabase('run_journal_changes');
   db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
-  reader = new DrizzleRunJournalReader(db, new DrizzleRunJournals(db));
+  reader = new DrizzleRunJournalReader(
+    db,
+    new DrizzleRunJournals(db),
+    silentLogger,
+  );
 }, 60_000);
 
 afterAll(async () => {

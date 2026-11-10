@@ -419,3 +419,48 @@ describe('journalling what happened around a run', () => {
     expect(replayed[199]?.message).toBe('hook-204');
   });
 });
+
+describe('counting the steps of runs', () => {
+  const messageChunk = (seq: number) => ({
+    seq,
+    type: 'output',
+    at: new Date(Date.UTC(2026, 8, 17, 9, 0, seq)),
+    data: Buffer.from(
+      JSON.stringify({
+        sessionId: 'session_1',
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          content: { type: 'text', text: `message at ${seq}` },
+        },
+      }),
+    ).toString('base64'),
+  });
+
+  it('counts steps and messages apart, and gives a run without steps no entry', async () => {
+    const worked = await chatRun();
+    const answered = await chatRun();
+    const empty = await chatRun();
+
+    await journal.append(RunAttempt.of(worked.runId, 1), [
+      ...hooks('one-a', 'one-b'),
+      { ...messageChunk(3) },
+    ]);
+    await journal.append(RunAttempt.of(answered.runId, 1), [messageChunk(1)]);
+
+    const counts = await new DrizzleRunJournals(db).countsOf([
+      worked.runId,
+      answered.runId,
+      empty.runId,
+    ]);
+
+    expect(counts.get(worked.runId.value)).toEqual({
+      stepCount: 2,
+      messageCount: 1,
+    });
+    expect(counts.get(answered.runId.value)).toEqual({
+      stepCount: 0,
+      messageCount: 1,
+    });
+    expect(counts.has(empty.runId.value)).toBe(false);
+  });
+});

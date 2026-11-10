@@ -81,6 +81,11 @@ export const RunJournalHttpMapper = {
   },
 
   runToResponse(run: JournalledRunDto): JournalledRunResponseDto {
-    return new JournalledRunResponseDto(run.runId, run.createdAt);
+    return new JournalledRunResponseDto(
+      run.runId,
+      run.createdAt,
+      run.stepCount,
+      run.messageCount,
+    );
   },
 };
