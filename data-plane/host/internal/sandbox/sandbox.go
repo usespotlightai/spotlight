@@ -53,6 +53,11 @@ type File struct {
 	Body    []byte
 }
 
+type Network struct {
+	ID   string
+	Name string
+}
+
 type Engine interface {
 	Describe(ctx context.Context) (string, error)
 	Inspect(ctx context.Context, image string) (Image, error)
@@ -72,5 +77,6 @@ type Engine interface {
 	Exec(ctx context.Context, id string, command []string, errs io.Writer) (io.ReadWriteCloser, error)
 	Network(ctx context.Context, name string, labels map[string]string) (string, error)
 	Unnetwork(ctx context.Context, id string) error
-	Networks(ctx context.Context, key, value string) ([]string, error)
+	Networks(ctx context.Context, key, value string) ([]Network, error)
+	Attached(ctx context.Context, network string) ([]string, error)
 }

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"math/big"
 	"net"
 	"net/http"
@@ -60,13 +61,16 @@ type fakeEngine struct {
 	starts    int
 	probes    int
 
-	egresses    map[string]sandbox.Spec
-	networks    map[string]map[string]string
-	unnetworked []string
-	leftNets    []string
-	egressMute  bool
-	egressFails bool
-	callMute    bool
+	egresses       map[string]sandbox.Spec
+	networks       map[string]map[string]string
+	unnetworked    []string
+	leftNets       []string
+	unnetworkFails map[string]int
+	destroyFails   int
+	sweeps         int
+	egressMute     bool
+	egressFails    bool
+	callMute       bool
 
 	put       map[string]map[string]sandbox.File
 	signals   map[string][]string
@@ -394,6 +398,10 @@ func (e *fakeEngine) Destroy(_ context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if _, egress := e.egresses[id]; egress && e.destroyFails > 0 {
+		e.destroyFails--
+		return errors.New("context deadline exceeded")
+	}
 	e.destroyed = append(e.destroyed, id)
 	return nil
 }
@@ -442,12 +450,51 @@ func (e *fakeEngine) Unnetwork(_ context.Context, id string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if e.unnetworkFails[id] > 0 {
+		e.unnetworkFails[id]--
+		return errors.New("context deadline exceeded")
+	}
+	if len(e.attachedTo(id)) > 0 {
+		return errors.New("error while removing network: network has active endpoints")
+	}
 	e.unnetworked = append(e.unnetworked, id)
 	return nil
 }
 
-func (e *fakeEngine) Networks(context.Context, string, string) ([]string, error) {
-	return e.leftNets, nil
+func (e *fakeEngine) Networks(context.Context, string, string) ([]sandbox.Network, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.sweeps++
+	var networks []sandbox.Network
+	for _, name := range slices.Concat(slices.Sorted(maps.Keys(e.networks)), e.leftNets) {
+		if !slices.Contains(e.unnetworked, name) {
+			networks = append(networks, sandbox.Network{ID: name, Name: name})
+		}
+	}
+	return networks, nil
+}
+
+func (e *fakeEngine) Attached(_ context.Context, network string) ([]string, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.attachedTo(network), nil
+}
+
+func (e *fakeEngine) attachedTo(network string) []string {
+	var attached []string
+	for _, id := range slices.Sorted(maps.Keys(e.egresses)) {
+		if slices.Contains(e.destroyed, id) {
+			continue
+		}
+		for _, join := range e.egresses[id].Joins {
+			if join.Network == network {
+				attached = append(attached, id)
+			}
+		}
+	}
+	return attached
 }
 
 func (e *fakeEngine) egressOf(runner string) (string, sandbox.Spec, bool) {
@@ -2146,6 +2193,70 @@ func TestRemovesTheNetworksACrashedHostLeftBehind(t *testing.T) {
 		defer engine.mu.Unlock()
 		return slices.Contains(engine.unnetworked, "spotlight-orphan")
 	})
+}
+
+func TestRemovesANetworkItCouldNotRemoveWhenTheRunEnded(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.unnetworkFails = map[string]int{"spotlight-runner_1": 1}
+	opts := options(t)
+	opts.SweepEvery = 20 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	engine.finish(engine.workSandboxes()[0])
+
+	eventually(t, "the network removed by a sweep", func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return engine.unnetworkFails["spotlight-runner_1"] == 0 && slices.Contains(engine.unnetworked, "spotlight-runner_1")
+	})
+}
+
+func TestDestroysTheEgressItCouldNotDestroyWhenTheRunEnded(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.SweepEvery = 20 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	egressID, _, _ := engine.egressOf("runner_1")
+	engine.mu.Lock()
+	engine.destroyFails = 1
+	engine.mu.Unlock()
+	engine.finish(engine.workSandboxes()[0])
+
+	eventually(t, "the egress and its network removed by a sweep", func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return engine.destroyFails == 0 && slices.Contains(engine.destroyed, egressID) &&
+			slices.Contains(engine.unnetworked, "spotlight-runner_1")
+	})
+}
+
+func TestKeepsTheNetworkOfARunningSandbox(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.SweepEvery = 10 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	engine.mu.Lock()
+	swept := engine.sweeps
+	engine.mu.Unlock()
+	eventually(t, "more sweeps", func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return engine.sweeps >= swept+3
+	})
+
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	if slices.Contains(engine.unnetworked, "spotlight-runner_1") {
+		t.Error("a sweep removed the network of a running sandbox")
+	}
 }
 
 func TestHandsEgressTheAuthoritiesItTrustsForPrivateHosts(t *testing.T) {

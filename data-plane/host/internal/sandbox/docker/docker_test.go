@@ -319,8 +319,11 @@ func TestASandboxOnItsOwnNetworkConnectsOnlyToWhatJoinedIt(t *testing.T) {
 	}
 
 	networks, err := engine.Networks(ctx, "ai.usespotlight.test", "network")
-	if err != nil || !slices.Contains(networks, network) {
+	if err != nil || !slices.ContainsFunc(networks, func(each sandbox.Network) bool { return each.ID == network }) {
 		t.Errorf("networks %v: %v", networks, err)
+	}
+	if attached, err := engine.Attached(ctx, network); err != nil || !slices.Contains(attached, id) || !slices.Contains(attached, sidecar) {
+		t.Errorf("attached %v: %v", attached, err)
 	}
 	if _, err := engine.Read(ctx, id, "/no/such/file"); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("reading a missing file answered %v", err)
