@@ -1,0 +1,64 @@
+name: staging
+
+# Each push to develop goes to staging. Once CI passes on the commit, this
+# starts Build Images in usespotlightai/infrastructure, which builds the images
+# and then deploys them to staging. A newer push replaces a push that still
+# waits for CI.
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: staging
+  cancel-in-progress: true
+
+jobs:
+  ci-passed:
+    name: CI passed on the commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+          persist-credentials: false
+      - uses: ./.github/actions/wait-for-ci
+        with:
+          commit: ${{ github.sha }}
+          token: ${{ github.token }}
+
+  build-and-deploy:
+    name: start the image build and the staging deploy
+    needs: ci-passed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate an infrastructure repository token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: infrastructure
+
+      - name: Start Build Images
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          gh workflow run build-images.yml \
+            --repo "${{ github.repository_owner }}/infrastructure" \
+            --ref main \
+            -f ref="${SHA}" \
+            -f deploy_to_staging=true
+
+          {
+            echo "### ${SHA:0:12}"
+            echo
+            echo "Requested an image build and a staging deploy in ${{ github.repository_owner }}/infrastructure."
+          } >> "${GITHUB_STEP_SUMMARY}"

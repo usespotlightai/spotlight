@@ -45,23 +45,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Wait for the push workflows on the tagged commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.sha }}
-        run: |
-          for workflow in control-plane.yml data-plane.yml web.yml desktop.yml gitleaks.yml codeql.yml; do
-            while :; do
-              run=$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$SHA" --workflow "$workflow" --event push --limit 1 \
-                --json status,conclusion --jq '.[0] // empty | "\(.status) \(.conclusion)"' || true)
-              case "$run" in
-                "completed success") echo "$workflow passed"; break ;;
-                completed*) echo "::error::$workflow did not pass on $SHA ($run)."; exit 1 ;;
-                "") [ "$SECONDS" -lt 180 ] || { echo "::error::$workflow did not run on $SHA."; exit 1; } ;;
-              esac
-              sleep 30
-            done
-          done
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+          persist-credentials: false
+      - uses: ./.github/actions/wait-for-ci
+        with:
+          commit: ${{ github.sha }}
+          token: ${{ github.token }}
 
   build-images:
     name: start the image build
