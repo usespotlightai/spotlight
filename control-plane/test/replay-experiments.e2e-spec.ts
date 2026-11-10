@@ -14,6 +14,7 @@ import { RefreshReplaySets } from '@replays/application/services/refresh-replay-
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { dispatchedInTurn } from '@replays/domain/services/replay-dispatch';
 import {
   taskComparisons,
   totalsOf,
@@ -288,8 +289,27 @@ const dispatchRow = async (runId: string) => {
   return row;
 };
 
+const settled = async (): Promise<boolean> => {
+  const inProgress = await app
+    .get(DrizzleReplayRepository)
+    .inProgressOfTeam(team.teamId);
+
+  return (
+    inProgress.every((each) => each.unconfirmed.length === 0) &&
+    dispatchedInTurn(
+      inProgress,
+      () => RunId.of(randomUUID()),
+      () => 0,
+    ).length === 0
+  );
+};
+
 const dispatched = async () => {
-  await app.get(DispatchReplayRuns).processDue();
+  await eventually(async () => {
+    await app.get(DispatchReplayRuns).processDue();
+
+    return settled();
+  });
 };
 
 const claimed = async (): Promise<{ token: string; runId: string }> => {
