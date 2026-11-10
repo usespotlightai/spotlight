@@ -120,6 +120,13 @@ export class ChatSummaryResponseDto {
   })
   readonly progress: string | null;
 
+  @ApiProperty({
+    example: false,
+    description:
+      "Whether it is the starter's turn: an unread proposal, or an agent reply not yet resolved, while no run is working on it.",
+  })
+  readonly waitingForYou: boolean;
+
   constructor(
     id: string,
     title: string,
@@ -132,6 +139,7 @@ export class ChatSummaryResponseDto {
     createdAt: string,
     updatedAt: string,
     progress: string | null,
+    waitingForYou: boolean,
   ) {
     this.id = id;
     this.title = title;
@@ -144,6 +152,7 @@ export class ChatSummaryResponseDto {
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.progress = progress;
+    this.waitingForYou = waitingForYou;
   }
 }
 
@@ -331,6 +340,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
       summary.createdAt,
       summary.updatedAt,
       summary.progress,
+      summary.waitingForYou,
     );
     this.runId = runId;
     this.messages = messages;

@@ -33,6 +33,7 @@ export interface ChatSummary {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly progress: Progress | null;
+  readonly waitingForYou: boolean;
 }
 
 interface ChatAuthorView {

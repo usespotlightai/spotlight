@@ -445,6 +445,7 @@ const answered = (record: ChatRecord, sentAt: string, body: string): void => {
   );
   record.chat.updatedAt = turnEndsAt(journal);
   record.chat.progress = null;
+  record.chat.waitingForYou = true;
   record.chat.runId = null;
 };
 
@@ -507,6 +508,7 @@ const chatHandlers = [
         createdAt: at,
         updatedAt: at,
         progress: null,
+        waitingForYou: false,
         runId: null,
         messages: [messageBy(SAM, 0, input.body, at, traces)],
       },
@@ -553,6 +555,7 @@ const chatHandlers = [
       );
       record.chat.model = model ?? record.chat.model;
       record.chat.effort = effort ?? record.chat.effort;
+      record.chat.waitingForYou = false;
       answered(record, at, body);
 
       return noContent();
@@ -595,6 +598,7 @@ const chatHandlers = [
       ];
       proposal.state = 'created';
       proposal.taskId = taskId;
+      record.chat.waitingForYou = false;
 
       return noContent();
     },

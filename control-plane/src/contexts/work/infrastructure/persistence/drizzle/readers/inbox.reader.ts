@@ -53,6 +53,12 @@ import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
+import {
+  chatRunning,
+  chatSectionOf,
+  chatUnread,
+  chatWaiting,
+} from '@work/infrastructure/persistence/drizzle/readers/chat-inbox-state';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
@@ -286,10 +292,6 @@ const noticesWhere = (
   return limit === null ? query : query.limit(limit);
 };
 
-const chatWaiting = sql<boolean>`exists (select 1 from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'message' and "chat_message"."acknowledged_at" is null)`;
-
-const chatRunning = sql`(${chat.currentRunId} is not null or ${chatWaiting})`;
-
 const chatsWhere = (
   db: DrizzleDatabase,
   scope: InboxScope,
@@ -312,7 +314,7 @@ const chatsWhere = (
         sql<number>`(select count(*) from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'proposed' and "chat_message"."proposal"->>'state' = 'open')`.mapWith(
           Number,
         ),
-      unread: sql<boolean>`exists (select 1 from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'proposed' and ("chat"."read_at" is null or "chat_message"."at" > "chat"."read_at"))`,
+      unread: chatUnread,
       waiting: chatWaiting,
     })
     .from(chat)
@@ -1068,7 +1070,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         askedAt: row.lastAt,
         unread: row.unread,
         resolved,
-        section: inboxSectionOf({ unread: row.unread, resolved, running }),
+        section: chatSectionOf(row),
         reopenable: resolved,
       };
 

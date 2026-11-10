@@ -1,5 +1,4 @@
-import { Inbox } from 'lucide-react';
-import { Pill } from '@/components/shared/Pill';
+import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type Run, waitsForYou } from '@/lib/run';
 
@@ -18,11 +17,7 @@ export function RunPendingMarker({
     return null;
   }
 
-  const marker = (
-    <Pill lead={<Inbox className="size-3.5 shrink-0" aria-hidden />}>
-      Waiting for you
-    </Pill>
-  );
+  const marker = <WaitingForYouPill />;
 
   return run.review && !inTrail ? (
     <TrailLink to={reviewTo ?? ''} className="relative z-10 outline-none">

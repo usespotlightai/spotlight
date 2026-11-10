@@ -36,6 +36,7 @@ const chat: ChatSummary = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   progress: null,
+  waitingForYou: false,
   targetStation: null,
   setup: null,
 };
@@ -56,6 +57,18 @@ beforeEach(() => {
 });
 
 describe('AgentChats', () => {
+  it('marks a chat that waits for you, and one that is in progress', () => {
+    chats.mockReturnValue([
+      { ...chat, id: 'chat_1', waitingForYou: true },
+      { ...chat, id: 'chat_2', title: 'Second', progress: 'in-progress' },
+      { ...chat, id: 'chat_3', title: 'Third' },
+    ]);
+    showing();
+
+    expect(screen.getAllByText('Waiting for you')).toHaveLength(1);
+    expect(screen.getAllByText('In progress')).toHaveLength(1);
+  });
+
   it('lists the team’s chats, each leading to its conversation', () => {
     showing();
 
