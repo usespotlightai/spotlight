@@ -31,10 +31,10 @@
     "auth:generate": "auth generate --config scripts/auth-config.ts --output src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y && node scripts/auth-schema-timestamptz.mjs src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-kms": "^3.1163.0",
-    "@aws-sdk/client-s3": "^3.1163.0",
-    "@aws-sdk/client-secrets-manager": "^3.1163.0",
-    "@aws-sdk/s3-request-presigner": "^3.1163.0",
+    "@aws-sdk/client-kms": "^3.1164.0",
+    "@aws-sdk/client-s3": "^3.1164.0",
+    "@aws-sdk/client-secrets-manager": "^3.1164.0",
+    "@aws-sdk/s3-request-presigner": "^3.1164.0",
     "@hocuspocus/extension-redis": "^4.8.0",
     "@hocuspocus/server": "^4.7.1",
     "@marcbachmann/cel-js": "^8.0.0",
@@ -53,7 +53,7 @@
     "@opentelemetry/instrumentation-runtime-node": "^0.38.0",
     "@opentelemetry/instrumentation-undici": "^0.35.0",
     "@opentelemetry/sdk-node": "^0.301.0",
-    "@opentelemetry/semantic-conventions": "^1.44.0",
+    "@opentelemetry/semantic-conventions": "^1.45.0",
     "@sentry/nestjs": "^11.11.0",
     "@thallesp/nestjs-better-auth": "^2.8.0",
     "@vscode/tree-sitter-wasm": "0.3.1",
@@ -80,7 +80,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.5",
+    "@biomejs/biome": "2.6.6",
     "@hocuspocus/provider": "^4.8.0",
     "@nestjs/cli": "^12.0.11",
     "@nestjs/schematics": "^12.0.12",
