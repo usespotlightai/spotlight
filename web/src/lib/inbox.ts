@@ -287,6 +287,9 @@ export const inboxItemPath = (slug: string, id: string, runId?: string) =>
 export const inboxRunPath = (slug: string, teamId: string, runId: string) =>
   `${inboxPath(slug)}/teams/${encodeURIComponent(teamId)}/runs/${encodeURIComponent(runId)}`;
 
+export const inboxChatPath = (slug: string, teamId: string, chatId: string) =>
+  `${inboxPath(slug)}/teams/${encodeURIComponent(teamId)}/chats/${encodeURIComponent(chatId)}`;
+
 export const workingWordsOf = (
   progress: ShownProgress,
   station: string,

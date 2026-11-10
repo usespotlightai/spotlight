@@ -217,6 +217,10 @@ export default function App() {
                   <Route path=":itemId" element={<InboxItem />} />
                   <Route path="notices/:noticeId" element={<InboxNotice />} />
                   <Route path="teams/:teamId/runs/:runId" element={<Run />} />
+                  <Route
+                    path="teams/:teamId/chats/:chatId"
+                    element={<AgentChat />}
+                  />
                 </Route>
 
                 <Route path="settings">
