@@ -349,22 +349,20 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
 });
 
 describe('a pull request merged while a run works on the task (e2e)', () => {
-  const question =
-    'The pull request was merged while Implementation was working. Close the task, or reply to carry on.';
+  const finished = async (task: Task) => {
+    const after = await found(task.id);
+    expect(after.stationId).toEqual(stationKeyed('completed').id);
+    expect(after.finished).toBe(true);
+    expect(after.currentRunId).toBeNull();
+    expect(after.awaitingReview).toBe(false);
+  };
 
-  it('cancels a queued run and asks the person the task is assigned to', async () => {
+  it('finishes the task and cancels a queued run', async () => {
     const { task, runId } = await workingAt('implementation');
 
     await merged(task);
 
-    const asked = await found(task.id);
-    expect(asked.stationId).toEqual(stationKeyed('implementation').id);
-    expect(asked.currentRunId).toBeNull();
-    expect(asked.finished).toBe(false);
-    expect(asked.awaitingReview).toBe(true);
-    expect(asked.assignee).toEqual(team.owner);
-    expect(asked.notes[asked.notes.length - 1]?.body.value).toBe(question);
-
+    await finished(task);
     const cancelled = await eventually(async () => {
       const run = await runOf(runId);
       return run.hasEnded && run;
@@ -372,49 +370,25 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
     expect(cancelled.outcome?.cancelled).toBe(true);
   });
 
-  it('tells a working run to stop', async () => {
+  it('finishes the task and tells a working run to stop', async () => {
     const { task, runId } = await workingAt('implementation');
     await claimed(runId);
 
     await merged(task);
 
+    await finished(task);
     await eventually(async () => (await runOf(runId)).stopRequested);
-    expect((await found(task.id)).awaitingReview).toBe(true);
   });
 
-  it('stops a working run and asks over a pending tool approval', async () => {
+  it('finishes the task over a pending tool approval and tells the run to stop', async () => {
     const { task, runId } = await workingAt('implementation');
     await claimed(runId);
     await approvalRequested(task, runId);
 
     await merged(task);
 
+    await finished(task);
     await eventually(async () => (await runOf(runId)).stopRequested);
-    const asked = await found(task.id);
-    expect(asked.currentRunId).toBeNull();
-    expect(asked.awaitingReview).toBe(true);
-    expect(asked.decisionPending).toBe(false);
-    expect(asked.notes[asked.notes.length - 1]?.body.value).toBe(question);
-  });
-
-  it('carries on at the station once a person replies', async () => {
-    const { task } = await workingAt('implementation');
-    await merged(task);
-    const asked = await found(task.id);
-
-    await served(app)
-      .post(
-        `/api/workspaces/${team.slug}/inbox/${task.id.value}:${asked.notes.length - 1}/answer`,
-      )
-      .set(TEST_USER_HEADER, team.owner.value)
-      .send({ body: 'Carry on, the follow-up still needs doing.' })
-      .expect(204);
-
-    const carried = await found(task.id);
-    expect(carried.stationId).toEqual(stationKeyed('implementation').id);
-    expect(carried.awaitingReview).toBe(false);
-    expect(carried.currentRunId).not.toBeNull();
-    await eventually(() => runs.findById(carried.currentRunId as RunId));
   });
 
   it('finishes a task once its run has ended, as before', async () => {
@@ -489,28 +463,6 @@ describe('a happening while the current run of the task waits on a person (e2e)'
   });
 });
 
-describe('a run-chat message on a task a merge interrupted (e2e)', () => {
-  it('answers the question and starts the station again', async () => {
-    const { task, runId } = await workingAt('implementation');
-    await merged(task);
-    await eventually(async () => (await runOf(runId)).hasEnded);
-
-    await served(app)
-      .post(`/api/teams/${team.teamId.value}/runs/${runId.value}/messages`)
-      .set(TEST_USER_HEADER, team.owner.value)
-      .send({ body: 'Carry on, the follow-up still needs doing.' })
-      .expect(204);
-
-    const carried = await found(task.id);
-    expect(carried.stationId).toEqual(stationKeyed('implementation').id);
-    expect(carried.awaitingReview).toBe(false);
-    expect(carried.notes[carried.notes.length - 1]?.kind).toBe('answered');
-    expect(carried.currentRunId).not.toBeNull();
-    expect(carried.currentRunId).not.toEqual(runId);
-    await eventually(() => runs.findById(carried.currentRunId as RunId));
-  });
-});
-
 describe('a deferred move and what ends the run (e2e)', () => {
   it('survives a tool approval requested and approved mid-run, and applies when the run ends', async () => {
     const { task, runId } = await workingAt('implementation');
@@ -567,15 +519,14 @@ describe('a deferred move and what ends the run (e2e)', () => {
   });
 });
 
-describe('a reply to an interrupted working run (e2e)', () => {
+describe('a task moved back to the station of a run that is stopping (e2e)', () => {
   it('queues a new run at the station that no runner claims until the stopped run has ended', async () => {
     const { task, runId } = await workingAt('implementation');
     await claimed(runId);
-    await merged(task);
+    await movedByHand(task, 'backlog');
     await eventually(async () => (await runOf(runId)).stopRequested);
-    const asked = await found(task.id);
 
-    await answered(asked, asked.notes.length - 1, 'Carry on.');
+    await movedByHand(await found(task.id), 'implementation');
 
     const next = (await found(task.id)).currentRunId as RunId;
     await eventually(() => runs.findById(next));
