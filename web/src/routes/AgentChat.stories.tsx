@@ -47,4 +47,12 @@ export const LongConversation: StoryObj<typeof meta> = {
 
 export const StepsLoading: StoryObj<typeof meta> = {
   args: { chat: 'chat_steps_unloaded' },
+  play: async ({ canvas, userEvent }) => {
+    const summaries = await canvas.findAllByRole('button', {
+      name: /Worked/,
+      expanded: false,
+    });
+    await userEvent.click(summaries[1]);
+    await canvas.findByText(/Loading/);
+  },
 };
