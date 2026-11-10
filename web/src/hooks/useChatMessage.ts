@@ -1,5 +1,7 @@
 import {
+  $createLineBreakNode,
   $createParagraphNode,
+  $createTextNode,
   $getRoot,
   $getSelection,
   $isElementNode,
@@ -118,6 +120,11 @@ export function useChatMessage(
     );
   }, []);
 
+  const unsent = useRef<{
+    written: Written;
+    attachments: PendingAttachment[];
+  } | null>(null);
+
   const placed = new Set(
     written.references.flatMap((each) =>
       each.kind === 'file' ? [each.key] : [],
@@ -191,6 +198,18 @@ export function useChatMessage(
     attachments: included.flatMap((each) =>
       each.state === 'ready' ? [each.id] : [],
     ),
+    files: included.flatMap((each) =>
+      each.state === 'ready'
+        ? [
+            {
+              id: each.id,
+              name: each.name,
+              size: each.size,
+              contentType: each.contentType ?? '',
+            },
+          ]
+        : [],
+    ),
     traces: traced.map((each) => each.key),
     targetStation: targetStationIdIn(written.references),
   };
@@ -221,6 +240,34 @@ export function useChatMessage(
     });
   };
 
+  const restore = useCallback(() => {
+    const back = unsent.current;
+    unsent.current = null;
+
+    if (!back) {
+      return;
+    }
+
+    files.restore(back.attachments);
+    editor.current?.update(() => {
+      const root = $getRoot();
+      const first = root.getFirstChild();
+      const paragraph = $isElementNode(first) ? first : $createParagraphNode();
+      const typedSince = paragraph.getTextContentSize() > 0;
+
+      if (paragraph !== first) {
+        root.clear().append(paragraph);
+      }
+
+      paragraph.splice(0, 0, [
+        ...$spacedReferences(back.written.references),
+        $createTextNode(back.written.text),
+        ...(typedSince ? [$createLineBreakNode()] : []),
+      ]);
+      paragraph.selectEnd();
+    });
+  }, [files.restore]);
+
   const clear = () => {
     editor.current?.update(
       () => {
@@ -230,6 +277,19 @@ export function useChatMessage(
     );
     files.clear();
     draft?.discard();
+  };
+
+  const release = () => {
+    unsent.current = {
+      written,
+      attachments: files.attachments.filter((each) => each.state === 'ready'),
+    };
+
+    if (shared) {
+      clearSent(outgoing.body);
+    } else {
+      clear();
+    }
   };
 
   return {
@@ -249,6 +309,8 @@ export function useChatMessage(
     attach,
     clear,
     clearSent,
+    release,
+    restore,
     remove: (key: string) => {
       if (handedOver.has(key)) {
         shared?.unshare(key);

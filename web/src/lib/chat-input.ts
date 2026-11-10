@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { PendingAttachment } from '@/lib/attachment';
+import type { Attachment, PendingAttachment } from '@/lib/attachment';
 import type { SharedTrace, TargetStation } from '@/lib/chat';
 
 type ReferenceKind = 'file' | 'trace' | 'station';
@@ -18,6 +18,7 @@ export interface Written {
 export interface Outgoing {
   readonly body: string;
   readonly attachments: string[];
+  readonly files: Attachment[];
   readonly traces: string[];
   readonly targetStation: string | null;
   readonly coAuthors?: string[];

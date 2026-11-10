@@ -61,10 +61,10 @@ export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
           because={CHAT_KEEPS_REPOSITORIES}
         />
       }
-      onSend={({ body, attachments }, sent) =>
+      onSend={({ body, attachments }, restore) =>
         send.mutate(
           { teamId, chatId: chat.id, body, attachments, model, effort },
-          { onSuccess: sent },
+          { onError: restore },
         )
       }
     />

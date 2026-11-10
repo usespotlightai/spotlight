@@ -9,8 +9,8 @@ type ChatSend = {
   pending: boolean;
   running: boolean;
   onStop: (() => void) | undefined;
-  onSend: ((message: Outgoing, sent: () => void) => void) | undefined;
-  sent: () => void;
+  onSend: ((message: Outgoing) => void) | undefined;
+  clear: () => void;
 };
 
 export function useChatSend({
@@ -22,7 +22,7 @@ export function useChatSend({
   running,
   onStop,
   onSend,
-  sent,
+  clear,
 }: ChatSend) {
   const unsendable = disabled || empty || uploading || pending;
   const stopping = !disabled && running && empty ? (onStop ?? null) : null;
@@ -31,7 +31,8 @@ export function useChatSend({
     event?.preventDefault();
 
     if (!unsendable) {
-      onSend?.(outgoing, sent);
+      clear();
+      onSend?.(outgoing);
     }
   };
 

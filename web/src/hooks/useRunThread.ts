@@ -8,9 +8,12 @@ import {
   withMessagesInFlight,
 } from '@/lib/run-notes';
 
-export function useRunThread(run: TeamRun, reported: RunNotes | undefined) {
+export function useRunThread(
+  run: TeamRun | undefined,
+  reported: RunNotes | undefined,
+) {
   const latest = useLatestRun(run, reported);
-  const inFlight = useMessagesInFlight([run.id, latest.id]);
+  const inFlight = useMessagesInFlight([run?.id ?? '', latest?.id ?? '']);
   const me = useMe();
 
   const conversation = reported && withMessagesInFlight(reported, inFlight, me);

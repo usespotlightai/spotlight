@@ -1,4 +1,5 @@
 import type { RunNotesResponseDto } from '@/lib/api';
+import type { Attachment } from '@/lib/attachment';
 import {
   type ConversationItem,
   type RunJournal,
@@ -22,6 +23,7 @@ export type OutgoingMessage = {
   readonly runId: string;
   readonly body: string;
   readonly attachments: string[];
+  readonly files: Attachment[];
   readonly coAuthors?: string[];
   readonly draftGeneration?: number;
   readonly answers?: boolean;
@@ -91,7 +93,7 @@ export const withMessagesInFlight = (
         stationPosition: conversation.station?.position ?? 0,
         runId: null,
         body: message.body,
-        attachments: [],
+        attachments: message.files,
         at: new Date(message.sentAt).toISOString(),
         author: me,
         coAuthors: [],

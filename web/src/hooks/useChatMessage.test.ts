@@ -116,3 +116,51 @@ describe('useChatMessage clearing a sent draft', () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe('useChatMessage putting back a refused message', () => {
+  it('writes the sent text back in front of what was typed since', () => {
+    const update = vi.fn();
+    const { result } = renderHook(() =>
+      useChatMessage('acme', [], 'try again'),
+    );
+    result.current.editor.current = { update } as unknown as LexicalEditor;
+
+    act(() => result.current.release());
+    act(() => result.current.restore());
+
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it('puts nothing back when nothing was sent', () => {
+    const update = vi.fn();
+    const { result } = renderHook(() =>
+      useChatMessage('acme', [], 'try again'),
+    );
+    result.current.editor.current = { update } as unknown as LexicalEditor;
+
+    act(() => result.current.restore());
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('puts an uploaded file back after the box cleared it', async () => {
+    uploaded.mockResolvedValue({ id: 'att_1' });
+    const { result } = renderHook(() => useChatMessage('acme', [], ''));
+
+    act(() => {
+      result.current.attach([image()]);
+    });
+    await waitFor(() =>
+      expect(result.current.outgoing.attachments).toEqual(['att_1']),
+    );
+
+    act(() => result.current.release());
+    expect(result.current.outgoing.attachments).toEqual([]);
+
+    act(() => result.current.restore());
+    expect(result.current.outgoing.attachments).toEqual(['att_1']);
+    expect(result.current.outgoing.files).toEqual([
+      { id: 'att_1', name: 'shot.png', size: 3, contentType: 'image/png' },
+    ]);
+  });
+});

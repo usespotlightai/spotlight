@@ -12,13 +12,13 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
 import { useTeamRun } from '@/hooks/api/useTeamRuns';
-import { useLatestRun } from '@/hooks/useLatestRun';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
+import { useRunThread } from '@/hooks/useRunThread';
 import { decisionPending } from '@/lib/inbox';
 import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
 import { shownProgress } from '@/lib/run';
-import { lastNoteOf, threadProgress } from '@/lib/run-notes';
+import { lastNoteOf } from '@/lib/run-notes';
 
 type RunThreadProps = {
   slug: string;
@@ -43,9 +43,11 @@ export function RunThread({
     conversationQuery.data?.latestRun?.id,
   ]);
   const { data: run } = useTeamRun(teamId, runId);
-  const conversation = conversationQuery.data;
   const decide = useRunDeciding(slug, run);
-  const latest = useLatestRun(run, conversation);
+  const { latest, conversation, progress } = useRunThread(
+    run,
+    conversationQuery.data,
+  );
 
   if (loading(conversationQuery) || loading(journal)) {
     return <InboxItemSkeleton />;
@@ -72,7 +74,7 @@ export function RunThread({
               conversation={conversation}
               worked={journal.data ?? []}
               progress={shownProgress(
-                threadProgress(latest, conversation),
+                progress,
                 latest?.id ?? null,
                 journal.data ?? [],
               )}

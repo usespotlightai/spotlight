@@ -35,6 +35,7 @@ describe('withMessagesInFlight', () => {
     runId: 'run_1',
     body: 'try again',
     attachments: [],
+    files: [],
     sentAt: Date.parse('2026-10-20T10:00:00.000Z'),
     ...over,
   });
@@ -55,6 +56,21 @@ describe('withMessagesInFlight', () => {
       at: '2026-10-20T10:00:00.000Z',
       author: sam,
     });
+  });
+
+  it('shows the files of a message on its way', () => {
+    const file = {
+      id: 'att_1',
+      name: 'log.txt',
+      contentType: 'text/plain',
+      size: 12,
+    };
+
+    expect(
+      withMessagesInFlight(thread, [outgoing({ files: [file] })], sam).notes.at(
+        -1,
+      ),
+    ).toMatchObject({ attachments: [file] });
   });
 
   it('leaves out a message once the thread has it from the server', () => {

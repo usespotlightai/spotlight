@@ -4,10 +4,7 @@ import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 import { type TakeFiles, useFileDropTarget } from '@/hooks/useFileDropTarget';
 
 function Composer({ take }: { take: TakeFiles | null }) {
-  useFileDropTarget(take ?? ignoreFiles, {
-    disabled: take === null,
-    pending: false,
-  });
+  useFileDropTarget(take ?? ignoreFiles, { disabled: take === null });
   return <p>Composer</p>;
 }
 

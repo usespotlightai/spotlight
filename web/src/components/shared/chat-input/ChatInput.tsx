@@ -17,14 +17,16 @@ import {
   type Reference,
   ReferenceStates,
 } from '@/lib/chat-input';
+import { conflicting } from '@/lib/error';
 import { cn } from '@/lib/utils';
 
 type Sending =
-  | { disabled: true; pending?: never; onSend?: never }
+  | { disabled: true; pending?: never; locked?: never; onSend?: never }
   | {
       disabled?: false;
       pending: boolean;
-      onSend: (message: Outgoing, sent: () => void) => void;
+      locked?: boolean;
+      onSend: (message: Outgoing, restore: (error?: unknown) => void) => void;
     };
 
 type ChatInputProps = Sending & {
@@ -59,6 +61,7 @@ export function ChatInput({
   label,
   placeholder,
   pending = false,
+  locked = false,
   running = false,
   onStop,
   initialReferences = NO_REFERENCES,
@@ -78,7 +81,7 @@ export function ChatInput({
     shared,
     draft,
   );
-  useFileDropTarget(message.attach, { disabled, pending });
+  useFileDropTarget(message.attach, { disabled });
   const lifted = message.images.length > 0;
   const { inner, writing, height, expanded } = useOneLineFit(
     message.written,
@@ -90,23 +93,27 @@ export function ChatInput({
     empty: message.blank,
     uploading: message.uploading,
     disabled,
-    pending,
+    pending: pending || locked,
     running,
     onStop,
     onSend:
       onSend &&
-      ((outgoing, sent) =>
-        shared
-          ? onSend(
-              {
+      ((outgoing) =>
+        onSend(
+          shared
+            ? {
                 ...outgoing,
                 coAuthors: shared.coAuthors(),
                 ...(shared.synced && { draftGeneration: shared.generation }),
-              },
-              () => message.clearSent(outgoing.body),
-            )
-          : onSend(outgoing, sent)),
-    sent: message.clear,
+              }
+            : outgoing,
+          (error) => {
+            if (!(shared && conflicting(error))) {
+              message.restore();
+            }
+          },
+        )),
+    clear: message.release,
   });
 
   return (
@@ -149,7 +156,7 @@ export function ChatInput({
                 initialReferences={message.seed.references}
                 initialText={message.seed.text}
                 handle={message.editor}
-                editable={!pending && !disabled}
+                editable={!locked && !disabled}
                 disabled={disabled}
                 onEnter={send}
                 onWritten={message.setWritten}
@@ -160,7 +167,7 @@ export function ChatInput({
           <ChatInputArea disabled={disabled} area="plus" className="flex">
             <AttachButton
               onAttach={message.attach}
-              disabled={pending}
+              disabled={locked}
               icon={<Plus className="size-4" />}
               className="size-7 rounded-full border border-border text-muted-foreground"
             />

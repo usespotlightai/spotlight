@@ -481,6 +481,9 @@ describe('NewChatComposer', () => {
     });
 
     it('keeps the text after a send that fails', async () => {
+      started.mockImplementation((_input, { onError }) =>
+        onError(new Error('refused')),
+      );
       await returning(null, 'Plan the retries');
       await pressEnter(box());
       cleanup();

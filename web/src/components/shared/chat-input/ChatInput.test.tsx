@@ -108,6 +108,14 @@ describe('ChatInput', () => {
       {
         body: 'the log, attached',
         attachments: ['att_1'],
+        files: [
+          {
+            id: 'att_1',
+            name: 'notes.txt',
+            size: 5,
+            contentType: 'text/plain',
+          },
+        ],
         traces: [],
         targetStation: null,
       },
@@ -134,7 +142,20 @@ describe('ChatInput', () => {
     await userEvent.click(send());
 
     expect(onSend).toHaveBeenCalledWith(
-      { body: 'see', attachments: ['att_1'], traces: [], targetStation: null },
+      {
+        body: 'see',
+        attachments: ['att_1'],
+        files: [
+          {
+            id: 'att_1',
+            name: 'notes.txt',
+            size: 5,
+            contentType: 'text/plain',
+          },
+        ],
+        traces: [],
+        targetStation: null,
+      },
       expect.any(Function),
     );
   });
@@ -202,8 +223,8 @@ describe('ChatInput', () => {
     expect(send()).toBeDisabled();
   });
 
-  it('clears the words and the files once they are sent', async () => {
-    input({ onSend: (_message, sent) => sent() });
+  it('clears the words and the files on press', async () => {
+    input();
 
     fireEvent.paste(box(), { clipboardData: { files: [notes()] } });
     await write(box(), 'here');
@@ -212,6 +233,18 @@ describe('ChatInput', () => {
 
     expect(textOf(box())).toBe('');
     expect(within(box()).queryByText('notes.txt')).toBeNull();
+  });
+
+  it('puts the words and the files back once the send is refused', async () => {
+    input({ onSend: (_message, restore) => restore(new Error('refused')) });
+
+    fireEvent.paste(box(), { clipboardData: { files: [notes()] } });
+    await write(box(), 'here');
+    await waitFor(() => expect(send()).toBeEnabled());
+    await userEvent.click(send());
+
+    await waitFor(() => expect(textOf(box())).toContain('here'));
+    expect(await within(box()).findByText('notes.txt')).toBeInTheDocument();
   });
 
   it('can be shown without being used', () => {

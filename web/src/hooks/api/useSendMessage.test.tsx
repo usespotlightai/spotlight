@@ -32,6 +32,7 @@ const message = {
   runId: 'run_2',
   body: 'try again',
   attachments: [],
+  files: [],
   startsWork: true,
 };
 
@@ -50,6 +51,20 @@ describe('useMessagesInFlight', () => {
       expect(result.current.inFlight).toEqual([
         { ...message, sentAt: expect.any(Number) },
       ]),
+    );
+  });
+
+  it('holds the files of a message with the message', async () => {
+    sendMessage.mockReturnValue(new Promise(() => {}));
+    const result = setUp(['run_2']);
+    const files = [
+      { id: 'att_1', name: 'log.txt', contentType: 'text/plain', size: 12 },
+    ];
+
+    act(() => result.current.send.mutate({ ...message, files }));
+
+    await waitFor(() =>
+      expect(result.current.inFlight[0]?.files).toEqual(files),
     );
   });
 
