@@ -235,6 +235,7 @@ const retriesChat = (): ChatRecord => {
   return {
     chat: chatOf({
       id: 'chat_retries',
+      waitingForYou: true,
       title: 'Why do retries pile up?',
       model: 'claude-opus-5',
       effort: 'high',
@@ -358,6 +359,7 @@ const rateLimitsChat = (): ChatRecord => {
   return {
     chat: chatOf({
       id: 'chat_rate_limits',
+      progress: 'in-progress',
       title: 'Rate limiting for the public API',
       repositories: ['acme/api'],
       createdAt: sentAt,

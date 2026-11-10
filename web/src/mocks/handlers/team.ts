@@ -555,7 +555,6 @@ const chatHandlers = [
       );
       record.chat.model = model ?? record.chat.model;
       record.chat.effort = effort ?? record.chat.effort;
-      record.chat.waitingForYou = false;
       answered(record, at, body);
 
       return noContent();
