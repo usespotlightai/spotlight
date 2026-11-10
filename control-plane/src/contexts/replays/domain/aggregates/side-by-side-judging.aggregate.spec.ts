@@ -3,8 +3,6 @@ import type { SideBySideJudged } from '@replays/domain/events/side-by-side-judge
 import type { SideBySideJudgingFailed } from '@replays/domain/events/side-by-side-judging-failed.event';
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { Money } from '@replays/domain/value-objects/money.vo';
 import type { JudgedPair } from '@replays/domain/value-objects/pair-judgment';
 import type { PairOrder } from '@replays/domain/value-objects/pair-order';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
@@ -44,7 +42,6 @@ const judged = (
     ],
   })),
   model: 'some/model',
-  spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
 });
 
 describe('SideBySideJudging', () => {
@@ -112,14 +109,13 @@ describe('SideBySideJudging', () => {
     ).toThrow(InvalidJudgingError);
   });
 
-  it('gives up once it used the attempts paid for', () => {
+  it('gives up once it used its attempts', () => {
     const [event] = queued(1)
       .leaseJob(NOW)
       .recordJudgment(
         {
           judged: false,
           failure: 'ungrounded',
-          spent: ModelSpent.of([Money.of(0.01, 'USD')], 0),
         },
         NOW,
       )

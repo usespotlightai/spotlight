@@ -6,7 +6,6 @@ import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
-import { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
 import { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
@@ -107,13 +106,7 @@ const ENDED_EARLY = [
 
 const PAIRING_STATE = 'finished' satisfies ReplayState;
 
-export const PAIR_ATTEMPTS = 2;
-
-const JUDGED_BOTH_WAYS = 2;
-
 const OTHER_RUBRIC: Unpaired = 'other-rubric';
-
-const CEILING_REACHED: Unpaired = 'ceiling-reached';
 
 const repeatsOf = (
   entries: readonly ReplaySetEntry[],
@@ -509,19 +502,6 @@ export class Replay extends EventRecorder {
     return this.state.state === PAIRING_STATE;
   }
 
-  private pairingEstimateOf(entry: ReplayEntry): Money {
-    return this.chargeOf(entry.judgingSpent ? [entry.judgingSpent] : []).scaled(
-      JUDGED_BOTH_WAYS * PAIR_ATTEMPTS,
-      1,
-    );
-  }
-
-  private get awaitsPairing(): boolean {
-    return this.state.entries.some(
-      (each) => each.pairing === null && each.pairableFor(this.scoring),
-    );
-  }
-
   pairAgainst(
     reference: PairingReference,
     accepted: (original: RunId) => boolean,
@@ -535,15 +515,7 @@ export class Replay extends EventRecorder {
     }
 
     const otherRubric = reference.rubricVersion !== this.state.rubricVersion;
-    const outstanding = this.state.entries.filter(
-      (each) => each.pairing?.pending,
-    );
-    let reserved = outstanding.reduce(
-      (total, each) => total.plus(this.pairingEstimateOf(each)),
-      this.charged,
-    );
     const wanted: { run: RunId; other: RunId; original: RunId }[] = [];
-    const ceilingReached: ReplayEntry[] = [];
     const entries = this.state.entries.map((entry) => {
       const theirs = reference.entryMatching(entry);
       const run = entry.run;
@@ -562,33 +534,14 @@ export class Replay extends EventRecorder {
         return entry.pairingLeft(other, OTHER_RUBRIC);
       }
 
-      const expected = reserved.plus(this.pairingEstimateOf(entry));
-
-      if (!expected.isWithin(this.state.ceiling)) {
-        ceilingReached.push(entry);
-        return entry;
-      }
-
-      reserved = expected;
       wanted.push({ run, other, original: entry.original });
       return entry.pairingRequested(other);
     });
-    const resulting =
-      outstanding.length === 0 && wanted.length === 0
-        ? entries.map((entry) => {
-            const other = reference.entryMatching(entry)?.run;
-
-            return other && ceilingReached.includes(entry)
-              ? entry.pairingLeft(other, CEILING_REACHED)
-              : entry;
-          })
-        : entries;
-
-    if (resulting.every((each, place) => each === this.state.entries[place])) {
+    if (entries.every((each, place) => each === this.state.entries[place])) {
       return this;
     }
 
-    const requested = this.with({ entries: resulting });
+    const requested = this.with({ entries });
 
     for (const each of wanted) {
       requested.record(
@@ -606,36 +559,12 @@ export class Replay extends EventRecorder {
     return requested;
   }
 
-  pair(
-    run: RunId,
-    other: RunId,
-    verdict: PairVerdict,
-    spent: ModelSpent | null,
-  ): Replay {
-    return this.afterPairing(
-      this.secondRound(run, (entry) => entry.paired(other, verdict, spent)),
-    );
+  pair(run: RunId, other: RunId, verdict: PairVerdict): Replay {
+    return this.secondRound(run, (entry) => entry.paired(other, verdict));
   }
 
-  recordPairingFailure(
-    run: RunId,
-    other: RunId,
-    why: Unpaired,
-    spent: ModelSpent | null,
-  ): Replay {
-    return this.afterPairing(
-      this.secondRound(run, (entry) => entry.pairingFailed(other, why, spent)),
-    );
-  }
-
-  private afterPairing(changed: Replay): Replay {
-    if (changed === this || !changed.awaitsPairing) {
-      return changed;
-    }
-
-    changed.record(new ReplayPairingRequested(this.id, this.workspaceId));
-
-    return changed;
+  recordPairingFailure(run: RunId, other: RunId, why: Unpaired): Replay {
+    return this.secondRound(run, (entry) => entry.pairingFailed(other, why));
   }
 
   get ceiling(): Money {
@@ -791,34 +720,13 @@ export class Replay extends EventRecorder {
     return this.state.unpricedRate;
   }
 
-  private unpricedIn(spends: readonly ModelSpent[]): number {
+  private unpricedIn(spent: ModelSpent | null): number {
     const ceiling = this.state.ceiling;
 
-    return spends.reduce(
-      (calls, each) =>
-        calls +
-        each.unpriced +
-        each.spends.filter((spend) => !spend.sameCurrencyAs(ceiling)).length,
-      0,
-    );
-  }
-
-  private chargeOf(spends: readonly ModelSpent[]): Money {
-    const rate = this.state.unpricedRate;
-    const priced = spends.reduce(
-      (sum, each) => sum.plus(spentIn(each, this.state.ceiling.currency)),
-      Money.none(this.state.ceiling.currency),
-    );
-
-    return rate ? priced.plus(rate.scaled(this.unpricedIn(spends), 1)) : priced;
-  }
-
-  private get secondRoundSpends(): readonly ModelSpent[] {
-    return this.state.entries.flatMap((each) =>
-      [each.rejudgingSpent, each.pairingSpent].flatMap((spent) =>
-        spent ? [spent] : [],
-      ),
-    );
+    return spent
+      ? spent.unpriced +
+          spent.spends.filter((each) => !each.sameCurrencyAs(ceiling)).length
+      : 0;
   }
 
   get unpricedRuns(): number {
@@ -833,15 +741,16 @@ export class Replay extends EventRecorder {
       const unpricedRun =
         called && !measures?.cost?.sameCurrencyAs(ceiling) ? 1 : 0;
 
-      return count + unpricedRun + this.unpricedIn(entry.modelSpends);
+      return count + unpricedRun + this.unpricedIn(entry.generationSpent);
     }, 0);
   }
 
   get charged(): Money {
     const rate = this.state.unpricedRate;
-    const spent = this.spent.plus(this.chargeOf(this.secondRoundSpends));
 
-    return rate ? spent.plus(rate.scaled(this.unpricedRuns, 1)) : spent;
+    return rate
+      ? this.spent.plus(rate.scaled(this.unpricedRuns, 1))
+      : this.spent;
   }
 
   get occupying(): readonly ReplayEntry[] {
@@ -946,38 +855,20 @@ export class Replay extends EventRecorder {
     );
   }
 
-  recordVerdict(
-    run: RunId,
-    verdict: JudgeVerdict,
-    spent: ModelSpent | null,
-    at: Date,
-  ): Replay {
-    return this.changing(run, (entry) => entry.judged(verdict, spent), at);
+  recordVerdict(run: RunId, verdict: JudgeVerdict, at: Date): Replay {
+    return this.changing(run, (entry) => entry.judged(verdict), at);
   }
 
-  recordJudgingFailure(
-    run: RunId,
-    why: Unjudged,
-    spent: ModelSpent | null,
-    at: Date,
-  ): Replay {
-    return this.changing(run, (entry) => entry.judgingFailed(why, spent), at);
+  recordJudgingFailure(run: RunId, why: Unjudged, at: Date): Replay {
+    return this.changing(run, (entry) => entry.judgingFailed(why), at);
   }
 
-  recordRejudgment(
-    run: RunId,
-    verdict: JudgeVerdict,
-    spent: ModelSpent | null,
-  ): Replay {
-    return this.secondRound(run, (entry) => entry.rejudged(verdict, spent));
+  recordRejudgment(run: RunId, verdict: JudgeVerdict): Replay {
+    return this.secondRound(run, (entry) => entry.rejudged(verdict));
   }
 
-  recordRejudgingFailure(
-    run: RunId,
-    why: Unjudged,
-    spent: ModelSpent | null,
-  ): Replay {
-    return this.secondRound(run, (entry) => entry.rejudgingFailed(why, spent));
+  recordRejudgingFailure(run: RunId, why: Unjudged): Replay {
+    return this.secondRound(run, (entry) => entry.rejudgingFailed(why));
   }
 
   recheck(run: RunId, checks: ChangeChecks): Replay {
@@ -1134,9 +1025,7 @@ export class Replay extends EventRecorder {
     if (!changed.wantsJudging(scoring)) {
       entry = changed.scored(scoring);
     } else if (!this.isDispatching) {
-      entry = changed
-        .judgingFailed(STOPPED_BEFORE_JUDGING, null)
-        .scored(scoring);
+      entry = changed.judgingFailed(STOPPED_BEFORE_JUDGING).scored(scoring);
     } else {
       wanted = true;
       entry = changed.judgingRequested().scored(scoring);
@@ -1190,24 +1079,10 @@ export class Replay extends EventRecorder {
   }
 
   private recalibrated(): Replay {
-    let reserved = this.charged;
     const entries = this.state.entries.map((entry) => {
       const rechecked = entry.recheckRequested();
 
-      if (!entry.wantsRejudging) {
-        return rechecked;
-      }
-
-      const expected = reserved.plus(
-        this.chargeOf(entry.judgingSpent ? [entry.judgingSpent] : []),
-      );
-
-      if (!expected.isWithin(this.state.ceiling)) {
-        return rechecked;
-      }
-
-      reserved = expected;
-      return rechecked.rejudgingRequested();
+      return entry.wantsRejudging ? rechecked.rejudgingRequested() : rechecked;
     });
     const requested = this.with({ entries });
 

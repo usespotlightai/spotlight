@@ -2,7 +2,6 @@ import { SideBySideJudged } from '@replays/domain/events/side-by-side-judged.eve
 import { SideBySideJudgingFailed } from '@replays/domain/events/side-by-side-judging-failed.event';
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { PairJudgment } from '@replays/domain/value-objects/pair-judgment';
 import {
   oppositeOf,
@@ -32,7 +31,6 @@ interface State {
   readonly job: PendingJob | null;
   readonly judgedAt: Date | null;
   readonly failure: JudgingFailure | null;
-  readonly spent: ModelSpent;
   readonly version: number;
 }
 
@@ -85,7 +83,6 @@ export class SideBySideJudging
       job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,
-      spent: ModelSpent.none(),
       version: 0,
     });
   }
@@ -159,10 +156,6 @@ export class SideBySideJudging
     return this.state.failure;
   }
 
-  get spent(): ModelSpent {
-    return this.state.spent;
-  }
-
   get version(): number {
     return this.state.version;
   }
@@ -222,12 +215,8 @@ export class SideBySideJudging
       return this;
     }
 
-    const spending = this.with({
-      spent: this.state.spent.plus(judgment.spent),
-    });
-
     if (!judgment.judged) {
-      return spending.failed(JudgingFailure.of(judgment.failure, now));
+      return this.failed(JudgingFailure.of(judgment.failure, now));
     }
 
     const [first, second] = judgment.passes;
@@ -250,7 +239,7 @@ export class SideBySideJudging
       model: judgment.model,
       passes: judgment.passes,
     });
-    const judged = spending.with({
+    const judged = this.with({
       job: null,
       judgedAt: now,
       failure: null,
@@ -261,7 +250,6 @@ export class SideBySideJudging
         this.state.otherRunId,
         this.state.workspaceId,
         verdict,
-        judged.spent,
         now,
       ),
     );
@@ -280,7 +268,6 @@ export class SideBySideJudging
         this.state.otherRunId,
         this.state.workspaceId,
         failure,
-        this.state.spent,
       ),
     );
     return ended;

@@ -4,7 +4,6 @@ import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.
 import type { ChangeJudgment } from '@replays/domain/value-objects/change-judgment';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import type { JudgingAttempt } from '@replays/domain/value-objects/judging-attempt';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
@@ -26,7 +25,6 @@ interface State {
   readonly job: PendingJob | null;
   readonly judgedAt: Date | null;
   readonly failure: JudgingFailure | null;
-  readonly spent: ModelSpent;
   readonly version: number;
 }
 
@@ -64,7 +62,6 @@ export class ChangeJudging
       job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,
-      spent: ModelSpent.none(),
       version: 0,
     });
   }
@@ -124,10 +121,6 @@ export class ChangeJudging
     return this.state.failure;
   }
 
-  get spent(): ModelSpent {
-    return this.state.spent;
-  }
-
   get version(): number {
     return this.state.version;
   }
@@ -146,7 +139,6 @@ export class ChangeJudging
       job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,
-      spent: ModelSpent.none(),
       version: 0,
     });
   }
@@ -203,12 +195,8 @@ export class ChangeJudging
       return this;
     }
 
-    const spending = this.with({
-      spent: this.state.spent.plus(judgment.spent),
-    });
-
     if (!judgment.judged) {
-      return spending.failed(JudgingFailure.of(judgment.failure, now));
+      return this.failed(JudgingFailure.of(judgment.failure, now));
     }
 
     const { criteria } = this.state;
@@ -223,7 +211,7 @@ export class ChangeJudging
       reasons: judgment.reasons,
       guidance: this.guidanceRequested ? judgment.guidance : null,
     });
-    const judged = spending.with({
+    const judged = this.with({
       job: null,
       judgedAt: now,
       failure: null,
@@ -234,7 +222,6 @@ export class ChangeJudging
         this.state.attempt,
         this.state.workspaceId,
         verdict,
-        judged.spent,
         now,
       ),
     );
@@ -253,7 +240,6 @@ export class ChangeJudging
         this.state.attempt,
         this.state.workspaceId,
         failure,
-        this.state.spent,
       ),
     );
     return ended;

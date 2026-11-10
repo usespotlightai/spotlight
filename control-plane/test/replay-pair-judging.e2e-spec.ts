@@ -156,11 +156,6 @@ const judge: JudgePort = {
     return {
       model: 'stub/judge',
       guidance: null,
-      usage: {
-        inputTokens: 2_000,
-        outputTokens: 50,
-        cost: { amount: 0.01, currency: 'USD' },
-      },
       verdict: {
         claims: request.claims.map((claim, index) => ({
           index,
@@ -191,11 +186,6 @@ const pairJudge: SideBySideJudgePort = {
 
     return {
       model: 'stub/pair-judge',
-      usage: {
-        inputTokens: 3_000,
-        outputTokens: 60,
-        cost: { amount: 0.02, currency: 'USD' },
-      },
       verdict: {
         preferred,
         reasons: [
@@ -770,7 +760,6 @@ describe('a replay at a station whose judge goes by claims', () => {
       });
       expect(mine?.pairing?.verdict?.outcome).toBe(row.pair);
       expect(mine?.pairing?.otherRunId.value).toBe(theirs?.run?.value);
-      expect(mine?.pairingSpent?.spends[0]?.amount).toBe(0.04);
       expect(theirs?.pairing).toBeNull();
     }
 

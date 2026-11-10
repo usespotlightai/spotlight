@@ -22,14 +22,11 @@ const stored = (run: RunId | null, slot: number | null) =>
     checks: null,
     judging: null,
     generationSpent: null,
-    judgingSpent: null,
     succeeded: null,
     reasons: [],
     secondJudging: null,
-    rejudgingSpent: null,
     recheck: null,
     pairing: null,
-    pairingSpent: null,
   });
 
 describe('ReplayEntry', () => {

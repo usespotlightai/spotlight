@@ -886,7 +886,6 @@ describe('Replay', () => {
           reasons: [],
           guidance: null,
         }),
-        null,
         later(65_000),
       );
 
@@ -897,7 +896,7 @@ describe('Replay', () => {
     it('finishes, unscored, when its judge could not judge, rather than waiting for ever', () => {
       const replay = done(judging())
         .recordReview(run(0), passed, null, later(62_000))
-        .recordJudgingFailure(run(0), 'interrupted', null, later(63_000));
+        .recordJudgingFailure(run(0), 'interrupted', later(63_000));
 
       expect(replay.current).toBe('finished');
       expect(replay.entries[0]?.succeeded).toBeNull();
@@ -956,7 +955,7 @@ describe('Replay', () => {
       expect(reviewed.entries[0]?.succeeded).toBeNull();
     });
 
-    it('spends what drafting and judging its change cost against its ceiling', () => {
+    it('spends what drafting its change cost against its ceiling, and nothing for judging it', () => {
       const replay = done(judging())
         .recordReview(
           run(0),
@@ -977,14 +976,14 @@ describe('Replay', () => {
             reasons: [],
             guidance: null,
           }),
-          ModelSpent.of([Money.of(0.5, 'USD')], 0),
           later(63_000),
         );
 
-      expect(replay.spent.amount).toBeCloseTo(1.75);
+      expect(replay.spent.amount).toBeCloseTo(1.25);
+      expect(replay.charged.amount).toBeCloseTo(1.25);
     });
 
-    it('reaches its ceiling on what drafting and judging cost too', () => {
+    it('reaches its ceiling on what drafting cost too', () => {
       const replay = reserved(
         aReplay({
           count: 2,
@@ -1200,20 +1199,14 @@ describe('Replay', () => {
         .recordRunEnd(run(at), endOf('completed'))
         .measure(run(at), measuresOf(1), later(61_000))
         .recordReview(run(at), checks, null, later(62_000))
-        .recordVerdict(
-          run(at),
-          verdictOf(value),
-          ModelSpent.of([Money.of(0.5, 'USD')], 0),
-          later(63_000),
-        );
-    const calibrated = (ceiling = 100) => {
+        .recordVerdict(run(at), verdictOf(value), later(63_000));
+    const calibrated = () => {
       const reservedCalibration = reserved(
         aReplay({
           count: 1,
           repeats: 2,
           candidate: live,
           calibration: true,
-          ceiling,
         }),
         2,
       );
@@ -1290,16 +1283,12 @@ describe('Replay', () => {
       ]);
     });
 
-    it('records the second verdicts and rechecks beside the first, says where they agree, and charges the second judging to its ceiling but not to what its runs cost', () => {
+    it('records the second verdicts and rechecks beside the first, says where they agree, and charges nothing for the second judging', () => {
       const replay = calibrated();
       const spentBefore = replay.spent.amount;
       const answered = replay
-        .recordRejudgment(
-          run(0),
-          verdictOf(4),
-          ModelSpent.of([Money.of(0.25, 'USD')], 0),
-        )
-        .recordRejudgment(run(1), verdictOf(5), null)
+        .recordRejudgment(run(0), verdictOf(4))
+        .recordRejudgment(run(1), verdictOf(5))
         .recheck(run(0), checksOf('passed'))
         .recheck(run(1), checksOf('passed'));
 
@@ -1317,16 +1306,15 @@ describe('Replay', () => {
         false,
       ]);
       expect(answered.spent.amount).toBeCloseTo(spentBefore);
-      expect(answered.charged.amount).toBeCloseTo(spentBefore + 0.25);
+      expect(answered.charged.amount).toBeCloseTo(spentBefore);
       expect(
-        answered.recordRejudgment(run(0), verdictOf(1), null).entries[0]
-          ?.judgeAgreed,
+        answered.recordRejudgment(run(0), verdictOf(1)).entries[0]?.judgeAgreed,
       ).toBe(true);
     });
 
     it('notes a second judging that failed, and a recheck still under way, without agreeing or flipping', () => {
       const replay = calibrated()
-        .recordRejudgingFailure(run(0), 'interrupted', null)
+        .recordRejudgingFailure(run(0), 'interrupted')
         .recheck(run(0), ChangeChecks.checking());
 
       expect(replay.entries[0]?.secondJudging?.unjudged).toBe('interrupted');
@@ -1334,29 +1322,7 @@ describe('Replay', () => {
       expect(replay.entries[0]?.checksFlipped).toBeNull();
     });
 
-    it('requests a second judging only of as many runs as the ceiling has room for, at what their first judging cost, and checks them all again', () => {
-      const tight = calibrated(3.6);
-      const events = tight.pullEvents();
-
-      expect(tight.current).toBe('finished');
-      expect(
-        tight.entries.map((each) => [
-          each.secondJudging?.pending ?? null,
-          each.recheck?.state ?? null,
-        ]),
-      ).toEqual([
-        [true, 'checking'],
-        [null, 'checking'],
-      ]);
-      expect(
-        events.filter((each) => each instanceof ReplayRejudgingRequested),
-      ).toHaveLength(1);
-      expect(
-        events.filter((each) => each instanceof ReplayRecheckRequested),
-      ).toHaveLength(2);
-    });
-
-    it('requests nothing again of a replay that is no calibration, nor the judge of a calibration that spent its ceiling', () => {
+    it('requests nothing again of a replay that is no calibration', () => {
       const plain = judgedRun(
         reserved(aReplay({ count: 1, candidate: live }), 1),
         0,
@@ -1375,13 +1341,6 @@ describe('Replay', () => {
           ),
       ).toEqual([]);
       expect(plain.entries[0]?.secondJudging).toBeNull();
-      expect(calibrated(3).current).toBe('finished');
-      expect(calibrated(3).entries[0]?.secondJudging).toBeNull();
-      expect(
-        calibrated(3)
-          .pullEvents()
-          .some((each) => each instanceof ReplayRejudgingRequested),
-      ).toBe(false);
     });
   });
 });

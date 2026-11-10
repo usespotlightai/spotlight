@@ -17,7 +17,6 @@ import type { ChangeJudgingRepository } from '@replays/domain/repositories/chang
 import type { SideBySideJudgingRepository } from '@replays/domain/repositories/side-by-side-judging.repository';
 import type { ChangeJudgment } from '@replays/domain/value-objects/change-judgment';
 import type { JudgingAttempt } from '@replays/domain/value-objects/judging-attempt';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { PairJudgment } from '@replays/domain/value-objects/pair-judgment';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -38,7 +37,6 @@ export class FakeChangeJudge implements ChangeJudgePort {
   answer: ChangeJudgment = {
     judged: false,
     failure: 'unavailable',
-    spent: ModelSpent.none(),
   };
 
   async judge(order: ChangeJudgeOrder): Promise<ChangeJudgment> {
@@ -53,7 +51,6 @@ export class FakePairJudge implements PairJudgePort {
   answer: PairJudgment = {
     judged: false,
     failure: 'unavailable',
-    spent: ModelSpent.none(),
   };
 
   async judge(order: PairJudgeOrder): Promise<PairJudgment> {
@@ -103,7 +100,6 @@ export class InMemoryChangeJudgings implements ChangeJudgingRepository {
         job: judging.job,
         judgedAt: judging.judgedAt,
         failure: judging.failure,
-        spent: judging.spent,
         version: judging.version + 1,
       }),
     );
@@ -182,7 +178,6 @@ export class InMemorySideBySideJudgings implements SideBySideJudgingRepository {
         job: judging.job,
         judgedAt: judging.judgedAt,
         failure: judging.failure,
-        spent: judging.spent,
         version: judging.version + 1,
       }),
     );
@@ -248,7 +243,6 @@ export const judgedOnce = async (
         guidance: null,
         referenced: false,
         model: 'judge/model',
-        spent: ModelSpent.none(),
       },
       NOW,
     );

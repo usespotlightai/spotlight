@@ -151,11 +151,6 @@ const judge: JudgePort = {
     return {
       model: 'stub/judge',
       guidance: null,
-      usage: {
-        inputTokens: 2_000,
-        outputTokens: 50,
-        cost: { amount: 0.01, currency: 'USD' },
-      },
       verdict: {
         value,
         reasons: [

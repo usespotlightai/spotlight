@@ -14,7 +14,6 @@ import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
-import { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
 import { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import { ReplaySetCreated } from '@replays/domain/events/replay-set-created.event';
@@ -108,7 +107,6 @@ export const REPLAYS_PAYLOAD_TYPES = [
   PairVerdict,
   ReplayEntryConcluded,
   ReplaySideBySideJudgingRequested,
-  ReplayPairingRequested,
   JudgeVerdict,
   ModelSpent,
   ReplayEntry,

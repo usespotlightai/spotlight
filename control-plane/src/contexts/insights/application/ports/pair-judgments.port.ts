@@ -1,6 +1,5 @@
 import type { UnjudgedJudgment } from '@insights/application/ports/change-judgments.port';
 import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
-import type { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const PAIR_JUDGMENTS = Symbol('PAIR_JUDGMENTS');
@@ -32,7 +31,6 @@ export type PairJudgment =
       readonly judged: true;
       readonly passes: readonly PairJudgmentPass[];
       readonly model: string;
-      readonly spent: ModelUsage;
     }
   | UnjudgedJudgment;
 

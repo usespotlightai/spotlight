@@ -830,7 +830,6 @@ describe('scoring a replayed task', () => {
         ],
         guidance: 'Finish the jobs already taken before stopping.',
       }),
-      ModelSpent.of([Money.of(0.02, 'USD')], 0),
     );
 
     expect(entry()?.succeeded).toBe(false);
@@ -852,11 +851,7 @@ describe('scoring a replayed task', () => {
     const run = await started();
 
     await completed(run);
-    await judging().failed(
-      RunId.of(run),
-      'request-failed',
-      ModelSpent.of([Money.of(0.01, 'USD')], 0),
-    );
+    await judging().failed(RunId.of(run), 'request-failed');
 
     expect(entry()?.judging?.unjudged).toBe('request-failed');
     expect(entry()?.succeeded).toBeNull();
@@ -911,7 +906,6 @@ describe('probing a set', () => {
             reasons: [],
             guidance: null,
           }),
-          null,
           later(63_000),
         );
     }, reserved);
@@ -996,7 +990,7 @@ describe('probing a set', () => {
     expect(entries()[1]?.secondJudging?.pending).toBe(true);
   });
 
-  it('records the second verdict beside the first, and a second judging that failed, charging it to the ceiling but not to what the runs cost', async () => {
+  it('records the second verdict beside the first, and a second judging that failed, charging nothing for either', async () => {
     await calibrated();
     const judging = new RecordReplayVerdict(
       memory.replayRepository,
@@ -1017,12 +1011,10 @@ describe('probing a set', () => {
         reasons: [],
         guidance: null,
       }),
-      ModelSpent.of([Money.of(0.02, 'USD')], 0),
     );
     await judging.rejudgingFailed(
       RunId.of('calibration_run_1'),
       'request-failed',
-      ModelSpent.of([], 0),
     );
 
     const replay = memory.replays.get('replay_calibration');
@@ -1031,7 +1023,7 @@ describe('probing a set', () => {
     expect(entries()[1]?.secondJudging?.unjudged).toBe('request-failed');
     expect(entries()[0]?.succeeded).toBe(true);
     expect(replay?.spent.amount).toBeCloseTo(2);
-    expect(replay?.charged.amount).toBeCloseTo(2.02);
+    expect(replay?.charged.amount).toBeCloseTo(2);
   });
 
   it('requests Change Review to check each stack of each checked run again, one at a time, and reads what it found', async () => {

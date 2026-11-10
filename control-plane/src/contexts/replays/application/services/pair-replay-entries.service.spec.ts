@@ -24,8 +24,6 @@ import {
   runOf,
 } from '@replays/domain/replays.fake-spec';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -193,7 +191,7 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
     ).toBe('unavailable');
   });
 
-  it('records the verdict it received, with what it cost', async () => {
+  it('records the verdict it received', async () => {
     const event = await wanted();
 
     await new RecordReplayPairVerdict(
@@ -210,12 +208,10 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
           { ownShownFirst: false, outcome: 'loss', reasons: [] },
         ],
       }),
-      ModelSpent.of([Money.of(0.02, 'USD')], 0),
     );
 
     const entry = (await memory.replayRepository.find(event.replayId))
       ?.entries[0];
     expect(entry?.pairing?.verdict?.outcome).toBe('loss');
-    expect(entry?.pairingSpent?.spends[0]?.amount).toBe(0.02);
   });
 });
