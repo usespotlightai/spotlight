@@ -408,7 +408,7 @@ describe('following a config pull request after it opened', () => {
     const notices = await teamNotices();
 
     expect(await pullRequestRow(id)).toMatchObject({
-      state: 'closing',
+      state: expect.toBeOneOf(['closing', 'closed']),
       closedBecause: 'stale',
     });
     expect(

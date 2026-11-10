@@ -108,7 +108,7 @@ export class DispatchSearchIteration {
         await this.searches.save(changed);
       }
 
-      return changed.activeRun?.equals(run) ?? false;
+      return changed.isActive && (changed.activeRun?.equals(run) ?? false);
     });
 
     if (queued.queued && !stillWanted) {
