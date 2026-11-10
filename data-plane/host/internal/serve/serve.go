@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"math/rand/v2"
 	"net/url"
 	"os"
@@ -42,6 +43,7 @@ const (
 	heartbeatEvery  = 20 * time.Second
 	readyBeat       = 90 * time.Second
 	refreshEvery    = time.Minute
+	imageGrace      = 15 * time.Minute
 	leaseEvery      = 20 * time.Second
 	stopGrace       = 30 * time.Second
 	mirrorWait      = 15 * time.Second
@@ -53,6 +55,7 @@ const (
 	mirrorLongest   = 30 * time.Minute
 	probeLongest    = 2 * time.Minute
 	cleanupBudget   = time.Minute
+	sweepEvery      = 5 * time.Minute
 	deliverWait     = 5 * time.Minute
 	placeWait       = 10 * time.Minute
 	placePoll       = 500 * time.Millisecond
@@ -107,8 +110,10 @@ type Options struct {
 	Updates        Updates
 	AutoUpdate     bool
 	RefreshEvery   time.Duration
+	ImageGrace     time.Duration
 	LeaseEvery     time.Duration
 	HeartbeatEvery time.Duration
+	SweepEvery     time.Duration
 	EgressWait     time.Duration
 	Capacity       int
 	RunTimeout     time.Duration
@@ -150,6 +155,11 @@ type Host struct {
 	beat     atomic.Int64
 	stopping atomic.Bool
 
+	imaging sync.RWMutex
+
+	networking sync.Mutex
+	networks   map[string]int
+
 	mu           sync.Mutex
 	served       map[string]*served
 	disallowed   []string
@@ -160,6 +170,8 @@ type Host struct {
 	failures     map[string]int
 	egressIs     string
 	egressFor    string
+	handedOut    map[string]time.Time
+	repositories map[string]bool
 	updateAfter  time.Time
 	updated      bool
 	restarting   bool
@@ -182,6 +194,9 @@ func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors
 		held:         map[string]*held{},
 		claimBackoff: map[string]time.Time{},
 		failures:     map[string]int{},
+		handedOut:    map[string]time.Time{},
+		repositories: map[string]bool{},
+		networks:     map[string]int{},
 	}
 	h.live.Store(new(settingsOf(opts)))
 
@@ -263,6 +278,7 @@ func (h *Host) Serve(ctx context.Context) error {
 		h.log.Info("serving", "name", h.now().Name, "capacity", h.slots.size(), "default", h.now().Images.Default)
 
 		reporting.Go(func() { h.watch(claiming, ctx, stop) })
+		reporting.Go(func() { h.sweep(claiming) })
 		h.loops.Go(func() {
 			if err := h.calls(claiming, ctx, stop); err != nil {
 				stop(err)
@@ -362,16 +378,74 @@ func (h *Host) reap(ctx context.Context) {
 		h.log.Info("destroyed a sandbox left behind", "sandbox", id)
 	}
 
+	h.sweepNetworks(ctx)
+}
+
+func (h *Host) sweep(ctx context.Context) {
+	every := h.opts.SweepEvery
+	if every <= 0 {
+		every = sweepEvery
+	}
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		sweeping, cancel := context.WithTimeout(ctx, cleanupBudget)
+		h.sweepNetworks(sweeping)
+		cancel()
+	}
+}
+
+func (h *Host) sweepNetworks(ctx context.Context) {
 	networks, err := h.engine.Networks(ctx, LabelHost, h.opts.HostID)
 	if err != nil {
 		h.log.Warn("could not look for sandbox networks left behind", "error", err)
 		return
 	}
 
-	for _, id := range networks {
-		if err := h.engine.Unnetwork(ctx, id); err != nil {
-			h.log.Warn("could not remove a sandbox network left behind", "network", id, "error", err)
+	h.networking.Lock()
+	inUse := maps.Clone(h.networks)
+	h.networking.Unlock()
+
+	for _, network := range networks {
+		if inUse[network.Name] > 0 {
+			continue
 		}
+		attached, err := h.engine.Attached(ctx, network.ID)
+		if err != nil {
+			h.log.Warn("could not list the containers on a sandbox network left behind", "network", network.Name, "error", err)
+			continue
+		}
+		for _, id := range attached {
+			if err := h.engine.Destroy(ctx, id); err != nil {
+				h.log.Warn("could not destroy a container on a sandbox network left behind", "network", network.Name, "container", id, "error", err)
+			}
+		}
+		if err := h.engine.Unnetwork(ctx, network.ID); err != nil {
+			h.log.Warn("could not remove a sandbox network left behind", "network", network.Name, "error", err)
+			continue
+		}
+		h.log.Info("removed a sandbox network left behind", "network", network.Name)
+	}
+}
+
+func (h *Host) holdNetwork(name string) {
+	h.networking.Lock()
+	defer h.networking.Unlock()
+	h.networks[name]++
+}
+
+func (h *Host) releaseNetwork(name string) {
+	h.networking.Lock()
+	defer h.networking.Unlock()
+	if h.networks[name]--; h.networks[name] <= 0 {
+		delete(h.networks, name)
 	}
 }
 

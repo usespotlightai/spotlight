@@ -7,7 +7,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Env } from '@platform/config/env.schema';
-import { headObject, s3ClientsOf } from '@platform/storage/s3-clients';
+import type { KeyOverlay } from '@platform/storage/key-overlay';
+import { s3ClientsOf } from '@platform/storage/s3-clients';
 import { StorageNotConfiguredError } from '@runs/application/errors/storage-not-configured.error';
 import type {
   ArchiveUpload,
@@ -42,11 +43,13 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
   private readonly store: S3Client;
   private readonly runners: S3Client;
   private readonly bucket: string;
+  private readonly keys: KeyOverlay;
 
   constructor(env: Env) {
     const clients = s3ClientsOf(env);
 
     this.bucket = clients.bucket;
+    this.keys = clients.keys;
     this.store = clients.store;
     this.runners = clients.machineSigner;
   }
@@ -63,7 +66,7 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
       this.runners,
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: keyOf(archive),
+        Key: this.keys.writeKey(keyOf(archive)),
         ContentType: CONTENT_TYPE,
         ContentLength: archive.size.bytes,
         ChecksumSHA256: base64Of(archive.digest),
@@ -81,11 +84,9 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
   async stored(archive: WorkingCopyArchive): Promise<StoredArchive | null> {
     this.assertBucket();
 
-    const head = await headObject(this.store, {
-      Bucket: this.bucket,
-      Key: keyOf(archive),
-      ChecksumMode: 'ENABLED',
-    });
+    const head = (
+      await this.keys.locate(this.store, this.bucket, keyOf(archive), true)
+    )?.head;
 
     const digest = head ? digestOf(head) : null;
 
@@ -101,7 +102,10 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
 
     return getSignedUrl(
       this.runners,
-      new GetObjectCommand({ Bucket: this.bucket, Key: keyOf(archive) }),
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: await this.keys.readKey(this.store, this.bucket, keyOf(archive)),
+      }),
       { expiresIn: SIGNED_FOR },
     );
   }
@@ -112,7 +116,10 @@ export class S3WorkingCopyArchiveStore implements WorkingCopyArchiveStorePort {
     }
 
     await this.store.send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: keyOf(archive) }),
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: this.keys.writeKey(keyOf(archive)),
+      }),
     );
   }
 

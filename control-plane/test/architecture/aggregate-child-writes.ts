@@ -67,8 +67,11 @@ const TABLE_WRITERS: Readonly<Record<string, DeclaredWriters>> = {
     ],
   },
   event_outbox: {
-    why: 'platform transactional outbox of integration events',
-    writers: ['platform/events/event-outbox.ts'],
+    why: 'platform transactional outbox of integration events, trimmed once delivered',
+    writers: [
+      'platform/events/event-outbox.ts',
+      'platform/events/outbox-retention.ts',
+    ],
   },
   idempotent_create: {
     why: 'platform ledger of idempotency keys for create requests',

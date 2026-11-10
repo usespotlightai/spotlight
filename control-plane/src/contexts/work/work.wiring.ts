@@ -60,6 +60,7 @@ import { IntegrationEventMappers } from '@platform/events/integration-event-mapp
 import { PayloadTypes } from '@platform/events/payload-types';
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import { ReadinessChecks } from '@platform/health/readiness-checks';
+import { ChangeNotices } from '@platform/live/change-notices';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -158,6 +159,9 @@ import { CarryGitCallCommand } from '@work/application/commands/carry-git-call.c
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
+  MarkChatReadCommand,
+  ReopenChatCommand,
+  ResolveChatCommand,
   SendChatMessageCommand,
   StartChatCommand,
   StopChatCommand,
@@ -179,13 +183,16 @@ import { DismissProposalHandler } from '@work/application/commands/handlers/dism
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantRunAttachmentUploadHandler } from '@work/application/commands/handlers/grant-run-attachment-upload.handler';
 import { KeepTaskDraftHandler } from '@work/application/commands/handlers/keep-task-draft.handler';
+import { MarkChatReadHandler } from '@work/application/commands/handlers/mark-chat-read.handler';
 import { MarkConversationReadHandler } from '@work/application/commands/handlers/mark-conversation-read.handler';
 import { MarkInboxRequestReadHandler } from '@work/application/commands/handlers/mark-inbox-request-read.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
+import { ReopenChatHandler } from '@work/application/commands/handlers/reopen-chat.handler';
 import { ReopenConversationHandler } from '@work/application/commands/handlers/reopen-conversation.handler';
 import { ReopenInboxRequestHandler } from '@work/application/commands/handlers/reopen-inbox-request.handler';
 import { ReopenNoticeHandler } from '@work/application/commands/handlers/reopen-notice.handler';
 import { ReplyToReviewCommentHandler } from '@work/application/commands/handlers/reply-to-review-comment.handler';
+import { ResolveChatHandler } from '@work/application/commands/handlers/resolve-chat.handler';
 import { ResolveConversationHandler } from '@work/application/commands/handlers/resolve-conversation.handler';
 import { ResolveInboxRequestHandler } from '@work/application/commands/handlers/resolve-inbox-request.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
@@ -633,6 +640,7 @@ import { InboxController } from '@work/presentation/http/controllers/inbox.contr
 import { OnboardingController } from '@work/presentation/http/controllers/onboarding.controller';
 import { RunWorkController } from '@work/presentation/http/controllers/run-work.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
+import { WORK_CHANGE_NOTICES } from '@work/presentation/live/work.change-notices';
 import { ProcessedEventsWorker } from '@work/presentation/workers/processed-events.worker';
 import { ToolUsesWorker } from '@work/presentation/workers/tool-uses.worker';
 import { TurnsWorker } from '@work/presentation/workers/turns.worker';
@@ -1075,8 +1083,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: S3Readiness,
     inject: [ReadinessChecks, ENV],
     useFactory: (checks: ReadinessChecks, env: Env) => {
-      const { store, bucket } = s3ClientsOf(env);
-      const s3 = new S3Readiness(store, bucket);
+      const { store, bucket, keys } = s3ClientsOf(env);
+      const s3 = new S3Readiness(store, bucket, keys);
       checks.register(s3);
       return s3;
     },
@@ -1812,6 +1820,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [
       PayloadTypes,
       IntegrationEventMappers,
+      ChangeNotices,
       EventSubscribers,
       ID_GENERATOR,
       CLOCK,
@@ -1840,6 +1849,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     useFactory: (
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
+      changeNotices: ChangeNotices,
       subscribers: EventSubscribers,
       ids: IdGeneratorPort,
       clock: ClockPort,
@@ -1867,6 +1877,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
+      changeNotices.register(WORK_CHANGE_NOTICES);
       subscribers.register([
         ...workSubscribers({
           handOver: new HandOver(tasks, lines, routing, journals, readings),
@@ -2346,6 +2357,25 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ChatLoader,
     CHAT_REPOSITORY,
     CLOCK,
+  ]),
+
+  ...bindCommandHandler(ResolveChatCommand, ResolveChatHandler, [
+    ChatLoader,
+    CHAT_REPOSITORY,
+    CLOCK,
+    LOGGER,
+  ]),
+  ...bindCommandHandler(ReopenChatCommand, ReopenChatHandler, [
+    ChatLoader,
+    CHAT_REPOSITORY,
+    CLOCK,
+    LOGGER,
+  ]),
+  ...bindCommandHandler(MarkChatReadCommand, MarkChatReadHandler, [
+    ChatLoader,
+    CHAT_REPOSITORY,
+    CLOCK,
+    LOGGER,
   ]),
 
   ...bindCommandHandler(

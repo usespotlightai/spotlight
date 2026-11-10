@@ -142,11 +142,6 @@ const judge: JudgePort = {
     return {
       model: 'stub/judge',
       guidance: null,
-      usage: {
-        inputTokens: 2_000,
-        outputTokens: 50,
-        cost: { amount: 0.01, currency: 'USD' },
-      },
       verdict: {
         value,
         reasons: [
@@ -728,10 +723,6 @@ describe('a replay at a station that checks and judges', () => {
 
     expect(spentOf(steady?.generationSpent)).toEqual({
       spends: [{ amount: 0.02, currency: 'USD' }],
-      unpriced: 0,
-    });
-    expect(spentOf(steady?.judgingSpent)).toEqual({
-      spends: [{ amount: 0.01, currency: 'USD' }],
       unpriced: 0,
     });
     expect(regressed?.checks).toMatchObject({

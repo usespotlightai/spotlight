@@ -224,7 +224,7 @@ describe('taskComparisons', () => {
     const judged = (replay: Replay, scores: readonly number[]) =>
       scores.reduce(
         (built, score, at) =>
-          built.recordVerdict(run(at), scoredAs(score), null, later(90_000)),
+          built.recordVerdict(run(at), scoredAs(score), later(90_000)),
         replay,
       );
     const baseline = judged(
@@ -266,7 +266,6 @@ describe('taskComparisons', () => {
           reasons: [],
           guidance: null,
         }),
-        null,
         later(90_000),
       );
     const baseline = judged(

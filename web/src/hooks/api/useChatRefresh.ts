@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { chatKeys } from '@/hooks/api/useChats';
+import { inboxKeys } from '@/hooks/api/useInbox';
 import { journalKeys } from '@/hooks/api/useRunJournals';
 import { useRunStream } from '@/hooks/api/useRunStream';
 import type { Chat } from '@/lib/chat';
@@ -28,6 +29,7 @@ export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the journal must update when a run stops or a new message comes, but the effect reads neither value
   useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: inboxKeys.all });
     void queryClient.invalidateQueries({
       queryKey: journalKeys.runsOfChat(chatId),
     });

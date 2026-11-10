@@ -67,7 +67,6 @@ const working = async (
           model: 'some/model',
           verdict: await answer(request),
           guidance: null,
-          usage: null,
         };
       },
     },
@@ -100,6 +99,7 @@ describe('WorkJudgings', () => {
     expect(requests[0]?.rubric).toBe('Did the run retry uploads?');
     expect(requests[0]?.scale).toBe('yes-no');
     expect(requests[0]?.guidanceRequested).toBe(false);
+    expect(requests[0]?.replayed).toBe(false);
     expect(requests[0]?.steps.map((each) => each.index)).toEqual([2]);
     expect(requests[0]?.hunks.map((each) => each.id)).toEqual([
       'api/src/uploads.ts#1',
@@ -122,7 +122,7 @@ describe('WorkJudgings', () => {
 
   it('retries later when the request to the provider fails', async () => {
     const { judging } = await working(async () => {
-      throw new JudgingError('request-failed', 'no credits', null);
+      throw new JudgingError('request-failed', 'no credits');
     });
 
     expect(judging?.hasPendingJob).toBe(true);

@@ -10,12 +10,11 @@ import { groundedVerdict } from '@insights/domain/services/grounded-verdict';
 import { guardedGuidanceOf } from '@insights/domain/services/guidance';
 import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import type { JudgingFailureCode } from '@shared-kernel/domain/value-objects/judging-failure.vo';
-import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
-const unjudged = (
-  failure: JudgingFailureCode,
-  spent = ModelUsage.none(),
-): ChangeJudgment => ({ judged: false, failure, spent });
+const unjudged = (failure: JudgingFailureCode): ChangeJudgment => ({
+  judged: false,
+  failure,
+});
 
 export class ChangeJudgments implements ChangeJudgmentsPort {
   constructor(
@@ -67,8 +66,8 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
         hunksLeftOut: evidence.hunksLeftOut,
         reference: evidence.reference,
         guidanceRequested: order.guidanceRequested,
+        replayed: true,
       });
-      const spent = ModelUsage.none().with(answer.usage);
       const grounded = groundedVerdict(
         order.criteria,
         answer.verdict,
@@ -76,7 +75,7 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
       );
 
       if (!grounded.grounded) {
-        return unjudged(grounded.failure, spent);
+        return unjudged(grounded.failure);
       }
 
       return {
@@ -98,11 +97,10 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
           : null,
         referenced: evidence.reference !== null,
         model: answer.model,
-        spent,
       };
     } catch (error) {
       if (error instanceof JudgingError) {
-        return unjudged(error.kind, ModelUsage.none().with(error.usage));
+        return unjudged(error.kind);
       }
       throw error;
     }

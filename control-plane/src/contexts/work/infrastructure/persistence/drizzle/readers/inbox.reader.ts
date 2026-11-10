@@ -22,6 +22,7 @@ import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import { RunReadingMapper } from '@work/application/mappers/run-reading.mapper';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
+  InboxChatSummary,
   InboxEntrySummary,
   InboxItemSummary,
   InboxItemView,
@@ -68,6 +69,7 @@ import {
   stationsPerLine,
   trailsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
+import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import {
   inboxRequest,
   inboxRequestRead,
@@ -284,6 +286,54 @@ const noticesWhere = (
   return limit === null ? query : query.limit(limit);
 };
 
+const chatWaiting = sql<boolean>`exists (select 1 from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'message' and "chat_message"."acknowledged_at" is null)`;
+
+const chatRunning = sql`(${chat.currentRunId} is not null or ${chatWaiting})`;
+
+const chatsWhere = (
+  db: DrizzleDatabase,
+  scope: InboxScope,
+  narrowedTo: SQL | undefined,
+  limit: number | null,
+) => {
+  const query = db
+    .select({
+      id: chat.id,
+      teamId: chat.teamId,
+      title: chat.title,
+      working: chat.currentRunId,
+      resolvedAt: chat.resolvedAt,
+      cursorAt: sortableTime(chat.resolvedAt),
+      lastAt:
+        sql<Date>`(select max("chat_message"."at") from "chat_message" where "chat_message"."chat_id" = "chat"."id")`.mapWith(
+          (value) => new Date(value),
+        ),
+      openProposals:
+        sql<number>`(select count(*) from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'proposed' and "chat_message"."proposal"->>'state' = 'open')`.mapWith(
+          Number,
+        ),
+      unread: sql<boolean>`exists (select 1 from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'proposed' and ("chat"."read_at" is null or "chat_message"."at" > "chat"."read_at"))`,
+      waiting: chatWaiting,
+    })
+    .from(chat)
+    .where(
+      and(
+        eq(chat.workspaceId, scope.workspaceId),
+        eq(chat.startedById, scope.viewer.value),
+        scope.teamsSeen.size > 0
+          ? inArray(chat.teamId, [...scope.teamsSeen])
+          : sql`false`,
+        narrowedTo,
+      ),
+    )
+    .orderBy(desc(chat.resolvedAt), desc(chat.id))
+    .$dynamic();
+
+  return limit === null ? query : query.limit(limit);
+};
+
+type ChatRow = Awaited<ReturnType<typeof chatsWhere>>[number];
+
 type TaskRow = Awaited<ReturnType<typeof tasksWhere>>[number];
 
 interface TaskContext {
@@ -427,7 +477,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
   async open(scope: InboxScope): Promise<InboxEntrySummary[]> {
     const { workspaceId, viewer: userId } = scope;
 
-    const [tasks, requests, notices] = await Promise.all([
+    const [tasks, requests, notices, chats] = await Promise.all([
       this.openTasks(scope),
       requestsWhere(
         this.db,
@@ -443,11 +493,18 @@ export class DrizzleInboxReader implements InboxReaderPort {
         isNull(notice.resolvedAt),
         null,
       ),
+      chatsWhere(
+        this.db,
+        scope,
+        sql`(${isNull(chat.resolvedAt)} or ${chatRunning})`,
+        null,
+      ),
     ]);
     const items: InboxEntrySummary[] = [
       ...tasks,
       ...(await this.requestItems(scope, requests)).map((each) => each.entry),
       ...(await this.noticeItems(scope, notices)).map((each) => each.entry),
+      ...(await this.chatItems(chats)).map((each) => each.entry),
     ];
 
     return items.sort((one, other) => +other.askedAt - +one.askedAt);
@@ -509,6 +566,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       this.resolvedConversations(scope, before, fetched),
       this.resolvedRequests(scope, before, fetched),
       this.resolvedNotices(scope, before, fetched),
+      this.resolvedChats(scope, before, fetched),
     ]);
     const floors = sources.flatMap((each) => (each.floor ? [each.floor] : []));
     const floor = floors.sort()[floors.length - 1] ?? null;
@@ -674,6 +732,28 @@ export class DrizzleInboxReader implements InboxReaderPort {
 
     return {
       keyed: await this.noticeItems(scope, rows),
+      floor: floorOf(rows, fetched, (each) => each.cursorAt),
+    };
+  }
+
+  private async resolvedChats(
+    scope: InboxScope,
+    before: Cursor | null,
+    fetched: number,
+  ): Promise<Gathered> {
+    const rows = await chatsWhere(
+      this.db,
+      scope,
+      and(
+        isNotNull(chat.resolvedAt),
+        sql`not ${chatRunning}`,
+        before ? notNewerThan(chat.resolvedAt, before) : undefined,
+      ),
+      fetched,
+    );
+
+    return {
+      keyed: await this.chatItems(rows),
       floor: floorOf(rows, fetched, (each) => each.cursorAt),
     };
   }
@@ -956,5 +1036,43 @@ export class DrizzleInboxReader implements InboxReaderPort {
           cursorAt,
         ),
       );
+  }
+
+  private async chatItems(rows: readonly ChatRow[]): Promise<Keyed[]> {
+    const ids = [
+      ...new Set(rows.flatMap((row) => (row.working ? [row.working] : []))),
+    ];
+    const facts = new Map(
+      (ids.length === 0
+        ? []
+        : await this.progress.progressOf(ids.map(RunId.of))
+      ).map((each) => [each.runId.value, each]),
+    );
+
+    return rows.map((row) => {
+      const running = row.working !== null || row.waiting;
+      const resolved = row.resolvedAt !== null && !running;
+      const working = row.working ? facts.get(row.working) : undefined;
+      const entry: InboxChatSummary = {
+        kind: 'chat',
+        id: row.id,
+        teamId: row.teamId,
+        title: row.title,
+        progress: running
+          ? progressOfCurrentRun(
+              RunReadingMapper.reading(working ?? null),
+              true,
+            )
+          : null,
+        openProposals: row.openProposals,
+        askedAt: row.lastAt,
+        unread: row.unread,
+        resolved,
+        section: inboxSectionOf({ unread: row.unread, resolved, running }),
+        reopenable: resolved,
+      };
+
+      return keyedAt(entry, row.cursorAt ?? '');
+    });
   }
 }

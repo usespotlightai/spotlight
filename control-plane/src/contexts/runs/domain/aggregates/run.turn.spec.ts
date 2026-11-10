@@ -3,6 +3,8 @@ import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunEnded } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
+import { RunResumed } from '@runs/domain/events/run-resumed.event';
+import { RunStopRequested } from '@runs/domain/events/run-stop-requested.event';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
@@ -31,19 +33,26 @@ const ASKED = HandoverReport.of({
   handover: Handover.of({ next: 'review', note: 'Which queue?' }),
   session: HarnessSession.of('session_1'),
 });
+const quiet = (run: Run): Run => {
+  run.pullEvents();
+  return run;
+};
+
 const claimed = (ordering = orderedFor.holdingTurn('task_1', 0)) =>
-  Run.enqueue({
-    id: RUN,
-    workspaceId: WORKSPACE,
-    harness: HarnessId.of('dev'),
-    ...ordering,
-    spec: RunSpec.of({
-      command: { executable: 'sh', args: [] },
-      briefing: 'Fix the queue.',
-      handover: { options: [], noteLimit: 0 },
-      resume: {},
-    }),
-  }).claim(claimer(RUNNER), NOW);
+  quiet(
+    Run.enqueue({
+      id: RUN,
+      workspaceId: WORKSPACE,
+      harness: HarnessId.of('dev'),
+      ...ordering,
+      spec: RunSpec.of({
+        command: { executable: 'sh', args: [] },
+        briefing: 'Fix the queue.',
+        handover: { options: [], noteLimit: 0 },
+        resume: {},
+      }),
+    }).claim(claimer(RUNNER), NOW),
+  );
 
 const pending = () => claimed().reportTurn(RUNNER, CLEAN, ASKED, NOW);
 
@@ -196,6 +205,7 @@ describe('the turn of a run that holds it', () => {
       expect(run.turn).toBeNull();
       expect(run.spec.resumesSession).toBe(true);
       expect(events(run)).toEqual([
+        new RunResumed(RUN, WORKSPACE),
         new RunPaused(
           RUN,
           WORKSPACE,
@@ -212,7 +222,7 @@ describe('the turn of a run that holds it', () => {
       const run = keptRun.resumed(null, 'answered', [], later(60_000));
 
       expect(run.attempt.number).toBe(2);
-      expect(events(run)).toEqual([]);
+      expect(events(run)).toEqual([new RunResumed(RUN, WORKSPACE)]);
     });
 
     it('marks the pause it never marked when an answer comes before its requester kept it', () => {
@@ -227,6 +237,7 @@ describe('the turn of a run that holds it', () => {
 
       expect(run.attempt.number).toBe(2);
       expect(events(run)).toEqual([
+        new RunResumed(RUN, WORKSPACE),
         new RunPaused(RUN, WORKSPACE, RunAttempt.of(RUN, 1), NOW, false),
       ]);
     });
@@ -344,14 +355,14 @@ describe('the turn of a run that holds it', () => {
   });
 
   describe('stopped', () => {
-    it('only records the stop while its requester decides, so the hand-over is not dropped', () => {
+    it('only records the stop request while its requester decides, so the hand-over is not dropped', () => {
       const pendingRun = pending();
       pendingRun.pullEvents();
       const run = pendingRun.requestStop(later(1_000));
 
       expect(run.state).toBe('suspended');
       expect(run.stopRequested).toBe(true);
-      expect(events(run)).toEqual([]);
+      expect(events(run)).toEqual([new RunStopRequested(RUN, WORKSPACE)]);
       expect(run.requestStop(later(2_000))).toBe(run);
     });
 

@@ -55,8 +55,21 @@ describe('ReplayRunDecision', () => {
 
     expect(decision.askedAPersonAfter(ending(false, null))).toBe(false);
     expect(decision.askedAPersonAfter(ending(true, 'SHIP'))).toBe(false);
-    expect(decision.askedAPersonAfter(ending(true, 'review'))).toBe(true);
-    expect(decision.askedAPersonAfter(ending(true, null))).toBe(true);
+    expect(decision.askedAPersonAfter(ending(true, 'elsewhere'))).toBe(true);
+  });
+
+  it('leaves a replay that hands its work to a person for review to its judge', () => {
+    expect(ordered().askedAPersonAfter(ending(true, 'review'))).toBe(false);
+    expect(ordered().askedAPersonAfter(ending(true, 'Review'))).toBe(false);
+    expect(ordered().askedAPersonAfter(ending(true, null))).toBe(false);
+    expect(ordered().askedAPersonAfter(ending(true, ' '))).toBe(false);
+    expect(replayAskedAPerson(ending(true, 'review'), null)).toBe(false);
+    expect(
+      replayAskedAPerson(
+        { ...ending(true, 'review'), askedAPerson: true },
+        ordered(),
+      ),
+    ).toBe(true);
   });
 
   it('takes the run’s own ask, else a hand-over when no decision is known', () => {

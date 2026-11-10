@@ -187,64 +187,17 @@ describe('Conversation', () => {
     ).toBeTruthy();
   });
 
-  it('folds an older turn to one line and opens it on request', async () => {
+  it('shows what the station said in an older turn', () => {
     showing([
       note(0, AT),
       { ...note(1, LATER), voice: 'person', body: 'Go ahead' },
       note(2, LATER),
     ]);
 
-    const folded = screen.getByRole('button', { name: /note 0/ });
-    expect(folded).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getAllByLabelText('What Backlog said')).toHaveLength(1);
-
-    await userEvent.click(folded);
-
-    expect(folded).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getAllByLabelText('What Backlog said')).toHaveLength(2);
-  });
-
-  it('keeps an older turn open while it waits for a decision', () => {
-    showing([
-      { ...note(0, AT), form: 'approval', approval: APPROVAL },
-      { ...note(1, LATER), voice: 'person', body: 'Go ahead' },
-      note(2, LATER),
-    ]);
-
     expect(
-      screen.getByRole('button', { name: 'Approve linear.comment' }),
-    ).toBeInTheDocument();
-  });
-
-  it('opens the older turn that holds the note it opens at', () => {
-    render(
-      <MemoryRouter>
-        <Conversation
-          openAt={0}
-          item={{
-            id: 'item_1',
-            teamId: 'team_1',
-            createdAt: AT,
-            station: {
-              name: 'Backlog',
-              color: '#edc12b',
-              position: 0,
-              count: 4,
-            },
-            progress: null,
-            notes: [
-              note(0, AT),
-              { ...note(1, LATER), voice: 'person', body: 'Go ahead' },
-              note(2, LATER),
-            ],
-          }}
-          worked={[]}
-          footer={null}
-        />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getAllByLabelText('What Backlog said')).toHaveLength(2);
+      screen.queryByRole('button', { name: /note 0/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('lets only the notes that come later arrive, not the ones it opened with', () => {

@@ -11,14 +11,18 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-export const eventOutbox = pgTable('event_outbox', {
-  id: uuid('id').primaryKey(),
-  kind: text('kind').notNull(),
-  payload: jsonb('payload').notNull(),
-  cause: jsonb('cause'),
-  traceparent: text('traceparent'),
-  recordedAt: timestamptz('recorded_at').defaultNow().notNull(),
-});
+export const eventOutbox = pgTable(
+  'event_outbox',
+  {
+    id: uuid('id').primaryKey(),
+    kind: text('kind').notNull(),
+    payload: jsonb('payload').notNull(),
+    cause: jsonb('cause'),
+    traceparent: text('traceparent'),
+    recordedAt: timestamptz('recorded_at').defaultNow().notNull(),
+  },
+  (table) => [index('event_outbox_recorded_at_idx').on(table.recordedAt)],
+);
 
 export const eventDelivery = pgTable(
   'event_delivery',

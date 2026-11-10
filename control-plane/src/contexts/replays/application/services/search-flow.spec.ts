@@ -515,6 +515,24 @@ describe('a search’s iterations', () => {
     expect(suppliers.dispatch.searchesDispatched).toHaveLength(0);
   });
 
+  it('cancels its agent run once queued when its search policy was turned off before the run existed', async () => {
+    const dispatch = suppliers.dispatch.dispatchSearch;
+    suppliers.dispatch.dispatchSearch = async (order) => {
+      await turnedOff();
+      await delivered();
+      suppliers.dispatch.cancelledSearchRuns.splice(0);
+
+      return dispatch(order);
+    };
+
+    await seeded();
+
+    expect(theSearch().stopReason).toBe('turned-off');
+    expect(suppliers.dispatch.cancelledSearchRuns).toEqual([
+      suppliers.dispatch.searchesDispatched[0]?.run.value,
+    ]);
+  });
+
   it('stops as station-gone, counting no failed iteration, when its station left its line while its agent run was being queued', async () => {
     suppliers.dispatch.dispatchSearch = async () => {
       suppliers.lines.station = async () => null;
@@ -1055,7 +1073,6 @@ describe('SearchVisibilities', () => {
               ],
               guidance: at % 2 === 0 ? 'Finish taken jobs first.' : null,
             }),
-            null,
             later(63_000),
           );
       }, reserved),

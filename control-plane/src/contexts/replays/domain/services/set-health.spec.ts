@@ -114,7 +114,7 @@ const calibrated = (
         .recordRunEnd(run, endOf('completed'))
         .measure(run, measuresOf(1), later(61_000))
         .recordReview(run, checksOf(checked(place)), null, later(62_000))
-        .recordVerdict(run, verdictOf(passing(place)), null, later(63_000));
+        .recordVerdict(run, verdictOf(passing(place)), later(63_000));
     },
     started('replay_calibration', SCORED, 2, true),
   );
@@ -196,7 +196,7 @@ describe('setHealthOf', () => {
     const calibration = calibrated(() => true);
     const answered = calibration.entries.reduce(
       (built, entry, place) =>
-        built.recordRejudgment(entry.run as RunId, verdictOf(place >= 3), null),
+        built.recordRejudgment(entry.run as RunId, verdictOf(place >= 3)),
       calibration,
     );
     const health = setHealthOf(

@@ -5,10 +5,6 @@ import { SideBySideJudgingVersionConflictError } from '@replays/domain/exception
 import type { SideBySideJudgingRepository } from '@replays/domain/repositories/side-by-side-judging.repository';
 import { sideBySideJudging } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
-  modelSpentOf,
-  storedSpent,
-} from '@replays/infrastructure/persistence/drizzle/stored-model-spent';
-import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -48,7 +44,6 @@ const toSideBySideJudging = (row: Row): SideBySideJudging =>
       passThreshold: row.passThreshold,
     }),
     reference: RunId.of(row.referenceRunId),
-    maxAttempts: row.maxAttempts,
     order: row.shownOrder,
     queuedAt: row.queuedAt,
     job: row.pending
@@ -59,7 +54,6 @@ const toSideBySideJudging = (row: Row): SideBySideJudging =>
       : null,
     judgedAt: row.judgedAt,
     failure: failureOf(row),
-    spent: modelSpentOf(row.spent),
     version: row.version,
   });
 
@@ -70,7 +64,6 @@ const columnsOf = (stored: SideBySideJudging) => ({
   judgedAt: stored.judgedAt,
   failure: stored.failure?.code ?? null,
   failedAt: stored.failure?.at ?? null,
-  spent: storedSpent(stored.spent),
 });
 
 const keyOf = (judging: SideBySideJudging) =>
@@ -109,7 +102,6 @@ export class DrizzleSideBySideJudgingRepository
           claims: [...added.criteria.claims],
           passThreshold: added.criteria.passThreshold,
           referenceRunId: added.reference.value,
-          maxAttempts: added.maxAttempts,
           shownOrder: added.order,
           queuedAt: added.queuedAt,
           version: added.version,

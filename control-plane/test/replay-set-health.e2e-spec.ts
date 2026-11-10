@@ -52,7 +52,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { autoSearched, openApp, served, TEST_USER_HEADER } from './support/app';
-import { searchStarted } from './support/auto-searches';
+import { searchRunsSettled, searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { replayOf } from './support/replays';
@@ -151,11 +151,6 @@ const judge: JudgePort = {
     return {
       model: 'stub/judge',
       guidance: null,
-      usage: {
-        inputTokens: 2_000,
-        outputTokens: 50,
-        cost: { amount: 0.01, currency: 'USD' },
-      },
       verdict: {
         value,
         reasons: [
@@ -775,20 +770,7 @@ const turnedOff = async (id: string): Promise<void> => {
       await searches.save(search.turnOff(new Date()));
     }
   });
-  await eventually(async () => {
-    const queued = await db
-      .select({ id: schema.run.id })
-      .from(schema.run)
-      .where(
-        and(
-          eq(schema.run.requesterKind, 'search'),
-          eq(schema.run.requesterId, id),
-          eq(schema.run.state, 'queued'),
-        ),
-      );
-
-    return queued.length === 0;
-  });
+  await eventually(() => searchRunsSettled(db, id));
 };
 
 const searchSkipped = async (): Promise<string | null> => {

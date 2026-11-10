@@ -11715,6 +11715,9 @@
                           },
                           {
                             "$ref": "#/components/schemas/InboxRunResponseDto"
+                          },
+                          {
+                            "$ref": "#/components/schemas/InboxChatResponseDto"
                           }
                         ],
                         "discriminator": {
@@ -11722,7 +11725,8 @@
                           "mapping": {
                             "task": "#/components/schemas/InboxItemResponseDto",
                             "notice": "#/components/schemas/InboxNoticeResponseDto",
-                            "run": "#/components/schemas/InboxRunResponseDto"
+                            "run": "#/components/schemas/InboxRunResponseDto",
+                            "chat": "#/components/schemas/InboxChatResponseDto"
                           }
                         }
                       }
@@ -12241,6 +12245,123 @@
           }
         },
         "summary": "Reopen a resolved notice",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/chats/{chatId}/resolve": {
+      "post": {
+        "operationId": "resolveInboxChat",
+        "parameters": [
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is resolved"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          }
+        },
+        "summary": "Resolve an agent chat without acting on it",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/chats/{chatId}/reopen": {
+      "post": {
+        "operationId": "reopenInboxChat",
+        "parameters": [
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is open again"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          }
+        },
+        "summary": "Reopen a resolved agent chat",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/chats/{chatId}/read": {
+      "post": {
+        "operationId": "markInboxChatRead",
+        "parameters": [
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is no longer unread"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          }
+        },
+        "summary": "Mark an agent chat as seen",
         "tags": [
           "inbox"
         ]
@@ -13886,25 +14007,6 @@
         ]
       }
     },
-    "/me/notifications/stream": {
-      "get": {
-        "description": "Sends one event for each item that comes into your inbox while the stream is open. Missed events are not sent again.",
-        "operationId": "streamMyNotifications",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Server-sent events, one per new item"
-          },
-          "401": {
-            "description": "No valid session"
-          }
-        },
-        "summary": "Watch for new items in your inbox",
-        "tags": [
-          "notifications"
-        ]
-      }
-    },
     "/me/notifications/push-key": {
       "get": {
         "operationId": "getPushKey",
@@ -13989,6 +14091,25 @@
           }
         },
         "summary": "Stop sending Web Push to this browser",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/me/live": {
+      "get": {
+        "description": "Sends \"ready\" first, then \"changed\" with a topic and ids for each change in a workspace you may view, and \"notification\" for each new item in your inbox. \"changed\" with the topic \"workspaces\" means you joined a workspace: open a new stream to watch it. \"resync\" means some changes were missed: fetch everything again. After about 10 minutes the server sends \"reopen\", then closes the stream 15 seconds later: open a new stream before it closes and no change is missed. Missed events are not sent again.",
+        "operationId": "watchLive",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Server-sent events"
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Watch for changes in your workspaces and new inbox items",
         "tags": [
           "notifications"
         ]
@@ -27240,6 +27361,90 @@
         "required": [
           "handle",
           "body"
+        ]
+      },
+      "InboxChatResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "chat"
+            ],
+            "description": "An agent chat the person started"
+          },
+          "id": {
+            "type": "string",
+            "example": "c3f1a9d2-6b47-4e08-8d15-9a2e7b4c0f63"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "title": {
+            "type": "string",
+            "example": "Why does the queue stall?"
+          },
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "How far the run on the chat has come; null when none runs"
+          },
+          "openProposals": {
+            "type": "number",
+            "example": 1,
+            "description": "How many task proposals still wait for the person"
+          },
+          "askedAt": {
+            "type": "string",
+            "example": "2026-08-28T21:15:00.000Z",
+            "description": "When the newest message arrived"
+          },
+          "unread": {
+            "type": "boolean",
+            "example": true,
+            "description": "The agent proposed a task the person has not seen yet"
+          },
+          "resolved": {
+            "type": "boolean",
+            "example": false,
+            "description": "True once the chat is resolved and nothing runs on it"
+          },
+          "section": {
+            "type": "string",
+            "enum": [
+              "open",
+              "running",
+              "resolved"
+            ],
+            "example": "open",
+            "description": "The inbox section that shows it: running while a run works, open until the person or an accepted proposal resolves it"
+          },
+          "reopenable": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when the person can open it again: once it is resolved"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "teamId",
+          "title",
+          "progress",
+          "openProposals",
+          "askedAt",
+          "unread",
+          "resolved",
+          "section",
+          "reopenable"
         ]
       },
       "AttachmentResponseDto": {

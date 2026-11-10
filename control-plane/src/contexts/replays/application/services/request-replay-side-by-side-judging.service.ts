@@ -1,6 +1,5 @@
 import type { RecordReplayPairVerdict } from '@replays/application/services/record-replay-pair-verdict.service';
 import type { RequestSideBySideJudging } from '@replays/application/services/request-side-by-side-judging.service';
-import { PAIR_ATTEMPTS } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -32,12 +31,11 @@ export class RequestReplaySideBySideJudging {
           teamId: replay.teamId,
           criteria: judging.criteria,
           reference: event.original,
-          maxAttempts: PAIR_ATTEMPTS,
         })
       : judging.failure;
 
     if (ordered !== 'requested') {
-      await this.paired.failed(event.run, event.other, ordered, null);
+      await this.paired.failed(event.run, event.other, ordered);
     }
   }
 }

@@ -14,17 +14,16 @@ import {
 import { PairEvidence } from '@insights/domain/services/pair-evidence';
 import type { PairOrder } from '@insights/domain/value-objects/pair-order';
 import type { JudgingFailureCode } from '@shared-kernel/domain/value-objects/judging-failure.vo';
-import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
 const ORDER_OF: Readonly<Record<PairJudgmentOrderKind, PairOrder>> = {
   'run-first': 'run-first',
   'other-first': 'other-first',
 };
 
-const unjudged = (
-  failure: JudgingFailureCode,
-  spent = ModelUsage.none(),
-): PairJudgment => ({ judged: false, failure, spent });
+const unjudged = (failure: JudgingFailureCode): PairJudgment => ({
+  judged: false,
+  failure,
+});
 
 export class PairJudgments implements PairJudgmentsPort {
   constructor(
@@ -66,7 +65,6 @@ export class PairJudgments implements PairJudgmentsPort {
       return unjudged('no-evidence');
     }
 
-    let spent = ModelUsage.none();
     const passes: PairShown[] = [];
     const models: string[] = [];
 
@@ -75,10 +73,10 @@ export class PairJudgments implements PairJudgmentsPort {
         const { reference: shownReference } = evidence;
 
         if (!shownReference) {
-          return unjudged('no-evidence', spent);
+          return unjudged('no-evidence');
         }
 
-        const { verdict, usage, model } = await this.llmJudge.judgePair({
+        const { verdict, model } = await this.llmJudge.judgePair({
           rubric: order.criteria.rubric,
           claims: order.criteria.claims,
           title: evidence.title,
@@ -88,24 +86,23 @@ export class PairJudgments implements PairJudgmentsPort {
           reference: shownReference,
         });
 
-        spent = spent.with(usage);
         passes.push({ verdict, evidence });
         models.push(model);
       }
     } catch (error) {
       return error instanceof JudgingError
-        ? unjudged(error.kind, spent.with(error.usage))
-        : unjudged('errored', spent);
+        ? unjudged(error.kind)
+        : unjudged('errored');
     }
 
     const [model] = models;
     const grounded = groundedPair(passes);
 
     if (model === undefined) {
-      return unjudged('no-evidence', spent);
+      return unjudged('no-evidence');
     }
     if (!grounded.grounded) {
-      return unjudged(grounded.failure, spent);
+      return unjudged(grounded.failure);
     }
 
     return {
@@ -120,7 +117,6 @@ export class PairJudgments implements PairJudgmentsPort {
         })),
       })),
       model,
-      spent,
     };
   }
 }

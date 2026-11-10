@@ -10,9 +10,9 @@ import {
   type ApprovalStatus,
   WAITING_FOR_APPROVAL,
 } from '@/lib/approval-status';
-import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
+import type { JournalStep, RunJournal } from '@/lib/inbox';
+import { stretchesOf } from '@/lib/journal-step';
 import { teamSectionPath } from '@/lib/team';
-import { oneLineOf, stepsCounted } from '@/lib/turns';
 
 export type Chat = ChatResponseDto;
 
@@ -145,23 +145,20 @@ const momentOf = (message: ChatMessage): ChatMoment =>
 const finishedAt = (step: JournalStep): string =>
   new Date(Date.parse(step.startedAt) + step.ms).toISOString();
 
-const worked = (journal: RunJournal): ChatMoment[] => {
-  const cut: ChatMoment[] = [];
-
-  for (const step of journal.steps) {
-    const last = cut[cut.length - 1];
-
-    if (step.kind === 'message') {
-      cut.push({ kind: 'answered', at: step.startedAt, text: step.text });
-    } else if (last?.kind === 'worked') {
-      cut[cut.length - 1] = { ...last, steps: [...last.steps, step] };
-    } else {
-      cut.push({ kind: 'worked', at: finishedAt(step), steps: [step] });
-    }
-  }
-
-  return cut;
-};
+const worked = (journal: RunJournal): ChatMoment[] =>
+  stretchesOf(journal.steps).map((stretch) =>
+    stretch.kind === 'said'
+      ? {
+          kind: 'answered',
+          at: stretch.step.startedAt,
+          text: stretch.step.text,
+        }
+      : {
+          kind: 'worked',
+          at: finishedAt(stretch.steps[0]),
+          steps: stretch.steps,
+        },
+  );
 
 const pendingOf = (
   runs: readonly JournalledRun[],
@@ -209,40 +206,6 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
   }
 
   return cut.filter((turn) => turn.message || turn.moments.length > 0);
-};
-
-export const waitsOnDecision = (turn: ChatTurn): boolean =>
-  turn.moments.some(
-    (moment) => moment.kind === 'proposed' && moment.proposal.state === 'open',
-  );
-
-export const turnSummaryOf = (
-  turn: ChatTurn,
-): { readonly text: string; readonly count?: string } => {
-  const steps = turn.moments.reduce(
-    (all, moment) =>
-      all +
-      (moment.kind === 'worked'
-        ? moment.steps.length
-        : moment.kind === 'pending'
-          ? moment.count
-          : 0),
-    0,
-  );
-  const said = turn.moments.findLast(
-    (moment) => moment.kind === 'answered' || moment.kind === 'proposed',
-  );
-  const text =
-    said?.kind === 'answered'
-      ? said.text
-      : said?.kind === 'proposed'
-        ? `Proposed ${said.proposal.title}`
-        : 'Worked';
-
-  return {
-    text: oneLineOf(text),
-    count: steps > 0 ? stepsCounted(steps) : undefined,
-  };
 };
 
 export const runsOfTurn = (turn: ChatTurn | undefined): string[] =>

@@ -47,6 +47,7 @@ import { openApp, served, TEST_USER_HEADER } from './app';
 import {
   type SearchedStation,
   type SearchPolicyTerms,
+  searchRunsSettled,
   searchStarted,
 } from './auto-searches';
 import { eventually } from './eventually';
@@ -98,11 +99,6 @@ const judge: JudgePort = {
     return {
       model: 'stub/judge',
       guidance: value <= 2 ? STUB_GUIDANCE : null,
-      usage: {
-        inputTokens: 100,
-        outputTokens: 10,
-        cost: { amount: 0.01, currency: 'USD' },
-      },
       verdict: {
         value,
         reasons: [
@@ -465,9 +461,7 @@ export const turnedOff = async (id: string): Promise<void> => {
       await searches.save(search.turnOff(new Date()));
     }
   });
-  await eventually(async () =>
-    (await searchRunsOf(id)).every((each) => each.state !== 'queued'),
-  );
+  await eventually(() => searchRunsSettled(db, id));
 };
 
 export const searchRow = async (id: string) => {

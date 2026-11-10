@@ -73,4 +73,20 @@ describe('useInboxDrag', () => {
 
     expect(resolve).not.toHaveBeenCalled();
   });
+
+  it('resolves an open chat dropped on Resolved and reopens it dropped on Open', () => {
+    const open = { kind: 'chat', id: 'chat_1', resolved: false } as InboxEntry;
+    const done = {
+      kind: 'chat',
+      id: 'chat_2',
+      resolved: true,
+      reopenable: true,
+    } as InboxEntry;
+
+    dropping([open], dropped('chat:chat_1', RESOLVED_DROP));
+    dropping([done], dropped('chat:chat_2', OPEN_DROP));
+
+    expect(resolve).toHaveBeenCalledWith({ slug: 'acme', entry: open });
+    expect(reopen).toHaveBeenCalledWith({ slug: 'acme', entry: done });
+  });
 });

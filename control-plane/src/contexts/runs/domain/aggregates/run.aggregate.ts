@@ -1,11 +1,20 @@
+import { RunAskedAPerson } from '@runs/domain/events/run-asked-a-person.event';
 import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
+import { RunClaimed } from '@runs/domain/events/run-claimed.event';
 import { RunEnded, type RunEnding } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
 import { RunProvisionFailed } from '@runs/domain/events/run-provision-failed.event';
+import { RunRequeued } from '@runs/domain/events/run-requeued.event';
 import { RunReservationDropped } from '@runs/domain/events/run-reservation-dropped.event';
+import { RunReserved } from '@runs/domain/events/run-reserved.event';
+import { RunResumed } from '@runs/domain/events/run-resumed.event';
+import { RunStarted } from '@runs/domain/events/run-started.event';
+import { RunStartingPointRecorded } from '@runs/domain/events/run-starting-point-recorded.event';
+import { RunStopRequested } from '@runs/domain/events/run-stop-requested.event';
 import { RunSuspended } from '@runs/domain/events/run-suspended.event';
+import { RunUnclaimed } from '@runs/domain/events/run-unclaimed.event';
 import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.error';
 import { InvalidRunTransitionError } from '@runs/domain/exceptions/invalid-run-transition.error';
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
@@ -580,6 +589,8 @@ export class Run extends EventRecorder {
       claimed.recordReservationDropped(this.reservation.runner);
     }
 
+    claimed.record(new RunClaimed(this.id, this.workspaceId, by));
+
     return claimed;
   }
 
@@ -638,9 +649,13 @@ export class Run extends EventRecorder {
       );
     }
 
-    return this.with({
+    const reserved = this.with({
       reservation: RunnerReservation.from(runner, pool, now),
     });
+
+    reserved.record(new RunReserved(this.id, this.workspaceId, runner, pool));
+
+    return reserved;
   }
 
   unreservedFor(runner: RunnerId): Run {
@@ -807,13 +822,17 @@ export class Run extends EventRecorder {
       return this.endedAsStopped(by, now);
     }
 
-    return this.with({
+    const unclaimed = this.with({
       state: 'queued',
       queuedAt: now,
       claimedBy: null,
       leaseExpiresAt: null,
       startedAt: null,
     });
+
+    unclaimed.record(new RunUnclaimed(this.id, this.workspaceId, by));
+
+    return unclaimed;
   }
 
   startedIn(by: RunnerId, image: RunnerImage, now: Date): Run {
@@ -833,7 +852,18 @@ export class Run extends EventRecorder {
       );
     }
 
-    return this.with({ ranIn: image, startedAt: this.startedAt ?? now });
+    if (this.ranIn?.equals(image)) {
+      return this;
+    }
+
+    const started = this.with({
+      ranIn: image,
+      startedAt: this.startedAt ?? now,
+    });
+
+    started.record(new RunStarted(this.id, this.workspaceId, by));
+
+    return started;
   }
 
   startsFrom(
@@ -895,7 +925,13 @@ export class Run extends EventRecorder {
       );
     }
 
-    return this.with({ startedFrom: point });
+    const recorded = this.with({ startedFrom: point });
+
+    recorded.record(
+      new RunStartingPointRecorded(this.id, this.workspaceId, by),
+    );
+
+    return recorded;
   }
 
   renewLease(by: RunnerId, now: Date): Run {
@@ -955,7 +991,15 @@ export class Run extends EventRecorder {
       );
     }
 
-    return this.askedAPerson ? this : this.with({ askedAPerson: true });
+    if (this.askedAPerson) {
+      return this;
+    }
+
+    const asked = this.with({ askedAPerson: true });
+
+    asked.record(new RunAskedAPerson(this.id, this.workspaceId, by));
+
+    return asked;
   }
 
   reportTurn(
@@ -1050,6 +1094,8 @@ export class Run extends EventRecorder {
       spec: this.spec.join(joining),
       turn: null,
     }).backOnTheQueue(now);
+
+    resumed.record(new RunResumed(this.id, this.workspaceId));
 
     if (because === 'messages') {
       resumed.record(this.paused(now, true));
@@ -1197,7 +1243,7 @@ export class Run extends EventRecorder {
       );
     }
 
-    return this.with({
+    const requeued = this.with({
       state: 'queued',
       queuedAt: now,
       claimedBy: null,
@@ -1207,6 +1253,10 @@ export class Run extends EventRecorder {
       startedAt: null,
       requeueCount,
     });
+
+    requeued.record(new RunRequeued(this.id, this.workspaceId, by));
+
+    return requeued;
   }
 
   private endedUnstarted(
@@ -1354,7 +1404,7 @@ export class Run extends EventRecorder {
 
   requestStop(now: Date): Run {
     if (this.state === 'suspended' && this.turn?.pending) {
-      return this.stopRequested ? this : this.with({ stopRequestedAt: now });
+      return this.stopRequested ? this : this.stoppingAt(now);
     }
 
     if (this.state === 'suspended') {
@@ -1375,7 +1425,15 @@ export class Run extends EventRecorder {
       return this;
     }
 
-    return this.with({ stopRequestedAt: now });
+    return this.stoppingAt(now);
+  }
+
+  private stoppingAt(now: Date): Run {
+    const stopping = this.with({ stopRequestedAt: now });
+
+    stopping.record(new RunStopRequested(this.id, this.workspaceId));
+
+    return stopping;
   }
 
   get hasCompleted(): boolean {

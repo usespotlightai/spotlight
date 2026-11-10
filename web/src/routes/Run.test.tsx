@@ -411,7 +411,7 @@ describe('Run', () => {
       expect(stop).toHaveBeenCalledWith({ teamId: 'team_1', runId: 'run_2' });
     });
 
-    it('keeps the work of a run that is stopping, without saying it is working', () => {
+    it('keeps the work of a run that is stopping, without saying it is working', async () => {
       later({ state: 'claimed', progress: 'stopping' });
       journal.mockReturnValue([
         {
@@ -427,6 +427,11 @@ describe('Run', () => {
       ]);
 
       renderRun();
+      for (const worked of screen.getAllByRole('button', {
+        name: 'Worked · 1 step',
+      })) {
+        await userEvent.click(worked);
+      }
 
       expect(screen.getAllByText('queue-stats --all').length).toBeGreaterThan(
         0,
@@ -627,13 +632,16 @@ describe('Run', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('says nothing of the kind once the run has done something', () => {
+    it('says nothing of the kind once the run has done something', async () => {
       conversation.mockReturnValue(conversationOf({ notes: [] }));
       journal.mockReturnValue([
         { runId: 'run_1', attempt: 1, steps: [step], spans: [] },
       ]);
 
       renderRun();
+      await userEvent.click(
+        screen.getByRole('button', { name: /^Work(ed|ing) · 1 step/ }),
+      );
 
       expect(screen.getByText('queue-stats --all')).toBeInTheDocument();
       expect(
@@ -663,19 +671,39 @@ describe('Run', () => {
       );
     });
 
-    it('says messages reach no one from a run at a station the task has left', () => {
-      taskStation.mockReturnValue({
-        ...idle,
-        station: { ...idle.station, id: 'station_4' },
+    const left = {
+      ...idle,
+      station: { ...idle.station, id: 'station_4', name: 'Review' },
+    };
+
+    it('names the station the task is at and links to the latest run there', () => {
+      taskStation.mockReturnValue(left);
+      conversation.mockReturnValue({
+        ...conversation(),
+        latestRun: { id: 'run_2', progress: null, state: 'queued' },
       });
 
       renderRun();
 
+      expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute(
+        'href',
+        '/w/acme/team/team_1/runs/run_2',
+      );
       expect(
-        screen.getByText(
-          'The task has moved to another station. Messages here reach no one.',
-        ),
-      ).toBeInTheDocument();
+        screen.getByText(/Messages here reach no one\./),
+      ).toHaveTextContent('The task has moved to Review. Messages here');
+      expect(
+        screen.queryByRole('textbox', { name: 'Message Implementation' }),
+      ).toBeNull();
+    });
+
+    it('names the station without a link while no run has started there', () => {
+      taskStation.mockReturnValue(left);
+
+      renderRun();
+
+      expect(screen.getByText('Review')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Review' })).toBeNull();
       expect(
         screen.queryByRole('textbox', { name: 'Message Implementation' }),
       ).toBeNull();
@@ -877,7 +905,9 @@ describe('Run', () => {
 
       renderRun();
 
-      for (const worked of screen.getAllByRole('button', { name: /^Worked/ })) {
+      for (const worked of screen.getAllByRole('button', {
+        name: /^Work(ed|ing)/,
+      })) {
         await userEvent.click(worked);
       }
 

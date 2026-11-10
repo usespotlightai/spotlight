@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/sandbox"
@@ -115,7 +117,96 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 		}
 	}
 
+	if claiming.Err() == nil {
+		h.removeUnusedImages(ctx)
+	}
+
 	return nil
+}
+
+func (h *Host) removeUnusedImages(ctx context.Context) {
+	if !h.imaging.TryLock() {
+		return
+	}
+	defer h.imaging.Unlock()
+
+	found, err := h.engine.Images(ctx)
+	if err != nil {
+		h.log.Warn("could not list images to remove the ones it no longer serves", "error", err)
+		return
+	}
+
+	keep, repositories := h.keptImages()
+	for _, each := range found {
+		if keep[each.ID] || !pulledInto(each, repositories) {
+			continue
+		}
+		if err := h.removeImage(ctx, each); err != nil {
+			if !errors.Is(err, sandbox.ErrInUse) {
+				h.log.Warn("could not remove an image it no longer serves", "image", each.ID, "error", err)
+			}
+			continue
+		}
+		h.log.Info("removed an image it no longer serves", "image", each.ID, "tags", each.Tags,
+			"digests", each.Digests, "megabytes", each.Size/1_000_000)
+	}
+}
+
+func (h *Host) keptImages() (map[string]bool, map[string]bool) {
+	grace := h.opts.ImageGrace
+	if grace <= 0 {
+		grace = imageGrace
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	keep := map[string]bool{}
+	for _, each := range h.served {
+		if each.id != "" {
+			keep[each.id] = true
+		}
+	}
+	if h.egressIs != "" {
+		keep[h.egressIs] = true
+	}
+	for id, at := range h.handedOut {
+		if time.Since(at) < grace {
+			keep[id] = true
+		} else {
+			delete(h.handedOut, id)
+		}
+	}
+
+	return keep, maps.Clone(h.repositories)
+}
+
+func pulledInto(image sandbox.Image, repositories map[string]bool) bool {
+	if len(image.Digests) == 0 {
+		return false
+	}
+	for _, ref := range append(slices.Clone(image.Tags), image.Digests...) {
+		if !repositories[repository(ref)] {
+			return false
+		}
+	}
+	return true
+}
+
+func (h *Host) removeImage(ctx context.Context, image sandbox.Image) error {
+	used, err := h.engine.Used(ctx, image.ID)
+	if err != nil {
+		return err
+	}
+	if used {
+		return sandbox.ErrInUse
+	}
+	for _, tag := range image.Tags {
+		if err := h.engine.Remove(ctx, tag); err != nil {
+			return err
+		}
+	}
+	return h.engine.Remove(ctx, image.ID)
 }
 
 func (h *Host) serve(claiming, serving context.Context, each *served, stop func(error)) {
@@ -222,6 +313,20 @@ func (h *Host) servedAs(image string) (examined, bool) {
 }
 
 func (h *Host) pulled(ctx context.Context, image string) (sandbox.Image, error) {
+	h.imaging.RLock()
+	defer h.imaging.RUnlock()
+
+	got, err := h.fetched(ctx, image)
+	if err == nil {
+		h.mu.Lock()
+		h.handedOut[got.ID] = time.Now()
+		h.repositories[repository(image)] = true
+		h.mu.Unlock()
+	}
+	return got, err
+}
+
+func (h *Host) fetched(ctx context.Context, image string) (sandbox.Image, error) {
 	cached, err := h.engine.Inspect(ctx, image)
 	have := err == nil
 	if err != nil && !errors.Is(err, sandbox.ErrNoImage) {

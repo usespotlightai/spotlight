@@ -21,6 +21,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
+import { ChangeNotices } from '@platform/live/change-notices';
 import { RedisConnection } from '@platform/redis/redis-connection';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
@@ -290,6 +291,7 @@ import { RunnerActivityController } from '@runs/presentation/http/controllers/ru
 import { SandboxArchiveController } from '@runs/presentation/http/controllers/sandbox-archive.controller';
 import { WorkingCopyArchiveController } from '@runs/presentation/http/controllers/working-copy-archive.controller';
 import { LongPollShutdown } from '@runs/presentation/http/long-poll-shutdown';
+import { RUNS_CHANGE_NOTICES } from '@runs/presentation/live/runs.change-notices';
 import { NetworkCallsWorker } from '@runs/presentation/workers/network-calls.worker';
 import { ProvisionWorkWorker } from '@runs/presentation/workers/provision-work.worker';
 import { RunConnectionsWorker } from '@runs/presentation/workers/run-connections.worker';
@@ -511,6 +513,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     inject: [
       PayloadTypes,
       IntegrationEventMappers,
+      ChangeNotices,
       EventSubscribers,
       RUN_FACTS,
       RUN_USAGE_WRITER,
@@ -525,6 +528,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     useFactory: (
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
+      changeNotices: ChangeNotices,
       subscribers: EventSubscribers,
       facts: RunFactsPort,
       usages: RunUsageWriterPort,
@@ -538,6 +542,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     ) => {
       types.register('runs', RUNS_PAYLOAD_TYPES);
       mappers.register(RUNS_EVENT_MAPPERS);
+      changeNotices.register(RUNS_CHANGE_NOTICES);
       subscribers.register(
         runsSubscribers({
           credentials: new RunCredentials(grants, tokens),

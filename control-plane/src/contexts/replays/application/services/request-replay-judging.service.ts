@@ -44,7 +44,6 @@ export class RequestReplayJudging {
       const failed = replay?.recordJudgingFailure(
         event.run,
         ordered,
-        null,
         this.clock.now(),
       );
 

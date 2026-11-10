@@ -285,7 +285,6 @@ beforeAll(async () => {
           model: 'some/model',
           verdict: { value: true, reasons: [] },
           guidance: null,
-          usage: null,
         }),
       },
       judgings,

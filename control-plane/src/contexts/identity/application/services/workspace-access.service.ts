@@ -61,13 +61,26 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
   ) {}
 
   async mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean> {
-    const role = (await this.roles.rolesOf(viewer, [workspaceId])).get(
-      workspaceId.value,
-    );
+    return (await this.viewableOf(viewer, [workspaceId])).length > 0;
+  }
 
-    return (
-      role !== undefined && Permissions.ofRole(WorkspaceRole.of(role)).reads
-    );
+  async viewableOf(
+    viewer: UserId,
+    workspaceIds: readonly WorkspaceId[],
+  ): Promise<readonly WorkspaceId[]> {
+    if (workspaceIds.length === 0) {
+      return [];
+    }
+
+    const roles = await this.roles.rolesOf(viewer, workspaceIds);
+
+    return workspaceIds.filter((each) => {
+      const role = roles.get(each.value);
+
+      return (
+        role !== undefined && Permissions.ofRole(WorkspaceRole.of(role)).reads
+      );
+    });
   }
 
   async inWorkspace(

@@ -97,11 +97,33 @@ const notice = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const chat = (over: Record<string, unknown> = {}) => ({
+  kind: 'chat',
+  id: 'chat_1',
+  teamId: 'team_1',
+  title: 'Why do retries pile up?',
+  progress: null,
+  openProposals: 0,
+  askedAt: '2026-08-29T14:00:00.000Z',
+  unread: false,
+  resolved: false,
+  section: 'open',
+  reopenable: false,
+  ...over,
+});
+
+const markChatRead = vi.fn();
+
+vi.mock('@/hooks/api/useMarkInboxChatRead', () => ({
+  useMarkInboxChatRead: () => ({ mutate: markChatRead }),
+}));
+
 const tree = (path: string) => (
   <MemoryRouter initialEntries={[path]}>
     <Routes>
       <Route path="/w/:slug/inbox" element={<Inbox />}>
         <Route path=":itemId" element={<p>the conversation</p>} />
+        <Route path="teams/:teamId/chats/:chatId" element={<p>the chat</p>} />
       </Route>
     </Routes>
   </MemoryRouter>
@@ -120,6 +142,82 @@ describe('Inbox', () => {
     refetch.mockClear();
     resolve.mockClear();
     reopen.mockClear();
+  });
+
+  describe('chats', () => {
+    it('lists a chat that waits for its starter under Open, linking to it in the inbox', () => {
+      waiting.mockReturnValue([chat({ openProposals: 2, unread: true })]);
+      renderAt('/w/acme/inbox');
+
+      expect(
+        screen.getByRole('link', { name: /Why do retries pile up\?/ }),
+      ).toHaveAttribute('href', '/w/acme/inbox/teams/team_1/chats/chat_1');
+      expect(
+        screen.getByText('2 task proposals waiting for you.'),
+      ).toBeVisible();
+      expect(screen.getByText('Unread')).toBeInTheDocument();
+    });
+
+    it('lists a chat with a run under Running, saying how far it is', async () => {
+      waiting.mockReturnValue([
+        chat({ progress: 'in-progress', section: 'running' }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(screen.getByRole('button', { name: /Running/ }));
+
+      expect(screen.getByText('Agent is working…')).toBeVisible();
+    });
+
+    it('lists a resolved chat under Resolved', async () => {
+      waiting.mockReturnValue([
+        chat({ resolved: true, section: 'resolved', reopenable: true }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(screen.getByRole('button', { name: /Resolved/ }));
+
+      expect(screen.getByText('Chat resolved.')).toBeVisible();
+    });
+
+    it('marks a chat read when it is opened', async () => {
+      waiting.mockReturnValue([chat({ unread: true })]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(
+        screen.getByRole('link', { name: /Why do retries pile up\?/ }),
+      );
+
+      expect(markChatRead).toHaveBeenCalledWith({
+        slug: 'acme',
+        chatId: 'chat_1',
+      });
+    });
+
+    it('opens a chat beside the list', async () => {
+      waiting.mockReturnValue([chat()]);
+      renderAt('/w/acme/inbox');
+
+      const row = screen.getByRole('link', {
+        name: /Why do retries pile up\?/,
+      });
+      await userEvent.click(row);
+
+      expect(screen.getByText('the chat')).toBeVisible();
+      expect(row).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('resolves and unresolves a chat by hand', async () => {
+      waiting.mockReturnValue([chat()]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Resolve' }));
+
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ kind: 'chat', id: 'chat_1' }),
+      });
+    });
   });
 
   describe('resolving', () => {

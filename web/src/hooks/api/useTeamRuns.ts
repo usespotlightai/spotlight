@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { usePagedList } from '@/hooks/api/usePagedList';
 import { listTeamRuns, readTeamRun } from '@/lib/api';
+import { useLivePoll } from '@/lib/live';
 
 export const teamRunKeys = {
   all: ['runs'] as const,
@@ -12,10 +13,12 @@ export const teamRunKeys = {
 const POLL_MS = 10_000;
 
 export function useTeamRuns(teamId: string | undefined) {
+  const livePollMs = useLivePoll(POLL_MS);
+
   return usePagedList({
     queryKey: teamRunKeys.forTeam(teamId),
     enabled: Boolean(teamId),
-    pollMs: POLL_MS,
+    pollMs: livePollMs,
     keyOf: (run) => run.id,
     fetchPage: async (before?: string) => {
       const { data } = await listTeamRuns({
@@ -32,10 +35,12 @@ export function useTeamRun(
   teamId: string | undefined,
   runId: string | undefined,
 ) {
+  const livePollMs = useLivePoll(POLL_MS);
+
   return useQuery({
     queryKey: teamRunKeys.one(teamId, runId),
     enabled: Boolean(teamId && runId),
-    refetchInterval: POLL_MS,
+    refetchInterval: livePollMs,
     queryFn: async () => {
       const { data } = await readTeamRun({
         path: { teamId: teamId as string, runId: runId as string },

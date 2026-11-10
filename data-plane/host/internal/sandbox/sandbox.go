@@ -10,11 +10,14 @@ import (
 var (
 	ErrGone    = errors.New("no such sandbox")
 	ErrNoImage = errors.New("no such image")
+	ErrInUse   = errors.New("the image is in use")
 )
 
 type Image struct {
 	ID      string
+	Tags    []string
 	Digests []string
+	Size    int64
 }
 
 type Spec struct {
@@ -50,10 +53,18 @@ type File struct {
 	Body    []byte
 }
 
+type Network struct {
+	ID   string
+	Name string
+}
+
 type Engine interface {
 	Describe(ctx context.Context) (string, error)
 	Inspect(ctx context.Context, image string) (Image, error)
 	Pull(ctx context.Context, image, auth string) error
+	Images(ctx context.Context) ([]Image, error)
+	Remove(ctx context.Context, image string) error
+	Used(ctx context.Context, image string) (bool, error)
 	Start(ctx context.Context, spec Spec) (string, error)
 	Put(ctx context.Context, id string, file File) error
 	Signal(ctx context.Context, id, signal string) error
@@ -66,5 +77,6 @@ type Engine interface {
 	Exec(ctx context.Context, id string, command []string, errs io.Writer) (io.ReadWriteCloser, error)
 	Network(ctx context.Context, name string, labels map[string]string) (string, error)
 	Unnetwork(ctx context.Context, id string) error
-	Networks(ctx context.Context, key, value string) ([]string, error)
+	Networks(ctx context.Context, key, value string) ([]Network, error)
+	Attached(ctx context.Context, network string) ([]string, error)
 }

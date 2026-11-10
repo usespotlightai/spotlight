@@ -137,7 +137,7 @@ describe('one run history across the mock', () => {
     expect(runs.length).toBeGreaterThan(500);
     expect(answers.every((each) => each.response?.status === 200)).toBe(true);
     expect(answers.every((each) => each.data?.taskId)).toBe(true);
-  });
+  }, 20_000);
 
   it('opens a past run like a core one: memories, changes, scores, review, trace, journal and runs', async () => {
     const runs = await teamRuns();

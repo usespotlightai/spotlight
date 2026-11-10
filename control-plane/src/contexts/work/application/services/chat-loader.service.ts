@@ -38,4 +38,14 @@ export class ChatLoader {
 
     return chat;
   }
+
+  async startedBy(chatId: string, viewer: string): Promise<Chat> {
+    const chat = await this.chats.find(ChatId.of(chatId));
+
+    if (!chat?.isStartedBy(UserId.of(viewer))) {
+      throw new UnknownChatError(chatId);
+    }
+
+    return chat;
+  }
 }

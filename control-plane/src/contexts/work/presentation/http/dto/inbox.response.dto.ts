@@ -6,6 +6,7 @@ import {
   INBOX_NOTICE_FORMS,
   INBOX_REQUEST_DTO_FORMS,
   type InboxApprovalDto,
+  type InboxChatDto,
   type InboxConnectionDto,
   type InboxDtoSection,
   type InboxFailureDto,
@@ -747,11 +748,89 @@ export class InboxRunResponseDto {
   }
 }
 
+export class InboxChatResponseDto {
+  @ApiProperty({
+    enum: ['chat'],
+    description: 'An agent chat the person started',
+  })
+  readonly kind = 'chat' as const;
+
+  @ApiProperty({ example: 'c3f1a9d2-6b47-4e08-8d15-9a2e7b4c0f63' })
+  readonly id: string;
+
+  @ApiProperty({ example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
+  readonly teamId: string;
+
+  @ApiProperty({ example: 'Why does the queue stall?' })
+  readonly title: string;
+
+  @ApiProperty({
+    enum: [...PROGRESS_NAMES, null],
+    nullable: true,
+    type: String,
+    example: 'in-progress',
+    description: 'How far the run on the chat has come; null when none runs',
+  })
+  readonly progress: string | null;
+
+  @ApiProperty({
+    example: 1,
+    description: 'How many task proposals still wait for the person',
+  })
+  readonly openProposals: number;
+
+  @ApiProperty({
+    example: '2026-08-28T21:15:00.000Z',
+    description: 'When the newest message arrived',
+  })
+  readonly askedAt: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'The agent proposed a task the person has not seen yet',
+  })
+  readonly unread: boolean;
+
+  @ApiProperty({
+    example: false,
+    description: 'True once the chat is resolved and nothing runs on it',
+  })
+  readonly resolved: boolean;
+
+  @ApiProperty({
+    enum: INBOX_DTO_SECTIONS,
+    example: 'open',
+    description:
+      'The inbox section that shows it: running while a run works, open until the person or an accepted proposal resolves it',
+  })
+  readonly section: InboxDtoSection;
+
+  @ApiProperty({
+    example: false,
+    description: 'True when the person can open it again: once it is resolved',
+  })
+  readonly reopenable: boolean;
+
+  constructor(entry: InboxChatDto) {
+    this.id = entry.id;
+    this.teamId = entry.teamId;
+    this.title = entry.title;
+    this.progress = entry.progress;
+    this.openProposals = entry.openProposals;
+    this.askedAt = entry.askedAt;
+    this.unread = entry.unread;
+    this.resolved = entry.resolved;
+    this.section = entry.section;
+    this.reopenable = entry.reopenable;
+  }
+}
+
 const INBOX_ENTRY = {
   oneOf: [
     { $ref: getSchemaPath(InboxItemResponseDto) },
     { $ref: getSchemaPath(InboxNoticeResponseDto) },
     { $ref: getSchemaPath(InboxRunResponseDto) },
+    { $ref: getSchemaPath(InboxChatResponseDto) },
   ],
   discriminator: {
     propertyName: 'kind',
@@ -759,6 +838,7 @@ const INBOX_ENTRY = {
       task: getSchemaPath(InboxItemResponseDto),
       notice: getSchemaPath(InboxNoticeResponseDto),
       run: getSchemaPath(InboxRunResponseDto),
+      chat: getSchemaPath(InboxChatResponseDto),
     },
   },
 };
@@ -779,4 +859,5 @@ export const INBOX_PAGE_SCHEMA = {
 export type InboxEntryResponseDto =
   | InboxItemResponseDto
   | InboxNoticeResponseDto
-  | InboxRunResponseDto;
+  | InboxRunResponseDto
+  | InboxChatResponseDto;

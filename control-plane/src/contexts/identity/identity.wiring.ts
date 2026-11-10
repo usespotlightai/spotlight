@@ -222,6 +222,7 @@ import { WorkspaceResourceController } from '@identity/presentation/http/control
 import { WorkspaceTokenResourceController } from '@identity/presentation/http/controllers/workspace-token-resource.controller';
 import { FORBIDDEN_TEXTS } from '@identity/presentation/http/forbidden-texts';
 import { AuthenticatedGuard } from '@identity/presentation/http/guards/authenticated.guard';
+import { IDENTITY_CHANGE_NOTICES } from '@identity/presentation/live/identity.change-notices';
 import { ExpiredTokensWorker } from '@identity/presentation/workers/expired-tokens.worker';
 import type { Provider, Type } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
@@ -235,6 +236,7 @@ import { IntegrationEventMappers } from '@platform/events/integration-event-mapp
 import { PayloadTypes } from '@platform/events/payload-types';
 import { ApiConventions } from '@platform/http/api-conventions';
 import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
+import { ChangeNotices } from '@platform/live/change-notices';
 import {
   CLOCK,
   type ClockPort,
@@ -701,6 +703,7 @@ const published: Provider[] = [
     inject: [
       PayloadTypes,
       IntegrationEventMappers,
+      ChangeNotices,
       EventSubscribers,
       EventProjections,
       DrizzleWorkspaceRepository,
@@ -715,6 +718,7 @@ const published: Provider[] = [
     useFactory: (
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
+      changeNotices: ChangeNotices,
       subscribers: EventSubscribers,
       projections: EventProjections,
       workspaces: DrizzleWorkspaceRepository,
@@ -728,6 +732,7 @@ const published: Provider[] = [
     ) => {
       types.register('identity', IDENTITY_PAYLOAD_TYPES);
       mappers.register(IDENTITY_EVENT_MAPPERS);
+      changeNotices.register(IDENTITY_CHANGE_NOTICES);
       projections.register(identityProjections(audit, usage, surveys));
       subscribers.register(
         identitySubscribers(

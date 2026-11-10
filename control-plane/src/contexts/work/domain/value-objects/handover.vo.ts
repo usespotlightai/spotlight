@@ -1,6 +1,7 @@
 import {
   HANDOVER_TO_A_PERSON,
   HANDOVER_TO_FINISH,
+  requestsAPerson,
 } from '@shared-kernel/domain/value-objects/handover-word';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
@@ -50,7 +51,7 @@ export class Handover {
   }
 
   requestsReview(): boolean {
-    return this.next === '' || this.next.toLowerCase() === HANDOVER_TO_A_PERSON;
+    return requestsAPerson(this.next);
   }
 
   names(key: StationKey): boolean {

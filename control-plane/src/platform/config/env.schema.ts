@@ -78,7 +78,7 @@ export const envSchema = databaseSchema
     ),
     VAPID_SUBJECT: unsetWhenEmpty(z.string().regex(/^(mailto:|https:\/\/).+/)),
     OAUTH_CLIENTS: z.string().default('{}'),
-    // Lets several control-plane instances share live drafts, run streams, host tunnels, the leader lease and the sign-in rate limit.
+    // Lets several control-plane instances share live drafts, run streams, live changes, host tunnels, the leader lease and the sign-in rate limit.
     REDIS_URL: z.url({ protocol: /^rediss?$/ }).optional(),
     SPOTLIGHT_INSTANCE_URL: z.url({ protocol: /^http$/ }).optional(),
     SPOTLIGHT_LONG_POLL_MS: z.coerce.number().int().positive().default(10_000),
@@ -93,6 +93,7 @@ export const envSchema = databaseSchema
     SPOTLIGHT_CATALOG_URL: z.url().default('https://catalog.usespotlight.ai'),
     SPOTLIGHT_CATALOG_TOKEN: z.string().min(1).optional(),
     S3_BUCKET: z.string().min(1),
+    S3_KEY_PREFIX: z.string().optional(),
     S3_REGION: z.string().default('us-east-1'),
     S3_ENDPOINT: z.url().optional(),
     S3_PUBLIC_ENDPOINT: z.url().optional(),

@@ -5,8 +5,10 @@ import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import type { Attachment } from '@/lib/attachment';
+import { STICKY_AT_TOP } from '@/lib/inbox';
 import type { TeamRun } from '@/lib/run';
 import { useRunSidePanel } from '@/lib/run-side-panel';
+import { cn } from '@/lib/utils';
 
 type RunBriefingProps = {
   run: TeamRun;
@@ -35,7 +37,7 @@ export function RunBriefing({
       <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
         <TimeMarker at={run.startedAt} />
 
-        <div className="mt-6">
+        <div className={cn('mt-6', STICKY_AT_TOP)}>
           <InboxAsked
             station={run.station}
             title={run.taskTitle}

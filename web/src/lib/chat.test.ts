@@ -7,7 +7,6 @@ import {
   runsOfTurn,
   targetStationHandedOver,
   tracesHandedOver,
-  turnSummaryOf,
   turnsOf,
 } from '@/lib/chat';
 import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
@@ -189,33 +188,6 @@ describe('turnsOf', () => {
   });
 });
 
-describe('turnSummaryOf', () => {
-  it('reads as the last answer on one line, with the steps counted', () => {
-    const [turn] = turnsOf(
-      momentsOf(
-        [message({})],
-        [
-          journal([
-            step({ startedAt: '2026-09-14T09:00:01.000Z' }),
-            step({ startedAt: '2026-09-14T09:00:02.000Z' }),
-            step({
-              kind: 'message',
-              text: '**Retries** double.\n\nThey stop at five.',
-              startedAt: '2026-09-14T09:00:03.000Z',
-            }),
-          ]),
-        ],
-        [],
-      ),
-    );
-
-    expect(turn && turnSummaryOf(turn)).toEqual({
-      text: 'Retries double. They stop at five.',
-      count: '2 steps',
-    });
-  });
-});
-
 describe('chatPath', () => {
   it('sits under the team’s agent', () => {
     expect(chatPath('acme', 'team_1', 'chat_1')).toBe(
@@ -339,18 +311,5 @@ describe('a run whose journal has not loaded', () => {
     );
 
     expect(moments.map((each) => each.kind)).toEqual(['message']);
-  });
-
-  it('keeps the count of its turn summary when the journal loads', () => {
-    const summaryOf = (journals: RunJournal[]) => {
-      const [turn] = turnsOf(
-        momentsOf([message({})], journals, [run({ stepCount: 2 })]),
-      );
-
-      return turn && turnSummaryOf(turn);
-    };
-
-    expect(summaryOf([])?.count).toBe('2 steps');
-    expect(summaryOf([journal([step({}), step({})])])?.count).toBe('2 steps');
   });
 });

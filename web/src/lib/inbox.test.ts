@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  InboxChat,
   InboxEntry,
   InboxItem,
   InboxNotice,
@@ -8,6 +9,7 @@ import type {
   RunJournal,
 } from '@/lib/inbox';
 import {
+  chatPreviewOf,
   counted,
   decisionPending,
   entryKey,
@@ -18,6 +20,8 @@ import {
   noticePath,
   noticePreviewOf,
   previewOf,
+  reopenable,
+  resolvable,
   shownAt,
   spentIn,
   spentOn,
@@ -427,5 +431,48 @@ describe('formatShortDuration', () => {
     expect(formatShortDuration(4_320_000)).toBe('1h 12m');
     expect(formatShortDuration(7_200_000)).toBe('2h');
     expect(formatShortDuration(167_040_000)).toBe('46h 24m');
+  });
+});
+
+describe('chatPreviewOf', () => {
+  const chat = (over: Partial<InboxChat> = {}): InboxChat => ({
+    kind: 'chat',
+    id: 'chat_1',
+    teamId: 'team_1',
+    title: 'Why do retries pile up?',
+    progress: null,
+    openProposals: 0,
+    askedAt: '2026-10-01T10:00:00.000Z',
+    unread: false,
+    resolved: false,
+    section: 'open',
+    reopenable: false,
+    ...over,
+  });
+
+  it('says how far the run of a chat has come', () => {
+    expect(chatPreviewOf(chat({ progress: 'queued' }))).toBe(
+      'Queued. Agent starts when a runner is free.',
+    );
+  });
+
+  it('counts the proposals that wait', () => {
+    expect(chatPreviewOf(chat({ openProposals: 1 }))).toBe(
+      '1 task proposal waiting for you.',
+    );
+    expect(chatPreviewOf(chat({ openProposals: 3 }))).toBe(
+      '3 task proposals waiting for you.',
+    );
+  });
+
+  it('says a chat is resolved, or waits for its starter', () => {
+    expect(chatPreviewOf(chat({ resolved: true }))).toBe('Chat resolved.');
+    expect(chatPreviewOf(chat())).toBe('Waiting for you.');
+  });
+
+  it('lets a person resolve a chat until it is resolved, then reopen it', () => {
+    expect(resolvable(chat())).toBe(true);
+    expect(resolvable(chat({ resolved: true }))).toBe(false);
+    expect(reopenable(chat({ resolved: true, reopenable: true }))).toBe(true);
   });
 });

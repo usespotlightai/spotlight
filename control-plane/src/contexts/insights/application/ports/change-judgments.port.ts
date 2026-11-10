@@ -1,6 +1,5 @@
 import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import type { JudgingFailureCode } from '@shared-kernel/domain/value-objects/judging-failure.vo';
-import type { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const CHANGE_JUDGMENTS = Symbol('CHANGE_JUDGMENTS');
@@ -22,7 +21,6 @@ interface ChangeJudgmentReason {
 export interface UnjudgedJudgment {
   readonly judged: false;
   readonly failure: JudgingFailureCode;
-  readonly spent: ModelUsage;
 }
 
 export type ChangeJudgment =
@@ -34,7 +32,6 @@ export type ChangeJudgment =
       readonly guidance: string | null;
       readonly referenced: boolean;
       readonly model: string;
-      readonly spent: ModelUsage;
     }
   | UnjudgedJudgment;
 

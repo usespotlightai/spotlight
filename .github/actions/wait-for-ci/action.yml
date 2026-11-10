@@ -1,0 +1,32 @@
+name: Wait for CI
+description: Waits until the push workflows pass on a commit. Fails when one of them fails or does not start.
+
+inputs:
+  commit:
+    description: The commit SHA.
+    required: true
+  token:
+    description: A token that can read the workflow runs of the repository.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Wait for the push workflows on the commit
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        SHA: ${{ inputs.commit }}
+      run: |
+        for workflow in control-plane.yml data-plane.yml web.yml desktop.yml gitleaks.yml codeql.yml; do
+          while :; do
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$SHA" --workflow "$workflow" --event push --limit 1 \
+              --json status,conclusion --jq '.[0] // empty | "\(.status) \(.conclusion)"' || true)
+            case "$run" in
+              "completed success") echo "$workflow passed"; break ;;
+              completed*) echo "::error::$workflow did not pass on $SHA ($run)."; exit 1 ;;
+              "") [ "$SECONDS" -lt 180 ] || { echo "::error::$workflow did not run on $SHA."; exit 1; } ;;
+            esac
+            sleep 30
+          done
+        done

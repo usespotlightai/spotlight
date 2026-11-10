@@ -2473,6 +2473,44 @@ export type ReplyToReviewCommentRequestDto = {
   resolve?: boolean;
 };
 
+export type InboxChatResponseDto = {
+  /**
+   * An agent chat the person started
+   */
+  kind: 'chat';
+  id: string;
+  teamId: string;
+  title: string;
+  /**
+   * How far the run on the chat has come; null when none runs
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * How many task proposals still wait for the person
+   */
+  openProposals: number;
+  /**
+   * When the newest message arrived
+   */
+  askedAt: string;
+  /**
+   * The agent proposed a task the person has not seen yet
+   */
+  unread: boolean;
+  /**
+   * True once the chat is resolved and nothing runs on it
+   */
+  resolved: boolean;
+  /**
+   * The inbox section that shows it: running while a run works, open until the person or an accepted proposal resolves it
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * True when the person can open it again: once it is resolved
+   */
+  reopenable: boolean;
+};
+
 export type AttachmentResponseDto = {
   id: string;
   name: string;
@@ -14172,7 +14210,7 @@ export type ListInboxErrors = {
 
 export type ListInboxResponses = {
   200: {
-    items: Array<InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto>;
+    items: Array<InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto | InboxChatResponseDto>;
     /**
      * Pass as `before` to read the next page; null on the last
      */
@@ -14545,6 +14583,96 @@ export type ReopenInboxNoticeResponses = {
 };
 
 export type ReopenInboxNoticeResponse = ReopenInboxNoticeResponses[keyof ReopenInboxNoticeResponses];
+
+export type ResolveInboxChatData = {
+  body?: never;
+  path: {
+    chatId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/chats/{chatId}/resolve';
+};
+
+export type ResolveInboxChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ResolveInboxChatResponses = {
+  /**
+   * It is resolved
+   */
+  204: void;
+};
+
+export type ResolveInboxChatResponse = ResolveInboxChatResponses[keyof ResolveInboxChatResponses];
+
+export type ReopenInboxChatData = {
+  body?: never;
+  path: {
+    chatId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/chats/{chatId}/reopen';
+};
+
+export type ReopenInboxChatErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ReopenInboxChatResponses = {
+  /**
+   * It is open again
+   */
+  204: void;
+};
+
+export type ReopenInboxChatResponse = ReopenInboxChatResponses[keyof ReopenInboxChatResponses];
+
+export type MarkInboxChatReadData = {
+  body?: never;
+  path: {
+    chatId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/chats/{chatId}/read';
+};
+
+export type MarkInboxChatReadErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type MarkInboxChatReadResponses = {
+  /**
+   * It is no longer unread
+   */
+  204: void;
+};
+
+export type MarkInboxChatReadResponse = MarkInboxChatReadResponses[keyof MarkInboxChatReadResponses];
 
 export type ListTaskJournalRunsData = {
   body?: never;
@@ -15570,27 +15698,6 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
-export type StreamMyNotificationsData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/me/notifications/stream';
-};
-
-export type StreamMyNotificationsErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type StreamMyNotificationsResponses = {
-  /**
-   * Server-sent events, one per new item
-   */
-  200: unknown;
-};
-
 export type GetPushKeyData = {
   body?: never;
   path?: never;
@@ -15668,6 +15775,27 @@ export type SubscribeToPushResponses = {
 };
 
 export type SubscribeToPushResponse = SubscribeToPushResponses[keyof SubscribeToPushResponses];
+
+export type WatchLiveData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/me/live';
+};
+
+export type WatchLiveErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type WatchLiveResponses = {
+  /**
+   * Server-sent events
+   */
+  200: unknown;
+};
 
 export type ListTeamSkillsData = {
   body?: never;

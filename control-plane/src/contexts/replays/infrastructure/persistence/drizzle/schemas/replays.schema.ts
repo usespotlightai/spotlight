@@ -455,7 +455,6 @@ export const replayEntry = pgTable(
     cacheWriteTokens: bigint('cache_write_tokens', { mode: 'number' }),
     checks: jsonb('checks').$type<StoredEntryChecks>(),
     generationSpent: jsonb('generation_spent').$type<StoredModelSpent>(),
-    judgingSpent: jsonb('judging_spent').$type<StoredModelSpent>(),
     judging: jsonb('judging').$type<StoredEntryJudging>(),
     succeeded: boolean('succeeded'),
     reasons: jsonb('reasons')
@@ -463,10 +462,8 @@ export const replayEntry = pgTable(
       .notNull()
       .default(sql`'[]'::jsonb`),
     secondJudging: jsonb('second_judging').$type<StoredEntryJudging>(),
-    rejudgingSpent: jsonb('rejudging_spent').$type<StoredModelSpent>(),
     recheck: jsonb('recheck').$type<StoredEntryChecks>(),
     pairing: jsonb('pairing').$type<StoredEntryPairing>(),
-    pairingSpent: jsonb('pairing_spent').$type<StoredModelSpent>(),
   },
   (table) => [
     check('replay_entry_position_not_negative', sql`${table.position} >= 0`),
@@ -857,7 +854,6 @@ export const changeJudging = pgTable(
     claims: jsonb('claims').$type<string[]>().notNull(),
     passThreshold: doublePrecision('pass_threshold').notNull(),
     referenceRunId: text('reference_run_id'),
-    spent: jsonb('spent').$type<StoredModelSpent>().notNull(),
     queuedAt: timestamptz('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
@@ -891,9 +887,7 @@ export const sideBySideJudging = pgTable(
     claims: jsonb('claims').$type<string[]>().notNull(),
     passThreshold: doublePrecision('pass_threshold').notNull(),
     referenceRunId: text('reference_run_id').notNull(),
-    maxAttempts: integer('most_attempts').notNull(),
     shownOrder: pairOrder('shown_order').notNull(),
-    spent: jsonb('spent').$type<StoredModelSpent>().notNull(),
     queuedAt: timestamptz('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),

@@ -106,15 +106,11 @@ export class ChatCompletionsSideBySideJudge implements SideBySideJudgePort {
     request: SideBySideJudgeRequest,
   ): Promise<SideBySideJudgeAnswer> {
     if (!this.endpoint) {
-      throw new JudgingError(
-        'request-failed',
-        'no model endpoint is set',
-        null,
-      );
+      throw new JudgingError('request-failed', 'no model endpoint is set');
     }
 
     try {
-      const { answer, usage } = await requestJson({
+      const { answer } = await requestJson({
         endpoint: this.endpoint,
         fetch: this.fetch,
         system: systemOf(request),
@@ -125,15 +121,14 @@ export class ChatCompletionsSideBySideJudge implements SideBySideJudgePort {
 
       return {
         verdict: { preferred: answer.preferred, reasons: answer.reasons },
-        usage,
         model: this.endpoint.model,
       };
     } catch (error) {
       if (error instanceof ModelRequestError) {
-        throw new JudgingError('request-failed', error.message, null);
+        throw new JudgingError('request-failed', error.message);
       }
       if (error instanceof ModelEmptyCompletionError) {
-        throw new JudgingError('unreadable', error.message, error.usage);
+        throw new JudgingError('unreadable', error.message);
       }
       throw error;
     }

@@ -17,10 +17,17 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { ChatMessageSent } from '@work/domain/events/chat-message-sent.event';
+import { ChatMessagesAcknowledged } from '@work/domain/events/chat-messages-acknowledged.event';
 import { ChatRunAssigned } from '@work/domain/events/chat-run-assigned.event';
+import { ChatRunEnded } from '@work/domain/events/chat-run-ended.event';
+import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
+import { ProposalAcceptanceFailed } from '@work/domain/events/proposal-acceptance-failed.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
+import { ProposalBecameTask } from '@work/domain/events/proposal-became-task.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
+import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
@@ -413,7 +420,9 @@ describe('Chat', () => {
       })
       .assignRun(RunId.of('run_2'), LATER);
 
-    const [event] = assigned.pullEvents();
+    const event = assigned
+      .pullEvents()
+      .find((each) => each instanceof ChatRunAssigned);
 
     expect(event).toBeInstanceOf(ChatRunAssigned);
     expect(
@@ -824,6 +833,126 @@ describe('Chat', () => {
     );
   });
 
+  describe('in the inbox', () => {
+    const SESSION = HarnessSession.of('session_1');
+    const ended = (chat: Chat) =>
+      chat.runEnded(RunId.of('run_1'), { session: SESSION, claimedBy: null })
+        .chat;
+    const accepted = (chat: Chat) =>
+      chat
+        .accept(SECOND, LEON, LATER)
+        .proposalBecame(SECOND, TaskId.of('task_1'), LATER);
+
+    it('is running while a run works and while its first message waits for one', () => {
+      expect(started().inboxRunning).toBe(true);
+      expect(working().inboxRunning).toBe(true);
+      expect(ended(working()).inboxRunning).toBe(false);
+    });
+
+    it('saves a read marker only when a message is newer than the last one', () => {
+      const read = proposing().markRead(LEON, LATER);
+
+      expect(read.readAt).toEqual(LATER);
+      expect(read.markRead(LEON, new Date('2026-09-15T10:00:00.000Z'))).toBe(
+        read,
+      );
+    });
+
+    it('moves the read marker forward for a proposal made after it', () => {
+      const read = working().markRead(LEON, NOW);
+      const proposed = read.propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off exponentially'),
+        description: null,
+        at: LATER,
+      });
+
+      expect(proposed.markRead(LEON, LATER).readAt).toEqual(LATER);
+    });
+
+    it('resolves and reopens by hand, only for the person who started it', () => {
+      const resolved = started().resolve(LEON, LATER);
+
+      expect(resolved.resolvedAt).toEqual(LATER);
+      expect(resolved.readAt).toEqual(LATER);
+      expect(resolved.resolve(LEON, new Date('2026-09-15T09:00:00.000Z'))).toBe(
+        resolved,
+      );
+      expect(resolved.reopen(LEON).resolvedAt).toBeNull();
+      expect(started().reopen(LEON).resolvedAt).toBeNull();
+      expect(() => started().resolve(STRANGER, LATER)).toThrow(
+        NotTheChatStarterError,
+      );
+      expect(() => resolved.reopen(STRANGER)).toThrow(NotTheChatStarterError);
+      expect(() => started().markRead(STRANGER, LATER)).toThrow(
+        NotTheChatStarterError,
+      );
+    });
+
+    it('resolves itself when the last open proposal became a task', () => {
+      const created = accepted(proposing());
+
+      expect(created.resolvedAt).toEqual(LATER);
+      expect(created.readAt).toEqual(LATER);
+    });
+
+    it('stays open while another proposal waits', () => {
+      const twice = proposing().propose({
+        runId: RunId.of('run_1'),
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Cap the delay'),
+        description: null,
+        at: LATER,
+      });
+
+      expect(accepted(twice).resolvedAt).toBeNull();
+    });
+
+    it('stays unresolved when a proposal is dismissed', () => {
+      expect(proposing().dismiss(SECOND, LEON, LATER).resolvedAt).toBeNull();
+    });
+
+    it('does not resolve while a proposal is accepted but its task is not made', () => {
+      expect(proposing().accept(SECOND, LEON, LATER).resolvedAt).toBeNull();
+    });
+
+    it('opens again when the agent proposes after it was resolved', () => {
+      expect(
+        working()
+          .resolve(LEON, NOW)
+          .propose({
+            runId: RunId.of('run_1'),
+            placement: ProposalPlacement.of({
+              lineId: LineId.of('line_1'),
+              stationId: StationId.of('station_1'),
+            }),
+            title: TaskTitle.of('Back off exponentially'),
+            description: null,
+            at: LATER,
+          }).resolvedAt,
+      ).toBeNull();
+    });
+
+    it('opens again when a run ends after it was resolved', () => {
+      expect(ended(working().resolve(LEON, NOW)).resolvedAt).toBeNull();
+    });
+
+    it('keeps its resolution when a run ends without a session', () => {
+      const failed = working()
+        .resolve(LEON, NOW)
+        .runEnded(RunId.of('run_1'), { session: null, claimedBy: null }).chat;
+
+      expect(failed.resolvedAt).toEqual(NOW);
+    });
+  });
+
   describe('setting up configuration', () => {
     const settingUp = () =>
       Chat.start({
@@ -911,6 +1040,96 @@ describe('Chat', () => {
 
       expect(again.setup?.pullRequest?.equals(URL)).toBe(true);
       expect(again.pullEvents()).toEqual([]);
+    });
+  });
+  describe('saying what changed', () => {
+    const WORKSPACE = WorkspaceId.of('ws_1');
+    const RUN = RunId.of('run_1');
+
+    it('says a message was sent', () => {
+      const sent = started().addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And then?'),
+        at: LATER,
+      });
+
+      expect(sent.pullEvents().slice(-1)[0]).toEqual(
+        new ChatMessageSent(sent.id, WORKSPACE, SECOND, LEON),
+      );
+    });
+
+    it('says a run ended, and whether it kept its session', () => {
+      expect(working().runEndedWithoutSession(RUN).pullEvents()).toEqual([
+        new ChatRunEnded(working().id, WORKSPACE, LEON, RUN, false),
+      ]);
+      expect(
+        working()
+          .runEnded(RUN, {
+            session: HarnessSession.of('session_1'),
+            claimedBy: null,
+          })
+          .chat.pullEvents(),
+      ).toEqual([new ChatRunEnded(working().id, WORKSPACE, LEON, RUN, true)]);
+    });
+
+    it('says only that a run did not start, not that it ended', () => {
+      expect(working().runNotStarted(RUN).pullEvents()).toEqual([
+        new ChatRunNotStarted(working().id, WORKSPACE, LEON, RUN),
+      ]);
+    });
+
+    it('says messages were acknowledged once, not again', () => {
+      const asked = working().addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And then?'),
+        at: LATER,
+      });
+      asked.pullEvents();
+      const acknowledged = asked.acknowledgeUpTo(RUN, SECOND, LATER);
+
+      expect(acknowledged.pullEvents()).toEqual([
+        new ChatMessagesAcknowledged(asked.id, WORKSPACE, LEON, RUN, SECOND),
+      ]);
+      expect(
+        acknowledged.acknowledgeUpTo(RUN, SECOND, LATER).pullEvents(),
+      ).toEqual([]);
+    });
+
+    it('says a task was proposed, and what became of the proposal', () => {
+      const proposed = working().propose({
+        runId: RUN,
+        placement: ProposalPlacement.of({
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
+        title: TaskTitle.of('Back off exponentially'),
+        description: null,
+        at: LATER,
+      });
+
+      expect(proposed.pullEvents()).toEqual([
+        new TaskProposed(proposed.id, WORKSPACE, LEON, SECOND, RUN),
+      ]);
+
+      const accepted = proposing().accept(SECOND, LEON, LATER);
+      accepted.pullEvents();
+
+      expect(
+        accepted
+          .proposalBecame(SECOND, TaskId.of('task_1'), LATER)
+          .pullEvents(),
+      ).toEqual([
+        new ProposalBecameTask(
+          accepted.id,
+          WORKSPACE,
+          LEON,
+          SECOND,
+          TaskId.of('task_1'),
+        ),
+      ]);
+      expect(accepted.recordAcceptanceFailure(SECOND).pullEvents()).toEqual([
+        new ProposalAcceptanceFailed(accepted.id, WORKSPACE, LEON, SECOND),
+      ]);
     });
   });
 });

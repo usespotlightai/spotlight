@@ -166,4 +166,22 @@ export interface InboxRunDto {
   readonly reopenable: false;
 }
 
-export type InboxEntryDto = InboxItemDto | InboxNoticeDto | InboxRunDto;
+export interface InboxChatDto {
+  readonly kind: 'chat';
+  readonly id: string;
+  readonly teamId: string;
+  readonly title: string;
+  readonly progress: Progress | null;
+  readonly openProposals: number;
+  readonly askedAt: string;
+  readonly unread: boolean;
+  readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
+}
+
+export type InboxEntryDto =
+  | InboxItemDto
+  | InboxNoticeDto
+  | InboxRunDto
+  | InboxChatDto;

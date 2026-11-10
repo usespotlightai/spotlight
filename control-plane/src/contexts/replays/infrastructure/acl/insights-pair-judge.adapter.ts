@@ -11,7 +11,6 @@ import type {
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { PairJudgment } from '@replays/domain/value-objects/pair-judgment';
 import type { PairOrder } from '@replays/domain/value-objects/pair-order';
-import { modelSpentOf } from '@replays/infrastructure/acl/model-spent.translation';
 
 type InsightsPairOrder = PairJudgmentOrder['orders'][number];
 
@@ -45,12 +44,10 @@ const judgmentOf = (judgment: InsightsPairJudgment): PairJudgment =>
           })),
         })),
         model: judgment.model,
-        spent: modelSpentOf(judgment.spent),
       }
     : {
         judged: false,
         failure: judgment.failure,
-        spent: modelSpentOf(judgment.spent),
       };
 
 export class InsightsPairJudge implements PairJudgePort {

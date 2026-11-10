@@ -15,7 +15,10 @@ const write = (name: string, document: unknown): void => {
 };
 
 async function main(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await NestFactory.create(AppModule, {
+    logger: false,
+    abortOnError: false,
+  });
   const document = buildOpenApiDocument(app);
   const routes = routesOf(app);
   await app.close();

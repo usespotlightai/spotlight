@@ -21,7 +21,7 @@
     "electron-updater": "6.8.11"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.5",
+    "@biomejs/biome": "2.6.6",
     "@types/node": "^26.6.6",
     "electron": "45.2.3",
     "electron-builder": "26.18.0",

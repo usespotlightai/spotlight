@@ -5,7 +5,6 @@ import type {
   ReferenceChange,
 } from '@insights/domain/services/judge-evidence';
 import type { ScoreKind } from '@insights/domain/value-objects/score-scale.vo';
-import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
 export const JUDGE = Symbol('INSIGHTS_JUDGE');
 
@@ -21,12 +20,12 @@ export interface JudgeRequest {
   readonly hunksLeftOut: number;
   readonly reference: ReferenceChange | null;
   readonly guidanceRequested: boolean;
+  readonly replayed: boolean;
 }
 
 export interface JudgeAnswer {
   readonly verdict: Verdict;
   readonly guidance: string | null;
-  readonly usage: ModelCall | null;
   readonly model: string;
 }
 

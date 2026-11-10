@@ -505,7 +505,6 @@ export const concludedAll = (
   options: {
     changedLines?: number;
     judged?: boolean;
-    judgingCost?: number;
   } = {},
 ): Replay => {
   let built = replay.reserving(
@@ -533,14 +532,7 @@ export const concludedAll = (
       .recordReview(run, CONCLUDING_CHECKS, null, later(62_000));
 
     if (options.judged ?? true) {
-      built = built.recordVerdict(
-        run,
-        CONCLUDING_VERDICT,
-        options.judgingCost === undefined
-          ? null
-          : ModelSpent.of([Money.of(options.judgingCost, 'USD')], 0),
-        later(63_000),
-      );
+      built = built.recordVerdict(run, CONCLUDING_VERDICT, later(63_000));
     }
   }
 
