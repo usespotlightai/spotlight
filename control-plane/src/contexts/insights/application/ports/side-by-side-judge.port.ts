@@ -1,7 +1,6 @@
 import type { PairVerdict } from '@insights/domain/services/grounded-pair';
 import type { ReferenceChange } from '@insights/domain/services/judge-evidence';
 import type { PairedChange } from '@insights/domain/services/pair-evidence';
-import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
 export const SIDE_BY_SIDE_JUDGE = Symbol('INSIGHTS_SIDE_BY_SIDE_JUDGE');
 
@@ -17,7 +16,6 @@ export interface SideBySideJudgeRequest {
 
 export interface SideBySideJudgeAnswer {
   readonly verdict: PairVerdict;
-  readonly usage: ModelCall | null;
   readonly model: string;
 }
 

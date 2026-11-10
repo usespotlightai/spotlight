@@ -45,7 +45,6 @@ const requesting = (
       model: 'some/model',
       verdict: { value: true, reasons: [] },
       guidance: null,
-      usage: null,
     }),
   };
   const service = new RequestJudging(

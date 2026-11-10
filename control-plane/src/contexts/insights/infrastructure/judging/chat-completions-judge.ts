@@ -174,11 +174,7 @@ export class ChatCompletionsJudge implements JudgePort {
 
   async judge(request: JudgeRequest): Promise<JudgeAnswer> {
     if (!this.endpoint) {
-      throw new JudgingError(
-        'request-failed',
-        'no model endpoint is set',
-        null,
-      );
+      throw new JudgingError('request-failed', 'no model endpoint is set');
     }
 
     const call = {
@@ -191,7 +187,7 @@ export class ChatCompletionsJudge implements JudgePort {
 
     try {
       if (request.scale === 'claims') {
-        const { answer, usage } = await requestJson({
+        const { answer } = await requestJson({
           ...call,
           responseSchema: request.guidanceRequested
             ? CLAIMS.verdictAndGuidance
@@ -200,13 +196,12 @@ export class ChatCompletionsJudge implements JudgePort {
         return {
           verdict: { claims: answer.claims },
           guidance: guidanceOf(answer),
-          usage,
           model: this.endpoint.model,
         };
       }
 
       if (request.scale === 'yes-no') {
-        const { answer, usage } = await requestJson({
+        const { answer } = await requestJson({
           ...call,
           responseSchema: request.guidanceRequested
             ? YES_NO.verdictAndGuidance
@@ -215,12 +210,11 @@ export class ChatCompletionsJudge implements JudgePort {
         return {
           verdict: { value: answer.passes, reasons: answer.reasons },
           guidance: guidanceOf(answer),
-          usage,
           model: this.endpoint.model,
         };
       }
 
-      const { answer, usage } = await requestJson({
+      const { answer } = await requestJson({
         ...call,
         responseSchema: request.guidanceRequested
           ? NUMBER.verdictAndGuidance
@@ -229,15 +223,14 @@ export class ChatCompletionsJudge implements JudgePort {
       return {
         verdict: { value: answer.score, reasons: answer.reasons },
         guidance: guidanceOf(answer),
-        usage,
         model: this.endpoint.model,
       };
     } catch (error) {
       if (error instanceof ModelRequestError) {
-        throw new JudgingError('request-failed', error.message, null);
+        throw new JudgingError('request-failed', error.message);
       }
       if (error instanceof ModelEmptyCompletionError) {
-        throw new JudgingError('unreadable', error.message, error.usage);
+        throw new JudgingError('unreadable', error.message);
       }
       throw error;
     }

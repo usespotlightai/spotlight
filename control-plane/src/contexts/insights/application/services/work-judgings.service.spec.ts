@@ -67,7 +67,6 @@ const working = async (
           model: 'some/model',
           verdict: await answer(request),
           guidance: null,
-          usage: null,
         };
       },
     },
@@ -123,7 +122,7 @@ describe('WorkJudgings', () => {
 
   it('retries later when the request to the provider fails', async () => {
     const { judging } = await working(async () => {
-      throw new JudgingError('request-failed', 'no credits', null);
+      throw new JudgingError('request-failed', 'no credits');
     });
 
     expect(judging?.hasPendingJob).toBe(true);

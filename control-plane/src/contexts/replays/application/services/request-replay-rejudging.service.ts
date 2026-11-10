@@ -15,7 +15,6 @@ export class RequestReplayRejudging {
       await this.verdicts.rejudgingFailed(
         event.run,
         ordered === 'unavailable' ? 'unavailable' : 'errored',
-        null,
       );
     }
   }

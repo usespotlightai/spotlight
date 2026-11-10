@@ -1,5 +1,4 @@
 import type { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
-import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -12,7 +11,6 @@ export class SideBySideJudged implements DomainEvent {
     readonly otherRunId: RunId,
     readonly workspaceId: WorkspaceId,
     readonly verdict: PairVerdict,
-    readonly spent: ModelSpent,
     readonly at: Date,
   ) {}
 }

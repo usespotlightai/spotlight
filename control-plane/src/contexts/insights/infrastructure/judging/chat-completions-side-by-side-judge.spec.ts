@@ -65,7 +65,6 @@ describe('judging two changes side by side through a chat completions endpoint',
     const evidence = JSON.parse(body.messages[1].content as string);
     expect(answer).toEqual({
       verdict: { preferred: 'A', reasons },
-      usage: null,
       model: 'some/model',
     });
     expect(body.response_format.json_schema.name).toBe('pair_verdict');
@@ -77,6 +76,21 @@ describe('judging two changes side by side through a chat completions endpoint',
     expect(evidence.a.hunks[0].id).toBe('A:api/q.ts#1');
     expect(evidence.b.left_out).toBe(1);
     expect(evidence.reference.hunks[0].lines).toEqual(['+drainInOrder()']);
+  });
+
+  it('says a cut-short answer was unreadable', async () => {
+    const { fetch } = answering(
+      new Response(
+        JSON.stringify({
+          choices: [{ finish_reason: 'length', message: { content: '{' } }],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(
+      new ChatCompletionsSideBySideJudge(ENDPOINT, fetch).judgePair(REQUEST),
+    ).rejects.toMatchObject({ kind: 'unreadable' });
   });
 
   it('does not judge without a model endpoint', async () => {

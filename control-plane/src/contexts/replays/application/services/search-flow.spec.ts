@@ -1055,7 +1055,6 @@ describe('SearchVisibilities', () => {
               ],
               guidance: at % 2 === 0 ? 'Finish taken jobs first.' : null,
             }),
-            null,
             later(63_000),
           );
       }, reserved),

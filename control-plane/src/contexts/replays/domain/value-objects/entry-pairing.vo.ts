@@ -15,7 +15,6 @@ const UNPAIRED_BECAUSE = [
   'errored',
   'interrupted',
   'other-rubric',
-  'ceiling-reached',
 ] as const;
 
 export type Unpaired = (typeof UNPAIRED_BECAUSE)[number];

@@ -47,7 +47,6 @@ import type { ReplayDeleted } from '@replays/domain/events/replay-deleted.event'
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
-import type { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
 import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import type { ReplaySetCreated } from '@replays/domain/events/replay-set-created.event';
@@ -248,12 +247,7 @@ export const replaysSubscribers = (
     'replays.record-replay-run-judged',
     ['change-judging.judged'],
     (event) =>
-      reactions.judging.changeJudged(
-        event.attempt,
-        event.runId,
-        event.verdict,
-        event.spent,
-      ),
+      reactions.judging.changeJudged(event.attempt, event.runId, event.verdict),
   ),
   subscribing<ChangeJudgingFailed>(
     'replays.record-replay-run-unjudged',
@@ -263,19 +257,12 @@ export const replaysSubscribers = (
         event.attempt,
         event.runId,
         event.failure.code,
-        event.spent,
       ),
   ),
   subscribing<ReplayEntryConcluded>(
     'replays.find-replays-to-pair',
     ['replay.entry-concluded'],
     (event) => reactions.pairing.concluded(event),
-    { callsOut: true },
-  ),
-  subscribing<ReplayPairingRequested>(
-    'replays.pair-replay-entries',
-    ['replay.pairing-requested'],
-    (event) => reactions.pairing.paired(event.replayId),
     { callsOut: true },
   ),
   subscribing<ReplaySideBySideJudgingRequested>(
@@ -288,12 +275,7 @@ export const replaysSubscribers = (
     'replays.record-side-by-side-judged',
     ['side-by-side-judging.judged'],
     (event) =>
-      reactions.paired.paired(
-        event.runId,
-        event.otherRunId,
-        event.verdict,
-        event.spent,
-      ),
+      reactions.paired.paired(event.runId, event.otherRunId, event.verdict),
   ),
   subscribing<SideBySideJudgingFailed>(
     'replays.record-side-by-side-unjudged',
@@ -303,7 +285,6 @@ export const replaysSubscribers = (
         event.runId,
         event.otherRunId,
         event.failure.code,
-        event.spent,
       ),
   ),
   subscribing<ReplayRejudgingRequested>(

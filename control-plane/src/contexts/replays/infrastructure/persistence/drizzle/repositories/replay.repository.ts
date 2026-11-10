@@ -60,18 +60,7 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  asc,
-  eq,
-  exists,
-  inArray,
-  isNotNull,
-  lte,
-  or,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, or, type SQL } from 'drizzle-orm';
 
 type ReplayRow = typeof replay.$inferSelect;
 
@@ -249,14 +238,11 @@ const toEntry = (row: EntryRow): ReplayEntry =>
     checks: row.checks ? ChangeChecks.rehydrate(row.checks) : null,
     judging: judgingOf(row.judging),
     generationSpent: optionalModelSpentOf(row.generationSpent),
-    judgingSpent: optionalModelSpentOf(row.judgingSpent),
     succeeded: row.succeeded,
     reasons: reasonsOf(row),
     secondJudging: judgingOf(row.secondJudging),
-    rejudgingSpent: optionalModelSpentOf(row.rejudgingSpent),
     recheck: row.recheck ? ChangeChecks.rehydrate(row.recheck) : null,
     pairing: pairingOf(row.pairing),
-    pairingSpent: optionalModelSpentOf(row.pairingSpent),
   });
 
 const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
@@ -346,7 +332,6 @@ const entryRow = (replay: Replay, entry: ReplayEntry) => ({
   checks: checksRow(entry.checks),
   judging: judgingRow(entry.judging),
   generationSpent: optionalStoredSpent(entry.generationSpent),
-  judgingSpent: optionalStoredSpent(entry.judgingSpent),
   succeeded: entry.succeeded,
   reasons: entry.reasons.map((each) => ({
     code: each.code,
@@ -355,10 +340,8 @@ const entryRow = (replay: Replay, entry: ReplayEntry) => ({
     hunks: [...each.hunks],
   })),
   secondJudging: judgingRow(entry.secondJudging),
-  rejudgingSpent: optionalStoredSpent(entry.rejudgingSpent),
   recheck: checksRow(entry.recheck),
   pairing: pairingRow(entry.pairing),
-  pairingSpent: optionalStoredSpent(entry.pairingSpent),
 });
 
 @Injectable()

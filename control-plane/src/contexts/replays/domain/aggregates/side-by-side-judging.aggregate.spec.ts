@@ -3,8 +3,6 @@ import type { SideBySideJudged } from '@replays/domain/events/side-by-side-judge
 import type { SideBySideJudgingFailed } from '@replays/domain/events/side-by-side-judging-failed.event';
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { Money } from '@replays/domain/value-objects/money.vo';
 import type { JudgedPair } from '@replays/domain/value-objects/pair-judgment';
 import type { PairOrder } from '@replays/domain/value-objects/pair-order';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
@@ -19,7 +17,7 @@ const RUN = RunId.of('replay_1');
 
 const AGAINST = RunId.of('replay_2');
 
-const queued = (maxAttempts = 2) =>
+const queued = () =>
   SideBySideJudging.requested({
     runId: RUN,
     otherRunId: AGAINST,
@@ -27,7 +25,6 @@ const queued = (maxAttempts = 2) =>
     teamId: TeamId.of('team_1'),
     criteria: JudgeCriteria.of({ rubric: null, claims: ['It drains.'] }),
     reference: RunId.of('original_1'),
-    maxAttempts,
     now: NOW,
   });
 
@@ -44,7 +41,6 @@ const judged = (
     ],
   })),
   model: 'some/model',
-  spent: ModelSpent.of([Money.of(0.02, 'USD')], 0),
 });
 
 describe('SideBySideJudging', () => {
@@ -57,7 +53,6 @@ describe('SideBySideJudging', () => {
         teamId: TeamId.of('team_1'),
         criteria: JudgeCriteria.of({ rubric: 'Good?' }),
         reference: RunId.of('original_1'),
-        maxAttempts: 2,
         now: NOW,
       }),
     ).toThrow(InvalidJudgingError);
@@ -112,17 +107,17 @@ describe('SideBySideJudging', () => {
     ).toThrow(InvalidJudgingError);
   });
 
-  it('gives up once it used the attempts paid for', () => {
-    const [event] = queued(1)
-      .leaseJob(NOW)
-      .recordJudgment(
-        {
-          judged: false,
-          failure: 'ungrounded',
-          spent: ModelSpent.of([Money.of(0.01, 'USD')], 0),
-        },
-        NOW,
-      )
+  it('tries twice, then gives up', () => {
+    const ungrounded = { judged: false, failure: 'ungrounded' } as const;
+    const once = queued().leaseJob(NOW).recordJudgment(ungrounded, NOW);
+
+    expect(once.hasPendingJob).toBe(true);
+    expect(once.pullEvents()).toEqual([]);
+
+    const due = once.job?.nextAttemptAt ?? NOW;
+    const [event] = once
+      .leaseJob(due)
+      .recordJudgment(ungrounded, due)
       .pullEvents() as SideBySideJudgingFailed[];
 
     expect(event?.failure.code).toBe('ungrounded');

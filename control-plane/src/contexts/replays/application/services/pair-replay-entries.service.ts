@@ -25,7 +25,7 @@ export class PairReplayEntries {
     }
   }
 
-  async paired(replayId: ReplayId): Promise<void> {
+  private async paired(replayId: ReplayId): Promise<void> {
     const seen = await this.replays.find(replayId);
 
     if (!seen?.pairs || !seen.takesPairings) {

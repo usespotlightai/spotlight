@@ -3,8 +3,6 @@ import type { ChangeJudged } from '@replays/domain/events/change-judged.event';
 import type { ChangeJudgingFailed } from '@replays/domain/events/change-judging-failed.event';
 import { InvalidJudgingError } from '@replays/domain/exceptions/invalid-judging.error';
 import type { JudgedChange } from '@replays/domain/value-objects/change-judgment';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { Money } from '@replays/domain/value-objects/money.vo';
 import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -16,8 +14,6 @@ const NOW = new Date('2026-10-02T10:05:00.000Z');
 const RUN = RunId.of('replay_1');
 
 const CLAIMS = ['It retries.', 'It logs.', 'It has a test.'];
-
-const spent = (amount: number) => ModelSpent.of([Money.of(amount, 'USD')], 0);
 
 const requested = () =>
   ChangeJudging.requested({
@@ -43,7 +39,6 @@ const judged = (guidance: string | null, met = [true, false, false]) =>
     guidance,
     referenced: false,
     model: 'some/model',
-    spent: spent(0.02),
   }) satisfies JudgedChange;
 
 const judgedOnce = (guidance: string | null): ChangeJudging =>
@@ -63,7 +58,7 @@ describe('ChangeJudging', () => {
     ).toThrow(InvalidJudgingError);
   });
 
-  it('records the verdict on its own criteria, with what it spent', () => {
+  it('records the verdict on its own criteria', () => {
     const judging = judgedOnce('Cover the retry path with its own test.');
     const [event] = judging.pullEvents() as ChangeJudged[];
 
@@ -73,7 +68,6 @@ describe('ChangeJudging', () => {
     expect(event?.verdict.guidance).toBe(
       'Cover the retry path with its own test.',
     );
-    expect(event?.spent.equals(spent(0.02))).toBe(true);
   });
 
   it('requests guidance only on the first attempt, and hands on none from the second', () => {
@@ -95,11 +89,10 @@ describe('ChangeJudging', () => {
     expect(event?.verdict.guidance).toBeNull();
   });
 
-  it('retries an unreadable answer later, adding up what each try spent, then gives up', () => {
+  it('retries an unreadable answer later, then gives up', () => {
     const unreadable = {
       judged: false,
       failure: 'unreadable',
-      spent: spent(0.01),
     } as const;
     const once = requested().leaseJob(NOW).recordJudgment(unreadable, NOW);
 
@@ -115,7 +108,6 @@ describe('ChangeJudging', () => {
       .pullEvents() as ChangeJudgingFailed[];
 
     expect(event?.failure.code).toBe('unreadable');
-    expect(event?.spent.equals(spent(0.03))).toBe(true);
   });
 
   it('can be judged again only once it was judged', () => {

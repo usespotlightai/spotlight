@@ -94,7 +94,6 @@ describe('judging a run through a chat completions endpoint', () => {
     expect(verdict).toEqual({
       verdict: { value: true, reasons: REASONS },
       guidance: null,
-      usage: null,
       model: 'some/model',
     });
     expect(body.model).toBe('some/model');
@@ -342,12 +341,11 @@ describe('judging a run through a chat completions endpoint', () => {
     });
   });
 
-  it('hands back the tokens a cut-short answer used, since they are billed all the same', async () => {
+  it('says a cut-short answer was unreadable', async () => {
     const { fetch } = answering(
       new Response(
         JSON.stringify({
           choices: [{ finish_reason: 'length', message: { content: '{' } }],
-          usage: { prompt_tokens: 900, completion_tokens: 4_000 },
         }),
         { status: 200 },
       ),
@@ -355,11 +353,6 @@ describe('judging a run through a chat completions endpoint', () => {
 
     await expect(judging(fetch)).rejects.toMatchObject({
       kind: 'unreadable',
-      usage: {
-        inputTokens: 900,
-        outputTokens: 4_000,
-        cost: null,
-      },
     });
   });
 
@@ -404,33 +397,6 @@ describe('judging a run through a chat completions endpoint', () => {
         },
       ],
       left_out: { hunks: 2 },
-    });
-  });
-
-  it('hands back the tokens the call used, with no price', async () => {
-    const { fetch } = answering(
-      new Response(
-        JSON.stringify({
-          choices: [
-            {
-              finish_reason: 'stop',
-              message: {
-                content: JSON.stringify({ passes: true, reasons: REASONS }),
-              },
-            },
-          ],
-          usage: { prompt_tokens: 1_200, completion_tokens: 90, cost: 0.004 },
-        }),
-        { status: 200 },
-      ),
-    );
-
-    const judged = await judging(fetch);
-
-    expect(judged.usage).toEqual({
-      inputTokens: 1_200,
-      outputTokens: 90,
-      cost: null,
     });
   });
 });

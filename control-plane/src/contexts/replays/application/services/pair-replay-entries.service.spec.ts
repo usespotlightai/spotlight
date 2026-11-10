@@ -24,8 +24,6 @@ import {
   runOf,
 } from '@replays/domain/replays.fake-spec';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
-import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -50,6 +48,13 @@ const concludedEvent = (replay: Replay) =>
     replay.workspaceId,
     replay.setId,
     runOf(replay.id.value, 0),
+  );
+
+const concludedOwn = async () =>
+  pairing().concluded(
+    concludedEvent(
+      (await memory.replayRepository.find(ReplayId.of('replay_1'))) as Replay,
+    ),
   );
 
 beforeEach(async () => {
@@ -124,7 +129,7 @@ describe('PairReplayEntries', () => {
   it('requests a side-by-side judging only for tasks people accepted a change for', async () => {
     insights.accepted.delete('original_1');
 
-    await pairing().paired(ReplayId.of('replay_1'));
+    await concludedOwn();
 
     const wanted = memory.events.filter(
       (each): each is ReplaySideBySideJudgingRequested =>
@@ -138,7 +143,7 @@ describe('PairReplayEntries', () => {
   it('requests nothing for a replay with no baseline to be set beside', async () => {
     memory.replays.delete('baseline_1');
 
-    await pairing().paired(ReplayId.of('replay_1'));
+    await concludedOwn();
 
     expect(memory.events).toEqual([]);
   });
@@ -146,7 +151,7 @@ describe('PairReplayEntries', () => {
 
 describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
   const wanted = async () => {
-    await pairing().paired(ReplayId.of('replay_1'));
+    await concludedOwn();
 
     return memory.events.find(
       (each): each is ReplaySideBySideJudgingRequested =>
@@ -193,7 +198,7 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
     ).toBe('unavailable');
   });
 
-  it('records the verdict it received, with what it cost', async () => {
+  it('records the verdict it received', async () => {
     const event = await wanted();
 
     await new RecordReplayPairVerdict(
@@ -210,12 +215,10 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
           { ownShownFirst: false, outcome: 'loss', reasons: [] },
         ],
       }),
-      ModelSpent.of([Money.of(0.02, 'USD')], 0),
     );
 
     const entry = (await memory.replayRepository.find(event.replayId))
       ?.entries[0];
     expect(entry?.pairing?.verdict?.outcome).toBe('loss');
-    expect(entry?.pairingSpent?.spends[0]?.amount).toBe(0.02);
   });
 });

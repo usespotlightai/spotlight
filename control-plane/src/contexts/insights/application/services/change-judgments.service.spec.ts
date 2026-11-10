@@ -63,11 +63,6 @@ const judging = async (
           model: 'some/model',
           verdict: await answer(request),
           guidance: options.guidance ?? null,
-          usage: {
-            inputTokens: 900,
-            outputTokens: 80,
-            cost: { amount: 0.03, currency: 'USD' },
-          },
         };
       },
     },
@@ -153,8 +148,6 @@ describe('ChangeJudgments', () => {
       value: 4,
       referenced: true,
     });
-    expect(judgment.spent.costs[0]?.amount).toBeCloseTo(0.03);
-    expect(judgment.spent.inputTokens).toBe(900);
     expect(
       judgment.judged && judgment.reasons.map((each) => each.text),
     ).toEqual(['It drains.', 'It says how.']);
@@ -212,16 +205,12 @@ describe('ChangeJudgments', () => {
     expect(judgment).toMatchObject({ judged: false, failure: 'unavailable' });
   });
 
-  it('says why a judgment failed, keeping what the answer cost', async () => {
+  it('says why a judgment failed', async () => {
     const failed = await judging(async () => {
-      throw new JudgingError('request-failed', 'no credits', null);
+      throw new JudgingError('request-failed', 'no credits');
     });
     const unreadable = await judging(async () => {
-      throw new JudgingError('unreadable', 'length', {
-        inputTokens: 900,
-        outputTokens: 4_000,
-        cost: { amount: 0.04, currency: 'USD' },
-      });
+      throw new JudgingError('unreadable', 'length');
     });
     const ungrounded = await judging(async () => ({
       value: 4,
@@ -236,14 +225,9 @@ describe('ChangeJudgments', () => {
       judged: false,
       failure: 'unreadable',
     });
-    expect(unreadable.judgment.spent).toMatchObject({
-      calls: 1,
-      costs: [{ amount: 0.04, currency: 'USD' }],
-    });
     expect(ungrounded.judgment).toMatchObject({
       judged: false,
       failure: 'ungrounded',
     });
-    expect(ungrounded.judgment.spent.calls).toBe(1);
   });
 });

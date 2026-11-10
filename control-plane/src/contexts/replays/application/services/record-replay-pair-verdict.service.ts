@@ -4,7 +4,6 @@ import type {
   PairVerdict,
   Unpaired,
 } from '@replays/domain/value-objects/entry-pairing.vo';
-import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -14,25 +13,13 @@ export class RecordReplayPairVerdict {
     private readonly transaction: TransactionPort,
   ) {}
 
-  paired(
-    run: RunId,
-    other: RunId,
-    verdict: PairVerdict,
-    spent: ModelSpent,
-  ): Promise<void> {
-    return this.changing(run, (replay) =>
-      replay.pair(run, other, verdict, spent),
-    );
+  paired(run: RunId, other: RunId, verdict: PairVerdict): Promise<void> {
+    return this.changing(run, (replay) => replay.pair(run, other, verdict));
   }
 
-  failed(
-    run: RunId,
-    other: RunId,
-    failure: Unpaired,
-    spent: ModelSpent | null,
-  ): Promise<void> {
+  failed(run: RunId, other: RunId, failure: Unpaired): Promise<void> {
     return this.changing(run, (replay) =>
-      replay.recordPairingFailure(run, other, failure, spent),
+      replay.recordPairingFailure(run, other, failure),
     );
   }
 

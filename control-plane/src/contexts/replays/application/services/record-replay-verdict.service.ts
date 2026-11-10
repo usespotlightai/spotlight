@@ -6,7 +6,6 @@ import {
   type JudgingAttempt,
   judgingPurposeOf,
 } from '@replays/domain/value-objects/judging-attempt';
-import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -22,53 +21,43 @@ export class RecordReplayVerdict {
     attempt: JudgingAttempt,
     run: RunId,
     verdict: JudgeVerdict,
-    spent: ModelSpent,
   ): Promise<void> {
     return judgingPurposeOf(attempt) === 'original'
-      ? this.judged(run, verdict, spent)
-      : this.rejudged(run, verdict, spent);
+      ? this.judged(run, verdict)
+      : this.rejudged(run, verdict);
   }
 
   changeJudgingFailed(
     attempt: JudgingAttempt,
     run: RunId,
     failure: Unjudged,
-    spent: ModelSpent,
   ): Promise<void> {
     return judgingPurposeOf(attempt) === 'original'
-      ? this.failed(run, failure, spent)
-      : this.rejudgingFailed(run, failure, spent);
+      ? this.failed(run, failure)
+      : this.rejudgingFailed(run, failure);
   }
 
-  judged(run: RunId, verdict: JudgeVerdict, spent: ModelSpent): Promise<void> {
+  judged(run: RunId, verdict: JudgeVerdict): Promise<void> {
     return this.changing(run, (replay, now) =>
-      replay.recordVerdict(run, verdict, spent, now),
+      replay.recordVerdict(run, verdict, now),
     );
   }
 
-  failed(run: RunId, failure: Unjudged, spent: ModelSpent): Promise<void> {
+  failed(run: RunId, failure: Unjudged): Promise<void> {
     return this.changing(run, (replay, now) =>
-      replay.recordJudgingFailure(run, failure, spent, now),
+      replay.recordJudgingFailure(run, failure, now),
     );
   }
 
-  rejudged(
-    run: RunId,
-    verdict: JudgeVerdict,
-    spent: ModelSpent,
-  ): Promise<void> {
+  rejudged(run: RunId, verdict: JudgeVerdict): Promise<void> {
     return this.changing(run, (replay) =>
-      replay.recordRejudgment(run, verdict, spent),
+      replay.recordRejudgment(run, verdict),
     );
   }
 
-  rejudgingFailed(
-    run: RunId,
-    failure: Unjudged,
-    spent: ModelSpent | null,
-  ): Promise<void> {
+  rejudgingFailed(run: RunId, failure: Unjudged): Promise<void> {
     return this.changing(run, (replay) =>
-      replay.recordRejudgingFailure(run, failure, spent),
+      replay.recordRejudgingFailure(run, failure),
     );
   }
 

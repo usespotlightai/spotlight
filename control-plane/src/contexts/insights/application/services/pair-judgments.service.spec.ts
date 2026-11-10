@@ -47,11 +47,6 @@ const judging = async (
         return {
           model: 'some/model',
           verdict: answer(request),
-          usage: {
-            inputTokens: 900,
-            outputTokens: 80,
-            cost: { amount: 0.02, currency: 'USD' },
-          },
         };
       },
     },
@@ -76,7 +71,7 @@ const fastSide = (request: SideBySideJudgeRequest): 'A' | 'B' =>
     : 'B';
 
 describe('PairJudgments', () => {
-  it('shows the judge both changes labelled A and B beside the accepted one, in the orders asked, both calls counting, and names the winner by its run', async () => {
+  it('shows the judge both changes labelled A and B beside the accepted one, in the orders asked, and names the winner by its run', async () => {
     const { requests, judgment } = await judging((request) => ({
       preferred: fastSide(request),
       reasons: [
@@ -103,7 +98,6 @@ describe('PairJudgments', () => {
         ],
       },
     ]);
-    expect(judgment.spent.costs).toEqual([{ amount: 0.04, currency: 'USD' }]);
   });
 
   it('fails with no accepted change to set beside them, asking nobody', async () => {
@@ -129,7 +123,7 @@ describe('PairJudgments', () => {
     expect(judgment).toMatchObject({ judged: false, failure: 'ungrounded' });
   });
 
-  it('keeps what the first pass cost when the second call breaks', async () => {
+  it('fails when the second call breaks', async () => {
     let calls = 0;
     const { judgment } = await judging((request) => {
       calls += 1;
@@ -148,6 +142,5 @@ describe('PairJudgments', () => {
     });
 
     expect(judgment).toMatchObject({ judged: false, failure: 'errored' });
-    expect(judgment.spent.costs).toEqual([{ amount: 0.02, currency: 'USD' }]);
   });
 });

@@ -9,10 +9,6 @@ import {
 } from '@replays/domain/value-objects/judging-attempt';
 import { changeJudging } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
-  modelSpentOf,
-  storedSpent,
-} from '@replays/infrastructure/persistence/drizzle/stored-model-spent';
-import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -72,7 +68,6 @@ const toChangeJudging = (row: Row): ChangeJudging =>
       : null,
     judgedAt: row.judgedAt,
     failure: failureOf(row),
-    spent: modelSpentOf(row.spent),
     version: row.version,
   });
 
@@ -83,7 +78,6 @@ const columnsOf = (stored: ChangeJudging) => ({
   judgedAt: stored.judgedAt,
   failure: stored.failure?.code ?? null,
   failedAt: stored.failure?.at ?? null,
-  spent: storedSpent(stored.spent),
 });
 
 const keyOf = (judging: ChangeJudging) =>

@@ -7,7 +7,6 @@ import type {
   ChangeJudgePort,
 } from '@replays/application/ports/change-judge.port';
 import type { ChangeJudgment } from '@replays/domain/value-objects/change-judgment';
-import { modelSpentOf } from '@replays/infrastructure/acl/model-spent.translation';
 
 const judgmentOf = (judgment: InsightsChangeJudgment): ChangeJudgment =>
   judgment.judged
@@ -24,12 +23,10 @@ const judgmentOf = (judgment: InsightsChangeJudgment): ChangeJudgment =>
         guidance: judgment.guidance,
         referenced: judgment.referenced,
         model: judgment.model,
-        spent: modelSpentOf(judgment.spent),
       }
     : {
         judged: false,
         failure: judgment.failure,
-        spent: modelSpentOf(judgment.spent),
       };
 
 export class InsightsChangeJudge implements ChangeJudgePort {
