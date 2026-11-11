@@ -28,7 +28,7 @@ export function IntegrationRow({
   return (
     <IntegrationRowFrame
       slot="integration"
-      logo={<IntegrationLogo integration={integration.integration} />}
+      logo={<IntegrationLogo logo={integration.logo} name={integration.name} />}
       name={integration.name}
       mark={
         integration.spec && <IntegrationReadProblem spec={integration.spec} />

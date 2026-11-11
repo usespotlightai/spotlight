@@ -33,6 +33,7 @@ interface ReadIntegration {
   readonly integration: string;
   readonly path: string;
   readonly name: string;
+  readonly logo: string | null;
   readonly requiresConnection: boolean;
   readonly actsAs: ActsAsKind;
   readonly credentials: readonly SecretName[];
@@ -84,6 +85,7 @@ export class IntegrationReader implements ToolDeclarationsPort {
             integration: integration.key.value,
             path,
             name: integration.name,
+            logo: integration.logo?.value ?? null,
             requiresConnection: integration.requiresConnection,
             actsAs: integration.actsAs.kind,
             credentials: integration.credentials,

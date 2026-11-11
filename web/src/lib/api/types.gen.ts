@@ -4576,6 +4576,10 @@ export type IntegrationViewResponseDto = {
   integration: string;
   name: string;
   /**
+   * The mark of the integration, as a base64 image data URI or an https address. Null where its definition names none
+   */
+  logo: string | null;
+  /**
    * Where the integration is defined
    */
   path: string;
