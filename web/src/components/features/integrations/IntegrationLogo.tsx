@@ -1,5 +1,6 @@
 import { Webhook } from 'lucide-react';
 import { siGrafana, siLinear, siPagerduty, siSentry } from 'simple-icons';
+import { GithubLogo } from '@/components/shared/icons';
 import { cn } from '@/lib/utils';
 
 interface Logo {
@@ -15,6 +16,13 @@ const logos: Record<string, Logo> = {
   pagerduty: siPagerduty,
 };
 
+const titles: Record<string, string> = { github: 'GitHub', slack: 'Slack' };
+
+export const integrationTitle = (integration: string): string =>
+  titles[integration] ??
+  logos[integration]?.title ??
+  integration.charAt(0).toUpperCase() + integration.slice(1);
+
 export function IntegrationLogo({
   integration,
   className,
@@ -22,6 +30,16 @@ export function IntegrationLogo({
   integration: string;
   className?: string;
 }) {
+  if (integration === 'github') {
+    return (
+      <GithubLogo
+        role="img"
+        aria-label="GitHub"
+        className={cn('size-5 shrink-0 text-foreground', className)}
+      />
+    );
+  }
+
   if (integration === 'slack') {
     return <SlackMark className={cn('size-5 shrink-0', className)} />;
   }

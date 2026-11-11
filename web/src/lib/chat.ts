@@ -11,6 +11,7 @@ import {
   WAITING_FOR_APPROVAL,
 } from '@/lib/approval-status';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
+import { stretchesOf } from '@/lib/journal-step';
 import { teamSectionPath } from '@/lib/team';
 
 export type Chat = ChatResponseDto;
@@ -143,23 +144,20 @@ const momentOf = (message: ChatMessage): ChatMoment =>
 const finishedAt = (step: JournalStep): string =>
   new Date(Date.parse(step.startedAt) + step.ms).toISOString();
 
-const worked = (journal: RunJournal): ChatMoment[] => {
-  const cut: ChatMoment[] = [];
-
-  for (const step of journal.steps) {
-    const last = cut[cut.length - 1];
-
-    if (step.kind === 'message') {
-      cut.push({ kind: 'answered', at: step.startedAt, text: step.text });
-    } else if (last?.kind === 'worked') {
-      cut[cut.length - 1] = { ...last, steps: [...last.steps, step] };
-    } else {
-      cut.push({ kind: 'worked', at: finishedAt(step), steps: [step] });
-    }
-  }
-
-  return cut;
-};
+const worked = (journal: RunJournal): ChatMoment[] =>
+  stretchesOf(journal.steps).map((stretch) =>
+    stretch.kind === 'said'
+      ? {
+          kind: 'answered',
+          at: stretch.step.startedAt,
+          text: stretch.step.text,
+        }
+      : {
+          kind: 'worked',
+          at: finishedAt(stretch.steps[0]),
+          steps: stretch.steps,
+        },
+  );
 
 export const momentsOf = (
   messages: readonly ChatMessage[],

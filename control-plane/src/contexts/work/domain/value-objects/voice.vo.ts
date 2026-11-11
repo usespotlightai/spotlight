@@ -12,6 +12,7 @@ export class Voice {
     readonly author: UserId | null,
     readonly run: RunId | null,
     readonly coAuthors: readonly UserId[] = [],
+    readonly source: string | null = null,
   ) {}
 
   static station(run: RunId | null = null): Voice {
@@ -28,8 +29,11 @@ export class Voice {
     return new Voice('person', author, null, others);
   }
 
-  static world(author: UserId | null = null): Voice {
-    return new Voice('world', author, null);
+  static world(
+    author: UserId | null = null,
+    source: string | null = null,
+  ): Voice {
+    return new Voice('world', author, null, [], source);
   }
 
   static of(input: {
@@ -37,7 +41,14 @@ export class Voice {
     author?: string | null;
     coAuthors?: readonly string[];
     run?: string | null;
+    source?: string | null;
   }): Voice {
+    if (input.source && input.by !== 'world') {
+      throw new InvalidVoiceError(
+        `with a source belongs to the world, not to ${input.by}`,
+      );
+    }
+
     if (input.by === 'person') {
       if (!input.author) {
         throw new InvalidVoiceError('of a person needs their name');
@@ -60,7 +71,10 @@ export class Voice {
         throw new InvalidVoiceError('of the world names no run');
       }
 
-      return Voice.world(input.author ? UserId.of(input.author) : null);
+      return Voice.world(
+        input.author ? UserId.of(input.author) : null,
+        input.source ?? null,
+      );
     }
 
     if (input.author) {
@@ -79,6 +93,7 @@ export class Voice {
   equals(other: Voice): boolean {
     return (
       this.by === other.by &&
+      this.source === other.source &&
       (this.author === null
         ? other.author === null
         : other.author !== null && this.author.equals(other.author)) &&

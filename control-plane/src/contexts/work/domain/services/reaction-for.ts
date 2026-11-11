@@ -108,14 +108,7 @@ export const ReactionFor = {
           : {
               kind: 'deferredMove',
               to: destination,
-              ...note(
-                station,
-                TaskNoteBody.deferredMove(
-                  input.payload.summary,
-                  input.anchor,
-                  destination.name,
-                ),
-              ),
+              ...note(station),
             };
       }
     }

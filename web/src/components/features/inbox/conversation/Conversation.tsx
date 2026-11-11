@@ -3,6 +3,7 @@ import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
+import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useArrivals } from '@/hooks/useArrivals';
@@ -179,6 +180,11 @@ export function Conversation({
       box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
   };
 
+  const rendered = (turn: Turn, at: number): boolean =>
+    turn.prompt !== null ||
+    turn.notes.length > 0 ||
+    (at === 0 && Boolean(briefing));
+
   return (
     <PaneScroller
       ref={scroller}
@@ -193,28 +199,39 @@ export function Conversation({
         <TimeMarker at={item.createdAt} />
 
         {turnsOf(item).map((turn, at, all) => {
-          const head = turn.prompt ? (
-            <PersonMessage
-              body={turn.prompt.body}
-              attachments={turn.prompt.attachments}
-              authors={authorsOf(turn.prompt)}
-            />
-          ) : at === 0 ? (
-            briefing
-          ) : null;
+          const head =
+            turn.prompt?.voice === 'world' ? (
+              <WorldMessage
+                body={turn.prompt.body}
+                attachments={turn.prompt.attachments}
+                authors={authorsOf(turn.prompt)}
+                source={turn.prompt.source}
+                deferredTo={turn.prompt.deferredTo}
+              />
+            ) : turn.prompt ? (
+              <PersonMessage
+                body={turn.prompt.body}
+                attachments={turn.prompt.attachments}
+                authors={authorsOf(turn.prompt)}
+              />
+            ) : at === 0 ? (
+              briefing
+            ) : null;
 
-          if (!head && turn.notes.length === 0) {
+          if (!rendered(turn, at)) {
             return null;
           }
+
+          const afterAnother = all.slice(0, at).some(rendered);
 
           return (
             <section
               // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
               key={at}
-              className="flex flex-col"
+              className={cn('flex flex-col', afterAnother && 'mt-6')}
             >
               {turn.prompt && marked.has(turn.prompt.position) && (
-                <div className="mt-6 mb-3">
+                <div className={cn('mb-3', !afterAnother && 'mt-6')}>
                   <TimeMarker at={turn.prompt.at} />
                 </div>
               )}

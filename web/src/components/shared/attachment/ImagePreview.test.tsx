@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -51,6 +52,28 @@ describe('ImagePreview', () => {
     unmount();
 
     expect(revoked).toHaveBeenCalledWith('blob:preview');
+  });
+
+  it('draws a stored image from the workspace, not from its thumbnail', () => {
+    render(
+      <MemoryRouter initialEntries={['/acme']}>
+        <Routes>
+          <Route
+            path="/:slug"
+            element={
+              <ImagePreview image={shot()} name="shot.png" storedId="att-1" />
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen
+        .getByRole('button', { name: 'View shot.png' })
+        .querySelector('img'),
+    ).toHaveAttribute('src', '/api/workspaces/acme/attachments/att-1');
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
   it('shows the image large when clicked, and closes on Escape', async () => {

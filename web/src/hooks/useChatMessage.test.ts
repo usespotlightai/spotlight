@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import type { LexicalEditor } from 'lexical';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChatMessage } from '@/hooks/useChatMessage';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
@@ -23,6 +24,28 @@ const draft = (
     share,
     unshare: vi.fn(),
   }) as unknown as SharedDraft;
+
+const synced = (name: string, generation: number, isSynced: boolean) =>
+  ({
+    name,
+    generation,
+    synced: isSynced,
+    sentText: 'Cap the retries at 500.',
+    attachments: [],
+    share: vi.fn(),
+    unshare: vi.fn(),
+  }) as unknown as SharedDraft;
+
+const watched = (shared: SharedDraft) => {
+  const update = vi.fn();
+  const hook = renderHook(
+    ({ shared }) => useChatMessage('acme', [], '', shared),
+    { initialProps: { shared } },
+  );
+  hook.result.current.editor.current = { update } as unknown as LexicalEditor;
+
+  return { ...hook, update };
+};
 
 beforeEach(() => {
   uploaded.mockReset();
@@ -69,5 +92,24 @@ describe('useChatMessage in a shared draft', () => {
 
     expect(result.current.outgoing.attachments).toEqual(['att_2']);
     expect(result.current.images.map((each) => each.name)).toEqual(['a.png']);
+  });
+});
+
+describe('useChatMessage clearing a sent draft', () => {
+  it('clears the draft when it is sent', () => {
+    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+
+    rerender({ shared: synced('task-draft:a', 4, true) });
+
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the next draft alone after a switch from a sent draft', () => {
+    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+
+    rerender({ shared: synced('task-draft:b', 0, false) });
+    rerender({ shared: synced('task-draft:b', 2, true) });
+
+    expect(update).not.toHaveBeenCalled();
   });
 });

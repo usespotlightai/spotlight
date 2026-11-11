@@ -28,7 +28,10 @@ import {
   taskAttachment,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { asc, count, eq, inArray } from 'drizzle-orm';
+import { asc, count, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+
+const deferredStation = alias(station, 'deferred_station');
 
 export interface TaskAttachments {
   readonly own: readonly AttachmentSummary[];
@@ -174,6 +177,8 @@ export const trailsFor = async (
       body: taskNote.body,
       at: taskNote.at,
       authorId: taskNote.authorId,
+      source: taskNote.source,
+      deferredTo: deferredStation.name,
       coAuthorIds: taskNote.coAuthorIds,
       approval: taskNote.approval,
       failure: taskNote.failure,
@@ -181,6 +186,10 @@ export const trailsFor = async (
     })
     .from(taskNote)
     .leftJoin(station, eq(station.id, taskNote.stationId))
+    .leftJoin(
+      deferredStation,
+      eq(deferredStation.id, sql`${taskNote.deferredMove} ->> 'to'`),
+    )
     .where(inArray(taskNote.taskId, [...taskIds]))
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
@@ -224,6 +233,8 @@ export const trailsFor = async (
         name: authors.get(id)?.name ?? '',
         image: authors.get(id)?.image ?? null,
       })),
+      source: row.source,
+      deferredTo: row.deferredTo,
       approval: approvalOf(row.approval, authors),
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),

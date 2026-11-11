@@ -16,12 +16,20 @@ export type PendingAttachment = {
       readonly state: 'ready';
       readonly id: string;
       readonly uploadedAt?: number;
+      readonly restored?: boolean;
     }
   | { readonly state: 'failed'; readonly problem: string }
 );
 
 export const attachmentPath = (slug: string, attachmentId: string): string =>
   `/api/workspaces/${slug}/attachments/${encodeURIComponent(attachmentId)}`;
+
+export const storedImageId = (
+  attachment: PendingAttachment,
+): string | undefined =>
+  attachment.state === 'ready' && attachment.restored
+    ? attachment.id
+    : undefined;
 
 export const downloadPath = (slug: string, attachmentId: string): string =>
   `${attachmentPath(slug, attachmentId)}?download=1`;

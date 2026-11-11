@@ -39,6 +39,7 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import type { Happening } from '@work/domain/value-objects/happening.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -244,6 +245,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       line,
       attachments,
       happened.authorEmail,
+      happened.payload.happening,
     );
 
     if (!updated) {
@@ -510,6 +512,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     line: Line,
     attachments: readonly Attachment[],
     authorEmail: string | null,
+    happening: Happening,
   ): Promise<Task | null> {
     if (reaction.kind === 'nothing') {
       return null;
@@ -523,7 +526,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       station: reaction.station,
       body: reaction.body,
       at: this.clock.now(),
-      voice: Voice.world(author),
+      voice: Voice.world(author, happening.integration),
       anchor: reaction.anchor,
       attachments,
     };

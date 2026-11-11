@@ -43,6 +43,8 @@ const note = (position: number, at: string, station = 'Backlog'): Note => ({
   at,
   author: null,
   coAuthors: [],
+  source: null,
+  deferredTo: null,
   attachments: [],
   approval: null,
   failure: null,

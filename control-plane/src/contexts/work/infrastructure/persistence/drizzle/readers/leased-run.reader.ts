@@ -9,17 +9,20 @@ import type {
 } from '@work/application/ports/leased-run-reader.port';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import {
   chatAttachment,
   chatMessage,
 } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
+import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
   taskAttachment,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 
 interface AttachedRow {
   readonly at: number | null;
@@ -28,6 +31,14 @@ interface AttachedRow {
   readonly contentType: string;
   readonly size: number;
 }
+
+const toldTheRun = (body: string, deferredTo: string | null): string =>
+  deferredTo
+    ? TaskNoteBody.deferredMove(
+        StationName.of(deferredTo),
+        TaskNoteBody.of(body),
+      ).value
+    : body;
 
 const pendingMessages = (
   messages: readonly { position: number; body: string }[],
@@ -94,11 +105,19 @@ export class DrizzleLeasedRunReader implements LeasedRunReaderPort {
   ): Promise<PendingMessage[]> {
     const [messages, attached] = await Promise.all([
       this.db
-        .select({ position: taskNote.position, body: taskNote.body })
+        .select({
+          position: taskNote.position,
+          body: taskNote.body,
+          deferredTo: station.name,
+        })
         .from(taskNote)
         .innerJoin(
           task,
           and(eq(task.id, taskNote.taskId), eq(task.currentRunId, runId.value)),
+        )
+        .leftJoin(
+          station,
+          eq(station.id, sql`${taskNote.deferredMove} ->> 'to'`),
         )
         .where(
           and(
@@ -122,7 +141,13 @@ export class DrizzleLeasedRunReader implements LeasedRunReaderPort {
         .orderBy(asc(taskAttachment.place)),
     ]);
 
-    return pendingMessages(messages, attached);
+    return pendingMessages(
+      messages.map((each) => ({
+        position: each.position,
+        body: toldTheRun(each.body, each.deferredTo),
+      })),
+      attached,
+    );
   }
 
   private async pendingInChat(chatId: string): Promise<PendingMessage[]> {

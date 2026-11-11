@@ -1,6 +1,20 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import {
+  ReadableStream,
+  TransformStream,
+  WritableStream,
+} from 'node:stream/web';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
+
+configure({ asyncUtilTimeout: 3000 });
+
+globalThis.ReadableStream ??=
+  ReadableStream as typeof globalThis.ReadableStream;
+globalThis.WritableStream ??=
+  WritableStream as typeof globalThis.WritableStream;
+globalThis.TransformStream ??=
+  TransformStream as typeof globalThis.TransformStream;
 
 afterEach(cleanup);
 

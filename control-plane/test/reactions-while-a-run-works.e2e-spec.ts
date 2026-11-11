@@ -51,8 +51,8 @@ import { createTeam } from './support/team';
 
 const RUNNER = RunnerId.of('runner_reactions');
 const CHANGES_REQUESTED = 'github.pull_request.changes-requested';
-const DEFERRED_MOVE_TO_CODE_REVIEW =
-  'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nChanges were requested on the pull request.';
+const CHANGES_ASKED_FOR = 'Changes were requested on the pull request.';
+const DEFERRED_MOVE_TO_CODE_REVIEW = `This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\n${CHANGES_ASKED_FOR}`;
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -274,8 +274,9 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
     expect(after.currentRunId).toEqual(runId);
     expect(after.deferredMoveTo).toEqual(stationKeyed('code-review').id);
     expect(after.notes[after.notes.length - 1]?.body.value).toBe(
-      DEFERRED_MOVE_TO_CODE_REVIEW,
+      CHANGES_ASKED_FOR,
     );
+    expect(after.notes[after.notes.length - 1]?.voice.source).toBe('github');
     expect((await runOf(runId)).state).toBe('queued');
   });
 
@@ -439,7 +440,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
       after.notes.slice(-2).map((each) => [each.kind, each.body.value]),
     ).toEqual([
       ['asked', 'Which queue should I drain?'],
-      ['message', DEFERRED_MOVE_TO_CODE_REVIEW],
+      ['message', CHANGES_ASKED_FOR],
     ]);
     expect((await runOf(runId)).state).toBe('suspended');
   });

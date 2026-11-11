@@ -45,6 +45,14 @@ describe('Voice', () => {
     expect(world.author?.value).toBe('user_1');
   });
 
+  it('is the world speaking through the integration it came from', () => {
+    const world = Voice.world(null, 'github');
+
+    expect(world.source).toBe('github');
+    expect(world.equals(Voice.world(null, 'slack'))).toBe(false);
+    expect(Voice.station().source).toBeNull();
+  });
+
   describe('read back from storage', () => {
     it('takes the three back apart', () => {
       expect(Voice.of({ by: 'person', author: 'user_1' }).isPerson).toBe(true);
@@ -59,6 +67,16 @@ describe('Voice', () => {
 
     it('rejects a person nobody can name', () => {
       expect(() => Voice.of({ by: 'person' })).toThrow(InvalidVoiceError);
+    });
+
+    it('takes back the integration the world spoke through', () => {
+      expect(Voice.of({ by: 'world', source: 'slack' }).source).toBe('slack');
+    });
+
+    it('rejects a source on a voice that is not the world’s', () => {
+      expect(() =>
+        Voice.of({ by: 'person', author: 'user_1', source: 'slack' }),
+      ).toThrow(InvalidVoiceError);
     });
 
     it('rejects a name on a voice the station spoke', () => {

@@ -438,6 +438,8 @@ const setupItem = (
         at: createdAt,
         author: null,
         coAuthors: [],
+        source: null,
+        deferredTo: null,
         approval: null,
         failure: null,
         connection: null,

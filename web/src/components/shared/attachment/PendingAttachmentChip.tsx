@@ -2,7 +2,7 @@ import { CircleAlert, LoaderCircle } from 'lucide-react';
 import { AttachmentChip } from '@/components/shared/attachment/AttachmentChip';
 import { ChipRemoveButton } from '@/components/shared/attachment/ChipRemoveButton';
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
-import { type PendingAttachment, sized } from '@/lib/attachment';
+import { type PendingAttachment, sized, storedImageId } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
 
 type PendingAttachmentChipProps = {
@@ -25,6 +25,7 @@ export function PendingAttachmentChip({
       <ImagePreview
         image={attachment.image}
         name={attachment.name}
+        storedId={storedImageId(attachment)}
         className="size-full object-cover"
       />
     ) : undefined;

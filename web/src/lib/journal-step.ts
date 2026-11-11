@@ -56,3 +56,33 @@ export const shownStep = (step: JournalStep): ShownStep => {
 
 export const stillRunning = (step: JournalStep, live: boolean): boolean =>
   live && (step.status === 'running' || step.status === 'pending');
+
+export type StepStretch =
+  | {
+      readonly kind: 'said';
+      readonly at: number;
+      readonly step: JournalStep;
+    }
+  | {
+      readonly kind: 'worked';
+      readonly at: number;
+      readonly steps: readonly [JournalStep, ...JournalStep[]];
+    };
+
+export const stretchesOf = (steps: readonly JournalStep[]): StepStretch[] => {
+  const cut: StepStretch[] = [];
+
+  steps.forEach((step, at) => {
+    const last = cut[cut.length - 1];
+
+    if (step.kind === 'message') {
+      cut.push({ kind: 'said', at, step });
+    } else if (last?.kind === 'worked') {
+      cut[cut.length - 1] = { ...last, steps: [...last.steps, step] };
+    } else {
+      cut.push({ kind: 'worked', at, steps: [step] });
+    }
+  });
+
+  return cut;
+};

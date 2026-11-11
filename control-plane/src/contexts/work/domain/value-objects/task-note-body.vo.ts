@@ -25,13 +25,9 @@ export class TaskNoteBody {
     return TaskNoteBody.of(anchored || summary);
   }
 
-  static deferredMove(
-    summary: string,
-    anchor: Anchor | null,
-    to: StationName,
-  ): TaskNoteBody {
+  static deferredMove(to: StationName, account: TaskNoteBody): TaskNoteBody {
     return TaskNoteBody.of(
-      `This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.receivedHappening(summary, anchor).value}`,
+      `This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${account.value}`,
     );
   }
 

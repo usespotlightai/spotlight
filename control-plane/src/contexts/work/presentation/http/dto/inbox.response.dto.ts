@@ -294,6 +294,24 @@ export class NoteResponseDto {
   readonly coAuthors: readonly InboxAuthorResponseDto[];
 
   @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'github',
+    description:
+      'The integration it came from, where the world outside wrote it',
+  })
+  readonly source: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'Implementation',
+    description:
+      'The station the task moves to when the run in progress ends, where it arrived during that run',
+  })
+  readonly deferredTo: string | null;
+
+  @ApiProperty({
     type: InboxApprovalResponseDto,
     nullable: true,
     description: 'The tool call this asks a person to approve, where it is one',
@@ -329,6 +347,8 @@ export class NoteResponseDto {
     at: string,
     author: InboxAuthorResponseDto | null,
     coAuthors: readonly InboxAuthorResponseDto[],
+    source: string | null,
+    deferredTo: string | null,
     approval: InboxApprovalResponseDto | null,
     failure: InboxFailureResponseDto | null,
     connection: InboxConnectionResponseDto | null,
@@ -346,6 +366,8 @@ export class NoteResponseDto {
     this.at = at;
     this.author = author;
     this.coAuthors = coAuthors;
+    this.source = source;
+    this.deferredTo = deferredTo;
     this.approval = approval;
     this.failure = failure;
     this.connection = connection;

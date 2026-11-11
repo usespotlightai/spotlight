@@ -1,6 +1,6 @@
 import { Image, X } from 'lucide-react';
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
-import type { PendingAttachment } from '@/lib/attachment';
+import { type PendingAttachment, storedImageId } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
 
 type ImageThumbsProps = {
@@ -30,6 +30,7 @@ export function ImageThumbs({ images, onRemove }: ImageThumbsProps) {
             <ImagePreview
               image={image.image}
               name={image.name}
+              storedId={storedImageId(image)}
               className={cn(
                 'size-full object-cover',
                 image.state === 'uploading' && 'animate-pulse opacity-60',
