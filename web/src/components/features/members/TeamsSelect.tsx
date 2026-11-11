@@ -1,6 +1,10 @@
 import { ChevronsUpDown } from 'lucide-react';
 
 import {
+  FIELD_SELECT,
+  SELECT_TRIGGER,
+} from '@/components/shared/form/select-look';
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -40,10 +44,7 @@ export function TeamsSelect({
       <DropdownMenuTrigger
         aria-label={`Teams: ${shown}`}
         disabled={disabled}
-        className={cn(
-          'flex h-8 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-3 text-left text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 data-[popup-open]:bg-accent',
-          className,
-        )}
+        className={cn(SELECT_TRIGGER, FIELD_SELECT.trigger, className)}
       >
         <span
           className={cn(
@@ -62,7 +63,7 @@ export function TeamsSelect({
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className="w-max min-w-[max(var(--anchor-width),12rem)] max-w-(--available-width)"
+        className={FIELD_SELECT.menu}
       >
         {teams.map((team) => (
           <DropdownMenuCheckboxItem

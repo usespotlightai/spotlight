@@ -1,6 +1,10 @@
 import { ChevronDown, ChevronsUpDown } from 'lucide-react';
 
 import {
+  FIELD_SELECT,
+  SELECT_TRIGGER,
+} from '@/components/shared/form/select-look';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -32,10 +36,10 @@ const NONE = '';
 
 const LOOKS = {
   field: {
-    trigger: 'h-8 gap-2 rounded-md bg-card px-3 text-xs',
+    trigger: FIELD_SELECT.trigger,
     chevron: 'size-3',
     Chevron: ChevronsUpDown,
-    menu: 'w-max min-w-[max(var(--anchor-width),12rem)] max-w-(--available-width)',
+    menu: FIELD_SELECT.menu,
     item: undefined,
   },
   compact: {
@@ -87,11 +91,7 @@ export function ChoiceSelect({
       <DropdownMenuTrigger
         aria-label={`${label}: ${chosen?.label ?? placeholder}`}
         disabled={disabled}
-        className={cn(
-          'flex min-w-0 items-center border border-border text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 data-[popup-open]:bg-accent',
-          look.trigger,
-          className,
-        )}
+        className={cn(SELECT_TRIGGER, look.trigger, className)}
       >
         <span
           className={cn(
