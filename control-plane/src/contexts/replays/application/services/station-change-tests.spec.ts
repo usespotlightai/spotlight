@@ -238,6 +238,22 @@ describe('StationChangeTests', () => {
     expect(searches()[0]?.requests).toHaveLength(1);
   });
 
+  it('validates the change with the fields it leaves out taken from the live config', async () => {
+    const validated: unknown[] = [];
+    const validate = suppliers.configs.validate.bind(suppliers.configs);
+
+    suppliers.configs.validate = async (...args) => {
+      validated.push(args[2]);
+      return validate(...args);
+    };
+
+    await asked({ block: { model: 'claude-haiku-5-5' } });
+
+    expect(validated).toEqual([
+      { key: 'build', name: 'Build', kind: 'work', model: 'claude-haiku-5-5' },
+    ]);
+  });
+
   it('adds a change to a running search, and refuses a name another candidate has', async () => {
     await asked({ mode: 'search' });
 

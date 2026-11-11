@@ -1,3 +1,6 @@
+import { isBlock } from '@replays/domain/value-objects/block-shape';
+import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+
 const STATION_CHANGE_TEST_MODES = ['test', 'search'] as const;
 
 export type StationChangeTestMode = (typeof STATION_CHANGE_TEST_MODES)[number];
@@ -17,3 +20,6 @@ export const admitsStation = (
 ): boolean =>
   (asked.line === null || asked.line === improved.lineKey) &&
   (asked.station === null || asked.station === improved.stationKey);
+
+export const completedFrom = (seed: StationBlock, asked: unknown): unknown =>
+  isBlock(asked) ? { ...seed.value, ...asked } : asked;
