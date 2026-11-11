@@ -25,9 +25,7 @@ import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { trialRepositoryNamed } from '@work/domain/value-objects/dispatch-subject';
-import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
-import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 
 export interface LeasedRunWork {
   readonly run: LeasedRunFacts;
@@ -45,22 +43,14 @@ export interface PendingMessage {
   readonly attachments: readonly Attachment[];
 }
 
-const pendingOf = (message: TaskNote | ChatMessage): PendingMessage => ({
+const pendingOf = (
+  message: TaskNote | ChatMessage,
+  body = message.body,
+): PendingMessage => ({
   position: message.position.value,
-  body: message.body.value,
+  body: body.value,
   attachments: message.attachments,
 });
-
-const toldTheRun = (note: TaskNote, line: LineMap | null): PendingMessage => {
-  const to = note.deferredMove ? line?.stationAt(note.deferredMove.to) : null;
-
-  return to
-    ? {
-        ...pendingOf(note),
-        body: TaskNoteBody.deferredMove(to.name, note.body).value,
-      }
-    : pendingOf(note);
-};
 
 export class RunWorks {
   constructor(
@@ -127,13 +117,17 @@ export class RunWorks {
 
       const line = await this.lines.findByStation(task.stationId);
 
-      return task.pendingFor(run.runId).map((note) => toldTheRun(note, line));
+      return task
+        .pendingFor(run.runId)
+        .map((note) => pendingOf(note, note.toldOn(line)));
     }
 
     if (subject?.kind === 'chat') {
       const chat = await this.chats.find(subject.chatId);
 
-      return chat ? chat.pendingFor(run.runId).map(pendingOf) : [];
+      return chat
+        ? chat.pendingFor(run.runId).map((message) => pendingOf(message))
+        : [];
     }
 
     return [];

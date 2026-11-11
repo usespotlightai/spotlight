@@ -413,7 +413,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
             anchor,
           ),
           at: this.clock.now(),
-          voice: speaker ? Voice.person(speaker) : Voice.world(),
+          voice: speaker
+            ? Voice.person(speaker)
+            : Voice.fromHappening(happened.payload.happening),
           anchor,
           attachments,
         },
@@ -634,7 +636,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     return task.reactTo(reaction, {
       at: this.clock.now(),
-      voice: Voice.world(author, happening.integration),
+      voice: Voice.fromHappening(happening, author),
       attachments,
       ranksAtDestination: destination
         ? (await this.placements.placementsAt(destination)).map(

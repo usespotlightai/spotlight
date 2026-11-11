@@ -772,7 +772,7 @@ export class DrizzleTaskRepository implements TaskRepository {
           answeredAt: note.answeredAt,
           voice: note.voice.kind,
           authorId: note.voice.author?.value ?? null,
-          source: note.voice.source,
+          source: note.voice.source?.value ?? null,
           coAuthorIds: note.voice.coAuthors.map((each) => each.value),
           runId: note.voice.run?.value ?? null,
           kind: note.kind,

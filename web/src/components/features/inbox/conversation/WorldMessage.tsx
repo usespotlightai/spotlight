@@ -110,10 +110,9 @@ function SourceAvatars({
           </span>
         )}
 
-        {authors.map((person, at) => (
+        {authors.map((person) => (
           <PersonAvatar
-            // biome-ignore lint/suspicious/noArrayIndexKey: two people can share a name, and the order does not change while shown
-            key={at}
+            key={person.id}
             person={person}
             className="after:hidden"
           />

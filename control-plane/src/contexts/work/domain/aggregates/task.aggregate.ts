@@ -63,6 +63,7 @@ import {
   reopenable,
   worksOn,
 } from '@work/domain/services/conversations';
+import { deferralIn } from '@work/domain/services/deferred-moves';
 import { Placement } from '@work/domain/services/placement';
 import type { Outcome } from '@work/domain/services/reaction-for';
 import { openSetupList } from '@work/domain/services/setup-list';
@@ -463,20 +464,7 @@ export class Task extends EventRecorder {
   }
 
   get deferredMoveTo(): StationId | null {
-    for (const note of [...this.notes].reverse()) {
-      if (note.deferredMove) {
-        return note.deferredMove.to;
-      }
-
-      if (
-        note.kind === 'passed' ||
-        (note.kind === 'asked' && note.approval === null)
-      ) {
-        return null;
-      }
-    }
-
-    return null;
+    return deferralIn(this.notes)?.deferredMove?.to ?? null;
   }
 
   moveAsDeferred(
@@ -1377,7 +1365,7 @@ export class Task extends EventRecorder {
     );
   }
 
-  get briefed(): BriefedTask {
+  briefedOn(line: LineMap): BriefedTask {
     return BriefedTask.of({
       stationId: this.stationId,
       title: this.title.value,
@@ -1386,7 +1374,7 @@ export class Task extends EventRecorder {
       attachments: this.attachments,
       notes: this.notes.map((note) => ({
         station: note.station?.value ?? null,
-        body: note.body.value,
+        body: note.toldOn(line).value,
         attachments: note.attachments,
       })),
       openReviewComments: this.openReviewComments.map((each) => ({

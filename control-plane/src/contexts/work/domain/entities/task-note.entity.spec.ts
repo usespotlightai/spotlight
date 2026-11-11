@@ -1,9 +1,19 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -23,6 +33,36 @@ const aNote = (over: Record<string, unknown> = {}) =>
     kind: 'passed',
     ...over,
   });
+
+const line = lineMapOf({
+  id: LineId.of('line_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  key: LineKey.of('delivery'),
+  name: LineName.of('Delivery'),
+  stations: [
+    stationOf({
+      id: StationId.of('station_backlog'),
+      key: StationKey.of('backlog'),
+      name: StationName.of('Backlog'),
+      position: 0,
+      kind: 'backlog',
+    }),
+    stationOf({
+      id: StationId.of('station_build'),
+      key: StationKey.of('build'),
+      name: StationName.of('Build'),
+      position: 1,
+    }),
+    stationOf({
+      id: StationId.of('station_done'),
+      key: StationKey.of('shipped'),
+      name: StationName.of('Done'),
+      position: 2,
+      kind: 'completed',
+    }),
+  ],
+});
 
 describe('TaskNote', () => {
   it('is the same note wherever it is in the trail, however it has changed', () => {
@@ -93,5 +133,33 @@ describe('TaskNote', () => {
         deferredMove: DeferredMove.moveTo(StationId.of('station_build')),
       }),
     ).toThrow(InconsistentStateError);
+  });
+
+  it('tells a run where the task moves when a deferred move waits', () => {
+    const deferred = aNote({
+      kind: 'message',
+      voice: Voice.world(),
+      body: TaskNoteBody.of('The checks failed.'),
+      deferredMove: DeferredMove.moveTo(StationId.of('station_build')),
+    });
+
+    expect(deferred.toldOn(line).value).toBe(
+      TaskNoteBody.deferredMove(
+        StationName.of('Build'),
+        TaskNoteBody.of('The checks failed.'),
+      ).value,
+    );
+  });
+
+  it('tells a run only what came in where no move waits, or its station is gone', () => {
+    const gone = aNote({
+      kind: 'message',
+      voice: Voice.world(),
+      deferredMove: DeferredMove.moveTo(StationId.of('station_gone')),
+    });
+
+    expect(aNote().toldOn(line).value).toBe('Reproduced on restart.');
+    expect(gone.toldOn(line).value).toBe('Reproduced on restart.');
+    expect(gone.toldOn(null).value).toBe('Reproduced on restart.');
   });
 });

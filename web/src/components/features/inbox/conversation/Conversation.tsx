@@ -194,6 +194,7 @@ export function Conversation({
     turn.prompt !== null ||
     turn.notes.length > 0 ||
     (at === 0 && Boolean(briefing));
+  const firstShown = turns.findIndex(rendered);
 
   return (
     <PaneScroller
@@ -232,7 +233,7 @@ export function Conversation({
             return null;
           }
 
-          const afterAnother = all.slice(0, at).some(rendered);
+          const afterAnother = at > firstShown;
 
           return (
             <Turn

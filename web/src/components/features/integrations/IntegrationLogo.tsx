@@ -1,4 +1,5 @@
 import { Webhook } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { siGrafana, siLinear, siPagerduty, siSentry } from 'simple-icons';
 import { GithubLogo } from '@/components/shared/icons';
 import { cn } from '@/lib/utils';
@@ -9,19 +10,51 @@ interface Logo {
   readonly path: string;
 }
 
-const logos: Record<string, Logo> = {
-  linear: siLinear,
-  sentry: { ...siSentry, hex: 'EA54AD' },
-  grafana: siGrafana,
-  pagerduty: siPagerduty,
+interface Mark {
+  readonly title: string;
+  readonly draw: (className?: string) => ReactNode;
+}
+
+const drawn = (logo: Logo, hex = logo.hex): Mark => ({
+  title: logo.title,
+  draw: (className) => (
+    <svg
+      role="img"
+      aria-label={logo.title}
+      viewBox="0 0 24 24"
+      className={cn('size-5 shrink-0', className)}
+      fill={`#${hex}`}
+    >
+      <path d={logo.path} />
+    </svg>
+  ),
+});
+
+const marks: Record<string, Mark> = {
+  github: {
+    title: 'GitHub',
+    draw: (className) => (
+      <GithubLogo
+        role="img"
+        aria-label="GitHub"
+        className={cn('size-5 shrink-0 text-foreground', className)}
+      />
+    ),
+  },
+  slack: {
+    title: 'Slack',
+    draw: (className) => (
+      <SlackMark className={cn('size-5 shrink-0', className)} />
+    ),
+  },
+  linear: drawn(siLinear),
+  sentry: drawn(siSentry, 'EA54AD'),
+  grafana: drawn(siGrafana),
+  pagerduty: drawn(siPagerduty),
 };
 
-const titles: Record<string, string> = { github: 'GitHub', slack: 'Slack' };
-
 export const integrationTitle = (integration: string): string =>
-  titles[integration] ??
-  logos[integration]?.title ??
-  integration.charAt(0).toUpperCase() + integration.slice(1);
+  marks[integration]?.title ?? integration;
 
 export function IntegrationLogo({
   integration,
@@ -30,23 +63,9 @@ export function IntegrationLogo({
   integration: string;
   className?: string;
 }) {
-  if (integration === 'github') {
-    return (
-      <GithubLogo
-        role="img"
-        aria-label="GitHub"
-        className={cn('size-5 shrink-0 text-foreground', className)}
-      />
-    );
-  }
+  const mark = marks[integration];
 
-  if (integration === 'slack') {
-    return <SlackMark className={cn('size-5 shrink-0', className)} />;
-  }
-
-  const logo = logos[integration];
-
-  if (!logo) {
+  if (!mark) {
     return (
       <Webhook
         className={cn('size-5 text-muted-foreground', className)}
@@ -55,17 +74,7 @@ export function IntegrationLogo({
     );
   }
 
-  return (
-    <svg
-      role="img"
-      aria-label={logo.title}
-      viewBox="0 0 24 24"
-      className={cn('size-5 shrink-0', className)}
-      fill={`#${logo.hex}`}
-    >
-      <path d={logo.path} />
-    </svg>
-  );
+  return mark.draw(className);
 }
 
 function SlackMark({ className }: { className?: string }) {

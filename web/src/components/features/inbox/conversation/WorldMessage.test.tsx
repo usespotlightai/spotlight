@@ -35,7 +35,7 @@ describe('WorldMessage', () => {
     ).toBeInTheDocument();
   });
 
-  it('says where the task moves when the run ends, outside the message', () => {
+  it('says where the task moves when the run ends, outside the message, while the move waits', () => {
     render(
       <WorldMessage
         body="The checks failed."

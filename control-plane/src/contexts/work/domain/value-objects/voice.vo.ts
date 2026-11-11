@@ -1,6 +1,8 @@
+import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidVoiceError } from '@work/domain/exceptions/invalid-voice.error';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 
 export const VOICE_KINDS = ['station', 'person', 'world'] as const;
 
@@ -12,7 +14,7 @@ export class Voice {
     readonly author: UserId | null,
     readonly run: RunId | null,
     readonly coAuthors: readonly UserId[] = [],
-    readonly source: string | null = null,
+    readonly source: IntegrationName | null = null,
   ) {}
 
   static station(run: RunId | null = null): Voice {
@@ -31,9 +33,16 @@ export class Voice {
 
   static world(
     author: UserId | null = null,
-    source: string | null = null,
+    source: IntegrationName | null = null,
   ): Voice {
     return new Voice('world', author, null, [], source);
+  }
+
+  static fromHappening(
+    happening: Happening,
+    author: UserId | null = null,
+  ): Voice {
+    return Voice.world(author, IntegrationName.ofHappening(happening));
   }
 
   static of(input: {
@@ -43,7 +52,7 @@ export class Voice {
     run?: string | null;
     source?: string | null;
   }): Voice {
-    if (input.source && input.kind !== 'world') {
+    if (input.source != null && input.kind !== 'world') {
       throw new InvalidVoiceError(
         `with a source belongs to the world, not to ${input.kind}`,
       );
@@ -73,7 +82,7 @@ export class Voice {
 
       return Voice.world(
         input.author ? UserId.of(input.author) : null,
-        input.source ?? null,
+        input.source == null ? null : IntegrationName.of(input.source),
       );
     }
 
@@ -93,7 +102,9 @@ export class Voice {
   equals(other: Voice): boolean {
     return (
       this.kind === other.kind &&
-      this.source === other.source &&
+      (this.source === null
+        ? other.source === null
+        : other.source !== null && this.source.equals(other.source)) &&
       (this.author === null
         ? other.author === null
         : other.author !== null && this.author.equals(other.author)) &&

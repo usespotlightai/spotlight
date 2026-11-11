@@ -865,7 +865,7 @@ describe('ReactToHappenings', () => {
       expect(saved?.notes[0]?.station).toEqual(
         StationName.of('Implementation'),
       );
-      expect(saved?.notes[0]?.voice.source).toBe('github');
+      expect(saved?.notes[0]?.voice.source?.value).toBe('github');
       expect(saved?.notes[0]?.reviewComment?.value).toBe('PRRC_kwDO');
       expect(saved?.unacknowledged).toHaveLength(1);
       expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));

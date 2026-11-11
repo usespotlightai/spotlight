@@ -20,6 +20,7 @@ import {
   reviewsIn,
   TURNING_NOTE_KINDS,
 } from '@work/domain/services/conversations';
+import { deferralWaitingIn } from '@work/domain/services/deferred-moves';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import {
   toApprovalSubject,
@@ -30,6 +31,7 @@ import {
   type ApprovalRow,
   type ConnectionAskRow,
   type FailureRow,
+  task,
   taskAttachment,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
@@ -214,6 +216,38 @@ type NoteRow = Pick<
   readonly deferredTo: string | null;
 };
 
+const waitingDeferralsFor = async (
+  db: DrizzleDatabase,
+  taskIds: readonly string[],
+): Promise<Map<string, number>> => {
+  const rows = await db
+    .select({
+      taskId: taskNote.taskId,
+      position: taskNote.position,
+      kind: taskNote.kind,
+      approval: taskNote.approval,
+      deferredMove: taskNote.deferredMove,
+      currentRunId: task.currentRunId,
+    })
+    .from(taskNote)
+    .innerJoin(task, eq(task.id, taskNote.taskId))
+    .where(inArray(taskNote.taskId, [...taskIds]))
+    .orderBy(asc(taskNote.taskId), asc(taskNote.position));
+  const trails = new Map<string, (typeof rows)[number][]>();
+
+  for (const row of rows) {
+    trails.set(row.taskId, [...(trails.get(row.taskId) ?? []), row]);
+  }
+
+  return new Map(
+    [...trails].flatMap(([taskId, notes]) => {
+      const waiting = deferralWaitingIn(notes, notes[0]?.currentRunId != null);
+
+      return waiting ? [[taskId, waiting.position] as const] : [];
+    }),
+  );
+};
+
 const inboxNotesOf = async (
   db: DrizzleDatabase,
   people: PersonReaderPort,
@@ -223,7 +257,8 @@ const inboxNotesOf = async (
     return [];
   }
 
-  const [attached, authors] = await Promise.all([
+  const taskIds = [...new Set(rows.map((row) => row.taskId))];
+  const [attached, authors, waiting] = await Promise.all([
     attachmentsFor(
       db,
       rows.map((row) => row.taskId),
@@ -236,6 +271,7 @@ const inboxNotesOf = async (
         ...(row.approval?.askedOf ? [UserId.of(row.approval.askedOf)] : []),
       ]),
     ),
+    waitingDeferralsFor(db, taskIds),
   ]);
 
   return rows.map((row) => {
@@ -270,7 +306,8 @@ const inboxNotesOf = async (
         image: authors.get(id)?.image ?? null,
       })),
       source: row.source,
-      deferredTo: row.deferredTo,
+      deferredTo:
+        waiting.get(row.taskId) === row.position ? row.deferredTo : null,
       approval: approvalOf(row.approval, authors),
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),
