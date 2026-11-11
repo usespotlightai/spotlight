@@ -191,11 +191,11 @@ describe('the team’s memory on Insights (e2e)', () => {
     ]);
     expect(answer.body.withMemories).toMatchObject({
       runs: 2,
-      resolutions: expect.objectContaining({ accepted: 1 }),
+      resolutions: { accepted: 1 },
     });
     expect(answer.body.withoutMemories).toMatchObject({
       runs: 1,
-      resolutions: expect.objectContaining({ accepted: 0 }),
+      resolutions: { accepted: 0 },
     });
   });
 });

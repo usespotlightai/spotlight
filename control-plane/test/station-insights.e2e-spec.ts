@@ -567,7 +567,7 @@ describe('how a station’s runs turned out', () => {
       cancelled: 0,
       stopped: 0,
       checksPassed: 1,
-      resolutions: expect.objectContaining({ accepted: 1 }),
+      resolutions: { accepted: 1 },
       merged: 1,
       cost: { amount: 0.4, currency: 'USD' },
     });
