@@ -123,6 +123,15 @@ describe('SideBySideJudging', () => {
     expect(event?.failure.code).toBe('ungrounded');
   });
 
+  it('gives up at once when the judge has insufficient credits', () => {
+    const broke = { judged: false, failure: 'insufficient-credits' } as const;
+    const failed = queued().leaseJob(NOW).recordJudgment(broke, NOW);
+    const [event] = failed.pullEvents() as SideBySideJudgingFailed[];
+
+    expect(failed.hasPendingJob).toBe(false);
+    expect(event?.failure.code).toBe('insufficient-credits');
+  });
+
   it('is deleted by itself, keeping its version for the versioned removal', () => {
     const judging = queued();
     const deleted = judging.delete();

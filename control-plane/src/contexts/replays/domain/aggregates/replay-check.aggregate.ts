@@ -1,3 +1,4 @@
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import { InvalidReplayCheckError } from '@replays/domain/exceptions/invalid-replay-check.error';
@@ -211,6 +212,18 @@ export class ReplayCheck extends EventRecorder {
     return this.state.version;
   }
 
+  supersedes(earlier: ReplayCheck): boolean {
+    const { pullRequest } = this.state.reference;
+
+    return (
+      pullRequest !== null &&
+      earlier.reference.pullRequest === pullRequest &&
+      earlier.station.stationId.equals(this.station.stationId) &&
+      earlier.createdAt < this.createdAt &&
+      !earlier.change.equals(this.change)
+    );
+  }
+
   get baseline(): BaselineStatus {
     return this.state.baseline;
   }
@@ -221,6 +234,10 @@ export class ReplayCheck extends EventRecorder {
 
   measuresAgainst(live: StationHashes | null): boolean {
     return live?.scoresAs(this.state.liveHashes) ?? false;
+  }
+
+  wantsBaselineFor(checked: Replay): boolean {
+    return !checked.wasStopped;
   }
 
   recordBaseline(): ReplayCheck {
@@ -242,6 +259,7 @@ export class ReplayCheck extends EventRecorder {
     threshold: ReplayThreshold,
     repeats: number,
     result: CheckResult,
+    reference: PlannedReference,
   ): boolean {
     return (
       change.equals(this.change) &&
@@ -249,8 +267,15 @@ export class ReplayCheck extends EventRecorder {
       setEntries === this.state.setEntries &&
       threshold.equals(this.state.threshold) &&
       repeats === this.state.repeats &&
-      REUSABLE.includes(result)
+      REUSABLE.includes(result) &&
+      (result !== 'running' || this.mayBeSharedWith(reference))
     );
+  }
+
+  private mayBeSharedWith(reference: PlannedReference): boolean {
+    const { pullRequest } = this.state.reference;
+
+    return pullRequest === null || pullRequest === reference.pullRequest;
   }
 
   delete(): ReplayCheck {

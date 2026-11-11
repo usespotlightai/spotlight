@@ -1,6 +1,6 @@
 import type { NoticeWords } from '@replays/application/rendering/reflection-notice';
 import { SKIP_ADVICE } from '@replays/application/rendering/skip-advice';
-import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
+import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { SearchPickDecline } from '@replays/domain/value-objects/search-pick';
 import type { LastingSkipReason } from '@replays/domain/value-objects/search-skip-reason';
@@ -72,7 +72,7 @@ const STOPS: Readonly<Record<SearchCutShort, string>> = {
 export interface RequestedResult {
   readonly objective: SearchObjective;
   readonly candidateName: string;
-  readonly replayed: ReplayStopReason | 'unfinished' | null;
+  readonly replayed: ReplayEndState | 'unfinished' | null;
   readonly heldOutGain: number | null;
   readonly searchedGain: number | null;
   readonly costPerRun: number | null;

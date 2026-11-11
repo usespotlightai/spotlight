@@ -23,8 +23,9 @@ import {
 import { REPLAY_RUN_DECISIONS } from '@replays/domain/value-objects/replay-run-decided';
 import {
   REPLAY_STATES,
-  type ReplayStopReason,
+  type ReplayEndState,
 } from '@replays/domain/value-objects/replay-state';
+import { REPLAY_STOP_CAUSES } from '@replays/domain/value-objects/replay-stop-cause';
 import {
   SEARCH_ITERATION_KINDS,
   SEARCH_ITERATION_STATES,
@@ -58,6 +59,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const replayState = pgEnum('replay_state', REPLAY_STATES);
+export const replayStopCause = pgEnum('replay_stop_cause', REPLAY_STOP_CAUSES);
 export const unreplayableReason = pgEnum(
   'unreplayable_reason',
   UNREPLAYABLE_REASONS,
@@ -197,7 +199,7 @@ export interface StoredSplit {
 export interface StoredSearchReplay {
   readonly replayId: string;
   readonly started: boolean;
-  readonly end: ReplayStopReason | null;
+  readonly end: ReplayEndState | null;
   readonly spent: number | null;
   readonly unpriced: number;
 }
@@ -400,6 +402,7 @@ export const replay = pgTable(
     startedAt: timestamptz('started_at').notNull(),
     endedAt: timestamptz('ended_at'),
     stoppedAt: timestamptz('stopped_at'),
+    stoppedBecause: replayStopCause('stopped_because'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

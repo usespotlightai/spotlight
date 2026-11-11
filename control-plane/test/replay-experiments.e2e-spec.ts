@@ -981,6 +981,7 @@ describe('a replay set whose station leaves its line', () => {
         (replay as Replay).stop(
           new Date(),
           ChangeActor.spotlight(team.workspaceId),
+          'search-ended',
         ),
       );
     });

@@ -17,10 +17,19 @@ export interface ModelEndpoint {
   readonly supportsReasoningEffort: boolean;
 }
 
+const PAYMENT_REQUIRED = 402;
+
 export class ModelRequestError extends Error {
-  constructor(reason: string) {
+  constructor(
+    reason: string,
+    readonly status: number | null = null,
+  ) {
     super(`The model request failed. Response: ${reason}`);
     this.name = 'ModelRequestError';
+  }
+
+  get insufficientCredits(): boolean {
+    return this.status === PAYMENT_REQUIRED;
   }
 }
 
@@ -150,6 +159,7 @@ export const requestJson = async <T>(request: {
   if (!response.ok) {
     throw new ModelRequestError(
       `${response.status} ${completion.error?.message ?? response.statusText}`,
+      response.status,
     );
   }
 

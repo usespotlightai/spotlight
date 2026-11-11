@@ -351,7 +351,7 @@ describe('RefreshReplaySets', () => {
       await memory.replayRepository.add(
         replayFor(set, `replay_busy_${at}`, 'candidate_busy', null)
           .reserving(slots(1), () => RunId.of(`busy_run_${at}`))
-          .stop(NOW, BY),
+          .stop(NOW, BY, 'search-ended'),
       );
     }
     await memory.setRepository.add(unrefreshed());
@@ -367,7 +367,7 @@ describe('RefreshReplaySets', () => {
     await memory.replayRepository.add(
       aReplay({ count: 1 })
         .reserving(slots(1), () => RunId.of('replay_run_1'))
-        .stop(NOW, BY),
+        .stop(NOW, BY, 'search-ended'),
     );
     suppliers.trialableRuns.recent = [recent('run_1')];
 

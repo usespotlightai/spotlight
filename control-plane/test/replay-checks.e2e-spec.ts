@@ -614,10 +614,15 @@ describe('a replay check', () => {
     }
 
     const again = await bearing(planToken)
-      .post(`${teamPath()}/replay-checks`, checkBody(planned(), 43))
+      .post(`${teamPath()}/replay-checks`, checkBody(planned()))
       .expect(200);
     expect(again.body).toMatchObject({ id: check.id, reused: true });
     expect(again.headers['idempotent-replayed']).toBeUndefined();
+    const elsewhere = await bearing(planToken)
+      .post(`${teamPath()}/replay-checks`, checkBody(planned(), 43))
+      .expect(201);
+    expect(elsewhere.body).toMatchObject({ reused: false });
+    expect(elsewhere.body.id).not.toBe(check.id);
     const fresh = check as CheckRead & {
       reused: boolean;
       threshold: { unpricedRun: { amount: number; currency: string } };

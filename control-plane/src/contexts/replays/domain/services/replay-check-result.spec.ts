@@ -126,7 +126,7 @@ describe('evaluationOf', () => {
   });
 
   it('is undecided when its replay stopped, its baseline did not finish, or it is gone', () => {
-    const stopped = candidate().stop(NOW, BY);
+    const stopped = candidate().stop(NOW, BY, 'search-ended');
     const finished = replayedAs(candidate(), () => 'completed');
     const unfinished = replayFor(
       SET,
@@ -134,7 +134,7 @@ describe('evaluationOf', () => {
       'candidate_live',
       null,
       true,
-    ).stop(NOW, BY);
+    ).stop(NOW, BY, 'search-ended');
 
     expect(
       evaluationOf(checkOf(), stopped.outcome(), baseline().outcome(), false),

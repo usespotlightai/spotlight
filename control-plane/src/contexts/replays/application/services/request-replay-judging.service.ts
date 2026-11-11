@@ -7,6 +7,7 @@ import { judgingRequestOf } from '@replays/domain/services/judging-request';
 import { referenceFor } from '@replays/domain/services/reference-change';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
 export class RequestReplayJudging {
   constructor(
@@ -45,6 +46,7 @@ export class RequestReplayJudging {
         event.run,
         ordered,
         this.clock.now(),
+        ChangeActor.spotlight(replay.workspaceId),
       );
 
       if (replay && failed && failed !== replay) {

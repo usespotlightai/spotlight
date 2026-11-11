@@ -293,6 +293,7 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     stoppedAt: row.stoppedAt,
+    stoppedBecause: row.stoppedBecause,
     version: row.version,
   });
 
@@ -538,6 +539,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       startedAt: aggregate.startedAt,
       endedAt: aggregate.endedAt,
       stoppedAt: aggregate.stoppedAt,
+      stoppedBecause: aggregate.stoppedBecause,
     };
   }
 
