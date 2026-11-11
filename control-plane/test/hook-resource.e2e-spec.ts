@@ -169,7 +169,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     expect(made.body.errors).toEqual([
       expect.objectContaining({
         path: 'match.tools',
-        message: expect.stringMatching(/grafana.dashboard/) as unknown,
+        message: expect.stringMatching(/grafana\.dashboard/) as unknown,
       }),
     ]);
   });
@@ -209,7 +209,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     expect(made.body.errors).toEqual([
       expect.objectContaining({
         path: 'steps[0].request.url',
-        message: expect.stringMatching(/audit.example.com/) as unknown,
+        message: expect.stringMatching(/audit\.example\.com/) as unknown,
       }),
     ]);
   });

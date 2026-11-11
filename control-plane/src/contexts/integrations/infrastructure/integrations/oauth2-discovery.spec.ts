@@ -159,7 +159,9 @@ describe('OAuth2Discovery', () => {
       discovery(fetch, ['mcp.tracker.example']).endpoints(DISCOVERED),
     ).resolves.toBeNull();
     expect(
-      fetch.mock.calls.some(([url]) => urlOf(url).startsWith(ISSUER)),
+      fetch.mock.calls.some(
+        ([url]) => new URL(urlOf(url)).origin === new URL(ISSUER).origin,
+      ),
     ).toBe(false);
   });
 });
