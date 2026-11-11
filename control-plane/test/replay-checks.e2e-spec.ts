@@ -284,6 +284,11 @@ const endReplay = async (
   state: 'finished' | 'stopped' = 'finished',
 ) => {
   await db.transaction(async (tx) => {
+    await tx
+      .select({ id: schema.replay.id })
+      .from(schema.replay)
+      .where(eq(schema.replay.id, replayId))
+      .for('update');
     const entries = await tx
       .select()
       .from(schema.replayEntry)
