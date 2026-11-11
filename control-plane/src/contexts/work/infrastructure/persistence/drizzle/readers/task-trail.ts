@@ -12,6 +12,7 @@ import type {
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
+import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import {
   conversationsOf,
@@ -21,6 +22,7 @@ import {
   TURNING_NOTE_KINDS,
 } from '@work/domain/services/conversations';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import {
   toApprovalSubject,
   toEditedCall,
@@ -34,7 +36,17 @@ import {
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import { and, asc, count, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+} from 'drizzle-orm';
 
 export interface TaskAttachments {
   readonly own: readonly AttachmentSummary[];
@@ -572,6 +584,68 @@ export const reviewsBy = async (
   }
 
   return review;
+};
+
+export const taskRuns = and(
+  eq(dispatch.kind, 'task'),
+  isNull(dispatch.refused),
+);
+
+export const LATEST_RUN_FIRST = [desc(dispatch.orderedAt), desc(dispatch.id)];
+
+export interface TaskPlace {
+  readonly taskId: string;
+  readonly stationId: string;
+  readonly revision: number;
+}
+
+export const latestRunsAtCurrentStation = async (
+  db: DrizzleDatabase,
+  places: readonly TaskPlace[],
+): Promise<Map<string, string>> => {
+  const latest = new Map<string, string>();
+  const distinct = [
+    ...new Map(places.map((place) => [place.taskId, place])).values(),
+  ];
+
+  if (distinct.length === 0) {
+    return latest;
+  }
+
+  const rows = await db
+    .selectDistinctOn([dispatch.taskId], {
+      taskId: dispatch.taskId,
+      id: dispatch.id,
+    })
+    .from(dispatch)
+    .where(
+      and(
+        taskRuns,
+        or(
+          ...distinct.map((place) =>
+            and(
+              eq(dispatch.taskId, place.taskId),
+              eq(dispatch.stationId, place.stationId),
+              inArray(
+                dispatch.taskRevision,
+                Task.revisionsOfLatestRunHere(
+                  TaskRevision.of(place.revision),
+                ).map((revision) => revision.value),
+              ),
+            ),
+          ),
+        ),
+      ),
+    )
+    .orderBy(dispatch.taskId, ...LATEST_RUN_FIRST);
+
+  for (const row of rows) {
+    if (row.taskId) {
+      latest.set(row.taskId, row.id);
+    }
+  }
+
+  return latest;
 };
 
 export const briefingsFor = async (

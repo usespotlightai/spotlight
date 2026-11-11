@@ -256,6 +256,14 @@ export class Task extends EventRecorder {
     return task;
   }
 
+  static revisionsOfLatestRunHere(
+    revision: TaskRevision,
+  ): readonly TaskRevision[] {
+    return revision.value === 0
+      ? [revision]
+      : [revision, TaskRevision.of(revision.value - 1)];
+  }
+
   static rehydrate(input: {
     id: TaskId;
     workspaceId: WorkspaceId;

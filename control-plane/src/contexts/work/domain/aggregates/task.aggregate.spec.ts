@@ -496,6 +496,53 @@ describe('Task, reopened by a word', () => {
       }),
     ).toThrow(NothingSaidError);
   });
+
+  describe('the revisions its latest run here can carry', () => {
+    const visiting = (task: Task) =>
+      Task.revisionsOfLatestRunHere(task.revision).map((each) => each.value);
+
+    it('keeps the revision its latest run there was queued at, through finishing in place and back', () => {
+      const queued = added().assignRun(RUN, LINE);
+      const finished = queued.finishHere(RUN, LINE, newNote);
+
+      expect(visiting(finished)).toContain(queued.revision.value);
+
+      const again = finished
+        .reopen(LINE, MENTIONED, TaskRank.of('m'), said)
+        .assignRun(RunId.of('run_2'), LINE);
+
+      expect(visiting(again)).toContain(again.revision.value);
+
+      const finishedAgain = again.finishHere(RunId.of('run_2'), LINE, newNote);
+
+      expect(finishedAgain.stationId).toEqual(HERE);
+      expect(visiting(finishedAgain)).toContain(again.revision.value);
+    });
+
+    it('advances its revision in place only when its current run finishes it', () => {
+      const finished = added()
+        .assignRun(RUN, LINE)
+        .finishHere(RUN, LINE, newNote);
+
+      expect(() => finished.finishHere(RUN, LINE, newNote)).toThrow(
+        InvalidTaskTransitionError,
+      );
+    });
+
+    it('leaves the revisions of an earlier stay behind once it moves', () => {
+      const queued = added().assignRun(RUN, LINE);
+      const moved = queued
+        .finishHere(RUN, LINE, newNote)
+        .reopen(REACTING, SENT_TO_SPEC, TaskRank.of('m'), said);
+
+      expect(moved.stationId).toEqual(StationId.of('station_2'));
+      expect(visiting(moved)).not.toContain(queued.revision.value);
+    });
+
+    it('has only its first revision before it ever moves', () => {
+      expect(visiting(added())).toEqual([0]);
+    });
+  });
 });
 
 describe('Task, what it is doing', () => {

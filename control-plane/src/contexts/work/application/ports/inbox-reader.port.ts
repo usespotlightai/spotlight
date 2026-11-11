@@ -86,6 +86,10 @@ interface InboxStation {
   readonly position: number;
 }
 
+interface InboxCurrentStation extends InboxStation {
+  readonly latestRunId: string | null;
+}
+
 export interface InboxItemSummary {
   readonly kind: 'task';
   readonly id: string;
@@ -99,7 +103,7 @@ export interface InboxItemSummary {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly originStation: InboxStation;
-  readonly currentStation: InboxStation;
+  readonly currentStation: InboxCurrentStation;
   readonly createdAt: Date;
   readonly askedAt: Date;
   readonly resolved: boolean;
