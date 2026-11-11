@@ -241,6 +241,8 @@ export function useChatMessage(
     });
   };
 
+  const restoreFiles = files.restore;
+
   const restore = useCallback(() => {
     const back = unsent.current;
     unsent.current = null;
@@ -249,7 +251,7 @@ export function useChatMessage(
       return;
     }
 
-    files.restore(back.attachments);
+    restoreFiles(back.attachments);
 
     if (!editor.current) {
       captureException(new Error('Refused message could not be put back'));
@@ -271,7 +273,7 @@ export function useChatMessage(
 
       root.selectEnd();
     });
-  }, [files.restore]);
+  }, [restoreFiles]);
 
   const clear = () => {
     editor.current?.update(
