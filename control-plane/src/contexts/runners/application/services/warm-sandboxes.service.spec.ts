@@ -82,6 +82,39 @@ describe('WarmSandboxes', () => {
     expect(await service.kept()).toEqual([]);
   });
 
+  it('drains a retired warm sandbox a host placed while it was being removed', async () => {
+    const { stored, sandboxes, service, place } = keeping();
+    await service.request(ORDER, NOW);
+    const requested = stored.get('sandbox_w1');
+    await place('sandbox_w1');
+    const placed = stored.get('sandbox_w1');
+    vi.mocked(sandboxes.find)
+      .mockResolvedValueOnce(requested ?? null)
+      .mockResolvedValueOnce(placed ?? null);
+
+    await service.retire('sandbox_w1');
+
+    expect(stored.get('sandbox_w1')?.current).toBe('draining');
+  });
+
+  it('removes a retired warm sandbox that a retry finds back on no host', async () => {
+    const { stored, sandboxes, service, place } = keeping();
+    await service.request(ORDER, NOW);
+    const requested = stored.get('sandbox_w1');
+    await place('sandbox_w1');
+    const placed = stored.get('sandbox_w1');
+    if (requested) {
+      stored.set('sandbox_w1', requested);
+    }
+    vi.mocked(sandboxes.find)
+      .mockResolvedValueOnce(placed ?? null)
+      .mockResolvedValueOnce(requested ?? null);
+
+    await service.retire('sandbox_w1');
+
+    expect(stored.has('sandbox_w1')).toBe(false);
+  });
+
   it('names the lines whose warm sandbox was lost before a run adopted it, and not those it drained', async () => {
     const { stored, sandboxes, service, place } = keeping();
     await service.request(ORDER, NOW);

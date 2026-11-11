@@ -128,7 +128,6 @@ const asked = (
   workspaceId: 'ws_1',
   teamId: 'team_1',
   title: 'Drain the queue',
-  pullRequest: null,
   pullRequests: [],
   line: 'delivery',
   station: 'Triage',
@@ -192,20 +191,29 @@ describe('TaskNotices', () => {
     expect(action.ask.link).toContain('/w/acme/inbox/task_1:');
   });
 
-  it('gives the action the task’s title, address and pull request', async () => {
+  it('gives the action the task’s title, address and pull requests', async () => {
     const { notifier, run } = notifying();
 
     await notifier.notify(
-      { ...asked(), pullRequest: 'https://github.com/acme/api/pull/9' },
+      {
+        ...asked(),
+        pullRequests: [
+          'https://github.com/acme/api/pull/9',
+          'https://github.com/acme/docs/pull/3',
+        ],
+      },
       'task.asked',
     );
 
     const action = run.mock.calls[0]?.[1] as {
-      task: { title: string; url: string | null; pullRequest: string | null };
+      task: { title: string; url: string | null; pullRequests: string[] };
     };
     expect(action.task.title).toBe('Drain the queue');
     expect(action.task.url).toContain('/tasks/task_1');
-    expect(action.task.pullRequest).toBe('https://github.com/acme/api/pull/9');
+    expect(action.task.pullRequests).toEqual([
+      'https://github.com/acme/api/pull/9',
+      'https://github.com/acme/docs/pull/3',
+    ]);
   });
 
   it('tells the service where to approve or reject a tool call, since it cannot be decided there', async () => {

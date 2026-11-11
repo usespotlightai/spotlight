@@ -18,4 +18,9 @@ export interface WorkingCopyArchiveRepository {
     workspaceId: WorkspaceId,
     workingCopyKey: WorkingCopyKey,
   ): Promise<WorkingCopyArchive | null>;
+
+  completedKeysAmong(
+    workspaceId: WorkspaceId,
+    keys: readonly WorkingCopyKey[],
+  ): Promise<readonly WorkingCopyKey[]>;
 }

@@ -1,4 +1,5 @@
 import type {
+  MemberTeamAccess,
   TeamPermissions,
   WorkspaceTeamAccess,
   TeamWorkspaceMembership,
@@ -54,6 +55,19 @@ const membershipOf = (
   isAdmin: permissions.isAdmin,
 });
 
+const teamAccessOf = (
+  workspace: Workspace,
+  teams: readonly Team[],
+  principal: Principal,
+): WorkspaceTeamAccess => ({
+  workspaceId: workspace.id,
+  teams: teams.map((team) => ({
+    teamId: team.id,
+    sees: TeamAccess.permissionsInWorkspaceOf(team, workspace, principal).reads,
+    actsOn: TeamAccess.actsOnTeam(team, workspace, principal),
+  })),
+});
+
 export class WorkspaceAccess implements WorkspaceAccessPort {
   constructor(
     private readonly roles: WorkspaceRolesPort,
@@ -107,15 +121,36 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
       return null;
     }
 
-    return {
-      workspaceId: workspace.id,
-      teams: (await this.teams.ofWorkspace(workspace.id)).map((team) => ({
-        teamId: team.id,
-        sees: TeamAccess.permissionsInWorkspaceOf(team, workspace, principal)
-          .reads,
-        actsOn: TeamAccess.actsOnTeam(team, workspace, principal),
-      })),
-    };
+    return teamAccessOf(
+      workspace,
+      await this.teams.ofWorkspace(workspace.id),
+      principal,
+    );
+  }
+
+  async teamAccessOfMembers(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly MemberTeamAccess[]> {
+    const workspace = await this.workspaces.find(workspaceId);
+
+    if (!workspace) {
+      return [];
+    }
+
+    const teams = await this.teams.ofWorkspace(workspace.id);
+
+    return workspace.members.flatMap((member): MemberTeamAccess[] => {
+      const principal = PersonPrincipal.of(member.userId);
+
+      return workspace.permissionsFor(principal).reads
+        ? [
+            {
+              ...teamAccessOf(workspace, teams, principal),
+              viewer: member.userId,
+            },
+          ]
+        : [];
+    });
   }
 
   async inWorkspaceOfTeam(

@@ -12,6 +12,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunClaims } from '@runs/application/services/run-claims.service';
 import { DrizzleExclusiveClaimLocks } from '@runs/infrastructure/persistence/drizzle/exclusive-claim-locks';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
+import { DrizzleWorkingCopyArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/working-copy-archive.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -49,6 +50,9 @@ beforeAll(async () => {
     telemetry,
     { linkActiveSpanTo: async () => {} },
     new DrizzleExclusiveClaimLocks(new DrizzleContext(db)),
+    new DrizzleWorkingCopyArchiveRepository(new DrizzleContext(db), {
+      dispatch: async () => {},
+    }),
   );
   checks = new DrizzleStackCheckRepository(new DrizzleContext(db), {
     dispatch: async () => {},

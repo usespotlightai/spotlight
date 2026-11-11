@@ -1,5 +1,6 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { NotificationDto } from '@notifications/application/dto/notification.dto';
+import type { InboxLinksPort } from '@notifications/application/ports/inbox-links.port';
 import type { NotificationStreamPort } from '@notifications/application/ports/notification-stream.port';
 import type { WebPushPort } from '@notifications/application/ports/web-push.port';
 import { NotificationText } from '@notifications/application/services/notification-text';
@@ -20,20 +21,13 @@ export interface ArrivedItem {
   readonly askedAt: string;
 }
 
-const pathOf = (slug: string, item: ArrivedItem): string => {
-  const id = encodeURIComponent(item.itemId);
-
-  return item.itemKind === 'notice'
-    ? `/w/${encodeURIComponent(slug)}/inbox/notices/${id}`
-    : `/w/${encodeURIComponent(slug)}/inbox/${id}`;
-};
-
 export class ArrivalDeliveries {
   constructor(
     private readonly stream: NotificationStreamPort,
     private readonly push: WebPushPort,
     private readonly subscriptions: PushSubscriptionRepository,
     private readonly workspaces: WorkspaceReaderPort,
+    private readonly links: InboxLinksPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -50,9 +44,7 @@ export class ArrivalDeliveries {
       return;
     }
 
-    const subscriptions = await this.subscriptions.ofPerson(
-      UserId.of(item.personId),
-    );
+    const subscriptions = await this.servedSubscriptionsOf(item.personId);
 
     if (subscriptions.length === 0) {
       return;
@@ -84,6 +76,33 @@ export class ArrivalDeliveries {
     }
   }
 
+  private async servedSubscriptionsOf(
+    personId: string,
+  ): Promise<PushSubscription[]> {
+    const subscriptions = await this.subscriptions.ofPerson(
+      UserId.of(personId),
+    );
+    const unserved = subscriptions.filter((each) => !each.endpoint.isServed);
+
+    for (const each of unserved) {
+      this.logger.info(
+        { personId },
+        'A push subscription is at a push service Spotlight no longer uses',
+      );
+      await this.forgotten(each);
+    }
+
+    return subscriptions.filter((each) => each.endpoint.isServed);
+  }
+
+  private async forgotten(subscription: PushSubscription): Promise<void> {
+    await this.subscriptions.remove(subscription).catch((error: unknown) => {
+      if (!(error instanceof PushSubscriptionVersionConflictError)) {
+        throw error;
+      }
+    });
+  }
+
   private async pushedTo(
     subscription: PushSubscription,
     payload: string,
@@ -108,11 +127,7 @@ export class ArrivalDeliveries {
 
     if (outcome === 'gone') {
       this.logger.info({ personId }, 'A push subscription is gone');
-      await this.subscriptions.remove(subscription).catch((error: unknown) => {
-        if (!(error instanceof PushSubscriptionVersionConflictError)) {
-          throw error;
-        }
-      });
+      await this.forgotten(subscription);
     }
   }
 
@@ -132,7 +147,7 @@ export class ArrivalDeliveries {
       kind: item.itemKind,
       title: text.title,
       body: text.body,
-      path: pathOf(slug, item),
+      path: this.links.pathTo(slug, item.itemKind, item.itemId),
       at: item.askedAt,
     };
   }

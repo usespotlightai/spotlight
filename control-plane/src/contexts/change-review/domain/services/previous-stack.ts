@@ -8,7 +8,7 @@ import type {
   DiffFile,
   DiffHunk,
 } from '@change-review/domain/value-objects/diff.vo';
-import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
   CohortKind,
   FileNote,
@@ -71,11 +71,6 @@ export interface PreviousStack {
 const canBeFollowed = (stack: StackSnapshot): boolean =>
   stack.state === 'ready' && !stack.redrafting;
 
-const sameRepository = (
-  a: RepositoryName | null,
-  b: RepositoryName | null,
-): boolean => (a && b ? a.value === b.value : a === b);
-
 const followableBy = (
   previous: StackSnapshot,
   next: Pick<StackSnapshot, 'id' | 'taskId' | 'repository'>,
@@ -84,7 +79,7 @@ const followableBy = (
   !previous.id.equals(next.id) &&
   next.taskId !== null &&
   previous.taskId?.equals(next.taskId) === true &&
-  sameRepository(previous.repository, next.repository);
+  RepositoryName.same(previous.repository, next.repository);
 
 const chosenFrom = <S extends StackSnapshot>(
   candidates: readonly S[],

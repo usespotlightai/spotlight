@@ -3,6 +3,7 @@ import type { RunTraceLinksPort } from '@runs/application/ports/run-trace-links.
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import {
   type ClaimCursor,
   ClaimOrder,
@@ -19,6 +20,7 @@ export class RunClaims {
     private readonly telemetry: TelemetryPort,
     private readonly traces: RunTraceLinksPort,
     private readonly locks: ExclusiveClaimLocksPort,
+    private readonly archives: WorkingCopyArchiveRepository,
   ) {}
 
   async next(by: Claimant, now: Date): Promise<Run | null> {
@@ -44,7 +46,16 @@ export class RunClaims {
     by: Claimant,
     now: Date,
   ): Promise<Run | null> {
-    for (const run of ClaimOrder.inOrder(page, by, now)) {
+    const archived = ClaimOrder.needsArchivedKeys(by)
+      ? await this.archives.completedKeysAmong(
+          by.workspaceId,
+          page.waiting.flatMap((each) =>
+            each.workingCopyKey ? [each.workingCopyKey] : [],
+          ),
+        )
+      : [];
+
+    for (const run of ClaimOrder.inOrder(page, by, now, archived)) {
       const claimed = run.claim(by, now);
 
       if (await this.saved(claimed)) {

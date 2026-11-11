@@ -12,9 +12,10 @@ import type {
 import { WorkTaskLookup } from '@work/application/services/work-task-lookup.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -46,19 +47,31 @@ const task = () =>
     newId: fresh,
   });
 
+const owning = (pullRequest: PullRequestUrl) =>
+  Task.rehydrate({
+    ...task(),
+    heldMarks: [HeldMark.of(Mark.pullRequest(pullRequest), new Date(0))],
+    ownedPullRequests: [OwnedPullRequest.of(pullRequest, new Date(0))],
+  });
+
 const lookingUp = (markedTasks: readonly Task[]) =>
   new WorkTaskLookup(
     {} as TaskLookupReaderPort,
     {
-      findByCorrelation: async (
+      owningPullRequest: async (
         _at: WorkspaceId,
-        correlationKeys: CorrelationKeys,
+        pullRequest: PullRequestUrl,
       ) =>
-        markedTasks.filter((each) =>
-          correlationKeys.marks.some((mark) =>
-            each.marks.some((marked) => marked.equals(mark)),
-          ),
-        ),
+        markedTasks.find((each) =>
+          each.pullRequests.some((owned) => owned.equals(pullRequest)),
+        ) ?? null,
+      reviewingPullRequest: async (
+        _at: WorkspaceId,
+        pullRequest: PullRequestUrl,
+      ) =>
+        markedTasks.find(
+          (each) => each.reviewedPullRequest?.url.equals(pullRequest) ?? false,
+        ) ?? null,
     } as unknown as TaskRepository,
     { findByStation: async () => line } as unknown as LineMapsPort,
   );
@@ -71,7 +84,7 @@ describe('WorkTaskLookup, finding the task a pull request belongs to', () => {
       line,
       new Date(0),
     );
-    const opened = task().markedBy(Mark.pullRequest(PULL), new Date(0));
+    const opened = owning(PULL);
 
     const found = await lookingUp([reviewing, opened]).taskWithPullRequest(
       WORKSPACE,
@@ -79,6 +92,27 @@ describe('WorkTaskLookup, finding the task a pull request belongs to', () => {
     );
 
     expect(found?.id.equals(opened.id)).toBe(true);
+  });
+
+  it('finds the task that owns it after its mark moved to another task', async () => {
+    const owner = owning(PULL).releaseMark(Mark.pullRequest(PULL));
+    const marked = task().markedBy(Mark.pullRequest(PULL), new Date(0));
+
+    const found = await lookingUp([marked, owner]).taskWithPullRequest(
+      WORKSPACE,
+      PULL,
+    );
+
+    expect(found?.id.equals(owner.id)).toBe(true);
+    expect(found?.openPullRequests).toEqual([PULL]);
+  });
+
+  it('finds no task for a pull request only marked on one', async () => {
+    const marked = task().markedBy(Mark.pullRequest(PULL), new Date(0));
+
+    expect(
+      await lookingUp([marked]).taskWithPullRequest(WORKSPACE, PULL),
+    ).toBeNull();
   });
 
   it('finds the task reviewing it where no task of Spotlight’s opened it', async () => {
@@ -95,7 +129,8 @@ describe('WorkTaskLookup, finding the task a pull request belongs to', () => {
     );
 
     expect(found?.id.equals(reviewing.id)).toBe(true);
-    expect(found?.reviewing).toBe(true);
+    expect(found?.reviewedPullRequest).toEqual(PULL);
+    expect(found?.pullRequests).toEqual([]);
   });
 
   it('says whether the pull request a task reviews came from outside the team', async () => {

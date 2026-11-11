@@ -194,6 +194,17 @@ describe('PreviousStack', () => {
       ).toBe(latest);
     });
 
+    it('follows a stack of the same repository named in another case', () => {
+      const latest = at('2026-11-08T12:00:00Z');
+
+      expect(
+        PreviousStack.chosenFrom([latest], {
+          ...NEW,
+          repository: RepositoryName.of('Web'),
+        }),
+      ).toBe(latest);
+    });
+
     it('is nothing for a stack without a task, or for the stack itself', () => {
       expect(
         PreviousStack.chosenFrom([PREVIOUS], { ...NEW, taskId: null }),

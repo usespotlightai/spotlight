@@ -43,6 +43,7 @@ export class InsightsChangeJudge implements ChangeJudgePort {
         criteria: order.criteria,
         reference: order.reference,
         guidanceRequested: order.guidanceRequested,
+        effectsBlocked: true,
       }),
     );
   }

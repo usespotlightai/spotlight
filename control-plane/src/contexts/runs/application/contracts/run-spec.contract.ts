@@ -7,6 +7,9 @@ export const TRACE_PARENT_VAR = 'TRACEPARENT';
 
 export const SKILL_FILE = 'SKILL.md';
 
+export const checkoutPathOf = (repository: { readonly name: string }): string =>
+  repository.name;
+
 export interface RunCheckoutShape {
   readonly remote: string;
   readonly path?: string;

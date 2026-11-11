@@ -44,6 +44,18 @@ export class PushEndpoint {
     return new PushEndpoint(parsed.toString());
   }
 
+  static rehydrate(url: string): PushEndpoint {
+    return new PushEndpoint(url);
+  }
+
+  get isServed(): boolean {
+    try {
+      return served(new URL(this.url).hostname.toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+
   equals(other: PushEndpoint): boolean {
     return this.url === other.url;
   }

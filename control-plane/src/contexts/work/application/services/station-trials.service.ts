@@ -1,10 +1,10 @@
+import { checkoutPathOf } from '@runs/application/contracts/run-spec.contract';
 import type {
   RunFacts,
   RunFactsPort,
 } from '@runs/application/ports/run-facts.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunOrdersMapper } from '@work/application/mappers/run-orders.mapper';
@@ -42,6 +42,7 @@ import {
 } from '@work/domain/services/trialability';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { UntrialableReason } from '@work/domain/value-objects/untrialable-reason';
 
@@ -54,13 +55,35 @@ const untrialable = (
   description,
 });
 
+interface StartedCheckout {
+  readonly path: string;
+  readonly commit: string;
+}
+
 interface Original {
   readonly facts: RunFacts;
   readonly dispatch: Dispatch;
   readonly task: Task;
   readonly briefed: BriefedTask;
-  readonly trial: TrialOriginal;
+  readonly trial: Omit<TrialOriginal, 'checkouts'> & {
+    readonly checkouts: readonly StartedCheckout[];
+  };
 }
+
+const startedIn = (
+  candidate: LineMap,
+  trial: Original['trial'],
+): TrialOriginal => ({
+  ...trial,
+  checkouts: trial.checkouts.map((each) => ({
+    checkedOutAt: each.path,
+    repository:
+      candidate.repositories.all.find(
+        (repository) => checkoutPathOf(repository) === each.path,
+      ) ?? null,
+    commit: each.commit,
+  })),
+});
 
 export class StationTrials implements StationTrialsPort {
   constructor(
@@ -186,7 +209,7 @@ export class StationTrials implements StationTrialsPort {
 
     const candidate = built.line;
     const plan = trialPlanFor({
-      original: original.trial,
+      original: startedIn(candidate, original.trial),
       briefed: original.briefed,
       candidate,
     });
@@ -272,7 +295,11 @@ export class StationTrials implements StationTrialsPort {
             : null,
       },
       fingerprint: configuredAs?.fingerprint ?? null,
-      checkouts: plan.checkouts,
+      checkouts: plan.checkouts.map((each) => ({
+        path: checkoutPathOf(each.repository),
+        repository: each.repository.value,
+        commit: each.commit,
+      })),
       movesOnAfter: plan.movesOnAfter,
     };
 
@@ -288,8 +315,8 @@ export class StationTrials implements StationTrialsPort {
           stationId: original.trial.stationId,
           asOf: original.trial.startedAt,
           repositories: plan.checkouts.map((each) => ({
-            path: each.path,
-            repository: Repository.of(each.repository),
+            path: checkoutPathOf(each.repository),
+            repository: each.repository,
           })),
           followUp: request.followUp,
         },

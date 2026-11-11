@@ -23,8 +23,6 @@ export const TaskViewMapper = {
       stationKey: StationKey.of(task.stationKey),
       marks: { ...task.marks },
       repositories: task.repositories.map(Repository.of),
-      pullRequest:
-        task.pullRequest === null ? null : PullRequestUrl.of(task.pullRequest),
       pullRequests: task.pullRequests.map((each) => PullRequestUrl.of(each)),
       runId: task.runId === null ? null : RunId.of(task.runId),
       waiting: null,

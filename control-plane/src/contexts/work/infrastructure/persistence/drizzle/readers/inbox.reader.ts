@@ -41,6 +41,10 @@ import {
   Notice,
   type NoticeAudience,
 } from '@work/domain/aggregates/notice.aggregate';
+import {
+  chatInboxStanding,
+  chatProgress,
+} from '@work/domain/services/chat-inbox';
 import { ConversationAudience } from '@work/domain/services/conversation-audience';
 import {
   type Conversation,
@@ -54,11 +58,12 @@ import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
 import {
-  chatRunning,
-  chatSectionOf,
-  chatUnread,
-  chatWaiting,
+  chatResolvedWhere,
+  chatUnresolvedWhere,
+  chatInboxFacts,
+  chatInboxFactsOf,
 } from '@work/infrastructure/persistence/drizzle/readers/chat-inbox-state';
+import { currentRunReadings } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
@@ -309,8 +314,9 @@ const chatsWhere = (
       id: chat.id,
       teamId: chat.teamId,
       title: chat.title,
-      working: chat.currentRunId,
+      currentRunId: chat.currentRunId,
       resolvedAt: chat.resolvedAt,
+      readAt: chat.readAt,
       cursorAt: sortableTime(chat.resolvedAt),
       lastAt:
         sql<Date>`(select max("chat_message"."at") from "chat_message" where "chat_message"."chat_id" = "chat"."id")`.mapWith(
@@ -320,8 +326,7 @@ const chatsWhere = (
         sql<number>`(select count(*) from "chat_message" where "chat_message"."chat_id" = "chat"."id" and "chat_message"."kind" = 'proposed' and "chat_message"."proposal"->>'state' = 'open')`.mapWith(
           Number,
         ),
-      unread: chatUnread,
-      waiting: chatWaiting,
+      ...chatInboxFacts,
     })
     .from(chat)
     .where(
@@ -516,7 +521,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       chatsWhere(
         this.db,
         scope,
-        sql`(${isNull(chat.resolvedAt)} or ${chatRunning})`,
+        chatUnresolvedWhere,
         null,
       ),
     ]);
@@ -765,8 +770,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       this.db,
       scope,
       and(
-        isNotNull(chat.resolvedAt),
-        sql`not ${chatRunning}`,
+        chatResolvedWhere,
         before ? notNewerThan(chat.resolvedAt, before) : undefined,
       ),
       fetched,
@@ -1064,37 +1068,26 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async chatItems(rows: readonly ChatRow[]): Promise<Keyed[]> {
-    const ids = [
-      ...new Set(rows.flatMap((row) => (row.working ? [row.working] : []))),
-    ];
-    const facts = new Map(
-      (ids.length === 0
-        ? []
-        : await this.progress.progressOf(ids.map(RunId.of))
-      ).map((each) => [each.runId.value, each]),
+    const currentRunOf = await currentRunReadings(
+      this.progress,
+      rows.map((row) => row.currentRunId),
     );
 
     return rows.map((row) => {
-      const running = row.working !== null || row.waiting;
-      const resolved = row.resolvedAt !== null && !running;
-      const working = row.working ? facts.get(row.working) : undefined;
+      const facts = chatInboxFactsOf(row);
+      const standing = chatInboxStanding(facts);
       const entry: InboxChatSummary = {
         kind: 'chat',
         id: row.id,
         teamId: row.teamId,
         title: row.title,
-        progress: running
-          ? progressOfCurrentRun(
-              RunReadingMapper.reading(working ?? null),
-              true,
-            )
-          : null,
+        progress: chatProgress(facts, currentRunOf(row.currentRunId)),
         openProposals: row.openProposals,
         askedAt: row.lastAt,
-        unread: row.unread,
-        resolved,
-        section: chatSectionOf(row),
-        reopenable: resolved,
+        unread: standing.unread,
+        resolved: standing.resolved,
+        section: inboxSectionOf(standing),
+        reopenable: standing.resolved,
       };
 
       return keyedAt(entry, row.cursorAt ?? '');

@@ -99,6 +99,7 @@ const forRun = (runId: string, key: string | null = 'task-task_1') => ({
   workspaceId: WORKSPACE.value,
   key,
   line: 'line_1',
+  lineFingerprint: 'fingerprint_1',
   hostId: HOST,
   runId,
 });
@@ -578,9 +579,10 @@ describe('Sandboxes', () => {
         id: 'sandbox_w',
         workspaceId: WORKSPACE.value,
         warmFor: 'line_1',
+        fingerprint: 'fingerprint_1',
       });
       expect(await service.readyWarmIn(WORKSPACE.value, STARTED_AT)).toEqual([
-        { id: 'sandbox_w', line: 'line_1' },
+        { id: 'sandbox_w', line: 'line_1', fingerprint: 'fingerprint_1' },
       ]);
 
       expect(

@@ -122,7 +122,6 @@ describe('an integration action sent from a host of the workspace (e2e)', () => 
         teamId: TeamId.of('team_1'),
         title: 'Drain the queue',
         url: null,
-        pullRequest: null,
         pullRequests: [],
         line: LineKey.of('delivery'),
         station: StationName.of('Implementation'),

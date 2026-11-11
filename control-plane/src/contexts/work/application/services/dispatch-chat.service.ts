@@ -1,4 +1,5 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import { checkoutPathOf } from '@runs/application/contracts/run-spec.contract';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -145,7 +146,7 @@ export class DispatchChat implements ChatDispatching {
           const setup = chatSetupOf(repository, lines);
 
           return RunSpecPartsMapper.proxiedCheckout({
-            path: repository.name,
+            path: checkoutPathOf(repository),
             branch: null,
             ref: null,
             diffOf: null,

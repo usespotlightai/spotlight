@@ -9,7 +9,6 @@ import type { TaskLookupReaderPort } from '@work/application/ports/task-lookup-r
 import { ChecksToolUse } from '@work/application/services/checks.tool-use';
 import { NoPullRequestError } from '@work/domain/exceptions/no-pull-request.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const CONTEXT: TaskToolContext = {
@@ -55,10 +54,10 @@ const using = (
     find: vi.fn(async () =>
       task
         ? {
-            pullRequestLink: task.pullRequest
-              ? PullRequestLink.opened(task.pullRequest)
-              : null,
-            laterPullRequests: task.later ?? [],
+            reviewedPullRequest: null,
+            pullRequests: task.pullRequest
+              ? [task.pullRequest, ...(task.later ?? [])]
+              : [],
           }
         : null,
     ),

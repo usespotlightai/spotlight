@@ -116,8 +116,15 @@ const viewing = (
   let current = over.task === undefined ? working() : over.task;
   let clashes = over.clashes ?? 0;
   const searched: CorrelationKeys[] = [];
+  const owned: PullRequestUrl[] = [];
   const tasks = {
     find: vi.fn(async () => current),
+    owningPullRequest: vi.fn(
+      async (_workspace: WorkspaceId, pullRequest: PullRequestUrl) => {
+        owned.push(pullRequest);
+        return current;
+      },
+    ),
     findByCorrelation: vi.fn(
       async (_workspace: WorkspaceId, correlationKeys: CorrelationKeys) => {
         searched.push(correlationKeys);
@@ -136,6 +143,7 @@ const viewing = (
   return {
     tasks,
     searched,
+    owned,
     current: () => current,
     views: new TaskViews(
       tasks as unknown as TaskRepository,
@@ -177,7 +185,6 @@ describe('TaskViews', () => {
       stationKey: 'implementation',
       marks: { 'git.pull-request': PULL },
       repositories: ['acme/api', 'acme/web'],
-      pullRequest: PULL,
       pullRequests: [PULL],
       runId: 'run_9',
     });
@@ -254,14 +261,12 @@ describe('TaskViews', () => {
   });
 
   it('finds the task a pull request was opened for', async () => {
-    const { views, searched } = viewing();
+    const { views, owned } = viewing();
 
     const found = await views.ofPullRequest('ws_1', PULL);
 
     expect(found?.taskId).toBe('task_1');
-    expect(searched[0]?.marks).toEqual([
-      Mark.pullRequest(PullRequestUrl.of(PULL)),
-    ]);
+    expect(owned).toEqual([PullRequestUrl.of(PULL)]);
   });
 
   describe('noting', () => {

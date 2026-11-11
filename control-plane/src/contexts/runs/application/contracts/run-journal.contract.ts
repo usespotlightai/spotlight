@@ -1,4 +1,13 @@
-import type { StepKind } from '@runs/domain/value-objects/step-kind';
+type StepKind =
+  | 'message'
+  | 'thought'
+  | 'tool'
+  | 'planned'
+  | 'hook'
+  | 'subagent'
+  | 'waited'
+  | 'lost'
+  | 'reminded';
 
 export interface SpentCost {
   readonly amount: number;

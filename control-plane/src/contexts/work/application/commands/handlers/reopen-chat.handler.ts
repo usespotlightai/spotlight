@@ -20,8 +20,9 @@ export class ReopenChatHandler implements CommandHandlerPort<
 
   async execute(command: ReopenChatCommand): Promise<void> {
     try {
-      const chat = await this.loader.startedBy(
+      const chat = await this.loader.inInboxOf(
         command.chatId,
+        command.slug,
         command.reopenedBy,
       );
       const reopened = chat.reopen(UserId.of(command.reopenedBy));

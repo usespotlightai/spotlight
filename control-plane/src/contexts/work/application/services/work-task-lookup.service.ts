@@ -12,11 +12,7 @@ import type {
   TaskNoteView,
   WorkTaskLookupPort,
 } from '@work/application/ports/work-task-lookup.port';
-import { correlatedTask } from '@work/application/services/correlated-task';
-import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import { Mark } from '@work/domain/value-objects/mark.vo';
 
 const noteViewsOf = (note: TaskNoteReading): TaskNoteView[] => {
   const by = note.voice.isPerson
@@ -56,16 +52,17 @@ export class WorkTaskLookup implements WorkTaskLookupPort {
     pullRequest: PullRequestUrl,
   ): Promise<TaskLookup | null> {
     const task =
-      (await this.taskWithMark(workspaceId, Mark.pullRequest(pullRequest))) ??
-      (await this.taskWithMark(workspaceId, Mark.review(pullRequest)));
+      (await this.tasks.owningPullRequest(workspaceId, pullRequest)) ??
+      (await this.tasks.reviewingPullRequest(workspaceId, pullRequest));
 
     return task
       ? this.lookup({
           id: task.id,
           workspaceId: task.workspaceId,
           stationId: task.stationId,
-          pullRequestLink: task.pullRequestLink,
-          laterPullRequests: task.laterPullRequests.map((each) => each.url),
+          reviewedPullRequest: task.reviewedPullRequest,
+          pullRequests: task.pullRequests,
+          openPullRequests: task.openPullRequests,
           currentRunId: task.currentRunId,
         })
       : null;
@@ -75,17 +72,6 @@ export class WorkTaskLookup implements WorkTaskLookupPort {
     return (await this.readings.notesOf(taskId))?.flatMap(noteViewsOf) ?? null;
   }
 
-  private async taskWithMark(
-    workspaceId: WorkspaceId,
-    mark: Mark,
-  ): Promise<Task | null> {
-    const correlationKeys = CorrelationKeys.of({ marks: [mark] });
-
-    return correlationKeys
-      ? correlatedTask(this.tasks, workspaceId, correlationKeys)
-      : null;
-  }
-
   private async lookup(task: TaskLookupReading): Promise<TaskLookup> {
     const line = await this.lines.findByStation(task.stationId);
 
@@ -93,12 +79,10 @@ export class WorkTaskLookup implements WorkTaskLookupPort {
       id: task.id,
       workspaceId: task.workspaceId,
       teamId: line?.teamId ?? null,
-      pullRequest: task.pullRequestLink?.url ?? null,
-      pullRequests: task.pullRequestLink
-        ? [task.pullRequestLink.url, ...task.laterPullRequests]
-        : [],
-      reviewing: task.pullRequestLink?.reviews ?? false,
-      fromOutside: task.pullRequestLink?.fromOutside ?? false,
+      pullRequests: task.pullRequests,
+      openPullRequests: task.openPullRequests,
+      reviewedPullRequest: task.reviewedPullRequest?.url ?? null,
+      fromOutside: task.reviewedPullRequest?.fromOutside ?? false,
       currentRunId: task.currentRunId,
     };
   }

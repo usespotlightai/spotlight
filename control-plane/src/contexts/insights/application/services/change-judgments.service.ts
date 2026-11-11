@@ -66,7 +66,7 @@ export class ChangeJudgments implements ChangeJudgmentsPort {
         hunksLeftOut: evidence.hunksLeftOut,
         reference: evidence.reference,
         guidanceRequested: order.guidanceRequested,
-        replayed: true,
+        effectsBlocked: order.effectsBlocked,
       });
       const grounded = groundedVerdict(
         order.criteria,

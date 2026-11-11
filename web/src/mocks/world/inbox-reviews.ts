@@ -42,12 +42,33 @@ const comment = (
   ...over,
 });
 
+export const landingsOf = (
+  pullRequests: readonly string[],
+): CodeReviewResponseDto['landings'] => {
+  const [only] = pullRequests;
+
+  return [
+    pullRequests.length === 1 && only
+      ? { repository: null, route: 'routed', pullRequest: only }
+      : {
+          repository: null,
+          route: pullRequests.length > 1 ? 'ambiguous' : 'waiting',
+          pullRequest: null,
+        },
+    ...pullRequests.map((pullRequest) => ({
+      repository: pullRequest.split('/').at(-3) ?? null,
+      route: 'routed' as const,
+      pullRequest,
+    })),
+  ];
+};
+
 export const seedCodeReviews = (): Record<string, CodeReviewResponseDto> => {
   const reviewed = runEnded('run_postgres_3');
 
   return {
     run_postgres_2: {
-      pullRequest: PULL_431,
+      landings: landingsOf([PULL_431]),
       comments: [
         comment({
           id: 'comment_batching',
@@ -98,7 +119,7 @@ export const seedCodeReviews = (): Record<string, CodeReviewResponseDto> => {
       ],
     },
     run_search_2: {
-      pullRequest: PULL_412,
+      landings: landingsOf([PULL_412]),
       comments: [],
       reviews: [
         {

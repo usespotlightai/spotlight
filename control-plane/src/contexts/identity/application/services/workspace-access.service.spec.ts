@@ -49,6 +49,7 @@ const accessIn = (workspace: Workspace | null) => {
       {} as WorkspaceRolesPort,
       {
         findBySlug: vi.fn(async () => workspace),
+        find: vi.fn(async () => workspace),
       } as unknown as WorkspaceRepository,
       teams as unknown as TeamRepository,
     ),
@@ -98,6 +99,35 @@ describe('WorkspaceAccess.teamAccessIn', () => {
     ).toEqual({
       team_platform: { sees: true, actsOn: true },
       team_billing: { sees: true, actsOn: true },
+    });
+  });
+});
+
+describe('WorkspaceAccess.teamAccessOfMembers', () => {
+  it('finds no one in a workspace that does not exist', async () => {
+    expect(
+      await accessIn(null).access.teamAccessOfMembers(WorkspaceId.of('ws_1')),
+    ).toEqual([]);
+  });
+
+  it('gives each member the same team access as their own inbox', async () => {
+    const { access } = accessIn(acme);
+    const members = await access.teamAccessOfMembers(acme.id);
+
+    expect(
+      Object.fromEntries(
+        members.map((each) => [each.viewer.value, byTeam(each)]),
+      ),
+    ).toEqual({
+      owner_1: byTeam(await access.teamAccessIn('acme', UserId.of('owner_1'))),
+      admin_1: {
+        team_platform: { sees: true, actsOn: true },
+        team_billing: { sees: true, actsOn: true },
+      },
+      member_1: {
+        team_platform: { sees: true, actsOn: true },
+        team_billing: { sees: true, actsOn: false },
+      },
     });
   });
 });

@@ -4,8 +4,8 @@ import type {
   SandboxRouting,
 } from '@runs/domain/value-objects/claimant';
 import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
+import type { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import type { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
-import { distinct } from '@shared-kernel/domain/distinct';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
 export interface ClaimCursor {
@@ -17,12 +17,15 @@ export interface ClaimCursor {
 export interface QueuedRuns {
   readonly waiting: readonly Run[];
   readonly leasedRequesters: readonly RunRequester[];
-  readonly archivedKeys: readonly WorkingCopyKey[];
 }
 
 export interface ReadyWarm {
   readonly line: LineId;
+  readonly fingerprint: WarmFingerprint;
 }
+
+const sameWarm = (a: ReadyWarm, b: ReadyWarm): boolean =>
+  a.line.equals(b.line) && a.fingerprint.equals(b.fingerprint);
 
 const fits = (run: Run, by: Pick<Claimant, 'harnesses' | 'offer'>): boolean =>
   by.harnesses.some((each) => each.equals(run.harness)) &&
@@ -37,13 +40,14 @@ const hasKey = (
 
 const startsFresh = (
   run: Run,
-  line: LineId,
+  warm: ReadyWarm,
   archived: readonly WorkingCopyKey[],
 ): boolean => {
   const key = run.workingCopyKey;
 
   return (
-    (run.line?.equals(line) ?? false) &&
+    (run.line?.equals(warm.line) ?? false) &&
+    (run.lineFingerprint?.equals(warm.fingerprint) ?? false) &&
     key !== null &&
     run.restore === null &&
     !hasKey(key, archived)
@@ -68,7 +72,12 @@ const routed = (
   const avoided = routing.avoiding.some((each) => each.value === key);
 
   return 'firstOfLine' in routing
-    ? !avoided && startsFresh(run, routing.firstOfLine, archived)
+    ? !avoided &&
+        startsFresh(
+          run,
+          { line: routing.firstOfLine, fingerprint: routing.fingerprint },
+          archived,
+        )
     : !avoided;
 };
 
@@ -114,6 +123,10 @@ const sooner = (a: Run, b: Run): number =>
 export const ClaimOrder = {
   fits,
 
+  needsArchivedKeys(by: Claimant): boolean {
+    return by.sandbox !== undefined && 'firstOfLine' in by.sandbox;
+  },
+
   cursorAfter(page: readonly Run[]): ClaimCursor | null {
     const last = page[page.length - 1];
 
@@ -135,20 +148,26 @@ export const ClaimOrder = {
   reservedForWarm(input: {
     ready: readonly ReadyWarm[];
     firstRuns: QueuedRuns;
+    archived: readonly WorkingCopyKey[];
     avoiding: readonly WorkingCopyKey[];
     now: Date;
   }): WorkingCopyKey[] {
     const since = ClaimOrder.warmWaitSince(input.now);
     const reserved: WorkingCopyKey[] = [];
-    for (const line of distinct(input.ready.map((each) => each.line))) {
-      const count = input.ready.filter((each) => each.line.equals(line)).length;
+    const kinds = input.ready.filter(
+      (each, at) =>
+        input.ready.findIndex((other) => sameWarm(each, other)) === at,
+    );
+
+    for (const warm of kinds) {
+      const count = input.ready.filter((each) => sameWarm(each, warm)).length;
       reserved.push(
         ...input.firstRuns.waiting
           .filter(
             (run) =>
               run.state === 'queued' &&
               run.queuedAt >= since &&
-              startsFresh(run, line, input.firstRuns.archivedKeys),
+              startsFresh(run, warm, input.archived),
           )
           .sort(sooner)
           .flatMap((run) => (run.workingCopyKey ? [run.workingCopyKey] : []))
@@ -170,11 +189,16 @@ export const ClaimOrder = {
     );
   },
 
-  inOrder(candidates: QueuedRuns, by: Claimant, now: Date): Run[] {
+  inOrder(
+    candidates: QueuedRuns,
+    by: Claimant,
+    now: Date,
+    archived: readonly WorkingCopyKey[],
+  ): Run[] {
     return candidates.waiting
       .filter(
         (each) =>
-          takeable(each, by, now, candidates.archivedKeys) &&
+          takeable(each, by, now, archived) &&
           !waitsForItsRequester(each, candidates.leasedRequesters),
       )
       .sort(sooner);

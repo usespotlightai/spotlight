@@ -3,7 +3,7 @@ import { InvalidReviewRequestError } from '@work/domain/exceptions/invalid-revie
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
+import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
 
 const REVIEW_TRIGGERS = ['opened', 'mentioned', 'labelled'] as const;
 
@@ -44,7 +44,7 @@ export class ReviewRequest implements ReviewRequestParts {
 
   static of(parts: ReviewRequestParts): ReviewRequest {
     if (
-      !PullRequestLink.reviewing(parts.pullRequest, {
+      !ReviewedPullRequest.of(parts.pullRequest, {
         outside: parts.outside,
       }).reviewedHead
     ) {

@@ -10,14 +10,11 @@ import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
-import { correlatedTask } from '@work/application/services/correlated-task';
 import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
-import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import { Mark } from '@work/domain/value-objects/mark.vo';
 
 export class TaskViews implements TaskViewsPort {
   constructor(
@@ -53,16 +50,10 @@ export class TaskViews implements TaskViewsPort {
     workspaceId: string,
     pullRequest: string,
   ): Promise<TaskViewDto | null> {
-    const correlationKeys = CorrelationKeys.of({
-      marks: [Mark.pullRequest(PullRequestUrl.of(pullRequest))],
-    });
-    const task = correlationKeys
-      ? await correlatedTask(
-          this.tasks,
-          WorkspaceId.of(workspaceId),
-          correlationKeys,
-        )
-      : null;
+    const task = await this.tasks.owningPullRequest(
+      WorkspaceId.of(workspaceId),
+      PullRequestUrl.of(pullRequest),
+    );
 
     return task
       ? this.viewOf(task, task.currentRunId?.value ?? null, task.stationId)

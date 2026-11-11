@@ -55,8 +55,9 @@ const posting = (
         id: TASK,
         workspaceId: WORKSPACE,
         teamId: TeamId.of('team_1'),
-        pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
         pullRequests: [PullRequestUrl.of('https://github.com/acme/api/pull/7')],
+        openPullRequests: [],
+        reviewedPullRequest: null,
         reviewing: false,
         currentRunId: null,
         ...task,
@@ -107,7 +108,7 @@ describe('posting a task’s decisions on its pull request', () => {
     );
   });
 
-  it('keeps one comment on each pull request listing the decisions in its repository', async () => {
+  it('keeps one comment on each pull request listing the decisions in its repository, and posts a decision in no repository of a pull request nowhere', async () => {
     const documented: DecisionDto = {
       ...LIMITED,
       id: 'decision_2',
@@ -138,7 +139,9 @@ describe('posting a task’s decisions on its pull request', () => {
       'https://github.com/acme/Docs/pull/2',
     ]);
     expect(upserted[0]?.body).toContain('Retries only once');
-    expect(upserted[0]?.body).toContain('Keeps the old flag');
+    expect(upserted.map((each) => each.body).join()).not.toContain(
+      'Keeps the old flag',
+    );
     expect(upserted[0]?.body).not.toContain('Documents the retry');
     expect(upserted[1]?.body).toContain('Documents the retry');
     expect(upserted[1]?.body).toContain('`uploads.md`');
@@ -186,7 +189,7 @@ describe('posting a task’s decisions on its pull request', () => {
   });
 
   it.each([
-    ['has no pull request yet', { pullRequest: null }],
+    ['has no pull request yet', { pullRequests: [] }],
     ['only reviews a pull request opened elsewhere', { reviewing: true }],
   ])('says nothing on a task that %s', async (_, task) => {
     const { service, upserted } = posting(generated([LIMITED]), task);

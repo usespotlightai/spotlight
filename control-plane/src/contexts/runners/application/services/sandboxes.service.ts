@@ -150,6 +150,7 @@ export class Sandboxes
           id: found.id.value,
           workspaceId: found.workspaceId.value,
           warmFor: found.warm.lineId.value,
+          fingerprint: found.warm.fingerprint,
         }
       : null;
   }
@@ -184,6 +185,7 @@ export class Sandboxes
         workspaceId: WorkspaceId;
         key: SandboxKey | null;
         line: LineId | null;
+        lineFingerprint: string | null;
       },
       host: RunnerHost,
     ) => Sandbox,
@@ -200,6 +202,7 @@ export class Sandboxes
       workspaceId: WorkspaceId.of(run.workspaceId),
       key: run.key === null ? null : SandboxKey.of(run.key),
       line: run.line === null ? null : LineId.of(run.line),
+      lineFingerprint: run.lineFingerprint,
     };
     try {
       const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
@@ -406,7 +409,13 @@ export class Sandboxes
       const host = hosts.find((each) => sandbox.isOn(each.id));
 
       return sandbox.warm && host && sandbox.takesFirstRunOn(host, at)
-        ? [{ id: sandbox.id.value, line: sandbox.warm.lineId.value }]
+        ? [
+            {
+              id: sandbox.id.value,
+              line: sandbox.warm.lineId.value,
+              fingerprint: sandbox.warm.fingerprint,
+            },
+          ]
         : [];
     });
   }

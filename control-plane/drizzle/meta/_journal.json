@@ -12,50 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1794167860027,
-      "tag": "20261108195740_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1794239359747,
-      "tag": "20261109154919_event_outbox_recorded_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1794243362155,
-      "tag": "20261109165602_chat_inbox_state",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1794297873350,
-      "tag": "20261110080433_drop_judging_spend",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1794356758509,
-      "tag": "20261111002558_task_note_source",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1794386261162,
-      "tag": "20261111083741_drop_deferred_move_sentence",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1794391042377,
-      "tag": "20261111095722_replay_stop_causes",
+      "when": 1794410876962,
+      "tag": "20261111152756_initial_schema",
       "breakpoints": true
     }
   ]

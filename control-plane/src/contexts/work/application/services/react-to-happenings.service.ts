@@ -31,6 +31,7 @@ import {
 } from '@work/application/services/channel-chats.service';
 import { correlatedTask } from '@work/application/services/correlated-task';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
+import { handedToRun } from '@work/application/services/handed-to-run';
 import {
   failedReactionOf,
   HELD,
@@ -55,7 +56,6 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -317,14 +317,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
   }
 
   private async receivedBy(
-    received: Task,
+    task: Task,
     happened: ReceivedHappening,
     attachments: readonly Attachment[],
   ): Promise<void> {
-    const merged = happened.payload.closedPullRequest;
-    const task = merged
-      ? received.pullRequestClosed(merged, this.clock.now())
-      : received;
     const line = await this.lines.findByStation(task.stationId);
 
     if (!line) {
@@ -349,10 +345,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
     );
 
     if (!updated) {
-      if (task !== received) {
-        await this.tasks.save(task);
-      }
-
       this.skipped('no-rule-matched', happened, {
         workspaceId: task.workspaceId.value,
         teamId: line.teamId.value,
@@ -361,11 +353,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    const runId = updated.wantsRun(line)
-      ? await this.dispatch.runIdFor({ task: updated, line })
-      : null;
-
-    await this.tasks.save(runId ? updated.assignRun(runId, line) : updated);
+    await this.tasks.save(await handedToRun(this.dispatch, updated, line));
   }
 
   private async mentionedOn(
@@ -428,11 +416,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     const reopened = reopening.task;
 
-    const runId = reopened.wantsRun(line)
-      ? await this.dispatch.runIdFor({ task: reopened, line })
-      : null;
-
-    await this.tasks.save(runId ? reopened.assignRun(runId, line) : reopened);
+    await this.tasks.save(await handedToRun(this.dispatch, reopened, line));
 
     return answered('chat.acknowledged');
   }
@@ -460,9 +444,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
       branchTask: request.branch
         ? await this.findByBranch(workspaceId, request.branch)
         : null,
-      pullRequestTask: await this.findByMark(
+      pullRequestTask: await this.tasks.owningPullRequest(
         workspaceId,
-        Mark.pullRequest(request.pullRequest),
+        request.pullRequest,
       ),
       reviewTask: await correlatedTask(
         this.tasks,
@@ -492,17 +476,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
         ),
       );
     }
-  }
-
-  private async findByMark(
-    workspaceId: WorkspaceId,
-    mark: Mark,
-  ): Promise<Task | null> {
-    const correlationKeys = CorrelationKeys.of({ marks: [mark] });
-
-    return correlationKeys
-      ? correlatedTask(this.tasks, workspaceId, correlationKeys)
-      : null;
   }
 
   private async findByBranch(
@@ -599,12 +572,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const opened =
       named && members ? added.assignedIfMember(named, members) : added;
 
-    const runId = opened.wantsRun(line)
-      ? await this.dispatch.runIdFor({ task: opened, line })
-      : null;
-
-    const stored = runId ? opened.assignRun(runId, line) : opened;
-    await this.tasks.add(stored);
+    await this.tasks.add(await handedToRun(this.dispatch, opened, line));
   }
 
   private skipped(

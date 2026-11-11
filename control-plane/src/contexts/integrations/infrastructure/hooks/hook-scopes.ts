@@ -22,7 +22,6 @@ const TASK: Declared = {
     stationKey: 'string',
     marks: 'map<string, string>',
     repositories: 'list<string>',
-    pullRequest: OUTSIDE,
     pullRequests: 'list<string>',
   },
 };

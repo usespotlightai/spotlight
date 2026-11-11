@@ -160,9 +160,12 @@
               "type": "string"
             }
           },
-          "pullRequest": {
-            "type": "string",
-            "nullable": true
+          "pullRequests": {
+            "description": "The pull requests of the task: the one it reviews, or the ones it opened",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "hook": {
             "type": "string",
@@ -178,7 +181,7 @@
           "stationKey",
           "marks",
           "repositories",
-          "pullRequest",
+          "pullRequests",
           "hook"
         ]
       },

@@ -95,7 +95,10 @@ describe('SubmitReviewButton', () => {
   });
 
   it('says the review waits for the pull request where there is none', async () => {
-    renderWith({ ...REVIEW, pullRequest: null });
+    renderWith({
+      ...REVIEW,
+      landings: [{ repository: null, route: 'waiting', pullRequest: null }],
+    });
 
     await userEvent.click(
       screen.getByRole('button', { name: /Finish review/ }),
@@ -104,6 +107,23 @@ describe('SubmitReviewButton', () => {
     expect(
       screen.getByText(
         'When the task opens its pull request, Spotlight posts 1 comment.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says the review names no repository where the task has several pull requests', async () => {
+    renderWith({
+      ...REVIEW,
+      landings: [{ repository: null, route: 'ambiguous', pullRequest: null }],
+    });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Finish review/ }),
+    );
+
+    expect(
+      screen.getByText(
+        'The task has more than one pull request. The review names no repository.',
       ),
     ).toBeInTheDocument();
   });

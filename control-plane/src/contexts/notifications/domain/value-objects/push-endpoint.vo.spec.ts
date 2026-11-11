@@ -24,4 +24,15 @@ describe('PushEndpoint', () => {
   ])('refuses %s', (url) => {
     expect(() => PushEndpoint.of(url)).toThrow(InvalidPushEndpointError);
   });
+
+  it('rehydrates a stored address at a push service no longer used, and says it is not served', () => {
+    const stored = PushEndpoint.rehydrate('https://push.retired.example/abc');
+
+    expect(stored.url).toBe('https://push.retired.example/abc');
+    expect(stored.isServed).toBe(false);
+    expect(
+      PushEndpoint.rehydrate('https://fcm.googleapis.com/fcm/send/abc')
+        .isServed,
+    ).toBe(true);
+  });
 });

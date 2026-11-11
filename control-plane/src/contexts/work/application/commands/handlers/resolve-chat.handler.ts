@@ -20,8 +20,9 @@ export class ResolveChatHandler implements CommandHandlerPort<
 
   async execute(command: ResolveChatCommand): Promise<void> {
     try {
-      const chat = await this.loader.startedBy(
+      const chat = await this.loader.inInboxOf(
         command.chatId,
+        command.slug,
         command.resolvedBy,
       );
       const resolved = chat.resolve(

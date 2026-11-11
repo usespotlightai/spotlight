@@ -627,6 +627,7 @@ describe('Sandbox', () => {
       workspaceId: WorkspaceId.of('ws_1'),
       key: SandboxKey.of('work/task-task_1'),
       line: LineId.of('line_1'),
+      lineFingerprint: 'fingerprint_1',
     };
 
     it('is requested with no key, no host and no lease', () => {
@@ -704,6 +705,39 @@ describe('Sandbox', () => {
       expect(
         placed().adoptFor({ ...firstRun, line: null }, reporting, NOW).isWarm,
       ).toBe(true);
+    });
+
+    it('is adopted by no run ordered under another setup of its line, or under none', () => {
+      expect(
+        placed().adoptFor(
+          { ...firstRun, lineFingerprint: 'fingerprint_2' },
+          reporting,
+          NOW,
+        ).isWarm,
+      ).toBe(true);
+      expect(
+        placed().adoptFor(
+          { ...firstRun, lineFingerprint: null },
+          reporting,
+          NOW,
+        ).isWarm,
+      ).toBe(true);
+    });
+
+    it('is removed when retired before a host starts it, and drains when retired on a host', () => {
+      expect(requested().retireWarm()).toBe('removed');
+
+      const drained = placed().retireWarm();
+
+      expect(drained).not.toBe('removed');
+      expect(drained !== 'removed' && drained.current).toBe('draining');
+      expect(drained !== 'removed' && drained.warm).toBeNull();
+    });
+
+    it('is left alone when retired once a run adopted it', () => {
+      const adopted = placed().adoptFor(firstRun, reporting, NOW);
+
+      expect(adopted.retireWarm()).toBe(adopted);
     });
 
     it('takes no editor while it waits for its first run', () => {

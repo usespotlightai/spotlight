@@ -102,7 +102,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         description: task.description,
         createdAt: task.createdAt,
         currentRunId: task.currentRunId,
-        pullRequest: task.pullRequest,
+        reviewedPullRequest: task.reviewedPullRequest,
         createdById: task.createdById,
         assigneeId: task.assigneeId,
       })
@@ -116,7 +116,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
     const [notes, pulled, awaited, attached, people, progressOf] =
       await Promise.all([
         this.latestNotes(rows.map((row) => row.id)),
-        this.laterPullRequests(rows.map((row) => row.id)),
+        this.ownedPullRequests(rows.map((row) => row.id)),
         awaitedReviewsFor(
           this.db,
           rows.map((row) => row.id),
@@ -145,12 +145,17 @@ export class DrizzleTaskReader implements TaskReaderPort {
     });
 
     return rows.map(
-      ({ currentRunId, createdById, assigneeId, pullRequest, ...rest }) => ({
+      ({
+        currentRunId,
+        createdById,
+        assigneeId,
+        reviewedPullRequest,
+        ...rest
+      }) => ({
         ...rest,
-        pullRequests: [
-          ...(pullRequest ? [pullRequest] : []),
-          ...(pulled.get(rest.id) ?? []),
-        ],
+        pullRequests: reviewedPullRequest
+          ? [reviewedPullRequest]
+          : (pulled.get(rest.id) ?? []),
         attachments: attachmentsOf(attached, rest.id).own,
         progress: awaited.has(rest.id) ? null : progressOf(currentRunId),
         awaitingReview: awaited.has(rest.id)
@@ -163,7 +168,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
     );
   }
 
-  private async laterPullRequests(
+  private async ownedPullRequests(
     taskIds: string[],
   ): Promise<Map<string, string[]>> {
     if (taskIds.length === 0) {
@@ -175,13 +180,13 @@ export class DrizzleTaskReader implements TaskReaderPort {
       .from(taskPullRequest)
       .where(inArray(taskPullRequest.taskId, taskIds))
       .orderBy(asc(taskPullRequest.openedAt), asc(taskPullRequest.url));
-    const later = new Map<string, string[]>();
+    const owned = new Map<string, string[]>();
 
     for (const row of rows) {
-      later.set(row.taskId, [...(later.get(row.taskId) ?? []), row.url]);
+      owned.set(row.taskId, [...(owned.get(row.taskId) ?? []), row.url]);
     }
 
-    return later;
+    return owned;
   }
 
   private async latestNotes(

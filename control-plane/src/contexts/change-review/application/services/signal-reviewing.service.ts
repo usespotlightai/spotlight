@@ -1,5 +1,4 @@
 import type { WorkPort } from '@change-review/application/ports/work.port';
-import { pullRequestsOf } from '@change-review/domain/services/pull-request-routing';
 import type {
   PullRequestReaction,
   PullRequestReactionsPort,
@@ -60,18 +59,19 @@ export class SignalReviewing {
     const task = await this.work.task(taskId);
 
     if (
-      !task?.reviewing ||
-      !task.pullRequest ||
+      !task?.reviewedPullRequest ||
       !(await this.connections.isConnected(task.workspaceId))
     ) {
       return null;
     }
 
     return {
-      on: pullRequestsOf(task).map((pullRequest) => ({
-        workspaceId: task.workspaceId,
-        pullRequest,
-      })),
+      on: [
+        {
+          workspaceId: task.workspaceId,
+          pullRequest: task.reviewedPullRequest,
+        },
+      ],
       currentRun: task.currentRunId,
     };
   }

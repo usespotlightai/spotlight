@@ -59,7 +59,7 @@ const shown = (
         teamId: 'team_1',
         runId: 'run_1',
         repository: null,
-        review: { comments } as unknown as CodeReview,
+        review: { comments, landings: [] } as unknown as CodeReview,
         threads: [],
         composing: null,
         composerAppears: false,

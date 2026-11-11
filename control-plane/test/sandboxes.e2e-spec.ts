@@ -8,11 +8,16 @@ import { OpenSandboxCommand } from '@runners/application/commands/sandbox.comman
 import type { OpenedSandbox } from '@runners/application/ports/sandboxes.port';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import {
+  WARM_LINES,
+  type WarmLinesPort,
+} from '@runs/application/ports/warm-lines.port';
+import {
   WORKING_COPY_ARCHIVE_STORE,
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
+import { WarmSandboxKeeping } from '@runs/application/services/warm-sandbox-keeping.service';
+import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
-import { WarmSandboxKeeping } from '@work/application/services/warm-sandbox-keeping.service';
 import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import {
   afterAll,
@@ -92,9 +97,15 @@ describe('sandboxes (e2e)', () => {
       chatId?: string | null;
       harness?: string;
       line?: string;
+      lineFingerprint?: string | null;
     } = {},
   ) => {
     const id = randomUUID();
+    const line = input.line
+      ? ((await app.get<WarmLinesPort>(WARM_LINES).keepingWarmSandboxes()).find(
+          (each) => each.id.value === input.line,
+        ) ?? null)
+      : null;
 
     await db.insert(schema.run).values({
       id,
@@ -102,6 +113,10 @@ describe('sandboxes (e2e)', () => {
       harness: input.harness ?? 'dev',
       state: 'queued',
       lineId: input.line ?? null,
+      lineFingerprint:
+        input.lineFingerprint !== undefined
+          ? input.lineFingerprint
+          : line && WarmFingerprint.ofSetup(line).value,
       ...requestedFor(input.key ?? `work/task-${id}`),
       spec: {
         command: { executable: 'sh', args: [] },
@@ -778,6 +793,25 @@ describe('sandboxes (e2e)', () => {
 
       await queue({ key: 'work/task-warm_3', line: randomUUID() });
       await claim(sandboxId).expect(204);
+      expect((await sandboxRow(sandboxId))?.key).toBeNull();
+    });
+
+    it('takes no first run ordered under another setup of its line', async () => {
+      const { sandboxId } = await startedWarm();
+      const outdated = await queue({
+        key: 'work/task-warm_6',
+        line: lineId,
+        lineFingerprint: 'ordered-before-the-setup-changed',
+      });
+
+      await claim(sandboxId).expect(204);
+
+      const fresh = await claim().expect(200);
+      expect(fresh.body).toMatchObject({
+        reused: false,
+        work: { kind: 'run', run: { id: outdated } },
+      });
+      expect((fresh.body as Claimed).sandboxId).not.toBe(sandboxId);
       expect((await sandboxRow(sandboxId))?.key).toBeNull();
     });
 

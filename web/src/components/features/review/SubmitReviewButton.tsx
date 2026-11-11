@@ -8,9 +8,23 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useSubmitReview } from '@/hooks/api/useSubmitReview';
-import { drafts, type ReviewVerdict, VERDICTS } from '@/lib/review';
+import {
+  drafts,
+  type PullRequestRoute,
+  type ReviewVerdict,
+  routeOf,
+  VERDICTS,
+} from '@/lib/review';
 import { useReviewing } from '@/lib/review-context';
 import { cn } from '@/lib/utils';
+
+const LANDS_ON: Record<PullRequestRoute, (comments: string) => string> = {
+  routed: (comments) => `Spotlight posts ${comments} to the pull request.`,
+  waiting: (comments) =>
+    `When the task opens its pull request, Spotlight posts ${comments}.`,
+  ambiguous: () =>
+    'The task has more than one pull request. The review names no repository.',
+};
 
 export function SubmitReviewButton() {
   const reviewing = useReviewing();
@@ -66,9 +80,9 @@ export function SubmitReviewButton() {
             Finish your review
           </h2>
           <p className="text-muted-foreground text-xs">
-            {reviewing.review?.pullRequest
-              ? `Spotlight posts ${pending} ${pending === 1 ? 'comment' : 'comments'} to the pull request.`
-              : `When the task opens its pull request, Spotlight posts ${pending} ${pending === 1 ? 'comment' : 'comments'}.`}
+            {LANDS_ON[routeOf(reviewing.review, reviewing.repository)](
+              `${pending} ${pending === 1 ? 'comment' : 'comments'}`,
+            )}
           </p>
         </div>
 

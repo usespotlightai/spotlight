@@ -1,4 +1,5 @@
 import {
+  PULL_REQUEST_ROUTE_NAMES,
   REVIEW_COMMENT_STATE_NAMES,
   REVIEW_SIDE_NAMES,
   REVIEW_VERDICT_NAMES,
@@ -161,13 +162,46 @@ export class ReviewResponseDto {
   }
 }
 
-export class CodeReviewResponseDto {
+export class PullRequestLandingResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'Where the review lands; until there is one, it waits',
+    example: 'docs',
+    description:
+      'The repository a review or comment names; none for one that names no repository',
+  })
+  readonly repository: string | null;
+
+  @ApiProperty({
+    enum: PULL_REQUEST_ROUTE_NAMES,
+    description:
+      'routed: lands on pullRequest; waiting: lands when the task opens a pull request in the repository; ambiguous: names no repository while the task has more than one pull request, and lands nowhere',
+  })
+  readonly route: (typeof PULL_REQUEST_ROUTE_NAMES)[number];
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'https://github.com/acme/docs/pull/3',
+    description: 'The pull request it lands on, when routed',
   })
   readonly pullRequest: string | null;
+
+  constructor(fields: PullRequestLandingResponseDto) {
+    this.repository = fields.repository;
+    this.route = fields.route;
+    this.pullRequest = fields.pullRequest;
+  }
+}
+
+export class CodeReviewResponseDto {
+  @ApiProperty({
+    type: PullRequestLandingResponseDto,
+    isArray: true,
+    description:
+      'Where a review or comment lands: one entry for no repository, and one for the repository of each pull request of the task. A repository not in the list waits for its pull request',
+  })
+  readonly landings: readonly PullRequestLandingResponseDto[];
 
   @ApiProperty({ type: ReviewCommentResponseDto, isArray: true })
   readonly comments: readonly ReviewCommentResponseDto[];
@@ -176,11 +210,11 @@ export class CodeReviewResponseDto {
   readonly reviews: readonly ReviewResponseDto[];
 
   constructor(
-    pullRequest: string | null,
+    landings: readonly PullRequestLandingResponseDto[],
     comments: readonly ReviewCommentResponseDto[],
     reviews: readonly ReviewResponseDto[],
   ) {
-    this.pullRequest = pullRequest;
+    this.landings = landings;
     this.comments = comments;
     this.reviews = reviews;
   }

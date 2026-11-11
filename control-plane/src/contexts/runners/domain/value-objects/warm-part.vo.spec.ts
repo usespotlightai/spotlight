@@ -74,7 +74,8 @@ describe('WarmPart', () => {
         ),
       ),
     ).toBe(false);
-    expect(part.isFor(LineId.of('line_1'))).toBe(true);
-    expect(part.isFor(LineId.of('line_2'))).toBe(false);
+    expect(part.isFor(LineId.of('line_1'), 'fingerprint_1')).toBe(true);
+    expect(part.isFor(LineId.of('line_2'), 'fingerprint_1')).toBe(false);
+    expect(part.isFor(LineId.of('line_1'), 'fingerprint_2')).toBe(false);
   });
 });

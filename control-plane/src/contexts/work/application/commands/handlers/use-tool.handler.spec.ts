@@ -263,7 +263,6 @@ const TASK_VIEW: TaskViewDto = {
   stationKey: 'backlog',
   marks: {},
   repositories: ['acme/widgets'],
-  pullRequest: null,
   pullRequests: [],
   runId: 'run_1',
 };

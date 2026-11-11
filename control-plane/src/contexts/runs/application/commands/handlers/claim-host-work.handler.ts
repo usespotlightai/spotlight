@@ -23,11 +23,13 @@ import type { LongPoll } from '@runs/application/services/long-poll';
 import type { RunClaims } from '@runs/application/services/run-claims.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { ClaimOrder } from '@runs/domain/services/claim-order';
 import type {
   Claimant,
   SandboxRouting,
 } from '@runs/domain/value-objects/claimant';
+import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -39,10 +41,13 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const CLAIM_WINDOW_MS = 60_000;
 
+const ARCHIVED_PASSES = 3;
+
 const sandboxForRun = (run: Run, host: string): SandboxForRun => ({
   workspaceId: run.workspaceId.value,
   key: run.workingCopyKey?.value ?? null,
   line: run.line?.value ?? null,
+  lineFingerprint: run.lineFingerprint?.value ?? null,
   hostId: host,
   runId: run.id.value,
 });
@@ -91,6 +96,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     private readonly polls: LongPoll,
     private readonly sandboxes: SandboxesPort,
     private readonly sandboxHosts: SandboxHostsPort,
+    private readonly archives: WorkingCopyArchiveRepository,
   ) {}
 
   async execute(command: ClaimHostWorkCommand): Promise<HostClaimDto> {
@@ -349,19 +355,51 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     const now = this.clock.now();
     const ready = (
       await this.sandboxes.readyWarmIn(workspaceId.value, now)
-    ).map((each) => ({ line: LineId.of(each.line) }));
+    ).map((each) => ({
+      line: LineId.of(each.line),
+      fingerprint: WarmFingerprint.of(each.fingerprint),
+    }));
 
     if (ready.length === 0) {
       return [];
     }
 
-    const firstRuns = await this.runs.queuedFirstRuns(workspaceId, {
-      lines: distinct(ready.map((each) => each.line)),
+    const lines = distinct(ready.map((each) => each.line));
+    const queuedSince = ClaimOrder.warmWaitSince(now);
+    const archived: WorkingCopyKey[] = [];
+    let firstRuns = await this.runs.queuedFirstRuns(workspaceId, {
+      lines,
       avoiding,
-      queuedSince: ClaimOrder.warmWaitSince(now),
+      queuedSince,
     });
 
-    return ClaimOrder.reservedForWarm({ ready, firstRuns, avoiding, now });
+    for (let pass = 0; pass < ARCHIVED_PASSES; pass++) {
+      const found = await this.archives.completedKeysAmong(
+        workspaceId,
+        firstRuns.waiting.flatMap((each) =>
+          each.workingCopyKey ? [each.workingCopyKey] : [],
+        ),
+      );
+
+      if (found.length === 0) {
+        break;
+      }
+
+      archived.push(...found);
+      firstRuns = await this.runs.queuedFirstRuns(workspaceId, {
+        lines,
+        avoiding: [...avoiding, ...archived],
+        queuedSince,
+      });
+    }
+
+    return ClaimOrder.reservedForWarm({
+      ready,
+      firstRuns,
+      archived,
+      avoiding,
+      now,
+    });
   }
 
   private async startedWarm(
@@ -441,7 +479,11 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
     runner: RunnerId,
     registered: RunnerClaimant,
     host: string,
-    into: { readonly id: string; readonly warmFor: string },
+    into: {
+      readonly id: string;
+      readonly warmFor: string;
+      readonly fingerprint: string;
+    },
     until: Date,
   ): Promise<Claimed | null> {
     const found = await this.polls.polled<Run | 'requeued'>(async () => {
@@ -456,6 +498,7 @@ export class ClaimHostWorkHandler implements CommandHandlerPort<
       const run = await this.claims.next(
         claimantOf(runner, registered, {
           firstOfLine: LineId.of(into.warmFor),
+          fingerprint: WarmFingerprint.of(into.fingerprint),
           avoiding: held.map((each) => WorkingCopyKey.parse(each)),
         }),
         now,

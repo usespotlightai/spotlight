@@ -116,6 +116,20 @@ export class InMemoryArchives implements WorkingCopyArchiveRepository {
 
     return completed[0] ?? null;
   }
+
+  async completedKeysAmong(
+    workspaceId: WorkspaceId,
+    keys: readonly WorkingCopyKey[],
+  ): Promise<readonly WorkingCopyKey[]> {
+    return keys.filter((key) =>
+      [...this.stored.values()].some(
+        (each) =>
+          each.isCompleted &&
+          each.workspaceId.equals(workspaceId) &&
+          each.workingCopyKey.equals(key),
+      ),
+    );
+  }
 }
 
 export class InMemoryArchiveStore implements WorkingCopyArchiveStorePort {

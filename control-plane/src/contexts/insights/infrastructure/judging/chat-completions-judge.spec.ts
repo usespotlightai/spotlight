@@ -46,7 +46,7 @@ const REQUEST: JudgeRequest = {
   hunksLeftOut: 0,
   reference: null,
   guidanceRequested: false,
-  replayed: false,
+  effectsBlocked: false,
 };
 
 const REASONS = [
@@ -181,15 +181,17 @@ describe('judging a run through a chat completions endpoint', () => {
     ).toBe(forged);
   });
 
-  it('tells a replay’s judge which effects the replay blocked, and to judge the work as if they succeeded', async () => {
+  it('tells the judge of a run whose effects were blocked which effects the sandbox blocked, and to judge the work as if they succeeded', async () => {
     const { requests, fetch } = answering(
       completed(JSON.stringify({ passes: true, reasons: REASONS })),
     );
 
-    await judging(fetch, { ...REQUEST, replayed: true });
+    await judging(fetch, { ...REQUEST, effectsBlocked: true });
 
     const system = sentBy(requests).messages[0].content;
-    expect(system).toContain('This run is a replay');
+    expect(system).toContain(
+      'This run ran in a sandbox that blocked every effect outside it.',
+    );
     expect(system).toContain(
       'push commits, open or update pull requests, post review comments or messages',
     );

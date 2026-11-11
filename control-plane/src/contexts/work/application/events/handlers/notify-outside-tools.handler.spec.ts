@@ -75,6 +75,8 @@ const notifying = (
     {
       find: async () => task,
       findByCorrelation: async () => (markedTask ? [markedTask] : []),
+      owningPullRequest: async () => null,
+      reviewingPullRequest: async () => null,
       holdingMark: async () => [],
       save,
     } as unknown as TaskRepository,
@@ -94,7 +96,7 @@ describe('NotifyOutsideTools', () => {
       new TaskAsked(task.id, WORKSPACE, STATION, null, new Date()),
     );
 
-    expect(notify).toHaveBeenCalledWith(task, 'task.asked', null);
+    expect(notify).toHaveBeenCalledWith(task, 'task.asked');
   });
 
   it('tells outside tools of a task opened from what they said', async () => {
@@ -113,10 +115,10 @@ describe('NotifyOutsideTools', () => {
       ),
     );
 
-    expect(notify).toHaveBeenCalledWith(task, 'task.opened', null);
+    expect(notify).toHaveBeenCalledWith(task, 'task.opened');
   });
 
-  it('names the pull request that opened, not the first one of the task', async () => {
+  it('tells outside tools of a pull request the task opened', async () => {
     const { handler, task, notify } = notifying();
     const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
 
@@ -130,7 +132,7 @@ describe('NotifyOutsideTools', () => {
       ),
     );
 
-    expect(notify).toHaveBeenCalledWith(task, 'task.pull-request-opened', docs);
+    expect(notify).toHaveBeenCalledWith(task, 'task.pull-request-opened');
   });
 
   it('keeps quiet about a task somebody opened here', async () => {

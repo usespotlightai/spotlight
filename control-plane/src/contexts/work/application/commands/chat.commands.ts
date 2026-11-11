@@ -56,6 +56,7 @@ export class DismissProposalCommand {
 export class ResolveChatCommand {
   constructor(
     readonly chatId: string,
+    readonly slug: string,
     readonly resolvedBy: string,
   ) {}
 }
@@ -63,6 +64,7 @@ export class ResolveChatCommand {
 export class ReopenChatCommand {
   constructor(
     readonly chatId: string,
+    readonly slug: string,
     readonly reopenedBy: string,
   ) {}
 }
@@ -70,6 +72,7 @@ export class ReopenChatCommand {
 export class MarkChatReadCommand {
   constructor(
     readonly chatId: string,
+    readonly slug: string,
     readonly readBy: string,
   ) {}
 }

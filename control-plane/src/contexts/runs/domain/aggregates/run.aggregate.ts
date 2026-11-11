@@ -50,6 +50,7 @@ import {
   type ReportedStart,
   StartingPoint,
 } from '@runs/domain/value-objects/starting-point.vo';
+import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import type { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import type {
   RunWorkingCopy,
@@ -116,6 +117,7 @@ export interface RunOrdered {
   readonly extensions: RunExtensions;
   readonly tags: RunTags;
   readonly line: LineId | null;
+  readonly lineFingerprint: WarmFingerprint | null;
   readonly apiGrant: RunApiGrant | null;
 }
 
@@ -132,6 +134,10 @@ type RestoreSource =
 
 const orderProblem = (ordered: RunOrdered, spec: RunSpec): string | null => {
   const { requester, policy, workingCopy, apiGrant } = ordered;
+
+  if (ordered.lineFingerprint && !ordered.line) {
+    return 'fingerprints a line it names no line for';
+  }
 
   if (workingCopy && !workingCopy.key.owner.equals(requester.owner)) {
     return `names working copy ${workingCopy.key.value}, which belongs to another requester than ${requester.owner.value}`;
@@ -200,7 +206,15 @@ export class Run extends EventRecorder {
     refusal?: readonly { readonly description: string }[] | null;
     now: Date;
   }): Run {
-    const ordered = Run.orderedFrom(input);
+    const placement = input.placement ?? RunnerPlacement.anywhere();
+    const ordered = Run.orderedFrom({
+      ...input,
+      lineFingerprint: Run.lineFingerprintOf(
+        input.line ?? null,
+        input.spec,
+        placement,
+      ),
+    });
     const problem = orderProblem(ordered, input.spec);
 
     if (problem) {
@@ -214,7 +228,7 @@ export class Run extends EventRecorder {
       input.priority ?? RunPriority.normal,
       ordered,
       input.spec,
-      input.placement ?? RunnerPlacement.anywhere(),
+      placement,
       'queued',
       null,
       null,
@@ -242,6 +256,18 @@ export class Run extends EventRecorder {
       : queued;
   }
 
+  private static lineFingerprintOf(
+    line: LineId | null,
+    spec: RunSpec,
+    placement: RunnerPlacement,
+  ): WarmFingerprint | null {
+    const checkouts = spec.warmCheckouts;
+
+    return line && checkouts
+      ? WarmFingerprint.ofSetup({ checkouts, placement })
+      : null;
+  }
+
   reordered(fingerprint: string): Run {
     if (this.orderFingerprint !== fingerprint) {
       throw new RunOrderConflictError(this.id.value);
@@ -258,6 +284,7 @@ export class Run extends EventRecorder {
     extensions?: RunExtensions;
     tags?: RunTags;
     line?: LineId | null;
+    lineFingerprint?: WarmFingerprint | null;
     apiGrant?: RunApiGrant | null;
   }): RunOrdered {
     return {
@@ -268,6 +295,7 @@ export class Run extends EventRecorder {
       extensions: input.extensions ?? RunExtensions.none(),
       tags: input.tags ?? RunTags.none(),
       line: input.line ?? null,
+      lineFingerprint: input.lineFingerprint ?? null,
       apiGrant: input.apiGrant ?? null,
     };
   }
@@ -284,6 +312,7 @@ export class Run extends EventRecorder {
     extensions?: RunExtensions;
     tags?: RunTags;
     line?: LineId | null;
+    lineFingerprint?: WarmFingerprint | null;
     apiGrant?: RunApiGrant | null;
     spec: RunSpec;
     placement?: RunnerPlacement;
@@ -489,6 +518,10 @@ export class Run extends EventRecorder {
 
   get line(): LineId | null {
     return this.ordered.line;
+  }
+
+  get lineFingerprint(): WarmFingerprint | null {
+    return this.ordered.lineFingerprint;
   }
 
   get apiGrant(): RunApiGrant | null {

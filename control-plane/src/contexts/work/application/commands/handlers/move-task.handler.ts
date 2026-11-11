@@ -8,6 +8,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
+import { handedToRun } from '@work/application/services/handed-to-run';
 import type { LineLoader } from '@work/application/services/line-loader.service';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
@@ -95,12 +96,9 @@ export class MoveTaskHandler implements CommandHandlerPort<
       );
       const moved = placed.task;
 
-      const runId =
-        placed.moved && moved.wantsRun(line)
-          ? await this.dispatch.runIdFor({ task: moved, line })
-          : null;
-
-      await this.tasks.save(runId ? moved.assignRun(runId, line) : moved);
+      await this.tasks.save(
+        placed.moved ? await handedToRun(this.dispatch, moved, line) : moved,
+      );
     });
   }
 }

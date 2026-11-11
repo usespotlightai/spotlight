@@ -7,6 +7,7 @@ import {
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import { LINE_IMAGES } from '@lines/application/ports/line-images.port';
+import { LINES, type LinesPort } from '@lines/application/ports/lines.port';
 import {
   SEEDING_HARNESS,
   type SeedingHarnessPort,
@@ -22,6 +23,7 @@ import { IntegrationEventMappers } from '@platform/events/integration-event-mapp
 import { PayloadTypes } from '@platform/events/payload-types';
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import { ChangeNotices } from '@platform/live/change-notices';
+import { Leadership } from '@platform/redis/leadership';
 import { RedisConnection } from '@platform/redis/redis-connection';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
@@ -39,6 +41,10 @@ import {
   SANDBOXES,
   type SandboxesPort,
 } from '@runners/application/ports/sandboxes.port';
+import {
+  WARM_SANDBOXES,
+  type WarmSandboxesPort,
+} from '@runners/application/ports/warm-sandboxes.port';
 import {
   FetchRunSecretsCommand,
   FetchSharedRunSecretsCommand,
@@ -170,6 +176,14 @@ import {
 } from '@runs/application/ports/sandbox-hosts.port';
 import { STARTING_POINT_HOLDS } from '@runs/application/ports/starting-point-holds.port';
 import {
+  WARM_LINES,
+  type WarmLinesPort,
+} from '@runs/application/ports/warm-lines.port';
+import {
+  WARM_SANDBOX_KEEPING,
+  type WarmSandboxKeepingPort,
+} from '@runs/application/ports/warm-sandbox-keeping.port';
+import {
   WORKING_COPY_ARCHIVE_STORE,
   type WorkingCopyArchiveStorePort,
 } from '@runs/application/ports/working-copy-archive-store.port';
@@ -231,6 +245,7 @@ import { RunnerLeases } from '@runs/application/services/runner-leases.service';
 import { Runs } from '@runs/application/services/runs.service';
 import { SandboxArchives } from '@runs/application/services/sandbox-archives.service';
 import { SandboxLeases } from '@runs/application/services/sandbox-leases.service';
+import { WarmSandboxKeeping } from '@runs/application/services/warm-sandbox-keeping.service';
 import { WatchRunStream } from '@runs/application/services/watch-run-stream.service';
 import {
   NETWORK_CALL_REPOSITORY,
@@ -248,6 +263,8 @@ import {
   WORKING_COPY_ARCHIVE_REPOSITORY,
   type WorkingCopyArchiveRepository,
 } from '@runs/domain/repositories/working-copy-archive.repository';
+import { LinesWarmLines } from '@runs/infrastructure/acl/lines-warm-lines.adapter';
+import { RunnersWarmSandboxKeeping } from '@runs/infrastructure/acl/runners-warm-sandboxes.adapter';
 import { AcpHarnessToolNames } from '@runs/infrastructure/acp/harness-tools';
 import { RUNS_PAYLOAD_TYPES } from '@runs/infrastructure/events/runs-payload-types';
 import { BuiltInHarnesses } from '@runs/infrastructure/harnesses/built-in-harnesses';
@@ -296,6 +313,7 @@ import { NetworkCallsWorker } from '@runs/presentation/workers/network-calls.wor
 import { ProvisionWorkWorker } from '@runs/presentation/workers/provision-work.worker';
 import { RunConnectionsWorker } from '@runs/presentation/workers/run-connections.worker';
 import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
+import { WarmSandboxesWorker } from '@runs/presentation/workers/warm-sandboxes.worker';
 import { WorkingCopyArchivesWorker } from '@runs/presentation/workers/working-copy-archives.worker';
 import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import {
@@ -365,6 +383,40 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
       hash: ContentHashPort,
       clock: ClockPort,
     ) => new Runs(runs, hash, clock),
+  },
+
+  {
+    provide: WARM_LINES,
+    inject: [LINES],
+    useFactory: (lines: LinesPort) => new LinesWarmLines(lines),
+  },
+
+  {
+    provide: WARM_SANDBOX_KEEPING,
+    inject: [WARM_SANDBOXES],
+    useFactory: (sandboxes: WarmSandboxesPort) =>
+      new RunnersWarmSandboxKeeping(sandboxes),
+  },
+
+  {
+    provide: WarmSandboxKeeping,
+    inject: [WARM_LINES, WARM_SANDBOX_KEEPING, CLOCK, LOGGER],
+    useFactory: (
+      lines: WarmLinesPort,
+      sandboxes: WarmSandboxKeepingPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new WarmSandboxKeeping(lines, sandboxes, clock, logger),
+  },
+
+  {
+    provide: WarmSandboxesWorker,
+    inject: [WarmSandboxKeeping, Leadership, LOGGER],
+    useFactory: (
+      keeping: WarmSandboxKeeping,
+      leadership: Leadership,
+      logger: LoggerPort,
+    ) => new WarmSandboxesWorker(keeping, leadership, logger),
   },
 
   {
@@ -582,13 +634,20 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RunClaims,
-    inject: [RUN_REPOSITORY, TELEMETRY, RUN_TRACE_LINKS, EXCLUSIVE_CLAIM_LOCKS],
+    inject: [
+      RUN_REPOSITORY,
+      TELEMETRY,
+      RUN_TRACE_LINKS,
+      EXCLUSIVE_CLAIM_LOCKS,
+      WORKING_COPY_ARCHIVE_REPOSITORY,
+    ],
     useFactory: (
       runs: RunRepository,
       telemetry: TelemetryPort,
       traces: RunTraceLinksPort,
       locks: ExclusiveClaimLocksPort,
-    ) => new RunClaims(runs, telemetry, traces, locks),
+      archives: WorkingCopyArchiveRepository,
+    ) => new RunClaims(runs, telemetry, traces, locks, archives),
   },
 
   {
@@ -906,6 +965,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     LongPoll,
     SANDBOXES,
     SANDBOX_HOSTS,
+    WORKING_COPY_ARCHIVE_REPOSITORY,
   ]),
 
   {

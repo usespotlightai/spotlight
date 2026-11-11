@@ -112,8 +112,9 @@ const delivering = (over: {
     id: TASK,
     workspaceId: WORKSPACE,
     teamId: null,
-    pullRequest,
     pullRequests: over.pullRequests ?? (pullRequest ? [pullRequest] : []),
+    openPullRequests: [],
+    reviewedPullRequest: null,
     reviewing: false,
     currentRunId: null,
   };
@@ -941,7 +942,7 @@ describe('DeliverReviews, on a task with a pull request per repository', () => {
     );
   });
 
-  it('posts a review that names no repository on the task’s first pull request', async () => {
+  it('fails a review that names no repository on a task with more than one pull request, and posts it nowhere', async () => {
     const { review, comments } = submitted();
     const delivered = delivering({
       pullRequests: BOTH,
@@ -952,8 +953,10 @@ describe('DeliverReviews, on a task with a pull request per repository', () => {
 
     await delivered.service.deliverDue();
 
-    expect(delivered.github.submit).toHaveBeenCalledWith(
-      expect.objectContaining({ pullRequest: PULL }),
+    expect(delivered.github.submit).not.toHaveBeenCalled();
+    expect(delivered.recorded[0]?.how).toBe('failed');
+    expect(delivered.reviews.get('review_1')?.failure?.code).toBe(
+      'pull-request-ambiguous',
     );
   });
 
