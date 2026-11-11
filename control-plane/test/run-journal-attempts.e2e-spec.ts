@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RecordedRunUsage } from '@runs/domain/entities/recorded-run-usage.entity';
@@ -15,6 +16,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { requestedByChat } from './support/runs';
 import * as schema from './support/schema';

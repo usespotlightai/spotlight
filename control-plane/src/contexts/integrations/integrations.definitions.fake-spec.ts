@@ -9,16 +9,19 @@ export const defined = (
   text: string,
   generated: { hash: string; tools: readonly string[] } | null = null,
 ): DefinedIntegration => {
-  const definition = parseYaml(text);
+  const definition = parseYaml(text) as Record<string, unknown>;
   const compiled = compileIntegration(definition, expressions, null);
   const handWritten = compiled.ok
     ? compiled.readable.integration.writtenTools.map((each) => each.tool.value)
     : [];
 
+  const integration =
+    typeof definition.integration === 'string' ? definition.integration : '';
+
   return {
-    id: `integration-${String(definition?.integration ?? '')}`,
+    id: `integration-${integration}`,
     version: 1,
-    integration: String(definition?.integration ?? ''),
+    integration,
     definition,
     tools: [...handWritten, ...(generated?.tools ?? [])],
     generatedFrom: generated?.hash ?? null,

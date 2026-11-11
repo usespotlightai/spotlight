@@ -1,4 +1,5 @@
 import { useParams, useSearchParams } from 'react-router';
+
 import { InsightsPeriodPicker } from '@/components/features/insights/InsightsPeriodPicker';
 import { TeamInsights } from '@/components/features/insights/TeamInsights';
 import { TracesFilters } from '@/components/features/insights/TracesFilters';

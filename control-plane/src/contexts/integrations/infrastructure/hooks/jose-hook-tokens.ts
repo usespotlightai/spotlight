@@ -4,6 +4,7 @@ import {
   createPublicKey,
   type KeyObject,
 } from 'node:crypto';
+
 import type {
   HookTokenClaims,
   HookTokensPort,

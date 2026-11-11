@@ -6,6 +6,7 @@ import {
   hkdfSync,
   type KeyObject,
 } from 'node:crypto';
+
 import { InvalidRecipientError } from '@secrets/application/errors/invalid-recipient.error';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { X25519SecretSealing } from '@secrets/infrastructure/sealing/secret-sealing';
@@ -100,7 +101,7 @@ describe('X25519SecretSealing', () => {
         to.raw,
         ['spotlight:egress:v1', 'run_2', 'LINEAR_API_KEY'].join('\u0000'),
       ),
-    ).toThrow();
+    ).toThrow('unable to authenticate data');
   });
 
   it('seals afresh every time', () => {

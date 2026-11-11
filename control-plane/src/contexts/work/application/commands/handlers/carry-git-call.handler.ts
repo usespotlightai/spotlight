@@ -3,9 +3,10 @@ import type { CarryGitCallCommand } from '@work/application/commands/carry-git-c
 import type { GitAnswerDto } from '@work/application/dto/git-call.dto';
 import type { CarryGitCall } from '@work/application/services/carry-git-call.service';
 
-export class CarryGitCallHandler
-  implements CommandHandlerPort<CarryGitCallCommand, GitAnswerDto | null>
-{
+export class CarryGitCallHandler implements CommandHandlerPort<
+  CarryGitCallCommand,
+  GitAnswerDto | null
+> {
   constructor(private readonly carrying: CarryGitCall) {}
 
   execute(command: CarryGitCallCommand): Promise<GitAnswerDto | null> {

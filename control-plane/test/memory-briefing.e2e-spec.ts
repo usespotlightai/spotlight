@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import {
   MEMORY_DRAFTS,
@@ -32,6 +33,7 @@ import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/driz
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { aDispatch } from './support/runs';
@@ -164,9 +166,8 @@ describe('briefing runs with what the team remembers', () => {
   const briefed = () => app.get<TeamMemoriesPort>(TEAM_MEMORIES);
 
   it('gives a run what applies to its place, the most specific first, each by its handle', async () => {
-    const { briefed: memories } = await briefed().forBriefing(
-      briefingContext(),
-    );
+    const { briefed: memories } =
+      await briefed().forBriefing(briefingContext());
 
     expect(memories.map((each) => each.id)).toEqual([
       byPath.id,
@@ -331,9 +332,8 @@ describe('briefing runs with what the team remembers', () => {
         }),
     );
 
-    const { briefed: memories } = await briefed().forBriefing(
-      briefingContext(),
-    );
+    const { briefed: memories } =
+      await briefed().forBriefing(briefingContext());
 
     expect(memories.map((each) => each.body)).not.toContain(
       'Still waiting on a person.',

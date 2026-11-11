@@ -1,6 +1,5 @@
 import { redisRateLimit } from '@identity/infrastructure/auth/redis-rate-limit';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -49,7 +48,7 @@ describe('redisRateLimit', () => {
   });
 
   it('counts requests across connections and refuses the one over the limit', async () => {
-    const one = new RedisMock() as unknown as Redis;
+    const one = new RedisMock();
     await one.flushall();
     const two = one.duplicate();
     const limit = { window: 10, max: 2 };
@@ -71,7 +70,7 @@ describe('redisRateLimit', () => {
   });
 
   it('refuses a request over the limit even when the key has no expiry', async () => {
-    const redis = new RedisMock() as unknown as Redis;
+    const redis = new RedisMock();
     await redis.flushall();
     await redis.set('spotlight:rate-limit:stuck', '5');
 

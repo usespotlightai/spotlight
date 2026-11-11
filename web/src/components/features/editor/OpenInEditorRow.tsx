@@ -1,5 +1,6 @@
 import { MoreHorizontal } from 'lucide-react';
 import { useRef } from 'react';
+
 import { EditorLogo } from '@/components/features/editor/EditorLogo';
 import { EditorMenuItems } from '@/components/features/editor/EditorMenuItems';
 import { EditorSetupPopover } from '@/components/features/editor/EditorSetupPopover';

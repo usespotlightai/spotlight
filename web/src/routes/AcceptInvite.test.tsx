@@ -2,12 +2,16 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AcceptInvite } from '@/routes/AcceptInvite';
 
-const invite = vi.fn();
-const session = vi.fn();
-const accept = vi.fn();
-const signIn = vi.fn();
+const invite = vi.fn<(...args: unknown[]) => unknown>();
+const session = vi.fn<(...args: unknown[]) => unknown>();
+const accept =
+  vi.fn<
+    (input: unknown, options: { onSuccess: (data?: unknown) => void }) => void
+  >();
+const signIn = vi.fn<(...args: unknown[]) => unknown>();
 const navigate = vi.fn();
 const refetch = vi.fn();
 

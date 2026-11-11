@@ -1,5 +1,6 @@
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import { useMemo, useState } from 'react';
+
 import { NewReviewComment } from '@/components/features/review/NewReviewComment';
 import { ReviewGutterPlus } from '@/components/features/review/ReviewGutterPlus';
 import { ReviewThreadCard } from '@/components/features/review/ReviewThreadCard';

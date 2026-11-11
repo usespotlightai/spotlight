@@ -51,6 +51,6 @@ describe('ConfigurationStationSourceEditor', () => {
       edit,
     );
 
-    expect(answer.ok === false && answer.reason.code).toBe('file-unparsable');
+    expect(!answer.ok && answer.reason.code).toBe('file-unparsable');
   });
 });

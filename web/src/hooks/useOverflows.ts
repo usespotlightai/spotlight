@@ -8,7 +8,6 @@ export function useOverflows(
 ): boolean {
   const [overflows, setOverflows] = useState(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the measurement must follow the content, but the effect reads only the node
   useLayoutEffect(() => {
     const element = ref.current;
 

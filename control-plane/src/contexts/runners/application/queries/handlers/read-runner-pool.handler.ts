@@ -6,9 +6,10 @@ import type { ReadRunnerPoolQuery } from '@runners/application/queries/runner-re
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadRunnerPoolHandler
-  implements QueryHandlerPort<ReadRunnerPoolQuery, RunnerPoolResourceDto | null>
-{
+export class ReadRunnerPoolHandler implements QueryHandlerPort<
+  ReadRunnerPoolQuery,
+  RunnerPoolResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: RunnerResourcesPort,

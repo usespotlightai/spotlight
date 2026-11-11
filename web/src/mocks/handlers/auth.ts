@@ -1,4 +1,5 @@
 import { HttpResponse } from 'msw';
+
 import type { DeviceStatus } from '@/lib/device';
 import { enteredUserCode } from '@/lib/device';
 import { api, json } from '@/mocks/http';

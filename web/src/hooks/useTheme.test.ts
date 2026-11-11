@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
+
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { THEME_STORAGE_KEY, useTheme } from '@/hooks/useTheme';
 
 const media = { matches: false, listeners: new Set<() => void>() };
@@ -132,7 +134,8 @@ describe('theme.js', () => {
 
   describe('script', () => {
     const runScript = () => {
-      new Function(script())();
+      // oxlint-disable-next-line typescript/no-implied-eval -- runs the theme script as the page would
+      (new Function(script()) as () => void)();
     };
 
     it('does not override a stored light theme on OS change', () => {

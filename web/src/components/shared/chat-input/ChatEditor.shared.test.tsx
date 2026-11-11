@@ -10,6 +10,7 @@ import {
 import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { applyUpdate, Doc, encodeStateAsUpdate } from 'yjs';
+
 import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import type { DraftHandle } from '@/hooks/useChatDraft';
@@ -152,7 +153,7 @@ describe('ChatEditor on a shared draft', () => {
     );
     const beas = mount(bea);
 
-    await typeInto(adas.current, 'Cap the retries at 500.');
+    typeInto(adas.current, 'Cap the retries at 500.');
 
     await waitFor(() =>
       expect(textOf(beas.current)).toBe('Cap the retries at 500.'),

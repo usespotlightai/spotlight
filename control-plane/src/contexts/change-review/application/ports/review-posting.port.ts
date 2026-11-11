@@ -1,5 +1,5 @@
-import type { ReviewVerdict } from '@change-review/domain/aggregates/review.aggregate';
 import type { OnGitHub } from '@change-review/domain/aggregates/review-comment.aggregate';
+import type { ReviewVerdict } from '@change-review/domain/aggregates/review.aggregate';
 import type { ReviewSide } from '@change-review/domain/value-objects/review-anchor.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

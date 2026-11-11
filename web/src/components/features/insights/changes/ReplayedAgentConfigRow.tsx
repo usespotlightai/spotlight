@@ -1,9 +1,9 @@
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { spentIn } from '@/lib/inbox';
 import { formatCount, formatShare } from '@/lib/insights';

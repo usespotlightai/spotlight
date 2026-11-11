@@ -7,9 +7,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class ReadTeamHandler
-  implements QueryHandlerPort<ReadTeamQuery, TeamResourceDto | null>
-{
+export class ReadTeamHandler implements QueryHandlerPort<
+  ReadTeamQuery,
+  TeamResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,

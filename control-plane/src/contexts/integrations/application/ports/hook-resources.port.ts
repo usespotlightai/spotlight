@@ -1,9 +1,9 @@
+import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type {
   HookOnFailure,
   HookRequestOrigin,
 } from '@integrations/domain/value-objects/hook.vo';
-import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const HOOK_RESOURCES = Symbol('HOOK_RESOURCES');

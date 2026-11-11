@@ -185,6 +185,11 @@ const filterKeysOf = (tab: InsightsTab): readonly (keyof InsightsFilter)[] => {
       return RUN_FILTER_KEYS;
     case 'productivity':
       return PULL_REQUEST_FILTER_KEYS;
+    case 'overview':
+    case 'stations':
+    case 'people':
+    case 'cost':
+    case 'tools':
     default:
       return [];
   }
@@ -235,6 +240,11 @@ const filterOf = (
       return runFilterOf(params);
     case 'productivity':
       return pullRequestFilterOf(params);
+    case 'overview':
+    case 'stations':
+    case 'people':
+    case 'cost':
+    case 'tools':
     default:
       return {};
   }
@@ -953,6 +963,7 @@ const HUMAN_ACTIONS: Record<RunHumanAction, string> = {
 };
 
 export const formatFilterValue = (key: RunFilterKey, value: string): string => {
+  // oxlint-disable-next-line typescript/switch-exhaustiveness-check -- every other key shows its value as it is
   switch (key) {
     case 'model':
       return value === DEFAULT_MODEL_FILTER ? HARNESS_DEFAULT : value;
@@ -988,7 +999,7 @@ const counted = (
   now: number,
   seen: boolean,
   change: Delta | null,
-  drill: TileDrill = undefined,
+  drill?: TileDrill,
 ): TallyTile[] =>
   seen
     ? [

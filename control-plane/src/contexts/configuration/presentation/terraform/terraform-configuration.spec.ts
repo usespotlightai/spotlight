@@ -370,7 +370,7 @@ describe('workspaceTerraform', () => {
 
   it('keeps each skill file as it is, read with file()', () => {
     expect(mainOf(CONFIGURATION)).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       '  files = {\n    "SKILL.md"               = file("${path.module}/skills/core/grafana/SKILL.md")\n    "queries/latency.promql" = file("${path.module}/skills/core/grafana/queries/latency.promql")\n  }\n',
     );
     expect(
@@ -384,6 +384,7 @@ describe('workspaceTerraform', () => {
     expect(main).toContain(
       'resource "spotlight_integration" "core_linear" {\n  team_id = spotlight_team.core.id\n  definition = {\n    actions = {\n',
     );
+    // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
     expect(main).toContain('query = "$${{ inputs.body }}"');
     expect(main).toContain(
       '        action      = "comment"\n        description = <<EOT\nComment on the issue.\nUse it to say what you did.\nEOT\n',
@@ -394,11 +395,11 @@ describe('workspaceTerraform', () => {
     const main = mainOf(CONFIGURATION);
 
     expect(main).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'secrets = ["secret.${spotlight_secret.linear_api_key.name}", "secret.ELSEWHERE"]',
     );
     expect(main).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'secret    = "secret.${spotlight_secret.linear_signing.name}"',
     );
   });
@@ -712,7 +713,7 @@ describe('workspaceTerraform', () => {
         '      args    = ["-y", "linear-mcp"]',
         '      command = "npx"',
         '      env = {',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+        // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
         '        LINEAR_API_KEY   = "secret.${spotlight_secret.linear_signing.name}"',
         '        LINEAR_WORKSPACE = "acme"',
         '        LOG_LEVEL        = "debug"',
@@ -790,6 +791,7 @@ describe('workspaceTerraform', () => {
         '      name = "notify"',
         '      call = spotlight_integration.core_linear.tools["comment"]',
         '      with = {',
+        // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
         '        body = "Agent commented: $${{ event.inputs.body }}"',
         '      }',
         '    },',
@@ -802,6 +804,7 @@ describe('workspaceTerraform', () => {
         '          x-team = "core"',
         '        }',
         '        body = {',
+        // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
         '          tool = "$${{ event.tool }}"',
         '        }',
         '        from = "network"',

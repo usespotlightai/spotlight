@@ -1,9 +1,23 @@
 import { randomUUID } from 'node:crypto';
+
 import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
+import type {
+  InsightsAgentConfigsResponseDto,
+  InsightsChangesResponseDto,
+} from '@insights/presentation/http/dto/insights-changes.response.dto';
+import type { InsightsCostResponseDto } from '@insights/presentation/http/dto/insights-cost.response.dto';
+import type { InsightsFlowResponseDto } from '@insights/presentation/http/dto/insights-flow.response.dto';
+import type { InsightsMemoryResponseDto } from '@insights/presentation/http/dto/insights-memory.response.dto';
+import type { InsightsOverviewResponseDto } from '@insights/presentation/http/dto/insights-overview.response.dto';
+import type { InsightsPeopleResponseDto } from '@insights/presentation/http/dto/insights-people.response.dto';
+import type { InsightsStationsResponseDto } from '@insights/presentation/http/dto/insights-stations.response.dto';
+import type { InsightsToolsResponseDto } from '@insights/presentation/http/dto/insights-tools.response.dto';
+import type { InsightsTracesResponseDto } from '@insights/presentation/http/dto/insights-traces.response.dto';
+import type { StationInsightsResponseDto } from '@insights/presentation/http/dto/station-insights.response.dto';
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -45,6 +59,7 @@ import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { endingFor } from './support/run-ended';
@@ -106,7 +121,7 @@ const issued = async (
 
   expect(answer.status).toBe(201);
 
-  return answer.headers[TOKEN_HEADER] as string;
+  return answer.headers[TOKEN_HEADER];
 };
 
 beforeAll(async () => {
@@ -486,10 +501,11 @@ describe('what the insights context receives for a team (e2e)', () => {
 describe('the team’s insights (e2e)', () => {
   it('shows a team member the headline numbers', async () => {
     const answer = await asOwner(insights('overview'));
+    const body = answer.body as InsightsOverviewResponseDto;
 
     expect(answer.status).toBe(200);
-    expect(answer.body.period.name).toBe('7d');
-    expect(answer.body.headline).toMatchObject({
+    expect(body.period.name).toBe('7d');
+    expect(body.headline).toMatchObject({
       spend: { amount: 1.25, currency: 'USD' },
       runs: 1,
       tasks: 1,
@@ -501,23 +517,18 @@ describe('the team’s insights (e2e)', () => {
       activePeople: 1,
       mergedTaskIds: [TASK.value],
     });
-    expect(answer.body.headline).toMatchObject({
+    expect(body.headline).toMatchObject({
       unpriced: 0,
       mixedCurrencies: false,
     });
-    expect(answer.body.headline.taskToMerge.count).toBe(1);
-    expect(answer.body.people).toEqual([
-      { personId: team.owner.value, name: 'Ada' },
-    ]);
+    expect(body.headline.taskToMerge.count).toBe(1);
+    expect(body.people).toEqual([{ personId: team.owner.value, name: 'Ada' }]);
   });
 
   it('lays the run and its merge out by day, against an empty period before', async () => {
     const answer = await asOwner(insights('overview'));
-    const output: {
-      runs: number;
-      spend: unknown;
-      mergedTaskIds: string[];
-    }[] = answer.body.output;
+    const body = answer.body as InsightsOverviewResponseDto;
+    const { output } = body;
 
     expect(output).toHaveLength(7);
     expect(output.filter((each) => each.runs > 0)).toEqual([
@@ -528,28 +539,29 @@ describe('the team’s insights (e2e)', () => {
       }),
     ]);
     expect(output.flatMap((each) => each.mergedTaskIds)).toEqual([TASK.value]);
-    expect(answer.body.outputCurrency).toBe('USD');
-    expect(answer.body.outputMixedCurrencies).toBe(false);
-    expect(answer.body.changes.mergedPullRequests).toMatchObject({
+    expect(body.outputCurrency).toBe('USD');
+    expect(body.outputMixedCurrencies).toBe(false);
+    expect(body.changes.mergedPullRequests).toMatchObject({
       fromZero: true,
     });
-    expect(answer.body.changes.activePeople).toMatchObject({ fromZero: true });
+    expect(body.changes.activePeople).toMatchObject({ fromZero: true });
   });
 
   it('answers a workspace token with the read scope', async () => {
     const token = await issued(team, ['read']);
 
     const answer = await bearing(insights('traces', 'range=7d'), token);
+    const body = answer.body as InsightsTracesResponseDto;
 
     expect(answer.status).toBe(200);
-    expect(answer.body.matched).toBe(1);
-    expect(answer.body.traces[0]).toMatchObject({
+    expect(body.matched).toBe(1);
+    expect(body.traces[0]).toMatchObject({
       taskId: TASK.value,
       title: 'Fix the queue',
       total: 1,
       cost: { amount: 1.25, currency: 'USD' },
     });
-    expect(answer.body.traces[0].runs[0]).toMatchObject({
+    expect(body.traces[0].runs[0]).toMatchObject({
       runId: RUN.value,
       station: { stationId: team.stationId.value },
       harness: 'claude-code',
@@ -559,9 +571,7 @@ describe('the team’s insights (e2e)', () => {
       ending: 'completed',
       progress: null,
     });
-    expect(answer.body.people).toEqual([
-      { personId: team.owner.value, name: 'Ada' },
-    ]);
+    expect(body.people).toEqual([{ personId: team.owner.value, name: 'Ada' }]);
   });
 
   it('finds no team for a token of another workspace, nor for a stranger', async () => {
@@ -597,19 +607,22 @@ describe('the team’s insights (e2e)', () => {
   it('compares the team’s agent configs against what they cost, narrowed by station and run size, with judge scores only for one station', async () => {
     const token = await issued(team, ['read']);
 
-    const all = await bearing(insights('agent-configs'), token);
-    const medium = await asOwner(
-      insights(
-        'agent-configs',
-        `period=7d&stationId=${team.stationId.value}&size=medium`,
-      ),
-    );
-    const small = await asOwner(
-      insights('agent-configs', 'period=7d&size=small'),
-    );
+    const answer = await bearing(insights('agent-configs'), token);
+    const all = answer.body as InsightsAgentConfigsResponseDto;
+    const medium = (
+      await asOwner(
+        insights(
+          'agent-configs',
+          `period=7d&stationId=${team.stationId.value}&size=medium`,
+        ),
+      )
+    ).body as InsightsAgentConfigsResponseDto;
+    const small = (
+      await asOwner(insights('agent-configs', 'period=7d&size=small'))
+    ).body as InsightsAgentConfigsResponseDto;
 
-    expect(all.status).toBe(200);
-    expect(all.body.agentConfigs).toEqual([
+    expect(answer.status).toBe(200);
+    expect(all.agentConfigs).toEqual([
       expect.objectContaining({
         harness: 'claude-code',
         model: 'sonnet',
@@ -621,19 +634,19 @@ describe('the team’s insights (e2e)', () => {
         frontier: [],
       }),
     ]);
-    expect(all.body.judgeOmitted).toBe('no_station');
-    expect(medium.body.judgeOmitted).toBeNull();
-    expect(medium.body.agentConfigs[0].judge).toEqual({
+    expect(all.judgeOmitted).toBe('no_station');
+    expect(medium.judgeOmitted).toBeNull();
+    expect(medium.agentConfigs[0].judge).toEqual({
       mean: null,
       judged: 0,
     });
-    expect(all.body.sizes.map((each: { size: string }) => each.size)).toEqual([
+    expect(all.sizes.map((each) => each.size)).toEqual([
       'small',
       'medium',
       'large',
     ]);
-    expect(medium.body.agentConfigs).toHaveLength(1);
-    expect(small.body.agentConfigs).toEqual([]);
+    expect(medium.agentConfigs).toHaveLength(1);
+    expect(small.agentConfigs).toEqual([]);
     expect((await asOwner(insights('agent-configs', 'size=huge'))).status).toBe(
       422,
     );
@@ -641,14 +654,16 @@ describe('the team’s insights (e2e)', () => {
 
   it('shows no config change while each station ran one config', async () => {
     const answer = await asOwner(insights('changes'));
+    const body = answer.body as InsightsChangesResponseDto;
 
     expect(answer.status).toBe(200);
-    expect(answer.body.markers).toEqual([]);
-    expect(answer.body.judges).toEqual([]);
+    expect(body.markers).toEqual([]);
+    expect(body.judges).toEqual([]);
   });
 
   it('sets runs with memories against runs without', async () => {
     const answer = await asOwner(insights('memory'));
+    const body = answer.body as InsightsMemoryResponseDto;
 
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({
@@ -657,8 +672,8 @@ describe('the team’s insights (e2e)', () => {
       flagged: [],
     });
     expect(answer.body).not.toHaveProperty('benchmark');
-    expect(answer.body.withMemories.runs).toBe(0);
-    expect(answer.body.withoutMemories.runs).toBe(1);
+    expect(body.withMemories.runs).toBe(0);
+    expect(body.withoutMemories.runs).toBe(1);
   });
 
   it('narrows the runs by what the page drills down with', async () => {
@@ -670,14 +685,19 @@ describe('the team’s insights (e2e)', () => {
     );
     const failed = await asOwner(insights('traces', 'range=7d&outcome=failed'));
 
-    expect(atStation.body.matched).toBe(1);
-    expect(elsewhereStation.body.matched).toBe(0);
-    expect(failed.body.matched).toBe(0);
+    expect((atStation.body as InsightsTracesResponseDto).matched).toBe(1);
+    expect((elsewhereStation.body as InsightsTracesResponseDto).matched).toBe(
+      0,
+    );
+    expect((failed.body as InsightsTracesResponseDto).matched).toBe(0);
   });
 
   it('drills down by pull request state, human action, inbox asks, tasks, the harness’s own model and no repository', async () => {
     const total = async (query: string) =>
-      (await asOwner(insights('traces', `range=7d&${query}`))).body.matched;
+      (
+        (await asOwner(insights('traces', `range=7d&${query}`)))
+          .body as InsightsTracesResponseDto
+      ).matched;
 
     expect(await total('pullRequestState=merged')).toBe(1);
     expect(await total('pullRequestState=open')).toBe(0);
@@ -711,7 +731,10 @@ describe('the team’s insights (e2e)', () => {
 
   it('drills down by the skills and MCP servers a run used, and the tools a person dismissed', async () => {
     const total = async (query: string) =>
-      (await asOwner(insights('traces', `range=7d&${query}`))).body.matched;
+      (
+        (await asOwner(insights('traces', `range=7d&${query}`)))
+          .body as InsightsTracesResponseDto
+      ).matched;
     const ended = new Date(NOW - 240 * MINUTE);
     const monday = new Date(
       Date.UTC(
@@ -755,15 +778,16 @@ describe('the team’s insights (e2e)', () => {
 
   it('shows which skills runs had enabled and read, and how each MCP server behaved', async () => {
     const answer = await asOwner(insights('tools'));
+    const body = answer.body as InsightsToolsResponseDto;
 
     expect(answer.status).toBe(200);
-    expect(answer.body.runs).toBe(1);
-    expect(answer.body.trendRule).toEqual({
+    expect(body.runs).toBe(1);
+    expect(body.trendRule).toEqual({
       recentWeeks: 2,
       minRuns: 5,
       shiftPoints: 20,
     });
-    expect(answer.body.skills).toEqual([
+    expect(body.skills).toEqual([
       expect.objectContaining({
         key: 'grafana',
         enabled: 1,
@@ -778,7 +802,7 @@ describe('the team’s insights (e2e)', () => {
         ],
       }),
     ]);
-    expect(answer.body.servers).toEqual([
+    expect(body.servers).toEqual([
       {
         server: 'linear',
         runs: 1,
@@ -794,7 +818,7 @@ describe('the team’s insights (e2e)', () => {
         dismissedRate: 1,
       },
     ]);
-    expect(answer.body.dismissals).toEqual([
+    expect(body.dismissals).toEqual([
       { tool: 'create_issue', server: 'linear', dismissed: 1 },
     ]);
   });
@@ -811,19 +835,22 @@ describe('the team’s insights (e2e)', () => {
     const page = await asOwner(
       `/api/teams/${team.teamId.value}/lines/${team.line.id.value}/stations/${team.stationId.value}/insights`,
     );
-    const tab = await asOwner(insights('stations'));
+    const tab = (await asOwner(insights('stations')))
+      .body as InsightsStationsResponseDto;
+    const { groups } = page.body as StationInsightsResponseDto;
 
     expect(page.status).toBe(200);
-    expect(page.body.groups).toHaveLength(1);
-    expect(page.body.groups[0].runs).toHaveLength(1);
-    expect(tab.body.stations[0].tally).toEqual(page.body.groups[0].tally);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].runs).toHaveLength(1);
+    expect(tab.stations[0].tally).toEqual(groups[0].tally);
   });
 
   it('shows each station’s tally and its task failures apart from its run failures', async () => {
     const answer = await asOwner(insights('stations'));
+    const body = answer.body as InsightsStationsResponseDto;
 
     expect(answer.status).toBe(200);
-    expect(answer.body.stations[0]).toMatchObject({
+    expect(body.stations[0]).toMatchObject({
       stationId: team.stationId.value,
       tally: {
         runs: 1,
@@ -844,20 +871,21 @@ describe('the team’s insights (e2e)', () => {
       ],
       runFailures: [],
     });
-    expect(answer.body.stations[0].trend).toHaveLength(7);
-    expect(answer.body.stations[0].seen).toEqual({
+    expect(body.stations[0].trend).toHaveLength(7);
+    expect(body.stations[0].seen).toEqual({
       accepted: false,
       sentBack: false,
       merged: true,
     });
-    expect(answer.body.teamTrend).toHaveLength(7);
+    expect(body.teamTrend).toHaveLength(7);
   });
 
   it('shows where the task waited, on to its merge', async () => {
     const answer = await asOwner(insights('flow'));
+    const body = answer.body as InsightsFlowResponseDto;
 
     expect(answer.status).toBe(200);
-    expect(answer.body.flow.stations[0]).toMatchObject({
+    expect(body.flow.stations[0]).toMatchObject({
       stationId: team.stationId.value,
       tasks: 1,
       queued: { p50Ms: 2 * MINUTE, count: 1 },
@@ -865,7 +893,7 @@ describe('the team’s insights (e2e)', () => {
       asks: 1,
       unanswered: 0,
     });
-    expect(answer.body.flow.delivery).toMatchObject({
+    expect(body.flow.delivery).toMatchObject({
       toPullRequest: { p50Ms: 180 * MINUTE, count: 1 },
       toFirstReview: { p50Ms: 60 * MINUTE, count: 1 },
       toMerge: { p50Ms: 60 * MINUTE, count: 1 },
@@ -874,21 +902,22 @@ describe('the team’s insights (e2e)', () => {
 
   it('shows what the work asks of people and who uses it, calling nobody new who set the team up long before', async () => {
     const answer = await asOwner(insights('people'));
+    const body = answer.body as InsightsPeopleResponseDto;
 
     expect(answer.status).toBe(200);
-    expect(answer.body.load).toMatchObject({
+    expect(body.load).toMatchObject({
       asks: 1,
       tasks: 1,
       toAnswer: { p50Ms: 30 * MINUTE, count: 1 },
     });
-    expect(answer.body.adoption).toMatchObject({
+    expect(body.adoption).toMatchObject({
       activeCount: 1,
       newAdopterCount: 0,
       weeklyCount: 1,
       monthlyCount: 1,
       stickiness: 1,
     });
-    expect(answer.body.adoption.people[0]).toMatchObject({
+    expect(body.adoption.people[0]).toMatchObject({
       name: 'Ada',
       tasksOpened: 1,
       actions: 2,
@@ -900,15 +929,16 @@ describe('the team’s insights (e2e)', () => {
 
   it('splits spend by model, station and repository', async () => {
     const answer = await asOwner(insights('cost'));
+    const body = answer.body as InsightsCostResponseDto;
 
     expect(answer.status).toBe(200);
-    expect(answer.body.cost.cache).toEqual({
+    expect(body.cost.cache).toEqual({
       input: 2_000,
       cacheRead: 90_000,
       cacheWrite: null,
       cacheRate: 90_000 / 92_000,
     });
-    expect(answer.body.cost.cacheByStation).toEqual([
+    expect(body.cost.cacheByStation).toEqual([
       {
         stationId: team.stationId.value,
         input: 2_000,
@@ -917,7 +947,7 @@ describe('the team’s insights (e2e)', () => {
         cacheRate: 90_000 / 92_000,
       },
     ]);
-    expect(answer.body.cost).toMatchObject({
+    expect(body.cost).toMatchObject({
       spend: { amount: 1.25, currency: 'USD' },
       unpriced: 0,
       mixedCurrencies: false,
@@ -941,8 +971,10 @@ describe('the team’s insights (e2e)', () => {
 
 describe('the team’s Tools tab and its drill-downs (e2e)', () => {
   const total = async (query: string) =>
-    (await asOwner(insights('traces', `range=7d&${query}`))).body
-      .matched as number;
+    (
+      (await asOwner(insights('traces', `range=7d&${query}`)))
+        .body as InsightsTracesResponseDto
+    ).matched;
 
   it('leaves a run cancelled before it ran out of the runs with a skill enabled, as the tab does', async () => {
     const cancelled = RunId.of(randomUUID());
@@ -1010,7 +1042,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
 
     const tools = await asOwner(insights('tools'));
 
-    expect(tools.body.skills).toEqual([
+    expect((tools.body as InsightsToolsResponseDto).skills).toEqual([
       expect.objectContaining({ key: 'grafana', enabled: 1 }),
     ]);
     expect(await total('skillEnabled=grafana')).toBe(1);

@@ -16,7 +16,6 @@ import {
 import { AllowWorkspaceTokens } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { ProblemResponseDto } from '@platform/http/dto/problem.response.dto';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
-import { ResourceInterceptor } from '@platform/http/resources/resource.interceptor';
 import {
   API_VERSION,
   API_VERSION_HEADER,
@@ -24,6 +23,7 @@ import {
   PROBLEM_CONTENT_TYPE,
   SUPPORTED_API_VERSIONS,
 } from '@platform/http/resources/resource-headers';
+import { ResourceInterceptor } from '@platform/http/resources/resource.interceptor';
 
 export const operationIdOf = (verb: string, kind: string): string =>
   [

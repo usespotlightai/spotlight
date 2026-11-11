@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { TraceNodeResponseDto } from '@/lib/api';
 import { laidOut, rowsOf, type Trace } from '@/lib/trace';
 

@@ -1,14 +1,16 @@
 import { randomUUID } from 'node:crypto';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
-import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
+import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { endingFor } from './support/run-ended';
 import { runFactsOver, runJournalsOver } from './support/run-facts';

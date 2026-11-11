@@ -292,7 +292,7 @@ describe('ProcessDueDeliveries', () => {
       expect.objectContaining({
         delivered: expect.objectContaining({
           causeFiringId: HookFiringId.of('firing_1'),
-        }),
+        }) as unknown,
       }),
     );
   });

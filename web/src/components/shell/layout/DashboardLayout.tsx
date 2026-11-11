@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { framesWindow } from '@/lib/desktop';
@@ -15,7 +16,7 @@ export function DashboardLayout({
   tabs,
   children,
 }: DashboardLayoutProps) {
-  const { width, resizing, handleProps, paneRef } = usePaneWidth<HTMLElement>();
+  const { width, resizing, handleProps, paneRef } = usePaneWidth();
 
   return (
     <div

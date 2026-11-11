@@ -9,9 +9,10 @@ import { UnknownChatError } from '@work/domain/exceptions/unknown-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 
-export class AcceptProposalHandler
-  implements CommandHandlerPort<AcceptProposalCommand, void>
-{
+export class AcceptProposalHandler implements CommandHandlerPort<
+  AcceptProposalCommand,
+  void
+> {
   constructor(
     private readonly loader: ChatLoader,
     private readonly chats: ChatRepository,

@@ -11,9 +11,10 @@ import type { DispatchRepository } from '@work/domain/repositories/dispatch.repo
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { RunStopPolicy } from '@work/domain/services/run-stop-policy';
 
-export class StopRunHandler
-  implements CommandHandlerPort<StopRunCommand, void>
-{
+export class StopRunHandler implements CommandHandlerPort<
+  StopRunCommand,
+  void
+> {
   constructor(
     private readonly runs: RunsPort,
     private readonly dispatches: DispatchRepository,

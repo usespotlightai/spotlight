@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   listInsightsPullRequests,
   listInsightsTraces,
@@ -130,13 +131,16 @@ describe('the mock insights', () => {
     );
     expect(flow.data.flow.delivery.merged).toBeGreaterThan(0);
     expect(people.data.load.unanswered).toBe(2);
-    expect(people.data.adoption.people.map((each) => each.name).sort()).toEqual(
-      ['Maya Chen', 'Priya Nair', 'Sam Rivera', 'Tom Becker'],
-    );
-    expect(cost.data.cost.byHarness.map((each) => each.key).sort()).toEqual([
-      'claude-code',
-      'codex',
-    ]);
+    expect(
+      people.data.adoption.people
+        .map((each) => each.name)
+        .sort((a, b) => (a ?? '').localeCompare(b ?? '')),
+    ).toEqual(['Maya Chen', 'Priya Nair', 'Sam Rivera', 'Tom Becker']);
+    expect(
+      cost.data.cost.byHarness
+        .map((each) => each.key)
+        .sort((a, b) => (a ?? '').localeCompare(b ?? '')),
+    ).toEqual(['claude-code', 'codex']);
     expect(cost.data.cost.byStation[0]?.key).toBe(IMPLEMENTATION);
   });
 
@@ -173,9 +177,11 @@ describe('the mock insights', () => {
     expect(team_.data.agentConfigs.map((each) => each.harness)).toContain(
       'codex',
     );
-    expect(station.data.agentConfigs.map((each) => each.effort).sort()).toEqual(
-      ['high', 'medium'],
-    );
+    expect(
+      station.data.agentConfigs
+        .map((each) => each.effort)
+        .sort((a, b) => (a ?? '').localeCompare(b ?? '')),
+    ).toEqual(['high', 'medium']);
     expect(station.data.judges).toHaveLength(1);
   });
 

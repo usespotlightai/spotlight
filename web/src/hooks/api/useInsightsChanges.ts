@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { readInsightsChanges } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsChanges } from '@/lib/insights-changes';

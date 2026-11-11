@@ -46,9 +46,9 @@ const reading = (
   carried: readonly Happened[],
   over: { workspaceId?: string | null } = {},
 ) => {
-  const react = vi.fn(
-    async (): Promise<HappeningsReaction> => ({ kind: 'reacted' }),
-  );
+  const react = vi.fn(async (): Promise<HappeningsReaction> => ({
+    kind: 'reacted',
+  }));
   const read = vi.fn(async () => carried);
   const causation = causationInMemory();
   const chains: string[] = [];

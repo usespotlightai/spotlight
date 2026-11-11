@@ -23,9 +23,10 @@ type Refusal = 'unknown-team' | 'unknown-integration' | 'bad-signature';
 
 const REFUSED: DeliveryReceipt = { kind: 'refused' };
 
-export class AcceptDeliveryHandler
-  implements CommandHandlerPort<AcceptDeliveryCommand, DeliveryReceipt>
-{
+export class AcceptDeliveryHandler implements CommandHandlerPort<
+  AcceptDeliveryCommand,
+  DeliveryReceipt
+> {
   constructor(
     private readonly providers: ProviderForDelivery,
     private readonly workspaces: WorkspaceReaderPort,

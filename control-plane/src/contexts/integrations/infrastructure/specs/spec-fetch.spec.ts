@@ -177,13 +177,13 @@ describe('SpecFetch', () => {
   it('says it could not reach a host that refused the connection', async () => {
     const fetching = new SpecFetch(
       allowingOutbound(['specs.example']),
-      (async () => {
+      async () => {
         throw Object.assign(new TypeError('fetch failed'), {
           cause: Object.assign(new Error('connect ECONNREFUSED'), {
             code: 'ECONNREFUSED',
           }),
         });
-      }) as unknown as typeof globalThis.fetch,
+      },
     );
 
     await expect(fetching.text(GET, injection())).rejects.toThrow(

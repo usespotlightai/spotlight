@@ -35,9 +35,10 @@ const workingCopyOf = (requested: string): RunWorkingCopyContract => ({
   restores: 'when-continuing',
 });
 
-export class EnqueueRunHandler
-  implements CommandHandlerPort<EnqueueRunCommand, EnqueuedRunDto | null>
-{
+export class EnqueueRunHandler implements CommandHandlerPort<
+  EnqueueRunCommand,
+  EnqueuedRunDto | null
+> {
   constructor(
     private readonly runs: RunsPort,
     private readonly ids: IdGeneratorPort,

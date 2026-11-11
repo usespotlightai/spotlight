@@ -9,6 +9,7 @@ import { assertOneOwner } from '@change-review/domain/services/stack-owner';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type {
   CheckEntry,
   CheckedStep,
@@ -24,7 +25,6 @@ import {
   queueTimeout,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
-import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';

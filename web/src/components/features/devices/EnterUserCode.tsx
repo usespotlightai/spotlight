@@ -1,5 +1,6 @@
 import { type SubmitEvent, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
+
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import { Button } from '@/components/ui/button';
 import { devicePath, enteredUserCode } from '@/lib/device';

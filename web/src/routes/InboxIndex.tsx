@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+
 import { InboxEmpty } from '@/components/features/inbox/InboxEmpty';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';

@@ -1,11 +1,11 @@
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
-import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Collapsibles } from '@/hooks/useCollapsibles';
 import { UNUSED_SKILLS_NOTE, UNUSED_TITLE } from '@/lib/insights-tools';

@@ -107,6 +107,8 @@ export const withMessagesInFlight = (
         at: new Date(message.sentAt).toISOString(),
         author: me,
         coAuthors: [],
+        source: null,
+        deferredTo: null,
         approval: null,
         failure: null,
         connection: null,

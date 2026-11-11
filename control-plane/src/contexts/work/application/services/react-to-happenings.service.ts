@@ -4,6 +4,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -344,6 +345,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       task,
       attachments,
       happened.authorEmail,
+      happened.payload.happening,
     );
 
     if (!updated) {
@@ -411,7 +413,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
             anchor,
           ),
           at: this.clock.now(),
-          voice: speaker ? Voice.person(speaker) : Voice.world(),
+          voice: speaker
+            ? Voice.person(speaker)
+            : Voice.fromHappening(happened.payload.happening),
           anchor,
           attachments,
         },
@@ -619,6 +623,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     task: Task,
     attachments: readonly Attachment[],
     authorEmail: string | null,
+    happening: Happening,
   ): Promise<Task | null> {
     if (reaction.kind === 'nothing') {
       return null;
@@ -631,7 +636,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     return task.reactTo(reaction, {
       at: this.clock.now(),
-      voice: Voice.world(author),
+      voice: Voice.fromHappening(happening, author),
       attachments,
       ranksAtDestination: destination
         ? (await this.placements.placementsAt(destination)).map(

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { ReplayRunEnded } from '@replays/application/services/record-replay-run-ending.service';
 import { RecordReplayRunEnding } from '@replays/application/services/record-replay-run-ending.service';
@@ -15,8 +16,8 @@ import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.ev
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer } from '@runs/domain/aggregates/run.fake-spec';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
-import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { RunExtensions } from '@runs/domain/value-objects/run-extensions.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunPolicy } from '@runs/domain/value-objects/run-policy.vo';
@@ -34,6 +35,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp } from './support/app';
 
 const NOW = new Date('2026-10-02T09:00:00.000Z');

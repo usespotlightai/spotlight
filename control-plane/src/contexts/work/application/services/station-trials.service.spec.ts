@@ -1,10 +1,7 @@
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
-import type {
-  RunFacts,
-  RunFactsPort,
-} from '@runs/application/ports/run-facts.port';
+import type { RunFacts } from '@runs/application/ports/run-facts.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
@@ -37,10 +34,9 @@ import type { StationSkills } from '@work/application/services/station-skills.se
 import { StationTrials } from '@work/application/services/station-trials.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
@@ -235,7 +231,7 @@ let requestedAgain: {
 
 const trialsOf = () =>
   new StationTrials(
-    { of: async () => (facts ? [facts] : []) } as unknown as RunFactsPort,
+    { of: async () => (facts ? [facts] : []) },
     {
       find: async (id: RunId) =>
         id.equals(ORIGINAL)
@@ -249,7 +245,7 @@ const trialsOf = () =>
           each.id.equals(trial.id) ? trial : each,
         );
       },
-    } as unknown as DispatchRepository,
+    },
     {
       find: async () => (taskGone ? null : { notes: taskNotes }),
     } as unknown as TaskRepository,
@@ -399,7 +395,7 @@ describe('StationTrials', () => {
     expect(spec.diffs).toBe(true);
     expect(spec.check).toBe('npm test');
     expect(spec.attachments).toEqual([
-      { id: SCREENSHOT.id.value, path: expect.any(String) },
+      { id: SCREENSHOT.id.value, path: expect.any(String) as unknown },
     ]);
     expect(spec.briefing).toContain('## Drain the queue');
     expect(trials[0]?.subject).toMatchObject({

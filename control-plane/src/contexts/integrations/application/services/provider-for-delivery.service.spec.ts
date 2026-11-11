@@ -1,4 +1,3 @@
-import type { ConfiguredWebhookProvidersPort } from '@integrations/application/ports/configured-webhook-providers.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
 import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
@@ -31,7 +30,7 @@ const finding = (
       {
         find,
         all: async () => declared.map((each) => provider(each)),
-      } as unknown as ConfiguredWebhookProvidersPort,
+      },
     ),
   };
 };
@@ -107,7 +106,7 @@ describe('ProviderForDelivery', () => {
 
       expect(find).toHaveBeenCalledWith(
         expect.objectContaining({
-          teamId: expect.objectContaining({ value: 'team_1' }),
+          teamId: expect.objectContaining({ value: 'team_1' }) as unknown,
         }),
         IntegrationKey.of('linear'),
       );

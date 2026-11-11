@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { useEffect } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
+
 import { useConnectGitHub } from '@/hooks/api/useConnectGitHub';
 import { whenceFrom } from '@/lib/github';
 import { failed } from '@/lib/query';

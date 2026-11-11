@@ -23,18 +23,18 @@ import {
 import { HookSteps } from '@integrations/application/services/hook-steps.service';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
-import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { usedTool } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
-import { Integration } from '@integrations/domain/value-objects/integration.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { RunAttemptRef } from '@integrations/domain/value-objects/run-attempt-ref.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
@@ -166,19 +166,17 @@ const setUp = (
       async (request: { step: HookStepName }): Promise<StepResult | null> =>
         answered(request.step),
     ),
-    unanswered: vi.fn(
-      (request: { step: HookStepName }): StepResult => ({
-        outcome: {
-          name: request.step,
-          status: 'failed',
-          code: 'unreachable',
-          reason: 'no host of the workspace answered in time',
-          output: null,
-        },
-        denyReason: null,
-        trace: null,
-      }),
-    ),
+    unanswered: vi.fn((request: { step: HookStepName }): StepResult => ({
+      outcome: {
+        name: request.step,
+        status: 'failed',
+        code: 'unreachable',
+        reason: 'no host of the workspace answered in time',
+        output: null,
+      },
+      denyReason: null,
+      trace: null,
+    })),
     notSent: vi.fn(
       (request: { step: HookStepName }, failure: HookFailure): StepResult => ({
         outcome: {
@@ -405,7 +403,7 @@ describe('HookSteps', () => {
         outcome: {
           status: 'failed',
           code: 'not-allowed',
-          reason: expect.stringMatching(/approval/),
+          reason: expect.stringMatching(/approval/) as unknown,
         },
       });
       expect(resolved.attempt).not.toHaveBeenCalled();
@@ -421,7 +419,7 @@ describe('HookSteps', () => {
         outcome: {
           status: 'failed',
           code: 'not-allowed',
-          reason: expect.stringMatching(/A hook acts as nobody/),
+          reason: expect.stringMatching(/A hook acts as nobody/) as unknown,
         },
       });
       expect(resolved.attempt).not.toHaveBeenCalled();

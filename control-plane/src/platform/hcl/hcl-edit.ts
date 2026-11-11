@@ -1,4 +1,5 @@
 import { posix } from 'node:path';
+
 import {
   attribute,
   type HclAttribute,
@@ -259,10 +260,10 @@ class Editing {
     );
 
     if (mine.length === 1) {
-      return { found: mine[0] as ParsedBlock, unknown: unknown.length };
+      return { found: mine[0], unknown: unknown.length };
     }
     if (mine.length === 0 && candidates.length === 1 && unknown.length === 1) {
-      return { found: unknown[0] as ParsedBlock, unknown: 1 };
+      return { found: unknown[0], unknown: 1 };
     }
 
     return { found: null, unknown: mine.length > 1 ? 2 : unknown.length };
@@ -308,7 +309,7 @@ class Editing {
     ).length;
 
     if (matching.length === 1) {
-      return matching[0] as ParsedBlock;
+      return matching[0];
     }
 
     const counted = [
@@ -374,7 +375,7 @@ class Editing {
         const values = read.items.map((each) => literalOf(each.read));
 
         return values.every((each) => each !== undefined)
-          ? { ok: true, value: values as HclLiteral[] }
+          ? { ok: true, value: values }
           : computed;
       }
       case 'file': {
@@ -468,7 +469,7 @@ class Editing {
         return HclExpression.verbatim(original.sourceText);
       }
 
-      return this.referenceFor(value, rule) ?? (value as HclValue);
+      return this.referenceFor(value, rule) ?? value;
     };
 
     return Array.isArray(field.desired)

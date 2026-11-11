@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
@@ -23,6 +24,7 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';

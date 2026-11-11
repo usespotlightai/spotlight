@@ -15,6 +15,7 @@ import {
 } from '@replays/domain/services/replay-check-result';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
+import { REPLAY_STOP_CAUSES } from '@replays/domain/value-objects/replay-stop-cause';
 import {
   GainEstimateResponseDto,
   gainResponse,
@@ -175,6 +176,15 @@ export class ReplayCheckSideResponseDto {
   @ApiProperty({ type: MoneyResponseDto, nullable: true })
   readonly spent: MoneyResponseDto | null;
 
+  @ApiProperty({
+    enum: [...REPLAY_STOP_CAUSES, null],
+    nullable: true,
+    type: String,
+    description:
+      'Why this side’s replay stopped: superseded by a later check of the same pull request, insufficient credits for the judge model, the search that ran it ended, or the live config moved on so it went stale',
+  })
+  readonly stoppedBecause: string | null;
+
   constructor(side: CheckSideDto) {
     this.state = side.state;
     this.entries = side.entries;
@@ -184,6 +194,7 @@ export class ReplayCheckSideResponseDto {
     this.interval = intervalResponse(side.interval);
     this.tasksScored = side.tasksScored;
     this.spent = side.spent && new MoneyResponseDto(side.spent);
+    this.stoppedBecause = side.stoppedBecause;
   }
 }
 

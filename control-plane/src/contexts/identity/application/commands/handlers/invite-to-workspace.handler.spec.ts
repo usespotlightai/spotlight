@@ -1,22 +1,18 @@
 import { InviteToWorkspaceHandler } from '@identity/application/commands/handlers/invite-to-workspace.handler';
 import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
-import type {
-  InviteMailPort,
-  InviteToSend,
-} from '@identity/application/ports/invite-mail.port';
-import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
+import type { InviteToSend } from '@identity/application/ports/invite-mail.port';
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { InviteSending } from '@identity/application/services/invite-sending.service';
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
 import { WorkspaceInviting } from '@identity/application/services/workspace-inviting.service';
 import { Team } from '@identity/domain/aggregates/team.aggregate';
-import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
-import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
+import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
@@ -26,7 +22,6 @@ import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo'
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -96,9 +91,15 @@ const inviting = (
     sender?: null;
   } = {},
 ) => {
-  const add = vi.fn(over.add ?? (async (_: WorkspaceInvite) => {}));
-  const save = vi.fn(over.save ?? (async (_: WorkspaceInvite) => {}));
-  const send = vi.fn(over.mail ?? (async (_: InviteToSend) => {}));
+  const add = vi.fn<(invite: WorkspaceInvite) => Promise<void>>(
+    over.add ?? (async () => {}),
+  );
+  const save = vi.fn<(invite: WorkspaceInvite) => Promise<void>>(
+    over.save ?? (async () => {}),
+  );
+  const send = vi.fn<(sending: InviteToSend) => Promise<void>>(
+    over.mail ?? (async () => {}),
+  );
   const warn = vi.fn();
   let issued = 0;
   let generated = 0;
@@ -118,13 +119,13 @@ const inviting = (
     {
       byEmail: async (_: WorkspaceId, email: string) =>
         over.members?.includes(email) ? LEON : null,
-    } as MemberDirectoryPort,
+    },
     new InviteSending(
       {
         find: async () =>
           over.sender === null ? null : { id: LEON, name: 'Leon', image: null },
       } as unknown as PersonReaderPort,
-      { send } as InviteMailPort,
+      { send },
       { warn } as unknown as LoggerPort,
     ),
     {
@@ -138,7 +139,7 @@ const inviting = (
         generated += 1;
         return `invite_${generated}`;
       },
-    } as IdGeneratorPort,
+    },
     { now: () => NOW } as ClockPort,
   );
 

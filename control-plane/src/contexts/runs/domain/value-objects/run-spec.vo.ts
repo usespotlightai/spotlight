@@ -145,7 +145,11 @@ export const checkoutFoldersOf = (
 const setupCopied = (setup: RunHarnessSetup): RunHarnessSetup => ({
   files: setup.files.map(({ path, text }) => ({ path, text })),
   ...(setup.session
-    ? { session: JSON.parse(JSON.stringify(setup.session)) }
+    ? {
+        session: JSON.parse(JSON.stringify(setup.session)) as NonNullable<
+          RunHarnessSetup['session']
+        >,
+      }
     : {}),
   mcpServers: setup.mcpServers.map((server) => ({
     name: server.name,

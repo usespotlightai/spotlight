@@ -34,9 +34,7 @@ const ACP_1: FrameReader = {
   read(data: string): HarnessNotification | null {
     try {
       const parsed: unknown = JSON.parse(decoded(data));
-      return typeof parsed === 'object' && parsed !== null
-        ? (parsed as HarnessNotification)
-        : null;
+      return typeof parsed === 'object' && parsed !== null ? parsed : null;
     } catch {
       return null;
     }

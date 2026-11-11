@@ -1,9 +1,10 @@
 import {
-  type FormEvent,
+  type SubmitEvent,
   type KeyboardEvent,
   type ReactNode,
   useState,
 } from 'react';
+
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { Button } from '@/components/ui/button';
 
@@ -37,7 +38,7 @@ export function Composer({
   const [body, setBody] = useState(initial);
   const ready = body.trim().length > 0 && !pending;
 
-  const submit = (event?: FormEvent) => {
+  const submit = (event?: SubmitEvent) => {
     event?.preventDefault();
 
     if (ready) {

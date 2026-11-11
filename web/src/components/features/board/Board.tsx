@@ -1,5 +1,6 @@
 import { DndContext } from '@dnd-kit/core';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
+
 import { BoardStation } from '@/components/features/board/BoardStation';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
 import { TaskDragOverlay } from '@/components/features/board/TaskDragOverlay';

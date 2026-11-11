@@ -1,14 +1,23 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
 import type { SharedTrace, TargetStation } from '@/lib/chat';
 import { toast } from '@/lib/toast';
 import { erase, pressEnter, textOf, write } from '@/test/lexical';
 
-const started = vi.fn();
+const started = vi.fn<
+  (
+    input: unknown,
+    options: {
+      onSuccess: (data?: unknown) => void;
+      onError: (error: Error) => void;
+    },
+  ) => void
+>();
 const starting = { isError: false, error: null as unknown };
-const harnesses = vi.fn();
+const harnesses = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({ data: harnesses() }),
@@ -165,7 +174,9 @@ describe('NewChatComposer', () => {
 
     expect(started).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('What should change at this station?'),
+        body: expect.stringContaining(
+          'What should change at this station?',
+        ) as string,
         targetStation: 'station_spec',
       }),
       expect.anything(),

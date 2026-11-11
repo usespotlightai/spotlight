@@ -50,7 +50,7 @@ describe('InternalErrorFilter', () => {
     filter.catch(exception, host);
 
     expect(error).toHaveBeenCalledTimes(1);
-    const [payload, message] = error.mock.calls[0];
+    const [payload, message] = error.mock.calls[0] as [{ err: Error }, string];
     expect(message).toBe('Internal error');
     expect(payload).toMatchObject({ method: 'GET', url: '/api/boom' });
     expect(payload.err).toBe(exception);

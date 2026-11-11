@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+
 import { StationNameSkeleton } from '@/components/features/inbox/conversation/StationNameSkeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 

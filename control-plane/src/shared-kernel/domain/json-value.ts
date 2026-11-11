@@ -16,6 +16,10 @@ export const owns = (object: JsonObject, field: string): boolean =>
 export const isJsonObject = (value: unknown): value is JsonObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+export const isJsonArray = (
+  value: JsonValue | undefined,
+): value is readonly JsonValue[] => Array.isArray(value);
+
 const isJsonWithin = (value: unknown, depth: number): boolean => {
   if (
     value === null ||
@@ -55,14 +59,12 @@ const sameWithin = (
     return false;
   }
 
-  if (Array.isArray(one) || Array.isArray(other)) {
+  if (isJsonArray(one) || isJsonArray(other)) {
     return (
-      Array.isArray(one) &&
-      Array.isArray(other) &&
+      isJsonArray(one) &&
+      isJsonArray(other) &&
       one.length === other.length &&
-      one.every((each, at) =>
-        sameWithin(each, other[at] as JsonValue, depth + 1),
-      )
+      one.every((each, at) => sameWithin(each, other[at], depth + 1))
     );
   }
 
@@ -77,12 +79,7 @@ const sameWithin = (
       fields.length === Object.keys(other).length &&
       fields.every(
         (field) =>
-          owns(other, field) &&
-          sameWithin(
-            one[field] as JsonValue,
-            other[field] as JsonValue,
-            depth + 1,
-          ),
+          owns(other, field) && sameWithin(one[field], other[field], depth + 1),
       )
     );
   }

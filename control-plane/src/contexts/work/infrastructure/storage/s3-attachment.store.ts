@@ -21,8 +21,8 @@ import type {
   Wanted,
 } from '@work/application/ports/attachment-store.port';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
-import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 
 const SIGNED_FOR = 15 * 60;
 

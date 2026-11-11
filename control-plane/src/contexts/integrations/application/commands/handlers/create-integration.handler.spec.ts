@@ -1,6 +1,5 @@
 import { CreateIntegrationCommand } from '@integrations/application/commands/create-integration.command';
 import { CreateIntegrationHandler } from '@integrations/application/commands/handlers/create-integration.handler';
-import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationAlreadyExistsError } from '@integrations/domain/exceptions/integration-already-exists.error';
 import {
   access,
@@ -106,7 +105,7 @@ describe('CreateIntegrationHandler', () => {
       replayed: false,
     });
 
-    const [saved] = repository.save.mock.calls[0] as [IntegrationDefinition];
+    const [saved] = repository.save.mock.calls[0];
 
     expect(saved.isNew).toBe(true);
     expect(saved.teamId).toEqual(TEAM);

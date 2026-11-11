@@ -1,5 +1,6 @@
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { TeamScopes } from '@insights/application/services/team-scopes.service';
+import { TeamNotFoundError } from '@insights/domain/exceptions/team-not-found.error';
 import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
 import { WORKSPACE } from '@insights/runs.fake-spec';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -38,6 +39,6 @@ describe('TeamScopes', () => {
         PersonPrincipal.of(UserId.of('user_bob')),
         '7d',
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(TeamNotFoundError);
   });
 });

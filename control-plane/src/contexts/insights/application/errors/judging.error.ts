@@ -1,4 +1,7 @@
-export type JudgingErrorKind = 'request-failed' | 'unreadable';
+export type JudgingErrorKind =
+  | 'request-failed'
+  | 'insufficient-credits'
+  | 'unreadable';
 
 export class JudgingError extends Error {
   constructor(

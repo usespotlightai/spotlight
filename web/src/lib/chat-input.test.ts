@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { type Reference, targetStationIdIn } from '@/lib/chat-input';
 
 const SPEC: Reference = { kind: 'station', key: 'station_spec', name: 'Spec' };

@@ -7,13 +7,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class WorkspaceConfigurationHandler
-  implements
-    QueryHandlerPort<
-      WorkspaceConfigurationQuery,
-      ExportableConfigurationDto | null
-    >
-{
+export class WorkspaceConfigurationHandler implements QueryHandlerPort<
+  WorkspaceConfigurationQuery,
+  ExportableConfigurationDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly workspaces: WorkspaceReaderPort,

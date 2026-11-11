@@ -1,4 +1,5 @@
 import { ChartNoAxesColumn, type LucideIcon, Table2 } from 'lucide-react';
+
 import { Segmented } from '@/components/shared/Segmented';
 
 type ChartTableSwitchProps = {

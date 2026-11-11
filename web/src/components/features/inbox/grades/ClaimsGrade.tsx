@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import { GradeOptionButton } from '@/components/features/inbox/grades/GradeOptionButton';
 import { formatClaim, type Grade, gradeOptions, YOUR_GRADE } from '@/lib/judge';
 
@@ -44,7 +45,7 @@ export function ClaimsGrade({
     >
       {claims.map((_, at) => (
         <li
-          // biome-ignore lint/suspicious/noArrayIndexKey: the position of a claim in the judge's list identifies it
+          // oxlint-disable-next-line react/no-array-index-key -- the position of a claim in the judge's list identifies it
           key={at}
           data-slot="claim-to-grade"
         >

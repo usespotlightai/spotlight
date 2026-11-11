@@ -1,5 +1,4 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -121,7 +120,7 @@ const creating = (line: LineMap | null) => {
     { placementsAt: vi.fn(async () => []) },
     { create } as unknown as CreateTask,
     new AttachmentCopies({ copy } as unknown as AttachmentStorePort),
-    { generate: () => 'task_9' } as IdGeneratorPort,
+    { generate: () => 'task_9' },
     { now: () => NOW } as ClockPort,
   );
 

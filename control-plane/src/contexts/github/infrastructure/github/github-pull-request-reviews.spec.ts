@@ -1,4 +1,3 @@
-import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -30,10 +29,13 @@ const answering = (
       const request: SentRequest = {
         url,
         method: init.method ?? 'GET',
-        token: String(
-          (init.headers as Record<string, string>).authorization,
-        ).replace('Bearer ', ''),
-        body: init.body ? JSON.parse(String(init.body)) : null,
+        token: (init.headers as Record<string, string>).authorization.replace(
+          'Bearer ',
+          '',
+        ),
+        body: init.body
+          ? (JSON.parse(init.body as string) as Record<string, unknown>)
+          : null,
       };
       requests.push(request);
       const { status, body } = reply(request);
@@ -49,7 +51,7 @@ const reviews = (personal: string | null) =>
   new GitHubPullRequestReviews(
     {
       credential: async () => ({ username: 'x-access-token', password: 'app' }),
-    } as unknown as RepositoryAccessPort,
+    },
     { tokenFor: async () => personal },
   );
 
@@ -101,7 +103,7 @@ describe('GitHubPullRequestReviews', () => {
           username: 'x-access-token',
           password: 'app',
         }),
-      } as unknown as RepositoryAccessPort,
+      },
       { tokenFor },
     ).submit({
       ...ON,
@@ -250,7 +252,7 @@ describe('GitHubPullRequestReviews', () => {
       ...ON,
       event: 'comment',
       body: '',
-      comments: [COMMENTS[0] as (typeof COMMENTS)[number]],
+      comments: [COMMENTS[0]],
     });
 
     expect(submitted.comments).toEqual([{ id: 31, url: 'c31' }]);
@@ -287,7 +289,7 @@ describe('GitHubPullRequestReviews', () => {
       event: 'comment',
       body: 'Two things',
       comments: [
-        COMMENTS[0] as (typeof COMMENTS)[number],
+        COMMENTS[0],
         {
           path: 'src/tests/a.test.ts',
           side: 'new',

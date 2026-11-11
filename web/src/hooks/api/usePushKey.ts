@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { getPushKey } from '@/lib/api';
 
 const pushKeyKeys = {

@@ -41,8 +41,8 @@ export class RunMemories {
     recalled: readonly string[];
   }): RunMemories {
     return new RunMemories(
-      inOrder(input.briefed.map(MemoryReference.of)),
-      inOrder(input.recalled.map(MemoryReference.of)),
+      inOrder(input.briefed.map((raw) => MemoryReference.of(raw))),
+      inOrder(input.recalled.map((raw) => MemoryReference.of(raw))),
     );
   }
 

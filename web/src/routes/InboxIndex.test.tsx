@@ -2,10 +2,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { InboxIndex } from '@/routes/InboxIndex';
 
-const waiting = vi.fn();
-const failing = vi.fn();
+const waiting = vi.fn<(...args: unknown[]) => unknown>();
+const failing = vi.fn<(...args: unknown[]) => unknown>();
 const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({

@@ -65,7 +65,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
   }
 
   async idle(): Promise<void> {
-    await Promise.all([...this.#running]);
+    await Promise.all(this.#running);
   }
 
   private leaseNext(): Promise<{

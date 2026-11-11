@@ -56,7 +56,7 @@ export const bootstrapped = (
     let sum = 0;
 
     for (let drawn = 0; drawn < values.length; drawn += 1) {
-      sum += values[Math.floor(random() * values.length)] as number;
+      sum += values[Math.floor(random() * values.length)];
     }
 
     return sum / values.length;
@@ -64,8 +64,8 @@ export const bootstrapped = (
 
   return {
     mean: meanOf(values),
-    low: means[Math.floor(RESAMPLES * LOW_TAIL)] as number,
-    high: means[Math.ceil(RESAMPLES * HIGH_TAIL) - 1] as number,
+    low: means[Math.floor(RESAMPLES * LOW_TAIL)],
+    high: means[Math.ceil(RESAMPLES * HIGH_TAIL) - 1],
   };
 };
 

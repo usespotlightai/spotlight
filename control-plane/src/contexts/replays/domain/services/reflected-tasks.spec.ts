@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 const SET = aSet(10);
 
 const seeded = (): Search =>
-  aSearch({ set: SET }).recordReplayStopReason(
+  aSearch({ set: SET }).recordReplayEndState(
     ReplayId.of('replay_seed'),
     'finished',
     { spent: Money.of(10, 'USD'), unpriced: 0 },

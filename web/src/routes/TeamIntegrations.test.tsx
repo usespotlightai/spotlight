@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { installUrlFor } from '@/lib/github';
 import { TeamIntegrations } from '@/routes/TeamIntegrations';
 
@@ -9,11 +10,11 @@ const configuration = vi.fn();
 const github = vi.fn();
 const connections = vi.fn();
 const members = vi.fn();
-const role = vi.fn();
+const role = vi.fn<(...args: unknown[]) => unknown>();
 const connect = vi.fn();
 const disconnect = vi.fn();
-const connectFailed = vi.fn();
-const disconnectFailed = vi.fn();
+const connectFailed = vi.fn<(...args: unknown[]) => unknown>();
+const disconnectFailed = vi.fn<(...args: unknown[]) => unknown>();
 
 const failing = vi.fn();
 const refetch = vi.fn();
@@ -86,6 +87,7 @@ const ready = (over: Record<string, unknown> = {}) => ({
 const integration = (over: Record<string, unknown> = {}) => ({
   integration: 'pagerduty',
   name: 'PagerDuty',
+  logo: null,
   path: 'integrations/pagerduty.tf',
   connectionStatus: 'not-required',
   actsAs: 'team',

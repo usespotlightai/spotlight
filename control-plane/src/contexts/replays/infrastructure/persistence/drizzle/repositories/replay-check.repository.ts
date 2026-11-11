@@ -120,6 +120,18 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
     );
   }
 
+  ofPullRequest(
+    stationId: StationId,
+    pullRequest: number,
+  ): Promise<readonly ReplayCheck[]> {
+    return this.where(
+      and(
+        eq(replayCheck.stationId, stationId.value),
+        eq(replayCheck.referencePullRequest, pullRequest),
+      ) as SQL,
+    );
+  }
+
   awaitingBaseline(): Promise<readonly ReplayCheck[]> {
     return this.where(eq(replayCheck.baseline, 'awaiting'));
   }

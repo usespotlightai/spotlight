@@ -9,9 +9,10 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class DisconnectIntegrationHandler
-  implements CommandHandlerPort<DisconnectIntegrationCommand, boolean>
-{
+export class DisconnectIntegrationHandler implements CommandHandlerPort<
+  DisconnectIntegrationCommand,
+  boolean
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly connections: IntegrationConnectionRepository,

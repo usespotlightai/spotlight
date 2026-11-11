@@ -46,7 +46,7 @@ export class DeliveryAttempts {
         return made < MAX_ATTEMPTS
           ? { at: after(now, BACKOFF_MS * 2 ** this.made), counted: true }
           : null;
-      default:
+      case 'permanent':
         return null;
     }
   }

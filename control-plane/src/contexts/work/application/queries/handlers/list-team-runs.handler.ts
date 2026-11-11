@@ -13,9 +13,10 @@ import type {
 } from '@work/application/queries/list-team-runs.query';
 import type { RunAccess } from '@work/application/services/run-access.service';
 
-export class ListTeamRunsHandler
-  implements QueryHandlerPort<ListTeamRunsQuery, Page<TeamRunDto>>
-{
+export class ListTeamRunsHandler implements QueryHandlerPort<
+  ListTeamRunsQuery,
+  Page<TeamRunDto>
+> {
   constructor(
     private readonly runs: RunReaderPort,
     private readonly access: RunAccess,
@@ -33,16 +34,17 @@ export class ListTeamRunsHandler
 
       const found = await this.runs.listForTeam(teamId, query.page);
 
-      return mapPage(found, TaskRunMapper.teamSummaryToDto);
+      return mapPage(found, (each) => TaskRunMapper.teamSummaryToDto(each));
     } catch (error) {
       rethrowAsApplicationError(error);
     }
   }
 }
 
-export class ReadTeamRunHandler
-  implements QueryHandlerPort<ReadTeamRunQuery, TeamRunDto | null>
-{
+export class ReadTeamRunHandler implements QueryHandlerPort<
+  ReadTeamRunQuery,
+  TeamRunDto | null
+> {
   constructor(
     private readonly runs: RunReaderPort,
     private readonly access: RunAccess,

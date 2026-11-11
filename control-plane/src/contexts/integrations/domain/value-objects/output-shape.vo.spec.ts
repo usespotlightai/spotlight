@@ -1,4 +1,5 @@
 import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { JsonValue } from '@shared-kernel/domain/json-value';
 import { describe, expect, it } from 'vitest';
 
@@ -223,6 +224,8 @@ describe('OutputShape', () => {
         JSON.parse(JSON.stringify(shape.toJson())),
       ).toJson(),
     ).toEqual(shape.toJson());
-    expect(() => OutputShape.fromStored({ kind: 'nonsense' })).toThrow();
+    expect(() => OutputShape.fromStored({ kind: 'nonsense' })).toThrow(
+      InconsistentStateError,
+    );
   });
 });

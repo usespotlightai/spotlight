@@ -1,3 +1,5 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
 import { LINKED_ACCOUNTS } from '@identity/application/ports/linked-accounts.port';
 import { SESSION_READER } from '@identity/application/ports/session-reader.port';
 import type { AppAuth } from '@identity/infrastructure/auth/auth';
@@ -21,6 +23,7 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 
 const REQUEST_LIMIT = '4mb';
 
@@ -35,8 +38,6 @@ const formKeepingRawBody = {
     request.rawBody = buffer;
   },
 };
-
-import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 
 @Module({
   imports: [ConfigModule, DrizzleModule],
@@ -75,7 +76,11 @@ class AuthCoreModule {}
           json: { limit: REQUEST_LIMIT },
           urlencoded: formKeepingRawBody,
         },
-        middleware: (req, res, next) => logging.httpLogger(req, res, next),
+        middleware: (
+          req: IncomingMessage,
+          res: ServerResponse,
+          next: (error?: unknown) => void,
+        ) => logging.httpLogger(req, res, next),
       }),
     }),
   ],

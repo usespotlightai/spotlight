@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode, Ref } from 'react';
+
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { cn } from '@/lib/utils';
@@ -24,7 +25,7 @@ export function SidePane({
   ref?: Ref<HTMLElement>;
   children: ReactNode;
 }) {
-  const { width, resizing, handleProps, paneRef } = usePaneWidth<HTMLElement>({
+  const { width, resizing, handleProps, paneRef } = usePaneWidth({
     ...pane,
     edge: 'left',
     property: '--detail-w',

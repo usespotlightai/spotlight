@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';

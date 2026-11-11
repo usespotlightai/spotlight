@@ -323,7 +323,7 @@ describe('ConfigPullRequestBody', () => {
       ...FACTS,
       changes: [
         long('prompt'),
-        FACTS.changes[1] as (typeof FACTS.changes)[number],
+        FACTS.changes[1],
         long('skills'),
         { ...long('model'), was: 'm1', now: 'm2' },
       ],

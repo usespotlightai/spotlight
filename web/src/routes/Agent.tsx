@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+
 import { AgentChats } from '@/components/features/agent/AgentChats';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';

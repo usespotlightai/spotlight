@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router';
+
 import { Button } from '@/components/ui/button';
 import { useAcceptInvite } from '@/hooks/api/useAcceptInvite';
 import { messageOf } from '@/lib/error';
@@ -37,7 +38,9 @@ export function AcceptAsSignedIn({
             onClick={() =>
               accept.mutate(undefined, {
                 onSuccess: (joined) =>
-                  navigate(inboxPath(joined.workspaceSlug), { replace: true }),
+                  void navigate(inboxPath(joined.workspaceSlug), {
+                    replace: true,
+                  }),
               })
             }
           >

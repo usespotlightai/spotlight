@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { TeamDirectory } from '@identity/application/services/team-directory.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { WorkspaceReader } from '@identity/application/services/workspace-reader.service';
@@ -24,6 +25,7 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 import { createTeam as createTeamIn } from './support/team';

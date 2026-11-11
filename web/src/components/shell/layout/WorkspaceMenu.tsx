@@ -1,5 +1,6 @@
 import { ChevronsUpDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
+
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
 import { ThemeToggle } from '@/components/shell/layout/ThemeToggle';
 import {

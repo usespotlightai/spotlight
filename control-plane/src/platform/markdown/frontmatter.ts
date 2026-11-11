@@ -8,7 +8,5 @@ export interface Fronted {
 export const splitFrontmatter = (text: string): Fronted | null => {
   const matched = FRONTMATTER.exec(text);
 
-  return matched
-    ? { front: matched[1] as string, body: matched[2] as string }
-    : null;
+  return matched ? { front: matched[1], body: matched[2] } : null;
 };

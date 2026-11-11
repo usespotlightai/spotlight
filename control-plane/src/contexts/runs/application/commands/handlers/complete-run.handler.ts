@@ -7,8 +7,8 @@ import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandedOverFile } from '@runs/domain/value-objects/handed-over-file.vo';
-import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';
+import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HarnessSession } from '@runs/domain/value-objects/harness-session.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -20,9 +20,10 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 const ATTEMPTS = 3;
 
-export class CompleteRunHandler
-  implements CommandHandlerPort<CompleteRunCommand, void>
-{
+export class CompleteRunHandler implements CommandHandlerPort<
+  CompleteRunCommand,
+  void
+> {
   constructor(
     private readonly runs: RunRepository,
     private readonly transaction: TransactionPort,

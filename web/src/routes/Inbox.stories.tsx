@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { stateFor } from '@/lib/github';
 import { inboxItemPath, inboxPath } from '@/lib/inbox';
 import { PLATFORM_ID, SLUG } from '@/mocks/world';

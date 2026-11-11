@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { gitHubKeys } from '@/hooks/api/useGitHub';
 import { connectGitHub } from '@/lib/api';
 

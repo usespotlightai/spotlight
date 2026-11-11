@@ -9,9 +9,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
-export class ReadTerraformStateHandler
-  implements QueryHandlerPort<ReadTerraformStateQuery, StateRead>
-{
+export class ReadTerraformStateHandler implements QueryHandlerPort<
+  ReadTerraformStateQuery,
+  StateRead
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly states: TerraformStateReaderPort,

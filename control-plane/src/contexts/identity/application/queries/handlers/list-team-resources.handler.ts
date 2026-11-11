@@ -7,10 +7,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ListTeamResourcesHandler
-  implements
-    QueryHandlerPort<ListTeamResourcesQuery, readonly TeamResourceDto[] | null>
-{
+export class ListTeamResourcesHandler implements QueryHandlerPort<
+  ListTeamResourcesQuery,
+  readonly TeamResourceDto[] | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,
@@ -26,8 +26,8 @@ export class ListTeamResourcesHandler
       );
 
       return permissions
-        ? (await this.resources.teamsIn(permissions.workspaceId)).map(
-            ResourceMapper.team,
+        ? (await this.resources.teamsIn(permissions.workspaceId)).map((team) =>
+            ResourceMapper.team(team),
           )
         : null;
     } catch (error) {

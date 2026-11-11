@@ -3,8 +3,8 @@ import type { RedeemCallSecretsDto } from '@runs/application/dto/host-call.dto';
 import type { NetworkCall } from '@runs/domain/aggregates/network-call.aggregate';
 import { CallSecretsExpiredError } from '@runs/domain/exceptions/call-secrets-expired.error';
 import { CallSecretsRedeemedError } from '@runs/domain/exceptions/call-secrets-redeemed.error';
-import { InvalidNetworkCallError } from '@runs/domain/exceptions/invalid-network-call.error';
 import { InvalidNetworkCallTransitionError } from '@runs/domain/exceptions/invalid-network-call-transition.error';
+import { InvalidNetworkCallError } from '@runs/domain/exceptions/invalid-network-call.error';
 import { NetworkCallVersionConflictError } from '@runs/domain/exceptions/network-call-version-conflict.error';
 import { NotThisHostsCallError } from '@runs/domain/exceptions/not-this-hosts-call.error';
 import { WrongCallSecretsTokenError } from '@runs/domain/exceptions/wrong-call-secrets-token.error';
@@ -24,9 +24,10 @@ const TAKEN = [
   InvalidNetworkCallTransitionError,
 ];
 
-export class RedeemCallSecretsHandler
-  implements CommandHandlerPort<RedeemCallSecretsCommand, RedeemCallSecretsDto>
-{
+export class RedeemCallSecretsHandler implements CommandHandlerPort<
+  RedeemCallSecretsCommand,
+  RedeemCallSecretsDto
+> {
   constructor(
     private readonly calls: NetworkCallRepository,
     private readonly fetches: CallSecretFetchesPort,

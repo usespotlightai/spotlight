@@ -4,7 +4,6 @@ import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-r
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -33,7 +32,7 @@ const using = () => {
     {
       issue: () => ({ token: 'raw-token', hash: 'b'.repeat(64) }),
     } as unknown as TokenIssuer,
-    { generate: () => 'Token_1' } as IdGeneratorPort,
+    { generate: () => 'Token_1' },
     { now: () => NOW } as ClockPort,
     {
       inTransaction: (work: () => Promise<unknown>) => work(),

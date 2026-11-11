@@ -36,8 +36,8 @@ import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.err
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';

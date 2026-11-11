@@ -69,7 +69,7 @@ const notifying = (
   markedTask: Task | null = null,
 ) => {
   const task = handed();
-  const save = vi.fn(async (_: Task) => {});
+  const save = vi.fn<(task: Task) => Promise<void>>(async () => {});
   const notify = vi.fn(async () => marks);
   const handler = new NotifyOutsideTools(
     {

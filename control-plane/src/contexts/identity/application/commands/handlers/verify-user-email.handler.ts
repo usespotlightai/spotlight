@@ -10,9 +10,10 @@ import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class VerifyUserEmailHandler
-  implements CommandHandlerPort<VerifyUserEmailCommand, UserEmailDto | null>
-{
+export class VerifyUserEmailHandler implements CommandHandlerPort<
+  VerifyUserEmailCommand,
+  UserEmailDto | null
+> {
   constructor(
     private readonly emails: UserEmailRepository,
     private readonly owners: EmailOwnersPort,

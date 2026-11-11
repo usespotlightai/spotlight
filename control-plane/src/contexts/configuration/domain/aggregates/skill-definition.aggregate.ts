@@ -6,9 +6,9 @@ import { SkillDefinitionVersionConflictError } from '@configuration/domain/excep
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import type { SkillFolderReading } from '@configuration/domain/services/skill-folder-reading';
 import type { DefinedSkillKey } from '@configuration/domain/value-objects/defined-skill-key.vo';
-import type { Skill } from '@configuration/domain/value-objects/skill.vo';
 import type { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import type { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
+import type { Skill } from '@configuration/domain/value-objects/skill.vo';
 import type { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';

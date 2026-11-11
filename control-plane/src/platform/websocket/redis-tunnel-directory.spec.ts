@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 const connected = (): RedisPubSub => {
-  const client = new RedisMock() as unknown as Redis;
+  const client = new RedisMock();
   const subscriber = client.duplicate();
   connections.push(client, subscriber);
 

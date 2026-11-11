@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsPager } from '@/components/features/insights/InsightsPager';

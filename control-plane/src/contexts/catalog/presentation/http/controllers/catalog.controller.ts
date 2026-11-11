@@ -77,7 +77,7 @@ const respondResolved = <R>(
       throw ProblemException.notFound(kind, resolution.because);
     case 'not-entitled':
       throw notEntitled(kind, resolution.because);
-    default:
+    case undefined:
       throw ProblemException.notFound(kind);
   }
 };

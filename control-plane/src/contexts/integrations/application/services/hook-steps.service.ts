@@ -19,13 +19,13 @@ import type {
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { InvalidToolInputsError } from '@integrations/domain/exceptions/invalid-tool-inputs.error';
-import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import {
   type WaitingHookStep,
   waitExpiredAt,
 } from '@integrations/domain/value-objects/hook-step-outcome.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { ToolInputs } from '@integrations/domain/value-objects/tool-inputs.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';

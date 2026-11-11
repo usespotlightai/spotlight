@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+
 import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';

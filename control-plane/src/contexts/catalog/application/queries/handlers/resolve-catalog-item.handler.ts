@@ -48,9 +48,10 @@ const attempted = <T>(
   }
 };
 
-export class ResolveCatalogItemHandler
-  implements QueryHandlerPort<ResolveCatalogItemQuery, CatalogResolution | null>
-{
+export class ResolveCatalogItemHandler implements QueryHandlerPort<
+  ResolveCatalogItemQuery,
+  CatalogResolution | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly catalog: CatalogItems,

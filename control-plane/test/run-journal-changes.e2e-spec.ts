@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
+
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { JournalEntry } from '@runs/application/ports/run-journal.port';
 import { runJournalReadings } from '@runs/application/ports/run-journal-readings.fake-spec';
+import type { JournalEntry } from '@runs/application/ports/run-journal.port';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
@@ -17,6 +18,7 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';

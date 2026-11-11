@@ -27,7 +27,10 @@ const serving = (status: number, body: unknown) => {
     'https://catalog.example.com/v1',
     'catalog-token',
     async (url, init) => {
-      sent.push({ url: String(url), init: init ?? {} });
+      sent.push({
+        url: url instanceof Request ? url.url : url.toString(),
+        init: init ?? {},
+      });
       return new Response(JSON.stringify(body), { status });
     },
   );
@@ -50,7 +53,7 @@ describe('HttpCatalogClient', () => {
       'spotlight-workspace': 'ws_1',
       'spotlight-run': 'run_1',
     });
-    expect(JSON.parse(String(sent[0]?.init.body))).toEqual({
+    expect(JSON.parse(sent[0]?.init.body as string)).toEqual({
       inputs: { query: 'queues' },
     });
   });

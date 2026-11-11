@@ -1,4 +1,5 @@
 import { Inbox } from 'lucide-react';
+
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type Run, waitsForYou } from '@/lib/run';

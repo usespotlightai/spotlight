@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';

@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+
 import { listInsightsTraces } from '@/lib/api';
 import type {
   InsightsTraces,

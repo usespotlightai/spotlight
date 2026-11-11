@@ -13,11 +13,11 @@ export const DISPATCHING_REPLAY_STATES: readonly ReplayState[] = [
   'running',
 ];
 
-export const REPLAY_STOP_REASONS = [
+export const REPLAY_END_STATES = [
   'finished',
   'stopped',
   'ceiling-reached',
   'deleted',
 ] as const;
 
-export type ReplayStopReason = (typeof REPLAY_STOP_REASONS)[number];
+export type ReplayEndState = (typeof REPLAY_END_STATES)[number];

@@ -525,7 +525,7 @@ describe('DispatchTask', () => {
 
   describe('the codebases a run works in', () => {
     it('names each of the line’s repositories through Spotlight, never GitHub', async () => {
-      const station = stations[1] as Station;
+      const station = stations[1];
 
       await dispatch(station, undefined, ['acme/widgets']);
 
@@ -539,7 +539,7 @@ describe('DispatchTask', () => {
     });
 
     it('checks out every repository the line works, side by side', async () => {
-      const station = stations[1] as Station;
+      const station = stations[1];
 
       await dispatch(station, undefined, ['acme/api', 'acme/web']);
 
@@ -558,7 +558,7 @@ describe('DispatchTask', () => {
     });
 
     it('checks out only the pull request a task reviews, at its head, on no branch of its own', async () => {
-      const station = stations[1] as Station;
+      const station = stations[1];
 
       await dispatch(
         station,
@@ -582,7 +582,7 @@ describe('DispatchTask', () => {
     });
 
     it('makes each checkout ready as its repository says', async () => {
-      await dispatch(stations[1] as Station, undefined, [
+      await dispatch(stations[1], undefined, [
         repositoryOf(Repository.of('acme/api'), {
           setup: 'npm ci',
         }),
@@ -627,7 +627,7 @@ describe('DispatchTask', () => {
     });
 
     it('places the run in the image the line’s repositories name', async () => {
-      await dispatch(stations[1] as Station, undefined, [
+      await dispatch(stations[1], undefined, [
         repositoryOf(Repository.of('acme/api'), {
           image: RunnerImage.of('ghcr.io/acme/api:1'),
         }),
@@ -638,7 +638,7 @@ describe('DispatchTask', () => {
     });
 
     it('requests no checkout where the line works no repository', async () => {
-      await dispatch(stations[1] as Station);
+      await dispatch(stations[1]);
 
       expect(written(queued[0]).checkouts).toEqual([]);
     });
@@ -727,7 +727,7 @@ describe('DispatchTask', () => {
     });
 
     it('sets nothing up for a station that names no profile', async () => {
-      await dispatch(stations[1] as Station);
+      await dispatch(stations[1]);
 
       expect(written(queued[0]).harnessSetup).toBeUndefined();
       expect(written(queued[0]).injectedSecrets).toBeUndefined();
@@ -736,7 +736,7 @@ describe('DispatchTask', () => {
   });
 
   it('queues a run for the harness the station is worked by', async () => {
-    const id = await dispatch(stations[1] as Station);
+    const id = await dispatch(stations[1]);
 
     expect(id?.value).toBe('run_1');
     expect(queued).toHaveLength(1);
@@ -750,13 +750,13 @@ describe('DispatchTask', () => {
   });
 
   it('hands a station with no tools none', async () => {
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     expect(enabledTools(queued[0])).toEqual([]);
   });
 
   it('queues nothing for a station nothing works', async () => {
-    expect(await dispatch(stations[0] as Station)).toBeNull();
+    expect(await dispatch(stations[0])).toBeNull();
     expect(queued).toHaveLength(0);
   });
 
@@ -770,13 +770,13 @@ describe('DispatchTask', () => {
   });
 
   it('gives a run the priority of the station it serves', async () => {
-    await dispatch(stations[2] as Station);
+    await dispatch(stations[2]);
 
     expect(queued[0]?.priority).toBe(2);
   });
 
   it('tells the runner what the agent may hand over to', async () => {
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     expect(written(queued[0])).toMatchObject({
       handover: { options: ['spec', 'review'] },
@@ -784,15 +784,15 @@ describe('DispatchTask', () => {
   });
 
   it('does not offer a station nothing runs at', async () => {
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     expect(written(queued[0])).toMatchObject({
-      handover: { options: expect.not.arrayContaining(['backlog']) },
+      handover: { options: expect.not.arrayContaining(['backlog']) as unknown },
     });
   });
 
   it('does not let the agent hand the task to its own station', async () => {
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     const spec = written(queued[0]);
 
@@ -800,7 +800,7 @@ describe('DispatchTask', () => {
   });
 
   it('runs the harness the way the harness has to be started', async () => {
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     const spec = written(queued[0]);
 
@@ -809,7 +809,7 @@ describe('DispatchTask', () => {
   });
 
   it('briefs the agent in the same words that it sends the runner', async () => {
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     const spec = written(queued[0]);
 
@@ -819,20 +819,22 @@ describe('DispatchTask', () => {
   });
 
   it('records on the run the task exactly as it was briefed', async () => {
-    const station = stations[1] as Station;
+    const station = stations[1];
     const dispatched = task(station.id.value, 'Drain the queue');
 
     await dispatch(station, dispatched);
 
     const run = queued[0];
 
-    expect(ordered[0]?.briefedTask?.equals(dispatched.briefed)).toBe(true);
+    expect(
+      ordered[0]?.briefedTask?.equals(dispatched.briefedOn(lineWith(station))),
+    ).toBe(true);
     expect(ordered[0]?.briefedTask?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
   });
 
   it('requests the runner to say where the run started', async () => {
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     expect(written(queued[0]).startingPoint).toBe(true);
   });
@@ -860,7 +862,7 @@ describe('DispatchTask', () => {
       });
 
     it('gives the task the same workspace run after run', async () => {
-      const station = stations[1] as Station;
+      const station = stations[1];
 
       await dispatch(station);
       await dispatch(station, taskAt(station));
@@ -870,15 +872,15 @@ describe('DispatchTask', () => {
     });
 
     it('gives it the same one at the next station', async () => {
-      await dispatch(stations[1] as Station);
-      await dispatch(stations[2] as Station);
+      await dispatch(stations[1]);
+      await dispatch(stations[2]);
 
       expect(resumeOf(0)).toBe('work/task-task_1');
       expect(resumeOf(1)).toBe(resumeOf(0));
     });
 
     it('names every skill home and harness setting, so what an earlier station left is cleared', async () => {
-      await dispatch(stations[1] as Station);
+      await dispatch(stations[1]);
 
       expect(written(queued[0]).skillHomes).toEqual([
         '.claude/skills',
@@ -891,7 +893,7 @@ describe('DispatchTask', () => {
     });
 
     it('requests the conversation the task was last worked in', async () => {
-      const station = stations[1] as Station;
+      const station = stations[1];
 
       await dispatch(station, taskAt(station));
 
@@ -899,7 +901,7 @@ describe('DispatchTask', () => {
     });
 
     it('requests no conversation when there is nothing to resume', async () => {
-      const station = stations[1] as Station;
+      const station = stations[1];
 
       await dispatch(station);
 
@@ -918,7 +920,7 @@ describe('DispatchTask, the skills a station enables for a run', () => {
   });
 
   it('lays the handover skill where the harness reads skills, and lists none', async () => {
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     expect(laid()).toEqual(['.claude/skills/spotlight-handover/SKILL.md']);
     expect(written(queued[0]).skills?.[0]?.text).toContain(
@@ -969,7 +971,7 @@ describe('DispatchTask, the skills a station enables for a run', () => {
   it('lists the skills in the briefing where the harness does not read them', async () => {
     skillsHome = { directory: '.spotlight/skills', readByHarness: false };
 
-    await dispatch(stations[1] as Station);
+    await dispatch(stations[1]);
 
     expect(laid()).toEqual(['.spotlight/skills/spotlight-handover/SKILL.md']);
     expect(written(queued[0]).briefing).toContain(
@@ -1127,7 +1129,7 @@ describe('DispatchTask, the tools a run is told about', () => {
 
   describe('what the team has learned', () => {
     it('briefs the run with the memories that apply to its place, and records them on it', async () => {
-      const station = stations[1] as Station;
+      const station = stations[1];
       remembered = {
         briefed: [
           {
@@ -1170,7 +1172,7 @@ describe('DispatchTask, the tools a run is told about', () => {
     });
 
     it('still runs, told nothing remembered, when memory cannot be read', async () => {
-      const station = stations[1] as Station;
+      const station = stations[1];
       memoryFails = true;
 
       await dispatch(station);
@@ -1186,7 +1188,7 @@ describe('DispatchTask, the tools a run is told about', () => {
   });
 
   describe('the station config a run records', () => {
-    const triageAt = stations[1] as Station;
+    const triageAt = stations[1];
 
     const configOf = async (
       station: Station,

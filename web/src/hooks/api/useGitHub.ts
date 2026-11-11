@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { readGitHub } from '@/lib/api';
 
 export const gitHubKeys = {

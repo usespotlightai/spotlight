@@ -1,4 +1,5 @@
 import type { Server } from 'node:http';
+
 import {
   SESSION_READER,
   type SessionReaderPort,
@@ -10,12 +11,26 @@ import { parseEnv } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
-import request from 'supertest';
+import request, { type Response } from 'supertest';
+
 import { AppModule } from '@/app.module';
 import { configureApp } from '@/app.setup';
+
 import { clonedDatabase, droppedDatabase } from './database';
 
 export const TEST_USER_HEADER = 'x-test-user';
+
+export type Answer<Body> = Omit<Response, 'body'> & { readonly body: Body };
+
+export interface Problem {
+  readonly type: string;
+  readonly title: string;
+  readonly detail: string;
+  readonly errors: readonly {
+    readonly path: string;
+    readonly message: string;
+  }[];
+}
 
 const sessionsFromHeader: SessionReaderPort = {
   read: async (headers): Promise<AuthenticatedUser | null> => {

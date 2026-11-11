@@ -16,9 +16,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 
-export class WriteTerraformStateHandler
-  implements CommandHandlerPort<WriteTerraformStateCommand, StateChanged>
-{
+export class WriteTerraformStateHandler implements CommandHandlerPort<
+  WriteTerraformStateCommand,
+  StateChanged
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly named: TerraformStates,

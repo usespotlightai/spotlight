@@ -1,8 +1,8 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { baselineFor } from '@replays/domain/services/baseline';
 import {
   type CheckEvaluation,

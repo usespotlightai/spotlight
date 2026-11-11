@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { readConfiguration } from '@/lib/api';
 
 const configurationKeys = {

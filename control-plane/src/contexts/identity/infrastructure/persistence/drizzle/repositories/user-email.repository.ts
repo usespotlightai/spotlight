@@ -49,7 +49,7 @@ export class DrizzleUserEmailRepository implements UserEmailRepository {
 
   async save(saved: UserEmail): Promise<void> {
     await this.context.inTransaction(async () => {
-      const { id, userId, email, ...rest } = this.written(saved);
+      const { id, userId: _userId, email: _email, ...rest } = this.written(saved);
       let written: { id: string }[];
 
       try {

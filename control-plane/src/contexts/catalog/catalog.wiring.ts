@@ -1,8 +1,4 @@
 import {
-  CATALOG,
-  type CatalogPort,
-} from '@catalog/application/ports/catalog.port';
-import {
   CATALOG_CALL_LEDGER,
   type CatalogCallLedgerPort,
 } from '@catalog/application/ports/catalog-call-ledger.port';
@@ -10,6 +6,10 @@ import {
   CATALOG_SERVICE,
   type CatalogServicePort,
 } from '@catalog/application/ports/catalog-service.port';
+import {
+  CATALOG,
+  type CatalogPort,
+} from '@catalog/application/ports/catalog.port';
 import {
   WORKSPACE_PLAN_DELETION,
   type WorkspacePlanDeletionPort,

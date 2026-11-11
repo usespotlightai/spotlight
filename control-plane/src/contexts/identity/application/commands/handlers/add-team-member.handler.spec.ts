@@ -44,7 +44,7 @@ const platform = Team.rehydrate({
 });
 
 const adding = (leonIs = WorkspaceRole.admin) => {
-  const save = vi.fn(async (_: Team) => {});
+  const save = vi.fn<(team: Team) => Promise<void>>(async () => {});
   const teams = {
     find: async () => platform,
     save,

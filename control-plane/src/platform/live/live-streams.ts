@@ -64,7 +64,7 @@ export class LiveStreams implements BeforeApplicationShutdown {
   }
 
   beforeApplicationShutdown(): void {
-    for (const subscriber of [...this.#open]) {
+    for (const subscriber of Array.from(this.#open)) {
       subscriber.complete();
     }
   }

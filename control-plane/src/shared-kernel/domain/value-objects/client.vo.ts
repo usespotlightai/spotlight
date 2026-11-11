@@ -21,7 +21,7 @@ export class Client {
     const versioned = VERSIONED.exec(value);
 
     return versioned
-      ? new Client(versioned[1] as ClientKind, versioned[2] as string)
+      ? new Client(versioned[1] as ClientKind, versioned[2])
       : new Client('unknown', null);
   }
 

@@ -5,7 +5,7 @@ export class StackCheckNotLeasedError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(id: StackCheckId) {
-    super(`Change stack ${id} is not being checked by this runner.`);
+    super(`Change stack ${id.toString()} is not being checked by this runner.`);
     this.name = 'StackCheckNotLeasedError';
   }
 }

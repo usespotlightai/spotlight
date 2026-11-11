@@ -15,12 +15,12 @@ const distance = (from: string, to: string): number => {
   for (let at = 1; at <= from.length; at += 1) {
     for (let across = 1; across <= to.length; across += 1) {
       const differs = from[at - 1] === to[across - 1] ? 0 : 1;
-      const row = rows[at] as number[];
-      const above = rows[at - 1] as number[];
+      const row = rows[at];
+      const above = rows[at - 1];
       row[across] = Math.min(
-        (above[across] as number) + 1,
-        (row[across - 1] as number) + 1,
-        (above[across - 1] as number) + differs,
+        above[across] + 1,
+        row[across - 1] + 1,
+        above[across - 1] + differs,
       );
 
       if (
@@ -29,15 +29,12 @@ const distance = (from: string, to: string): number => {
         from[at - 1] === to[across - 2] &&
         from[at - 2] === to[across - 1]
       ) {
-        row[across] = Math.min(
-          row[across] as number,
-          ((rows[at - 2] as number[])[across - 2] as number) + 1,
-        );
+        row[across] = Math.min(row[across], rows[at - 2][across - 2] + 1);
       }
     }
   }
 
-  return (rows[from.length] as number[])[to.length] as number;
+  return rows[from.length][to.length];
 };
 
 const closest = (

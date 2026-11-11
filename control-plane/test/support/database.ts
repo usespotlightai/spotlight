@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
+
 import {
   databaseNamed,
   E2E_DATABASE,

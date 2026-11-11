@@ -335,7 +335,7 @@ describe('GitHubCheckRuns', () => {
       }));
       github({
         runs: { total_count: 6, check_runs: [...other, RUNS.check_runs[0]] },
-      } as never);
+      });
 
       const { failed } = await new GitHubCheckRuns(access).failedOn(
         WORKSPACE,

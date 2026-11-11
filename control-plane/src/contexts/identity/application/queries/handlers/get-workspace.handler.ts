@@ -7,9 +7,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class GetWorkspaceHandler
-  implements QueryHandlerPort<GetWorkspaceQuery, WorkspaceDetailDto | null>
-{
+export class GetWorkspaceHandler implements QueryHandlerPort<
+  GetWorkspaceQuery,
+  WorkspaceDetailDto | null
+> {
   constructor(private readonly workspaces: WorkspaceReaderPort) {}
 
   async execute(query: GetWorkspaceQuery): Promise<WorkspaceDetailDto | null> {

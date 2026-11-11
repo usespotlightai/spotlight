@@ -1,6 +1,7 @@
 import { ErrorBoundary } from '@sentry/react';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
+
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { cn } from '@/lib/utils';
 
@@ -27,11 +28,11 @@ export function PageErrorBoundary({
   return (
     <ErrorBoundary
       ref={boundary}
-      fallback={({ resetError }) => (
+      fallback={(fallback) => (
         <CouldNotLoad
           what={what}
           retrying={false}
-          onRetry={resetError}
+          onRetry={() => fallback.resetError()}
           className={cn('py-16', centered && 'min-w-0 flex-1')}
         />
       )}

@@ -34,13 +34,13 @@ func LookupUser(name string) (*User, error) {
 		return nil, fmt.Errorf("agent user %q: %w", name, err)
 	}
 
-	uid, err := strconv.ParseUint(found.Uid, 10, 32)
+	uid, err := strconv.ParseUint(found.Uid, 10, 31)
 	if err != nil {
-		return nil, fmt.Errorf("agent user %q has a non-numeric uid %q", name, found.Uid)
+		return nil, fmt.Errorf("agent user %q has a uid %q that is not a number below 2^31", name, found.Uid)
 	}
-	gid, err := strconv.ParseUint(found.Gid, 10, 32)
+	gid, err := strconv.ParseUint(found.Gid, 10, 31)
 	if err != nil {
-		return nil, fmt.Errorf("agent user %q has a non-numeric gid %q", name, found.Gid)
+		return nil, fmt.Errorf("agent user %q has a gid %q that is not a number below 2^31", name, found.Gid)
 	}
 
 	return &User{

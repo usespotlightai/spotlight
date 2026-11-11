@@ -9,6 +9,7 @@ import {
 } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -29,6 +30,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf, deleteRunsOf } from './support/runners';
@@ -37,6 +39,25 @@ import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
 const HARNESSES = [{ id: 'dev', models: [] }];
+
+interface Provisioning {
+  readonly data: {
+    readonly runId: string;
+    readonly runner: {
+      token: string;
+      egress: { url: string; credential: string; traffic: string } | null;
+    };
+  };
+}
+
+interface Versioned {
+  readonly id: string;
+  readonly version: number;
+}
+
+interface Fetched {
+  readonly secrets: { sealed: string }[];
+}
 
 const SECRET = `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`;
 
@@ -168,13 +189,12 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
   const provisioned = async (runId: string) => {
     const body = await eventually(async () =>
-      endpoint.bodies.find((each) => JSON.parse(each).data.runId === runId),
+      endpoint.bodies.find(
+        (each) => (JSON.parse(each) as Provisioning).data.runId === runId,
+      ),
     );
 
-    return JSON.parse(body ?? '{}').data.runner as {
-      token: string;
-      egress: { url: string; credential: string; traffic: string } | null;
-    };
+    return (JSON.parse(body ?? '{}') as Provisioning).data.runner;
   };
 
   const claimedBy = async (token: string) => {
@@ -210,8 +230,8 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       key: 'shared',
       url: 'https://egress.example.com',
     }).expect(201);
-    egressId = egress.body.id;
-    egressToken = egress.headers[EGRESS_TOKEN_HEADER.toLowerCase()] as string;
+    egressId = (egress.body as Versioned).id;
+    egressToken = egress.headers[EGRESS_TOKEN_HEADER.toLowerCase()];
 
     await created('runner-pools', {
       key: 'sandboxes',
@@ -256,7 +276,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     expect(egressToken).toEqual(expect.any(String));
     expect(runner.egress).toEqual({
       url: 'https://egress.example.com',
-      credential: expect.any(String),
+      credential: expect.any(String) as unknown,
       traffic: 'all',
     });
     expect(runner.egress?.credential).not.toBe(runner.token);
@@ -273,8 +293,8 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     }).expect(200);
     expect(authorized.body).toMatchObject({
       workspaceId,
-      controlPlaneHost: expect.any(String),
-      controlPlanePort: expect.any(Number),
+      controlPlaneHost: expect.any(String) as unknown,
+      controlPlanePort: expect.any(Number) as unknown,
     });
 
     await asEgress('secrets', {
@@ -282,13 +302,15 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       recipient: node.written,
     }).expect(409);
 
-    expect((await claimedBy(runner.token)).body.run.id).toBe(runId);
+    expect(
+      ((await claimedBy(runner.token)).body as { run: { id: string } }).run.id,
+    ).toBe(runId);
 
     const fetched = await asEgress('secrets', {
       proxyCredential: credential,
       recipient: node.written,
     }).expect(200);
-    const [secret] = fetched.body.secrets;
+    const [secret] = (fetched.body as Fetched).secrets;
 
     expect(fetched.body).toMatchObject({
       runId,
@@ -302,7 +324,12 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       recipient: another.written,
     }).expect(200);
     expect(
-      opened(again.body.secrets[0].sealed, another, runId, 'LINEAR_API_KEY'),
+      opened(
+        (again.body as Fetched).secrets[0].sealed,
+        another,
+        runId,
+        'LINEAR_API_KEY',
+      ),
     ).toBe(VALUE);
   });
 
@@ -335,7 +362,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     const listed = await asEgress('active-runs', {
       proxyCredentials: [credential, 'unknown'],
     }).expect(200);
-    expect(listed.body.active).toEqual([credential]);
+    expect((listed.body as { active: string[] }).active).toEqual([credential]);
 
     await asEgress('connections', {
       records: [
@@ -408,10 +435,12 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
     expect(
       (
-        await asEgress('active-runs', {
-          proxyCredentials: [credential],
-        }).expect(200)
-      ).body.active,
+        (
+          await asEgress('active-runs', {
+            proxyCredentials: [credential],
+          }).expect(200)
+        ).body as { active: string[] }
+      ).active,
     ).toEqual([]);
     await asEgress('connections', {
       records: [connection('mcp.linear.app')],
@@ -433,7 +462,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
-    expect(network.body.connections).toEqual([
+    expect((network.body as { connections: unknown[] }).connections).toEqual([
       expect.objectContaining({
         host: 'mcp.linear.app',
         bytesOut: 300,
@@ -571,9 +600,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         .set('Idempotency-Key', randomUUID())
         .send({ key: 'shared', url: 'https://egress.example.com' })
         .expect(201);
-      const theirToken = theirs.headers[
-        EGRESS_TOKEN_HEADER.toLowerCase()
-      ] as string;
+      const theirToken = theirs.headers[EGRESS_TOKEN_HEADER.toLowerCase()];
 
       for (const path of ['authorize', 'secrets']) {
         await asEgress(
@@ -587,7 +614,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         provision: {
           url: endpoint.url,
           secret: SECRET,
-          egress: theirs.body.id,
+          egress: (theirs.body as Versioned).id,
         },
       }).expect(422);
       await created('runner-pools', {
@@ -618,7 +645,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     await http()
       .put(`/api/v1/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${egress.body.version}"`)
+      .set('If-Match', `"${(egress.body as Versioned).version}"`)
       .send({
         key: 'shared',
         url: 'https://egress.example.com',
@@ -641,9 +668,9 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       .set(TEST_USER_HEADER, owner)
       .expect(200);
     await http()
-      .put(`/api/v1/resources/runner-pools/${pool.body.id}`)
+      .put(`/api/v1/resources/runner-pools/${(pool.body as Versioned).id}`)
       .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${pool.body.version}"`)
+      .set('If-Match', `"${(pool.body as Versioned).version}"`)
       .send({
         key: 'sandboxes',
         labels: ['sandbox'],
@@ -668,7 +695,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     await http()
       .delete(`/api/v1/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${egress.body.version}"`)
+      .set('If-Match', `"${(egress.body as Versioned).version}"`)
       .expect(409);
   });
 });

@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { app } from 'electron';
 
 export const opensAtLogin = (): boolean =>

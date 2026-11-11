@@ -7,7 +7,7 @@ export function messageOf(
   }
 
   if (typeof thrown === 'object' && thrown !== null && 'message' in thrown) {
-    const body = (thrown as { message: unknown }).message;
+    const body = thrown.message;
 
     if (typeof body === 'string' && body.length > 0) {
       return body;
@@ -18,7 +18,7 @@ export function messageOf(
   }
 
   if (typeof thrown === 'object' && thrown !== null && 'detail' in thrown) {
-    const detail = (thrown as { detail: unknown }).detail;
+    const detail = thrown.detail;
 
     if (typeof detail === 'string' && detail.length > 0) {
       return detail;

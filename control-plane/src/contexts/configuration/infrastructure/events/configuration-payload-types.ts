@@ -15,16 +15,16 @@ import { PermissionRule } from '@configuration/domain/value-objects/permission-r
 import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { SecretReference } from '@configuration/domain/value-objects/secret-reference.vo';
-import { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
 import { SkillFiles } from '@configuration/domain/value-objects/skill-files.vo';
+import { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { StateChangeDetail } from '@configuration/domain/value-objects/state-change-detail.vo';
-import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateLockId } from '@configuration/domain/value-objects/state-lock-id.vo';
+import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
-import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
+import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { StationUses } from '@configuration/domain/value-objects/station-uses.vo';
 import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 

@@ -1,5 +1,6 @@
 import { LogIn } from 'lucide-react';
 import { useState } from 'react';
+
 import { AddEmailDialog } from '@/components/features/emails/AddEmailDialog';
 import { EmailRow } from '@/components/features/emails/EmailRow';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';

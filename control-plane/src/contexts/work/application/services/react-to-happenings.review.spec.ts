@@ -104,7 +104,7 @@ const created = (
     ...over,
     repositories: repositories.map((each) =>
       repositoryOf(
-        // biome-ignore lint/style/noNonNullAssertion: the address of a pull request always contains its repository
+        // oxlint-disable-next-line typescript/no-non-null-assertion -- the address of a pull request always contains its repository
         PullRequestUrl.of(`https://github.com/${each}/pull/1`).repository!,
       ),
     ),
@@ -189,7 +189,7 @@ const world = (input: {
 
   const lines = {
     find: vi.fn(async () => null),
-    findByStation: vi.fn(
+    findByStation: vi.fn<LineMapsPort['findByStation']>(
       async (stationId) =>
         input.lines.find((line) => line.stationAt(stationId)) ?? null,
     ),
@@ -280,7 +280,7 @@ describe('ReactToHappenings, with a review request', () => {
     expect(added).toEqual([]);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
-        reason: expect.stringMatching(/has no head to check out/),
+        reason: expect.stringMatching(/has no head to check out/) as unknown,
       }),
       'Left a happening that does not read as one',
     );
@@ -344,7 +344,7 @@ describe('ReactToHappenings, with a review request', () => {
     const delivery = created(LineRole.DELIVERY);
     const own = Task.add({
       line: delivery,
-      // biome-ignore lint/style/noNonNullAssertion: the delivery line has an entry
+      // oxlint-disable-next-line typescript/no-non-null-assertion -- the delivery line has an entry
       at: delivery.entry!.id,
       title: TaskTitle.of('Retry uploads'),
       rank: TaskRank.of('i'),
@@ -376,7 +376,7 @@ describe('ReactToHappenings, with a review request', () => {
     const delivery = created(LineRole.DELIVERY);
     const own = Task.add({
       line: delivery,
-      // biome-ignore lint/style/noNonNullAssertion: the delivery line has an entry
+      // oxlint-disable-next-line typescript/no-non-null-assertion -- the delivery line has an entry
       at: delivery.entry!.id,
       title: TaskTitle.of('Retry uploads'),
       rank: TaskRank.of('i'),
@@ -400,7 +400,7 @@ describe('ReactToHappenings, with a review request', () => {
     const line = reviewing();
     const underway = Task.add({
       line,
-      // biome-ignore lint/style/noNonNullAssertion: the review line has an entry
+      // oxlint-disable-next-line typescript/no-non-null-assertion -- the review line has an entry
       at: line.entry!.id,
       title: TaskTitle.of('Retry uploads'),
       rank: TaskRank.of('i'),

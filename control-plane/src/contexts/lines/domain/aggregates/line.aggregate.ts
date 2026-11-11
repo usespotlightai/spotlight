@@ -112,7 +112,7 @@ export class Line extends EventRecorder {
         );
       }
 
-      return ids[found] as StationId;
+      return ids[found];
     };
 
     return Line.createFromLayout({
@@ -127,7 +127,7 @@ export class Line extends EventRecorder {
       reviews: input.line.reviews ?? null,
       stations: named.map((each, position) =>
         Station.of({
-          id: ids[position] as StationId,
+          id: ids[position],
           key: each.key,
           name: each.name,
           color: each.color,

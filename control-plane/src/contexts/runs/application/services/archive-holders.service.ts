@@ -35,7 +35,7 @@ export class ArchiveHolders implements ArchiveHoldersPort {
       const source = this.sources.get(owner);
       const held = source
         ? await source.heldOf([...new Set(owned.map((each) => each.name))])
-        : new Map();
+        : new Map<string, HolderState>();
 
       for (const key of owned) {
         states.set(key.value, held.get(key.name) ?? null);

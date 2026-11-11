@@ -403,11 +403,11 @@ describe('ChatBriefing', () => {
       );
       expect(briefing).toContain('.github/workflows/spotlight.yml');
       expect(briefing).toContain(
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- GitHub Actions expression syntax
         'SPOTLIGHT_OIDC_TRUST: ${{ vars.SPOTLIGHT_PLAN_TRUST }}',
       );
       expect(briefing).toContain(
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- GitHub Actions expression syntax
         'SPOTLIGHT_OIDC_TRUST: ${{ vars.SPOTLIGHT_APPLY_TRUST }}',
       );
       expect(briefing).toContain('working-directory: spotlight');

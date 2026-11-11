@@ -35,7 +35,7 @@ export function AvatarStack({ people, label, className }: AvatarStackProps) {
       >
         {people.map((person, at) => (
           <PersonAvatar
-            // biome-ignore lint/suspicious/noArrayIndexKey: two people can share a name, and the order does not change while shown
+            // oxlint-disable-next-line react/no-array-index-key -- two people can share a name, and the order does not change while shown
             key={at}
             person={person}
             className="after:hidden"

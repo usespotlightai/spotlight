@@ -87,6 +87,7 @@ export class HostController {
           running: body?.running ?? [],
           images: (body?.images ?? []).map((each) => ({
             image: each.image ?? '',
+            // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- the request body is not validated at runtime
             isDefault: each.isDefault === true,
             harnesses: (each.harnesses ?? []).map((harness) => ({
               id: harness.id,

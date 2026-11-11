@@ -44,7 +44,7 @@ export function InsightsTableSkeleton({
         >
           {headers.map((header, at) => (
             <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: columns keep their place
+              // oxlint-disable-next-line react/no-array-index-key -- columns keep their place
               key={at}
               className={cn(
                 'block truncate',
@@ -56,13 +56,9 @@ export function InsightsTableSkeleton({
           ))}
         </div>
         {Array.from({ length: rows }, (_, row) => (
-          <div
-            // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
-            key={row}
-            className={cn(ROW, 'py-2', ROW_DIVIDER)}
-          >
+          <div key={row} className={cn(ROW, 'py-2', ROW_DIVIDER)}>
             {headers.map((_, at) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: columns keep their place
+              // oxlint-disable-next-line react/no-array-index-key -- columns keep their place
               <span key={at} className={cn(at === 0 && EDGE_INDENT)}>
                 <SkeletonLine className={at === 0 ? 'w-24' : 'ml-auto w-10'} />
               </span>

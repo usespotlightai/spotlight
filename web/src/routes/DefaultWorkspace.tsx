@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router';
+
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
 import { failed, loading } from '@/lib/query';

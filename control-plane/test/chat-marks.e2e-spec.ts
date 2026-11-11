@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -6,6 +7,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { ChatMarkTakenError } from '@work/domain/exceptions/chat-mark-taken.error';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
@@ -18,6 +20,7 @@ import { DrizzleChatMarks } from '@work/infrastructure/persistence/drizzle/reade
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { createTeam } from './support/team';
 
@@ -96,7 +99,9 @@ describe('chat marks, stored in the database (e2e)', () => {
 
     await chats.add(startedIn(thread));
 
-    await expect(chats.add(startedIn(thread))).rejects.toThrow();
+    await expect(chats.add(startedIn(thread))).rejects.toThrow(
+      ChatMarkTakenError,
+    );
   });
 
   it('keeps the chat a task was proposed in', async () => {

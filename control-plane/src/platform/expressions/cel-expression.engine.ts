@@ -4,10 +4,6 @@ import {
   type CelVariables,
   sanitizedForCel,
 } from '@platform/expressions/cel-variables';
-import {
-  ExpressionError,
-  firstLine,
-} from '@platform/expressions/expression.errors';
 import type {
   CompileOptions,
   Expression,
@@ -15,6 +11,10 @@ import type {
   ExpressionEnginePort,
   ExpressionSpan,
 } from '@platform/expressions/expression-engine.port';
+import {
+  ExpressionError,
+  firstLine,
+} from '@platform/expressions/expression.errors';
 import type { Scope } from '@platform/expressions/scope';
 import { suggestionFor } from '@platform/expressions/suggestion';
 
@@ -103,9 +103,7 @@ export class CelExpressionEngine implements ExpressionEnginePort {
     let evaluator: (context: CelVariables) => unknown;
 
     try {
-      evaluator = PERMISSIVE.parse(written) as unknown as (
-        context: CelVariables,
-      ) => unknown;
+      evaluator = PERMISSIVE.parse(written);
     } catch (error) {
       throw new ExpressionError(written, firstLine(error, 'will not parse'));
     }

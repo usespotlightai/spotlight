@@ -1,4 +1,5 @@
-import { type FormEvent, useRef, useState } from 'react';
+import { type SubmitEvent, useRef, useState } from 'react';
+
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { PendingAttachments } from '@/components/shared/attachment/PendingAttachments';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
@@ -49,7 +50,7 @@ export function NewTaskDialog({
     setRound((each) => each + 1);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
     if (uncreatable) {
       return;

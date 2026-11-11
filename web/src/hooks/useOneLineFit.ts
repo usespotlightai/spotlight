@@ -1,4 +1,5 @@
 import { useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
+
 import type { Written } from '@/lib/chat-input';
 
 const ONE_LINE = 30;
@@ -63,7 +64,6 @@ export function useOneLineFit(written: Written, opened: boolean) {
     return () => measured.disconnect();
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: measure again after the written text renders
   useLayoutEffect(() => measure(), [written]);
 
   return { inner, writing, height, expanded };

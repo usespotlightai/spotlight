@@ -1,4 +1,5 @@
 import { createSign } from 'node:crypto';
+
 import type { Env } from '@platform/config/env.schema';
 
 const JWT_LIFETIME_SECONDS = 540;

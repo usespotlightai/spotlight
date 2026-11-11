@@ -18,9 +18,7 @@ import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-ou
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
-export class ConfiguredWebhookProviders
-  implements ConfiguredWebhookProvidersPort
-{
+export class ConfiguredWebhookProviders implements ConfiguredWebhookProvidersPort {
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly reader: IntegrationReader,

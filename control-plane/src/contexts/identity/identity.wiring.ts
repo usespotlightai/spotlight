@@ -3,8 +3,8 @@ import { AddTeamMemberCommand } from '@identity/application/commands/add-team-me
 import { AddUserEmailCommand } from '@identity/application/commands/add-user-email.command';
 import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
 import { CreateTeamCommand } from '@identity/application/commands/create-team.command';
-import { CreateWorkspaceCommand } from '@identity/application/commands/create-workspace.command';
 import { CreateWorkspaceWithTeamCommand } from '@identity/application/commands/create-workspace-with-team.command';
+import { CreateWorkspaceCommand } from '@identity/application/commands/create-workspace.command';
 import { DeleteTeamCommand } from '@identity/application/commands/delete-team.command';
 import { DeleteWorkspaceCommand } from '@identity/application/commands/delete-workspace.command';
 import { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
@@ -14,13 +14,13 @@ import { AddUserEmailHandler } from '@identity/application/commands/handlers/add
 import { ChangeMemberRoleHandler } from '@identity/application/commands/handlers/change-member-role.handler';
 import { CreateOidcTrustHandler } from '@identity/application/commands/handlers/create-oidc-trust.handler';
 import { CreateTeamHandler } from '@identity/application/commands/handlers/create-team.handler';
-import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/create-workspace.handler';
 import { CreateWorkspaceTokenHandler } from '@identity/application/commands/handlers/create-workspace-token.handler';
 import { CreateWorkspaceWithTeamHandler } from '@identity/application/commands/handlers/create-workspace-with-team.handler';
+import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/create-workspace.handler';
 import { DeleteOidcTrustHandler } from '@identity/application/commands/handlers/delete-oidc-trust.handler';
 import { DeleteTeamHandler } from '@identity/application/commands/handlers/delete-team.handler';
-import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { DeleteWorkspaceTokenHandler } from '@identity/application/commands/handlers/delete-workspace-token.handler';
+import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { ExchangeWorkloadTokenHandler } from '@identity/application/commands/handlers/exchange-workload-token.handler';
 import { InviteToWorkspaceHandler } from '@identity/application/commands/handlers/invite-to-workspace.handler';
 import { RemoveUserEmailHandler } from '@identity/application/commands/handlers/remove-user-email.handler';
@@ -29,8 +29,8 @@ import { ResendUserEmailVerificationHandler } from '@identity/application/comman
 import { RevokeInviteHandler } from '@identity/application/commands/handlers/revoke-invite.handler';
 import { UpdateOidcTrustHandler } from '@identity/application/commands/handlers/update-oidc-trust.handler';
 import { UpdateTeamHandler } from '@identity/application/commands/handlers/update-team.handler';
-import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { UpdateWorkspaceTokenHandler } from '@identity/application/commands/handlers/update-workspace-token.handler';
+import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { VerifyUserEmailHandler } from '@identity/application/commands/handlers/verify-user-email.handler';
 import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
 import {
@@ -189,8 +189,8 @@ import { DrizzleOidcTrustUsage } from '@identity/infrastructure/persistence/driz
 import { DrizzleEmailOwners } from '@identity/infrastructure/persistence/drizzle/readers/email-owners.reader';
 import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
 import { DrizzleInviteReader } from '@identity/infrastructure/persistence/drizzle/readers/invite.reader';
-import { DrizzleMemberReader } from '@identity/infrastructure/persistence/drizzle/readers/member.reader';
 import { DrizzleMemberDirectory } from '@identity/infrastructure/persistence/drizzle/readers/member-directory.reader';
+import { DrizzleMemberReader } from '@identity/infrastructure/persistence/drizzle/readers/member.reader';
 import { DrizzleOidcTrustReader } from '@identity/infrastructure/persistence/drizzle/readers/oidc-trust.reader';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleUserEmailReader } from '@identity/infrastructure/persistence/drizzle/readers/user-email.reader';
@@ -199,9 +199,9 @@ import { DrizzleWorkspaceRoles } from '@identity/infrastructure/persistence/driz
 import { DrizzleOidcTrustRepository } from '@identity/infrastructure/persistence/drizzle/repositories/oidc-trust.repository';
 import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/drizzle/repositories/team.repository';
 import { DrizzleUserEmailRepository } from '@identity/infrastructure/persistence/drizzle/repositories/user-email.repository';
-import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { DrizzleWorkspaceInviteRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-invite.repository';
 import { DrizzleWorkspaceTokenRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-token.repository';
+import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { DrizzleSignupSurveys } from '@identity/infrastructure/persistence/drizzle/signup-surveys';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { identitySubscribers } from '@identity/presentation/events/identity.subscribers';
@@ -211,15 +211,15 @@ import {
   InviteController,
   WorkspaceInviteController,
 } from '@identity/presentation/http/controllers/invite.controller';
-import { OidcTrustController } from '@identity/presentation/http/controllers/oidc-trust.controller';
 import { OidcTrustResourceController } from '@identity/presentation/http/controllers/oidc-trust-resource.controller';
-import { TeamController } from '@identity/presentation/http/controllers/team.controller';
+import { OidcTrustController } from '@identity/presentation/http/controllers/oidc-trust.controller';
 import { TeamResourceController } from '@identity/presentation/http/controllers/team-resource.controller';
+import { TeamController } from '@identity/presentation/http/controllers/team.controller';
 import { UserEmailController } from '@identity/presentation/http/controllers/user-email.controller';
 import { WorkloadTokenExchangeController } from '@identity/presentation/http/controllers/workload-token-exchange.controller';
-import { WorkspaceController } from '@identity/presentation/http/controllers/workspace.controller';
 import { WorkspaceResourceController } from '@identity/presentation/http/controllers/workspace-resource.controller';
 import { WorkspaceTokenResourceController } from '@identity/presentation/http/controllers/workspace-token-resource.controller';
+import { WorkspaceController } from '@identity/presentation/http/controllers/workspace.controller';
 import { FORBIDDEN_TEXTS } from '@identity/presentation/http/forbidden-texts';
 import { AuthenticatedGuard } from '@identity/presentation/http/guards/authenticated.guard';
 import { IDENTITY_CHANGE_NOTICES } from '@identity/presentation/live/identity.change-notices';

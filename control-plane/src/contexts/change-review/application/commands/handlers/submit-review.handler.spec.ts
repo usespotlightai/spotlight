@@ -2,11 +2,11 @@ import { SubmitReviewHandler } from '@change-review/application/commands/handler
 import { SubmitReviewCommand } from '@change-review/application/commands/submit-review.command';
 import { SubmitReview } from '@change-review/application/services/submit-review.service';
 import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
-import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import type { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
-import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';

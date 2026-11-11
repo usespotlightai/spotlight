@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+
 import { GitHubRow } from '@/components/features/integrations/GitHubRow';
 import { IntegrationRow } from '@/components/features/integrations/IntegrationRow';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';

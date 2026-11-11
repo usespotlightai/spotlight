@@ -7,9 +7,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListUserEmailsHandler
-  implements QueryHandlerPort<ListUserEmailsQuery, UserEmailsDto>
-{
+export class ListUserEmailsHandler implements QueryHandlerPort<
+  ListUserEmailsQuery,
+  UserEmailsDto
+> {
   constructor(
     private readonly emails: UserEmailReaderPort,
     private readonly clock: ClockPort,

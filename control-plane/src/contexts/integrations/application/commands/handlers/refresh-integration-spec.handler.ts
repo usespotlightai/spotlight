@@ -8,9 +8,10 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class RefreshIntegrationSpecHandler
-  implements CommandHandlerPort<RefreshIntegrationSpecCommand, void>
-{
+export class RefreshIntegrationSpecHandler implements CommandHandlerPort<
+  RefreshIntegrationSpecCommand,
+  void
+> {
   constructor(
     private readonly definitions: IntegrationDefinitionRepository,
     private readonly specs: IntegrationSpecs,

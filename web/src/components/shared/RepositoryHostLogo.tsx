@@ -1,4 +1,5 @@
 import type { ComponentType, SVGProps } from 'react';
+
 import { GithubLogo } from '@/components/shared/icons';
 import type { LineRepositoryResponseDto } from '@/lib/api';
 

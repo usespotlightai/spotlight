@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
+
 import { CardTitle } from '@/components/features/insights/CardHeading';
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
 import { OverflowFade } from '@/components/shared/OverflowFade';

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
 import {
   LINE_RESOURCES,
@@ -30,8 +31,8 @@ import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
-import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
+import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -161,6 +162,7 @@ export const startedReplay = async (
         Replay.start({
           id,
           set: set.snapshot,
+          // oxlint-disable-next-line typescript/no-unnecessary-type-assertion -- live is set whenever requested is not
           candidate: (requested ?? (live as Candidate)).asReplayed,
           baseline: asBaseline,
           ceiling,

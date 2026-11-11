@@ -1,4 +1,5 @@
 import { useId, useMemo, useRef } from 'react';
+
 import { PipelineStageLabel } from '@/components/features/insights/shipping/PipelineStageLabel';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useElementWidth } from '@/hooks/useElementWidth';

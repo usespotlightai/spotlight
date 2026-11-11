@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';

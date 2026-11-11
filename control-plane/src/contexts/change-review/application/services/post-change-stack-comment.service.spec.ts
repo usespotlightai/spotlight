@@ -169,9 +169,10 @@ const posting = (
     },
     { now: () => NOW, sleep: async () => undefined },
     {
-      changeStackOf: ({ runId }) => `https://app.example/runs/${runId}/changes`,
+      changeStackOf: ({ runId }) =>
+        `https://app.example/runs/${runId.value}/changes`,
       decisionsOf: ({ taskId }) =>
-        `https://app.example/tasks/${taskId}#decisions`,
+        `https://app.example/tasks/${taskId.value}#decisions`,
     },
     new MarkdownCommentBodies(),
   );

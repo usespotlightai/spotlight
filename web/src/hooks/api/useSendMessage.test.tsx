@@ -6,13 +6,14 @@ import {
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { runNotesKeys } from '@/hooks/api/useRunNotes';
 import {
   useMessagesInFlight,
   useSendMessage,
 } from '@/hooks/api/useSendMessage';
 
-const sendMessage = vi.fn();
+const sendMessage = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/api', () => ({
   sendMessage: (...args: unknown[]) => sendMessage(...args),
@@ -54,7 +55,7 @@ describe('useMessagesInFlight', () => {
 
     await waitFor(() =>
       expect(result.current.inFlight).toEqual([
-        { ...message, sentAt: expect.any(Number) },
+        { ...message, sentAt: expect.any(Number) as number },
       ]),
     );
   });

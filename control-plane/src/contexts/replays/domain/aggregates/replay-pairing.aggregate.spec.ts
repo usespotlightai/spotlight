@@ -223,7 +223,7 @@ describe('Replay, set side by side with its baseline', () => {
 
   it('takes no pairing once stopped or over its budget, but still once finished', () => {
     const finished = concludedAll(judging('replay_1'));
-    const stopped = judging('replay_1').stop(NOW, BY);
+    const stopped = judging('replay_1').stop(NOW, BY, 'search-ended');
 
     expect(finished.current).toBe('finished');
     expect(finished.takesPairings).toBe(true);
@@ -278,10 +278,27 @@ describe('Replay, set side by side with its baseline', () => {
         runOf('replay_1', 1),
         runOf('baseline_1', 1),
         'no-evidence',
+        NOW,
+        BY,
       );
 
     expect(failed.entries[1]?.pairing?.unpaired).toBe('no-evidence');
     expect(failed.entries[1]?.pairing?.pending).toBe(false);
+  });
+
+  it('records a pairing that failed on insufficient credits on a finished replay, with nothing left to stop', () => {
+    const failed = concludedAll(judging('replay_1'))
+      .pairAgainst(concludedAll(baseline()).asPairingReference, everyOriginal)
+      .recordPairingFailure(
+        runOf('replay_1', 1),
+        runOf('baseline_1', 1),
+        'insufficient-credits',
+        NOW,
+        BY,
+      );
+
+    expect(failed.entries[1]?.pairing?.unpaired).toBe('insufficient-credits');
+    expect(failed.wasStopped).toBe(false);
   });
 });
 

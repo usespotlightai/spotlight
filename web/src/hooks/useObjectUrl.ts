@@ -6,7 +6,7 @@ export function useObjectUrl(file: Blob | null): string | null {
   useEffect(() => {
     if (!file) {
       // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
-      setUrl(null);
+      setUrl(null); // oxlint-disable-line react/set-state-in-effect -- forgets the URL of a file that is gone
       return;
     }
 

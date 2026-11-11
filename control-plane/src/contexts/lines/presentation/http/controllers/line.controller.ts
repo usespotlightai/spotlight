@@ -41,6 +41,6 @@ export class LineController {
       throw new NotFoundException();
     }
 
-    return lines.map(LineHttpMapper.toResponse);
+    return lines.map((each) => LineHttpMapper.toResponse(each));
   }
 }

@@ -557,7 +557,7 @@ describe('Sandboxes', () => {
 
       expect(started).toEqual({
         id: 'sandbox_w',
-        token: expect.any(String),
+        token: expect.any(String) as unknown,
         warm: {
           line: 'line_1',
           checkouts: [{ path: 'widgets', setup: 'npm ci' }],

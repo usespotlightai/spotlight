@@ -13,10 +13,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ReadWorkspaceTokenHandler
-  implements
-    QueryHandlerPort<ReadWorkspaceTokenQuery, WorkspaceTokenResourceDto | null>
-{
+export class ReadWorkspaceTokenHandler implements QueryHandlerPort<
+  ReadWorkspaceTokenQuery,
+  WorkspaceTokenResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,
@@ -40,13 +40,10 @@ export class ReadWorkspaceTokenHandler
   }
 }
 
-export class ImportWorkspaceTokenHandler
-  implements
-    QueryHandlerPort<
-      ImportWorkspaceTokenQuery,
-      WorkspaceTokenResourceDto | null
-    >
-{
+export class ImportWorkspaceTokenHandler implements QueryHandlerPort<
+  ImportWorkspaceTokenQuery,
+  WorkspaceTokenResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,
@@ -74,13 +71,10 @@ export class ImportWorkspaceTokenHandler
   }
 }
 
-export class ListWorkspaceTokenResourcesHandler
-  implements
-    QueryHandlerPort<
-      ListWorkspaceTokenResourcesQuery,
-      readonly WorkspaceTokenResourceDto[] | null
-    >
-{
+export class ListWorkspaceTokenResourcesHandler implements QueryHandlerPort<
+  ListWorkspaceTokenResourcesQuery,
+  readonly WorkspaceTokenResourceDto[] | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: IdentityResourcesPort,
@@ -97,7 +91,7 @@ export class ListWorkspaceTokenResourcesHandler
 
       return permissions
         ? (await this.resources.tokensIn(permissions.workspaceId)).map(
-            ResourceMapper.workspaceToken,
+            (token) => ResourceMapper.workspaceToken(token),
           )
         : null;
     } catch (error) {

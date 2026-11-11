@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+
 import { portBindingViolations } from './port-bindings';
 import { described } from './violation';
 

@@ -6,9 +6,10 @@ import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/wor
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class StoredSandboxArchiveHandler
-  implements QueryHandlerPort<StoredSandboxArchiveQuery, SandboxArchiveAnswer>
-{
+export class StoredSandboxArchiveHandler implements QueryHandlerPort<
+  StoredSandboxArchiveQuery,
+  SandboxArchiveAnswer
+> {
   constructor(
     private readonly sandboxes: SandboxArchives,
     private readonly archives: WorkingCopyArchiveRepository,

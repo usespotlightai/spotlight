@@ -1,4 +1,5 @@
 import { Mail } from 'lucide-react';
+
 import { InviteActions } from '@/components/features/members/InviteActions';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { RowIcon } from '@/components/shared/RowIcon';

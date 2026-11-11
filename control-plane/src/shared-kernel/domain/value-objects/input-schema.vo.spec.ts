@@ -144,7 +144,7 @@ describe('InputSchema', () => {
     }
 
     expect(InputSchema.of({}).problemWith(deep)).toEqual({
-      at: expect.anything(),
+      at: expect.anything() as unknown,
       why: 'is not JSON',
     });
   });

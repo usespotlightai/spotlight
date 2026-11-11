@@ -1,5 +1,5 @@
-import { InsightsTileSkeleton } from '@/components/features/insights/InsightsTileSkeleton';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import { InsightsTileSkeleton } from '@/components/features/insights/InsightsTileSkeleton';
 import type { TileBones } from '@/lib/insights-tiles';
 
 type InsightsTilesSkeletonProps = {
@@ -16,7 +16,7 @@ export function InsightsTilesSkeleton({
   return (
     <InsightsTiles label={label} className={className}>
       {tiles.map((tile, at) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: placeholder tiles keep their place
+        // oxlint-disable-next-line react/no-array-index-key -- placeholder tiles keep their place
         <InsightsTileSkeleton key={at} {...tile} />
       ))}
     </InsightsTiles>

@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -83,7 +85,7 @@ beforeAll(async () => {
   await db.insert(schema.user).values(
     [TEAMMATE, ADMIN, BYSTANDER, OUTSIDER].map((id, at) => ({
       id,
-      name: ['Bea', 'Cy', 'Dee', 'Eve'][at] as string,
+      name: ['Bea', 'Cy', 'Dee', 'Eve'][at],
       email: `${id}@example.com`,
     })),
   );
@@ -112,7 +114,7 @@ describe('a workspace member who is not on the team', () => {
 
     expect(answer.status).toBe(200);
     expect(
-      (answer.body.items as { id: string }[]).map((each) => each.id),
+      (answer.body as { items: { id: string }[] }).items.map((each) => each.id),
     ).toContain(taskId);
   });
 
@@ -123,14 +125,16 @@ describe('a workspace member who is not on the team', () => {
       .set(TEST_USER_HEADER, BYSTANDER);
 
     expect(answer.status).toBe(200);
-    expect(answer.body.id).toBe(taskId);
+    expect((answer.body as { id: string }).id).toBe(taskId);
   });
 
   it('may not add a task, and is told why', async () => {
     const answer = await adding(BYSTANDER);
 
     expect(answer.status).toBe(403);
-    expect(answer.body.message).toContain('not a member of this team');
+    expect((answer.body as { message: string }).message).toContain(
+      'not a member of this team',
+    );
   });
 
   it('may not assign a task', async () => {
@@ -139,10 +143,12 @@ describe('a workspace member who is not on the team', () => {
     expect((await assigning(BYSTANDER, taskId)).status).toBe(403);
     expect(
       (
-        await served(app)
-          .get(`${tasksOfTeam()}/${taskId}`)
-          .set(TEST_USER_HEADER, BYSTANDER)
-      ).body.assignee,
+        (
+          await served(app)
+            .get(`${tasksOfTeam()}/${taskId}`)
+            .set(TEST_USER_HEADER, BYSTANDER)
+        ).body as { assignee: unknown }
+      ).assignee,
     ).toBeNull();
   });
 
@@ -152,10 +158,12 @@ describe('a workspace member who is not on the team', () => {
     expect((await moving(BYSTANDER, taskId)).status).toBe(403);
     expect(
       (
-        await served(app)
-          .get(`${tasksOfTeam()}/${taskId}`)
-          .set(TEST_USER_HEADER, BYSTANDER)
-      ).body.stationId,
+        (
+          await served(app)
+            .get(`${tasksOfTeam()}/${taskId}`)
+            .set(TEST_USER_HEADER, BYSTANDER)
+        ).body as { stationId: string }
+      ).stationId,
     ).toBe(team.stationId.value);
   });
 
@@ -186,21 +194,23 @@ describe('someone outside the workspace', () => {
 describe('a member of the team', () => {
   it('adds, assigns, moves and deletes the team’s tasks', async () => {
     const added = await adding(TEAMMATE);
+    const { id } = added.body as { id: string };
 
     expect(added.status).toBe(201);
-    expect((await assigning(TEAMMATE, added.body.id)).status).toBe(200);
-    expect((await moving(TEAMMATE, added.body.id)).status).toBe(200);
-    expect((await deleting(TEAMMATE, added.body.id)).status).toBe(204);
+    expect((await assigning(TEAMMATE, id)).status).toBe(200);
+    expect((await moving(TEAMMATE, id)).status).toBe(200);
+    expect((await deleting(TEAMMATE, id)).status).toBe(204);
   });
 });
 
 describe('a workspace admin who is not on the team', () => {
   it('adds, assigns, moves and deletes the team’s tasks', async () => {
     const added = await adding(ADMIN);
+    const { id } = added.body as { id: string };
 
     expect(added.status).toBe(201);
-    expect((await assigning(ADMIN, added.body.id)).status).toBe(200);
-    expect((await moving(ADMIN, added.body.id)).status).toBe(200);
-    expect((await deleting(ADMIN, added.body.id)).status).toBe(204);
+    expect((await assigning(ADMIN, id)).status).toBe(200);
+    expect((await moving(ADMIN, id)).status).toBe(200);
+    expect((await deleting(ADMIN, id)).status).toBe(204);
   });
 });

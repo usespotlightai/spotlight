@@ -120,9 +120,7 @@ describe('the repositories a line works', () => {
     const parsed = compiled(['acme/api', 'other/api']);
 
     expect(parsed.ok).toBe(false);
-    if (!parsed.ok) {
-      expect(parsed.problems[0]?.reason).toContain('api');
-    }
+    expect(parsed.ok ? undefined : parsed.problems[0]?.reason).toContain('api');
   });
 
   it('rejects repositories naming different images', () => {

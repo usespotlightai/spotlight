@@ -1,4 +1,5 @@
 import { MoreHorizontal } from 'lucide-react';
+
 import { StationIconSkeleton } from '@/components/features/board/column/StationIconSkeleton';
 import { RunRowSkeleton } from '@/components/features/runs/RunRowSkeleton';
 import { PropertySkeleton } from '@/components/shared/skeleton/PropertySkeleton';
@@ -55,7 +56,6 @@ export function TaskSkeleton({
 
                 <ul className="flex flex-col gap-0.5">
                   {Array.from({ length: ACTIVITY }, (_, at) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: the placeholders are fixed and their order does not change
                     <RunRowSkeleton key={at} />
                   ))}
                 </ul>

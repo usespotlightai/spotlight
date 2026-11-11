@@ -181,7 +181,7 @@ const LINEAR = {
         url: 'https://api.linear.app/graphql',
         headers: { 'Content-Type': 'application/json' },
         query: {},
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: an integration expression
+        // oxlint-disable-next-line no-template-curly-in-string -- an integration expression
         body: { query: '${{ inputs.body }}' },
         auth: { secrets: ['secret.LINEAR_API_KEY', 'secret.ELSEWHERE'] },
       },
@@ -199,7 +199,7 @@ const LINEAR = {
     },
     events: [
       {
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: an integration expression
+        // oxlint-disable-next-line no-template-curly-in-string -- an integration expression
         when: '${{ body.type == "Issue" }}',
         raise: {
           happening: 'linear.issue.completed',
@@ -207,7 +207,7 @@ const LINEAR = {
           marks: [
             {
               kind: 'linear.issue',
-              // biome-ignore lint/suspicious/noTemplateCurlyInString: an integration expression
+              // oxlint-disable-next-line no-template-curly-in-string -- an integration expression
               value: '${{ body.data.id }}',
               find: true,
             },
@@ -469,7 +469,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           name: 'notify',
           call: 'linear.comment',
           with: {
-            // biome-ignore lint/suspicious/noTemplateCurlyInString: a hook expression
+            // oxlint-disable-next-line no-template-curly-in-string -- a hook expression
             body: 'Agent commented: ${{ event.inputs.body }}',
           },
         },
@@ -478,7 +478,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           request: {
             url: 'https://audit.acme.dev/events',
             headers: { 'x-team': 'core' },
-            // biome-ignore lint/suspicious/noTemplateCurlyInString: a hook expression
+            // oxlint-disable-next-line no-template-curly-in-string -- a hook expression
             body: { tool: '${{ event.tool }}' },
             from: 'network',
           },

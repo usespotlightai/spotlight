@@ -21,7 +21,7 @@ import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
+import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -92,10 +92,10 @@ const started = (
     ...(runSubset ? { runSubset } : {}),
   });
 
-const ended = (replay: Replay): ReplayStopReason => {
+const ended = (replay: Replay): ReplayEndState => {
   expect(replay.isDispatching).toBe(false);
 
-  return replay.current as ReplayStopReason;
+  return replay.current as ReplayEndState;
 };
 
 const searched = (
@@ -112,7 +112,7 @@ const searched = (
   );
   const replays = [seed];
 
-  search = search.recordReplayStopReason(
+  search = search.recordReplayEndState(
     seed.id,
     ended(seed),
     chargeOf(seed),
@@ -153,7 +153,7 @@ const searched = (
       .recordAgentSpend(run, agentSpend(iteration.number), later(4), runIds);
     for (const replay of proposed) {
       replays.push(replay);
-      search = search.recordReplayStopReason(
+      search = search.recordReplayEndState(
         replay.id,
         ended(replay),
         chargeOf(replay),
@@ -187,7 +187,7 @@ const searched = (
         priced,
       );
 
-      search = search.recordReplayStopReason(
+      search = search.recordReplayEndState(
         replay.id,
         ended(replay),
         chargeOf(replay),

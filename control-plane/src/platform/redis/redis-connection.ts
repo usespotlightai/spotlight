@@ -35,7 +35,9 @@ export class RedisConnection implements OnApplicationShutdown {
 
   async onApplicationShutdown(): Promise<void> {
     await Promise.allSettled(
-      [this.client, ...this.subscribers].map((each) => each?.quit()),
+      [this.client, ...this.subscribers].map(
+        (each) => each?.quit() ?? Promise.resolve(),
+      ),
     );
   }
 

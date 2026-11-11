@@ -7,9 +7,10 @@ import type { ReopenChatCommand } from '@work/application/commands/chat.commands
 import type { ChatLoader } from '@work/application/services/chat-loader.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 
-export class ReopenChatHandler
-  implements CommandHandlerPort<ReopenChatCommand, void>
-{
+export class ReopenChatHandler implements CommandHandlerPort<
+  ReopenChatCommand,
+  void
+> {
   constructor(
     private readonly loader: ChatLoader,
     private readonly chats: ChatRepository,

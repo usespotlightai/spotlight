@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
+
 import { ProposedTaskCard } from '@/components/features/agent/ProposedTaskCard';
 import { useAcceptProposal } from '@/hooks/api/useAcceptProposal';
 import { useDismissProposal } from '@/hooks/api/useDismissProposal';
@@ -52,7 +53,7 @@ export function ChatProposal({
         timeout: 10_000,
         actionProps: {
           children: 'Open task',
-          onClick: () => navigate(to, { state: { trail } }),
+          onClick: () => void navigate(to, { state: { trail } }),
         },
       });
     } else if (proposal.state === 'open' && before === 'accepted') {

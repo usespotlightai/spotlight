@@ -6,27 +6,27 @@ import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.e
 import { readsASecret } from '@integrations/domain/services/secret-reads';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import {
-  Hook,
-  type HookSigning,
-  type HookStep,
-} from '@integrations/domain/value-objects/hook.vo';
-import {
   HookEvent,
   type HookEventName,
 } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import {
+  Hook,
+  type HookSigning,
+  type HookStep,
+} from '@integrations/domain/value-objects/hook.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import {
+  firingScope,
+  steppingScope,
+} from '@integrations/infrastructure/hooks/hook-scopes';
 import {
   type HookFile,
   type HookStepFile,
   hookSchema,
 } from '@integrations/infrastructure/hooks/hook.schema';
-import {
-  firingScope,
-  steppingScope,
-} from '@integrations/infrastructure/hooks/hook-scopes';
 import {
   isExpression,
   written,
@@ -36,12 +36,12 @@ import {
   type Structured,
   type Templated,
 } from '@integrations/infrastructure/integrations/templating';
-import { ExpressionError } from '@platform/expressions/expression.errors';
 import type {
   Expression,
   ExpressionEnginePort,
   ExpressionSpan,
 } from '@platform/expressions/expression-engine.port';
+import { ExpressionError } from '@platform/expressions/expression.errors';
 import type { Scope } from '@platform/expressions/scope';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -452,8 +452,10 @@ export const compileHook = (
   };
 };
 
-export interface WrittenHook
-  extends Omit<HookFile, 'failure' | 'timeoutSeconds'> {
+export interface WrittenHook extends Omit<
+  HookFile,
+  'failure' | 'timeoutSeconds'
+> {
   readonly failure: HookFile['failure'] | null;
   readonly timeoutSeconds: number | null;
 }

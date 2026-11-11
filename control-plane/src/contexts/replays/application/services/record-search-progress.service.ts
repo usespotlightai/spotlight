@@ -49,7 +49,7 @@ export class RecordSearchProgress {
       const replay = replays.find((each) => each.id.equals(event.replayId));
       const { minGain } = await this.healths.standardAt(search.station);
 
-      return search.recordReplayStopReason(
+      return search.recordReplayEndState(
         event.replayId,
         event.state,
         replay

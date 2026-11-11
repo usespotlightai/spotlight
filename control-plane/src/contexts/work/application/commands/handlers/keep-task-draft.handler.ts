@@ -4,9 +4,10 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { KeepTaskDraftCommand } from '@work/application/commands/keep-task-draft.command';
 import type { TaskDraftStatesPort } from '@work/application/ports/task-draft-states.port';
 
-export class KeepTaskDraftHandler
-  implements CommandHandlerPort<KeepTaskDraftCommand, void>
-{
+export class KeepTaskDraftHandler implements CommandHandlerPort<
+  KeepTaskDraftCommand,
+  void
+> {
   constructor(private readonly states: TaskDraftStatesPort) {}
 
   async execute(command: KeepTaskDraftCommand): Promise<void> {

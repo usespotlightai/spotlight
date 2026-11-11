@@ -29,7 +29,7 @@ import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task
 import type { ReflectionResult } from '@replays/domain/value-objects/reflection-result';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
+import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type {
   SearchBudget,
@@ -819,9 +819,9 @@ export class Search extends EventRecorder {
     return this.changingIteration(run, () => iteration.rejected());
   }
 
-  recordReplayStopReason(
+  recordReplayEndState(
     replayId: ReplayId,
-    end: ReplayStopReason,
+    end: ReplayEndState,
     charge: ReplayCharge,
     at: Date,
     runIds: () => RunId,

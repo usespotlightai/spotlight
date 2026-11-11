@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+
 import { DiffStat } from '@/components/shared/DiffStat';
 import { type FileChange, fileName, tallyFile } from '@/lib/changes';
 import { useRunSidePanel } from '@/lib/run-side-panel';

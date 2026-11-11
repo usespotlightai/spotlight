@@ -12,9 +12,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class RecordRecallHandler
-  implements CommandHandlerPort<RecordRecallCommand, void>
-{
+export class RecordRecallHandler implements CommandHandlerPort<
+  RecordRecallCommand,
+  void
+> {
   constructor(
     private readonly loader: RunnerMemoryLoader,
     private readonly memories: MemoryRepository,

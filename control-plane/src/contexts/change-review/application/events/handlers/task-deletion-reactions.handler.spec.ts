@@ -6,8 +6,8 @@ import { StackCheckReservationDropped } from '@change-review/domain/events/stack
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
-import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';

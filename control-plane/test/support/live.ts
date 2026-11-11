@@ -1,7 +1,11 @@
-import { request } from 'node:http';
+import { request, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import type { INestApplication } from '@nestjs/common';
+
 import { TEST_USER_HEADER } from './app';
+
+export const E2E_REDIS_URL = process.env.SPOTLIGHT_E2E_REDIS_URL;
 
 export interface HeardEvent {
   readonly type: string;
@@ -33,7 +37,7 @@ const eventOf = (block: string): HeardEvent | null => {
 
 export const watchedLive = (app: INestApplication, personId: string) => {
   const heard: HeardEvent[] = [];
-  const { port } = app.getHttpServer().address() as AddressInfo;
+  const { port } = (app.getHttpServer() as Server).address() as AddressInfo;
   let buffered = '';
   let status: number | undefined;
 

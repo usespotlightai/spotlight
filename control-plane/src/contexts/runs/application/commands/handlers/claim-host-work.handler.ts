@@ -74,9 +74,10 @@ type Claimed =
       readonly warm: WarmStart | null;
     };
 
-export class ClaimHostWorkHandler
-  implements CommandHandlerPort<ClaimHostWorkCommand, HostClaimDto>
-{
+export class ClaimHostWorkHandler implements CommandHandlerPort<
+  ClaimHostWorkCommand,
+  HostClaimDto
+> {
   constructor(
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly runners: RunnersPort,

@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import type { Location } from 'react-router';
-import { userEvent, within } from 'storybook/test';
+import { type queries, userEvent, within } from 'storybook/test';
+
 import { MockApplication } from '@/stories/MockApplication';
 
-type Screen = ReturnType<typeof within>;
+type Screen = ReturnType<typeof within<typeof queries>>;
 
 export type Script = (screen: Screen, user: typeof userEvent) => Promise<void>;
 

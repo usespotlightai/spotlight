@@ -1,4 +1,5 @@
 import { type ComponentProps, useEffect, useLayoutEffect, useRef } from 'react';
+
 import { cn } from '@/lib/utils';
 
 type AutoGrowTextareaProps = ComponentProps<'textarea'> & { value: string };
@@ -25,7 +26,6 @@ export function AutoGrowTextarea({
 }: AutoGrowTextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the measurement must follow the text, but the effect reads only the node
   useLayoutEffect(() => {
     if (ref.current) {
       fitToContent(ref.current);

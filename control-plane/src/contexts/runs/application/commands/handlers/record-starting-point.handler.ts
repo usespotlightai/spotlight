@@ -29,9 +29,10 @@ const listed = (
   return checkouts;
 };
 
-export class RecordStartingPointHandler
-  implements CommandHandlerPort<RecordStartingPointCommand, void>
-{
+export class RecordStartingPointHandler implements CommandHandlerPort<
+  RecordStartingPointCommand,
+  void
+> {
   constructor(
     private readonly runs: RunRepository,
     private readonly archives: WorkingCopyArchiveRepository,

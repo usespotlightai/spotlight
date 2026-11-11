@@ -1,4 +1,4 @@
-import { metrics, type ProxyTracerProvider, trace } from '@opentelemetry/api';
+import { metrics, type TracerProvider, trace } from '@opentelemetry/api';
 import { startOpenTelemetry } from '@platform/telemetry/open-telemetry';
 import { describe, expect, it } from 'vitest';
 
@@ -9,8 +9,9 @@ describe('startOpenTelemetry', () => {
     expect(startOpenTelemetry(env)).toBe(false);
     expect(env).toEqual({ OTEL_SERVICE_NAME: 'spotlight' });
     expect(
-      (trace.getTracerProvider() as ProxyTracerProvider).getDelegate()
-        .constructor.name,
+      (
+        trace.getTracerProvider() as TracerProvider & { getDelegate(): object }
+      ).getDelegate().constructor.name,
     ).toBe('NoopTracerProvider');
     expect(metrics.getMeterProvider().constructor.name).toBe(
       'NoopMeterProvider',

@@ -9,9 +9,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class TeamIntegrationsHandler
-  implements QueryHandlerPort<TeamIntegrationsQuery, TeamIntegrationsDto | null>
-{
+export class TeamIntegrationsHandler implements QueryHandlerPort<
+  TeamIntegrationsQuery,
+  TeamIntegrationsDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly readings: TeamIntegrationReadingsPort,
@@ -44,6 +45,7 @@ export class TeamIntegrationsHandler
           integration: each.integration,
           path: each.path,
           name: each.name,
+          logo: each.logo,
           connectionStatus: connectionStatusOf(
             each.requiresConnection,
             connectionOf.get(each.integration) ?? null,

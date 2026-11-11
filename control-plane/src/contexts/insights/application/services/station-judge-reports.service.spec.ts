@@ -8,8 +8,8 @@ import {
   judgeReportOf,
 } from '@insights/domain/services/judge-report';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
+import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { taskPullRequestOf } from '@insights/insights.fake-spec';
 import {
@@ -257,9 +257,9 @@ describe('StationJudgeReports', () => {
   });
 
   it('reports how often the station’s judge agrees with people, and qualifies it once it agrees enough', async () => {
-    const { judge, report, calibration } = await (await reporting()).at(
-      STATION,
-    );
+    const { judge, report, calibration } = await (
+      await reporting()
+    ).at(STATION);
 
     expect(judge?.scale?.kind).toBe('yes-no');
     expect(report.versions[0]?.agreement.kappa).toBe(1);
@@ -275,10 +275,11 @@ describe('StationJudgeReports', () => {
   });
 
   it('answers Insights whether a station’s judge is qualified', async () => {
-    const [calibration] = await (await reporting()).calibrationsOf(
-      { workspaceId: 'ws_1', teamId: 'team_1' },
-      [{ lineId: 'line_1', stationId: 'station_1' }],
-    );
+    const [calibration] = await (
+      await reporting()
+    ).calibrationsOf({ workspaceId: 'ws_1', teamId: 'team_1' }, [
+      { lineId: 'line_1', stationId: 'station_1' },
+    ]);
 
     expect(calibration).toMatchObject({
       stationId: 'station_1',

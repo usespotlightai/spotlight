@@ -42,14 +42,13 @@ const changing = (workspace: Workspace | null = staffed()) => {
 
 const change = (
   over: Partial<ChangeMemberRoleCommand> = {},
-): ChangeMemberRoleCommand =>
-  ({
-    slug: 'acme',
-    userId: 'user_ada',
-    role: 'admin',
-    viewerId: 'user_owner',
-    ...over,
-  }) as ChangeMemberRoleCommand;
+): ChangeMemberRoleCommand => ({
+  slug: 'acme',
+  userId: 'user_ada',
+  role: 'admin',
+  viewerId: 'user_owner',
+  ...over,
+});
 
 describe('ChangeMemberRoleHandler', () => {
   it('saves the workspace the rule returns', async () => {

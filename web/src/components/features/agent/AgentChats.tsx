@@ -1,5 +1,6 @@
 import { MousePointer2 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
+
 import { ChatRow } from '@/components/features/agent/ChatRow';
 import { ChatRowSkeleton } from '@/components/features/agent/ChatRowSkeleton';
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
@@ -34,7 +35,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
   const trail = useForwardTrail();
 
   const started = (chatId: string) =>
-    navigate(chatPath(slug, teamId, chatId), { state: { trail } });
+    void navigate(chatPath(slug, teamId, chatId), { state: { trail } });
 
   const planned = chats.data ?? [];
 

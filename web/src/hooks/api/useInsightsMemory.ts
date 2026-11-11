@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { readInsightsMemory } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsMemory } from '@/lib/insights-memory';

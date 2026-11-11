@@ -2,14 +2,18 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ApiAccess } from '@/routes/ApiAccess';
 
-const listed = vi.fn();
+const listed = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
-const workspace = vi.fn();
+const workspace = vi.fn<(...args: unknown[]) => unknown>();
 const requested = vi.fn();
-const create = vi.fn();
+const create =
+  vi.fn<
+    (input: unknown, options: { onSuccess: (data?: unknown) => void }) => void
+  >();
 const revoke = vi.fn();
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -209,7 +213,7 @@ describe('ApiAccess', () => {
         name: 'terraform-ci',
         description: '',
         scopes: ['configure'],
-        expiresAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        expiresAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) as string,
       },
       expect.anything(),
     );

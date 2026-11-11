@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { Button } from '@/components/ui/button';
 import {
@@ -82,6 +83,7 @@ export function SubmitReviewButton() {
         <fieldset className="flex flex-col gap-1">
           <legend className="sr-only">Verdict</legend>
           {VERDICTS.map((each) => (
+            // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- the label wraps its input and names it with the text beside it
             <label
               key={each.id}
               className={cn(

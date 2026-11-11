@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { StationsTab } from '@/components/features/insights/StationsTab';
 import { DEFAULT_PERIOD } from '@/lib/insights';
 import { seedStations } from '@/test/fixtures/insights';

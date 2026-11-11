@@ -12,8 +12,8 @@ import {
   storedAs,
 } from '@runs/domain/aggregates/working-copy-archive.fake-spec';
 import { InvalidStartingPointError } from '@runs/domain/exceptions/invalid-starting-point.error';
-import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
 import { InvalidWorkingCopyArchiveTransitionError } from '@runs/domain/exceptions/invalid-working-copy-archive-transition.error';
+import { InvalidWorkingCopyArchiveError } from '@runs/domain/exceptions/invalid-working-copy-archive.error';
 import { WorkingCopyArchiveNotUploadedError } from '@runs/domain/exceptions/working-copy-archive-not-uploaded.error';
 import { ArchiveDigest } from '@runs/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@runs/domain/value-objects/archive-grantee.vo';

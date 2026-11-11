@@ -1,11 +1,18 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import {
+  type Location,
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TraceList } from '@/components/features/trace/list/TraceList';
 import type { InsightsTrace, RunFilter } from '@/lib/insights';
 
-const traces = vi.fn();
+const traces = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
 
@@ -80,7 +87,7 @@ const traced: InsightsTrace = {
 const everyTrace = vi.fn();
 
 function HandedOver() {
-  const { state } = useLocation();
+  const { state } = useLocation() as Location<{ traces: unknown }>;
 
   return <pre>{JSON.stringify(state.traces)}</pre>;
 }

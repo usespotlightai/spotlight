@@ -8,9 +8,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ReadTeamMemoryHandler
-  implements QueryHandlerPort<ReadTeamMemoryQuery, TeamMemoryDetailDto>
-{
+export class ReadTeamMemoryHandler implements QueryHandlerPort<
+  ReadTeamMemoryQuery,
+  TeamMemoryDetailDto
+> {
   constructor(
     private readonly access: MemoryAccess,
     private readonly loader: TeamMemoryLoader,

@@ -1,4 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
+
 import {
   Tooltip,
   TooltipContent,
@@ -13,6 +14,7 @@ export function TraceEgressMark() {
     <Tooltip>
       <TooltipTrigger
         render={
+          // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
           <button
             type="button"
             data-slot="trace-egress-mark"

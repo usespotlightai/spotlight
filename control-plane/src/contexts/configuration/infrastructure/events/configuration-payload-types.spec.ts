@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/infrastructure/events/configuration-payload-types';
 import { SECRET } from '@shared-kernel/domain/value-objects/secret';
 import { describe, expect, it } from 'vitest';
@@ -21,9 +22,10 @@ describe('CONFIGURATION_PAYLOAD_TYPES', () => {
       for (const file of readdirSync(within).filter(
         (each) => each.endsWith('.ts') && !each.endsWith('.spec.ts'),
       )) {
-        const loaded: Record<string, unknown> = await import(
-          join(within, file)
-        );
+        const loaded = (await import(join(within, file))) as Record<
+          string,
+          unknown
+        >;
 
         for (const [name, value] of Object.entries(loaded)) {
           if (

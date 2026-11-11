@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { fitToWidth } from '@/lib/textFit';
 
 const width = (text: string) => text.length * 6;

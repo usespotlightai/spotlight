@@ -9,7 +9,7 @@ export class TerraformStateLockedError extends DomainError {
     readonly holder: StateLock,
   ) {
     super(
-      `Terraform state ${name} is locked by ${holder.id}. Wait until that run ends, or release the lock with terraform force-unlock ${holder.id}.`,
+      `Terraform state ${name} is locked by ${holder.id.value}. Wait until that run ends, or release the lock with terraform force-unlock ${holder.id.value}.`,
     );
     this.name = 'TerraformStateLockedError';
   }

@@ -22,9 +22,10 @@ const PROVISIONING_NAME: Record<Provisioning, ProvisioningName> = {
   done: 'done',
 };
 
-export class OnboardingHandler
-  implements QueryHandlerPort<OnboardingQuery, OnboardingDto | null>
-{
+export class OnboardingHandler implements QueryHandlerPort<
+  OnboardingQuery,
+  OnboardingDto | null
+> {
   constructor(
     private readonly access: WorkAccess,
     private readonly setup: SetupStatus,

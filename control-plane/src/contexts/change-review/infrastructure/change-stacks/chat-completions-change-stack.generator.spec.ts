@@ -1,3 +1,4 @@
+import { GenerationError } from '@change-review/application/errors/generation.error';
 import { factsOf } from '@change-review/domain/services/diff-facts';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
@@ -69,6 +70,25 @@ const answering = (status: number, body: unknown) => {
 
   return { requests, fetch };
 };
+
+type SentSchema = {
+  required: string[];
+  properties: Record<string, SentSchema>;
+  items: SentSchema;
+};
+
+type SentBody = {
+  model: string;
+  max_completion_tokens: number;
+  reasoning_effort?: string;
+  response_format: {
+    json_schema: { name: string; strict: boolean; schema: SentSchema };
+  };
+  messages: { content: string }[];
+};
+
+const sentBody = (requests: { init: RequestInit }[]) =>
+  JSON.parse(requests[0]?.init.body as string) as SentBody;
 
 const generate = (generator: ChatCompletionsChangeStackGenerator) =>
   generator.generate({
@@ -152,7 +172,7 @@ describe('ChatCompletionsChangeStackGenerator', () => {
         ?.Authorization,
     ).toBe('Bearer test-key');
 
-    const body = JSON.parse(String(requests[0]?.init.body));
+    const body = sentBody(requests);
     expect(body.model).toBe('some/model');
     expect(body.max_completion_tokens).toBe(65_536);
     expect(body.reasoning_effort).toBe('medium');
@@ -246,7 +266,7 @@ describe('ChatCompletionsChangeStackGenerator', () => {
 
     await expect(
       generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
-    ).rejects.toThrow();
+    ).rejects.toThrow(GenerationError);
   });
 
   it('rejects an answer cut short', async () => {
@@ -284,8 +304,6 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
         },
       ],
     });
-  const bodyOf = (requests: { init: RequestInit }[]) =>
-    JSON.parse(String(requests[0]?.init.body));
 
   it('requests only the cohorts and their hunks for an outline', async () => {
     const { requests, fetch } = answer({
@@ -311,7 +329,7 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
     });
 
     expect(cohorts[0]?.hunks).toEqual(['h1']);
-    const body = bodyOf(requests);
+    const body = sentBody(requests);
     expect(body.response_format.json_schema.name).toBe('change_stack_outline');
     expect(body.reasoning_effort).toBe('medium');
     expect(body.messages[0].content).toContain(
@@ -350,7 +368,7 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
       problems: [],
     });
 
-    const prompt = bodyOf(requests).messages[1].content;
+    const prompt = sentBody(requests).messages[1].content;
     for (const fact of [
       'uses Invite from h2',
       'removes legacy, which h2 stops using',
@@ -382,7 +400,7 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
 
     expect(layers[0]?.hunks).toEqual([{ hunk: 'h1' }]);
     expect(layers[0]?.notes[0]?.path).toBe('src/invite.ts');
-    const body = bodyOf(requests);
+    const body = sentBody(requests);
     expect(body.response_format.json_schema.name).toBe('cohort_layers');
     expect(body.messages[0].content).toContain('You order one cohort');
     expect(body.messages[1].content).toContain(

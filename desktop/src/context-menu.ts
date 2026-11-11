@@ -17,12 +17,12 @@ export const contextMenuOf = (
 ): MenuItemConstructorOptions[] => {
   const spelling: MenuItemConstructorOptions[] = params.misspelledWord
     ? [
-        ...params.dictionarySuggestions.slice(0, MAX_SUGGESTIONS).map(
-          (suggestion): MenuItemConstructorOptions => ({
+        ...params.dictionarySuggestions
+          .slice(0, MAX_SUGGESTIONS)
+          .map((suggestion): MenuItemConstructorOptions => ({
             label: suggestion,
             click: () => contents.replaceMisspelling(suggestion),
-          }),
-        ),
+          })),
         ...(params.dictionarySuggestions.length === 0
           ? [{ label: 'No guesses found', enabled: false }]
           : []),
@@ -45,7 +45,7 @@ export const contextMenuOf = (
         },
         {
           label: 'Copy Link',
-          click: () => clipboard.writeText(params.linkURL),
+          click: () => void clipboard.writeText(params.linkURL),
         },
         { type: 'separator' },
       ]

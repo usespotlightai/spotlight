@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react';
 import { flushSync } from 'react-dom';
+
 import { Collapsible } from '@/components/shared/Collapsible';
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
 import { useRowClick } from '@/hooks/useRowClick';

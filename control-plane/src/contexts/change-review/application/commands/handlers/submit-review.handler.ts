@@ -5,9 +5,10 @@ import { RepositoryName } from '@change-review/domain/value-objects/repository-n
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class SubmitReviewHandler
-  implements CommandHandlerPort<SubmitReviewCommand, string>
-{
+export class SubmitReviewHandler implements CommandHandlerPort<
+  SubmitReviewCommand,
+  string
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly submitting: SubmitReview,

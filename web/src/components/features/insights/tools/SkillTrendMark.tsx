@@ -1,4 +1,5 @@
 import { Triangle } from 'lucide-react';
+
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatShare } from '@/lib/insights';
 import { formatTrend, type SkillTrend } from '@/lib/insights-tools';

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { PageTitle } from '@/components/shared/PageTitle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTabTitle } from '@/lib/tab-title';

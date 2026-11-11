@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { MemoryRouter } from 'react-router';
+
 import { Conversation } from '@/components/features/inbox/conversation/Conversation';
 import type { Note, RunJournal } from '@/lib/inbox';
 
@@ -86,6 +87,8 @@ const note = (body: string, seconds: number): Note => ({
   attachments: [],
   author: null,
   coAuthors: [],
+  source: null,
+  deferredTo: null,
   approval: null,
   failure: null,
   connection: null,

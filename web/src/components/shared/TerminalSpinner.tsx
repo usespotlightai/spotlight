@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+
 import { cn } from '@/lib/utils';
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -9,7 +10,7 @@ const STOPPED = '⠿';
 
 const stillPreferred = () =>
   typeof window !== 'undefined' &&
-  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 type TerminalSpinnerProps = {
   stopped?: 'filled' | 'faded' | null;

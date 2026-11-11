@@ -32,6 +32,7 @@ import type { StartCheckReplays } from '@replays/application/services/start-chec
 import type { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import type { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
+import type { StopSupersededChecks } from '@replays/application/services/stop-superseded-checks.service';
 import type { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
 import type { ChangeJudged } from '@replays/domain/events/change-judged.event';
 import type { ChangeJudgingFailed } from '@replays/domain/events/change-judging-failed.event';
@@ -158,6 +159,7 @@ export interface ReplaysReactions {
   readonly deletingRunDecisions: DeleteReplayRunDecisions;
   readonly startingSearchReplays: StartSearchReplays;
   readonly startingCheckReplays: StartCheckReplays;
+  readonly stoppingSupersededChecks: StopSupersededChecks;
   readonly noticingResults: NoticeSearchResults;
   readonly picking: PickSearchCandidates;
   readonly schedules: SearchSchedules;
@@ -650,5 +652,10 @@ export const replaysSubscribers = (
     ['replay.check-started'],
     (event) => reactions.startingCheckReplays.started(event),
     { callsOut: true },
+  ),
+  subscribing<ReplayCheckStarted>(
+    'replays.stop-superseded-checks',
+    ['replay.check-started'],
+    (event) => reactions.stoppingSupersededChecks.started(event),
   ),
 ];

@@ -1,6 +1,7 @@
 import { type IncomingMessage, STATUS_CODES } from 'node:http';
 import { connect } from 'node:net';
 import type { Duplex } from 'node:stream';
+
 import type { HttpAdapterHost } from '@nestjs/core';
 
 export type UpgradeListener = (

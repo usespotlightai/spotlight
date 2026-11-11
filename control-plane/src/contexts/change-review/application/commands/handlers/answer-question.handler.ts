@@ -29,9 +29,10 @@ const questionIdOf = (raw: string): QuestionId => {
   return parsed;
 };
 
-export class AnswerQuestionHandler
-  implements CommandHandlerPort<AnswerQuestionCommand, void>
-{
+export class AnswerQuestionHandler implements CommandHandlerPort<
+  AnswerQuestionCommand,
+  void
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly stacks: ChangeStackRepository,

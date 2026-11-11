@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+
 import { AcceptAsSignedIn } from '@/components/features/invites/AcceptAsSignedIn';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';

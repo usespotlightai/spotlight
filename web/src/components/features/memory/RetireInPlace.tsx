@@ -1,10 +1,11 @@
 import {
-  type FormEvent,
+  type SubmitEvent,
   type KeyboardEvent,
   useEffect,
   useRef,
   useState,
 } from 'react';
+
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { NOTE_BOX, PersonNote } from '@/components/features/memory/PersonNote';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
@@ -36,7 +37,7 @@ export function RetireInPlace({
   }, []);
   const ready = reason.trim().length > 0 && !retire.isPending;
 
-  const submit = (event?: FormEvent) => {
+  const submit = (event?: SubmitEvent) => {
     event?.preventDefault();
 
     if (ready) {

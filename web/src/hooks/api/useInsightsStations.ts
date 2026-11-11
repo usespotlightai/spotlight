@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { readInsightsStations } from '@/lib/api';
 import type { InsightsPeriod, InsightsStations } from '@/lib/insights';
 

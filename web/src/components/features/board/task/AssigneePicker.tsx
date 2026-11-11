@@ -1,4 +1,5 @@
 import { Check, ChevronsUpDown, UserRound } from 'lucide-react';
+
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import {
   DropdownMenu,

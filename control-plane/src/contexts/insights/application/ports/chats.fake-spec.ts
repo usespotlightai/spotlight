@@ -17,7 +17,7 @@ export const chatsInMemory = (): ChatsPort & {
       }
     },
     removeIn: async (scope) => {
-      for (const [id, each] of [...stored]) {
+      for (const [id, each] of stored) {
         if (ownedIn(scope, each)) {
           stored.delete(id);
         }

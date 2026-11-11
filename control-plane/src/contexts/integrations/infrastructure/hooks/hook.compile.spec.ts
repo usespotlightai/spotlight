@@ -27,7 +27,7 @@ const GRAFANA_READS = {
       call: 'slack.post-message',
       with: {
         channel: 'C024BE91L',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+        // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
         text: 'Agent searched Grafana: ${{ event.inputs.query }}',
       },
     },
@@ -35,7 +35,7 @@ const GRAFANA_READS = {
       name: 'audit',
       request: {
         url: 'https://audit.example.com/',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+        // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
         body: '${{ {"said": step.notify.status} }}',
       },
     },
@@ -54,7 +54,7 @@ const MIGRATIONS = {
       name: 'tell',
       request: {
         url: 'https://dba.example.com/',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+        // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
         body: "${{ {'pr': event.title, 'files': event.changed.filter(path, path.startsWith(vars.migrations))} }}",
       },
     },
@@ -154,11 +154,14 @@ describe('compileHook', () => {
     expect(unwritten.document.fields.steps).toEqual([
       {
         name: 'tell',
-        request: expect.not.objectContaining({ from: 'spotlight' }),
+        request: expect.not.objectContaining({ from: 'spotlight' }) as unknown,
       },
     ]);
     expect(written.document.fields.steps).toEqual([
-      { name: 'tell', request: expect.objectContaining({ from: 'network' }) },
+      {
+        name: 'tell',
+        request: expect.objectContaining({ from: 'network' }) as unknown,
+      },
     ]);
     expect(written.ir.steps[0]).toMatchObject({ fromNetwork: true });
   });
@@ -230,7 +233,7 @@ describe('compileHook', () => {
           {
             name: 'notify',
             call: 'slack.post-message',
-            // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+            // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
             with: { text: '${{ step.audit.status }}' },
           },
           GRAFANA_READS.steps[1],

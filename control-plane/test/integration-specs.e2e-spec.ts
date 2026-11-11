@@ -6,6 +6,7 @@ import {
   type ServerResponse,
 } from 'node:http';
 import type { AddressInfo } from 'node:net';
+
 import { PETSTORE } from '@integrations/infrastructure/specs/openapi/petstore.fake-spec';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -35,7 +36,8 @@ import {
   it,
   vi,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -68,7 +70,7 @@ const fixture = () => {
       const chunks: Buffer[] = [];
 
       request.on('data', (chunk: Buffer) => chunks.push(chunk));
-      request.on('end', async () => {
+      const respond = async (): Promise<void> => {
         const body = Buffer.concat(chunks).toString('utf8');
         const url = request.url ?? '/';
 
@@ -114,7 +116,9 @@ const fixture = () => {
         }
 
         return answer(reply, 404, { message: 'nothing here' });
-      });
+      };
+
+      request.on('end', () => void respond());
     },
   );
 
@@ -125,6 +129,15 @@ const fixture = () => {
       received.filter((each) => each.url.startsWith(path)).length,
   };
 };
+
+interface Made {
+  readonly id: string;
+  readonly version: number;
+  readonly type: string;
+  readonly tools: unknown;
+  readonly warnings: readonly unknown[];
+  readonly spec: { readonly hash: string; readonly problem: string | null };
+}
 
 describe('an integration providing tools from an API spec (e2e)', () => {
   const upstream = fixture();
@@ -145,14 +158,21 @@ describe('an integration providing tools from an API spec (e2e)', () => {
     },
   });
 
-  const create = (body: object, key: string = randomUUID()) =>
+  const create = async (
+    body: object,
+    key: string = randomUUID(),
+  ): Promise<Answer<Made>> =>
     served(app)
       .post(`/api/v1/resources/teams/${workspaceId}/integrations`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', key)
       .send(body);
 
-  const update = (id: string, version: number, body: object) =>
+  const update = async (
+    id: string,
+    version: number,
+    body: object,
+  ): Promise<Answer<Made>> =>
     served(app)
       .put(`/api/v1/resources/integrations/${id}`)
       .set(TEST_USER_HEADER, seat.owner)
@@ -238,14 +258,14 @@ describe('an integration providing tools from an API spec (e2e)', () => {
     });
     expect(made.body.spec).toMatchObject({
       kind: 'openapi',
-      hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      hash: expect.stringMatching(/^[0-9a-f]{64}$/) as unknown,
       problem: null,
       tools: 6,
     });
     expect(made.body.warnings).toEqual([
       expect.objectContaining({
         path: 'openapi',
-        message: expect.stringMatching(/^skips uploadFile/),
+        message: expect.stringMatching(/^skips uploadFile/) as unknown,
       }),
     ]);
   });

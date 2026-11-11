@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -16,6 +17,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
@@ -27,6 +29,12 @@ import { seatTeam } from './support/team';
 const SUBJECT = 'system:serviceaccount:spotlight:runner';
 
 const HOST = 'pod-a-host-000001';
+
+interface Claimed {
+  readonly runnerId: string;
+  readonly token: string;
+  readonly work: { run: { id: string } };
+}
 
 describe('a host claiming through a runner trust, as a platform workload with no token (e2e)', () => {
   let app: INestApplication;
@@ -154,16 +162,20 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
     expect(claimed.status).toBe(200);
     expect(claimed.body).toEqual({
-      runnerId: expect.any(String),
-      token: expect.any(String),
-      egressToken: expect.any(String),
-      sandboxId: expect.any(String),
-      sandboxToken: expect.any(String),
+      runnerId: expect.any(String) as unknown,
+      token: expect.any(String) as unknown,
+      egressToken: expect.any(String) as unknown,
+      sandboxId: expect.any(String) as unknown,
+      sandboxToken: expect.any(String) as unknown,
       allowedHosts: [],
       reused: false,
-      work: expect.objectContaining({ kind: 'run', run: expect.anything() }),
+      work: expect.objectContaining({
+        kind: 'run',
+        run: expect.anything() as unknown,
+      }) as unknown,
     });
-    expect(claimed.body.work.run.id).toBe(placed);
+    const answer = claimed.body as Claimed;
+    expect(answer.work.run.id).toBe(placed);
 
     const [started] = await db
       .select({
@@ -173,7 +185,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
         workId: schema.runner.workId,
       })
       .from(schema.runner)
-      .where(eq(schema.runner.id, claimed.body.runnerId));
+      .where(eq(schema.runner.id, answer.runnerId));
 
     expect(started).toEqual({
       trustId: trust.id,
@@ -184,7 +196,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
     await http()
       .post(`/api/runs/${placed}/lease`)
-      .set('Authorization', `Bearer ${claimed.body.token}`)
+      .set('Authorization', `Bearer ${answer.token}`)
       .expect(201);
   });
 
@@ -211,7 +223,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     const claimed = await claim(trust.id, await workload());
 
     expect(claimed.status).toBe(200);
-    expect(claimed.body.work).toMatchObject({
+    expect((claimed.body as Claimed).work).toMatchObject({
       kind: 'check',
       check: { stackId },
     });
@@ -274,12 +286,12 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
     expect(answered.status).toBe(200);
     expect(answered.body).toEqual({
-      workspace: expect.any(String),
+      workspace: expect.any(String) as unknown,
       drain: [],
     });
 
     expect(await hostRow()).toMatchObject({
-      workspaceId: answered.body.workspace,
+      workspaceId: (answered.body as { workspace: string }).workspace,
       trustId: trust.id,
       poolId: null,
       bootId: 'boot_1',

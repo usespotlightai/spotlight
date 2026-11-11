@@ -2,9 +2,10 @@ import type { RecordToolOutputCommand } from '@integrations/application/commands
 import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class RecordToolOutputHandler
-  implements CommandHandlerPort<RecordToolOutputCommand, void>
-{
+export class RecordToolOutputHandler implements CommandHandlerPort<
+  RecordToolOutputCommand,
+  void
+> {
   constructor(private readonly inferring: InferOutputSchemas) {}
 
   async execute(command: RecordToolOutputCommand): Promise<void> {

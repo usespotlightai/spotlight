@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { IntegrationConnectionVersionConflictError } from '@integrations/domain/exceptions/integration-connection-version-conflict.error';
@@ -29,6 +30,7 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';

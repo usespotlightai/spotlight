@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TeamGeneral } from '@/routes/TeamGeneral';
 
 const workspace = vi.fn();
@@ -12,8 +13,8 @@ const invite = vi.fn();
 const add = vi.fn();
 const adding = vi.fn();
 
-const settingsFailing = vi.fn();
-const membersFailing = vi.fn();
+const settingsFailing = vi.fn<(...args: unknown[]) => boolean>();
+const membersFailing = vi.fn<(...args: unknown[]) => boolean>();
 const refetchSettings = vi.fn();
 const refetchMembers = vi.fn();
 

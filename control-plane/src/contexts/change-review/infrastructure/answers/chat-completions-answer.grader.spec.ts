@@ -27,6 +27,19 @@ const answering = (body: unknown) => {
   return { requests, fetch };
 };
 
+type SentBody = {
+  model: string;
+  response_format: {
+    json_schema: {
+      schema: { properties: Record<string, { enum: string[] }> };
+    };
+  };
+  messages: { content: string }[];
+};
+
+const sentBody = (requests: RequestInit[]) =>
+  JSON.parse(requests[0]?.body as string) as SentBody;
+
 describe('ChatCompletionsAnswerGrader', () => {
   it('is unavailable without a key', async () => {
     const grader = new ChatCompletionsAnswerGrader(null);
@@ -62,7 +75,7 @@ describe('ChatCompletionsAnswerGrader', () => {
       usage: null,
     });
 
-    const body = JSON.parse(String(requests[0]?.body));
+    const body = sentBody(requests);
     expect(body.model).toBe('some/model');
     expect(
       body.response_format.json_schema.schema.properties.verdict.enum,
@@ -110,8 +123,7 @@ describe('ChatCompletionsAnswerGrader', () => {
       })),
     });
 
-    const prompt: string = JSON.parse(String(requests[0]?.body)).messages[1]
-      .content;
+    const prompt = sentBody(requests).messages[1].content;
     expect(prompt).toContain('## big2.ts');
     expect(prompt).not.toContain('## big3.ts');
     expect(prompt.length).toBeLessThan(25_000);

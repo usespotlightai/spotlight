@@ -6,9 +6,10 @@ import type { TaskWorkspacesPort } from '@work/application/ports/task-workspaces
 import type { JoinTaskDraftQuery } from '@work/application/queries/task-draft.queries';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 
-export class JoinTaskDraftHandler
-  implements QueryHandlerPort<JoinTaskDraftQuery, boolean>
-{
+export class JoinTaskDraftHandler implements QueryHandlerPort<
+  JoinTaskDraftQuery,
+  boolean
+> {
   constructor(
     private readonly tasks: TaskWorkspacesPort,
     private readonly access: WorkAccess,

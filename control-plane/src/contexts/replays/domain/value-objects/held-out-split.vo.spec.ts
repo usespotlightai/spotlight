@@ -31,6 +31,15 @@ const drawn = (entries: readonly ReplaySetEntry[], searchId = SEARCH_ID) =>
 const heldOutTasks = (split: HeldOutSplit): string[] =>
   [...new Set(split.heldOut.map((each) => each.taskId.value))].sort();
 
+const errorOf = (make: () => unknown): unknown => {
+  try {
+    make();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('was not rejected');
+};
+
 describe('HeldOutSplit', () => {
   it('holds out the same tasks every time for the same search', () => {
     const set = entries(tasksOf(12));
@@ -104,13 +113,10 @@ describe('HeldOutSplit', () => {
   ])(
     'rejects a set of %i tasks, which would hold out fewer than 2 or search fewer than 3',
     (count, heldOutCount) => {
-      try {
-        drawn(entries(tasksOf(count)));
-        expect.unreachable();
-      } catch (error) {
-        expect(error).toBeInstanceOf(SearchSetTooSmallError);
-        expect(error).toMatchObject({ tasks: count, heldOut: heldOutCount });
-      }
+      const error = errorOf(() => drawn(entries(tasksOf(count))));
+
+      expect(error).toBeInstanceOf(SearchSetTooSmallError);
+      expect(error).toMatchObject({ tasks: count, heldOut: heldOutCount });
     },
   );
 

@@ -4,12 +4,12 @@ import type { StackCheckRepository } from '@change-review/domain/repositories/st
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { StackCheckStatus } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   queueTimeout,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
-import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';

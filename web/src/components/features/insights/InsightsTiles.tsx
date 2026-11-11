@@ -1,4 +1,5 @@
 import { Children, type ReactNode } from 'react';
+
 import { tilesInARow } from '@/lib/insights-tiles';
 import { cn } from '@/lib/utils';
 

@@ -2,11 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useCreateWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { tokenKeys } from '@/hooks/api/useWorkspaceTokens';
 import type { TokenSpec } from '@/lib/token';
 
-const createWorkspaceToken = vi.fn();
+const createWorkspaceToken = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/api', () => ({
   createWorkspaceToken: (options: unknown) => createWorkspaceToken(options),
@@ -70,7 +71,7 @@ describe('useCreateWorkspaceToken', () => {
     );
     expect(createWorkspaceToken).toHaveBeenCalledWith({
       path: { workspaceId: 'workspace_acme' },
-      headers: { 'Idempotency-Key': expect.any(String) },
+      headers: { 'Idempotency-Key': expect.any(String) as string },
       body: SPEC,
     });
     expect(invalidated).toHaveBeenCalledWith({

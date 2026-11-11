@@ -1,4 +1,5 @@
 import { MousePointer2, X } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 
 type TraceSelectionBarProps = {

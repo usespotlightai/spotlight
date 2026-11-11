@@ -1,16 +1,17 @@
 import type { ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { SkillTrendMark } from '@/components/features/insights/tools/SkillTrendMark';
 import { SkillWeeksChart } from '@/components/features/insights/tools/SkillWeeksChart';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Collapsibles } from '@/hooks/useCollapsibles';
@@ -113,7 +114,7 @@ export function SkillRows({
                 weeks={skill.weeks}
                 max={max}
                 onWeek={(week) =>
-                  navigate(
+                  void navigate(
                     insightsPath(slug, teamId, {
                       tab: 'traces',
                       period,

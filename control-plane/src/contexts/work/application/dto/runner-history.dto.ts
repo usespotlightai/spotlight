@@ -1,13 +1,13 @@
+import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
+import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
+import type { RunResultShape } from '@work/application/ports/run-results.port';
+
 export interface FileChangeDto {
   readonly path: string;
   readonly before: string;
   readonly after: string;
   readonly omitted: boolean;
 }
-
-import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
-import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
-import type { RunResultShape } from '@work/application/ports/run-results.port';
 
 export interface HistoryUsage {
   readonly ms: number | null;

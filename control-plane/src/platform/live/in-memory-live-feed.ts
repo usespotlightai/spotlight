@@ -10,7 +10,7 @@ export class InMemoryLiveFeed implements LiveFeedPort {
   readonly #listeners = new Map<LiveChannel, Set<LiveListener>>();
 
   publish(channel: LiveChannel, message: LiveMessage): void {
-    for (const listener of [...(this.#listeners.get(channel) ?? [])]) {
+    for (const listener of Array.from(this.#listeners.get(channel) ?? [])) {
       listener(message);
     }
   }
@@ -48,7 +48,7 @@ export class InMemoryLiveFeed implements LiveFeedPort {
   }
 
   resyncOn(channel: LiveChannel): void {
-    for (const listener of [...(this.#listeners.get(channel) ?? [])]) {
+    for (const listener of Array.from(this.#listeners.get(channel) ?? [])) {
       listener(RESYNC);
     }
   }

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
+
 import {
   HocuspocusProvider,
   HocuspocusProviderWebsocket,
@@ -17,6 +18,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Doc } from 'yjs';
+
 import { openApp, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
@@ -92,11 +94,13 @@ describe('the shared draft of a task', () => {
 
     ada.document.getText('t').insert(0, 'Cap the retries at 500.');
 
-    await eventually(
-      async () =>
-        again.document.getText('t').toString() === 'Cap the retries at 500.',
-      10_000,
-    );
+    await expect(
+      eventually(
+        async () =>
+          again.document.getText('t').toJSON() === 'Cap the retries at 500.',
+        10_000,
+      ),
+    ).resolves.toBe(true);
   });
 
   it('refuses a person who cannot see the workspace', async () => {
@@ -143,12 +147,14 @@ describe('the shared draft of a task', () => {
       each.destroy();
     }
 
-    await eventually(async () => {
-      const [row] = await db
-        .select()
-        .from(schema.taskDraftState)
-        .where(eq(schema.taskDraftState.taskId, team.list.id.value));
-      return row?.state != null && row.state.byteLength > 0;
-    }, 15_000);
+    await expect(
+      eventually(async () => {
+        const [row] = await db
+          .select()
+          .from(schema.taskDraftState)
+          .where(eq(schema.taskDraftState.taskId, team.list.id.value));
+        return row !== undefined && row.state.byteLength > 0;
+      }, 15_000),
+    ).resolves.toBe(true);
   });
 });

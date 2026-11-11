@@ -10,9 +10,7 @@ export type JudgingRequest =
     }
   | { readonly judged: false; readonly failure: 'unreadable-rubric' };
 
-export const judgingRequestOf = (
-  candidate: Candidate | null,
-): JudgingRequest =>
+export const judgingRequestOf = (candidate: Candidate | null): JudgingRequest =>
   candidate?.judge
     ? { judged: true, teamId: candidate.teamId, criteria: candidate.judge }
     : { judged: false, failure: 'unreadable-rubric' };

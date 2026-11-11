@@ -6,6 +6,7 @@ import {
   isHighlighterLoaded,
 } from '@pierre/diffs';
 import { useEffect, useState } from 'react';
+
 import { DIFF_THEME, DIFF_THEMES } from '@/lib/diff';
 
 const attached = (name: string): boolean =>

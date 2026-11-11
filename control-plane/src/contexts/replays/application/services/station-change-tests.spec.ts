@@ -149,7 +149,7 @@ const asked = (
 const searches = (): Search[] => [...memory.searches.values()];
 
 const finished = (id: string, spent: number): Search =>
-  aSearch({ id, set: aSet(10) }).recordReplayStopReason(
+  aSearch({ id, set: aSet(10) }).recordReplayEndState(
     ReplayId.of('replay_seed'),
     'ceiling-reached',
     { spent: Money.of(spent, 'USD'), unpriced: 0 },
@@ -276,7 +276,7 @@ describe('StationChangeTests', () => {
 
     expect(await asked()).toMatchObject({
       code: 'set-too-small',
-      reason: expect.stringMatching(/Minimum tasks required: \d+$/),
+      reason: expect.stringMatching(/Minimum tasks required: \d+$/) as unknown,
     });
 
     memory.sets.clear();
@@ -336,7 +336,7 @@ describe('StationChangeTests', () => {
 
     expect(await asked()).toMatchObject({
       code: 'request-limit',
-      reason: expect.stringMatching(/Maximum requests a day: 3$/),
+      reason: expect.stringMatching(/Maximum requests a day: 3$/) as unknown,
     });
   });
 

@@ -15,9 +15,10 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export const MAX_RUNS_AT_ONCE = 500;
 
-export class ActiveRunsHandler
-  implements QueryHandlerPort<ActiveRunsQuery, EgressActiveRunsDto>
-{
+export class ActiveRunsHandler implements QueryHandlerPort<
+  ActiveRunsQuery,
+  EgressActiveRunsDto
+> {
   constructor(
     private readonly egress: RunnerEgressPort,
     private readonly fetches: EgressSecretFetches,

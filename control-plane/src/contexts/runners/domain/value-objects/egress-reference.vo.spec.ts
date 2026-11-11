@@ -24,6 +24,8 @@ describe('EgressReference', () => {
   });
 
   it('rejects an empty reference', () => {
-    expect(() => EgressReference.of(' ')).toThrow();
+    expect(() => EgressReference.of(' ')).toThrow(
+      'Egress identifier must not be empty.',
+    );
   });
 });

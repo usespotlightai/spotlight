@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { listIntegrationConnections } from '@/lib/api';
 
 export const connectionKeys = {

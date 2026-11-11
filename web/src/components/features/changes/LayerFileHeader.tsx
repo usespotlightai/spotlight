@@ -1,4 +1,5 @@
 import { ChevronRight, MessageSquarePlus } from 'lucide-react';
+
 import { DiffStat } from '@/components/shared/DiffStat';
 import { Button } from '@/components/ui/button';
 import type { LayerFile } from '@/lib/change-stack';

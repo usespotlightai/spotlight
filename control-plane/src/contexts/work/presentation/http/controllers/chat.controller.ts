@@ -104,7 +104,7 @@ export class ChatController {
       throw new NotFoundException();
     }
 
-    return mapPage(chats, ChatHttpMapper.summaryToResponse);
+    return mapPage(chats, (each) => ChatHttpMapper.summaryToResponse(each));
   }
 
   @Post()
@@ -201,7 +201,7 @@ export class ChatController {
       throw new NotFoundException();
     }
 
-    return runs.map(RunJournalHttpMapper.runToResponse);
+    return runs.map((each) => RunJournalHttpMapper.runToResponse(each));
   }
 
   @Get(':chatId/journal/:runId')
@@ -228,7 +228,7 @@ export class ChatController {
       throw new NotFoundException();
     }
 
-    return journals.map(RunJournalHttpMapper.toResponse);
+    return journals.map((each) => RunJournalHttpMapper.toResponse(each));
   }
 
   @Post(':chatId/messages')

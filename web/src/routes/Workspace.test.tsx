@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { Workspace } from '@/routes/Workspace';
@@ -37,7 +38,7 @@ vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInbox: () => ({ data: [] }),
 }));
-const hosts = vi.fn();
+const hosts = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: {

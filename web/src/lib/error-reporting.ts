@@ -6,6 +6,7 @@ import {
   init,
   setUser,
 } from '@sentry/react';
+
 import { type ErrorReportingResponseDto, getErrorReporting } from '@/lib/api';
 import { isGatewayStatus } from '@/lib/request-failure';
 

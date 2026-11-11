@@ -20,7 +20,7 @@ export function ClaimVerdicts({ claims, marks, reasons }: ClaimVerdictsProps) {
 
         return (
           <li
-            // biome-ignore lint/suspicious/noArrayIndexKey: the position of a claim in the judge's list identifies it
+            // oxlint-disable-next-line react/no-array-index-key -- the position of a claim in the judge's list identifies it
             key={at}
             data-slot="claim-verdict"
             className="flex flex-col gap-1"

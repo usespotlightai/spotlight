@@ -4,7 +4,14 @@ import {
   PROBLEM_CONTENT_TYPE,
 } from '@platform/http/resources/resource-headers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import {
+  type Answer,
+  openApp,
+  type Problem,
+  served,
+  TEST_USER_HEADER,
+} from './support/app';
 
 const WHEN = 'integration.webhook.events[0].when';
 
@@ -14,11 +21,11 @@ const DEFINITION = {
     verify: { hmac: { secret: 'secret.LINEAR_SIGNING' } },
     events: [
       {
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the definition's own expression syntax
         when: '${{ body.type == "Issue" }}',
         raise: {
           happening: 'linear.issue.completed',
-          // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
+          // oxlint-disable-next-line no-template-curly-in-string -- the definition's own expression syntax
           marks: [{ kind: 'linear.issue', value: '${{ body.data.id }}' }],
         },
       },
@@ -31,7 +38,7 @@ const DEFINITION = {
     'task.opened': [
       {
         action: 'comment',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
+        // oxlint-disable-next-line no-template-curly-in-string -- the definition's own expression syntax
         to: { thread: '${{ ask.body }}' },
       },
     ],
@@ -41,7 +48,7 @@ const DEFINITION = {
 describe('checking expressions for a plan', () => {
   let app: INestApplication;
 
-  const check = (body: object) =>
+  const check = async (body: object): Promise<Answer<Problem>> =>
     served(app)
       .post('/api/v1/expressions/check')
       .set(TEST_USER_HEADER, 'expression-checker')
@@ -118,7 +125,9 @@ describe('checking expressions for a plan', () => {
     expect(answer.body.errors).toEqual([
       expect.objectContaining({
         path: 'position',
-        message: expect.stringMatching(/names an attribute of an integration/),
+        message: expect.stringMatching(
+          /names an attribute of an integration/,
+        ) as unknown,
       }),
     ]);
   });

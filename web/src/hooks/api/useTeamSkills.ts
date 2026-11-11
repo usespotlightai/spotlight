@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { listTeamSkills } from '@/lib/api';
 
 const teamSkillKeys = {

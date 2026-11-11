@@ -1,5 +1,5 @@
-import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { InviteNotPendingError } from '@identity/domain/exceptions/invite-not-pending.error';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
@@ -249,11 +249,11 @@ describe('WorkspaceInvite', () => {
   it('creates a new invite where there is no pending one', () => {
     const offer = offered(null);
 
+    const invite = 'invite' in offer ? offer.invite : undefined;
+
     expect(offer.outcome).toBe('invited');
-    if (offer.outcome === 'invited') {
-      expect(offer.invite.id.value).toBe('invite_2');
-      expect(offer.invite.invitedAt).toBe(LATER);
-    }
+    expect(invite?.id.value).toBe('invite_2');
+    expect(invite?.invitedAt).toBe(LATER);
   });
 
   it('resends the pending invite, with the settings requested now, rather than creating a second', () => {
@@ -261,13 +261,13 @@ describe('WorkspaceInvite', () => {
       role: WorkspaceRole.admin,
     });
 
+    const invite = 'invite' in offer ? offer.invite : undefined;
+
     expect(offer.outcome).toBe('resent');
-    if (offer.outcome === 'resent') {
-      expect(offer.invite.id.value).toBe('invite_1');
-      expect(offer.invite.spec.invitedAs).toBe('admin');
-      expect(offer.invite.invitedBy).toBe(ada);
-      expect(offer.invite.statusAt(LATER)).toBe('pending');
-    }
+    expect(invite?.id.value).toBe('invite_1');
+    expect(invite?.spec.invitedAs).toBe('admin');
+    expect(invite?.invitedBy).toBe(ada);
+    expect(invite?.statusAt(LATER)).toBe('pending');
   });
 
   it('invites nobody whose address belongs to somebody already in the workspace', () => {

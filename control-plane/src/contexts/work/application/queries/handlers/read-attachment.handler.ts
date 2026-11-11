@@ -7,12 +7,13 @@ import type { AttachmentReaderPort } from '@work/application/ports/attachment-re
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
 import type { WorkAccess } from '@work/application/services/work-access.service';
-import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 
-export class ReadAttachmentHandler
-  implements QueryHandlerPort<ReadAttachmentQuery, string | null>
-{
+export class ReadAttachmentHandler implements QueryHandlerPort<
+  ReadAttachmentQuery,
+  string | null
+> {
   constructor(
     private readonly access: WorkAccess,
     private readonly attachments: AttachmentReaderPort,

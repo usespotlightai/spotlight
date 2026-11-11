@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { RUBRIC_LABEL, RUBRIC_TEXT_LABEL } from '@/lib/judge';
 

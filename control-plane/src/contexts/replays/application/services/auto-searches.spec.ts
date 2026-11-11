@@ -138,7 +138,7 @@ const stopAll = async () => {
   }
   for (const each of memory.replays.values()) {
     if (each.isInProgress) {
-      await memory.replayRepository.save(each.stop(now, BY));
+      await memory.replayRepository.save(each.stop(now, BY, 'search-ended'));
     }
   }
 };
@@ -307,7 +307,7 @@ describe('AutoSearches', () => {
   it('stops starting searches once one more could pass the monthly ceiling of the line', async () => {
     policy = policyOf({ monthlyCeiling: 10, ceiling: 10 });
     await memory.searchRepository.add(
-      aSearch({ id: 'search_earlier', set: aSet(10) }).recordReplayStopReason(
+      aSearch({ id: 'search_earlier', set: aSet(10) }).recordReplayEndState(
         ReplayId.of('replay_seed'),
         'stopped',
         { spent: Money.of(1, 'USD'), unpriced: 0 },
@@ -439,7 +439,7 @@ describe('AutoSearches', () => {
     const finished = aSearch({
       id: 'search_earlier',
       set: aSet(10),
-    }).recordReplayStopReason(
+    }).recordReplayEndState(
       ReplayId.of('replay_seed'),
       'ceiling-reached',
       { spent: Money.of(1, 'USD'), unpriced: 0 },

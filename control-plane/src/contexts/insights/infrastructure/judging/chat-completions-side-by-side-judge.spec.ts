@@ -30,6 +30,19 @@ const REQUEST: SideBySideJudgeRequest = {
   },
 };
 
+interface SentRequest {
+  readonly messages: readonly { readonly content: string }[];
+  readonly response_format: { readonly json_schema: { readonly name: string } };
+}
+
+interface Evidence {
+  readonly a: { readonly hunks: readonly { readonly id: string }[] };
+  readonly b: { readonly left_out: number };
+  readonly reference: {
+    readonly hunks: readonly { readonly lines: string[] }[];
+  };
+}
+
 const answering = (answer: Response) => {
   const requests: RequestInit[] = [];
   const fetch = (async (_url: string, init: RequestInit) => {
@@ -60,9 +73,9 @@ describe('judging two changes side by side through a chat completions endpoint',
       fetch,
     ).judgePair(REQUEST);
 
-    const body = JSON.parse(String(requests[0]?.body));
-    const system = body.messages[0].content as string;
-    const evidence = JSON.parse(body.messages[1].content as string);
+    const body = JSON.parse(requests[0]?.body as string) as SentRequest;
+    const system = body.messages[0].content;
+    const evidence = JSON.parse(body.messages[1].content) as Evidence;
     expect(answer).toEqual({
       verdict: { preferred: 'A', reasons },
       model: 'some/model',

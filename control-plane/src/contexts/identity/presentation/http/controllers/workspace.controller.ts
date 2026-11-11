@@ -107,7 +107,9 @@ export class WorkspaceController {
       WorkspaceListingDto[]
     >(new ListWorkspacesQuery(user.id));
 
-    return workspaces.map(WorkspaceHttpMapper.listingToResponse);
+    return workspaces.map((listing) =>
+      WorkspaceHttpMapper.listingToResponse(listing),
+    );
   }
 
   @Get(':slug')

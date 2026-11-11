@@ -8,7 +8,7 @@ import { improvedOnBestBefore } from '@replays/domain/services/search-improvemen
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import type { RunResult } from '@replays/domain/value-objects/replay-ending';
-import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
+import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const SUCCEEDED: Readonly<Record<RunResult, boolean>> = {
@@ -33,8 +33,8 @@ export interface SeenRun {
 
 const UNPRICED_RUN = ModelSpent.of([], 1);
 
-const endOf = (replay: Replay): ReplayStopReason | null =>
-  replay.isDispatching ? null : (replay.current as ReplayStopReason);
+const endOf = (replay: Replay): ReplayEndState | null =>
+  replay.isDispatching ? null : (replay.current as ReplayEndState);
 
 const withReplays = (
   search: Search,
@@ -55,7 +55,7 @@ const withReplays = (
       );
 
       return unended && !awaitsStart
-        ? reconciled.recordReplayStopReason(
+        ? reconciled.recordReplayEndState(
             replayId,
             'deleted',
             {
@@ -74,7 +74,7 @@ const withReplays = (
     const started = reconciled.replayStarted(replayId);
 
     return end && unended
-      ? started.recordReplayStopReason(
+      ? started.recordReplayEndState(
           replayId,
           end,
           charge,

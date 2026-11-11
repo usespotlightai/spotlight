@@ -89,7 +89,7 @@ function scrubbed(event: ErrorEvent): ErrorEvent {
 const OUTBOUND = new Set(['http', 'fetch']);
 
 function withoutPath(breadcrumb: Breadcrumb): Breadcrumb {
-  const url = breadcrumb.data?.url;
+  const url: unknown = breadcrumb.data?.url;
 
   if (typeof url !== 'string') {
     return breadcrumb;

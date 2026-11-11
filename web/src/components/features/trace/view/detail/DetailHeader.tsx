@@ -62,7 +62,7 @@ export function DetailHeader({ node }: { node: TraceNode }) {
             {ERROR_LABELS[node.connection.error]}
           </DetailProperty>
         )}
-        {node.connection?.status != null && (
+        {typeof node.connection?.status === 'number' && (
           <DetailProperty name="Status" failed>
             {node.connection.status}
           </DetailProperty>

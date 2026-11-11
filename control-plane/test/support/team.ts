@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { Station } from '@lines/domain/entities/station.entity';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
@@ -17,6 +18,7 @@ import { welcomeTask } from '@work/domain/services/welcome-task';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, inArray } from 'drizzle-orm';
+
 import * as schema from './schema';
 import { insertStations, mapOf } from './stations';
 

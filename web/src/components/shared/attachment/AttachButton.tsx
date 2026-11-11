@@ -1,5 +1,6 @@
 import { Paperclip } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
+
 import { Button } from '@/components/ui/button';
 
 type AttachButtonProps = {

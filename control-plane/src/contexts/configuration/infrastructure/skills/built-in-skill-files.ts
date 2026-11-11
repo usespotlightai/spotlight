@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
 import type { BuiltInSkillsPort } from '@configuration/application/ports/built-in-skills.port';
 import type {
   ReadSkillFolder,

@@ -12,10 +12,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class RecordHostCallResponseHandler
-  implements
-    CommandHandlerPort<RecordHostCallResponseCommand, RecordHostCallResponseDto>
-{
+export class RecordHostCallResponseHandler implements CommandHandlerPort<
+  RecordHostCallResponseCommand,
+  RecordHostCallResponseDto
+> {
   constructor(
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly calls: NetworkCallRepository,

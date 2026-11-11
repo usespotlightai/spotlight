@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { cn } from '@/lib/utils';
 

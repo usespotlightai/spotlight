@@ -32,8 +32,8 @@ import { UnknownCoAuthorError } from '@work/domain/exceptions/unknown-co-author.
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import {
   lineMapOf,
   stationOf,
@@ -263,7 +263,7 @@ describe('AnswerConversation', () => {
         workAccessSeeing(() => true, { onTeam: () => false }),
       ),
     ).rejects.toMatchObject({
-      refusal: expect.any(TeamMembershipRequiredError),
+      refusal: expect.any(TeamMembershipRequiredError) as unknown,
     });
     expect(saved).toBeUndefined();
   });
@@ -285,7 +285,9 @@ describe('AnswerConversation', () => {
           onTeam: (_, viewer) => viewer.value === 'user_1',
         }),
       ),
-    ).rejects.toMatchObject({ refusal: expect.any(UnknownCoAuthorError) });
+    ).rejects.toMatchObject({
+      refusal: expect.any(UnknownCoAuthorError) as unknown,
+    });
     expect(saved).toBeUndefined();
   });
 
@@ -330,7 +332,7 @@ describe('AnswerConversation', () => {
       newId: () => 'task_1',
     });
 
-    await expect(answer(untouched)).rejects.toThrow();
+    await expect(answer(untouched)).rejects.toThrow('is not waiting on anyone');
     expect(saved).toBeUndefined();
   });
 

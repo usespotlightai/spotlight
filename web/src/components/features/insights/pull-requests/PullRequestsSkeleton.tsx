@@ -8,8 +8,8 @@ import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTi
 import { PAIR_GRID } from '@/components/features/insights/overview-layout';
 import { PullRequestFilters } from '@/components/features/insights/pull-requests/PullRequestFilters';
 import { PullRequestListSkeleton } from '@/components/features/insights/pull-requests/PullRequestListSkeleton';
-import { StackedRowsSkeleton } from '@/components/features/insights/StackedRowsSkeleton';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
+import { StackedRowsSkeleton } from '@/components/features/insights/StackedRowsSkeleton';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import type { InsightsView } from '@/lib/insights';

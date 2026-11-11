@@ -11,9 +11,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListHarnessesHandler
-  implements QueryHandlerPort<ListHarnessesQuery, HarnessDto[] | null>
-{
+export class ListHarnessesHandler implements QueryHandlerPort<
+  ListHarnessesQuery,
+  HarnessDto[] | null
+> {
   constructor(
     private readonly launch: HarnessLaunchPort,
     private readonly access: WorkspaceAccessPort,
@@ -46,9 +47,10 @@ export class ListHarnessesHandler
   }
 }
 
-export class HarnessCatalogueHandler
-  implements QueryHandlerPort<HarnessCatalogueQuery, HarnessDto[]>
-{
+export class HarnessCatalogueHandler implements QueryHandlerPort<
+  HarnessCatalogueQuery,
+  HarnessDto[]
+> {
   constructor(private readonly launch: HarnessLaunchPort) {}
 
   async execute(): Promise<HarnessDto[]> {

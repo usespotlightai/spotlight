@@ -9,9 +9,10 @@ import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import type { RunAccess } from '@work/application/services/run-access.service';
 
-export class ReadRunNotesHandler
-  implements QueryHandlerPort<ReadRunNotesQuery, RunNotesDto | null>
-{
+export class ReadRunNotesHandler implements QueryHandlerPort<
+  ReadRunNotesQuery,
+  RunNotesDto | null
+> {
   constructor(
     private readonly runs: RunReaderPort,
     private readonly usages: RunUsageReaderPort,

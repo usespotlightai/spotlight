@@ -12,9 +12,9 @@ import type { IntegrationDefinitionRepository } from '@integrations/domain/repos
 import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
-import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
@@ -142,7 +142,7 @@ export const definitions = (
     withId: read,
     of: read,
     ofTeam: vi.fn(async () => (over.stored ? [over.stored] : [])),
-    save: vi.fn(async (_: IntegrationDefinition) => {
+    save: vi.fn<IntegrationDefinitionRepository['save']>(async () => {
       if (over.failing) {
         read.mockResolvedValue(over.thenAt ?? null);
         throw over.failing;

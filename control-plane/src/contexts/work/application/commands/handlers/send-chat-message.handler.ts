@@ -13,9 +13,10 @@ import type { TracesLoader } from '@work/application/services/traces-loader.serv
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 
-export class SendChatMessageHandler
-  implements CommandHandlerPort<SendChatMessageCommand, void>
-{
+export class SendChatMessageHandler implements CommandHandlerPort<
+  SendChatMessageCommand,
+  void
+> {
   constructor(
     private readonly loader: ChatLoader,
     private readonly chats: ChatRepository,

@@ -17,6 +17,8 @@ import {
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
 
+const SERVER_ERROR: number = HttpStatus.INTERNAL_SERVER_ERROR;
+
 type LoggableRequest = {
   method?: string;
   url?: string;
@@ -34,7 +36,7 @@ export class InternalErrorFilter extends BaseExceptionFilter {
   }
 
   override catch(exception: HttpException, host: ArgumentsHost): void {
-    if (exception.getStatus() >= HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (exception.getStatus() >= SERVER_ERROR) {
       this.reports.report(exception, { source: 'http' });
       const request = host.switchToHttp().getRequest<LoggableRequest>();
 
@@ -49,7 +51,7 @@ export class InternalErrorFilter extends BaseExceptionFilter {
       );
     }
 
-    if (exception.getStatus() < HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (exception.getStatus() < SERVER_ERROR) {
       noteRefusal(host.switchToHttp().getResponse(), {
         error: exception.name,
       });

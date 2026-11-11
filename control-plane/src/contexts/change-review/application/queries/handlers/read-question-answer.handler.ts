@@ -8,9 +8,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ReadQuestionAnswerHandler
-  implements QueryHandlerPort<ReadQuestionAnswerQuery, QuestionAnswerDto | null>
-{
+export class ReadQuestionAnswerHandler implements QueryHandlerPort<
+  ReadQuestionAnswerQuery,
+  QuestionAnswerDto | null
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly stacks: ChangeStackReaderPort,

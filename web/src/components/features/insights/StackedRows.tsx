@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
 

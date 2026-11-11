@@ -1,5 +1,6 @@
 import type { ContextMenuParams, WebContents } from 'electron';
 import { describe, expect, it } from 'vitest';
+
 import { contextMenuOf } from './context-menu';
 
 const params = (change: Partial<ContextMenuParams>): ContextMenuParams =>

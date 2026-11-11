@@ -1,13 +1,14 @@
 import { Fragment } from 'react';
+
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { useCollapsibles } from '@/hooks/useCollapsibles';
 import { formatDurationOrNone } from '@/lib/insights';

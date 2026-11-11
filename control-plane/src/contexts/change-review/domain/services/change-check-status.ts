@@ -41,7 +41,7 @@ export const changeCheckStatusOf = (
       return 'checking';
     case 'skipped':
       return 'skipped';
-    default:
+    case 'checked':
       return check.wholeFailed ? 'failed' : 'passed';
   }
 };

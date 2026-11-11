@@ -17,6 +17,6 @@ export class TeamSkills implements TeamSkillsPort {
         teamId,
         named.map((each) => SkillKey.of(each)),
       )
-    ).map(ReadySkillMapper.toReady);
+    ).map((each) => ReadySkillMapper.toReady(each));
   }
 }

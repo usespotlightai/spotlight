@@ -6,9 +6,10 @@ import { ReviewCommentId } from '@change-review/domain/value-objects/review-comm
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
-export class DeleteReviewCommentHandler
-  implements CommandHandlerPort<DeleteReviewCommentCommand, void>
-{
+export class DeleteReviewCommentHandler implements CommandHandlerPort<
+  DeleteReviewCommentCommand,
+  void
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly comments: ReviewCommentRepository,

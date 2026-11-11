@@ -1,8 +1,8 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
-import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
+import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import type {

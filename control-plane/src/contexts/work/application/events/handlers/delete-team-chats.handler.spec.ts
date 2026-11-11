@@ -9,7 +9,7 @@ describe('DeleteTeamChats', () => {
     const gone = (name: string) => ({ name }) as unknown as Chat;
     const chat = (name: string) =>
       ({ deleted: () => gone(`${name} deleted`) }) as unknown as Chat;
-    const remove = vi.fn(async (_: Chat) => {});
+    const remove = vi.fn<(chat: Chat) => Promise<void>>(async () => {});
     const ofTeam = vi.fn(async () => [chat('one'), chat('two')]);
 
     await new DeleteTeamChats({

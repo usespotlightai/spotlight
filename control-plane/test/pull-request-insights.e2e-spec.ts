@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
+
 import {
   GITHUB_WEBHOOKS,
   type GitHubWebhooksPort,
@@ -21,7 +22,8 @@ import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -119,7 +121,23 @@ const pullRequestOf = (
 const insights = (path: string, query = 'period=7d') =>
   `/api/teams/${team.teamId.value}/insights/${path}?${query}`;
 
-const asOwner = (path: string) =>
+interface Insights {
+  readonly repositories: readonly string[];
+  readonly spotlightShare: {
+    readonly merged: number;
+    readonly repositories: readonly unknown[];
+  };
+  readonly comparison: unknown;
+  readonly total: number;
+  readonly types: readonly unknown[];
+  readonly depth: readonly unknown[];
+  readonly toMerge: unknown;
+  readonly mergeDays: readonly unknown[];
+  readonly depthTotals: readonly { readonly merged: number }[];
+  readonly pullRequests: readonly { readonly pullRequest: string }[];
+}
+
+const asOwner = async (path: string): Promise<Answer<Insights>> =>
   served(app).get(path).set(TEST_USER_HEADER, team.owner.value);
 
 const issued = async (
@@ -134,7 +152,7 @@ const issued = async (
 
   expect(answer.status).toBe(201);
 
-  return answer.headers[TOKEN_HEADER] as string;
+  return answer.headers[TOKEN_HEADER];
 };
 
 beforeAll(async () => {
@@ -324,10 +342,7 @@ describe('the team’s pull request insights (e2e)', () => {
     });
     expect(answer.body.mergeDays).toHaveLength(7);
     expect(
-      answer.body.depthTotals.reduce(
-        (sum: number, each: { merged: number }) => sum + each.merged,
-        0,
-      ),
+      answer.body.depthTotals.reduce((sum, each) => sum + each.merged, 0),
     ).toBe(3);
   });
 
@@ -348,19 +363,17 @@ describe('the team’s pull request insights (e2e)', () => {
     const reverted = await asOwner(
       insights('pull-requests/list', 'period=7d&reverted=true'),
     );
-    expect(
-      reverted.body.pullRequests.map(
-        (each: { pullRequest: string }) => each.pullRequest,
-      ),
-    ).toEqual([urlOf(2)]);
+    expect(reverted.body.pullRequests.map((each) => each.pullRequest)).toEqual([
+      urlOf(2),
+    ]);
   });
 
   it('answers a workspace token with the read scope', async () => {
     const token = await issued(team, ['read']);
 
-    const answer = await served(app)
+    const answer = (await served(app)
       .get(insights('pull-requests'))
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${token}`)) as Answer<Insights>;
 
     expect(answer.status).toBe(200);
     expect(answer.body.spotlightShare.merged).toBe(3);

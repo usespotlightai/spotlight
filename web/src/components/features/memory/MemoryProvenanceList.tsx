@@ -1,4 +1,5 @@
 import { Bot, HatGlasses, User } from 'lucide-react';
+
 import { ThreadEntry } from '@/components/features/review/ThreadEntry';
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import { IconAvatar } from '@/components/shared/avatar/IconAvatar';
