@@ -79,7 +79,7 @@ function ToastTitle({ className, ...props }: ToastPrimitive.Title.Props) {
   return (
     <ToastPrimitive.Title
       data-slot="toast-title"
-      className={cn("text-sm font-medium", className)}
+      className={cn("text-sm font-medium text-foreground", className)}
       {...props}
     />
   )
@@ -129,7 +129,7 @@ function ToastClose({
         )
       }
       className={cn(
-        "relative -my-0.5 shrink-0 text-faint opacity-0 transition-opacity group-hover/toast:opacity-100 hover:text-foreground focus-visible:opacity-100 after:absolute after:-inset-2 after:content-[''] pointer-coarse:opacity-100",
+        "relative -my-0.5 shrink-0 text-muted-foreground hover:text-foreground after:absolute after:-inset-2 after:content-['']",
         className
       )}
       {...props}
@@ -146,31 +146,31 @@ function ToastIcon({ type }: { type: string | undefined }) {
 
   if (type === "success") {
     icon = (
-      <CircleCheckIcon className="text-chart-success" aria-hidden="true" />
+      <CircleCheckIcon className="[--toast-icon:var(--color-chart-success)]" aria-hidden="true" />
     )
   }
 
   if (type === "info") {
     icon = (
-      <InfoIcon aria-hidden="true" />
+      <InfoIcon className="[--toast-icon:var(--color-muted-foreground)] dark:[--toast-icon:var(--color-neutral-500)]" aria-hidden="true" />
     )
   }
 
   if (type === "warning") {
     icon = (
-      <TriangleAlertIcon className="text-amber-600 dark:text-amber-400" aria-hidden="true" />
+      <TriangleAlertIcon className="text-amber-950 [--toast-icon:var(--color-amber-500)] dark:[--toast-icon:var(--color-amber-400)]" aria-hidden="true" />
     )
   }
 
   if (type === "error") {
     icon = (
-      <OctagonXIcon className="text-destructive" aria-hidden="true" />
+      <OctagonXIcon className="[--toast-icon:var(--color-destructive)] dark:[--toast-icon:var(--color-red-500)]" aria-hidden="true" />
     )
   }
 
   if (type === "loading") {
     icon = (
-      <Loader2Icon className="animate-spin" aria-hidden="true" />
+      <Loader2Icon className="animate-spin text-muted-foreground" aria-hidden="true" />
     )
   }
 
@@ -181,7 +181,7 @@ function ToastIcon({ type }: { type: string | undefined }) {
   return (
     <span
       data-slot="toast-icon"
-      className="flex h-5 shrink-0 items-center [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4"
+      className="flex h-5 shrink-0 items-center text-white [&_svg]:pointer-events-none [&_svg]:fill-(--toast-icon,none) [&_svg>:first-child]:stroke-(--toast-icon,currentColor) [&_svg:not([class*='size-'])]:size-4"
     >
       {icon}
     </span>
@@ -196,10 +196,10 @@ function ToastList() {
       <ToastContent className="flex-col items-stretch">
         <div className="flex items-start gap-2.5">
           <ToastIcon type={toastItem.type} />
-          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <ToastTitle />
             <ToastDescription />
-            <ToastAction className="self-start" />
+            <ToastAction className="mt-1.5 self-start" />
           </div>
           <ToastClose />
         </div>
