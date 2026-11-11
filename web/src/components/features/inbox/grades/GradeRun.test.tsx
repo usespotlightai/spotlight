@@ -234,8 +234,8 @@ describe('GradeRun', () => {
 
     showing();
 
-    const saving = screen.getByRole('status');
-    expect(saving).toHaveTextContent('Saving…');
+    const saving = screen.getByText('Saving…');
+    expect(saving).toHaveAttribute('role', 'status');
     expect(saving.parentElement).toContainElement(
       screen.getByRole('heading', {
         name: 'Does this run meet the rubric?',

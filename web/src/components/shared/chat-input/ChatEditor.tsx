@@ -1,14 +1,14 @@
+import { HistoryExtension } from '@lexical/history';
+import { PlainTextExtension } from '@lexical/plain-text';
 import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext';
 import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
-import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
-import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
-import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
-import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
+import { LexicalExtensionComposer } from '@lexical/react/LexicalExtensionComposer';
 import {
   $createParagraphNode,
   $createTextNode,
   $getRoot,
+  defineExtension,
   type LexicalEditor,
 } from 'lexical';
 import { type RefObject, useState } from 'react';
@@ -53,53 +53,53 @@ export function ChatEditor({
   shared,
   cursors,
 }: ChatEditorProps) {
-  const [initialConfig] = useState(() => ({
-    namespace: 'chat-input',
-    nodes: [ReferenceNode],
-    onError: (error: Error) => {
-      throw error;
-    },
-    editorState: shared
-      ? null
-      : initialReferences.length > 0 || initialText
-        ? () => {
-            const paragraph = $createParagraphNode();
-            paragraph.append(...$spacedReferences(initialReferences));
-            if (initialText) {
-              paragraph.append($createTextNode(initialText));
+  const [extension] = useState(() =>
+    defineExtension({
+      name: '@spotlight/chat-input',
+      namespace: 'chat-input',
+      nodes: [ReferenceNode],
+      dependencies: shared
+        ? [PlainTextExtension]
+        : [PlainTextExtension, HistoryExtension],
+      onError: (error: Error) => {
+        throw error;
+      },
+      $initialEditorState: shared
+        ? null
+        : initialReferences.length > 0 || initialText
+          ? () => {
+              const paragraph = $createParagraphNode();
+              paragraph.append(...$spacedReferences(initialReferences));
+              if (initialText) {
+                paragraph.append($createTextNode(initialText));
+              }
+              $getRoot().append(paragraph);
+              paragraph.selectEnd();
             }
-            $getRoot().append(paragraph);
-            paragraph.selectEnd();
-          }
-        : undefined,
-  }));
+          : undefined,
+    }),
+  );
 
   return (
     <LexicalCollaboration>
-      {/* oxlint-disable-next-line typescript/no-deprecated -- the move to LexicalExtensionComposer is its own change */}
-      <LexicalComposer initialConfig={initialConfig}>
-        <PlainTextPlugin
-          contentEditable={
-            <ScrollArea className="max-h-56">
-              <ContentEditable
-                aria-label={label}
-                aria-placeholder={placeholder}
-                placeholder={
-                  <p
-                    className={cn(
-                      'pointer-events-none absolute inset-x-1.5 top-0 truncate text-sm leading-6',
-                      disabled ? 'text-faint' : 'text-muted-foreground',
-                    )}
-                  >
-                    {placeholder}
-                  </p>
-                }
-                className="whitespace-pre-wrap break-words text-foreground text-sm leading-6 outline-none"
-              />
-            </ScrollArea>
-          }
-          ErrorBoundary={LexicalErrorBoundary}
-        />
+      <LexicalExtensionComposer extension={extension} contentEditable={null}>
+        <ScrollArea className="max-h-56">
+          <ContentEditable
+            aria-label={label}
+            aria-placeholder={placeholder}
+            placeholder={
+              <p
+                className={cn(
+                  'pointer-events-none absolute inset-x-1.5 top-0 truncate text-sm leading-6',
+                  disabled ? 'text-faint' : 'text-muted-foreground',
+                )}
+              >
+                {placeholder}
+              </p>
+            }
+            className="whitespace-pre-wrap break-words text-foreground text-sm leading-6 outline-none"
+          />
+        </ScrollArea>
         {shared ? (
           <>
             <CollaborationPlugin
@@ -115,13 +115,11 @@ export function ChatEditor({
             />
             <SharedWriting onWrote={shared.wrote} />
           </>
-        ) : (
-          <HistoryPlugin />
-        )}
+        ) : null}
         <EditorHandle editorRef={handle} editable={editable} />
         <SendOnEnter send={onEnter} />
         <WatchMessage onChange={onWritten} />
-      </LexicalComposer>
+      </LexicalExtensionComposer>
     </LexicalCollaboration>
   );
 }

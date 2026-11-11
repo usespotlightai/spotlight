@@ -1,27 +1,30 @@
 import { CodeHighlightNode, CodeNode } from '@lexical/code';
-import { AutoLinkNode, LinkNode } from '@lexical/link';
-import { ListItemNode, ListNode } from '@lexical/list';
+import { HistoryExtension } from '@lexical/history';
+import {
+  AutoLinkExtension,
+  AutoLinkNode,
+  ClickableLinkExtension,
+  createLinkMatcherWithRegExp,
+  LinkExtension,
+  LinkNode,
+} from '@lexical/link';
+import { ListExtension, ListItemNode, ListNode } from '@lexical/list';
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
   TRANSFORMERS,
 } from '@lexical/markdown';
-import {
-  AutoLinkPlugin,
-  createLinkMatcherWithRegExp,
-} from '@lexical/react/LexicalAutoLinkPlugin';
-import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
-import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
-import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
-import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
-import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
-import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { LexicalExtensionComposer } from '@lexical/react/LexicalExtensionComposer';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
-import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import { HeadingNode, QuoteNode } from '@lexical/rich-text';
-import type { EditorThemeClasses } from 'lexical';
+import { HeadingNode, QuoteNode, RichTextExtension } from '@lexical/rich-text';
+import {
+  configExtension,
+  defineExtension,
+  type EditorThemeClasses,
+} from 'lexical';
+import { useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -113,59 +116,59 @@ export function MarkdownEditor({
   placeholderClassName,
   size = 'sm',
 }: MarkdownEditorProps) {
+  const [extension] = useState(() =>
+    defineExtension({
+      name: '@spotlight/markdown',
+      namespace: 'markdown',
+      editable: !readOnly,
+      nodes: NODES,
+      theme: THEMES[size],
+      dependencies: [
+        RichTextExtension,
+        ListExtension,
+        LinkExtension,
+        configExtension(AutoLinkExtension, { matchers: URL_MATCHERS }),
+        configExtension(ClickableLinkExtension, { newTab: true }),
+        HistoryExtension,
+      ],
+      $initialEditorState: () =>
+        $convertFromMarkdownString(
+          initialValue,
+          TRANSFORMERS,
+          undefined,
+          false,
+          Boolean(readOnly && !keepLineBreaks),
+        ),
+      onError: (error) => {
+        throw error;
+      },
+    }),
+  );
+
   return (
-    // oxlint-disable-next-line typescript/no-deprecated -- the move to LexicalExtensionComposer is its own change
-    <LexicalComposer
-      initialConfig={{
-        namespace: 'markdown',
-        editable: !readOnly,
-        nodes: NODES,
-        theme: THEMES[size],
-        editorState: () =>
-          $convertFromMarkdownString(
-            initialValue,
-            TRANSFORMERS,
-            undefined,
-            false,
-            Boolean(readOnly && !keepLineBreaks),
-          ),
-        onError: (error) => {
-          throw error;
-        },
-      }}
-    >
+    <LexicalExtensionComposer extension={extension} contentEditable={null}>
       <div className="relative">
-        <RichTextPlugin
-          contentEditable={
-            <ContentEditable
-              aria-label={ariaLabel}
-              onBlur={onBlur}
-              aria-placeholder={placeholder}
-              placeholder={
-                <p
-                  className={cn(
-                    'pointer-events-none absolute top-3 left-3 text-muted-foreground text-sm',
-                    placeholderClassName,
-                  )}
-                >
-                  {placeholder}
-                </p>
-              }
+        <ContentEditable
+          aria-label={ariaLabel}
+          onBlur={onBlur}
+          aria-placeholder={placeholder}
+          placeholder={
+            <p
               className={cn(
-                'w-full rounded-lg border-[0.5px] border-border bg-background p-3 outline-none transition-colors focus-visible:border-input',
-                className,
+                'pointer-events-none absolute top-3 left-3 text-muted-foreground text-sm',
+                placeholderClassName,
               )}
-            />
+            >
+              {placeholder}
+            </p>
           }
-          ErrorBoundary={LexicalErrorBoundary}
+          className={cn(
+            'w-full rounded-lg border-[0.5px] border-border bg-background p-3 outline-none transition-colors focus-visible:border-input',
+            className,
+          )}
         />
 
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-        <ListPlugin />
-        <LinkPlugin />
-        <AutoLinkPlugin matchers={URL_MATCHERS} />
-        <ClickableLinkPlugin />
-        <HistoryPlugin />
 
         {onChange && (
           <OnChangePlugin
@@ -176,6 +179,6 @@ export function MarkdownEditor({
           />
         )}
       </div>
-    </LexicalComposer>
+    </LexicalExtensionComposer>
   );
 }
