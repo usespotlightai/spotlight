@@ -149,7 +149,7 @@ const asked = (
 const searches = (): Search[] => [...memory.searches.values()];
 
 const finished = (id: string, spent: number): Search =>
-  aSearch({ id, set: aSet(10) }).recordReplayStopReason(
+  aSearch({ id, set: aSet(10) }).recordReplayEndState(
     ReplayId.of('replay_seed'),
     'ceiling-reached',
     { spent: Money.of(spent, 'USD'), unpriced: 0 },

@@ -84,6 +84,7 @@ const UNJUDGED: Readonly<Record<Unjudged, string>> = {
   'unreadable-rubric': 'the rubric could not be read',
   'no-evidence': 'there was nothing to judge',
   'request-failed': 'the judge request failed',
+  'insufficient-credits': 'the judge model account has no credits',
   unreadable: 'the answer of the judge could not be read',
   ungrounded: 'the judge cited nothing that the run did',
   errored: 'judging failed',

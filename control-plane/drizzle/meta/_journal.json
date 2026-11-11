@@ -36,6 +36,13 @@
       "when": 1794297873350,
       "tag": "20261110080433_drop_judging_spend",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794385818534,
+      "tag": "20261111083018_replay_stop_causes",
+      "breakpoints": true
     }
   ]
 }

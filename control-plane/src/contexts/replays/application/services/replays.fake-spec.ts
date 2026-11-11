@@ -1060,6 +1060,13 @@ export class InMemoryChecks implements ReplayCheckRepository {
         each.station.stationId.equals(stationId) && each.change.equals(change),
     );
 
+  ofPullRequest = async (stationId: StationId, pullRequest: number) =>
+    [...this.stored.values()].filter(
+      (each) =>
+        each.station.stationId.equals(stationId) &&
+        each.reference.pullRequest === pullRequest,
+    );
+
   awaitingBaseline = async () =>
     [...this.stored.values()].filter((each) => each.awaitsBaseline);
 

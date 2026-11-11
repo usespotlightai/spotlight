@@ -41,11 +41,11 @@ describe('dispatchedInTurn', () => {
     const waiting = aReplay({ id: 'replay_b', count: 3, at: later(2) });
     const neverQueued = aReplay({ id: 'replay_a', count: 1 })
       .reserving(slots(1), runIds())
-      .stop(later(1), BY);
+      .stop(later(1), BY, 'search-ended');
     const stillRunning = aReplay({ id: 'replay_c', count: 1 })
       .reserving(slots(1), runIds())
       .confirm(RunId.of('replay_run_0'), FINGERPRINT, later(1))
-      .stop(later(2), BY);
+      .stop(later(2), BY, 'search-ended');
 
     expect(freeSlotsAmong([neverQueued, waiting]).length).toBe(
       REPLAY_RUNS_AT_ONCE - 1,

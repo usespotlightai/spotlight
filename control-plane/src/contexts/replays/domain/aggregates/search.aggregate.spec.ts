@@ -39,7 +39,7 @@ import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
+import type { ReplayEndState } from '@replays/domain/value-objects/replay-state';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import {
   ATTEMPTS_PER_PROPOSAL,
@@ -68,7 +68,7 @@ const NO_SPEND = ModelSpent.of([], 0);
 const run = (number: number) => RunId.of(`search_run_${number}`);
 
 const searching = (search = aSearch(), runIds = searchRunIds()): Search => {
-  const seeded = search.recordReplayStopReason(
+  const seeded = search.recordReplayEndState(
     SEED,
     'finished',
     charged(5),
@@ -101,14 +101,14 @@ const proposing = (
 const endingReplays = (
   search: Search,
   names: readonly string[],
-  end: ReplayStopReason,
+  end: ReplayEndState,
   runIds: () => RunId,
   spent = 1,
   improved = true,
 ): Search =>
   names.reduce(
     (built, name) =>
-      built.recordReplayStopReason(
+      built.recordReplayEndState(
         ReplayId.of(`replay_${name}`),
         end,
         charged(spent),
@@ -124,7 +124,7 @@ const iterated = (
   number: number,
   names: readonly string[],
   runIds: () => RunId,
-  end: ReplayStopReason = 'finished',
+  end: ReplayEndState = 'finished',
 ): Search =>
   endingReplays(
     proposing(search, number, names)
@@ -310,7 +310,7 @@ describe('Search', () => {
   describe('seeding', () => {
     it('wants its first iteration once its seed replay finished', () => {
       const runIds = searchRunIds();
-      const seeded = aSearch().recordReplayStopReason(
+      const seeded = aSearch().recordReplayEndState(
         SEED,
         'finished',
         charged(5),
@@ -329,7 +329,7 @@ describe('Search', () => {
     });
 
     it('ends, its ceiling reached, when its seed replay reached its ceiling', () => {
-      const over = aSearch().recordReplayStopReason(
+      const over = aSearch().recordReplayEndState(
         SEED,
         'ceiling-reached',
         charged(50),
@@ -346,7 +346,7 @@ describe('Search', () => {
     it.each(['stopped', 'deleted'] as const)(
       'ends, its seed failed, when its seed replay ended %s',
       (end) => {
-        const failed = aSearch().recordReplayStopReason(
+        const failed = aSearch().recordReplayEndState(
           SEED,
           end,
           charged(5),
@@ -496,7 +496,7 @@ describe('Search', () => {
       expect(again.iterations).toHaveLength(ended.iterations.length);
       expect(endingReplays(ended, ['one'], 'stopped', runIds, 0.5)).toBe(ended);
       expect(
-        seeded.recordReplayStopReason(
+        seeded.recordReplayEndState(
           SEED,
           'stopped',
           charged(1),
@@ -613,7 +613,7 @@ describe('Search', () => {
     });
 
     it('charges each unpriced or foreign run of a replay its share per run', () => {
-      const seeded = aSearch().recordReplayStopReason(
+      const seeded = aSearch().recordReplayEndState(
         SEED,
         'finished',
         charged(5, 3),
@@ -1255,7 +1255,7 @@ describe('Search', () => {
         () => ReplayId.of(`held_out_${++count}`),
         NOW,
       )
-      .recordReplayStopReason(
+      .recordReplayEndState(
         ReplayId.of('held_out_1'),
         'finished',
         charged(1),
@@ -1349,7 +1349,7 @@ describe('Search', () => {
         ]),
       ).toEqual([['candidate_one', 'held_out_1']]);
 
-      const finished = heldOutSearch.recordReplayStopReason(
+      const finished = heldOutSearch.recordReplayEndState(
         ReplayId.of('held_out_1'),
         'finished',
         charged(1),
@@ -1534,7 +1534,7 @@ describe('Search', () => {
           heldOutIds(),
           NOW,
         )
-        .recordReplayStopReason(
+        .recordReplayEndState(
           ReplayId.of('held_out_1'),
           'stopped',
           charged(1),

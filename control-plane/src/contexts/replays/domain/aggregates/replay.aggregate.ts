@@ -50,9 +50,13 @@ import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
 import {
   DISPATCHING_REPLAY_STATES,
+  type ReplayEndState,
   type ReplayState,
-  type ReplayStopReason,
 } from '@replays/domain/value-objects/replay-state';
+import {
+  haltingCause,
+  type ReplayStopCause,
+} from '@replays/domain/value-objects/replay-stop-cause';
 import type { ReplayedCandidate } from '@replays/domain/value-objects/replayed-candidate.vo';
 import type { RubricVersion } from '@replays/domain/value-objects/rubric-version.vo';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
@@ -94,6 +98,7 @@ interface State {
   readonly startedAt: Date;
   readonly endedAt: Date | null;
   readonly stoppedAt: Date | null;
+  readonly stoppedBecause: ReplayStopCause | null;
   readonly version: number;
 }
 
@@ -290,6 +295,7 @@ export class Replay extends EventRecorder {
       startedAt: input.at,
       endedAt: null,
       stoppedAt: null,
+      stoppedBecause: null,
       version: 0,
     });
 
@@ -364,6 +370,7 @@ export class Replay extends EventRecorder {
       isValidRepeatCount(state.repeats) &&
       ended === (state.endedAt !== null) &&
       (state.stoppedAt === null || state.endedAt !== null) &&
+      (state.stoppedBecause === null || state.stoppedAt !== null) &&
       (state.answers === null) === (state.referenceReplayId === null) &&
       (state.answers === null || state.runSubset !== null) &&
       (!state.baseline || state.runSubset === null) &&
@@ -563,8 +570,18 @@ export class Replay extends EventRecorder {
     return this.secondRound(run, (entry) => entry.paired(other, verdict));
   }
 
-  recordPairingFailure(run: RunId, other: RunId, why: Unpaired): Replay {
-    return this.secondRound(run, (entry) => entry.pairingFailed(other, why));
+  recordPairingFailure(
+    run: RunId,
+    other: RunId,
+    why: Unpaired,
+    at: Date,
+    by: ChangeActor,
+  ): Replay {
+    const recorded = this.secondRound(run, (entry) =>
+      entry.pairingFailed(other, why),
+    );
+
+    return this.haltedBy(recorded, why, at, by);
   }
 
   get ceiling(): Money {
@@ -639,6 +656,14 @@ export class Replay extends EventRecorder {
 
   get stoppedAt(): Date | null {
     return this.state.stoppedAt;
+  }
+
+  get wasStopped(): boolean {
+    return this.state.stoppedAt !== null;
+  }
+
+  get stoppedBecause(): ReplayStopCause | null {
+    return this.state.stoppedBecause;
   }
 
   get version(): number {
@@ -859,8 +884,32 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.judged(verdict), at);
   }
 
-  recordJudgingFailure(run: RunId, why: Unjudged, at: Date): Replay {
-    return this.changing(run, (entry) => entry.judgingFailed(why), at);
+  recordJudgingFailure(
+    run: RunId,
+    why: Unjudged,
+    at: Date,
+    by: ChangeActor,
+  ): Replay {
+    const recorded = this.changing(
+      run,
+      (entry) => entry.judgingFailed(why),
+      at,
+    );
+
+    return this.haltedBy(recorded, why, at, by);
+  }
+
+  private haltedBy(
+    recorded: Replay,
+    why: Unjudged | Unpaired,
+    at: Date,
+    by: ChangeActor,
+  ): Replay {
+    const cause = haltingCause(why);
+
+    return recorded !== this && cause !== null && recorded.isStoppable
+      ? recorded.stop(at, by, cause)
+      : recorded;
   }
 
   recordRejudgment(run: RunId, verdict: JudgeVerdict): Replay {
@@ -888,7 +937,7 @@ export class Replay extends EventRecorder {
       : this.with({ entries });
   }
 
-  stop(at: Date, by: ChangeActor): Replay {
+  stop(at: Date, by: ChangeActor, because: ReplayStopCause): Replay {
     if (this.state.stoppedAt || !this.isInProgress) {
       throw new ReplayEndedError(this.id.value);
     }
@@ -901,6 +950,7 @@ export class Replay extends EventRecorder {
       ),
       endedAt: this.state.endedAt ?? at,
       stoppedAt: at,
+      stoppedBecause: because,
     });
 
     stopped.record(
@@ -937,7 +987,7 @@ export class Replay extends EventRecorder {
     return deleted;
   }
 
-  private endedAs(state: ReplayStopReason): ReplayEnded {
+  private endedAs(state: ReplayEndState): ReplayEnded {
     return new ReplayEnded(
       this.id,
       this.workspaceId,

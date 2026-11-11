@@ -8,6 +8,7 @@ import type {
   CheckResult,
   UndecidedBecause,
 } from '@replays/domain/services/replay-check-result';
+import type { ReplayStopCause } from '@replays/domain/value-objects/replay-stop-cause';
 
 export interface CheckSideDto {
   readonly state: string | null;
@@ -18,6 +19,7 @@ export interface CheckSideDto {
   readonly interval: RateIntervalDto | null;
   readonly tasksScored: number;
   readonly spent: MoneyDto | null;
+  readonly stoppedBecause: ReplayStopCause | null;
 }
 
 export interface ReplayCheckDto {

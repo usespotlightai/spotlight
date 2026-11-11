@@ -47,6 +47,7 @@ export class CancelSearch {
           replay.stop(
             this.clock.now(),
             ChangeActor.spotlight(replay.workspaceId),
+            'search-ended',
           ),
         );
       }

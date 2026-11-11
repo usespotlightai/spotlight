@@ -7771,6 +7771,10 @@ export type ReplayCheckSideResponseDto = {
    */
   tasksScored: number;
   spent: MoneyResponseDto | null;
+  /**
+   * Why this side’s replay stopped: superseded by a later check of the same pull request, insufficient credits for the judge model, the search that ran it ended, or the live config moved on so it went stale
+   */
+  stoppedBecause: 'superseded' | 'insufficient-credits' | 'search-ended' | 'stale' | null;
 };
 
 export type ReplayCheckTaskSideResponseDto = {

@@ -53,6 +53,8 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
 
 const SET = aSet(2);
 
+const OWN = PlannedReference.of({ pullRequest: 42 });
+
 describe('ReplayCheck', () => {
   it('records that it started, named by the change it checks, recording what it pinned to live in order', () => {
     const check = started();
@@ -97,14 +99,30 @@ describe('ReplayCheck', () => {
       minGain: 0.05,
     });
     const reusable = (result: 'running' | 'passed' | 'failed' | 'undecided') =>
-      check.reusableFor(check.change, SET.id, ENTRIES, threshold, 1, result);
+      check.reusableFor(
+        check.change,
+        SET.id,
+        ENTRIES,
+        threshold,
+        1,
+        result,
+        OWN,
+      );
 
     expect(reusable('running')).toBe(true);
     expect(reusable('passed')).toBe(true);
     expect(reusable('failed')).toBe(true);
     expect(reusable('undecided')).toBe(false);
     expect(
-      check.reusableFor(check.change, SET.id, ENTRIES, raised, 1, 'passed'),
+      check.reusableFor(
+        check.change,
+        SET.id,
+        ENTRIES,
+        raised,
+        1,
+        'passed',
+        OWN,
+      ),
     ).toBe(false);
     expect(
       check.reusableFor(
@@ -114,6 +132,7 @@ describe('ReplayCheck', () => {
         threshold,
         1,
         'passed',
+        OWN,
       ),
     ).toBe(false);
     expect(ReplayCheck.nextAttemptAfter([check], check.change)).toBe(
@@ -133,6 +152,7 @@ describe('ReplayCheck', () => {
         threshold,
         1,
         'passed',
+        OWN,
       ),
     ).toBe(false);
     expect(
@@ -143,8 +163,53 @@ describe('ReplayCheck', () => {
         threshold,
         1,
         'passed',
+        OWN,
       ),
     ).toBe(false);
+  });
+
+  it('is reused while running only by its own pull request, and once finished by any', () => {
+    const check = started({ setId: SET.id, setEntries: ENTRIES });
+    const threshold = ReplayThreshold.of({
+      maxRegressions: 0,
+      ceiling: 10,
+      currency: 'USD',
+      minGain: 0.05,
+    });
+    const other = PlannedReference.of({ pullRequest: 7 });
+    const reusable = (
+      result: 'running' | 'passed',
+      reference: PlannedReference,
+    ) =>
+      check.reusableFor(
+        check.change,
+        SET.id,
+        ENTRIES,
+        threshold,
+        1,
+        result,
+        reference,
+      );
+    const ofCommit = started({
+      setId: SET.id,
+      setEntries: ENTRIES,
+      reference: PlannedReference.of({ commit: 'abc1234' }),
+    });
+
+    expect(reusable('running', OWN)).toBe(true);
+    expect(reusable('running', other)).toBe(false);
+    expect(reusable('passed', other)).toBe(true);
+    expect(
+      ofCommit.reusableFor(
+        check.change,
+        SET.id,
+        ENTRIES,
+        threshold,
+        1,
+        'running',
+        other,
+      ),
+    ).toBe(true);
   });
 
   it('is reused only when it replays each run as many times as requested, and replays each from 1 to 5 times', () => {
@@ -161,10 +226,26 @@ describe('ReplayCheck', () => {
     });
 
     expect(
-      check.reusableFor(check.change, SET.id, ENTRIES, threshold, 3, 'passed'),
+      check.reusableFor(
+        check.change,
+        SET.id,
+        ENTRIES,
+        threshold,
+        3,
+        'passed',
+        OWN,
+      ),
     ).toBe(true);
     expect(
-      check.reusableFor(check.change, SET.id, ENTRIES, threshold, 1, 'passed'),
+      check.reusableFor(
+        check.change,
+        SET.id,
+        ENTRIES,
+        threshold,
+        1,
+        'passed',
+        OWN,
+      ),
     ).toBe(false);
     expect(() => started({ repeats: 0 })).toThrow(InvalidReplayCheckError);
     expect(() => started({ repeats: 6 })).toThrow(InvalidReplayCheckError);
@@ -180,7 +261,7 @@ describe('ReplayCheck', () => {
     });
 
     expect(
-      check.reusableFor(check.change, SET.id, ENTRIES, wider, 1, 'passed'),
+      check.reusableFor(check.change, SET.id, ENTRIES, wider, 1, 'passed', OWN),
     ).toBe(true);
     for (const minGain of [0, -0.1, 1.5, Number.NaN]) {
       expect(() =>

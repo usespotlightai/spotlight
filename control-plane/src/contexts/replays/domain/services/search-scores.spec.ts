@@ -26,7 +26,7 @@ const searchWith = (): Search => {
   const ids = searchRunIds();
 
   return aSearch({ set: SET })
-    .recordReplayStopReason(
+    .recordReplayEndState(
       ReplayId.of('replay_seed'),
       'finished',
       { spent: Money.of(10, 'USD'), unpriced: 0 },
@@ -141,7 +141,7 @@ describe('scoresOf', () => {
     let search = searchWith()
       .recordRunEnd(RUN_ONE, { failed: false, started: true }, later(1), ids)
       .recordAgentSpend(RUN_ONE, ModelSpent.of([], 0), later(1), ids)
-      .recordReplayStopReason(
+      .recordReplayEndState(
         ReplayId.of('replay_terse'),
         'finished',
         { spent: Money.of(1, 'USD'), unpriced: 0 },
@@ -149,7 +149,7 @@ describe('scoresOf', () => {
         ids,
         true,
       )
-      .recordReplayStopReason(
+      .recordReplayEndState(
         ReplayId.of('replay_wordy'),
         'finished',
         { spent: Money.of(1, 'USD'), unpriced: 0 },
