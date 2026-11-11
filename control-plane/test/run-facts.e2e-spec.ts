@@ -1,4 +1,3 @@
-
 import type { ProjectRunFacts } from '@insights/application/services/project-run-facts.service';
 import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
