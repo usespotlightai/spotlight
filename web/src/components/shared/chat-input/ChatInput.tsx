@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { type CSSProperties, type ReactNode, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
 import { AttachButton } from '@/components/shared/attachment/AttachButton';
 import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
 import { ChatInputArea } from '@/components/shared/chat-input/ChatInputArea';
@@ -55,6 +55,81 @@ const EXPANDED: CSSProperties = {
     '"top top top" "editor editor editor" "plus settings send"',
 };
 
+const forwardSend = (
+  onSend: (message: Outgoing, restore: (error?: unknown) => void) => void,
+  outgoing: Outgoing,
+  shared: SharedDraft | null,
+  latestGeneration: { readonly current: number | undefined },
+  restore: () => void,
+) => {
+  const sentGeneration = shared?.synced ? shared.generation : undefined;
+
+  onSend(
+    shared
+      ? {
+          ...outgoing,
+          coAuthors: shared.coAuthors(),
+          ...(shared.synced && { draftGeneration: shared.generation }),
+        }
+      : outgoing,
+    () => {
+      if (
+        sentGeneration === undefined ||
+        latestGeneration.current === sentGeneration
+      ) {
+        restore();
+      }
+    },
+  );
+};
+
+type SendingOptions = {
+  message: ReturnType<typeof useChatMessage>;
+  shared: SharedDraft | null;
+  disabled: boolean;
+  pending: boolean;
+  running: boolean;
+  onStop?: () => void;
+  onSend?: (message: Outgoing, restore: (error?: unknown) => void) => void;
+};
+
+function useSending({
+  message,
+  shared,
+  disabled,
+  pending,
+  running,
+  onStop,
+  onSend,
+}: SendingOptions) {
+  const latestGeneration = useRef(shared?.generation);
+  const generation = shared?.generation;
+  useEffect(() => {
+    latestGeneration.current = generation;
+  }, [generation]);
+
+  return useChatSend({
+    outgoing: message.outgoing,
+    empty: message.blank,
+    uploading: message.uploading,
+    disabled,
+    pending,
+    running,
+    onStop,
+    onSend:
+      onSend &&
+      ((outgoing) =>
+        forwardSend(
+          onSend,
+          outgoing,
+          shared,
+          latestGeneration,
+          message.restore,
+        )),
+    clear: message.release,
+  });
+}
+
 export function ChatInput({
   slug,
   label,
@@ -73,9 +148,6 @@ export function ChatInput({
   draft,
 }: ChatInputProps) {
   const cursors = useRef<HTMLDivElement>(null);
-  const latestGeneration = useRef(shared?.generation);
-  latestGeneration.current = shared?.generation;
-  const generation = shared?.generation;
   const message = useChatMessage(
     slug,
     initialReferences,
@@ -90,38 +162,14 @@ export function ChatInput({
     lifted,
   );
 
-  const { send, unsendable, stopping } = useChatSend({
-    outgoing: message.outgoing,
-    empty: message.blank,
-    uploading: message.uploading,
+  const { send, unsendable, stopping } = useSending({
+    message,
+    shared,
     disabled,
     pending: pending || locked,
     running,
     onStop,
-    onSend:
-      onSend &&
-      ((outgoing) => {
-        const sentGeneration = shared?.synced ? generation : undefined;
-
-        onSend(
-          shared
-            ? {
-                ...outgoing,
-                coAuthors: shared.coAuthors(),
-                ...(shared.synced && { draftGeneration: shared.generation }),
-              }
-            : outgoing,
-          () => {
-            if (
-              sentGeneration === undefined ||
-              latestGeneration.current === sentGeneration
-            ) {
-              message.restore();
-            }
-          },
-        );
-      }),
-    clear: message.release,
+    onSend,
   });
 
   return (

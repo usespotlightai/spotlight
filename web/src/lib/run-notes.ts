@@ -34,8 +34,11 @@ export type MessageInFlight = OutgoingMessage & { readonly sentAt: number };
 
 const CLOCK_SKEW_MS = 60_000;
 
-const sameIds = (left: readonly string[], right: readonly string[]) =>
-  left.length === right.length && left.every((id) => right.includes(id));
+const sameIds = (left: readonly string[], right: readonly string[]) => {
+  const expected = new Set(right);
+
+  return left.length === right.length && left.every((id) => expected.has(id));
+};
 
 const stillOnTheirWay = (
   conversation: RunNotes,
