@@ -10,7 +10,7 @@ import {
   type ApprovalStatus,
   WAITING_FOR_APPROVAL,
 } from '@/lib/approval-status';
-import type { JournalStep, RunJournal } from '@/lib/inbox';
+import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
 import { stretchesOf } from '@/lib/journal-step';
 import { teamSectionPath } from '@/lib/team';
 
