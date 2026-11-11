@@ -51,7 +51,15 @@ const fileAt = (
   path: string,
 ) => setup.files.find((each) => each.path === path)?.text;
 
-const json = (text: string | undefined) => JSON.parse(text ?? 'null');
+interface PermissionSettings {
+  readonly permissions: {
+    readonly allow: readonly string[];
+    readonly deny: readonly string[];
+  };
+}
+
+const json = (text: string | undefined) =>
+  JSON.parse(text ?? 'null') as PermissionSettings;
 
 const PUSHY = profile({ rules: [rule('ask', 'execute', 'git push *')] });
 
@@ -218,7 +226,7 @@ describe('one harness profile, told to each harness in its own terms', () => {
       const { started, setup } = prepared('cursor', CAREFUL);
 
       expect(started.env?.CURSOR_CONFIG_DIR).toBe(
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+        // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
         '${SPOTLIGHT_STATE_DIR}/cursor',
       );
       expect(json(fileAt(setup, 'cursor/cli-config.json'))).toEqual({
@@ -347,7 +355,12 @@ describe('one harness profile, told to each harness in its own terms', () => {
 
   describe('OpenCode', () => {
     const configOf = (started: { env?: Readonly<Record<string, string>> }) =>
-      JSON.parse(started.env?.OPENCODE_CONFIG_CONTENT ?? '{}');
+      JSON.parse(started.env?.OPENCODE_CONFIG_CONTENT ?? '{}') as {
+        readonly instructions?: readonly string[];
+        readonly permission: {
+          readonly bash: Readonly<Record<string, string>> | string;
+        };
+      };
 
     it('writes each kind as a permission whose last matching pattern wins, after the rest of the kind', () => {
       const { started, setup } = prepared('opencode', CAREFUL, {

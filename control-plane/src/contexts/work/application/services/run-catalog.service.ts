@@ -51,9 +51,15 @@ export class RunCatalog {
     const entitled = await this.catalog.entitledTo(line.workspaceId, request);
 
     return {
-      skills: entitled.skills.map(CatalogEntitledMapper.toFolder),
-      tools: entitled.tools.map(CatalogEntitledMapper.toDeclared),
-      denied: entitled.denied.map(CatalogEntitledMapper.toDenied),
+      skills: entitled.skills.map((each) =>
+        CatalogEntitledMapper.toFolder(each),
+      ),
+      tools: entitled.tools.map((each) =>
+        CatalogEntitledMapper.toDeclared(each),
+      ),
+      denied: entitled.denied.map((each) =>
+        CatalogEntitledMapper.toDenied(each),
+      ),
     };
   }
 

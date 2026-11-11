@@ -15,11 +15,7 @@ export function FileDiffSkeleton({ lines }: { lines: number }) {
       className="flex flex-col px-3 py-2 text-xs leading-5"
     >
       {Array.from({ length: shown }, (_, at) => (
-        <SkeletonLine
-          // biome-ignore lint/suspicious/noArrayIndexKey: only its position identifies a placeholder line
-          key={at}
-          className={WIDTHS[at % WIDTHS.length]}
-        />
+        <SkeletonLine key={at} className={WIDTHS[at % WIDTHS.length]} />
       ))}
     </div>
   );

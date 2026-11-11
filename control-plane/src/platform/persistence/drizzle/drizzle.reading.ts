@@ -23,7 +23,7 @@ export class DrizzleReading {
           sql`select set_config('statement_timeout', ${this.#timeoutMs}, true)`,
         );
 
-        return work(tx as unknown as DrizzleDatabase);
+        return work(tx);
       },
       { isolationLevel: 'repeatable read', accessMode: 'read only' },
     );

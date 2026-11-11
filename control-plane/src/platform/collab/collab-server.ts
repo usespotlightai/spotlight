@@ -1,4 +1,5 @@
 import type { IncomingMessage } from 'node:http';
+
 import { Redis } from '@hocuspocus/extension-redis';
 import { type Extension, Hocuspocus } from '@hocuspocus/server';
 import {
@@ -227,7 +228,12 @@ export class CollabServer
         try {
           const { documents, id } = this.documentsOf(document.name);
 
-          if (!(await documents.admit(id, connection.context.headers))) {
+          if (
+            !(await documents.admit(
+              id,
+              (connection.context as Admitted).headers,
+            ))
+          ) {
             connection.close();
           }
         } catch (error) {

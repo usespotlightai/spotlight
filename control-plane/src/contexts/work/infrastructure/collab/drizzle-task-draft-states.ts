@@ -5,8 +5,8 @@ import type {
   StoredDraft,
   TaskDraftStatesPort,
 } from '@work/application/ports/task-draft-states.port';
-import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { taskDraftState } from '@work/infrastructure/persistence/drizzle/schemas/task-draft.schema';
+import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { eq, sql } from 'drizzle-orm';
 
 @Injectable()

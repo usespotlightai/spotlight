@@ -1,4 +1,5 @@
 import { Navigate, useParams } from 'react-router';
+
 import { inboxPath } from '@/lib/inbox';
 
 export function WorkspaceIndex() {

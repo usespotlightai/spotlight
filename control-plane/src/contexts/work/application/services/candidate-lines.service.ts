@@ -6,8 +6,8 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { StationOrdering } from '@work/application/services/station-ordering';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
-import type { Station } from '@work/domain/value-objects/station.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 
 export interface StationInLine {
   readonly line: LineMap;

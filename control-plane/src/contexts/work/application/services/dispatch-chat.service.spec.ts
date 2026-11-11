@@ -1,8 +1,6 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -102,7 +100,7 @@ const dispatching = (
 } => {
   const runs = recordingRuns();
   const dispatch = new DispatchChat(
-    { generate: () => 'id' } as IdGeneratorPort,
+    { generate: () => 'id' },
     {
       commandFor: () =>
         (over.launches ?? true)
@@ -117,7 +115,7 @@ const dispatching = (
         line('web', [Repository.of('acme/web')], ['gpu']),
       ],
     } as unknown as LineMapsPort,
-    { now: () => NOW, sleep: async () => {} } as ClockPort,
+    { now: () => NOW, sleep: async () => {} },
     {
       forBriefing: async (place: BriefingContext) => {
         briefedAt.push(place);

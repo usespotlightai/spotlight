@@ -1,8 +1,8 @@
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { needsBaseline } from '@replays/domain/services/baseline';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';

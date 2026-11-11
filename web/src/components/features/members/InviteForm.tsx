@@ -1,4 +1,5 @@
-import { type FormEvent, useState } from 'react';
+import { type SubmitEvent, useState } from 'react';
+
 import { InviteEmailsField } from '@/components/features/members/InviteEmailsField';
 import { TeamsSelect } from '@/components/features/members/TeamsSelect';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
@@ -49,7 +50,7 @@ export function InviteForm({
   const parsed = parseEmails(emails);
   const tooMany = parsed.valid.length > MAX_INVITED_AT_ONCE;
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
     setChecked(true);
 

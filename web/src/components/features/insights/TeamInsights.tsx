@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router';
-import { CostTab } from '@/components/features/insights/CostTab';
+
 import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
+import { CostTab } from '@/components/features/insights/CostTab';
 import { EveryStationView } from '@/components/features/insights/EveryStationView';
 import { InsightsTabs } from '@/components/features/insights/InsightsTabs';
 import { OverviewTab } from '@/components/features/insights/OverviewTab';

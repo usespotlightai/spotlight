@@ -113,7 +113,7 @@ describe('Secret', () => {
           constructor: InvalidSecretError,
           because: expect.stringMatching(
             /required for a secret stored by Spotlight/,
-          ),
+          ) as unknown,
         }),
       );
     });
@@ -326,18 +326,16 @@ describe('Secret', () => {
       });
     });
 
-    it('is never injected for a host it is not bound to', () => {
-      for (const url of [
-        'https://api.linear.app.evil.test/graphql',
-        'https://evil.test/?api.linear.app',
-        'https://linear.app/graphql',
-        'https://sub.api.linear.app/graphql',
-        'not a url',
-      ]) {
-        expect(() => stored().injectedFor(url, value), url).toThrow(
-          SecretNotBoundError,
-        );
-      }
+    it.each([
+      'https://api.linear.app.evil.test/graphql',
+      'https://evil.test/?api.linear.app',
+      'https://linear.app/graphql',
+      'https://sub.api.linear.app/graphql',
+      'not a url',
+    ])('is never injected for a host it is not bound to: %s', (url) => {
+      expect(() => stored().injectedFor(url, value)).toThrow(
+        SecretNotBoundError,
+      );
     });
 
     it('is never injected over plain http, even to its host', () => {

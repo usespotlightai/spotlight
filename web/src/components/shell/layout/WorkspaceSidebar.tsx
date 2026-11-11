@@ -1,4 +1,5 @@
 import { Inbox } from 'lucide-react';
+
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { SidebarSearch } from '@/components/shell/layout/SidebarSearch';
 import { TeamNav } from '@/components/shell/layout/TeamNav';

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -9,11 +10,12 @@ import {
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
-import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { asc, eq, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
@@ -341,11 +343,13 @@ describe('files a run attaches to its handover', () => {
     expect(taken).toEqual(expect.arrayContaining([light.id, dark.id]));
 
     const inbox = (
-      await http()
-        .get(`/api/workspaces/${team.slug}/inbox`)
-        .set(TEST_USER_HEADER, team.owner.value)
-        .expect(200)
-    ).body.items as { taskId: string }[];
+      (
+        await http()
+          .get(`/api/workspaces/${team.slug}/inbox`)
+          .set(TEST_USER_HEADER, team.owner.value)
+          .expect(200)
+      ).body as { readonly items: { taskId: string }[] }
+    ).items;
     expect(inbox.some((each) => each.taskId === taskId)).toBe(true);
   });
 

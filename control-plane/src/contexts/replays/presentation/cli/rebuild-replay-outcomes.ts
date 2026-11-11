@@ -1,4 +1,6 @@
+// oxlint-disable no-console -- a command-line tool reports on the terminal
 import { parseArgs } from 'node:util';
+
 import { openReplayOutcomesRebuild } from '@replays/replays.replay-outcomes-rebuild';
 
 const USAGE =

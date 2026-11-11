@@ -7,8 +7,8 @@ import type { TerraformStateRepository } from '@configuration/domain/repositorie
 import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
-import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
+import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';

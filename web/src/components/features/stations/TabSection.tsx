@@ -1,4 +1,5 @@
 import { type ReactNode, useId } from 'react';
+
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';

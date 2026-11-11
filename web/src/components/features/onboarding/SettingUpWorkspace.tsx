@@ -1,4 +1,5 @@
 import { LoaderCircle } from 'lucide-react';
+
 import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
 

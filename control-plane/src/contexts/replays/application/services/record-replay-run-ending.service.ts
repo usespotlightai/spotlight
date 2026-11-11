@@ -1,7 +1,7 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import { replayAskedAPerson } from '@replays/domain/aggregates/replay-run-decision.aggregate';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { reviewOf } from '@replays/domain/value-objects/change-checks.vo';
 import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';

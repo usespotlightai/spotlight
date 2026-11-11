@@ -1,11 +1,11 @@
 import {
-  HookEvent,
-  type HookEventName,
-} from '@integrations/domain/value-objects/hook-event.vo';
-import {
   HookEventFacts,
   type ToolUsedFields,
 } from '@integrations/domain/value-objects/hook-event-facts.vo';
+import {
+  HookEvent,
+  type HookEventName,
+} from '@integrations/domain/value-objects/hook-event.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';

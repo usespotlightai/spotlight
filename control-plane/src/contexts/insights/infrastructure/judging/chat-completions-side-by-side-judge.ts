@@ -125,7 +125,10 @@ export class ChatCompletionsSideBySideJudge implements SideBySideJudgePort {
       };
     } catch (error) {
       if (error instanceof ModelRequestError) {
-        throw new JudgingError('request-failed', error.message);
+        throw new JudgingError(
+          error.insufficientCredits ? 'insufficient-credits' : 'request-failed',
+          error.message,
+        );
       }
       if (error instanceof ModelEmptyCompletionError) {
         throw new JudgingError('unreadable', error.message);

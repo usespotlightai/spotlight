@@ -1,10 +1,10 @@
+import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HOOK_ON_FAILURES,
   Hook,
   isSetBySpotlight,
   SET_BY_SPOTLIGHT_REASON,
 } from '@integrations/domain/value-objects/hook.vo';
-import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import { SLUG_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { z } from 'zod';
 

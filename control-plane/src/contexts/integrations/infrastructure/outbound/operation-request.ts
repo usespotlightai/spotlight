@@ -26,7 +26,7 @@ const queried = (
 
   if (Array.isArray(value)) {
     return parameter.explode
-      ? value.map((each) => [parameter.name, textOf(each)])
+      ? value.map((each: JsonValue) => [parameter.name, textOf(each)])
       : [[parameter.name, value.map(textOf).join(joiner)]];
   }
 

@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { AssigneePicker } from '@/components/features/board/task/AssigneePicker';
 import { DropIndicator } from '@/components/features/board/task/DropIndicator';

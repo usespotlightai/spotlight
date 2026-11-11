@@ -10,13 +10,10 @@ import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ImportHarnessProfileHandler
-  implements
-    QueryHandlerPort<
-      ImportHarnessProfileQuery,
-      HarnessProfileResourceDto | null
-    >
-{
+export class ImportHarnessProfileHandler implements QueryHandlerPort<
+  ImportHarnessProfileQuery,
+  HarnessProfileResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,
@@ -48,7 +45,7 @@ export class ImportHarnessProfileHandler
         ProfileKey.of(address.key),
       );
 
-      return record ? this.views.of(record) : null;
+      return record ? await this.views.of(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

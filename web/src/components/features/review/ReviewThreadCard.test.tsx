@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ReviewThreadCard } from '@/components/features/review/ReviewThreadCard';
 import { type CodeReview, threadsOf } from '@/lib/review';
 import { ReviewContext } from '@/lib/review-context';
@@ -81,7 +82,7 @@ describe('ReviewThreadCard', () => {
 
     expect(first).toHaveTextContent('octocat');
     expect(
-      within(first as HTMLElement).getByRole('link', { name: /On GitHub/ }),
+      within(first).getByRole('link', { name: /On GitHub/ }),
     ).toHaveAttribute(
       'href',
       'https://github.com/acme/api/pull/42#discussion_r1',

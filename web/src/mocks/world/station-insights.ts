@@ -142,7 +142,7 @@ const tallyOf = (
   const durationsMs = runs.flatMap((run) =>
     run.usage?.ms ? [run.usage.ms] : [],
   );
-  const priced = runs.filter((run) => run.usage?.cost != null);
+  const priced = runs.filter((run) => typeof run.usage?.cost === 'number');
   const spent = priced.reduce(
     (total, run) => total + (run.usage?.cost ?? 0),
     0,

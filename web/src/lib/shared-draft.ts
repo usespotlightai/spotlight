@@ -4,6 +4,7 @@ import type {
 } from '@hocuspocus/provider';
 import type { Provider } from '@lexical/yjs';
 import type { Doc } from 'yjs';
+
 import type { Person } from '@/lib/person';
 
 const COLLAB_PATH = '/api/collab';
@@ -68,7 +69,7 @@ export const lexicalProvider = (
       void socket.connect();
     },
     disconnect: () => provider.detach(),
-    on: ((type: string, cb: (value: never) => void) => {
+    on: (type: string, cb: (value: never) => void) => {
       if (type === 'sync') {
         const forward = ({ state }: { state: boolean }) =>
           (cb as (isSynced: boolean) => void)(state);
@@ -81,8 +82,8 @@ export const lexicalProvider = (
       } else if (type === 'status') {
         provider.on('status', cb);
       }
-    }) as Provider['on'],
-    off: ((type: string, cb: (value: never) => void) => {
+    },
+    off: (type: string, cb: (value: never) => void) => {
       if (type === 'sync') {
         const forward = synced.get(cb as (isSynced: boolean) => void);
 
@@ -93,6 +94,6 @@ export const lexicalProvider = (
       } else if (type === 'status') {
         provider.off('status', cb);
       }
-    }) as Provider['off'],
+    },
   };
 };

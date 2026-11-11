@@ -85,10 +85,10 @@ interface Planned {
   readonly repeats: number;
 }
 
-export class StartReplayCheckHandler
-  implements
-    CommandHandlerPort<StartReplayCheckCommand, ReplayCheckStartedOutcome>
-{
+export class StartReplayCheckHandler implements CommandHandlerPort<
+  StartReplayCheckCommand,
+  ReplayCheckStartedOutcome
+> {
   constructor(
     private readonly access: ReplaysAccess,
     private readonly people: PeoplePort,
@@ -315,6 +315,7 @@ export class StartReplayCheckHandler
           threshold,
           planned.repeats,
           evaluation.result,
+          planned.reference,
         )
       ) {
         return each.id;

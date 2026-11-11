@@ -1,9 +1,9 @@
+import type { RunFactsReaderPort } from '@runs/application/ports/run-facts-reader.port';
 import type {
   RunFacts as RunFactsDto,
   RunFactsPort,
   RunTurnFact,
 } from '@runs/application/ports/run-facts.port';
-import type { RunFactsReaderPort } from '@runs/application/ports/run-facts-reader.port';
 import type {
   LeasedRunFacts,
   RunLeasesPort,

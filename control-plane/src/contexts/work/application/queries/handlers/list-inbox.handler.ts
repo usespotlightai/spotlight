@@ -50,9 +50,10 @@ const entryDtoOf = (entry: InboxEntrySummary): InboxEntryDto => {
     : { ...entry, askedAt: entry.askedAt.toISOString() };
 };
 
-export class ListInboxHandler
-  implements QueryHandlerPort<ListInboxQuery, Page<InboxEntryDto> | null>
-{
+export class ListInboxHandler implements QueryHandlerPort<
+  ListInboxQuery,
+  Page<InboxEntryDto> | null
+> {
   constructor(
     private readonly inbox: InboxReaderPort,
     private readonly access: WorkAccess,
@@ -85,9 +86,10 @@ export class ListInboxHandler
   }
 }
 
-export class ReadInboxItemHandler
-  implements QueryHandlerPort<ReadInboxItemQuery, InboxItemViewDto | null>
-{
+export class ReadInboxItemHandler implements QueryHandlerPort<
+  ReadInboxItemQuery,
+  InboxItemViewDto | null
+> {
   constructor(
     private readonly inbox: InboxReaderPort,
     private readonly access: WorkAccess,
@@ -110,9 +112,10 @@ export class ReadInboxItemHandler
   }
 }
 
-export class ReadInboxNoticeHandler
-  implements QueryHandlerPort<ReadInboxNoticeQuery, InboxNoticeDto | null>
-{
+export class ReadInboxNoticeHandler implements QueryHandlerPort<
+  ReadInboxNoticeQuery,
+  InboxNoticeDto | null
+> {
   constructor(
     private readonly inbox: InboxReaderPort,
     private readonly access: WorkAccess,

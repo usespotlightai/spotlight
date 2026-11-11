@@ -92,7 +92,7 @@ const representative = {
 
 describe('RunSpecMapper wire', () => {
   it('round-trips a spec to the same JSON the runner and the store read', () => {
-    const stored = JSON.parse(JSON.stringify(representative));
+    const stored: unknown = JSON.parse(JSON.stringify(representative));
     const spec = RunSpecPersistence.fromRow(stored);
 
     expect(JSON.stringify(spec.value)).toBe(JSON.stringify(representative));

@@ -1,4 +1,5 @@
 import { Link, type LinkProps } from 'react-router';
+
 import { useForwardTrail } from '@/lib/trail';
 
 export function TrailLink({ state, ...props }: LinkProps) {

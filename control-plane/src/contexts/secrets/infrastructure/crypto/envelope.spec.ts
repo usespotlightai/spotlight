@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+
 import {
   DecryptionFailedError,
   decrypt,
@@ -56,11 +57,10 @@ describe('the encrypted envelope', () => {
     ).toThrow(DecryptionFailedError);
   });
 
-  it('does not decrypt what it did not encrypt', () => {
-    for (const envelope of ['lin_api_1', 'v2.a.b.c', 'v1..', 'v1.a.b.c.d']) {
-      expect(() => decrypt(KEY, envelope, AAD), envelope).toThrow(
-        DecryptionFailedError,
-      );
-    }
-  });
+  it.each(['lin_api_1', 'v2.a.b.c', 'v1..', 'v1.a.b.c.d'])(
+    'does not decrypt what it did not encrypt: %s',
+    (envelope) => {
+      expect(() => decrypt(KEY, envelope, AAD)).toThrow(DecryptionFailedError);
+    },
+  );
 });

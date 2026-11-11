@@ -1,7 +1,7 @@
 import { RegisterRunnerHandler } from '@runners/application/commands/handlers/register-runner.handler';
 import { RegisterRunnerCommand } from '@runners/application/commands/runner-fleet.commands';
-import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { aRunner } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
@@ -18,7 +18,7 @@ const registering = (
     save?: (runner: Runner) => Promise<void>;
   } = {},
 ) => {
-  const save = vi.fn(input.save ?? (async (_: Runner) => {}));
+  const save = vi.fn(input.save ?? (async (_runner: Runner) => {}));
   const find = vi.fn(async () =>
     input.runner ? input.runner() : aRunner({ id: ID }),
   );
@@ -41,7 +41,7 @@ describe('RegisterRunnerHandler', () => {
 
     await expect(handler.execute(register)).resolves.toEqual({ runnerId: ID });
 
-    const saved = save.mock.calls[0]?.[0] as Runner;
+    const saved = save.mock.calls[0]?.[0];
 
     expect(saved.harnesses.map((each) => each.value)).toEqual(['claude-code']);
     expect(saved.offer.values).toEqual(['linux']);
@@ -61,7 +61,7 @@ describe('RegisterRunnerHandler', () => {
 
     await handler.execute(register);
 
-    const saved = save.mock.calls[0]?.[0] as Runner;
+    const saved = save.mock.calls[0]?.[0];
 
     expect(saved.installed[0]?.models.map((each) => each.value)).toEqual([
       'claude-sonnet-5',

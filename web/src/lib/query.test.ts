@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { failed, loading } from '@/lib/query';
 
 describe('loading', () => {

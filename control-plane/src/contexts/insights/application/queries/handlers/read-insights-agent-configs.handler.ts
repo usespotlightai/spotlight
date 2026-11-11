@@ -1,5 +1,5 @@
-import { periodOf } from '@insights/application/dto/insights.dto';
 import type { InsightsAgentConfigsDto } from '@insights/application/dto/insights-changes.dto';
+import { periodOf } from '@insights/application/dto/insights.dto';
 import { stationJudgeCalibrationOf } from '@insights/application/dto/judge-calibration.dto';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
 import type { ReadInsightsAgentConfigsQuery } from '@insights/application/queries/read-insights-agent-configs.query';
@@ -17,10 +17,10 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadInsightsAgentConfigsHandler
-  implements
-    QueryHandlerPort<ReadInsightsAgentConfigsQuery, InsightsAgentConfigsDto>
-{
+export class ReadInsightsAgentConfigsHandler implements QueryHandlerPort<
+  ReadInsightsAgentConfigsQuery,
+  InsightsAgentConfigsDto
+> {
   constructor(
     private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,

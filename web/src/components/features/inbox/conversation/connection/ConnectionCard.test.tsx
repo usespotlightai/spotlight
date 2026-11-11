@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
 import type { InboxConnectionResponseDto } from '@/lib/api';
 

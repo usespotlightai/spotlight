@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import {
   MEMORIES,
   type MemoryRepository,
@@ -12,13 +13,13 @@ import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
@@ -277,7 +278,9 @@ describe('the team’s memory', () => {
     ]);
     const later = await correcting('Merge however you like.');
 
-    expect(answers.map((each) => each.status).sort()).toEqual([201, 409]);
+    expect(answers.map((each) => each.status).sort((a, b) => a - b)).toEqual([
+      201, 409,
+    ]);
     expect(later.status).toBe(409);
     const active = (await listing()).filter(
       (each) => each.supersedes === old.id,
@@ -387,7 +390,7 @@ describe('a deleted team', () => {
       teamId: gone.teamId.value,
       key: 'gone',
     };
-    await app.get(EventOutbox).record([deleted as unknown as DomainEvent]);
+    await app.get(EventOutbox).record([deleted]);
 
     await eventually(async () => {
       await app.get(EventDelivery).drain(2_000);

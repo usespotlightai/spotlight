@@ -1,4 +1,5 @@
 import { KeyRound } from 'lucide-react';
+
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { TokenActions } from '@/components/features/tokens/TokenActions';
 import { RowIcon } from '@/components/shared/RowIcon';

@@ -1,5 +1,5 @@
-import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
+import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { EgressAvailability } from '@runners/domain/services/egress-naming';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 

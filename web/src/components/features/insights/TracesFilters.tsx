@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router';
+
 import { RunsFilters } from '@/components/features/insights/RunsFilters';
 import { useInsightsTraces } from '@/hooks/api/useInsightsTraces';
 import { useLines } from '@/hooks/api/useLines';

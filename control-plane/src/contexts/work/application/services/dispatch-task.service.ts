@@ -83,7 +83,7 @@ export class DispatchTask implements TaskDispatching {
       task,
       line,
       harnesses: this.harnesses.current(),
-      ready: ready.map(ReadySkillMapper.toReady),
+      ready: ready.map((each) => ReadySkillMapper.toReady(each)),
       profiles: await this.ordering.profilesAt(line, station ?? null),
     });
 
@@ -149,9 +149,9 @@ export class DispatchTask implements TaskDispatching {
         );
         return NOTHING_REMEMBERED;
       });
-    const briefed = task.briefed.withDecisions(
-      await this.decisions.ofTask(task.id),
-    );
+    const briefed = task
+      .briefedOn(line)
+      .withDecisions(await this.decisions.ofTask(task.id));
     const briefing = TaskBriefing.brief({
       task: briefed,
       line,

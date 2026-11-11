@@ -11,7 +11,7 @@ export function useElementWidth(element: RefObject<HTMLElement | null>) {
     }
 
     // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
-    setWidth(Math.round(target.clientWidth));
+    setWidth(Math.round(target.clientWidth)); // oxlint-disable-line react/set-state-in-effect -- the first width, before the observer reports
     const observer = new ResizeObserver(([entry]) => {
       if (entry) {
         setWidth(Math.round(entry.contentRect.width));

@@ -2,7 +2,7 @@ export const rounded = (value: number, places = 2): number =>
   Math.round(value * 10 ** places) / 10 ** places;
 
 export const spread = (seed: string, low: number, high: number): number => {
-  const sum = [...seed].reduce(
+  const sum = Array.from(seed).reduce(
     (total, letter, place) => total + letter.charCodeAt(0) * (place + 7),
     0,
   );

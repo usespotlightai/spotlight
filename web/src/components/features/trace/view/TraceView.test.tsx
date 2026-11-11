@@ -6,12 +6,13 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+
 import { TraceView } from '@/components/features/trace/view/TraceView';
 import type { JournalStepResponseDto, TraceNodeResponseDto } from '@/lib/api';
 import type { Trace } from '@/lib/trace';
 import { runScoresOf } from '@/test/fixtures/run-scores';
 
-const scores = vi.fn();
+const scores = vi.fn<(runId: string) => unknown>();
 
 vi.mock('@/hooks/api/useRunNetwork', () => ({
   useRunNetwork: () => ({

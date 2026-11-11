@@ -66,7 +66,7 @@ export const respondCreated = async <R extends object>(
       throw ProblemException.idempotencyKeyReused();
     case 'forbidden':
       throw ProblemException.forbidden(kind, created.act);
-    default:
+    case undefined:
       throw ProblemException.notFound(kind);
   }
 };
@@ -85,7 +85,9 @@ export const respondUpdated = <R>(
       return toResponse(updated.id);
     case 'invalid':
       throw ProblemException.invalid(kind, updated.problems);
-    default:
+    case 'forbidden':
+    case 'in-use':
+    case 'version-conflict':
       return rejected(kind, updated);
   }
 };

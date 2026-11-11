@@ -1,4 +1,5 @@
 import type { InfiniteData, QueryClient } from '@tanstack/react-query';
+
 import { inboxKeys } from '@/hooks/api/useInbox';
 import type { Page } from '@/hooks/api/usePagedList';
 import {

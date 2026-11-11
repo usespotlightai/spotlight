@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+
 import { traceIdOf } from '@platform/http/trace-id';
 import { getCurrentScope, getIsolationScope } from '@sentry/nestjs';
 

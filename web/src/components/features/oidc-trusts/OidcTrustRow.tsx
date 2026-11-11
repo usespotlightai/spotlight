@@ -1,4 +1,5 @@
 import { ShieldCheck } from 'lucide-react';
+
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { RowIcon } from '@/components/shared/RowIcon';
 import { WithTooltip } from '@/components/shared/WithTooltip';

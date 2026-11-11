@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+
 import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
 import { MemoryBodyCell } from '@/components/features/memory/MemoryBodyCell';
 import { MemoryDetails } from '@/components/features/memory/MemoryDetails';

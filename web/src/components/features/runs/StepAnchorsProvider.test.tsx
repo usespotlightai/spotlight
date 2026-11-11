@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+
 import { StepsDisclosure } from '@/components/features/inbox/conversation/StepsDisclosure';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
 import type { JournalStep, RunJournal } from '@/lib/inbox';

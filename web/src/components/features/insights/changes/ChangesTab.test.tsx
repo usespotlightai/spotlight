@@ -2,10 +2,10 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { stationNamesOf } from '@/lib/insights';
-import type { InsightsCandidates } from '@/lib/insights-candidates';
 import type {
   InsightsAgentConfigs,
   InsightsChanges,
@@ -221,7 +221,7 @@ const REPLAYED = {
       stationId: 'station_impl',
     },
   ],
-} as InsightsCandidates;
+};
 
 const filter = async (name: string) => {
   await userEvent.click(await screen.findByRole('button', { name }));
@@ -578,7 +578,7 @@ describe('the Changes tab', () => {
     const rows = [
       ...document.querySelectorAll('[data-slot="change-marker"]'),
     ] as HTMLElement[];
-    const newest = rows[0] as HTMLElement;
+    const newest = rows[0];
     await userEvent.click(
       within(newest).getByRole('button', { name: 'Impact' }),
     );

@@ -7,16 +7,7 @@ import { InvalidStationLayoutError } from '@lines/domain/exceptions/invalid-stat
 import { InvalidStationSearchError } from '@lines/domain/exceptions/invalid-station-search.error';
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
 import { LineVersionConflictError } from '@lines/domain/exceptions/line-version-conflict.error';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
-import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
-import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
-
-const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
-
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
 import { Reaction } from '@lines/domain/value-objects/reaction.vo';
 import { RepositorySetup } from '@lines/domain/value-objects/repository-setup.vo';
@@ -27,6 +18,8 @@ import {
 import { StationCheck } from '@lines/domain/value-objects/station-check.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { StationRoutes } from '@lines/domain/value-objects/station-routes.vo';
+import { TaskCounts } from '@lines/domain/value-objects/stranded-station';
+import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
@@ -34,12 +27,15 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
+
+const BUILT_IN_STATIONS = BUILT_IN_LINES[0]?.stations ?? [];
 
 const at = (
   position: number,
@@ -107,7 +103,7 @@ const created = () => {
     by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
-    line: BUILT_IN_LINES[0] as LineOpening,
+    line: BUILT_IN_LINES[0],
     harness: HarnessId.of('dev'),
     newId: () => `id_${++next}`,
   });

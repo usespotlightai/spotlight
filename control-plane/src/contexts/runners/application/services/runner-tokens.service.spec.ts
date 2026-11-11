@@ -7,12 +7,13 @@ import {
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const tokensAt = (now: Date) =>
   new RunnerTokens(
     {
-      findByTokenHash: vi.fn(async (hash) =>
+      findByTokenHash: vi.fn(async (hash: TokenHash) =>
         hash.equals(hashOf('b')) ? aRunner() : null,
       ),
     } as unknown as RunnerRepository,

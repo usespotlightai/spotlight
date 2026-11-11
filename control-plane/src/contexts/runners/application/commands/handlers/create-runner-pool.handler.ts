@@ -40,10 +40,10 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class CreateRunnerPoolHandler
-  implements
-    CommandHandlerPort<CreateRunnerPoolCommand, RunnerPoolCreatedDto | null>
-{
+export class CreateRunnerPoolHandler implements CommandHandlerPort<
+  CreateRunnerPoolCommand,
+  RunnerPoolCreatedDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,

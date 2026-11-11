@@ -1,4 +1,5 @@
-import { type FormEvent, useId, useState } from 'react';
+import { type SubmitEvent, useId, useState } from 'react';
+
 import { TokenAccessField } from '@/components/features/tokens/TokenAccessField';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
 import { FieldInput } from '@/components/shared/form/FieldInput';
@@ -78,7 +79,7 @@ export function CreateTokenDialog({
     setGrants(next);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: SubmitEvent) => {
     event.preventDefault();
 
     if (!named || !workspaceId || busy) {
@@ -134,7 +135,7 @@ export function CreateTokenDialog({
               value={name}
               onChange={(event) => {
                 setName(sanitizeSlug(event.target.value));
-                create.isError && create.reset();
+                if (create.isError) create.reset();
               }}
             />
           </div>

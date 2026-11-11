@@ -9,16 +9,12 @@ import { LineAlreadyExistsError } from '@lines/domain/exceptions/line-already-ex
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import {
   LinePlan,
   type StationPlan,
 } from '@lines/domain/value-objects/line-plan.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
-import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -42,7 +38,7 @@ const line = () => {
     by: changeActorIn(),
     workspaceId: WORKSPACE,
     teamId: TeamId.of('team_1'),
-    line: BUILT_IN_LINES[0] as LineOpening,
+    line: BUILT_IN_LINES[0],
     harness: HarnessId.of('dev'),
     newId: () => `id_${++next}`,
   });
@@ -143,7 +139,7 @@ const applying = (
   let next = 100;
   const ids = {
     generate: () => `new_${++next}`,
-  } as unknown as IdGeneratorPort;
+  };
 
   const applier = new ApplyLines(lines, tallies, ids);
 
@@ -210,7 +206,7 @@ describe('ApplyLines', () => {
   it('changes nothing where the plan would strand somebody’s work', async () => {
     const existing = line();
     const plan = asPlan(existing);
-    const going = plan.stations[1]?.key.value as string;
+    const going = plan.stations[1]?.key.value;
 
     const { applied, save } = applying(
       like(plan, { stations: plan.stations.filter((_, at) => at !== 1) }),
@@ -354,7 +350,7 @@ describe('ApplyLines', () => {
         stations: [
           ...plan.stations.slice(0, -1),
           station('handover'),
-          plan.stations[plan.stations.length - 1] as StationPlan,
+          plan.stations[plan.stations.length - 1],
         ],
       }),
       { existing },

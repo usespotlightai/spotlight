@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { wasCreatedHere } from '@/lib/setup-status';
 import { CreateWorkspace } from '@/routes/CreateWorkspace';
 
@@ -13,7 +14,10 @@ vi.mock('@/hooks/api/useSession', () => ({
   }),
 }));
 
-const createWorkspace = vi.fn();
+const createWorkspace =
+  vi.fn<
+    (input: unknown, options: { onSuccess: (data?: unknown) => void }) => void
+  >();
 const createState = {
   mutate: createWorkspace,
   isPending: false,

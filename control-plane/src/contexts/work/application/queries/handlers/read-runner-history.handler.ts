@@ -51,9 +51,10 @@ const withUsage = (
 
 type Outcomes = Awaited<ReturnType<RunResultsPort['of']>>;
 
-export class ReadRunnerHistoryHandler
-  implements QueryHandlerPort<ReadRunnerHistoryQuery, RunnerHistoryAnswer>
-{
+export class ReadRunnerHistoryHandler implements QueryHandlerPort<
+  ReadRunnerHistoryQuery,
+  RunnerHistoryAnswer
+> {
   constructor(
     private readonly accesses: HistoryAccesses,
     private readonly stations: StationRunReaderPort,

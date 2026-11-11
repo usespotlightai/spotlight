@@ -1,12 +1,12 @@
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import {
   currentBaselineFor,
   needsBaseline,

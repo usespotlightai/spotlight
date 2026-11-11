@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { LineResponseDto, RunTallyResponseDto } from '@/lib/api';
 import {
   type Delta,
@@ -503,26 +504,27 @@ describe('pages', () => {
   });
 });
 
-const teamTally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto =>
-  ({
-    runs: 10,
-    cancelled: 0,
-    failed: 2,
-    failedRate: 0.2,
-    stopped: 0,
-    checksPassed: 0,
-    checksFailed: 0,
-    accepted: 4,
-    sentBack: 0,
-    passed: 0,
-    merged: 0,
-    cost: { amount: 5, currency: 'USD' },
-    unpriced: 0,
-    mixedCurrencies: false,
-    medianMs: 60_000,
-    p90Ms: 120_000,
-    ...over,
-  }) as RunTallyResponseDto;
+const teamTally = (
+  over: Partial<RunTallyResponseDto>,
+): RunTallyResponseDto => ({
+  runs: 10,
+  cancelled: 0,
+  failed: 2,
+  failedRate: 0.2,
+  stopped: 0,
+  checksPassed: 0,
+  checksFailed: 0,
+  accepted: 4,
+  sentBack: 0,
+  passed: 0,
+  merged: 0,
+  cost: { amount: 5, currency: 'USD' },
+  unpriced: 0,
+  mixedCurrencies: false,
+  medianMs: 60_000,
+  p90Ms: 120_000,
+  ...over,
+});
 
 describe('tallyTiles', () => {
   it('shows each count with its own change, leaving out counts the server saw at zero in both periods', () => {

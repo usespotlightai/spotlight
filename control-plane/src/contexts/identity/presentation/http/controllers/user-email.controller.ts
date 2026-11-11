@@ -40,6 +40,11 @@ import {
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 
+const textOf = (raw: unknown): string =>
+  typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean'
+    ? String(raw)
+    : '';
+
 @ApiTags('emails')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('me')
@@ -86,7 +91,7 @@ export class UserEmailController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<UserEmailResponseDto> {
     return this.commandBus.execute<AddUserEmailCommand, UserEmailDto>(
-      new AddUserEmailCommand(String(body.email ?? ''), user.id, user.email),
+      new AddUserEmailCommand(textOf(body.email), user.id, user.email),
     );
   }
 

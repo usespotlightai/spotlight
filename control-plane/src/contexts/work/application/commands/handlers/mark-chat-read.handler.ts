@@ -7,9 +7,10 @@ import type { MarkChatReadCommand } from '@work/application/commands/chat.comman
 import type { ChatLoader } from '@work/application/services/chat-loader.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 
-export class MarkChatReadHandler
-  implements CommandHandlerPort<MarkChatReadCommand, void>
-{
+export class MarkChatReadHandler implements CommandHandlerPort<
+  MarkChatReadCommand,
+  void
+> {
   constructor(
     private readonly loader: ChatLoader,
     private readonly chats: ChatRepository,

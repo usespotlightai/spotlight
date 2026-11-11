@@ -1,4 +1,5 @@
 import { createHash, createHmac } from 'node:crypto';
+
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { describe, expect, it } from 'vitest';
 

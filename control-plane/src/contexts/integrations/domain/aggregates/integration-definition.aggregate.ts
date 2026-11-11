@@ -7,9 +7,9 @@ import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/inte
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
-import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import type { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import { SpecRefreshDetail } from '@integrations/domain/value-objects/spec-refresh-detail.vo';

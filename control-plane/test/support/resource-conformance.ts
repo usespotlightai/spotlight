@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
 import { ForbiddenActs } from '@platform/http/resources/forbidden-acts';
@@ -28,10 +29,13 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './app';
 import * as schema from './schema';
 
 type Body = Readonly<Record<string, unknown>>;
+
+type Made = Body & { readonly id: string; readonly version: number };
 
 interface Bearer {
   readonly bearer: string;
@@ -139,11 +143,9 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
           return test;
         }
 
-        return (
-          typeof user === 'string'
-            ? test.set(TEST_USER_HEADER, user)
-            : test.set('Authorization', `Bearer ${user.bearer}`)
-        ) as T;
+        return typeof user === 'string'
+          ? test.set(TEST_USER_HEADER, user)
+          : test.set('Authorization', `Bearer ${user.bearer}`);
       };
 
       return {
@@ -172,9 +174,9 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
 
     const listed = (answer: Response): Body[] => {
       expect(answer.status).toBe(200);
-      expect(answer.body).toEqual({ items: expect.any(Array) });
+      expect(answer.body).toEqual({ items: expect.any(Array) as unknown });
 
-      return answer.body.items;
+      return (answer.body as { readonly items: Body[] }).items;
     };
 
     const memberElsewhere = async () => {
@@ -235,10 +237,8 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
 
     const admin = () => as(fixture.admin);
 
-    const created = async (): Promise<
-      Body & { id: string; version: number }
-    > => {
-      const answer = await admin().create(fixture.valid);
+    const created = async (): Promise<Made> => {
+      const answer = (await admin().create(fixture.valid)) as Answer<Made>;
 
       expect(answer.status).toBe(201);
 
@@ -280,17 +280,20 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
             `${name} ${status}`,
           ).toHaveProperty([PROBLEM_CONTENT_TYPE]);
         }
+      }
 
-        if (name === 'list' && fixture.listsAcrossWorkspaces) {
-          expect(operation.responses['404'], name).toBeUndefined();
-        }
+      for (const [name, operation] of [...served].filter(
+        ([name]) => name === 'list' && fixture.listsAcrossWorkspaces,
+      )) {
+        expect(operation.responses['404'], name).toBeUndefined();
+      }
 
-        if (name !== 'delete' && name !== 'list') {
-          const answered =
-            operation.responses[name === 'create' ? '201' : '200'];
+      for (const [name, operation] of [...served].filter(
+        ([name]) => name !== 'delete' && name !== 'list',
+      )) {
+        const answered = operation.responses[name === 'create' ? '201' : '200'];
 
-          expect(answered?.headers, name).toHaveProperty(['ETag']);
-        }
+        expect(answered?.headers, name).toHaveProperty(['ETag']);
       }
 
       const everyId = Object.values(buildOpenApiDocument(app).paths).flatMap(
@@ -325,13 +328,12 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       });
 
       expect(header(create, 'Idempotency-Key')?.required).toBe(true);
-      expect(header(remove, 'If-Match')?.required).toBe(true);
       expect(
         importing.parameters?.find((each) => each.name === 'address'),
       ).toMatchObject({ in: 'query', required: true });
 
-      if (update) {
-        expect(header(update, 'If-Match')?.required).toBe(true);
+      for (const versioned of [remove, ...(update ? [update] : [])]) {
+        expect(header(versioned, 'If-Match')?.required).toBe(true);
       }
 
       for (const [operation, statuses] of [
@@ -350,12 +352,12 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     });
 
     it('issues an id and a version on create, and carries the version as its ETag', async () => {
-      const answer = await admin().create(fixture.valid);
+      const answer = (await admin().create(fixture.valid)) as Answer<Made>;
 
       expect(answer.status).toBe(201);
       expect(answer.body).toMatchObject({
-        id: expect.any(String),
-        version: expect.any(Number),
+        id: expect.any(String) as unknown,
+        version: expect.any(Number) as unknown,
         address: fixture.address,
       });
       expect(answer.headers.etag).toBe(`"${answer.body.version}"`);
@@ -375,11 +377,11 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       'keeps its id through a change, while its version rises',
       async () => {
         const made = await created();
-        const changed = await admin().update(
+        const changed = (await admin().update(
           made.id,
           fixture.changed,
           made.version,
-        );
+        )) as Answer<Made>;
 
         expect(changed.status).toBe(200);
         expect(changed.body.id).toBe(made.id);
@@ -416,6 +418,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         expect(items).toContainEqual(made);
 
         if (fixture.listsAcrossWorkspaces) {
+          // oxlint-disable-next-line vitest/no-conditional-expect -- the fixture says at run time whether the list spans workspaces
           expect(items.map((each) => each.id)).toEqual([made.id]);
         }
       } finally {
@@ -433,6 +436,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         );
 
         if (fixture.listsAcrossWorkspaces) {
+          // oxlint-disable-next-line vitest/no-conditional-expect -- the fixture says at run time whether the list spans workspaces
           expect(listed(stranger).map((each) => each.id)).toEqual([
             elsewhere.workspaceId,
           ]);
@@ -517,11 +521,11 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       'rejects a change to a version no longer current, naming the current one',
       async () => {
         const made = await created();
-        const changed = await admin().update(
+        const changed = (await admin().update(
           made.id,
           fixture.changed,
           made.version,
-        );
+        )) as Answer<Made>;
         const stale = problem(
           await admin().update(made.id, fixture.changedAgain, made.version),
           409,
@@ -543,7 +547,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         const [won, lost] = [...deletes].sort((a, b) => a.status - b.status);
 
         expect(won?.status).toBe(204);
-        problem(lost as Response, 404, 'not-found');
+        problem(lost, 404, 'not-found');
       },
     );
 
@@ -551,17 +555,17 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       'lets one of two concurrent writes through, and rejects the other with the current version',
       async () => {
         const made = await created();
-        const writes = await Promise.all([
+        const writes = (await Promise.all([
           admin().update(made.id, fixture.changed, made.version),
           admin().update(made.id, fixture.changedAgain, made.version),
-        ]);
+        ])) as Answer<Made>[];
         const [won, lost] = [...writes].sort((a, b) => a.status - b.status);
 
         expect(won?.status).toBe(200);
         expect(lost?.headers.etag).toBe(`"${won?.body.version}"`);
-        expect(
-          problem(lost as Response, 409, 'version-conflict').currentVersion,
-        ).toBe(won?.body.version);
+        expect(problem(lost, 409, 'version-conflict').currentVersion).toBe(
+          won?.body.version,
+        );
         expect((await admin().read(made.id)).body).toEqual(won?.body);
       },
     );
@@ -597,8 +601,13 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     it('deletes only the version in the request, and is gone after', async () => {
       const made = await created();
       const current = updates
-        ? (await admin().update(made.id, fixture.changed, made.version)).body
-            .version
+        ? (
+            (await admin().update(
+              made.id,
+              fixture.changed,
+              made.version,
+            )) as Answer<Made>
+          ).body.version
         : made.version;
       const stale = updates ? made.version : made.version + 1;
 

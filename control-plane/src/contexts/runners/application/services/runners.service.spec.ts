@@ -12,7 +12,6 @@ import {
   anEgress,
   EGRESS_ID,
 } from '@runners/domain/aggregates/egress.fake-spec';
-import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
@@ -30,6 +29,7 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import {
   aSandbox,
@@ -37,18 +37,16 @@ import {
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { ProvisionSecretDecryptionFailedError } from '@runners/domain/exceptions/provision-secret-decryption-failed.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
+import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
-import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -166,8 +164,8 @@ const running = (
           ? { token: 'one-run-token', hash: 'c'.repeat(64) }
           : { token: 'egress-token', hash: 'e'.repeat(64) },
       hash: () => 'c'.repeat(64),
-    } as TokenIssuer,
-    { generate: () => 'pooled_9' } as IdGeneratorPort,
+    },
+    { generate: () => 'pooled_9' },
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,

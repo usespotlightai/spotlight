@@ -24,6 +24,8 @@ const (
 	checkUnchanged = "unchanged"
 	checkErrored   = "errored"
 
+	taskPending = "pending"
+
 	errorExit     = 1
 	undecidedExit = 3
 
@@ -31,14 +33,15 @@ const (
 )
 
 type checkSide struct {
-	State       *string   `json:"state"`
-	Entries     int       `json:"entries"`
-	Scored      int       `json:"scored"`
-	Succeeded   *int      `json:"succeeded"`
-	SuccessRate *float64  `json:"successRate"`
-	Interval    *interval `json:"interval"`
-	TasksScored int       `json:"tasksScored"`
-	Spent       *money    `json:"spent"`
+	State          *string   `json:"state"`
+	Entries        int       `json:"entries"`
+	Scored         int       `json:"scored"`
+	Succeeded      *int      `json:"succeeded"`
+	SuccessRate    *float64  `json:"successRate"`
+	Interval       *interval `json:"interval"`
+	TasksScored    int       `json:"tasksScored"`
+	Spent          *money    `json:"spent"`
+	StoppedBecause *string   `json:"stoppedBecause"`
 }
 
 type taskSide struct {
@@ -94,9 +97,10 @@ type stationCheck struct {
 	Message  string     `json:"message,omitempty"`
 	Check    *checkRead `json:"check,omitempty"`
 
-	teamID  string
-	pending bool
-	misses  int
+	teamID   string
+	pending  bool
+	misses   int
+	progress string
 }
 
 type checkReport struct {
@@ -106,9 +110,10 @@ type checkReport struct {
 }
 
 type checking struct {
-	api   *api
-	sleep func(time.Duration)
-	now   func() time.Time
+	api      *api
+	sleep    func(time.Duration)
+	now      func() time.Time
+	progress io.Writer
 }
 
 type checkOptions struct {
@@ -187,7 +192,7 @@ func check(args []string, in io.Reader, out, errOut io.Writer, env func(string) 
 		}
 	}
 
-	c := &checking{api: client, sleep: sleep, now: now}
+	c := &checking{api: client, sleep: sleep, now: now, progress: errOut}
 	c.run(plan, options, report)
 
 	report.ExitCode = report.exitCode()
@@ -349,6 +354,34 @@ func (c *checking) record(checked *stationCheck, read checkRead) {
 	checked.Check = &read
 	checked.Status = read.Result
 	checked.pending = read.Result == checkRunning
+
+	if checked.pending {
+		c.report(checked, read)
+	}
+}
+
+func (c *checking) report(checked *stationCheck, read checkRead) {
+	progress := read.progress()
+	if c.progress == nil || progress == checked.progress {
+		return
+	}
+
+	checked.progress = progress
+	fmt.Fprintf(c.progress, "%s: %s\n", checked.Station, progress)
+}
+
+func (r *checkRead) progress() string {
+	candidate, live := 0, 0
+	for _, each := range r.Tasks {
+		if each.Candidate.Result != taskPending {
+			candidate++
+		}
+		if each.Live.Result != taskPending {
+			live++
+		}
+	}
+
+	return fmt.Sprintf("replaying, %d of %d tasks done with the plan, %d of %d with the live config", candidate, r.TaskCount, live, r.TaskCount)
 }
 
 func checkKey(each plannedStation, options checkOptions) string {
@@ -400,7 +433,7 @@ func (r *checkReport) print(out io.Writer) {
 		fmt.Fprintf(out, "  %d of %d tasks regressed (at most %d may), replaying the station's replay set: %d tasks, %d scored on both sides\n",
 			read.regressions(), read.TaskCount, read.Threshold.MaxRegressions, read.TaskCount, read.Compared)
 		if read.UndecidedBecause != nil {
-			fmt.Fprintf(out, "  undecided: %s\n", describeUndecided(*read.UndecidedBecause))
+			fmt.Fprintf(out, "  undecided: %s\n", read.undecided())
 		}
 		if read.Repeats > 1 {
 			fmt.Fprintf(out, "  each run replayed %d times\n", read.Repeats)
@@ -466,6 +499,9 @@ func (r *checkReport) summarise(path string) error {
 		if each.Message != "" {
 			fmt.Fprintf(&written, "%s\n\n", markdownCell(each.Message))
 		}
+		if each.Check != nil && each.Check.UndecidedBecause != nil {
+			fmt.Fprintf(&written, "Undecided: %s\n\n", markdownCell(each.Check.undecided()))
+		}
 		if each.Check != nil && each.Check.Gain != nil {
 			fmt.Fprintf(&written, "%s\n\n", markdownCell(describeGain(*each.Check.Gain, "the baseline")))
 		}
@@ -490,6 +526,33 @@ var markdownSpecials = strings.NewReplacer(
 
 func markdownCell(text string) string {
 	return markdownSpecials.Replace(text)
+}
+
+func (r *checkRead) undecided() string {
+	because := describeUndecided(*r.UndecidedBecause)
+	switch {
+	case r.Candidate.StoppedBecause != nil:
+		return because + "; the replay of the plan stopped because " + describeStop(*r.Candidate.StoppedBecause)
+	case r.Baseline.StoppedBecause != nil:
+		return because + "; the baseline replay stopped because " + describeStop(*r.Baseline.StoppedBecause)
+	default:
+		return because
+	}
+}
+
+func describeStop(cause string) string {
+	switch cause {
+	case "superseded":
+		return "a later push to the pull request started its own check"
+	case "insufficient-credits":
+		return "the judge model account has insufficient credits"
+	case "search-ended":
+		return "the search that ran it ended"
+	case "stale":
+		return "the live config moved on"
+	default:
+		return cause
+	}
 }
 
 func describeUndecided(because string) string {

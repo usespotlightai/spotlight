@@ -6,11 +6,11 @@ import type {
 } from '@change-review/application/ports/review-deliveries.port';
 import type { ReviewPostingPort } from '@change-review/application/ports/review-posting.port';
 import { DeliverReviews } from '@change-review/application/services/deliver-reviews.service';
-import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
-import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
@@ -121,15 +121,15 @@ const delivering = (over: {
   const conflicts = new Set<string>();
 
   const github: ReviewPostingPort = {
-    submit: vi.fn(async (input) => ({
+    submit: vi.fn<ReviewPostingPort['submit']>(async (input) => ({
       githubId: 900,
       verdict: input.verdict,
-      comments: input.comments.map((_: unknown, index: number) => ({
+      comments: input.comments.map((_, index) => ({
         id: 100 + index,
         url: `https://github.com/c/${100 + index}`,
       })),
     })),
-    reply: vi.fn(async (input) => {
+    reply: vi.fn<ReviewPostingPort['reply']>(async (input) => {
       const { editedWhilePosting } = over;
 
       if (editedWhilePosting) {

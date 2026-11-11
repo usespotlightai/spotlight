@@ -73,7 +73,7 @@ export const LineMapper = {
       id: detail.id,
       key: detail.key,
       name: detail.name,
-      stations: detail.stations.map(LineMapper.summaryToDto),
+      stations: detail.stations.map((each) => LineMapper.summaryToDto(each)),
       reactions: detail.reactions.map((each) => ({ ...each })),
       repositories: detail.repositories.map((each) => ({ ...each })),
       source: detail.source ? { ...detail.source } : null,

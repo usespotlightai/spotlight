@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import type { TraceNodeResponseDto } from '@/lib/api';
 import { answeredBy, contentsOf, inputOf, restOf, shaped } from '@/lib/detail';
 

@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+
 import { Credential } from '@secrets/application/contracts/credential.contract';
 import { CredentialDecryptionFailedError } from '@secrets/application/errors/credential-decryption-failed.error';
 import { DecryptionFailedError } from '@secrets/infrastructure/crypto/envelope';
@@ -28,7 +29,7 @@ describe('WorkspaceCredentialEncryption', () => {
     const decrypted = await encryption.decrypt('ws_1', 'label', ciphertext);
 
     expect(decrypted.revealed()).toBe('plain');
-    expect(`${decrypted}`).not.toContain('plain');
+    expect(String(decrypted)).not.toContain('plain');
   });
 
   it('says that a credential encrypted with another key does not decrypt', async () => {

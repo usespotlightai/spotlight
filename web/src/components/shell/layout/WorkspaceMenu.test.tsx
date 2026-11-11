@@ -5,6 +5,7 @@ import userEvent, {
 } from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
 
 const navigate = vi.fn();

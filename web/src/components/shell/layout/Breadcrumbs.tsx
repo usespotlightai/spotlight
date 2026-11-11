@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { Fragment } from 'react';
 import { Link } from 'react-router';
+
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
 import { Shortened } from '@/components/shell/layout/Shortened';
 import { useTabTitle } from '@/lib/tab-title';

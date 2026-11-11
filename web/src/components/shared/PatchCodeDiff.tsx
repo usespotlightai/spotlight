@@ -5,6 +5,7 @@ import type {
 } from '@pierre/diffs';
 import { PatchDiff } from '@pierre/diffs/react';
 import type { ReactNode } from 'react';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHighlighterReady } from '@/hooks/useHighlighterReady';
 import { diffOptions, FLUSH_DIFF_METRICS } from '@/lib/diff';

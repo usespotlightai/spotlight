@@ -74,9 +74,9 @@ describe('HclStationSourceEdits', () => {
     ]);
     expect(answer.ok && answer.files[0]?.content).toBe(
       LINE.replace(
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+        // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
         '    prompt  = file("${path.module}/prompts/build.md")',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+        // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
         '    prompt  = file("${path.module}/prompts/core/delivery/build.md")',
       ).replace(
         '    skills  = []\n',
@@ -103,7 +103,7 @@ describe('HclStationSourceEdits', () => {
   it('names the error', async () => {
     const answer = await edited({ model: 'opus' }, 'resource "x" {\n');
 
-    expect(answer.ok === false && answer.failure.code).toBe('unparsable');
+    expect(!answer.ok && answer.failure.code).toBe('unparsable');
     expect(
       (await edited({ model: 'opus' }, LINE.replace('"build"', '"ship"'))).ok,
     ).toBe(false);
@@ -114,7 +114,7 @@ describe('HclStationSourceEdits', () => {
       description: { nested: true } as unknown as string,
     });
 
-    expect(answer.ok === false && answer.failure.code).toBe('edit-failed');
+    expect(!answer.ok && answer.failure.code).toBe('edit-failed');
   });
 
   it('writes a station whose judge’s claims and pass threshold are as the edit began, and rejects one whose claims changed since', async () => {
@@ -146,9 +146,7 @@ describe('HclStationSourceEdits', () => {
       judged('"It adds two tests."'),
       seed,
     );
-    expect(baseChanged.ok === false && baseChanged.failure.code).toBe(
-      'base-changed',
-    );
+    expect(!baseChanged.ok && baseChanged.failure.code).toBe('base-changed');
   });
 
   it('reads a pass threshold left out of the file as 1, and calls one set there since the edit began drift', async () => {
@@ -173,8 +171,6 @@ describe('HclStationSourceEdits', () => {
       judged('\n      pass_threshold = 0.5'),
       seed,
     );
-    expect(baseChanged.ok === false && baseChanged.failure.code).toBe(
-      'base-changed',
-    );
+    expect(!baseChanged.ok && baseChanged.failure.code).toBe('base-changed');
   });
 });

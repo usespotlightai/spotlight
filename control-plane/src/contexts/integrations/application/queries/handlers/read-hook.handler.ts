@@ -7,9 +7,10 @@ import { HookDefinitionId } from '@integrations/domain/value-objects/hook-defini
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadHookHandler
-  implements QueryHandlerPort<ReadHookQuery, HookResourceDto | null>
-{
+export class ReadHookHandler implements QueryHandlerPort<
+  ReadHookQuery,
+  HookResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: HookResourcesPort,
@@ -32,7 +33,7 @@ export class ReadHookHandler
         return null;
       }
 
-      return this.views.of(record);
+      return await this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

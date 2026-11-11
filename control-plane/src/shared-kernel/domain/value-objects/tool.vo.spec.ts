@@ -48,8 +48,10 @@ describe('a tool named for its integration', () => {
   });
 
   it('is named for one integration, not several', () => {
-    expect(() => Tool.of('linear.issue.comment')).toThrow();
-    expect(() => Tool.of('.comment')).toThrow();
+    expect(() => Tool.of('linear.issue.comment')).toThrow(
+      InvalidIdentifierError,
+    );
+    expect(() => Tool.of('.comment')).toThrow(InvalidIdentifierError);
   });
 });
 

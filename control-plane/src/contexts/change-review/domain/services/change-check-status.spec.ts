@@ -5,12 +5,12 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { CheckOutcome } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   WAITING_LIMIT_MS,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
-import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';

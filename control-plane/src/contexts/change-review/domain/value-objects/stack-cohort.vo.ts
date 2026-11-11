@@ -106,8 +106,10 @@ export interface OutlinedCohort {
   readonly hunks: readonly HunkId[];
 }
 
-export interface DraftedLayer
-  extends Omit<ProposedLayer, 'hunks' | 'questions'> {
+export interface DraftedLayer extends Omit<
+  ProposedLayer,
+  'hunks' | 'questions'
+> {
   readonly hunks: readonly { readonly hunk: string }[];
   readonly questions: readonly {
     readonly question: string;

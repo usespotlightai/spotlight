@@ -32,7 +32,7 @@ const LOG_KEPT_WHILE_READING = LOG_CHARACTERS * 4;
 
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/;
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: matches terminal control codes
+// oxlint-disable-next-line no-control-regex -- matches terminal control codes
 const TERMINAL_CODE = /\u001b\[[\d;?]*[A-Za-z]/g;
 
 const ERROR_ANNOTATION = '##[error]';

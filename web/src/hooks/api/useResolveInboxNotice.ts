@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { inboxKeys } from '@/hooks/api/useInbox';
 import { resolveInboxNotice } from '@/lib/api';
 

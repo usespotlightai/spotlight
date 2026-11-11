@@ -1,13 +1,13 @@
-import { OutcomeIcon } from '@/components/features/stations/activity/OutcomeIcon';
 import { toneLabel } from '@/components/features/stations/activity/outcome-tones';
+import { OutcomeIcon } from '@/components/features/stations/activity/OutcomeIcon';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
   LEAD_CELL,
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { since } from '@/lib/since';
 import {

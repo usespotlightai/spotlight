@@ -19,9 +19,9 @@ import type {
 } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
-import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';

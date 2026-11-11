@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { LINES, type LinesPort } from '@lines/application/ports/lines.port';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -27,8 +28,8 @@ import { aReplay } from '@replays/domain/replays.fake-spec';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
-import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplayRunDecisionRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-decision.repository';
+import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
 import {
@@ -49,7 +50,8 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { writtenStation } from './support/replays';
 import { deleteRunnersOf } from './support/runners';
@@ -458,8 +460,8 @@ const inboxHas = async (taskId: string): Promise<boolean> =>
         .get(`/api/workspaces/${team.slug}/inbox`)
         .set(TEST_USER_HEADER, team.owner.value)
         .expect(200)
-    ).body.items as { taskId: string }[]
-  ).some((each) => each.taskId === taskId);
+    ).body as { readonly items: { taskId: string }[] }
+  ).items.some((each) => each.taskId === taskId);
 
 const finishing = (next: string) => ({
   exitCode: 0,
@@ -636,9 +638,9 @@ describe('a replay claimed by a runner', () => {
   it('restores exactly the archive its original started from', async () => {
     const { original, replayId, token } = await aClaimedReplay();
 
-    const archive = await runner(token)
+    const archive = (await runner(token)
       .get(`/api/runs/${replayId}/working-copy-archive`)
-      .expect(200);
+      .expect(200)) as Answer<{ readonly id: string }>;
 
     expect(archive.body.id).toBe(original.archiveId);
   });
@@ -748,7 +750,7 @@ describe('a replay cancelled while it is ordered', () => {
     const run = RunId.of(randomUUID());
     const runs = app.get<ReplaysRunsPort>(REPLAYS_RUNS);
     const cancellingFirst: ReplaysRunsPort = Object.assign(
-      Object.create(runs),
+      Object.create(runs) as ReplaysRunsPort,
       {
         enqueueTrial: async (trial: ReplayTrialRun) => {
           await dispatchOver(runs).cancel(run, ownerOf(), false);
@@ -823,18 +825,21 @@ describe('a replay deleted while its run is dispatched', () => {
           deleted = true;
           await deleting(order.owner, run);
         };
-        const racing: ReplaysRunsPort = Object.assign(Object.create(runs), {
-          enqueueTrial: async (trial: ReplayTrialRun) => {
-            if (moment === 'between its claim and its enqueue') {
-              await deletedReplay();
-              return runs.enqueueTrial(trial);
-            }
+        const racing: ReplaysRunsPort = Object.assign(
+          Object.create(runs) as ReplaysRunsPort,
+          {
+            enqueueTrial: async (trial: ReplayTrialRun) => {
+              if (moment === 'between its claim and its enqueue') {
+                await deletedReplay();
+                return runs.enqueueTrial(trial);
+              }
 
-            const enqueued = await runs.enqueueTrial(trial);
-            await deletedReplay();
-            return enqueued;
+              const enqueued = await runs.enqueueTrial(trial);
+              await deletedReplay();
+              return enqueued;
+            },
           },
-        });
+        );
         const replaysUntilDeleted = {
           find: async () => (deleted ? null : {}),
         } as unknown as Pick<ReplayRepository, 'find'>;
@@ -860,7 +865,7 @@ describe('a replay deleted while its run is dispatched', () => {
     const order = await replayOrderOf(original, run);
     const trials = app.get<StationTrialsPort>(STATION_TRIALS);
     const deletingFirst: StationTrialsPort = Object.assign(
-      Object.create(trials),
+      Object.create(trials) as StationTrialsPort,
       {
         order: async (request: Parameters<StationTrialsPort['order']>[0]) => {
           await deletingDecisions(order.owner);

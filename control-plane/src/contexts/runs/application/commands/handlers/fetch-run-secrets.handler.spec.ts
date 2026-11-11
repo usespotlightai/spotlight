@@ -1,7 +1,4 @@
-import type {
-  RunTokensPort,
-  RunTokenWanted,
-} from '@identity/application/ports/run-tokens.port';
+import type { RunTokenWanted } from '@identity/application/ports/run-tokens.port';
 import type {
   EgressAuthentication,
   RunnerEgressPort,
@@ -23,7 +20,6 @@ import { RunApiGrant } from '@runs/domain/value-objects/run-api-grant.vo';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import type { RunSecretFetch } from '@secrets/application/contracts/run-secret-fetch.contract';
-import type { RunSecretFetchesPort } from '@secrets/application/ports/run-secret-fetches.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -120,7 +116,7 @@ const fetching = (
       },
       sealedFor: (sealed) =>
         `sealed(${sealed.name}=${sealed.value.revealed()})`,
-    } as RunSecretFetchesPort,
+    },
     {
       leaseLost: async (lease) => {
         lost.push(`${lease.workspaceId}/${lease.runId}#${lease.attempt}`);
@@ -134,12 +130,12 @@ const fetching = (
         return { id: 'token_1', token: 'run-token' };
       },
       revoke: async (workspaceId, tokenId) => {
-        revoked.push(`${workspaceId}/${tokenId}`);
+        revoked.push(`${workspaceId.value}/${tokenId}`);
       },
       revokeFor: async (workspaceId, runId, attempt) => {
-        revoked.push(`${workspaceId}/${runId}#${attempt}`);
+        revoked.push(`${workspaceId.value}/${runId.value}#${String(attempt)}`);
       },
-    } as RunTokensPort,
+    },
     { now: () => NOW } as ClockPort,
     'app.example.com',
   );

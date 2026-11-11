@@ -213,7 +213,9 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
             (each) =>
               each.path === comment.path &&
               each.body.includes(comment.body) &&
-              (each.line == null || each.line === comment.line),
+              (each.line === undefined ||
+                each.line === null ||
+                each.line === comment.line),
           );
           const [match] = at >= 0 ? unmatched.splice(at, 1) : [];
 

@@ -15,9 +15,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class LockTerraformStateHandler
-  implements CommandHandlerPort<LockTerraformStateCommand, StateChanged>
-{
+export class LockTerraformStateHandler implements CommandHandlerPort<
+  LockTerraformStateCommand,
+  StateChanged
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly named: TerraformStates,

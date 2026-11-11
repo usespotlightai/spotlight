@@ -47,10 +47,10 @@ export const startsAgainOnMessage = (
 ): boolean =>
   Boolean(
     task &&
-      currentStation?.harness &&
-      currentStation.id === ranAt &&
-      !task.progress &&
-      !task.awaitingReview,
+    currentStation?.harness &&
+    currentStation.id === ranAt &&
+    !task.progress &&
+    !task.awaitingReview,
   );
 
 type Placed = {

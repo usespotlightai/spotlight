@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router';
+
 import {
   BOARD_VIEWS,
   type BoardView,

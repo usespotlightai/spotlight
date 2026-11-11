@@ -4,8 +4,8 @@ import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-us
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
-import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { dependentsInWorkspace } from '@identity/domain/services/workspace-contents';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import {
@@ -18,9 +18,10 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class DeleteWorkspaceHandler
-  implements CommandHandlerPort<DeleteWorkspaceCommand, ResourceDeleted | null>
-{
+export class DeleteWorkspaceHandler implements CommandHandlerPort<
+  DeleteWorkspaceCommand,
+  ResourceDeleted | null
+> {
   constructor(
     private readonly workspaces: WorkspaceRepository,
     private readonly teams: TeamRepository,

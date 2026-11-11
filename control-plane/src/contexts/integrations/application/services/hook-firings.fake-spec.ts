@@ -12,21 +12,21 @@ import type { HookSteps } from '@integrations/application/services/hook-steps.se
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
-import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import {
-  HookEvent,
-  type HookEventName,
-} from '@integrations/domain/value-objects/hook-event.vo';
 import {
   usedTool,
   usingTool,
 } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
+import {
+  HookEvent,
+  type HookEventName,
+} from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookFailureCode } from '@integrations/domain/value-objects/hook-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { type Mock, vi } from 'vitest';
 

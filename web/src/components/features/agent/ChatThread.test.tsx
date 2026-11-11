@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
+
 import { ChatThread } from '@/components/features/agent/ChatThread';
 import type { Chat } from '@/lib/chat';
 import type { JournalledRun, RunJournal } from '@/lib/inbox';

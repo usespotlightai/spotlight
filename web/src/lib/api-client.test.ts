@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { client } from '@/lib/api/client.gen';
 
 describe('the API client', () => {

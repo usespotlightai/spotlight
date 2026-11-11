@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { placeLabels } from '@/lib/point-labels';
 
 describe('placeLabels', () => {

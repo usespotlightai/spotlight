@@ -9,9 +9,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class AppendRunJournalHandler
-  implements CommandHandlerPort<AppendRunJournalCommand, void>
-{
+export class AppendRunJournalHandler implements CommandHandlerPort<
+  AppendRunJournalCommand,
+  void
+> {
   constructor(
     private readonly runs: RunRepository,
     private readonly journal: RunJournalPort,

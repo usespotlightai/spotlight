@@ -1,8 +1,8 @@
 @font-face {
-  font-family: "Inter Variable";
+  font-family: 'Inter Variable';
   font-style: normal;
   font-weight: 100 900;
-  src: url("inter.woff2") format("woff2");
+  src: url('inter.woff2') format('woff2');
 }
 
 :root {
@@ -46,7 +46,7 @@ body {
   margin: 0;
   color: var(--foreground);
   font:
-    400 13px / 20px "Inter Variable",
+    400 13px / 20px 'Inter Variable',
     ui-sans-serif,
     system-ui,
     sans-serif;

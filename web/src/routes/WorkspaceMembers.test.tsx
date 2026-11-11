@@ -2,20 +2,21 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { WorkspaceMembers } from '@/routes/WorkspaceMembers';
 
-const workspace = vi.fn();
+const workspace = vi.fn<(...args: unknown[]) => unknown>();
 const members = vi.fn();
 const invites = vi.fn();
-const membersFailing = vi.fn();
+const membersFailing = vi.fn<(...args: unknown[]) => boolean>();
 const refetchMembers = vi.fn();
 const requestedMembers = vi.fn();
 const changeRole = vi.fn();
-const changing = vi.fn();
+const changing = vi.fn<(...args: unknown[]) => string>();
 const resend = vi.fn();
-const resending = vi.fn();
+const resending = vi.fn<(...args: unknown[]) => string>();
 const revoke = vi.fn();
-const revoking = vi.fn();
+const revoking = vi.fn<(...args: unknown[]) => string>();
 
 const query = (data: unknown, failing = false, refetch = vi.fn()) => ({
   data,

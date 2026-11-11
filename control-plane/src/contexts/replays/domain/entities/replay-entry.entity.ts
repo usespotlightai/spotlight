@@ -51,10 +51,7 @@ interface EntryState {
   readonly pairing: EntryPairing | null;
 }
 
-const sameSpend = (
-  one: ModelSpent | null,
-  other: ModelSpent | null,
-): boolean =>
+const sameSpend = (one: ModelSpent | null, other: ModelSpent | null): boolean =>
   one === null ? other === null : other !== null && one.equals(other);
 
 const sameReasons = (

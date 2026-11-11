@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { DraggableInboxEntry } from '@/components/features/inbox/DraggableInboxEntry';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';

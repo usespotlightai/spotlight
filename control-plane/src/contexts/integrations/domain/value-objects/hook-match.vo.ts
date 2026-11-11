@@ -1,6 +1,6 @@
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
-import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookEventFacts } from '@integrations/domain/value-objects/hook-event-facts.vo';
+import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { InvalidRepositoryError } from '@shared-kernel/domain/exceptions/invalid-repository.error';
@@ -41,7 +41,7 @@ export const pathPattern = (glob: string): RegExp => {
   let pattern = '';
 
   for (let index = 0; index < whole.length; index += 1) {
-    const each = whole[index] as string;
+    const each = whole[index];
 
     if (each === '*' && whole[index + 1] === '*') {
       pattern += '.*';
@@ -206,8 +206,7 @@ export class HookMatch {
       two: readonly T[],
       equal: (a: T, b: T) => boolean,
     ) =>
-      one.length === two.length &&
-      one.every((each, i) => equal(each, two[i] as T));
+      one.length === two.length && one.every((each, i) => equal(each, two[i]));
     const equalValues = <T extends { equals(other: T): boolean }>(a: T, b: T) =>
       a.equals(b);
 

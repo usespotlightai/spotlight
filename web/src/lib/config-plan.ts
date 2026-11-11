@@ -68,7 +68,7 @@ type Step = {
 
 const steps = (was: readonly string[], now: readonly string[]): Step[] => {
   const shared = Array.from({ length: was.length + 1 }, () =>
-    new Array<number>(now.length + 1).fill(0),
+    Array.from({ length: now.length + 1 }, () => 0),
   );
 
   for (let a = was.length - 1; a >= 0; a -= 1) {

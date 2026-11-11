@@ -198,14 +198,17 @@ describe('sanitizing a payload for CEL', () => {
   });
 
   it('rejects a list longer than anyone would walk', () => {
-    expect(() => sanitizedForCel({ many: new Array(600).fill(1) })).toThrow(
-      /longer list/,
-    );
+    expect(() =>
+      sanitizedForCel({ many: Array.from({ length: 600 }, () => 1) }),
+    ).toThrow(/longer list/);
   });
 
   it('rejects a payload that has more than can be read', () => {
     const wide = Object.fromEntries(
-      new Array(400).fill(0).map((_, at) => [`k${at}`, new Array(400).fill(1)]),
+      Array.from({ length: 400 }, (_, at) => [
+        `k${at}`,
+        Array.from({ length: 400 }, () => 1),
+      ]),
     );
 
     expect(() => sanitizedForCel(wide)).toThrow(/more than can be read/);

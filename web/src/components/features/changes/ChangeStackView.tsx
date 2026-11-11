@@ -1,4 +1,5 @@
 import { Virtualizer } from '@pierre/diffs/react';
+
 import { LayerDetail } from '@/components/features/changes/LayerDetail';
 import { StackNavCohort } from '@/components/features/changes/StackNavCohort';
 import { StackNavRemoved } from '@/components/features/changes/StackNavRemoved';

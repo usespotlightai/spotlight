@@ -1,4 +1,5 @@
 import {
+  isJsonArray,
   isJsonObject,
   isJsonValue,
   type JsonObject,
@@ -124,7 +125,7 @@ const normalised = (
     ),
   ];
   if (types.length === 1) {
-    written.type = types[0] as InputType;
+    written.type = types[0];
   } else if (types.length > 1) {
     written.type = types;
   }
@@ -232,7 +233,7 @@ const kindOf = (node: JsonObject): InputType | null => {
   const listed = Array.isArray(node.enum)
     ? node.enum
     : 'const' in node
-      ? [node.const as JsonValue]
+      ? [node.const]
       : [];
   const kinds = new Set(
     listed.map((each) =>
@@ -277,7 +278,7 @@ const shown = (value: JsonValue): string => {
     : written;
 };
 
-const lengthOf = (text: string): number => [...text].length;
+const lengthOf = (text: string): number => Array.from(text).length;
 
 const problemIn = (
   node: JsonObject,
@@ -286,12 +287,12 @@ const problemIn = (
 ): InputProblem | null => {
   const invalid = (why: string): InputProblem => ({ at, why });
 
-  if ('const' in node && !sameJson(node.const as JsonValue, value)) {
-    return invalid(`is not ${shown(node.const as JsonValue)}`);
+  if ('const' in node && !sameJson(node.const, value)) {
+    return invalid(`is not ${shown(node.const)}`);
   }
 
   if (
-    Array.isArray(node.enum) &&
+    isJsonArray(node.enum) &&
     !node.enum.some((each) => sameJson(each, value))
   ) {
     return invalid(`is not one of ${node.enum.map(shown).join(', ')}`);
@@ -327,7 +328,7 @@ const problemIn = (
     }
   }
 
-  if (Array.isArray(value) && isJsonObject(node.items)) {
+  if (isJsonArray(value) && isJsonObject(node.items)) {
     const items = node.items;
 
     for (const [index, each] of value.entries()) {
@@ -340,7 +341,7 @@ const problemIn = (
 
   if (isJsonObject(value)) {
     const properties = isJsonObject(node.properties) ? node.properties : {};
-    const required = Array.isArray(node.required) ? node.required : [];
+    const required = isJsonArray(node.required) ? node.required : [];
     const missing = required.find(
       (field) => typeof field === 'string' && !owns(value, field),
     );
@@ -448,7 +449,8 @@ export class InputSchema {
         );
       case 'null':
         return trimmed === 'null' ? null : value;
-      default: {
+      case 'string':
+      case null: {
         const parsed =
           trimmed.startsWith('{') || trimmed.startsWith('[')
             ? parsedJson(trimmed)

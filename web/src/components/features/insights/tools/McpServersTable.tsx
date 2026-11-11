@@ -1,7 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
+
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   OUTER_DIVIDER,
@@ -9,6 +8,8 @@ import {
   OUTER_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
   formatCount,

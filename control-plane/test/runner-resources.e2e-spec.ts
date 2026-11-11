@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -12,7 +13,8 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import {
   conformsAsResource,
   type ResourceFixture,
@@ -127,6 +129,20 @@ conformsAsResource({
   }),
 });
 
+interface Made {
+  readonly id: string;
+  readonly version: number;
+  readonly warnings: readonly unknown[];
+}
+
+interface Problem {
+  readonly type: string;
+  readonly title: string;
+  readonly permission: string;
+  readonly detail: string;
+  readonly errors: readonly unknown[];
+}
+
 describe('runner trusts, pools and the workspace runners (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
@@ -192,7 +208,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
 
     expect(issued.status).toBe(201);
 
-    return issued.headers[WORKSPACE_TOKEN_HEADER] as string;
+    return issued.headers[WORKSPACE_TOKEN_HEADER];
   };
 
   const as = (token: string) => ({
@@ -225,18 +241,18 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
 
   it('lets a configure token with the runners scope manage trusts, pools and the declaration, as Terraform would', async () => {
     const terraform = as(await tokenWith(['configure', 'runners']));
-    const trust = await terraform.post(
+    const trust = (await terraform.post(
       `/api/v1/resources/workspaces/${workspaceId}/runner-trusts`,
       { key: 'production', issuer: ISSUER, subject: SUBJECT },
-    );
-    const pool = await terraform.post(
+    )) as Answer<Made>;
+    const pool = (await terraform.post(
       `/api/v1/resources/workspaces/${workspaceId}/runner-pools`,
       { key: 'ephemeral' },
-    );
-    const created = await terraform.post(
+    )) as Answer<Made>;
+    const created = (await terraform.post(
       `/api/v1/resources/workspaces/${workspaceId}/workspace-runners`,
       { trusts: ['production'], pools: ['ephemeral'] },
-    );
+    )) as Answer<Made>;
 
     expect([trust.status, pool.status, created.status]).toEqual([
       201, 201, 201,
@@ -262,18 +278,20 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
   });
 
   it('answers 403 to a configure token without the runners scope, on every trust, pool and declaration write', async () => {
-    const trust = await asOwner('runner-trusts', {
+    const trust = (await asOwner('runner-trusts', {
       key: 'production',
       issuer: ISSUER,
       subject: SUBJECT,
-    });
-    const pool = await asOwner('runner-pools', { key: 'ephemeral' });
-    const created = await asOwner('workspace-runners', {
+    })) as Answer<Made>;
+    const pool = (await asOwner('runner-pools', {
+      key: 'ephemeral',
+    })) as Answer<Made>;
+    const created = (await asOwner('workspace-runners', {
       trusts: ['production'],
-    });
+    })) as Answer<Made>;
     const configure = as(await tokenWith(['configure']));
 
-    const answered = [
+    const answered: Answer<Problem>[] = [
       await configure.post(
         `/api/v1/resources/workspaces/${workspaceId}/runner-trusts`,
         {
@@ -333,9 +351,9 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
       ]),
     ).toEqual(
       [
-        ...Array(3).fill('Not allowed to change the runner-trust'),
-        ...Array(3).fill('Not allowed to change the runner-pool'),
-        ...Array(2).fill('Not allowed to change the workspace-runners'),
+        ...Array<string>(3).fill('Not allowed to change the runner-trust'),
+        ...Array<string>(3).fill('Not allowed to change the runner-pool'),
+        ...Array<string>(2).fill('Not allowed to change the workspace-runners'),
       ].map((title) => ['urn:spotlight:problem:forbidden', title, 'runners']),
     );
     expect(
@@ -345,11 +363,11 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
   });
 
   it('rejects a token that would manage runners without a rung of the ladder', async () => {
-    const rejected = await http()
+    const rejected = (await http()
       .post(`/api/v1/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
-      .send({ name: 'runners', scopes: ['runners'] });
+      .send({ name: 'runners', scopes: ['runners'] })) as Answer<Problem>;
 
     expect(rejected.status).toBe(422);
     expect(rejected.body.errors).toEqual([
@@ -358,12 +376,14 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
   });
 
   it('lets a read token read trusts and pools, but answers 403 to anything it would change', async () => {
-    const trust = await asOwner('runner-trusts', {
+    const trust = (await asOwner('runner-trusts', {
       key: 'production',
       issuer: ISSUER,
       subject: SUBJECT,
-    });
-    const pool = await asOwner('runner-pools', { key: 'ephemeral' });
+    })) as Answer<Made>;
+    const pool = (await asOwner('runner-pools', {
+      key: 'ephemeral',
+    })) as Answer<Made>;
     const reader = as(await tokenWith(['read']));
 
     expect(
@@ -409,11 +429,11 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
 
   it('audits who changed trusts, pools and the declaration', async () => {
     const terraform = as(await tokenWith(['configure', 'runners']));
-    const trust = await asOwner('runner-trusts', {
+    const trust = (await asOwner('runner-trusts', {
       key: 'production',
       issuer: ISSUER,
       subject: SUBJECT,
-    });
+    })) as Answer<Made>;
 
     await terraform
       .put(
@@ -474,13 +494,13 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     await asOwner('runner-pools', { key: 'ephemeral' }).expect(201);
     await asOwner('workspace-runners', { trusts: ['production'] }).expect(201);
 
-    const workspace = await http()
+    const workspace = (await http()
       .get(`/api/v1/resources/workspaces/${workspaceId}`)
-      .set(TEST_USER_HEADER, owner);
-    const rejected = await http()
+      .set(TEST_USER_HEADER, owner)) as Answer<Made>;
+    const rejected = (await http()
       .delete(`/api/v1/resources/workspaces/${workspaceId}`)
       .set(TEST_USER_HEADER, owner)
-      .set('If-Match', `"${workspace.body.version}"`);
+      .set('If-Match', `"${workspace.body.version}"`)) as Answer<Problem>;
 
     expect(rejected.status).toBe(409);
     expect(rejected.body.detail).toEqual(
@@ -502,10 +522,10 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     }).expect(201);
     await asOwner('runner-pools', { key: 'ephemeral' }).expect(201);
 
-    const created = await asOwner('workspace-runners', {
+    const created = (await asOwner('workspace-runners', {
       trusts: ['production', 'staging'],
       pools: ['sandboxes', 'ephemeral'],
-    });
+    })) as Answer<Made>;
 
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({

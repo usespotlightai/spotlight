@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { sanitizeSlug, slugify } from '@/lib/slug';
 
 describe('sanitizeSlug', () => {

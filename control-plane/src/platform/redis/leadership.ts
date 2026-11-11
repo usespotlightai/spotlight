@@ -53,8 +53,8 @@ export class Leadership
       return;
     }
 
-    this.renew();
-    this.#timer = setInterval(() => this.renew(), RENEW_MS);
+    void this.renew();
+    this.#timer = setInterval(() => void this.renew(), RENEW_MS);
     this.#timer.unref();
   }
 

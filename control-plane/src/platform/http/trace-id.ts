@@ -1,4 +1,5 @@
 import type { IncomingMessage } from 'node:http';
+
 import { isSpanContextValid, trace } from '@opentelemetry/api';
 
 const TRACEPARENT = /^[\da-f]{2}-([\da-f]{32})-[\da-f]{16}-[\da-f]{2}$/;

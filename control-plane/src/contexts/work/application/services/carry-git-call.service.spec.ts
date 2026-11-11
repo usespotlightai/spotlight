@@ -1,8 +1,4 @@
-import type {
-  GitCall,
-  RepositoryGitPort,
-} from '@github/application/ports/repository-git.port';
-import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
+import type { GitCall } from '@github/application/ports/repository-git.port';
 import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
@@ -182,7 +178,8 @@ const dispatchOf = (requested: RunRequested) => {
       return aChatDispatch(RUN, ChatId.of('chat_1'));
     case 'trial':
       return TRIAL;
-    default:
+    case 'search':
+    case 'spec':
       return null;
   }
 };
@@ -214,8 +211,8 @@ const carrying = (
     ),
     {
       isConnected: vi.fn(async () => true),
-    } as unknown as WorkspaceConnectionsPort,
-    git as unknown as RepositoryGitPort,
+    },
+    git,
     { isCheckOfRunLeasedBy: vi.fn(async () => checking) },
     { now: () => NOW, sleep: async () => {} },
   );

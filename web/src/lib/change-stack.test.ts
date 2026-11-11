@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   answeredIn,
   type ChangeStack,
@@ -161,7 +162,7 @@ describe('layerAt', () => {
 describe('filesOf', () => {
   it('gathers a layer’s hunks by file, in the diff’s order', () => {
     const [layer] = stack().cohorts[0]?.layers.slice(1) ?? [];
-    const files = filesOf(stack(), layer as never);
+    const files = filesOf(stack(), layer);
 
     expect(files).toHaveLength(1);
     expect(files[0]?.file.path).toBe('src/routes.ts');
@@ -171,7 +172,7 @@ describe('filesOf', () => {
 
   it('gives each file the layer’s note on it', () => {
     const [layer] = stack().cohorts[0]?.layers ?? [];
-    const [file] = filesOf(stack(), layer as never);
+    const [file] = filesOf(stack(), layer);
 
     expect(file?.note).toBe('Adds the invitation model.');
   });
@@ -266,14 +267,14 @@ describe('answeredIn', () => {
     const layer = stacks[0]?.cohorts[0]?.layers[1];
 
     expect(layer?.questions[0]?.answered).toEqual(MISSED);
-    expect(toReadAgain(layer as NonNullable<typeof layer>)).toBe(true);
+    expect(toReadAgain(layer)).toBe(true);
     expect(stacks[1]).toBe(other);
   });
 
   it('asks nobody to read a layer again when every answer is right', () => {
     const layer = stack().cohorts[0]?.layers[1];
     const right = {
-      ...(layer as NonNullable<typeof layer>),
+      ...layer,
       questions: [
         { ...ASKED, answered: { ...MISSED, verdict: 'right' as const } },
       ],
@@ -284,9 +285,7 @@ describe('answeredIn', () => {
 });
 
 describe('revisionMarkOf', () => {
-  const layer = stack().cohorts[0]?.layers[0] as NonNullable<
-    ReturnType<typeof stack>['cohorts'][number]['layers'][number]
-  >;
+  const layer = stack().cohorts[0]?.layers[0];
 
   it('marks a layer that changed or is new since the previous stack', () => {
     expect(

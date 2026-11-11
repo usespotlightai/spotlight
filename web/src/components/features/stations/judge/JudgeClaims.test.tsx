@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+
 import { JudgeClaims } from '@/components/features/stations/judge/JudgeClaims';
 
 const CLAIMS = ['Leaves the tests passing', 'Says what it could not do'];

@@ -1,10 +1,7 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { NotificationDto } from '@notifications/application/dto/notification.dto';
 import type { NotificationStreamPort } from '@notifications/application/ports/notification-stream.port';
-import type {
-  WebPushPort,
-  WebPushTarget,
-} from '@notifications/application/ports/web-push.port';
+import type { WebPushPort } from '@notifications/application/ports/web-push.port';
 import {
   ArrivalDeliveries,
   type ArrivedItem,
@@ -49,9 +46,8 @@ const deliveriesWith = (input: {
     published
       .filter((each) => each.personId === personId)
       .map((each) => each.notification);
-  const send = vi.fn(
-    async (target: WebPushTarget, _payload: string) =>
-      input.outcome ?? 'delivered',
+  const send = vi.fn<WebPushPort['send']>(
+    async () => input.outcome ?? 'delivered',
   );
   const remove = vi.fn(async () => undefined);
   const push: WebPushPort = {

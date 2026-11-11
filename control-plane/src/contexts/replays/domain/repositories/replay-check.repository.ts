@@ -13,6 +13,11 @@ export interface ReplayCheckRepository {
     change: CheckedChange,
   ): Promise<readonly ReplayCheck[]>;
 
+  ofPullRequest(
+    stationId: StationId,
+    pullRequest: number,
+  ): Promise<readonly ReplayCheck[]>;
+
   awaitingBaseline(): Promise<readonly ReplayCheck[]>;
 
   awaitingBaselineOfSet(setId: ReplaySetId): Promise<readonly ReplayCheck[]>;

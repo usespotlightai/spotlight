@@ -2,8 +2,8 @@ import type { ReviewDeliveriesPort } from '@change-review/application/ports/revi
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
-import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
+import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';

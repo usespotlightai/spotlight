@@ -12,9 +12,10 @@ import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.v
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
-export class RenewCheckLeaseHandler
-  implements CommandHandlerPort<RenewCheckLeaseCommand, CheckLeaseRenewal>
-{
+export class RenewCheckLeaseHandler implements CommandHandlerPort<
+  RenewCheckLeaseCommand,
+  CheckLeaseRenewal
+> {
   constructor(
     private readonly checks: CheckWorkPort,
     private readonly claimants: RunnerClaimantsPort,

@@ -175,12 +175,7 @@ const using = (
     {
       ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
     } as unknown as DefinedIntegrationsPort,
-    runtimeWith(
-      { run } as unknown as HttpOutbound,
-      undefined,
-      undefined,
-      over.limits,
-    ),
+    runtimeWith({ run }, undefined, undefined, over.limits),
     callAuthFor(),
     inferringInto(schemas),
     personRulesFrom(over.policies),
@@ -247,10 +242,7 @@ describe('IntegrationToolCalls', () => {
       }),
     ).resolves.toBe('https://linear.app/acme/issue/ENG-12#comment-1');
 
-    const [, against] = run.mock.calls[0] as unknown as [
-      unknown,
-      Record<string, unknown>,
-    ];
+    const [, against] = run.mock.calls[0];
     expect(against).toMatchObject({
       task: {
         line: 'delivery',
@@ -379,10 +371,7 @@ describe('IntegrationToolCalls', () => {
 
     await comment({ body: 'x' });
 
-    const [, against] = run.mock.calls[0] as unknown as [
-      unknown,
-      Record<string, unknown>,
-    ];
+    const [, against] = run.mock.calls[0];
     expect(against).not.toHaveProperty('secret');
   });
 
@@ -408,7 +397,9 @@ describe('IntegrationToolCalls', () => {
       response: null,
       capture: {},
     });
-    await expect(failingService.comment({ body: 'Fixed.' })).rejects.toThrow();
+    await expect(failingService.comment({ body: 'Fixed.' })).rejects.toThrow(
+      'the integration answered 500',
+    );
     expect(
       await failingService.schemas.of(
         TeamId.of('team_1'),
@@ -571,7 +562,9 @@ graphql:
           value: 'special-key',
         },
       });
-      const integration = String(parseYaml(text).integration);
+      const integration = String(
+        (parseYaml(text) as Record<string, unknown>).integration,
+      );
       const tools = integrationToolCalls(
         {
           ofTeam: vi.fn(async () => [
@@ -672,7 +665,7 @@ graphql:
           headers: expect.objectContaining({
             api_key: 'special-key',
             'content-type': 'application/json',
-          }),
+          }) as unknown,
         }),
       );
     });

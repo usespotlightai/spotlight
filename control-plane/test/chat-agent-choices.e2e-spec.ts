@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { createTeam } from './support/team';
 
@@ -19,11 +21,13 @@ const post = (path: string, body: object) =>
 
 const started = async (): Promise<string> =>
   (
-    await post('', {
-      harness: 'claude-code',
-      body: 'Plan the retries.',
-    }).expect(201)
-  ).body.id as string;
+    (
+      await post('', {
+        harness: 'claude-code',
+        body: 'Plan the retries.',
+      }).expect(201)
+    ).body as { readonly id: string }
+  ).id;
 
 beforeAll(async () => {
   app = await openApp();

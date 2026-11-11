@@ -6,10 +6,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export class ReadTaskChangeStackHandler
-  implements
-    QueryHandlerPort<ReadTaskChangeStackQuery, LatestChangeStackDto | null>
-{
+export class ReadTaskChangeStackHandler implements QueryHandlerPort<
+  ReadTaskChangeStackQuery,
+  LatestChangeStackDto | null
+> {
   constructor(
     private readonly access: TeamWorkAccess,
     private readonly stacks: ChangeStackReaderPort,

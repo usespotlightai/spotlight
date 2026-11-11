@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+
 import type { HoveredLine } from '@/components/shared/PatchCodeDiff';
 
 const DIGIT_PX = 6.6;

@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+
 import { emailsPath, verifyEmailPath } from '@/lib/emails';
 import { serveMockApi } from '@/mocks/testing';
 import { SLUG } from '@/mocks/world';
@@ -23,7 +24,9 @@ describe('AccountEmails on the mock API', () => {
   it('shows the sign-in email and each additional email with its status', async () => {
     render(<MockApplication at={emailsPath(SLUG)} />);
 
-    expect(await screen.findByText('sam@example.com', undefined, WAIT));
+    expect(
+      await screen.findByText('sam@example.com', undefined, WAIT),
+    ).toBeInTheDocument();
     const list = await additional();
     expect(list.getByText('sam.rivera@acme-corp.example')).toBeVisible();
     expect(list.getByText('Verified')).toBeVisible();
@@ -111,7 +114,9 @@ describe('AccountEmails on the mock API with no additional emails', () => {
     render(<MockApplication at={emailsPath(SLUG)} />);
 
     expect(
-      await (await additional()).findByText(
+      await (
+        await additional()
+      ).findByText(
         'No additional email addresses yet. Add any other email addresses you use across connected services.',
       ),
     ).toBeVisible();

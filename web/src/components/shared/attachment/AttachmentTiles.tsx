@@ -1,5 +1,6 @@
 import { FileIcon } from 'lucide-react';
 import { useParams } from 'react-router';
+
 import { ZoomableImage } from '@/components/shared/attachment/ZoomableImage';
 import {
   type Attachment,

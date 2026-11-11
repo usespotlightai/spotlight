@@ -42,7 +42,11 @@ describe('servingBaselineOf', () => {
   it('is the newest baseline replay that was not stopped or cut short', () => {
     const old = aBaseline('replay_old', 0);
     const fresh = aBaseline('replay_fresh', 1);
-    const stopped = aBaseline('replay_stopped', 2).stop(later(3), BY);
+    const stopped = aBaseline('replay_stopped', 2).stop(
+      later(3),
+      BY,
+      'search-ended',
+    );
     const proposed = aReplay({ id: 'replay_proposed', at: later(4) });
 
     expect(servingBaselineOf([old, fresh, stopped, proposed])?.id.value).toBe(
@@ -112,7 +116,11 @@ describe('needsBaseline', () => {
   });
 
   it('wants a new one when the only covering baseline was stopped', () => {
-    const stopped = aBaseline('replay_stopped', 0, 3).stop(later(1), BY);
+    const stopped = aBaseline('replay_stopped', 0, 3).stop(
+      later(1),
+      BY,
+      'search-ended',
+    );
 
     expect(needsBaseline(aSet(2), [stopped], SCORING, 1)).toBe(true);
   });
@@ -142,7 +150,11 @@ describe('baselineFor', () => {
 
   it('is the newest finished baseline of the live config covering the runs, else the newest valid one, else any', () => {
     const running = aBaseline('replay_running', 2);
-    const stopped = aBaseline('replay_stopped', 3).stop(later(4), BY);
+    const stopped = aBaseline('replay_stopped', 3).stop(
+      later(4),
+      BY,
+      'search-ended',
+    );
     const old = aReplay({
       id: 'replay_stale',
       candidate: stale,

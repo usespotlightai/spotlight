@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import { publicUrlOf } from '@platform/config/env';

@@ -7,11 +7,10 @@ import { recentRejectionsAt } from '@memory/domain/services/recent-rejections';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-drafting-failure.vo';
 import type { StationContext } from '@memory/domain/value-objects/run-context';
-import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
+import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -21,6 +20,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 const NOW = new Date('2026-09-27T10:00:00.000Z');
@@ -103,10 +103,10 @@ beforeAll(async () => {
   const context = new DrizzleContext(database.db);
   drafts = new DrizzleMemoryDraftRepository(context, {
     dispatch: async () => {},
-  } as unknown as DomainEventDispatcher);
+  });
   memories = new DrizzleMemoryRepository(context, {
     dispatch: async () => {},
-  } as unknown as DomainEventDispatcher);
+  });
   rejections = new DrizzleRejectedMemories(context);
 }, 60_000);
 
@@ -229,7 +229,7 @@ describe('storing a task’s memory draft', () => {
     const handed = await database.db.transaction(async (tx) =>
       new DrizzleMemoryDraftRepository(new DrizzleContext(tx), {
         dispatch: async () => {},
-      } as unknown as DomainEventDispatcher).nextDueJob(NOW),
+      }).nextDueJob(NOW),
     );
 
     expect(handed?.id.equals(due.id)).toBe(true);

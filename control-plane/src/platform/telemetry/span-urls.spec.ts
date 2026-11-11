@@ -1,5 +1,6 @@
 import { IncomingMessage } from 'node:http';
 import { Socket } from 'node:net';
+
 import {
   scrubbedRequestSpan,
   withoutOutboundPath,

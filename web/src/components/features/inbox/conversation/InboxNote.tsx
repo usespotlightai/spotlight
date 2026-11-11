@@ -1,8 +1,9 @@
 import { useRef } from 'react';
+
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { ApprovalCard } from '@/components/features/inbox/conversation/approval/ApprovalCard';
-import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
+import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';

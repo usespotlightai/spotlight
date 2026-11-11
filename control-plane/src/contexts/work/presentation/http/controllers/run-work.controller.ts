@@ -53,6 +53,7 @@ import {
   PendingMessageResponseDto,
   RunAttachmentResponseDto,
 } from '@work/presentation/http/dto/run-work.response.dto';
+import { RunnerHistoryResponseDto } from '@work/presentation/http/dto/runner-history.response.dto';
 import {
   AckMessagesRequestDto,
   AskPermissionRequestDto,
@@ -63,7 +64,6 @@ import {
   ToolActingAsResponseDto,
   ToolAnswerResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
-import { RunnerHistoryResponseDto } from '@work/presentation/http/dto/runner-history.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 import { RunnerHistoryHttpMapper } from '@work/presentation/http/mappers/runner-history.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
@@ -261,7 +261,7 @@ export class RunWorkController {
         throw new ConflictException(
           `Several lines have a station by that key; name one with --line: ${answer.lines.join(', ')}`,
         );
-      default:
+      case 'unknown':
         throw new NotFoundException();
     }
   }

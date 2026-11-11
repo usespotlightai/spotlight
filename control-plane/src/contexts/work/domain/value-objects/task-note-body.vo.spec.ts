@@ -47,9 +47,8 @@ describe('TaskNoteBody.deferredMove', () => {
   it('says a run worked on the task, where it moves once the run ends, and then what arrived', () => {
     expect(
       TaskNoteBody.deferredMove(
-        'The checks failed on the pull request.',
-        null,
         StationName.of('Implementation'),
+        TaskNoteBody.of('The checks failed on the pull request.'),
       ).value,
     ).toBe(
       [
@@ -57,29 +56,6 @@ describe('TaskNoteBody.deferredMove', () => {
         '',
         'The checks failed on the pull request.',
       ].join('\n'),
-    );
-  });
-});
-
-describe('TaskNoteBody.interrupted', () => {
-  it('says what happened while the station was working, and what a person can do about it', () => {
-    expect(
-      TaskNoteBody.interrupted(
-        'The pull request was merged.',
-        StationName.of('Implementation'),
-      ).value,
-    ).toBe(
-      'The pull request was merged while Implementation was working. Close the task, or reply to carry on.',
-    );
-  });
-});
-
-describe('TaskNoteBody for a task on no station of its line', () => {
-  it('says its station was working', () => {
-    expect(
-      TaskNoteBody.interrupted('The pull request was merged.', null).value,
-    ).toBe(
-      'The pull request was merged while its station was working. Close the task, or reply to carry on.',
     );
   });
 });

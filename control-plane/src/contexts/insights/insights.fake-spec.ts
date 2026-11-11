@@ -241,7 +241,7 @@ export const taskPullRequestOf = (
   },
 ): PullRequestRecord => {
   const number =
-    [...taskId].reduce(
+    Array.from(taskId).reduce(
       (sum, each, at) => sum + each.charCodeAt(0) * (at + 1),
       0,
     ) + 1;

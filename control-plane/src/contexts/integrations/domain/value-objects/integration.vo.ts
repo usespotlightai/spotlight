@@ -6,6 +6,7 @@ import type { ConnectionOwner } from '@integrations/domain/value-objects/connect
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { IntegrationLogo } from '@integrations/domain/value-objects/integration-logo.vo';
 import type { Poll } from '@integrations/domain/value-objects/poll.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { Schedule } from '@integrations/domain/value-objects/schedule.vo';
@@ -49,6 +50,7 @@ export class Integration {
   private constructor(
     readonly key: IntegrationKey,
     readonly name: string,
+    readonly logo: IntegrationLogo | null,
     readonly webhook: Webhook | null,
     readonly poll: Poll | null,
     readonly schedule: Schedule | null,
@@ -64,6 +66,7 @@ export class Integration {
   static of(input: {
     key: IntegrationKey;
     name?: string;
+    logo?: IntegrationLogo | null;
     webhook?: Webhook | null;
     poll?: Poll | null;
     schedule?: Schedule | null;
@@ -144,7 +147,7 @@ export class Integration {
 
     for (const provided of tools) {
       if (provided.backing.action !== null) {
-        actions.forTool(provided.backing.action, `tool ${provided.tool}`);
+        actions.forTool(provided.backing.action, `tool ${provided.tool.value}`);
       }
     }
 
@@ -174,6 +177,7 @@ export class Integration {
     return new Integration(
       key,
       (input.name ?? key.value).trim() || key.value,
+      input.logo ?? null,
       webhook,
       poll,
       schedule,

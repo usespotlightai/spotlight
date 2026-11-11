@@ -41,7 +41,7 @@ describe('a hinted type', () => {
     ).toEqual([
       {
         at: FieldPath.of(['webhook', 'shape', 'data', 'issue']),
-        reason: expect.stringMatching(/not a type/),
+        reason: expect.stringMatching(/not a type/) as unknown,
       },
     ]);
   });

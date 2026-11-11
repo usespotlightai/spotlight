@@ -1,4 +1,5 @@
 import diagnostics from 'node:diagnostics_channel';
+
 import {
   Inject,
   Injectable,

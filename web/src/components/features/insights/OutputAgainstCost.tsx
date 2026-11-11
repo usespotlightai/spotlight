@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
 import { ConfigMarkers } from '@/components/features/insights/ConfigMarkers';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { OutputLegend } from '@/components/features/insights/OutputLegend';

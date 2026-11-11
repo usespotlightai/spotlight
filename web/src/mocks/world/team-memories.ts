@@ -309,9 +309,8 @@ export const MEMORY_SEED: Record<string, MemoryRecord[]> = {
   [GROWTH_ID]: GROWTH_MEMORIES,
 };
 
-export const teamMemories = perWorld(
-  (kind): Record<string, MemoryRecord[]> =>
-    kind === 'empty'
-      ? { [PLATFORM_ID]: [], [GROWTH_ID]: [] }
-      : structuredClone(MEMORY_SEED),
+export const teamMemories = perWorld((kind): Record<string, MemoryRecord[]> =>
+  kind === 'empty'
+    ? { [PLATFORM_ID]: [], [GROWTH_ID]: [] }
+    : structuredClone(MEMORY_SEED),
 );

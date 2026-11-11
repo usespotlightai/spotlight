@@ -3,14 +3,15 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { InboxItem } from '@/routes/InboxItem';
 import { pressEnter, write } from '@/test/lexical';
 
 const answer = vi.fn();
 const markInboxItemRead = vi.fn();
 const waiting = vi.fn();
-const viewer = vi.fn();
-const journal = vi.fn();
+const viewer = vi.fn<(...args: unknown[]) => unknown>();
+const journal = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const journalFailing = vi.fn();
 
@@ -110,7 +111,12 @@ const item = (notes: unknown[], description: string | null = null) => [
     stationColor: '#5c66d9',
     stationPosition: 2,
     stationCount: 4,
-    currentStation: { name: 'Code Review', color: '#56b98d', position: 3 },
+    currentStation: {
+      name: 'Code Review',
+      color: '#56b98d',
+      position: 3,
+      latestRunId: null,
+    },
     originStation: { name: 'Triage', color: '#edc12b', position: 0 },
     createdAt: '2026-08-29T09:02:00.000Z',
     askedAt: '2026-08-29T12:00:00.000Z',
@@ -136,7 +142,7 @@ const renderItem = (itemId = 'task_1:0') =>
 function Switch({ to }: { to: string }) {
   const navigate = useNavigate();
   return (
-    <button type="button" onClick={() => navigate(to)}>
+    <button type="button" onClick={() => void navigate(to)}>
       switch
     </button>
   );
@@ -574,7 +580,37 @@ describe('InboxItem', () => {
     expect(
       screen.queryByRole('textbox', { name: /Answer/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/moved on to Code Review/)).toBeInTheDocument();
+    expect(screen.getByText(/moved on to/)).toBeInTheDocument();
+  });
+
+  it('links the station it moved on to at its latest run there', () => {
+    const [only] = item([note()]);
+    waiting.mockReturnValue([
+      {
+        ...only,
+        resolved: true,
+        currentStation: { ...only.currentStation, latestRunId: 'run_9' },
+      },
+    ]);
+
+    renderItem();
+
+    expect(screen.getByRole('link', { name: 'Code Review' })).toHaveAttribute(
+      'href',
+      '/w/acme/inbox/teams/team_1/runs/run_9',
+    );
+  });
+
+  it('links the task when no run started at the station it moved on to', () => {
+    const [only] = item([note()]);
+    waiting.mockReturnValue([{ ...only, resolved: true }]);
+
+    renderItem();
+
+    expect(screen.getByRole('link', { name: 'Code Review' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/tasks/task_1',
+    );
   });
 
   it('says only that the conversation is closed here when the conversation closed in place', () => {
@@ -583,7 +619,12 @@ describe('InboxItem', () => {
       {
         ...only,
         resolved: true,
-        currentStation: { name: only.station, color: '#56b98d', position: 3 },
+        currentStation: {
+          name: only.station,
+          color: '#56b98d',
+          position: 3,
+          latestRunId: null,
+        },
       },
     ]);
 

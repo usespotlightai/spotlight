@@ -23,6 +23,6 @@ describe('identifiers', () => {
   });
 
   it('render as their bare value', () => {
-    expect(`${WorkspaceId.of('ws_1')}`).toBe('ws_1');
+    expect(String(WorkspaceId.of('ws_1'))).toBe('ws_1');
   });
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+
 import { SETUP_CONTROL } from '@/components/features/onboarding/setup-control';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
@@ -34,7 +35,7 @@ export function ConfigFolderForm({ slug, teamId }: ConfigFolderFormProps) {
       return;
     }
 
-    navigate(teamSectionPath(slug, teamId, 'agent'), {
+    void navigate(teamSectionPath(slug, teamId, 'agent'), {
       state: {
         prompt: `Set up our configuration as code in ${repository}, under ${chosen}/.`,
         setup: { repository, folder: chosen },

@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+
 import { NotFound } from '@/components/features/board/NotFound';
 import { TaskPage } from '@/components/features/board/task/TaskPage';
 import { TaskSkeleton } from '@/components/features/board/task/TaskSkeleton';

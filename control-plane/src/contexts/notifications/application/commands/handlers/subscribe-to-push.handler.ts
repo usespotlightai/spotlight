@@ -8,9 +8,10 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class SubscribeToPushHandler
-  implements CommandHandlerPort<SubscribeToPushCommand, void>
-{
+export class SubscribeToPushHandler implements CommandHandlerPort<
+  SubscribeToPushCommand,
+  void
+> {
   constructor(
     private readonly subscriptions: PushSubscriptionRepository,
     private readonly clock: ClockPort,

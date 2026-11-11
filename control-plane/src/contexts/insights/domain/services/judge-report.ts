@@ -74,7 +74,7 @@ const reportOf = (
   judged: readonly Scored[],
   labelling: Labelling,
 ): RubricReport => {
-  const scale = (judged[0] as Scored).scale;
+  const scale = judged[0].scale;
   const humans = judged.map((score) => ({
     score,
     label: humanFor(score.runId.value, scale, rubricVersion, labelling),

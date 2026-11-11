@@ -5,9 +5,8 @@ const firedAt = async (now: string) => {
   vi.setSystemTime(new Date(now));
   vi.resetModules();
 
-  const { ALERT_RISES_BY, alertFiring } = await import(
-    '@/mocks/world/inbox-alert'
-  );
+  const { ALERT_RISES_BY, alertFiring } =
+    await import('@/mocks/world/inbox-alert');
   const firing = alertFiring();
 
   return {

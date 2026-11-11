@@ -1,9 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { RunPolicyContract } from '@runs/application/contracts/run-order.contract';
-import type {
-  RunnerActivityReaderPort,
-  RunnerActivityRow,
-} from '@runs/application/ports/runner-activity-reader.port';
+import type { RunnerActivityRow } from '@runs/application/ports/runner-activity-reader.port';
 import { ListRunnerActivityHandler } from '@runs/application/queries/handlers/list-runner-activity.handler';
 import { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
@@ -76,7 +73,7 @@ const listing = (member: boolean) => {
           : null,
       ),
     } as unknown as WorkspaceAccessPort,
-    { leasedIn } as RunnerActivityReaderPort,
+    { leasedIn },
     labels,
     viewers,
   );

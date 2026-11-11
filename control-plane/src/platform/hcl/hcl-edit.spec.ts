@@ -1,4 +1,3 @@
-import { parsedHcl } from '@platform/hcl/hcl.parse';
 import {
   editedHclBlock,
   type HclBlockEdit,
@@ -6,6 +5,7 @@ import {
   type HclGuardedBlock,
   type HclReferenceRule,
 } from '@platform/hcl/hcl-edit';
+import { parsedHcl } from '@platform/hcl/hcl.parse';
 import {
   formattedByTerraform,
   TERRAFORM_INSTALLED,
@@ -244,12 +244,12 @@ describe('parsedHcl', () => {
 
   it('unescapes quoted strings and keeps interpolated ones computed', async () => {
     const parsed = await parsedHcl(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+      // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
       'a = "x\\"y\\n\\u00e9 $${z}"\nb = "${var.x}-y-${var.z}"\nc = file("p.md")\n',
     );
     const [a, b, c] = parsed.attributes;
 
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
+    // oxlint-disable-next-line no-template-curly-in-string -- HCL interpolation, written literally
     expect(a?.read).toEqual({ kind: 'literal', value: 'x"y\né ${z}' });
     expect(b?.read).toEqual({ kind: 'computed' });
     expect(c?.read).toEqual({ kind: 'file', path: 'p.md', fromModule: false });
@@ -278,9 +278,9 @@ describe('editedHclBlock', () => {
       {
         path: 'teams/core/lines.tf',
         content: LINES.replace(
-          // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+          // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
           '    prompt    = file("${path.module}/prompts/shared.md")',
-          // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+          // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
           '    prompt    = file("${path.module}/prompts/core/delivery/build.md")',
         ),
       },
@@ -294,9 +294,9 @@ describe('editedHclBlock', () => {
 
   it('edits the station’s own prompt file in place, and picks a free name when the usual one is taken', async () => {
     const own = LINES.replace(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
       '    prompt    = file("${path.module}/prompts/shared.md")',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
       '    prompt    = file("${path.module}/prompts/core/delivery/build.md")',
     );
     const files = {
@@ -419,7 +419,7 @@ describe('editedHclBlock', () => {
     );
 
     expect(main).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
       '    tools     = ["github.comment", "${spotlight_integration.core_linear.integration}.create", "${spotlight_integration.core_linear.integration}.comment"]\n',
     );
     expect(main).toContain(
@@ -446,7 +446,7 @@ describe('editedHclBlock', () => {
     );
 
     expect(main).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
       '    tools     = ["${spotlight_integration.core_linear.integration}.comment"]\n',
     );
     expect(main).toContain(
@@ -498,7 +498,7 @@ describe('editedHclBlock', () => {
 
   it('fails on a plain relative file() it cannot follow, and a computed attribute, saying what it wanted', async () => {
     const plain = LINES.replace(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
       'prompt    = file("${path.module}/prompts/shared.md")',
       'prompt    = file("prompts/shared.md")',
     );
@@ -671,7 +671,7 @@ describe('editedHclBlock', () => {
   it('writes any other attribute read with file() to the station’s own file too, and never inlines one it has no file for', async () => {
     const described = LINES.replace(
       '    check     = "npm test"\n',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
       '    check     = "npm test"\n    description = file("${path.module}/prompts/shared.md")\n',
     );
     const fields = (fresh: boolean): readonly HclField[] => [
@@ -701,11 +701,11 @@ describe('editedHclBlock', () => {
       'teams/core/prompts/core/delivery/build.description.md',
     ]);
     expect(edited.files[0]?.content).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
       'description = file("${path.module}/prompts/core/delivery/build.description.md")',
     );
     expect(edited.files[0]?.content).toContain(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
+      // oxlint-disable-next-line no-template-curly-in-string -- a Terraform expression
       '    prompt    = file("${path.module}/prompts/shared.md")',
     );
     expect(await errorOf(edit(false))).toMatchObject({

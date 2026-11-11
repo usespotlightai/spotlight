@@ -1,11 +1,14 @@
+// oxlint-disable no-console -- a command-line tool reports on the terminal
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
 import { NestFactory } from '@nestjs/core';
 import { buildOpenApiDocument } from '@platform/http/openapi';
 import {
   documentsByAudience,
   routesOf,
 } from '@platform/http/openapi-audiences';
+
 import { AppModule } from '@/app.module';
 
 const write = (name: string, document: unknown): void => {

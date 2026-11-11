@@ -1,4 +1,5 @@
 import { GitPullRequest } from 'lucide-react';
+
 import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';

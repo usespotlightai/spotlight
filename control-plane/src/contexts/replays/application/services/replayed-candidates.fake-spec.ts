@@ -1,6 +1,6 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import {
   AT,
@@ -98,7 +98,7 @@ const heldOutOf = (
     .recordAgentSpend(RUN_ONE, ModelSpent.of([], 0), later(1), ids);
 
   for (const replayId of ['replay_terse', 'replay_wordy']) {
-    built = built.recordReplayStopReason(
+    built = built.recordReplayEndState(
       ReplayId.of(replayId),
       'finished',
       { spent: Money.of(1, 'USD'), unpriced: 0 },
@@ -130,7 +130,7 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
   const set = aSet(10);
   const ids = searchRunIds();
   const searching = aSearch({ set })
-    .recordReplayStopReason(
+    .recordReplayEndState(
       ReplayId.of('replay_seed'),
       'finished',
       { spent: Money.of(20, 'USD'), unpriced: 0 },

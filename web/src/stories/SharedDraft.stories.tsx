@@ -2,6 +2,7 @@ import type { Provider } from '@lexical/yjs';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useEffect, useMemo, useState } from 'react';
 import { applyUpdate, Doc, encodeStateAsUpdate } from 'yjs';
+
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import {

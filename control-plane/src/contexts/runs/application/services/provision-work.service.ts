@@ -78,7 +78,7 @@ const awaitAll = async (
       .filter(
         (each): each is PromiseRejectedResult => each.status === 'rejected',
       )
-      .map((each) => each.reason),
+      .map((each): unknown => each.reason),
   );
 };
 

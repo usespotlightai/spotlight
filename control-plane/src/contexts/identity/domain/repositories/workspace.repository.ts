@@ -11,8 +11,7 @@ interface WorkspaceFinding {
 }
 
 export interface WorkspaceRepository
-  extends WorkspaceSlugRegistry,
-    WorkspaceFinding {
+  extends WorkspaceSlugRegistry, WorkspaceFinding {
   add(workspace: Workspace): Promise<void>;
 
   save(workspace: Workspace): Promise<void>;

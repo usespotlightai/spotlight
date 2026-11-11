@@ -66,6 +66,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { projectedInsights } from './support/insights-facts';
 
@@ -570,7 +571,7 @@ describe('how a station’s runs turned out', () => {
       merged: 1,
     });
     expect(outcomes.inForce).toEqual({
-      tally: expect.objectContaining({ runs: 1, cancelled: 0 }),
+      tally: expect.objectContaining({ runs: 1, cancelled: 0 }) as unknown,
       taskFailures: [],
       runFailures: [],
     });

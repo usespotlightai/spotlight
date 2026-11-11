@@ -7,10 +7,9 @@ import { DecisionMerge } from '@change-review/domain/value-objects/decision-merg
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
-import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
+import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -18,6 +17,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 const NOW = new Date('2026-09-21T10:00:00.000Z');
@@ -81,7 +81,7 @@ beforeAll(async () => {
   database = await openDatabase('decision_sets');
   sets = new DrizzleDecisionSetRepository(new DrizzleContext(database.db), {
     dispatch: async () => {},
-  } as unknown as DomainEventDispatcher);
+  });
 }, 60_000);
 
 afterAll(async () => {

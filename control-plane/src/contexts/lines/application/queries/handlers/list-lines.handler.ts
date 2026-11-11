@@ -8,9 +8,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class ListLinesHandler
-  implements QueryHandlerPort<ListLinesQuery, LineDto[] | null>
-{
+export class ListLinesHandler implements QueryHandlerPort<
+  ListLinesQuery,
+  LineDto[] | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly lines: LineReaderPort,
@@ -29,7 +30,9 @@ export class ListLinesHandler
         return null;
       }
 
-      return (await this.lines.ofTeam(teamId)).map(LineMapper.detailToDto);
+      return (await this.lines.ofTeam(teamId)).map((each) =>
+        LineMapper.detailToDto(each),
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
 import {
   scopedTo,
@@ -117,7 +118,7 @@ const requests = (
       limits,
       hosts,
       { now: () => new Date(), sleep: async () => {} },
-      fetch as unknown as typeof globalThis.fetch,
+      fetch,
     ),
   };
 };
@@ -145,7 +146,7 @@ describe('HookRequests', () => {
     expect(headers['webhook-signature']).toBe(
       signatureOf(
         SECRET.key,
-        headers['webhook-id'] as string,
+        headers['webhook-id'],
         Math.floor(NOW.getTime() / 1000),
         hookRequest().body,
       ),
@@ -183,7 +184,10 @@ describe('HookRequests', () => {
     await expect(
       sending.sent(hookRequest(), TOKEN, NOW),
     ).resolves.toMatchObject({
-      outcome: { status: 'failed', reason: expect.stringMatching(/no secret/) },
+      outcome: {
+        status: 'failed',
+        reason: expect.stringMatching(/no secret/) as unknown,
+      },
     });
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -491,8 +495,8 @@ describe('HookRequests', () => {
       expect.objectContaining({
         url: 'http://dba.acme.internal/',
         headers: expect.objectContaining({
-          'webhook-signature': expect.stringMatching(/^v1,/),
-        }),
+          'webhook-signature': expect.stringMatching(/^v1,/) as unknown,
+        }) as unknown,
       }),
       new Date(NOW.getTime() + 10_000),
     );
@@ -579,7 +583,9 @@ describe('HookRequests', () => {
     ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
-        reason: expect.stringMatching(/no host of the workspace answered/),
+        reason: expect.stringMatching(
+          /no host of the workspace answered/,
+        ) as unknown,
       },
     });
   });
@@ -600,7 +606,9 @@ describe('HookRequests', () => {
     ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
-        reason: expect.stringMatching(/no host of the workspace answered/),
+        reason: expect.stringMatching(
+          /no host of the workspace answered/,
+        ) as unknown,
       },
     });
   });

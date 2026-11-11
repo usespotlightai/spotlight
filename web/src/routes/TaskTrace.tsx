@@ -1,5 +1,6 @@
 import { Activity } from 'lucide-react';
 import { useParams } from 'react-router';
+
 import { TraceView } from '@/components/features/trace/view/TraceView';
 import { TraceViewSkeleton } from '@/components/features/trace/view/TraceViewSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';

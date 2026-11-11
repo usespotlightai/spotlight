@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
 import {
@@ -25,7 +26,8 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import { type Answer, openApp, served, TEST_USER_HEADER } from './support/app';
 import { definitionOf } from './support/line-definition';
 import {
   conformsAsResource,
@@ -34,7 +36,21 @@ import {
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
-const DELIVERY = definitionOf(BUILT_IN_LINES[0] as LineOpening);
+const DELIVERY = definitionOf(BUILT_IN_LINES[0]);
+
+type Fields = Readonly<Record<string, unknown>>;
+
+interface LineAnswer {
+  readonly id: string;
+  readonly version: number;
+  readonly address: string;
+  readonly definition: Fields & { readonly stations: readonly Fields[] };
+  readonly errors: readonly unknown[];
+}
+
+interface Listed {
+  readonly items: readonly LineAnswer[];
+}
 
 const JUDGE = {
   rubric: 'A good run changes only what the task requests.\n',
@@ -109,25 +125,62 @@ describe('a line, created through the resource API (e2e)', () => {
   let app: INestApplication;
   let fixture: Awaited<ReturnType<typeof seated>>;
 
-  const create = (body: object) =>
+  const create = async (body: object): Promise<Answer<LineAnswer>> =>
     served(app)
       .post(fixture.collection)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
-  const change = (id: string, version: number, body: object) =>
+  const change = async (
+    id: string,
+    version: number,
+    body: object,
+  ): Promise<Answer<LineAnswer>> =>
     served(app)
       .put(fixture.item(id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${version}"`)
       .send(body);
 
-  const remove = (id: string, version: number) =>
+  const remove = async (
+    id: string,
+    version: number,
+  ): Promise<Answer<LineAnswer>> =>
     served(app)
       .delete(fixture.item(id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${version}"`);
+
+  const read = async (
+    id: string,
+    by = fixture.admin,
+  ): Promise<Answer<LineAnswer>> =>
+    served(app).get(fixture.item(id)).set(TEST_USER_HEADER, by);
+
+  const listing = async (workspaceId: string): Promise<Answer<Listed>> =>
+    served(app)
+      .get(fixture.listing(workspaceId))
+      .set(TEST_USER_HEADER, fixture.viewer);
+
+  const createAt = async (
+    teamId: string,
+    body: object,
+  ): Promise<Answer<LineAnswer>> =>
+    served(app)
+      .post(`/api/v1/resources/teams/${teamId}/lines`)
+      .set(TEST_USER_HEADER, fixture.admin)
+      .set('Idempotency-Key', randomUUID())
+      .send(body);
+
+  const addTeam = async (
+    workspaceId: string,
+  ): Promise<Answer<{ readonly id: string }>> =>
+    served(app)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/teams`)
+      .set(TEST_USER_HEADER, fixture.admin)
+      .set('Idempotency-Key', randomUUID())
+      .send({ key: 'alpha', name: 'Alpha' });
 
   const putTaskAt = async (lineId: string, key: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -199,17 +252,15 @@ describe('a line, created through the resource API (e2e)', () => {
       ),
     };
     const made = await create(written);
-    const read = await served(app)
-      .get(fixture.item(made.body.id))
-      .set(TEST_USER_HEADER, fixture.admin);
+    const readBack = await read(made.body.id);
     const again = await change(made.body.id, made.body.version, written);
 
     expect(made.status).toBe(201);
-    expect(read.body.definition.stations[1].prompt).toBe(
+    expect(readBack.body.definition.stations[1].prompt).toBe(
       'Implement the task.\n',
     );
     expect(again.status).toBe(200);
-    expect(again.body.definition).toEqual(read.body.definition);
+    expect(again.body.definition).toEqual(readBack.body.definition);
   });
 
   it('keeps a station remembering its runs, and clears it once told to stop', async () => {
@@ -261,7 +312,7 @@ describe('a line, created through the resource API (e2e)', () => {
   it('rejects a wrong alert at its field, an alert repeating one before it, a rubric whose scale it cannot read, and a judge or alerts where nothing runs', async () => {
     const wrongAlert = await create(
       judged(JUDGE, [
-        ALERTS[0] as object,
+        ALERTS[0],
         { measure: 'merged_rate', below: 1.5, over: 20 },
       ]),
     );
@@ -270,14 +321,14 @@ describe('a line, created through the resource API (e2e)', () => {
     );
     const several = await create(
       judged(JUDGE, [
-        ALERTS[0] as object,
+        ALERTS[0],
         { measure: 'cost_per_run', risesBy: 1, below: 5, over: 10 },
       ]),
     );
     const twice = await create(
       judged(JUDGE, [
-        ALERTS[1] as object,
-        ALERTS[0] as object,
+        ALERTS[1],
+        ALERTS[0],
         { measure: 'cost_per_run', above: 9, over: 5 },
       ]),
     );
@@ -418,16 +469,12 @@ describe('a line, created through the resource API (e2e)', () => {
 
   it('stores how many warm sandboxes a line keeps, 0 where it names none', async () => {
     const plain = await create(DELIVERY);
-    const unset = await served(app)
-      .get(fixture.item(plain.body.id))
-      .set(TEST_USER_HEADER, fixture.admin);
+    const unset = await read(plain.body.id);
     const made = await change(plain.body.id, plain.body.version, {
       ...DELIVERY,
       warmSandboxes: 3,
     });
-    const read = await served(app)
-      .get(fixture.item(made.body.id))
-      .set(TEST_USER_HEADER, fixture.admin);
+    const readBack = await read(made.body.id);
     const changed = await change(made.body.id, made.body.version, {
       ...DELIVERY,
       warmSandboxes: 5,
@@ -450,7 +497,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(made.status).toBe(200);
     expect(fresh.status).toBe(201);
     expect(fresh.body.definition.warmSandboxes).toBe(2);
-    expect(read.body.definition.warmSandboxes).toBe(3);
+    expect(readBack.body.definition.warmSandboxes).toBe(3);
     expect(changed.body.definition.warmSandboxes).toBe(5);
     expect(cleared.body.definition.warmSandboxes).toBe(0);
   });
@@ -733,7 +780,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
   it('will not be deleted, or drop a station, while a task is at it', async () => {
     const made = await create(DELIVERY);
-    const going = DELIVERY.stations[1]?.key as string;
+    const going = DELIVERY.stations[1]?.key;
 
     await putTaskAt(made.body.id, going);
 
@@ -753,7 +800,7 @@ describe('a line, created through the resource API (e2e)', () => {
       expect(rejected.status).toBe(409);
       expect(rejected.body).toMatchObject({
         type: 'urn:spotlight:problem:in-use',
-        detail: expect.stringContaining('(1)'),
+        detail: expect.stringContaining('(1)') as unknown,
       });
     }
   });
@@ -783,30 +830,21 @@ describe('a line, created through the resource API (e2e)', () => {
   it('lists every line across the workspace’s teams in address order, each as its read answers it', async () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaceId = fixture.workspaceId;
-    const alpha = await served(app)
-      .post(`/api/v1/resources/workspaces/${workspaceId}/teams`)
-      .set(TEST_USER_HEADER, fixture.admin)
-      .set('Idempotency-Key', randomUUID())
-      .send({ key: 'alpha', name: 'Alpha' });
+    const alpha = await addTeam(workspaceId);
 
     expect(alpha.status).toBe(201);
 
     try {
       const onTeam = await create(DELIVERY);
-      const onAlpha = await served(app)
-        .post(`/api/v1/resources/teams/${alpha.body.id}/lines`)
-        .set(TEST_USER_HEADER, fixture.admin)
-        .set('Idempotency-Key', randomUUID())
-        .send(DELIVERY);
-      const listed = await served(app)
-        .get(fixture.listing(workspaceId))
-        .set(TEST_USER_HEADER, fixture.viewer);
+      const onAlpha = await createAt(alpha.body.id, DELIVERY);
+      const listed = await listing(workspaceId);
 
       expect(listed.status).toBe(200);
       expect(listed.body).toEqual({ items: [onAlpha.body, onTeam.body] });
-      expect(
-        listed.body.items.map((each: { address: string }) => each.address),
-      ).toEqual([`alpha/${DELIVERY.key}`, `team/${DELIVERY.key}`]);
+      expect(listed.body.items.map((each) => each.address)).toEqual([
+        `alpha/${DELIVERY.key}`,
+        `team/${DELIVERY.key}`,
+      ]);
     } finally {
       await db.delete(schema.line).where(eq(schema.line.teamId, alpha.body.id));
     }
@@ -815,11 +853,7 @@ describe('a line, created through the resource API (e2e)', () => {
   it('reads several lines across teams at once, each exactly as it reads alone', async () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaceId = fixture.workspaceId;
-    const alpha = await served(app)
-      .post(`/api/v1/resources/workspaces/${workspaceId}/teams`)
-      .set(TEST_USER_HEADER, fixture.admin)
-      .set('Idempotency-Key', randomUUID())
-      .send({ key: 'alpha', name: 'Alpha' });
+    const alpha = await addTeam(workspaceId);
 
     expect(alpha.status).toBe(201);
 
@@ -828,19 +862,15 @@ describe('a line, created through the resource API (e2e)', () => {
       const onTeam = await Promise.all(definitions.map((each) => create(each)));
       const onAlpha = await Promise.all(
         definitions.map((each) =>
-          served(app)
-            .post(`/api/v1/resources/teams/${alpha.body.id}/lines`)
-            .set(TEST_USER_HEADER, fixture.admin)
-            .set('Idempotency-Key', randomUUID())
-            .send({
-              ...each,
-              repositories: [{ name: 'acme/api' }, { name: 'acme/web' }],
-              stations: each.stations.map((station, at) =>
-                at === 0
-                  ? { ...station, skills: ['grafana', 'runbooks'] }
-                  : station,
-              ),
-            }),
+          createAt(alpha.body.id, {
+            ...each,
+            repositories: [{ name: 'acme/api' }, { name: 'acme/web' }],
+            stations: each.stations.map((station, at) =>
+              at === 0
+                ? { ...station, skills: ['grafana', 'runbooks'] }
+                : station,
+            ),
+          }),
         ),
       );
 
@@ -850,21 +880,16 @@ describe('a line, created through the resource API (e2e)', () => {
 
       const alone = await Promise.all(
         [...onTeam, ...onAlpha].map((each) =>
-          served(app)
-            .get(fixture.item(each.body.id))
-            .set(TEST_USER_HEADER, fixture.viewer),
+          read(each.body.id, fixture.viewer),
         ),
       );
-      const listed = await served(app)
-        .get(fixture.listing(workspaceId))
-        .set(TEST_USER_HEADER, fixture.viewer);
+      const listed = await listing(workspaceId);
 
       expect(listed.status).toBe(200);
       expect(listed.body.items).toHaveLength(alone.length);
       expect(
-        [...listed.body.items].sort(
-          (one: { id: string }, other: { id: string }) =>
-            one.id.localeCompare(other.id),
+        [...listed.body.items].sort((one, other) =>
+          one.id.localeCompare(other.id),
         ),
       ).toEqual(
         alone
@@ -873,13 +898,8 @@ describe('a line, created through the resource API (e2e)', () => {
       );
       expect(
         listed.body.items
-          .filter((each: { address: string }) =>
-            each.address.startsWith('alpha/'),
-          )
-          .map(
-            (each: { definition: { repositories: { name: string }[] } }) =>
-              each.definition.repositories,
-          ),
+          .filter((each) => each.address.startsWith('alpha/'))
+          .map((each) => each.definition.repositories),
       ).toEqual(
         definitions.map(() => [{ name: 'acme/api' }, { name: 'acme/web' }]),
       );

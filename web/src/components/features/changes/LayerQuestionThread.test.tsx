@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+
 import { LayerQuestionThread } from '@/components/features/changes/LayerQuestionThread';
-import type { ChangeStack, LayerQuestion } from '@/lib/change-stack';
+import type { LayerQuestion } from '@/lib/change-stack';
 import type { CodeReview } from '@/lib/review';
 import { ReviewContext } from '@/lib/review-context';
 import { INVITATIONS } from '@/test/fixtures/change-stack';
@@ -42,7 +43,7 @@ const shown = (question: LayerQuestion, onReveal = vi.fn()) =>
       }}
     >
       <LayerQuestionThread
-        stack={INVITATIONS as ChangeStack}
+        stack={INVITATIONS}
         question={question}
         onReveal={onReveal}
       />

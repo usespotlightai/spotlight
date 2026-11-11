@@ -25,9 +25,10 @@ const noteIn = (body: string): CallbackNote | { readonly invalid: string } => {
   }
 };
 
-export class NoteByCallbackHandler
-  implements CommandHandlerPort<NoteByCallbackCommand, NotedByCallback>
-{
+export class NoteByCallbackHandler implements CommandHandlerPort<
+  NoteByCallbackCommand,
+  NotedByCallback
+> {
   constructor(
     private readonly callbackTokens: HookCallbackTokens,
     private readonly notes: TaskNotesFromHooksPort,

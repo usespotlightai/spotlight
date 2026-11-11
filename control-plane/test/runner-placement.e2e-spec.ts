@@ -6,6 +6,7 @@ import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-plac
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 let database: TestDatabase;
@@ -55,7 +56,7 @@ const matchesInSql = async (
   image: string | null,
   offer: RunnerOffer,
 ): Promise<boolean> => {
-  const answered = await db.execute<{ matches: boolean }>(
+  const answered = await db.execute<{ matches: boolean | null }>(
     sql`SELECT ${placementMatches(
       sql`${JSON.stringify(labelGroups)}::jsonb`,
       sql`${image}::text`,

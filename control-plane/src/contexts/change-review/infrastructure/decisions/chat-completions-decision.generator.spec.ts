@@ -54,8 +54,12 @@ describe('generating decisions through a chat completions endpoint', () => {
       fetch,
     ).generate(REASONED);
 
-    const body = JSON.parse(String(requests[0]?.init.body));
-    const prompt = body.messages[1].content as string;
+    const body = JSON.parse(requests[0]?.init.body as string) as {
+      model: string;
+      response_format: { json_schema: { name: string } };
+      messages: { content: string }[];
+    };
+    const prompt = body.messages[1].content;
 
     expect(generated).toEqual(DECISIONS);
     expect(body.model).toBe('some/model');

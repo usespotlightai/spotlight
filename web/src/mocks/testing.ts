@@ -1,5 +1,6 @@
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
+
 import { client } from '@/lib/api/client.gen';
 import { handlers } from '@/mocks/handlers';
 import { type PageState, setScenario } from '@/mocks/scenario';

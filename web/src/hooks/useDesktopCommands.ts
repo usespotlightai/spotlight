@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent } from 'react';
 import { useNavigate } from 'react-router';
+
 import type { AppTab } from '@/lib/app-tabs';
 import { desktopApp } from '@/lib/desktop';
 import { settingsPath } from '@/lib/settings';

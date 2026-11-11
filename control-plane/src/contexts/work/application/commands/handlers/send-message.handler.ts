@@ -28,9 +28,10 @@ interface MessageTarget {
   readonly stationId: StationId;
 }
 
-export class SendMessageHandler
-  implements CommandHandlerPort<SendMessageCommand, void>
-{
+export class SendMessageHandler implements CommandHandlerPort<
+  SendMessageCommand,
+  void
+> {
   constructor(
     private readonly dispatches: DispatchRepository,
     private readonly tasks: TaskRepository,

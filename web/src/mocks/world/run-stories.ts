@@ -434,7 +434,7 @@ const reviewStory = (context: Context): Omit<RunStory, 'spend'> => {
 };
 
 const clockOf = (runId: string): string => {
-  const sum = [...runId].reduce(
+  const sum = Array.from(runId).reduce(
     (total, letter) => total + letter.charCodeAt(0),
     0,
   );
@@ -443,7 +443,11 @@ const clockOf = (runId: string): string => {
 
 const revisionOf = (runId: string): number =>
   20 +
-  ([...runId].reduce((total, letter) => total + letter.charCodeAt(0), 0) % 60);
+  (Array.from(runId).reduce(
+    (total, letter) => total + letter.charCodeAt(0),
+    0,
+  ) %
+    60);
 
 const investigateStory = (context: Context): Omit<RunStory, 'spend'> => {
   const deployed = clockOf(context.run.taskId);
@@ -842,7 +846,9 @@ export const storyNoteOf = (
   script: NoteScript,
 ): StoryNote => {
   const station = run.station;
-  const fromPerson = script.kind === 'answered' || script.kind === 'message';
+  const fromWorld = script.source !== undefined;
+  const fromPerson =
+    !fromWorld && (script.kind === 'answered' || script.kind === 'message');
   const at =
     script.minutesIn !== undefined
       ? Date.parse(run.startedAt) + script.minutesIn * MINUTE_MS
@@ -851,16 +857,18 @@ export const storyNoteOf = (
   return {
     kind: script.kind,
     form: script.form ?? 'words',
-    voice: fromPerson ? 'person' : 'station',
+    voice: fromWorld ? 'world' : fromPerson ? 'person' : 'station',
     station: station?.name ?? '',
     stationColor: station?.color ?? '',
     stationPosition: station?.position ?? 0,
-    runId: fromPerson ? null : run.id,
+    runId: fromPerson || fromWorld ? null : run.id,
     body: script.body,
     attachments: [],
     at: new Date(at).toISOString(),
     author: script.author ?? null,
     coAuthors: [],
+    source: script.source ?? null,
+    deferredTo: script.deferredTo ?? null,
     approval: script.approval ? structuredClone(script.approval) : null,
     failure: script.failure ?? null,
     connection: null,

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { readInsightsCost } from '@/lib/api';
 import type { InsightsCost, InsightsPeriod } from '@/lib/insights';
 

@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
+
 import { useOverflows } from '@/hooks/useOverflows';
 import { canAnimate, ROW_SETTLED, ROW_TRANSITION } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -81,7 +82,7 @@ export function ExpandingRow({ slot, className, children }: ExpandingRowProps) {
     opened.current = null;
 
     if (!clamped && from !== null && canAnimate(element)) {
-      resize(element, from, element.offsetHeight);
+      void resize(element, from, element.offsetHeight);
     }
   }, [clamped]);
 
@@ -102,7 +103,7 @@ export function ExpandingRow({ slot, className, children }: ExpandingRowProps) {
       return;
     }
 
-    resize(element, from, element.offsetHeight);
+    void resize(element, from, element.offsetHeight);
   };
 
   const close = () => {

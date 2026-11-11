@@ -1,17 +1,18 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
+
 import { ConfigFolderForm } from '@/components/features/onboarding/ConfigFolderForm';
 import { InstallGitHubLink } from '@/components/features/onboarding/InstallGitHubLink';
+import {
+  SETUP_CONTROL,
+  setupLinkClass,
+} from '@/components/features/onboarding/setup-control';
 import {
   SetupAbout,
   type SetupAboutProps,
 } from '@/components/features/onboarding/SetupAbout';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
-import {
-  SETUP_CONTROL,
-  setupLinkClass,
-} from '@/components/features/onboarding/setup-control';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { useGitHub } from '@/hooks/api/useGitHub';
 import { useOnboarding } from '@/hooks/api/useOnboarding';

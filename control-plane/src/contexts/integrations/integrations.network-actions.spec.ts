@@ -1,7 +1,6 @@
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
-import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
@@ -86,10 +85,12 @@ const TASK: TaskView = {
 const answering = (state: NetworkCallState) => {
   const queued: { request: NetworkRequest; expiresAt: Date }[] = [];
   const calls: NetworkCallsPort = {
-    queue: vi.fn(async (_workspace, request, expiresAt) => {
-      queued.push({ request, expiresAt });
-      return 'call_1';
-    }),
+    queue: vi.fn<NetworkCallsPort['queue']>(
+      async (_workspace, request, expiresAt) => {
+        queued.push({ request, expiresAt });
+        return 'call_1';
+      },
+    ),
     stateOf: vi.fn(async () => state),
     answered: vi.fn(async () => state),
   };
@@ -129,7 +130,7 @@ const sending = (
   const runtime = new CompiledIntegrationRuntime(
     new IntegrationReader(new CelExpressionEngine(), operationsContaining()),
     { run } as unknown as HttpOutbound,
-    clientsFrom() as OAuth2ClientsPort,
+    clientsFrom(),
     {} as OAuth2Exchange,
     discoveringNothing(),
     callingNoServer(),

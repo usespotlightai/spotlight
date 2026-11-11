@@ -1,6 +1,6 @@
 import type { ResourceType } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 
-type DependentKind = ResourceType | 'issued-tokens';
+type DependentKind = ResourceType;
 
 export interface Dependent {
   readonly kind: DependentKind;

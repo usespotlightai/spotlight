@@ -21,7 +21,7 @@ export const NoteHttpMapper = {
       note.stationPosition,
       note.runId,
       note.body,
-      note.attachments.map(AttachmentHttpMapper.toResponse),
+      note.attachments.map((each) => AttachmentHttpMapper.toResponse(each)),
       note.at,
       note.author
         ? new InboxAuthorResponseDto(
@@ -33,6 +33,8 @@ export const NoteHttpMapper = {
       note.coAuthors.map(
         (each) => new InboxAuthorResponseDto(each.id, each.name, each.image),
       ),
+      note.source,
+      note.deferredTo,
       note.approval ? new InboxApprovalResponseDto(note.approval) : null,
       note.failure ? new InboxFailureResponseDto(note.failure) : null,
       note.connection ? new InboxConnectionResponseDto(note.connection) : null,

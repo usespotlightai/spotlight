@@ -2,9 +2,10 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 
-const lines = vi.fn();
+const lines = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
@@ -45,7 +46,7 @@ const lineGroups = () =>
   Array.from(document.querySelectorAll('[data-slot="lines"]'));
 
 const linesOf = (index: number) =>
-  screen.getAllByRole('list', { name: 'Lines' })[index] as HTMLElement;
+  screen.getAllByRole('list', { name: 'Lines' })[index];
 
 beforeEach(() => {
   localStorage.clear();
@@ -95,7 +96,7 @@ describe('TeamNav', () => {
     const [toggle] = screen.getAllByRole('button', { name: 'Lines' });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
 
-    await userEvent.click(toggle as HTMLElement);
+    await userEvent.click(toggle);
 
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(lineGroups()[0]).not.toHaveAttribute('data-open');

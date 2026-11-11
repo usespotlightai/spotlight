@@ -7,9 +7,10 @@ import type { ChatLoader } from '@work/application/services/chat-loader.service'
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 
-export class DismissProposalHandler
-  implements CommandHandlerPort<DismissProposalCommand, void>
-{
+export class DismissProposalHandler implements CommandHandlerPort<
+  DismissProposalCommand,
+  void
+> {
   constructor(
     private readonly loader: ChatLoader,
     private readonly chats: ChatRepository,

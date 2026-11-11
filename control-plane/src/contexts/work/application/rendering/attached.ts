@@ -1,7 +1,7 @@
 import type { AttachmentShape } from '@runs/application/contracts/run-spec.contract';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
-import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 
 const PLACED = '.spotlight/attachments/';
 

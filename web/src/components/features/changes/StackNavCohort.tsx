@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+
 import { CohortTally } from '@/components/features/changes/CohortTally';
 import { StackNavLayer } from '@/components/features/changes/StackNavLayer';
 import { Collapsible } from '@/components/shared/Collapsible';
@@ -42,6 +43,7 @@ export function StackNavCohort({
       <Tooltip disableHoverablePopup>
         <TooltipTrigger
           render={
+            // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- the trigger renders this button around its children
             <button
               type="button"
               onClick={() => setOpen((shown) => !shown)}

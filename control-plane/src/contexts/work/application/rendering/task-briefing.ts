@@ -19,7 +19,6 @@ import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { skillFolderOf } from '@work/domain/services/skill-folder';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import type {
-  BriefedReviewComment,
   BriefedTask,
   DecisionOnRecord,
 } from '@work/domain/value-objects/briefed-task.vo';
@@ -71,7 +70,7 @@ const replying = (task: BriefedTask): string | null => {
       .join(' — '),
   );
 
-  const one = ReviewCommentHandle.for((open[0] as BriefedReviewComment).at);
+  const one = ReviewCommentHandle.for(open[0].at);
 
   return [
     '## Replying to review comments',

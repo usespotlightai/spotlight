@@ -16,9 +16,10 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class AddUserEmailHandler
-  implements CommandHandlerPort<AddUserEmailCommand, UserEmailDto>
-{
+export class AddUserEmailHandler implements CommandHandlerPort<
+  AddUserEmailCommand,
+  UserEmailDto
+> {
   constructor(
     private readonly emails: UserEmailRepository,
     private readonly sends: VerificationSendsPort,

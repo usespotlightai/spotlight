@@ -12,7 +12,7 @@ const downloadsOf = (release: Release | null): string =>
 
 const stateSignIn = (release: Release | null): string[] => [
   '      - name: Download spotlight',
-  // biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions expression syntax
+  // oxlint-disable-next-line no-template-curly-in-string -- GitHub Actions expression syntax
   '        working-directory: ${{ runner.temp }}',
   '        run: |',
   `          base=${downloadsOf(release)}`,

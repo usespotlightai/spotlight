@@ -28,7 +28,7 @@ const DOCUMENT = {
     {
       name: 'notify',
       call: 'slack.post-message',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+      // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
       with: { channel: 'C1', text: 'Searched ${{ event.inputs.query }}' },
     },
     {
@@ -38,18 +38,18 @@ const DOCUMENT = {
     {
       name: 'labelled',
       request: {
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+        // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
         url: 'https://audit.example.com/${{ event.tool }}',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+        // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
         headers: { 'X-Said': '${{ step.notify.status }}' },
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+        // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
         body: '${{ {"query": event.inputs.query} }}',
         from: 'network',
       },
     },
     {
       name: 'unwritten',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
+      // oxlint-disable-next-line no-template-curly-in-string -- how a hook expression is written
       request: { url: '${{ event.inputs.missing.deeper }}' },
     },
   ],
@@ -224,7 +224,7 @@ describe('CompiledHookRuntime', () => {
       name: HookStepName.of('unwritten'),
       failure: {
         code: 'unwritable',
-        reason: expect.stringMatching(/^could not be written: /),
+        reason: expect.stringMatching(/^could not be written: /) as unknown,
       },
     });
   });

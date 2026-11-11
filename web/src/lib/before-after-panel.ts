@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+
 import type { ChangeAt } from '@/lib/insights-changes';
 
 export interface BeforeAfterPanel {

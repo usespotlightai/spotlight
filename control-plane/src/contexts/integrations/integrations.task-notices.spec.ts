@@ -164,7 +164,7 @@ const notifying = (
     {
       ofTeam: vi.fn(async () => [defined(file)]),
     } as unknown as DefinedIntegrationsPort,
-    runtimeWith({ run } as unknown as HttpOutbound),
+    runtimeWith({ run }),
     callAuthFor(injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
@@ -584,8 +584,8 @@ describe('TaskNotices uploads', () => {
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({
         error: expect.objectContaining({
-          output: expect.stringContaining('invalid_blocks'),
-        }),
+          output: expect.stringContaining('invalid_blocks') as unknown,
+        }) as unknown,
       }),
       'A service answered a task notice with an error',
     );

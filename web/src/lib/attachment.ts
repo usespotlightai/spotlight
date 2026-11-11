@@ -1,4 +1,5 @@
 import type { ClipboardEvent, DragEvent } from 'react';
+
 import type { AttachmentResponseDto } from '@/lib/api';
 
 export type Attachment = AttachmentResponseDto;
@@ -18,6 +19,7 @@ export type PendingAttachment = {
       readonly state: 'ready';
       readonly id: string;
       readonly uploadedAt?: number;
+      readonly restored?: boolean;
     }
   | { readonly state: 'failed'; readonly problem: string }
 );

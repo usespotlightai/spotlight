@@ -840,7 +840,7 @@ describe('RedraftChangeStack', () => {
       request: CheckRequest.of('npx tsc --noEmit', null),
     });
 
-    const ready = generated.saved[generated.saved.length - 1] as ChangeStack;
+    const ready = generated.saved[generated.saved.length - 1];
     const check = StackCheck.begin({
       stackId: ready.id,
       runId: ready.runId,
@@ -943,7 +943,7 @@ describe('RedraftChangeStack', () => {
       request: CheckRequest.of('npx tsc --noEmit', null),
     });
 
-    const ready = generated.saved[generated.saved.length - 1] as ChangeStack;
+    const ready = generated.saved[generated.saved.length - 1];
     const check = StackCheck.begin({
       stackId: ready.id,
       runId: ready.runId,
@@ -1088,7 +1088,7 @@ describe('the problems a broken stack is settled with', () => {
       request: CheckRequest.of('npx tsc --noEmit', null),
     });
 
-    const ready = generated.saved[generated.saved.length - 1] as ChangeStack;
+    const ready = generated.saved[generated.saved.length - 1];
     const check = StackCheck.begin({
       stackId: ready.id,
       runId: ready.runId,

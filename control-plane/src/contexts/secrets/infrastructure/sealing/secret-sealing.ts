@@ -7,6 +7,7 @@ import {
   type KeyObject,
   randomBytes,
 } from 'node:crypto';
+
 import { InvalidRecipientError } from '@secrets/application/errors/invalid-recipient.error';
 import type {
   SealedFor,

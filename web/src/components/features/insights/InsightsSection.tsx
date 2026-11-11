@@ -1,4 +1,5 @@
 import { type ReactNode, useId } from 'react';
+
 import { SectionLevel } from '@/components/features/insights/section-level';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';

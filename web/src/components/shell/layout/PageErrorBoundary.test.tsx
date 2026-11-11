@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { PageErrorBoundary } from '@/components/shell/layout/PageErrorBoundary';
 
 let broken = true;

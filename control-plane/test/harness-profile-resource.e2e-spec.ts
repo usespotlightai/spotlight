@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -27,7 +25,14 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+
+import {
+  type Answer,
+  openApp,
+  type Problem,
+  served,
+  TEST_USER_HEADER,
+} from './support/app';
 import { definitionOf } from './support/line-definition';
 import {
   conformsAsResource,
@@ -111,6 +116,15 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
 
 conformsAsResource({ kind: 'harness-profile', open: seated });
 
+interface Profile {
+  readonly id: string;
+  readonly version: number;
+  readonly warnings: readonly unknown[];
+  readonly mcpServers: readonly {
+    readonly env: Readonly<Record<string, string>>;
+  }[];
+}
+
 describe('a harness profile, created through the resource API (e2e)', () => {
   let app: INestApplication;
   let fixture: ResourceFixture;
@@ -126,11 +140,11 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     read: (path: string) => served(app).get(path).set(TEST_USER_HEADER, user),
   });
 
-  const create = (body: object) =>
+  const create = async (body: object): Promise<Answer<Profile & Problem>> =>
     as(fixture.admin).create(fixture.collection, body);
 
   const delivery = () => {
-    const line = definitionOf(BUILT_IN_LINES[0] as LineOpening);
+    const line = definitionOf(BUILT_IN_LINES[0]);
     const agentStations = line.stations.filter((each) => each.kind === 'work');
     const [first, second] = agentStations.map((each) => each.key);
 
@@ -174,11 +188,13 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       expect.arrayContaining([
         expect.objectContaining({
           path: 'permissions.ask[0]',
-          message: expect.stringContaining('Cursor has no ask rules'),
+          message: expect.stringContaining(
+            'Cursor has no ask rules',
+          ) as unknown,
         }),
         expect.objectContaining({
           path: 'permissions.deny[0]',
-          message: expect.stringContaining('Codex reads whatever'),
+          message: expect.stringContaining('Codex reads whatever') as unknown,
         }),
       ]),
     );
@@ -217,10 +233,10 @@ describe('a harness profile, created through the resource API (e2e)', () => {
   it('drives two harnesses on two stations of one line', async () => {
     await create(CAREFUL);
     const { first, second, ...line } = delivery();
-    const laid = await as(fixture.admin).create(
+    const laid = (await as(fixture.admin).create(
       `/api/v1/resources/teams/${teamId}/lines`,
       line,
-    );
+    )) as Answer<{ readonly definition: { readonly stations: unknown } }>;
 
     expect(laid.status).toBe(201);
     expect(laid.body.definition.stations).toEqual(
@@ -268,9 +284,9 @@ describe('a harness profile, created through the resource API (e2e)', () => {
           `/api/v1/resources/workspaces/${teamId}/tokens`,
           { name: scopes.join('-'), scopes },
         )
-      ).headers['spotlight-workspace-token'] as string;
+      ).headers['spotlight-workspace-token'];
     const bearing = (token: string) => ({
-      create: () =>
+      create: async (): Promise<Answer<Profile & Problem>> =>
         served(app)
           .post(fixture.collection)
           .set('Authorization', `Bearer ${token}`)
@@ -326,7 +342,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       ],
     };
 
-    const setSecret = () =>
+    const setSecret = async (): Promise<Answer<Profile>> =>
       as(fixture.admin).create(
         `/api/v1/resources/workspaces/${teamId}/secrets`,
         {
@@ -357,7 +373,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       expect(rejected.body.errors).toEqual([
         expect.objectContaining({
           path: 'mcpServers[0].env.LINEAR_API_KEY',
-          message: expect.stringContaining('LINEAR_API_KEY'),
+          message: expect.stringContaining('LINEAR_API_KEY') as unknown,
         }),
       ]);
     });
@@ -388,10 +404,10 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         LINEAR_API_KEY: 'spotlight-egress:LINEAR_API_KEY',
       });
 
-      const rejected = await served(app)
+      const rejected = (await served(app)
         .delete(`/api/v1/resources/secrets/${secret.body.id}`)
         .set(TEST_USER_HEADER, fixture.admin)
-        .set('If-Match', `"${secret.body.version}"`);
+        .set('If-Match', `"${secret.body.version}"`)) as Answer<Problem>;
 
       expect(rejected.status).toBe(409);
       expect(rejected.body.detail).toContain('harness profile team/careful');
@@ -406,15 +422,15 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       line,
     );
 
-    const rejected = await served(app)
+    const rejected = (await served(app)
       .delete(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin)
-      .set('If-Match', `"${made.body.version}"`);
+      .set('If-Match', `"${made.body.version}"`)) as Answer<Problem>;
 
     expect(rejected.status).toBe(409);
     expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
-      detail: expect.stringContaining(`${line.key}/${first}`),
+      detail: expect.stringContaining(`${line.key}/${first}`) as unknown,
     });
   });
 });

@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
+
 import { FileDropContext, type TakeFiles } from '@/hooks/useFileDropTarget';
 import { carriesFiles, filesIn } from '@/lib/attachment';
 import { cn } from '@/lib/utils';
@@ -39,7 +40,7 @@ export function FileDropZone({ children, className }: FileDropZoneProps) {
 
   return (
     <FileDropContext value={register}>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: the attach button is the keyboard path; this only widens the drop target */}
+      {}
       <div
         className={cn('relative', className)}
         onDragEnter={(event) => {

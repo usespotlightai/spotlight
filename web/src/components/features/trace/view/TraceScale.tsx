@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { LABEL_ROOM } from '@/components/features/trace/view/TraceBar';
 import { TICKS } from '@/lib/trace';
 

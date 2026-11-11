@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 
 type ExpandChevronProps = {

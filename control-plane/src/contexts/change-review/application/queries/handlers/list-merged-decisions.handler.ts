@@ -52,10 +52,10 @@ const withinOf = (
   );
 };
 
-export class ListMergedDecisionsHandler
-  implements
-    QueryHandlerPort<ListMergedDecisionsQuery, MergedDecisionsDto[] | null>
-{
+export class ListMergedDecisionsHandler implements QueryHandlerPort<
+  ListMergedDecisionsQuery,
+  MergedDecisionsDto[] | null
+> {
   constructor(
     private readonly workspaces: WorkspacesPort,
     private readonly decisions: DecisionReaderPort,
@@ -88,7 +88,7 @@ export class ListMergedDecisionsHandler
         max: MAX_SETS,
       });
 
-      return Promise.all(
+      return await Promise.all(
         found.map(async (each) => ({
           ...each,
           decisions: await namedDisputes(each.decisions, this.people),

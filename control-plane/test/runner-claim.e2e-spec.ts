@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { CheckAccess } from '@change-review/application/services/check-access.service';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
@@ -23,6 +24,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { requestedBySpec, requestedByTask } from './support/runs';
 import * as schema from './support/schema';

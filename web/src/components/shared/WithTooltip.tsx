@@ -1,5 +1,6 @@
 import { type ReactElement, useId } from 'react';
 import { createPortal } from 'react-dom';
+
 import { TooltipNoteContent } from '@/components/shared/TooltipNoteContent';
 import {
   Tooltip,

@@ -164,6 +164,7 @@ export const taskNote = pgTable(
     at: timestamptz('at').notNull(),
     voice: voice('voice').notNull().default('station'),
     authorId: text('author_id'),
+    source: text('source'),
     coAuthorIds: text('co_author_ids')
       .array()
       .notNull()

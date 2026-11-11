@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import { afterEach, expect } from 'vitest';
+import { afterEach } from 'vitest';
 
 interface Queueing {
   readonly _activeQuery: { readonly text?: string } | null;
@@ -34,5 +34,9 @@ if (!shared[OVERLAPS]) {
 afterEach(() => {
   const taken = shared[OVERLAPS]?.splice(0) ?? [];
 
-  expect(taken, 'Queries overlapped on one pg client').toEqual([]);
+  if (taken.length > 0) {
+    throw new Error(
+      `Queries overlapped on one pg client:\n${taken.join('\n')}`,
+    );
+  }
 });

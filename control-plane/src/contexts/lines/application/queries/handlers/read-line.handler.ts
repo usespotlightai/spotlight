@@ -7,9 +7,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
-export class ReadLineHandler
-  implements QueryHandlerPort<ReadLineQuery, LineResourceDto | null>
-{
+export class ReadLineHandler implements QueryHandlerPort<
+  ReadLineQuery,
+  LineResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: LineResourcesPort,
@@ -30,7 +31,7 @@ export class ReadLineHandler
         return null;
       }
 
-      return this.views.of(record);
+      return await this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

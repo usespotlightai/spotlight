@@ -1,4 +1,5 @@
 import type { LinkProps } from 'react-router';
+
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type PillSize, type PillVariant, pillClass } from '@/lib/pill';
 

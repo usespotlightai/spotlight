@@ -1,4 +1,5 @@
 import { type LookupAddress, lookup } from 'node:dns';
+
 import type { OnApplicationShutdown } from '@nestjs/common';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import { isAddress, unreachable } from '@platform/outbound/reachable-addresses';
@@ -45,7 +46,7 @@ export class OutboundGuard implements OnApplicationShutdown {
         options: { all?: boolean },
         done: LookupCallback,
       ) => this.resolved(hostname, options, done),
-    } as buildConnector.BuildOptions);
+    });
 
     const agent = new Agent({
       headersTimeout: HEADERS_WITHIN_MS,

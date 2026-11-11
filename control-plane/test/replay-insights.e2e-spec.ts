@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -27,6 +28,7 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { type SearchPolicyTerms, searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
@@ -509,7 +511,7 @@ const tokenWith = async (scopes: readonly string[]): Promise<string> => {
 
   expect(issued.status).toBe(201);
 
-  return issued.headers['spotlight-workspace-token'] as string;
+  return issued.headers['spotlight-workspace-token'];
 };
 
 let fiveTasks: Original[];

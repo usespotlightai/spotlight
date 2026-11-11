@@ -1,5 +1,6 @@
 import { DragOverlay, defaultDropAnimationSideEffects } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+
 import { TaskPreview } from '@/components/features/board/task/TaskPreview';
 import type { StationResponseDto } from '@/lib/api';
 import { stationShare } from '@/lib/station';

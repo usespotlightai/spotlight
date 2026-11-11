@@ -77,7 +77,7 @@ export class DrizzleWorkspaceInviteRepository
   }
 
   private async stored(saved: WorkspaceInvite): Promise<void> {
-    const { id, workspaceId, email, ...rest } = this.written(saved);
+    const { id, workspaceId: _workspaceId, email: _email, ...rest } = this.written(saved);
 
     const written = await this.context.db
       .update(workspaceInvite)

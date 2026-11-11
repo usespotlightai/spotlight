@@ -323,7 +323,7 @@ describe('SecretInjection', () => {
       });
 
       expect(secret.revealed()).toBe('sntrys_1');
-      expect(`${secret}`).toBe('[secret]');
+      expect(String(secret)).toBe('[secret]');
       expect(JSON.stringify({ secret })).toBe('{"secret":"[secret]"}');
     });
 

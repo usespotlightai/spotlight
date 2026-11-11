@@ -10,9 +10,10 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const RESOLVED = 'Resolved without an answer.';
 
-export class ResolveConversationHandler
-  implements CommandHandlerPort<ResolveConversationCommand, void>
-{
+export class ResolveConversationHandler implements CommandHandlerPort<
+  ResolveConversationCommand,
+  void
+> {
   constructor(
     private readonly conversations: ConversationLoader,
     private readonly tasks: TaskRepository,

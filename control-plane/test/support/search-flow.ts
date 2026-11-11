@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { RepositoryUnreachableError } from '@github/application/errors/repository-unreachable.error';
 import {
   PULL_REQUESTS,
@@ -43,6 +44,7 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, expect } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './app';
 import {
   type SearchedStation,
@@ -224,8 +226,11 @@ const pullRequests: PullRequestPort = {
   changedIn: async () => [],
 };
 
+// oxlint-disable-next-line import/no-mutable-exports -- openSearchFlow sets it in beforeAll; specs read the live binding
 export let app: INestApplication;
+// oxlint-disable-next-line import/no-mutable-exports -- openSearchFlow sets it in beforeAll; specs read the live binding
 export let db: DrizzleDatabase;
+// oxlint-disable-next-line import/no-mutable-exports -- openSearchFlow sets it in beforeAll; specs read the live binding
 export let team: Awaited<ReturnType<typeof createTeam>>;
 
 export const http = () => served(app);
@@ -403,9 +408,9 @@ export const teamNotices = async (): Promise<
   Extract<InboxEntry, { kind: 'notice' }>[]
 > =>
   (
-    (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200)).body
-      .items as InboxEntry[]
-  ).filter(
+    (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
+      .body as { readonly items: InboxEntry[] }
+  ).items.filter(
     (each): each is Extract<InboxEntry, { kind: 'notice' }> =>
       each.kind === 'notice',
   );
@@ -495,7 +500,7 @@ export const originalsOf = async (replayId: string) =>
     .sort();
 
 export const searchRunsOf = async (searchId: string) =>
-  await db
+  db
     .select()
     .from(schema.run)
     .where(
@@ -773,7 +778,7 @@ export const proposing = (assignment: Claimed, body: object) =>
   );
 
 export const auditOf = async (searchId: string) =>
-  await db
+  db
     .select()
     .from(schema.configurationChange)
     .where(eq(schema.configurationChange.resourceId, searchId))
@@ -802,7 +807,9 @@ export const delivered = async (event: DomainEvent): Promise<void> => {
   }
 };
 
+// oxlint-disable-next-line import/no-mutable-exports -- openSearchFlow sets it in beforeAll; specs read the live binding
 export let tenTasks: Original[];
+// oxlint-disable-next-line import/no-mutable-exports -- openSearchFlow sets it in beforeAll; specs read the live binding
 export let fiveTasks: Original[];
 
 export const openSearchFlow = (): void => {

@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
+
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { ScrollArea } from '@/components/ui/scroll-area';

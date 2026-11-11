@@ -5,9 +5,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class RemoveUserEmailHandler
-  implements CommandHandlerPort<RemoveUserEmailCommand, boolean>
-{
+export class RemoveUserEmailHandler implements CommandHandlerPort<
+  RemoveUserEmailCommand,
+  boolean
+> {
   constructor(private readonly emails: UserEmailRepository) {}
 
   async execute(command: RemoveUserEmailCommand): Promise<boolean> {

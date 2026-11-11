@@ -9,8 +9,13 @@ export interface ControllerRoute {
   marked(marker: symbol): boolean;
 }
 
-const pathsOf = (metadata: unknown): string[] =>
-  Array.isArray(metadata) ? metadata : [String(metadata ?? '')];
+const pathsOf = (metadata: unknown): string[] => {
+  if (Array.isArray(metadata)) {
+    return metadata as string[];
+  }
+
+  return [typeof metadata === 'string' ? metadata : ''];
+};
 
 const segmentsOf = (...parts: string[]): string[] =>
   parts
@@ -37,7 +42,7 @@ export const controllerRoutesOf = (
 
       return scanner.getAllMethodNames(prototype).flatMap((name) => {
         const handler = prototype[name];
-        const own = Reflect.getMetadata(PATH_METADATA, handler);
+        const own: unknown = Reflect.getMetadata(PATH_METADATA, handler);
 
         if (own === undefined) {
           return [];
@@ -48,7 +53,7 @@ export const controllerRoutesOf = (
             Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod
           ].toLowerCase();
         const marked = (marker: symbol): boolean =>
-          reflector.getAllAndOverride<boolean>(marker, [
+          reflector.getAllAndOverride<boolean | undefined>(marker, [
             handler,
             controller,
           ]) === true;

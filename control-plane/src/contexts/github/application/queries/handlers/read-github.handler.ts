@@ -8,9 +8,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ReadGitHubHandler
-  implements QueryHandlerPort<ReadGitHubQuery, GitHubConnectionStatusDto | null>
-{
+export class ReadGitHubHandler implements QueryHandlerPort<
+  ReadGitHubQuery,
+  GitHubConnectionStatusDto | null
+> {
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly connections: WorkspaceConnectionsPort,

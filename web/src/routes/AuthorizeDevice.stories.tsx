@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { devicePath } from '@/lib/device';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
 

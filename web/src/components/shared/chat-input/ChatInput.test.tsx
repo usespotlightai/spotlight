@@ -9,10 +9,11 @@ import {
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { erase, restore, snapshot, textOf, write } from '@/test/lexical';
 
-const uploaded = vi.fn();
+const uploaded = vi.fn<(...args: unknown[]) => unknown>();
 
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: (input: unknown) => uploaded(input),

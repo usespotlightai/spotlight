@@ -1,7 +1,14 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import {
+  type Location,
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { failedAny } from '@/lib/insights';
 import { stationsOf } from '@/mocks/world/insights';
 import { PLATFORM_ID } from '@/mocks/world/platform';
@@ -121,7 +128,7 @@ const line = {
   ],
 };
 
-const lines = vi.fn();
+const lines = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
 
@@ -156,9 +163,9 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
   }),
 }));
 
-const outcomes = vi.fn();
+const outcomes = vi.fn<(...args: unknown[]) => unknown>();
 const outcomesFailing = vi.fn();
-const outcomesError = vi.fn();
+const outcomesError = vi.fn<(...args: unknown[]) => unknown>();
 const refetchOutcomes = vi.fn();
 
 vi.mock('@/hooks/api/useStationInsights', () => ({
@@ -172,10 +179,10 @@ vi.mock('@/hooks/api/useStationInsights', () => ({
   }),
 }));
 
-const judged = vi.fn();
+const judged = vi.fn<(...args: unknown[]) => unknown>();
 const judgeFailing = vi.fn();
 
-const worthImproving = vi.fn();
+const worthImproving = vi.fn<(...args: unknown[]) => unknown>();
 
 const periodReport = () => {
   const [report] = stationsOf(PLATFORM_ID, '30d').stations.filter(failedAny);
@@ -288,7 +295,10 @@ const CALIBRATION = {
 
 const INSIGHTS = '/w/acme/team/team_1/insights';
 function HandedOver() {
-  const { state } = useLocation();
+  const { state } = useLocation() as Location<{
+    targetStation?: unknown;
+    prompt?: string;
+  } | null>;
 
   return (
     <>

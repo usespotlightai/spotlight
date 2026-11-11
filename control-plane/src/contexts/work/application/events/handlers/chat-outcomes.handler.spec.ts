@@ -13,7 +13,6 @@ import {
   runFailed,
   runUnprovisioned,
 } from '@work/application/ports/runs.fake-spec';
-import type { ChatDispatching } from '@work/application/services/dispatch-chat.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -64,7 +63,7 @@ const outcomesOf = (chat: Chat | null) => {
   );
   const outcomes = new ChatOutcomes(
     { find: vi.fn(async () => chat), save } as unknown as ChatRepository,
-    { takenUp } as ChatDispatching,
+    { takenUp },
   );
 
   return { outcomes, save, takenUp };

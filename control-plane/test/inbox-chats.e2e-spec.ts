@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunReadModel } from '@runs/application/services/run-read-model.service';
 import { DrizzleRunFactsReader } from '@runs/infrastructure/persistence/drizzle/readers/run-facts.reader';
@@ -27,6 +28,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 
 let database: TestDatabase;

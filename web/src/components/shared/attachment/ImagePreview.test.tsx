@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ImagePreview } from '@/components/shared/attachment/ImagePreview';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
@@ -109,6 +110,7 @@ describe('ImagePreview', () => {
     );
   });
 
+  // oxlint-disable-next-line vitest/expect-expect -- closed() asserts the view is gone
   it('closes on a click anywhere in the view', async () => {
     sized(400, 300);
     render(<ImagePreview source={{ blob: shot() }} name="shot.png" />);
@@ -133,8 +135,7 @@ describe('ImagePreview', () => {
     sized(400, 300);
     const outer = vi.fn();
     render(
-      // biome-ignore lint/a11y/noStaticElementInteractions: a stand-in for a clickable parent
-      // biome-ignore lint/a11y/useKeyWithClickEvents: a stand-in for a clickable parent
+      // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a stand-in for a clickable parent
       <div onClick={outer}>
         <ImagePreview source={{ blob: shot() }} name="shot.png" />
       </div>,

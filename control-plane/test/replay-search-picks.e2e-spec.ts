@@ -10,6 +10,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+
 import { autoSearched } from './support/app';
 import { activeSearchAt, dueNow, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
@@ -278,7 +279,7 @@ describe('a search for a better station config, ranking and picking its candidat
       },
     ]);
     expect(
-      (await auditOf(opened[0]?.id as string)).map((each) => [
+      (await auditOf(opened[0]?.id)).map((each) => [
         each.resource,
         each.action,
         each.actor,
@@ -309,7 +310,7 @@ describe('a search for a better station config, ranking and picking its candidat
       }),
     ]);
 
-    const pullRequestId = ConfigPullRequestId.of(opened[0]?.id as string);
+    const pullRequestId = ConfigPullRequestId.of(opened[0]?.id);
 
     await delivered(
       new ConfigPullRequestOpened(

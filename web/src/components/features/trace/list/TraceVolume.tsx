@@ -6,6 +6,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
 import { TraceLegend } from '@/components/features/trace/list/TraceLegend';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';

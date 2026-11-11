@@ -1,4 +1,5 @@
 import ts from 'typescript';
+
 import {
   importsOf,
   type SourceFile,
@@ -65,8 +66,8 @@ const baseOf = (
       : idOf(imported.target, imported.exported);
   }
 
-  if (rest.length === 0 && declaredHere.has(head as string)) {
-    return idOf(withoutExtension(file.path), head as string);
+  if (rest.length === 0 && declaredHere.has(head)) {
+    return idOf(withoutExtension(file.path), head);
   }
 
   return extended.getText();

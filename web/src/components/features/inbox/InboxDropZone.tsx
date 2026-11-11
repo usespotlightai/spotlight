@@ -1,5 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import type { ReactNode } from 'react';
+
 import type { InboxDrop } from '@/hooks/useInboxDrag';
 import { cn } from '@/lib/utils';
 

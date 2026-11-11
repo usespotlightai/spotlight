@@ -27,6 +27,11 @@ import {
 import type { AuthenticatedUser } from '@platform/http/authenticated-user';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 
+const textOf = (raw: unknown): string =>
+  typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean'
+    ? String(raw)
+    : '';
+
 @ApiTags('teams')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('teams/:teamId')
@@ -80,7 +85,7 @@ export class TeamController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     const added = await this.commandBus.execute<AddTeamMemberCommand, boolean>(
-      new AddTeamMemberCommand(teamId, String(body.userId ?? ''), user.id),
+      new AddTeamMemberCommand(teamId, textOf(body.userId), user.id),
     );
 
     if (!added) {

@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+
 import { TraceGrid } from '@/components/features/trace/view/TraceGrid';
 import {
   type TraceRowShape,

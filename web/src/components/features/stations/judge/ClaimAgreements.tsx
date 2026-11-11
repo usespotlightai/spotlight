@@ -1,11 +1,11 @@
 import { KappaBar } from '@/components/features/stations/judge/KappaBar';
-import { NestedCell } from '@/components/shared/nested-table/NestedCell';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   CLAIM_HEADINGS,
   type ClaimAgreement,

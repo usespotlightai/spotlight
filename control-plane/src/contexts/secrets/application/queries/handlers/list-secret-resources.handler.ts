@@ -7,13 +7,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ListSecretResourcesHandler
-  implements
-    QueryHandlerPort<
-      ListSecretResourcesQuery,
-      readonly SecretResourceDto[] | null
-    >
-{
+export class ListSecretResourcesHandler implements QueryHandlerPort<
+  ListSecretResourcesQuery,
+  readonly SecretResourceDto[] | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: SecretResourcesPort,
@@ -30,7 +27,7 @@ export class ListSecretResourcesHandler
 
       return permissions
         ? (await this.resources.secretsIn(permissions.workspaceId)).map(
-            SecretResourceMapper.toDto,
+            (each) => SecretResourceMapper.toDto(each),
           )
         : null;
     } catch (error) {

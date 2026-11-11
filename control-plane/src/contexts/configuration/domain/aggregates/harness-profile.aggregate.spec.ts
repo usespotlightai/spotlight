@@ -203,7 +203,7 @@ describe('HarnessProfile', () => {
     expect(
       stored()
         .update(referring, BY, existing, COMPATIBLE)
-        .settings.uses(existing[0] as SecretName),
+        .settings.uses(existing[0]),
     ).toBe(true);
   });
 

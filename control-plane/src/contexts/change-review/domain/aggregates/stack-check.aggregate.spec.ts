@@ -16,6 +16,7 @@ import {
   Diff,
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type {
   CheckedStep,
   StepId,
@@ -27,7 +28,6 @@ import {
   WAITING_LIMIT_MS,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
-import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
@@ -744,7 +744,7 @@ describe('StackCheck', () => {
           leaseExpiresAt: ceiling,
           claimedAt: null,
         }),
-      ).toThrow();
+      ).toThrow(InconsistentStateError);
     });
   });
 

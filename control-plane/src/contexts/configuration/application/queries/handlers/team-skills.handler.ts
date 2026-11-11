@@ -7,9 +7,10 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export class TeamSkillsHandler
-  implements QueryHandlerPort<TeamSkillsQuery, TeamSkillsDto | null>
-{
+export class TeamSkillsHandler implements QueryHandlerPort<
+  TeamSkillsQuery,
+  TeamSkillsDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly skills: TeamSkillReading,

@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'msw';
+
 import type {
   AnswerInboxItemRequestDto,
   ApproveMemoriesRequestDto,
@@ -73,9 +74,9 @@ const journalVisible = (params: Params, taskId: string) =>
   isOurs(params) &&
   Boolean(
     teamOfAnyTask(taskId) ||
-      inboxStore().entries.some(
-        (entry) => entry.kind === 'task' && entry.taskId === taskId,
-      ),
+    inboxStore().entries.some(
+      (entry) => entry.kind === 'task' && entry.taskId === taskId,
+    ),
   );
 
 const taskOfAnyRun = (runId: string) =>
@@ -136,6 +137,8 @@ const answer = (item: InboxConversation, reply: AnswerInboxItemRequestDto) => {
     at: now(),
     author: SAM,
     coAuthors: [],
+    source: null,
+    deferredTo: null,
     approval: null,
     failure: null,
     connection: null,
@@ -165,6 +168,8 @@ const notedBySam = (
     at: now(),
     author: SAM,
     coAuthors: [],
+    source: null,
+    deferredTo: null,
     approval: null,
     failure: null,
     connection: null,

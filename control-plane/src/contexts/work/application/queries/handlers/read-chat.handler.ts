@@ -8,9 +8,10 @@ import type { ReadChatQuery } from '@work/application/queries/chat.queries';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
-export class ReadChatHandler
-  implements QueryHandlerPort<ReadChatQuery, ChatDto | null>
-{
+export class ReadChatHandler implements QueryHandlerPort<
+  ReadChatQuery,
+  ChatDto | null
+> {
   constructor(
     private readonly chats: ChatReaderPort,
     private readonly access: WorkAccess,

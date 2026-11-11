@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { sliceFill } from '@/components/features/insights/chart-series';
 import { SliceDonut } from '@/components/features/insights/SliceDonut';
 import { SliceRow } from '@/components/features/insights/SliceRow';

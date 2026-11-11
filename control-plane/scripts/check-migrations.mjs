@@ -1,3 +1,4 @@
+// oxlint-disable no-console -- a command-line tool reports on the terminal
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 

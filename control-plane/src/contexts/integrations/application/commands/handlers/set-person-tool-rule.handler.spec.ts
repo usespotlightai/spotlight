@@ -7,8 +7,8 @@ import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
-import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';

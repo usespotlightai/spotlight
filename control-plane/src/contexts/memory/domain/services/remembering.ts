@@ -8,11 +8,11 @@ import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import type { MemoryPredecessor } from '@memory/domain/value-objects/memory-predecessor.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
-import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import {
   type MemoryScopeLevel,
   parseMemoryScopeLevel,
 } from '@memory/domain/value-objects/memory-scope-level';
+import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { StationContext } from '@memory/domain/value-objects/run-context';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';

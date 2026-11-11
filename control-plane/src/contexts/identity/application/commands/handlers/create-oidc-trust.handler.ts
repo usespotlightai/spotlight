@@ -26,9 +26,10 @@ import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class CreateOidcTrustHandler
-  implements CommandHandlerPort<CreateOidcTrustCommand, ResourceCreated | null>
-{
+export class CreateOidcTrustHandler implements CommandHandlerPort<
+  CreateOidcTrustCommand,
+  ResourceCreated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: IdentityDefinitionsPort,

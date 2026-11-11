@@ -18,8 +18,8 @@ import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import {
-  REPLAY_STOP_REASONS,
-  type ReplayStopReason,
+  REPLAY_END_STATES,
+  type ReplayEndState,
 } from '@replays/domain/value-objects/replay-state';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
@@ -76,17 +76,19 @@ type IterationRow = typeof replaySearchIteration.$inferSelect;
 
 const active = eq(replaySearch.active, true);
 
-const isReplayStopReason = (raw: string): raw is ReplayStopReason =>
-  (REPLAY_STOP_REASONS as readonly string[]).includes(raw);
+const isReplayEndState = (raw: string): raw is ReplayEndState =>
+  (REPLAY_END_STATES as readonly string[]).includes(raw);
 
 const searchReplayOf = (
   stored: StoredSearchReplay,
   currency: string,
 ): SearchReplay => {
-  if (stored.end !== null && !isReplayStopReason(stored.end)) {
+  if (stored.end !== null && !isReplayEndState(stored.end)) {
+    const end: string = stored.end;
+
     throw new InconsistentStateError(
       'search',
-      `has a replay that ended in a way no longer known, ${stored.end}`,
+      `has a replay that ended in a way no longer known, ${end}`,
     );
   }
 

@@ -8,15 +8,15 @@ import type {
 } from '@runners/application/ports/runner-resources.port';
 import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
-import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
   aPullPool,
   aRunner,
   POOL_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
-import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
+import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -75,7 +75,7 @@ describe('RunnerPools', () => {
         poolId: POOL_ID.value,
         workspaceId: WORKSPACE,
         key: 'ephemeral',
-        labels: expect.objectContaining({ values: ['linux'] }),
+        labels: expect.objectContaining({ values: ['linux'] }) as unknown,
         egress: false,
       });
       expect(authenticate).toHaveBeenCalledWith({

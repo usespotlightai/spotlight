@@ -119,7 +119,7 @@ const ordering = (
   } = {},
 ) => {
   const task = over.task ?? Task.rehydrate({ ...added(), currentRunId: RUN });
-  const added_ = vi.fn(async (_: Dispatch) => {});
+  const added_ = vi.fn<(dispatch: Dispatch) => Promise<void>>(async () => {});
   const order = vi.fn(async () =>
     over.ordered === undefined ? ORDERED : over.ordered,
   );

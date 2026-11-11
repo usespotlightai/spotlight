@@ -8,9 +8,10 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ImportEgressHandler
-  implements QueryHandlerPort<ImportEgressQuery, EgressResourceDto | null>
-{
+export class ImportEgressHandler implements QueryHandlerPort<
+  ImportEgressQuery,
+  EgressResourceDto | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly resources: RunnerResourcesPort,

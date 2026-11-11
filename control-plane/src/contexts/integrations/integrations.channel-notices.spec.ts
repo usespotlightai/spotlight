@@ -116,7 +116,7 @@ const notifying = (definition = SLACK) => {
     {
       ofTeam: vi.fn(async () => [defined(definition)]),
     } as unknown as DefinedIntegrationsPort,
-    runtimeWith({ run } as unknown as HttpOutbound),
+    runtimeWith({ run }),
     callAuthFor(injecting().injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,

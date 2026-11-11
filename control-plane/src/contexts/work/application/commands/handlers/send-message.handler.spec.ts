@@ -98,16 +98,6 @@ const finished = () =>
 const paused = () =>
   handed().putToAPerson(RUN, stationNote('Which queue should I drain?'));
 
-const interrupted = () =>
-  handed().interrupt({
-    line: null,
-    body: TaskNoteBody.of(
-      'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
-    ),
-    at: NOW,
-    voice: Voice.world(),
-  });
-
 const OUTSIDER = 'outsider';
 const BYSTANDER = 'bystander';
 
@@ -229,22 +219,6 @@ describe('SendMessageHandler', () => {
     expect(saved?.pullEvents()).toContainEqual(
       new TaskAnswered(TaskId.of('task_1'), WorkspaceId.of('ws_1'), RUN, null),
     );
-  });
-
-  it('answers the question an interruption put to the person, starting the station again', async () => {
-    await sendMessage(
-      interrupted(),
-      'Carry on, the follow-up still needs doing.',
-    );
-
-    expect(dispatched).toHaveLength(1);
-    expect(dispatched[0]?.stationId).toEqual(REVIEW);
-    expect(saved?.awaitingReview).toBe(false);
-    expect(saved?.currentRunId?.value).toBe('run_2');
-    expect(saved?.notes.map((note) => note.kind)).toEqual([
-      'asked',
-      'answered',
-    ]);
   });
 
   it('answers a conflict once the task has moved on from the run’s station, starting nothing', async () => {

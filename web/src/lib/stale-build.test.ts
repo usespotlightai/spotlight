@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import { reloadOnStaleBuild } from '@/lib/stale-build';
 
 const fakeWindow = () => {

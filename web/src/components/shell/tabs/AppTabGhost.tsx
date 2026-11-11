@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+
 import { tabFrame } from '@/components/shell/tabs/app-tab-look';
 import { type AppTab, NEW_TAB_TITLE } from '@/lib/app-tabs';
 import { cn } from '@/lib/utils';

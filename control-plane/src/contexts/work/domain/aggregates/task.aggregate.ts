@@ -63,21 +63,22 @@ import {
   reopenable,
   worksOn,
 } from '@work/domain/services/conversations';
+import { deferralIn } from '@work/domain/services/deferred-moves';
 import { Placement } from '@work/domain/services/placement';
 import type { Outcome } from '@work/domain/services/reaction-for';
 import { openSetupList } from '@work/domain/services/setup-list';
 import { takesUpRun } from '@work/domain/services/taking-up';
 import { anyUnread } from '@work/domain/services/unread';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
+import type { ApprovalCheck } from '@work/domain/value-objects/approval-check';
+import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
+import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
+import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import {
   Approval,
   type ApprovalDecision,
   type ApprovalEdits,
 } from '@work/domain/value-objects/approval.vo';
-import type { ApprovalCheck } from '@work/domain/value-objects/approval-check';
-import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
-import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
-import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
@@ -256,6 +257,14 @@ export class Task extends EventRecorder {
     return task;
   }
 
+  static revisionsOfLatestRunHere(
+    revision: TaskRevision,
+  ): readonly TaskRevision[] {
+    return revision.value === 0
+      ? [revision]
+      : [revision, TaskRevision.of(revision.value - 1)];
+  }
+
   static rehydrate(input: {
     id: TaskId;
     workspaceId: WorkspaceId;
@@ -425,7 +434,7 @@ export class Task extends EventRecorder {
   react(line: LineMap, to: StationId, rank: TaskRank, newNote: NewNote): Task {
     if (!this.movableByHappeningTo(line, to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station, and only while the run waits on an answer.`,
+        `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station.`,
       );
     }
 
@@ -435,9 +444,7 @@ export class Task extends EventRecorder {
   }
 
   movableByHappeningTo(line: LineMap, to: StationId): boolean {
-    return (
-      !this.running || (this.awaitsAnAnswer && line.completed.id.equals(to))
-    );
+    return !this.running || line.completed.id.equals(to);
   }
 
   deferMove(line: LineMap, to: StationId, newNote: NewNote): Task {
@@ -455,7 +462,7 @@ export class Task extends EventRecorder {
 
     if (line.completed.id.equals(to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} cannot defer a move to the end of its line. That move interrupts its run.`,
+        `Task ${this.id.value} cannot defer a move to the end of its line. That move ends its run.`,
       );
     }
 
@@ -463,20 +470,7 @@ export class Task extends EventRecorder {
   }
 
   get deferredMoveTo(): StationId | null {
-    for (const note of [...this.notes].reverse()) {
-      if (note.deferredMove) {
-        return note.deferredMove.to;
-      }
-
-      if (
-        note.kind === 'passed' ||
-        (note.kind === 'asked' && note.approval === null)
-      ) {
-        return null;
-      }
-    }
-
-    return null;
+    return deferralIn(this.notes)?.deferredMove?.to ?? null;
   }
 
   moveAsDeferred(
@@ -540,24 +534,6 @@ export class Task extends EventRecorder {
           .reverse()
           .find((note) => note.failure !== null)
       : undefined;
-  }
-
-  interrupt(newNote: NewNote): Task {
-    if (!this.running) {
-      throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has no run in progress.`,
-      );
-    }
-
-    if (this.awaitsAnAnswer) {
-      throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is already waiting on a person.`,
-      );
-    }
-
-    return this.stopped(newNote.at).asked(newNote, null, null, {
-      overAnApproval: true,
-    });
   }
 
   private relocated(
@@ -1085,8 +1061,6 @@ export class Task extends EventRecorder {
         return this.addMessage(newNote);
       case 'deferredMove':
         return this.deferMove(outcome.line, outcome.to.id, newNote);
-      case 'interrupts':
-        return this.interrupt(newNote);
       case 'answers':
         return this.answer(outcome.to, newNote);
       case 'moves':
@@ -1097,10 +1071,6 @@ export class Task extends EventRecorder {
           newNote,
         );
     }
-  }
-
-  get awaitsAnAnswer(): boolean {
-    return this.running && this.awaitingReview && !this.decisionPending;
   }
 
   get decisionPending(): boolean {
@@ -1377,7 +1347,7 @@ export class Task extends EventRecorder {
     );
   }
 
-  get briefed(): BriefedTask {
+  briefedOn(line: LineMap): BriefedTask {
     return BriefedTask.of({
       stationId: this.stationId,
       title: this.title.value,
@@ -1386,7 +1356,7 @@ export class Task extends EventRecorder {
       attachments: this.attachments,
       notes: this.notes.map((note) => ({
         station: note.station?.value ?? null,
-        body: note.body.value,
+        body: note.toldOn(line).value,
         attachments: note.attachments,
       })),
       openReviewComments: this.openReviewComments.map((each) => ({
@@ -1553,11 +1523,10 @@ export class Task extends EventRecorder {
     newNote: NewNote,
     by: RunId | null,
     waiting: RunId | null,
-    { overAnApproval } = { overAnApproval: false },
   ): Task {
     this.assertNoOtherRun(by, 'put it to a person');
 
-    if (this.awaitingReview && !(overAnApproval && this.decisionPending)) {
+    if (this.awaitingReview) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is already waiting on a person.`,
       );

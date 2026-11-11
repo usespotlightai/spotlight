@@ -6,6 +6,7 @@ import {
 import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import { RecordReplayPairVerdict } from '@replays/application/services/record-replay-pair-verdict.service';
 import {
+  CLOCK,
   FakeInsights,
   InMemoryReplays,
   TRANSACTION,
@@ -116,7 +117,7 @@ describe('PairReplayEntries', () => {
         count: 2,
         candidate: proposed,
         pairwiseReferenceId: 'baseline_1',
-      }).stop(NOW, BY),
+      }).stop(NOW, BY, 'search-ended'),
     );
     const baseline = (await memory.replayRepository.find(
       ReplayId.of('baseline_1'),
@@ -167,7 +168,7 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
       memory.replayRepository,
       memory.candidateRepository,
       sideBySideJudgingRequestsFor(judgings, judge),
-      new RecordReplayPairVerdict(memory.replayRepository, TRANSACTION),
+      new RecordReplayPairVerdict(memory.replayRepository, TRANSACTION, CLOCK),
     );
 
   it('requests judging with the candidate’s criteria and the original as the reference', async () => {
@@ -204,6 +205,7 @@ describe('RequestReplaySideBySideJudging and RecordReplayPairVerdict', () => {
     await new RecordReplayPairVerdict(
       memory.replayRepository,
       TRANSACTION,
+      CLOCK,
     ).paired(
       event.run,
       event.other,

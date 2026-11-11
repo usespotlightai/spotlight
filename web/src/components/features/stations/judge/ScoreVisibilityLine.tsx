@@ -1,4 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react';
+
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ScoreVisibility } from '@/lib/judge';
 import { cn } from '@/lib/utils';

@@ -1,6 +1,6 @@
 import type { CheckedStepDto } from '@change-review/application/dto/change-stack.dto';
-import type { CheckedStep } from '@change-review/domain/value-objects/stack-check.vo';
 import {
+  type CheckedStep,
   type StepId,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';

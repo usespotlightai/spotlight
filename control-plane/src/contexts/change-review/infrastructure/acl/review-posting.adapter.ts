@@ -5,8 +5,8 @@ import type {
   ReviewPoster,
   ReviewPostingPort,
 } from '@change-review/application/ports/review-posting.port';
-import type { ReviewVerdict } from '@change-review/domain/aggregates/review.aggregate';
 import type { OnGitHub } from '@change-review/domain/aggregates/review-comment.aggregate';
+import type { ReviewVerdict } from '@change-review/domain/aggregates/review.aggregate';
 import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { GitHubUnansweredError } from '@github/application/errors/github-unanswered.error';
 import type {

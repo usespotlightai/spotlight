@@ -35,9 +35,10 @@ const withoutValue = (definition: unknown): unknown => {
   return rest;
 };
 
-export class CreateSecretHandler
-  implements CommandHandlerPort<CreateSecretCommand, ResourceCreated | null>
-{
+export class CreateSecretHandler implements CommandHandlerPort<
+  CreateSecretCommand,
+  ResourceCreated | null
+> {
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: SecretDefinitionsPort,

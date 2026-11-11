@@ -1,16 +1,17 @@
 import { Fragment } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { SignalRow } from '@/components/features/insights/SignalRow';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
 import { HealthyLine } from '@/components/shared/HealthyLine';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
-import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
-import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useCollapsibles } from '@/hooks/useCollapsibles';
 import {

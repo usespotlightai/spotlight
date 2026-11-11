@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -22,6 +23,7 @@ import {
   expect,
   it,
 } from 'vitest';
+
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
@@ -49,6 +51,12 @@ const archiveStore: WorkingCopyArchiveStorePort = {
   grantDownload: async (archive) =>
     `https://archives.test/${archive.id.value}?download`,
   remove: async () => {},
+};
+
+type Claimed = {
+  sandboxId: string;
+  token: string;
+  sandboxToken: string;
 };
 
 const tokenOf = (seed: string): string =>
@@ -121,10 +129,10 @@ describe('sandboxes (e2e)', () => {
 
   const idleAndReady = async (key: string) => {
     const runId = await queue({ key });
-    const claimed = await claim().expect(200);
-    const sandboxId: string = claimed.body.sandboxId;
+    const claimed = (await claim().expect(200)).body as Claimed;
+    const sandboxId = claimed.sandboxId;
     await heartbeat([sandboxId]).expect(200);
-    await complete(runId, claimed.body.token);
+    await complete(runId, claimed.token);
     await eventually(async () =>
       (await sandboxRow(sandboxId))?.idleSince ? true : null,
     );
@@ -228,30 +236,36 @@ describe('sandboxes (e2e)', () => {
   it('starts a sandbox for each claimed run, held by the run, under its resume key', async () => {
     const runId = await queue({ key: 'work/task-task_1' });
 
-    const claimed = await claim().expect(200);
+    const claimed = (await claim().expect(200)).body as Claimed;
 
-    expect(claimed.body.sandboxId).toEqual(expect.any(String));
-    expect(await sandboxRow(claimed.body.sandboxId)).toMatchObject({
+    expect(claimed.sandboxId).toEqual(expect.any(String));
+    expect(await sandboxRow(claimed.sandboxId)).toMatchObject({
       workspaceId,
       key: 'work/task-task_1',
       hostId: HOST,
       state: 'open',
-      leases: [{ kind: 'run', holder: runId, renewedAt: expect.any(String) }],
+      leases: [
+        {
+          kind: 'run',
+          holder: runId,
+          renewedAt: expect.any(String) as unknown,
+        },
+      ],
       idleSince: null,
     });
   });
 
   it('drains a reported sandbox once its run ended and it stayed idle past the grace, then loses it once the host stops reporting it', async () => {
     const runId = await queue();
-    const claimed = await claim().expect(200);
-    const sandboxId: string = claimed.body.sandboxId;
+    const claimed = (await claim().expect(200)).body as Claimed;
+    const sandboxId = claimed.sandboxId;
 
     await expect(
       heartbeat([sandboxId, 'sandbox-unknown']).expect(200),
     ).resolves.toMatchObject({ body: { drain: ['sandbox-unknown'] } });
     expect((await sandboxRow(sandboxId))?.state).toBe('open');
 
-    await complete(runId, claimed.body.token);
+    await complete(runId, claimed.token);
     const released = await eventually(async () => {
       const row = await sandboxRow(sandboxId);
       return row?.idleSince ? row : null;
@@ -276,7 +290,7 @@ describe('sandboxes (e2e)', () => {
         const row = await sandboxRow(sandboxId);
         return row?.state === 'gone' ? row : null;
       }),
-    ).toMatchObject({ state: 'gone', goneAt: expect.any(Date) });
+    ).toMatchObject({ state: 'gone', goneAt: expect.any(Date) as unknown });
   });
 
   it('runs the next run of a key in its ready sandbox, claimed only by that sandbox’s host for it', async () => {
@@ -293,7 +307,9 @@ describe('sandboxes (e2e)', () => {
     });
     expect(await sandboxRow(sandboxId)).toMatchObject({
       state: 'open',
-      leases: [{ kind: 'run', holder: next, renewedAt: expect.any(String) }],
+      leases: [
+        { kind: 'run', holder: next, renewedAt: expect.any(String) as unknown },
+      ],
       idleSince: null,
     });
   });
@@ -304,10 +320,10 @@ describe('sandboxes (e2e)', () => {
 
     await claim(sandboxId).expect(204);
 
-    const other = await claim().expect(200);
-    expect(other.body.sandboxId).not.toBe(sandboxId);
+    const other = (await claim().expect(200)).body as Claimed;
+    expect(other.sandboxId).not.toBe(sandboxId);
 
-    const busy = other.body.sandboxId as string;
+    const busy = other.sandboxId;
     await heartbeat([sandboxId, busy]).expect(200);
     await queue({ key: 'work/task-task_5' });
     await claim(busy).expect(204);
@@ -369,18 +385,18 @@ describe('sandboxes (e2e)', () => {
       reused: false,
       work: { kind: 'run', run: { id: next } },
     });
-    expect(fresh.body.sandboxId).not.toBe(sandboxId);
+    expect((fresh.body as Claimed).sandboxId).not.toBe(sandboxId);
   });
 
   it('leaves the next run of a key to its sandbox while that sandbox starts', async () => {
     const first = await queue({ key: 'work/task-task_2' });
-    const earlier = await claim().expect(200);
-    await complete(first, earlier.body.token);
+    const earlier = (await claim().expect(200)).body as Claimed;
+    await complete(first, earlier.token);
     await queue({ key: 'work/task-task_2' });
 
     await claim().expect(204);
 
-    expect((await sandboxRow(earlier.body.sandboxId))?.state).toBe('open');
+    expect((await sandboxRow(earlier.sandboxId))?.state).toBe('open');
   });
 
   it('hands out no second run of a chat while an earlier run of it holds its lease', async () => {
@@ -417,15 +433,15 @@ describe('sandboxes (e2e)', () => {
         token: null,
         egressToken: null,
         sandboxId: opened.id,
-        sandboxToken: expect.any(String),
-        allowedHosts: expect.any(Array),
+        sandboxToken: expect.any(String) as unknown,
+        allowedHosts: expect.any(Array) as unknown,
         work: { kind: 'sandbox', run: null, check: null },
       });
       expect(await sandboxRow(opened.id)).toMatchObject({
         hostId: HOST,
         state: 'open',
-        tokenHash: expect.any(String),
-        idleSince: expect.any(Date),
+        tokenHash: expect.any(String) as unknown,
+        idleSince: expect.any(Date) as unknown,
       });
 
       await heartbeat([opened.id]).expect(200);
@@ -466,24 +482,30 @@ describe('sandboxes (e2e)', () => {
 
       expect(claimed.body).toMatchObject({
         sandboxId: opened.id,
-        sandboxToken: expect.any(String),
+        sandboxToken: expect.any(String) as unknown,
         reused: false,
         work: { kind: 'run', run: { id: runId } },
       });
       expect(await sandboxRow(opened.id)).toMatchObject({
         hostId: HOST,
-        leases: [{ kind: 'run', holder: runId, renewedAt: expect.any(String) }],
+        leases: [
+          {
+            kind: 'run',
+            holder: runId,
+            renewedAt: expect.any(String) as unknown,
+          },
+        ],
       });
     });
   });
 
   it('drains a replay’s sandbox as soon as its run ends, with no grace', async () => {
     const runId = await queue({ key: 'replays/replay-run_ended' });
-    const claimed = await claim().expect(200);
-    const sandboxId: string = claimed.body.sandboxId;
+    const claimed = (await claim().expect(200)).body as Claimed;
+    const sandboxId = claimed.sandboxId;
     await heartbeat([sandboxId]).expect(200);
 
-    await complete(runId, claimed.body.token);
+    await complete(runId, claimed.token);
 
     await eventually(async () =>
       (await sandboxRow(sandboxId))?.state === 'draining' ? true : null,
@@ -495,8 +517,8 @@ describe('sandboxes (e2e)', () => {
 
   it('keeps a replay’s sandbox for the retry when its run’s lease expires', async () => {
     const runId = await queue({ key: 'replays/replay-run_retried' });
-    const claimed = await claim().expect(200);
-    const sandboxId: string = claimed.body.sandboxId;
+    const claimed = (await claim().expect(200)).body as Claimed;
+    const sandboxId = claimed.sandboxId;
     await heartbeat([sandboxId]).expect(200);
 
     await db
@@ -536,20 +558,20 @@ describe('sandboxes (e2e)', () => {
   describe('the sandbox’s own working copy archive', () => {
     it('restores the newest archive of its key and archives with the sandbox token alone', async () => {
       const runId = await queue({ key: 'work/task-task_10' });
-      const claimed = await claim().expect(200);
-      const sandboxId: string = claimed.body.sandboxId;
-      const own = archive(sandboxId, claimed.body.sandboxToken);
+      const claimed = (await claim().expect(200)).body as Claimed;
+      const sandboxId = claimed.sandboxId;
+      const own = archive(sandboxId, claimed.sandboxToken);
 
       await own.read().expect(204);
 
-      const granted = await own.grant().expect(201);
-      await own.complete(granted.body.id).expect(204);
-      await complete(runId, claimed.body.token);
+      const granted = (await own.grant().expect(201)).body as { id: string };
+      await own.complete(granted.id).expect(204);
+      await complete(runId, claimed.token);
 
       await expect(own.read().expect(200)).resolves.toMatchObject({
         body: {
-          id: granted.body.id,
-          url: `https://archives.test/${granted.body.id}?download`,
+          id: granted.id,
+          url: `https://archives.test/${granted.id}?download`,
           size: 2_048,
           sha256: SHA256,
         },
@@ -557,7 +579,7 @@ describe('sandboxes (e2e)', () => {
       const [stored] = await db
         .select()
         .from(schema.workingCopyArchive)
-        .where(eq(schema.workingCopyArchive.id, granted.body.id));
+        .where(eq(schema.workingCopyArchive.id, granted.id));
       expect(stored).toMatchObject({
         workingCopyKey: 'work/task-task_10',
         grantedToRunId: null,
@@ -567,27 +589,23 @@ describe('sandboxes (e2e)', () => {
 
     it('answers a wrong token, a run token, or another sandbox with not found', async () => {
       await queue({ key: 'work/task-task_11' });
-      const claimed = await claim().expect(200);
-      const sandboxId: string = claimed.body.sandboxId;
+      const claimed = (await claim().expect(200)).body as Claimed;
+      const sandboxId = claimed.sandboxId;
 
       await archive(sandboxId, 'stolen').read().expect(404);
-      await archive(sandboxId, claimed.body.token).grant().expect(404);
-      await archive('sandbox-other', claimed.body.sandboxToken)
-        .read()
-        .expect(404);
+      await archive(sandboxId, claimed.token).grant().expect(404);
+      await archive('sandbox-other', claimed.sandboxToken).read().expect(404);
     });
 
     it('stops answering once the sandbox is gone', async () => {
       await queue({ key: 'work/task-task_12' });
-      const claimed = await claim().expect(200);
+      const claimed = (await claim().expect(200)).body as Claimed;
       await db
         .update(schema.sandbox)
         .set({ state: 'gone', goneAt: new Date() })
-        .where(eq(schema.sandbox.id, claimed.body.sandboxId));
+        .where(eq(schema.sandbox.id, claimed.sandboxId));
 
-      await archive(claimed.body.sandboxId, claimed.body.sandboxToken)
-        .read()
-        .expect(404);
+      await archive(claimed.sandboxId, claimed.sandboxToken).read().expect(404);
     });
   });
 
@@ -616,7 +634,7 @@ describe('sandboxes (e2e)', () => {
     const startedWarm = async () => {
       await keep();
       const started = await claim().expect(200);
-      const sandboxId: string = started.body.sandboxId;
+      const sandboxId = (started.body as Claimed).sandboxId;
       await heartbeat([sandboxId]).expect(200);
 
       return { started, sandboxId };
@@ -697,7 +715,7 @@ describe('sandboxes (e2e)', () => {
       expect(started.body).toMatchObject({
         runnerId: null,
         token: null,
-        sandboxToken: expect.any(String),
+        sandboxToken: expect.any(String) as unknown,
         reused: false,
         work: {
           kind: 'sandbox',
@@ -724,7 +742,13 @@ describe('sandboxes (e2e)', () => {
       expect(await sandboxRow(sandboxId)).toMatchObject({
         key: 'work/task-warm_1',
         warm: null,
-        leases: [{ kind: 'run', holder: first, renewedAt: expect.any(String) }],
+        leases: [
+          {
+            kind: 'run',
+            holder: first,
+            renewedAt: expect.any(String) as unknown,
+          },
+        ],
       });
     });
 
@@ -750,7 +774,7 @@ describe('sandboxes (e2e)', () => {
         reused: false,
         work: { kind: 'run', run: { id: later } },
       });
-      expect(fresh.body.sandboxId).not.toBe(sandboxId);
+      expect((fresh.body as Claimed).sandboxId).not.toBe(sandboxId);
 
       await queue({ key: 'work/task-warm_3', line: randomUUID() });
       await claim(sandboxId).expect(204);
@@ -760,8 +784,8 @@ describe('sandboxes (e2e)', () => {
     it('takes no run of another task once a first run adopted it', async () => {
       const { sandboxId } = await startedWarm();
       const first = await queue({ key: 'work/task-warm_4', line: lineId });
-      const into = await claim(sandboxId).expect(200);
-      await complete(first, into.body.token);
+      const into = (await claim(sandboxId).expect(200)).body as Claimed;
+      await complete(first, into.token);
       await eventually(async () =>
         (await sandboxRow(sandboxId))?.idleSince ? true : null,
       );

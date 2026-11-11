@@ -99,7 +99,7 @@ const scheduling = (
     {
       everywhere: async () => [config(file)],
     } as unknown as DefinedIntegrationsPort,
-    runtimeWith({ run } as unknown as HttpOutbound),
+    runtimeWith({ run }),
     callAuthFor(injection),
     cursors,
     cronCalendar,

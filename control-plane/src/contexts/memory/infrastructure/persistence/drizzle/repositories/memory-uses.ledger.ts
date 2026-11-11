@@ -79,6 +79,6 @@ export class DrizzleMemoryUses implements MemoryUsesPort {
       )
       .groupBy(memoryUse.memoryId);
 
-    return new Map(rows.map((row) => [row.memoryId, Number(row.runs)]));
+    return new Map(rows.map((row) => [row.memoryId, row.runs]));
   }
 }

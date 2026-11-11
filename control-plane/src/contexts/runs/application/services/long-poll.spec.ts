@@ -1,5 +1,4 @@
 import { LongPoll } from '@runs/application/services/long-poll';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const polling = () => {
@@ -9,7 +8,7 @@ const polling = () => {
     sleep: async (ms: number) => {
       now = new Date(now.getTime() + ms);
     },
-  } as ClockPort;
+  };
 
   return new LongPoll(clock, 2_000);
 };

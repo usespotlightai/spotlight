@@ -37,7 +37,7 @@ export const evaluatedByTerraform = (
       throw new Error(evaluated.stderr);
     }
 
-    return JSON.parse(JSON.parse(evaluated.stdout));
+    return JSON.parse(JSON.parse(evaluated.stdout) as string);
   } finally {
     rmSync(module, { recursive: true, force: true });
   }

@@ -168,8 +168,8 @@ export class HeldOutSplit {
       one.length === two.length &&
       one.every(
         (each, at) =>
-          each.runId.equals((two[at] as SplitEntry).runId) &&
-          each.taskId.equals((two[at] as SplitEntry).taskId),
+          each.runId.equals(two[at].runId) &&
+          each.taskId.equals(two[at].taskId),
       );
 
     return (

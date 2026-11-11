@@ -2,13 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TeamRuns } from '@/components/features/runs/TeamRuns';
 import type { TeamRun } from '@/lib/run';
 
-const runs = vi.fn();
+const runs = vi.fn<(...args: unknown[]) => unknown>();
 const failing = vi.fn();
 const refetch = vi.fn();
-const older = vi.fn();
+const older = vi.fn<(...args: unknown[]) => unknown>();
 const load = vi.fn();
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({

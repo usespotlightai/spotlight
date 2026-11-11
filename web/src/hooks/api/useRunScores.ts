@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+
 import { readRunScores } from '@/lib/api';
 import type { RunScores } from '@/lib/judge';
 

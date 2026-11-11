@@ -1,4 +1,5 @@
 import { generateKeyPairSync, type KeyObject, sign } from 'node:crypto';
+
 import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import {
   compileIntegration,
@@ -117,7 +118,7 @@ describe('verifying an rsa-sha256 signature', () => {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
   });
-  const pem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+  const pem = publicKey.export({ type: 'spki', format: 'pem' });
 
   const RSA = `
 integration: x

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { InboxStep } from '@/components/features/inbox/conversation/InboxStep';
 import { Collapsible } from '@/components/shared/Collapsible';
 import { DisclosureToggle } from '@/components/shared/DisclosureToggle';
@@ -40,7 +41,7 @@ export function StepsDisclosure({
         <FadingScroll className="max-h-[min(18rem,50dvh)]">
           <ol className="flex flex-col gap-px pt-1">
             {steps.map((step, at) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: the position of a step identifies it, because new steps go only at the end
+              // oxlint-disable-next-line react/no-array-index-key -- the position of a step identifies it, because new steps go only at the end
               <InboxStep key={at} step={step} live={live} />
             ))}
           </ol>

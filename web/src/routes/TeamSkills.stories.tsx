@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+
 import { teamSettingsPath } from '@/lib/settings';
 import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import { type PageArgs, pageStory } from '@/stories/application';

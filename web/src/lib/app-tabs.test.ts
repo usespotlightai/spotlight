@@ -1,5 +1,6 @@
 import { Inbox, MousePointer2, Package, Settings2 } from 'lucide-react';
 import { describe, expect, it } from 'vitest';
+
 import {
   type AppTabs,
   closed,

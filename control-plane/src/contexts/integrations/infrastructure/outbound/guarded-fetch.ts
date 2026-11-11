@@ -25,7 +25,10 @@ export type Injecting = (
 ) => Promise<InjectedSecrets>;
 
 const bodyOf = (body: RequestInit['body']): string | undefined =>
-  body === undefined || body === null ? undefined : String(body);
+  body === undefined || body === null
+    ? undefined
+    : // oxlint-disable-next-line typescript/no-base-to-string -- the hop sends the body on as text
+      String(body);
 
 export const guardedFetch =
   (

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
@@ -23,6 +24,7 @@ import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { openDatabase, type TestDatabase } from './support/database';
 import { aDispatch } from './support/runs';
 import * as schema from './support/schema';

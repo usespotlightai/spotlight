@@ -9,6 +9,7 @@ import {
   Spool,
 } from 'lucide-react';
 import { matchPath } from 'react-router';
+
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { inboxPath } from '@/lib/inbox';
 import { type Team, teamSectionPath } from '@/lib/team';
@@ -35,7 +36,7 @@ export type Place = {
 };
 
 export const activeTabOf = (tabs: AppTabs): AppTab =>
-  tabs.tabs.find((tab) => tab.id === tabs.activeId) ?? (tabs.tabs[0] as AppTab);
+  tabs.tabs.find((tab) => tab.id === tabs.activeId) ?? tabs.tabs[0];
 
 const firstTabs = (id: string, place: Place): AppTabs => ({
   tabs: [{ id, title: null, ...place }],
@@ -76,7 +77,7 @@ export const moved = (tabs: AppTabs, id: string, to: string): AppTabs => {
 
   return {
     ...tabs,
-    tabs: [...rest.slice(0, at), tabs.tabs[from] as AppTab, ...rest.slice(at)],
+    tabs: [...rest.slice(0, at), tabs.tabs[from], ...rest.slice(at)],
   };
 };
 
@@ -88,7 +89,7 @@ export const closed = (tabs: AppTabs, id: string): AppTabs => {
   }
 
   const rest = tabs.tabs.filter((tab) => tab.id !== id);
-  const neighbour = rest[Math.min(at, rest.length - 1)] as AppTab;
+  const neighbour = rest[Math.min(at, rest.length - 1)];
 
   return {
     tabs: rest,

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
 import type { TooltipText } from '@/lib/tooltip-note';

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
+
 import { Board } from '@/components/features/board/Board';
 import { BoardSkeleton } from '@/components/features/board/BoardSkeleton';
 import { CompletedTasksMore } from '@/components/features/board/CompletedTasksMore';

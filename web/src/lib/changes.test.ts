@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   changesOf,
   type FileChange,
@@ -8,39 +9,37 @@ import {
 } from '@/lib/changes';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 
-const step = (part: Partial<JournalStep>): JournalStep =>
-  ({
-    kind: 'tool',
-    text: 'edit',
-    status: 'completed',
-    tool: 'edit',
-    detail: null,
-    ms: 1,
-    startedAt: '2026-08-29T12:00:00.000Z',
-    locations: [],
-    input: null,
-    output: null,
-    change: null,
-    ...part,
-  }) as JournalStep;
+const step = (part: Partial<JournalStep>): JournalStep => ({
+  kind: 'tool',
+  text: 'edit',
+  status: 'completed',
+  tool: 'edit',
+  detail: null,
+  ms: 1,
+  startedAt: '2026-08-29T12:00:00.000Z',
+  locations: [],
+  input: null,
+  output: null,
+  change: null,
+  ...part,
+});
 
-const journal = (steps: JournalStep[]): RunJournal =>
-  ({
-    runId: 'r1',
-    attempt: 1,
-    steps,
-    ms: null,
-    spent: null,
-    spans: [],
-    marks: {
-      startedAt: null,
-      readyAt: null,
-      firstAgentUpdateAt: null,
-      lastAgentUpdateAt: null,
-      agentStoppedAt: null,
-      endedAt: null,
-    },
-  }) as RunJournal;
+const journal = (steps: JournalStep[]): RunJournal => ({
+  runId: 'r1',
+  attempt: 1,
+  steps,
+  ms: null,
+  spent: null,
+  spans: [],
+  marks: {
+    startedAt: null,
+    readyAt: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
+    agentStoppedAt: null,
+    endedAt: null,
+  },
+});
 
 describe('changesOf', () => {
   it('keeps one entry per file, in the order first touched', () => {

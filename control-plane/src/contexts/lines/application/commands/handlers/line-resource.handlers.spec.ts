@@ -15,10 +15,7 @@ import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
 import { LineVersionConflictError } from '@lines/domain/exceptions/line-version-conflict.error';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@lines/domain/services/built-in-lines';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import { LineCompiler } from '@lines/infrastructure/lines/line.compile';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
@@ -55,7 +52,7 @@ const lineAt = (version: number): Line => {
     by: changeActorIn(),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
-    line: BUILT_IN_LINES[0] as LineOpening,
+    line: BUILT_IN_LINES[0],
     harness: HarnessId.of('dev'),
     newId: () => `id_${++next}`,
   });
@@ -350,7 +347,7 @@ describe('UpdateLineHandler', () => {
       }).update(DELIVERY),
     ).toEqual({
       outcome: 'in-use',
-      reason: expect.stringContaining('Build (2)'),
+      reason: expect.stringContaining('Build (2)') as unknown,
     });
   });
 

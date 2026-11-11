@@ -5,6 +5,7 @@ import {
 import type { Provider } from '@lexical/yjs';
 import { useEffect, useMemo, useState } from 'react';
 import { Doc } from 'yjs';
+
 import { useMe } from '@/hooks/useMe';
 import {
   collabUrl,
@@ -103,13 +104,14 @@ export function useSharedDraft(taskId: string | undefined): SharedDraft | null {
     meta.observe(showGeneration);
     attachments.observe(showAttachments);
 
-    // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
-    setConnection({
+    const opened: Connection = {
       name: documentName,
       doc,
       provider: lexicalProvider(provider, socket),
       me: person,
-    });
+    };
+    // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
+    setConnection(opened); // oxlint-disable-line react/set-state-in-effect -- publishes the connection the effect opened
 
     return () => {
       provider.off('status', showStatus);

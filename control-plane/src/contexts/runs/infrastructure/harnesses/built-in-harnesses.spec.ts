@@ -109,7 +109,7 @@ describe('the harnesses Spotlight knows', () => {
     const started = known.commandFor(opencode, null_());
 
     expect(started?.env?.OPENCODE_DB).toBe(
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
+      // oxlint-disable-next-line no-template-curly-in-string -- expanded by the runner
       '${SPOTLIGHT_STATE_DIR}/opencode.db',
     );
     expect(JSON.parse(started?.env?.OPENCODE_CONFIG_CONTENT ?? '{}')).toEqual({
