@@ -112,10 +112,11 @@ export const sharedByPaths = <T>(
     return [{ pullRequest: first, items }];
   }
 
-  const placed = items.map((item) => ({
-    item,
-    on: all.filter((each) => touches(each, pathsOf(item))),
-  }));
+  const placed = items.map((item) => {
+    const touched = all.filter((each) => touches(each, pathsOf(item)));
+
+    return { item, on: touched.length > 0 ? touched : all };
+  });
 
   return all.map((pullRequest) => ({
     pullRequest,

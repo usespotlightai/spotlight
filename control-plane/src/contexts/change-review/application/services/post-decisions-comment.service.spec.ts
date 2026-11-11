@@ -108,21 +108,21 @@ describe('posting a task’s decisions on its pull request', () => {
     );
   });
 
-  it('keeps one comment on each pull request listing the decisions in its repository, and posts a decision in no repository of a pull request nowhere', async () => {
+  it('keeps one comment on each pull request listing the decisions in its repository, and a decision in no repository of a pull request on every one', async () => {
     const documented: DecisionDto = {
       ...LIMITED,
       id: 'decision_2',
       title: 'Documents the retry',
       paths: ['docs/uploads.md'],
     };
-    const nowhere: DecisionDto = {
+    const everywhere: DecisionDto = {
       ...LIMITED,
       id: 'decision_3',
       title: 'Keeps the old flag',
       paths: ['infra/flags.tf'],
     };
     const { service, upserted, deleted } = posting(
-      generated([LIMITED, documented, nowhere]),
+      generated([LIMITED, documented, everywhere]),
       {
         pullRequests: [
           PullRequestUrl.of('https://github.com/acme/api/pull/7'),
@@ -137,18 +137,18 @@ describe('posting a task’s decisions on its pull request', () => {
     expect(upserted.map((each) => each.pullRequest.value)).toEqual([
       'https://github.com/acme/api/pull/7',
       'https://github.com/acme/Docs/pull/2',
+      'https://github.com/acme/web/pull/9',
     ]);
     expect(upserted[0]?.body).toContain('Retries only once');
-    expect(upserted.map((each) => each.body).join()).not.toContain(
-      'Keeps the old flag',
-    );
+    expect(
+      upserted.every((each) => each.body.includes('Keeps the old flag')),
+    ).toBe(true);
     expect(upserted[0]?.body).not.toContain('Documents the retry');
     expect(upserted[1]?.body).toContain('Documents the retry');
     expect(upserted[1]?.body).toContain('`uploads.md`');
     expect(upserted[1]?.body).not.toContain('Retries only once');
-    expect(deleted.map((each) => each.pullRequest.value)).toEqual([
-      'https://github.com/acme/web/pull/9',
-    ]);
+    expect(upserted[2]?.body).not.toContain('Retries only once');
+    expect(deleted).toEqual([]);
   });
 
   it('rewrites the comment on every pull request, so a decision moves to the pull request of its repository once it opens', async () => {

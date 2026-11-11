@@ -102,7 +102,7 @@ describe('routing to a pull request', () => {
     });
   });
 
-  it('shares items out by the repositories their paths are in, and leaves out the rest', () => {
+  it('shares items out by the repositories their paths are in, and puts the rest on every pull request', () => {
     const shared = sharedByPaths(
       {
         pullRequests: [
@@ -116,6 +116,7 @@ describe('routing to a pull request', () => {
         { id: 'both', paths: ['web/a.ts', 'docs/a.md'] },
         { id: 'docs', paths: ['docs/b.md'] },
         { id: 'elsewhere', paths: ['infra/main.tf'] },
+        { id: 'pathless', paths: [] },
       ],
       (each) => each.paths,
     );
@@ -126,9 +127,9 @@ describe('routing to a pull request', () => {
         items.map((each) => each.id),
       ]),
     ).toEqual([
-      [WEB.value, ['both']],
-      [DOCS.value, ['both', 'docs']],
-      ['https://github.com/acme/api/pull/1', []],
+      [WEB.value, ['both', 'elsewhere', 'pathless']],
+      [DOCS.value, ['both', 'docs', 'elsewhere', 'pathless']],
+      ['https://github.com/acme/api/pull/1', ['elsewhere', 'pathless']],
     ]);
   });
 
