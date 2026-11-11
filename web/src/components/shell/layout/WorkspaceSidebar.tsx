@@ -15,6 +15,7 @@ type WorkspaceSidebarProps = {
   workspace: {
     readonly id: string;
     readonly name: string;
+    readonly avatarUrl: string | null;
     readonly role: Role;
     readonly teams: readonly Team[];
   };
@@ -34,6 +35,7 @@ export function WorkspaceSidebar({
       <div className="flex h-12 shrink-0 items-center">
         <WorkspaceMenu
           name={workspace.name}
+          avatarUrl={workspace.avatarUrl}
           slug={slug}
           admin={isAdmin(workspace.role)}
         />

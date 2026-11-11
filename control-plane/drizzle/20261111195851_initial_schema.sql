@@ -430,6 +430,17 @@ CREATE TABLE "device_code" (
 	"scope" text
 );
 --> statement-breakpoint
+CREATE TABLE "avatar" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text,
+	"digest" text NOT NULL,
+	"image_id" uuid NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "avatar_owner_idx" UNIQUE NULLS NOT DISTINCT("workspace_id","team_id")
+);
+--> statement-breakpoint
 CREATE TABLE "configuration_change" (
 	"seq" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "configuration_change_seq_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"workspace_id" text NOT NULL,

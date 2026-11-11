@@ -3,6 +3,7 @@ import { ChartNoAxesColumn, MousePointer2, Play, Spool } from 'lucide-react';
 export type Team = {
   readonly id: string;
   readonly name: string;
+  readonly avatarUrl?: string | null;
 };
 
 export const TEAM_SECTIONS = {

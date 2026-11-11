@@ -49,7 +49,11 @@ export function TeamNavItem({
           active ? 'font-medium text-foreground' : 'text-muted-foreground',
         )}
       >
-        <InitialAvatar name={team.name} className="bg-muted" />
+        <InitialAvatar
+          name={team.name}
+          src={team.avatarUrl}
+          className="bg-muted"
+        />
         <span className="truncate">{team.name}</span>
 
         <ChevronDown

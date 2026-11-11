@@ -2,11 +2,17 @@ import { api, json, notFound } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
+import { avatars, WORKSPACE_AVATAR } from '@/mocks/world/avatars';
 import { runsOfAnyTask } from '@/mocks/world/run-stories';
 import { settingsWorld } from '@/mocks/world/settings';
 
 const workspaceAs = () => ({
   ...world().workspace,
+  avatarUrl: avatars().get(WORKSPACE_AVATAR) ?? world().workspace.avatarUrl,
+  teams: world().workspace.teams.map((team) => ({
+    ...team,
+    avatarUrl: avatars().get(team.id) ?? team.avatarUrl,
+  })),
   setupStatus: settingsWorld().settingUp.includes(world().workspace.id)
     ? ('pending' as const)
     : ('done' as const),

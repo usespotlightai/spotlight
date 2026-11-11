@@ -373,6 +373,24 @@ export type LineResourceListResponseDto = {
   items: Array<LineResourceResponseDto>;
 };
 
+export type SetAvatarRequestDto = {
+  /**
+   * What kind of image the bytes are.
+   */
+  contentType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
+  /**
+   * The image, base64-encoded, at most 512 KB once decoded.
+   */
+  data: string;
+};
+
+export type AvatarResponseDto = {
+  /**
+   * Where to read the avatar.
+   */
+  avatarUrl: string;
+};
+
 export type WorkspaceResourceResponseDto = {
   /**
    * Issued by Spotlight when the resource is created, and never changed
@@ -623,6 +641,10 @@ export type CreateWorkspaceRequestDto = {
 export type TeamResponseDto = {
   id: string;
   name: string;
+  /**
+   * Where to read its avatar, or null when it has none.
+   */
+  avatarUrl: string | null;
 };
 
 export type CreatedWorkspaceResponseDto = {
@@ -636,6 +658,10 @@ export type WorkspaceListingResponseDto = {
   id: string;
   name: string;
   slug: string;
+  /**
+   * Where to read its avatar, or null when it has none.
+   */
+  avatarUrl: string | null;
   role: 'owner' | 'admin' | 'member';
 };
 
@@ -643,6 +669,10 @@ export type WorkspaceResponseDto = {
   id: string;
   name: string;
   slug: string;
+  /**
+   * Where to read its avatar, or null when it has none.
+   */
+  avatarUrl: string | null;
   teams: Array<TeamResponseDto>;
   /**
    * What the caller is in this workspace.
@@ -9127,6 +9157,224 @@ export type ListLinesResponses = {
 };
 
 export type ListLinesResponse = ListLinesResponses[keyof ListLinesResponses];
+
+export type RemoveWorkspaceAvatarData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/avatar';
+};
+
+export type RemoveWorkspaceAvatarErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * You may not configure it
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * Its avatar changed at the same time; try again
+   */
+  409: unknown;
+};
+
+export type RemoveWorkspaceAvatarResponses = {
+  /**
+   * It has no avatar now
+   */
+  204: void;
+};
+
+export type RemoveWorkspaceAvatarResponse = RemoveWorkspaceAvatarResponses[keyof RemoveWorkspaceAvatarResponses];
+
+export type SetWorkspaceAvatarData = {
+  body: SetAvatarRequestDto;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/avatar';
+};
+
+export type SetWorkspaceAvatarErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * You may not configure it
+   */
+  403: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+  /**
+   * Its avatar changed at the same time; try again
+   */
+  409: unknown;
+  /**
+   * Not a PNG, JPEG, WebP or GIF image, or too large
+   */
+  422: unknown;
+};
+
+export type SetWorkspaceAvatarResponses = {
+  /**
+   * That is its avatar now
+   */
+  200: AvatarResponseDto;
+};
+
+export type SetWorkspaceAvatarResponse = SetWorkspaceAvatarResponses[keyof SetWorkspaceAvatarResponses];
+
+export type ReadWorkspaceAvatarData = {
+  body?: never;
+  path: {
+    slug: string;
+    /**
+     * The SHA-256 of the image
+     */
+    digest: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/avatar/{digest}';
+};
+
+export type ReadWorkspaceAvatarErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not its avatar, or not for this caller
+   */
+  404: unknown;
+};
+
+export type ReadWorkspaceAvatarResponses = {
+  /**
+   * The image, byte for byte
+   */
+  200: unknown;
+};
+
+export type RemoveTeamAvatarData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/avatar';
+};
+
+export type RemoveTeamAvatarErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * You may not configure it
+   */
+  403: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * Its avatar changed at the same time; try again
+   */
+  409: unknown;
+};
+
+export type RemoveTeamAvatarResponses = {
+  /**
+   * It has no avatar now
+   */
+  204: void;
+};
+
+export type RemoveTeamAvatarResponse = RemoveTeamAvatarResponses[keyof RemoveTeamAvatarResponses];
+
+export type SetTeamAvatarData = {
+  body: SetAvatarRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/avatar';
+};
+
+export type SetTeamAvatarErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * You may not configure it
+   */
+  403: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * Its avatar changed at the same time; try again
+   */
+  409: unknown;
+  /**
+   * Not a PNG, JPEG, WebP or GIF image, or too large
+   */
+  422: unknown;
+};
+
+export type SetTeamAvatarResponses = {
+  /**
+   * That is its avatar now
+   */
+  200: AvatarResponseDto;
+};
+
+export type SetTeamAvatarResponse = SetTeamAvatarResponses[keyof SetTeamAvatarResponses];
+
+export type ReadTeamAvatarData = {
+  body?: never;
+  path: {
+    teamId: string;
+    /**
+     * The SHA-256 of the image
+     */
+    digest: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/avatar/{digest}';
+};
+
+export type ReadTeamAvatarErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Not its avatar, or not for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTeamAvatarResponses = {
+  /**
+   * The image, byte for byte
+   */
+  200: unknown;
+};
 
 export type ImportWorkspaceData = {
   body?: never;

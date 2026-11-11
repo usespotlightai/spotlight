@@ -13,6 +13,7 @@ export interface WorkspaceListing {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
+  readonly avatarDigest: string | null;
   readonly role: WorkspaceRoleName;
 }
 
@@ -20,6 +21,7 @@ export interface WorkspaceDetail {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
+  readonly avatarDigest: string | null;
   readonly teams: readonly TeamSummary[];
   readonly role: WorkspaceRoleName;
   readonly setupStatus: WorkspaceSetupStatus;

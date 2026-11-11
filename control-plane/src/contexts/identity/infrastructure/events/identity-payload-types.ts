@@ -1,3 +1,6 @@
+import { AvatarRemoved } from '@identity/domain/events/avatar-removed.event';
+import { AvatarReplaced } from '@identity/domain/events/avatar-replaced.event';
+import { AvatarSet } from '@identity/domain/events/avatar-set.event';
 import { OidcTrustCreated } from '@identity/domain/events/oidc-trust-created.event';
 import { OidcTrustDeleted } from '@identity/domain/events/oidc-trust-deleted.event';
 import { OidcTrustUpdated } from '@identity/domain/events/oidc-trust-updated.event';
@@ -20,6 +23,9 @@ import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-is
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
 import { WorkspaceTokenUpdated } from '@identity/domain/events/workspace-token-updated.event';
 import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
+import { AvatarDigest } from '@identity/domain/value-objects/avatar-digest.vo';
+import { AvatarImageId } from '@identity/domain/value-objects/avatar-image-id.vo';
+import { AvatarOwner } from '@identity/domain/value-objects/avatar-owner.vo';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
@@ -42,6 +48,9 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 
 export const IDENTITY_PAYLOAD_TYPES = [
+  AvatarDigest,
+  AvatarImageId,
+  AvatarOwner,
   EmailAddress,
   InviteId,
   InviteSpec,
@@ -84,4 +93,7 @@ export const IDENTITY_PAYLOAD_TYPES = [
   OidcTrustCreated,
   OidcTrustUpdated,
   OidcTrustDeleted,
+  AvatarSet,
+  AvatarReplaced,
+  AvatarRemoved,
 ] as const;

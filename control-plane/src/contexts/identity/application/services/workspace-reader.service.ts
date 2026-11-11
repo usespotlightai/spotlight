@@ -116,6 +116,7 @@ export class WorkspaceReader implements WorkspaceReaderPort {
       id: workspace.id.value,
       name: workspace.name.value,
       slug: workspace.slug.value,
+      avatarDigest: await this.records.avatarDigestOf(workspace.id),
       role: role.value,
       teams: await this.records.teamsIn(workspace.id),
       setupStatus: workspace.setupStatus,
