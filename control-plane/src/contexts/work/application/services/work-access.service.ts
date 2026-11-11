@@ -120,28 +120,24 @@ export class WorkAccess {
   }
 
   async inboxOf(slug: string, viewer: UserId): Promise<InboxScope | null> {
-    const workspaceId = await this.workspaces.idForSlug(slug);
+    const access = await this.access.teamAccessIn(slug, viewer);
 
-    if (!workspaceId || !(await this.access.mayView(viewer, workspaceId))) {
+    if (!access) {
       return null;
     }
 
-    const teams = await Promise.all(
-      (await this.teams.inWorkspace(workspaceId)).map(async ({ id }) => ({
-        id: id.value,
-        seen: await this.seesTeam(id, viewer),
-        actedOn: await this.actsOnTeam(id, viewer),
-      })),
-    );
-
     return {
-      workspaceId: workspaceId.value,
+      workspaceId: access.workspaceId.value,
       viewer,
       teamsSeen: new Set(
-        teams.filter((each) => each.seen).map((each) => each.id),
+        access.teams
+          .filter((each) => each.sees)
+          .map((each) => each.teamId.value),
       ),
       teamsActedOn: new Set(
-        teams.filter((each) => each.actedOn).map((each) => each.id),
+        access.teams
+          .filter((each) => each.actsOn)
+          .map((each) => each.teamId.value),
       ),
     };
   }

@@ -375,6 +375,11 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   async save(saved: Run): Promise<void> {
+    if (!saved.hasEvents) {
+      await this.stored(saved);
+      return;
+    }
+
     await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());

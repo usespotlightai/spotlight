@@ -260,6 +260,27 @@ interface MarkRow {
   readonly heldSince: Date;
 }
 
+interface Parts {
+  readonly notes: Map<string, NoteRow[]>;
+  readonly attachments: Map<string, AttachmentRow[]>;
+  readonly marks: Map<string, MarkRow[]>;
+  readonly later: Map<string, LaterPullRequestRow[]>;
+}
+
+const assembled = (
+  rows: readonly Row[],
+  { notes, attachments, marks, later }: Parts,
+): Task[] =>
+  rows.map((each) =>
+    toTask(
+      each,
+      notes.get(each.id) ?? [],
+      attachments.get(each.id) ?? [],
+      marks.get(each.id) ?? [],
+      later.get(each.id) ?? [],
+    ),
+  );
+
 @Injectable()
 export class DrizzleTaskRepository implements TaskRepository {
   constructor(
@@ -499,21 +520,19 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   private async whole(rows: readonly Row[]): Promise<Task[]> {
-    const ids = rows.map((each) => each.id);
-    const notes = await this.notesFor(ids);
-    const attachments = await this.attachmentsFor(ids);
-    const marks = await this.marksFor(ids);
-    const later = await this.laterPullRequestsFor(ids);
+    return assembled(rows, await this.partsFor(rows.map((each) => each.id)));
+  }
 
-    return rows.map((each) =>
-      toTask(
-        each,
-        notes.get(each.id) ?? [],
-        attachments.get(each.id) ?? [],
-        marks.get(each.id) ?? [],
-        later.get(each.id) ?? [],
-      ),
+  // The row comes first: a part written after it changes the version, so a save from a mixed read conflicts.
+  private async partsFor(ids: string[]): Promise<Parts> {
+    const [notes, attachments, marks, later] = await this.context.concurrently(
+      () => this.notesFor(ids),
+      () => this.attachmentsFor(ids),
+      () => this.marksFor(ids),
+      () => this.laterPullRequestsFor(ids),
     );
+
+    return { notes, attachments, marks, later };
   }
 
   async find(id: TaskId): Promise<Task | null> {
@@ -523,13 +542,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       .where(eq(task.id, id.value))
       .limit(1);
 
-    if (!found) {
-      return null;
-    }
-
-    const [whole] = await this.whole([found]);
-
-    return whole ?? null;
+    return found ? ((await this.whole([found]))[0] ?? null) : null;
   }
 
   async findByCorrelation(

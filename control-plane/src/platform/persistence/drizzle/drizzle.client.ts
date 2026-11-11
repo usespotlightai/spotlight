@@ -14,3 +14,8 @@ export const createReadPool = (env: Env, pool: Pool): Pool =>
 
 export const createDatabase = (pool: Pool): DrizzleDatabase =>
   drizzle({ client: pool });
+
+export const createRelationalDatabase = <Schema extends Record<string, unknown>>(
+  pool: Pool,
+  schema: Schema,
+) => drizzle({ client: pool, schema });

@@ -37,6 +37,17 @@ export interface TeamPermissions extends WorkspacePermissions {
   readonly teamId: TeamId;
 }
 
+export interface TeamAccessEntry {
+  readonly teamId: TeamId;
+  readonly sees: boolean;
+  readonly actsOn: boolean;
+}
+
+export interface WorkspaceTeamAccess {
+  readonly workspaceId: WorkspaceId;
+  readonly teams: readonly TeamAccessEntry[];
+}
+
 export interface WorkspaceAccessPort {
   mayView(viewer: UserId, workspaceId: WorkspaceId): Promise<boolean>;
 
@@ -49,6 +60,11 @@ export interface WorkspaceAccessPort {
     slug: string,
     viewer: UserId,
   ): Promise<WorkspaceMembership | null>;
+
+  teamAccessIn(
+    slug: string,
+    viewer: UserId,
+  ): Promise<WorkspaceTeamAccess | null>;
 
   inWorkspaceOfTeam(
     teamId: TeamId,

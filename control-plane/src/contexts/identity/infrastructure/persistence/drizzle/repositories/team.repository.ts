@@ -24,7 +24,14 @@ import {
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray, notInArray } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  getTableColumns,
+  notInArray,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 interface Row {
   readonly id: string;
@@ -151,39 +158,33 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   async find(id: TeamId): Promise<Team | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(team)
-      .where(eq(team.id, id.value))
-      .limit(1);
-
-    return found
-      ? this.rehydrated([found]).then((all) => all[0] ?? null)
-      : null;
+    return this.one(eq(team.id, id.value));
   }
 
   async named(workspaceId: WorkspaceId, key: TeamKey): Promise<Team | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(team)
-      .where(
-        and(eq(team.workspaceId, workspaceId.value), eq(team.key, key.value)),
-      )
-      .limit(1);
-
-    return found
-      ? this.rehydrated([found]).then((all) => all[0] ?? null)
-      : null;
+    return this.one(
+      sql`${eq(team.workspaceId, workspaceId.value)} and ${eq(team.key, key.value)}`,
+    );
   }
 
   async ofWorkspace(workspaceId: WorkspaceId): Promise<readonly Team[]> {
-    return this.rehydrated(
+    return (
       await this.context.db
-        .select()
+        .select({ ...getTableColumns(team), members: membersOfTeam })
         .from(team)
         .where(eq(team.workspaceId, workspaceId.value))
-        .orderBy(team.key),
-    );
+        .orderBy(team.key)
+    ).map(rehydrated);
+  }
+
+  private async one(where: SQL): Promise<Team | null> {
+    const [found] = await this.context.db
+      .select({ ...getTableColumns(team), members: membersOfTeam })
+      .from(team)
+      .where(where)
+      .limit(1);
+
+    return found ? rehydrated(found) : null;
   }
 
   private written(record: Team) {
@@ -195,34 +196,19 @@ export class DrizzleTeamRepository implements TeamRepository {
       origin: record.origin,
     };
   }
-
-  private async rehydrated(rows: readonly Row[]): Promise<Team[]> {
-    if (rows.length === 0) {
-      return [];
-    }
-
-    const members = await this.context.db
-      .select()
-      .from(teamMember)
-      .where(
-        inArray(
-          teamMember.teamId,
-          rows.map((each) => each.id),
-        ),
-      );
-
-    return rows.map((row) =>
-      Team.rehydrate({
-        id: TeamId.of(row.id),
-        workspaceId: WorkspaceId.of(row.workspaceId),
-        key: TeamKey.of(row.key),
-        name: TeamName.of(row.name),
-        origin: row.origin,
-        members: members
-          .filter((member) => member.teamId === row.id)
-          .map((member) => UserId.of(member.userId)),
-        version: row.version,
-      }),
-    );
-  }
 }
+
+const membersOfTeam = sql<
+  string[]
+>`coalesce((select json_agg(${teamMember.userId}) from ${teamMember} where ${teamMember.teamId} = ${team.id}), '[]'::json)`;
+
+const rehydrated = (row: Row & { readonly members: readonly string[] }): Team =>
+  Team.rehydrate({
+    id: TeamId.of(row.id),
+    workspaceId: WorkspaceId.of(row.workspaceId),
+    key: TeamKey.of(row.key),
+    name: TeamName.of(row.name),
+    origin: row.origin,
+    members: row.members.map((member) => UserId.of(member)),
+    version: row.version,
+  });

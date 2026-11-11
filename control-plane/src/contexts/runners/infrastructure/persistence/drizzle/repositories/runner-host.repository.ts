@@ -136,24 +136,32 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
   }
 
   async save(host: RunnerHost): Promise<void> {
+    if (!host.hasEvents) {
+      await this.stored(host);
+      return;
+    }
+
     await this.context.inTransaction(async () => {
-      const written = await this.context.db
-        .update(runnerHost)
-        .set({ ...columnsOf(host), version: host.version + 1 })
-        .where(
-          and(
-            eq(runnerHost.id, host.id.value),
-            eq(runnerHost.version, host.version),
-          ),
-        )
-        .returning({ id: runnerHost.id });
-
-      if (written.length === 0) {
-        throw new RunnerHostVersionConflictError(host.id.value);
-      }
-
+      await this.stored(host);
       await this.events.dispatch(host.pullEvents());
     });
+  }
+
+  private async stored(host: RunnerHost): Promise<void> {
+    const written = await this.context.db
+      .update(runnerHost)
+      .set({ ...columnsOf(host), version: host.version + 1 })
+      .where(
+        and(
+          eq(runnerHost.id, host.id.value),
+          eq(runnerHost.version, host.version),
+        ),
+      )
+      .returning({ id: runnerHost.id });
+
+    if (written.length === 0) {
+      throw new RunnerHostVersionConflictError(host.id.value);
+    }
   }
 
   async remove(host: RunnerHost): Promise<void> {
