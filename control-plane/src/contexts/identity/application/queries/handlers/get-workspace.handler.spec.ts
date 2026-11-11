@@ -11,7 +11,8 @@ const acme: WorkspaceDetail = {
   id: 'ws_1',
   name: 'Acme Inc.',
   slug: 'acme-inc',
-  teams: [{ id: 'team_1', name: 'Acme Inc.' }],
+  avatarDigest: null,
+  teams: [{ id: 'team_1', name: 'Acme Inc.', avatarDigest: null }],
   role: 'owner',
   setupStatus: 'done',
 };

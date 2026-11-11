@@ -13,7 +13,12 @@ export const WorkspaceMapper = {
       id: detail.id,
       name: detail.name,
       slug: detail.slug,
-      teams: detail.teams.map((team) => ({ id: team.id, name: team.name })),
+      avatarDigest: detail.avatarDigest,
+      teams: detail.teams.map((team) => ({
+        id: team.id,
+        name: team.name,
+        avatarDigest: team.avatarDigest,
+      })),
       role: detail.role,
       setupStatus: detail.setupStatus,
     };
@@ -24,6 +29,7 @@ export const WorkspaceMapper = {
       id: listing.id,
       name: listing.name,
       slug: listing.slug,
+      avatarDigest: listing.avatarDigest,
       role: listing.role,
     };
   },

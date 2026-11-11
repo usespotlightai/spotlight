@@ -27,12 +27,14 @@ import { workspacePath } from '@/lib/workspace';
 
 type WorkspaceMenuProps = {
   name: string;
+  avatarUrl?: string | null;
   slug: string;
   admin?: boolean;
 };
 
 export function WorkspaceMenu({
   name,
+  avatarUrl,
   slug,
   admin = false,
 }: WorkspaceMenuProps) {
@@ -47,6 +49,7 @@ export function WorkspaceMenu({
       <DropdownMenuTrigger className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left outline-none transition-colors hover:bg-sidebar-hover data-[popup-open]:bg-sidebar-hover">
         <InitialAvatar
           name={name}
+          src={avatarUrl}
           className="bg-primary text-primary-foreground!"
         />
         <span className="truncate font-medium text-foreground text-sm">
@@ -107,6 +110,7 @@ export function WorkspaceMenu({
                   >
                     <InitialAvatar
                       name={workspace.name}
+                      src={workspace.avatarUrl}
                       className="bg-primary text-primary-foreground!"
                     />
                     <span className="truncate">{workspace.name}</span>

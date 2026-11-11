@@ -22,12 +22,13 @@ vi.mock('@/lib/api', () => ({
 
 type SetupStatus = WorkspaceResponseDto['setupStatus'];
 
-const PLATFORM = { id: 'team_1', name: 'Platform' };
+const PLATFORM = { id: 'team_1', name: 'Platform', avatarUrl: null };
 
 const ACME: WorkspaceResponseDto = {
   id: 'ws_1',
   name: 'Acme',
   slug: 'acme',
+  avatarUrl: null,
   role: 'owner',
   teams: [PLATFORM],
   setupStatus: 'done',

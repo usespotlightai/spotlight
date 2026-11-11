@@ -8,6 +8,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface TeamSummary {
   readonly id: string;
   readonly name: string;
+  readonly avatarDigest: string | null;
 }
 
 export interface WorkspaceRecordsPort {
@@ -25,4 +26,6 @@ export interface WorkspaceRecordsPort {
   listingsOf(person: UserId): Promise<WorkspaceListing[]>;
 
   teamsIn(workspaceId: WorkspaceId): Promise<TeamSummary[]>;
+
+  avatarDigestOf(workspaceId: WorkspaceId): Promise<string | null>;
 }

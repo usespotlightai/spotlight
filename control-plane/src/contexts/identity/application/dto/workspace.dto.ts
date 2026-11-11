@@ -12,7 +12,13 @@ export interface WorkspaceDto {
   readonly teams: readonly TeamDto[];
 }
 
+interface TeamWithAvatarDto extends TeamDto {
+  readonly avatarDigest: string | null;
+}
+
 export interface WorkspaceDetailDto extends WorkspaceDto {
+  readonly avatarDigest: string | null;
+  readonly teams: readonly TeamWithAvatarDto[];
   readonly role: string;
   readonly setupStatus: WorkspaceSetupStatus;
 }
@@ -21,5 +27,6 @@ export interface WorkspaceListingDto {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
+  readonly avatarDigest: string | null;
   readonly role: string;
 }

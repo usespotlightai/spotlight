@@ -1,11 +1,13 @@
 import { useParams } from 'react-router';
 
+import { AvatarSetting } from '@/components/features/settings/AvatarSetting';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { TeamMembers } from '@/components/features/settings/TeamMembers';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { useTeamAvatar } from '@/hooks/api/useAvatar';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { failed } from '@/lib/query';
 import { isAdmin } from '@/lib/role';
@@ -13,6 +15,7 @@ import { isAdmin } from '@/lib/role';
 export function TeamGeneral() {
   const { slug, teamId } = useParams();
   const workspace = useWorkspace(slug);
+  const change = useTeamAvatar(slug, teamId);
 
   const team = workspace.data?.teams.find(
     (candidate) => candidate.id === teamId,
@@ -23,7 +26,7 @@ export function TeamGeneral() {
   }
 
   return (
-    <SettingsPage title="General" description="Team name and members.">
+    <SettingsPage title="General" description="Team name, avatar and members.">
       {failed(workspace) ? (
         <SettingsSection>
           <CouldNotLoad
@@ -48,6 +51,15 @@ export function TeamGeneral() {
               </span>
             )}
           </SettingsRow>
+
+          {team && workspace.data && (
+            <AvatarSetting
+              name={team.name}
+              avatarUrl={team.avatarUrl ?? null}
+              editable={isAdmin(workspace.data.role)}
+              change={change}
+            />
+          )}
         </SettingsSection>
       )}
 

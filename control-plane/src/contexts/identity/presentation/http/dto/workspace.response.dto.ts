@@ -11,9 +11,19 @@ export class TeamResponseDto {
   @ApiProperty({ example: 'Acme Inc.' })
   readonly name: string;
 
-  constructor(id: string, name: string) {
+  @ApiProperty({
+    description: 'Where to read its avatar, or null when it has none.',
+    type: String,
+    nullable: true,
+    example:
+      '/api/teams/9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84/avatar/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+  })
+  readonly avatarUrl: string | null;
+
+  constructor(id: string, name: string, avatarUrl: string | null) {
     this.id = id;
     this.name = name;
+    this.avatarUrl = avatarUrl;
   }
 }
 
@@ -53,6 +63,15 @@ export class WorkspaceResponseDto {
   @ApiProperty({ example: 'acme-inc' })
   readonly slug: string;
 
+  @ApiProperty({
+    description: 'Where to read its avatar, or null when it has none.',
+    type: String,
+    nullable: true,
+    example:
+      '/api/workspaces/acme-inc/avatar/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+  })
+  readonly avatarUrl: string | null;
+
   @ApiProperty({ type: TeamResponseDto, isArray: true })
   readonly teams: TeamResponseDto[];
 
@@ -75,6 +94,7 @@ export class WorkspaceResponseDto {
     id: string,
     name: string,
     slug: string,
+    avatarUrl: string | null,
     teams: TeamResponseDto[],
     role: string,
     setupStatus: WorkspaceSetupStatus,
@@ -82,6 +102,7 @@ export class WorkspaceResponseDto {
     this.id = id;
     this.name = name;
     this.slug = slug;
+    this.avatarUrl = avatarUrl;
     this.teams = teams;
     this.role = role;
     this.setupStatus = setupStatus;
@@ -98,13 +119,29 @@ export class WorkspaceListingResponseDto {
   @ApiProperty({ example: 'acme-inc' })
   readonly slug: string;
 
+  @ApiProperty({
+    description: 'Where to read its avatar, or null when it has none.',
+    type: String,
+    nullable: true,
+    example:
+      '/api/workspaces/acme-inc/avatar/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+  })
+  readonly avatarUrl: string | null;
+
   @ApiProperty({ example: 'owner', enum: ['owner', 'admin', 'member'] })
   readonly role: string;
 
-  constructor(id: string, name: string, slug: string, role: string) {
+  constructor(
+    id: string,
+    name: string,
+    slug: string,
+    avatarUrl: string | null,
+    role: string,
+  ) {
     this.id = id;
     this.name = name;
     this.slug = slug;
+    this.avatarUrl = avatarUrl;
     this.role = role;
   }
 }
