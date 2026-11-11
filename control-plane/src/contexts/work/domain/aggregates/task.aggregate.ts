@@ -257,6 +257,14 @@ export class Task extends EventRecorder {
     return task;
   }
 
+  static revisionsOfLatestRunHere(
+    revision: TaskRevision,
+  ): readonly TaskRevision[] {
+    return revision.value === 0
+      ? [revision]
+      : [revision, TaskRevision.of(revision.value - 1)];
+  }
+
   static rehydrate(input: {
     id: TaskId;
     workspaceId: WorkspaceId;
@@ -426,7 +434,7 @@ export class Task extends EventRecorder {
   react(line: LineMap, to: StationId, rank: TaskRank, newNote: NewNote): Task {
     if (!this.movableByHappeningTo(line, to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station, and only while the run waits on an answer.`,
+        `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station.`,
       );
     }
 
@@ -436,9 +444,7 @@ export class Task extends EventRecorder {
   }
 
   movableByHappeningTo(line: LineMap, to: StationId): boolean {
-    return (
-      !this.running || (this.awaitsAnAnswer && line.completed.id.equals(to))
-    );
+    return !this.running || line.completed.id.equals(to);
   }
 
   deferMove(line: LineMap, to: StationId, newNote: NewNote): Task {
@@ -456,7 +462,7 @@ export class Task extends EventRecorder {
 
     if (line.completed.id.equals(to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} cannot defer a move to the end of its line. That move interrupts its run.`,
+        `Task ${this.id.value} cannot defer a move to the end of its line. That move ends its run.`,
       );
     }
 
@@ -528,24 +534,6 @@ export class Task extends EventRecorder {
           .reverse()
           .find((note) => note.failure !== null)
       : undefined;
-  }
-
-  interrupt(newNote: NewNote): Task {
-    if (!this.running) {
-      throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has no run in progress.`,
-      );
-    }
-
-    if (this.awaitsAnAnswer) {
-      throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} is already waiting on a person.`,
-      );
-    }
-
-    return this.stopped(newNote.at).asked(newNote, null, null, {
-      overAnApproval: true,
-    });
   }
 
   private relocated(
@@ -1073,8 +1061,6 @@ export class Task extends EventRecorder {
         return this.addMessage(newNote);
       case 'deferredMove':
         return this.deferMove(outcome.line, outcome.to.id, newNote);
-      case 'interrupts':
-        return this.interrupt(newNote);
       case 'answers':
         return this.answer(outcome.to, newNote);
       case 'moves':
@@ -1085,10 +1071,6 @@ export class Task extends EventRecorder {
           newNote,
         );
     }
-  }
-
-  get awaitsAnAnswer(): boolean {
-    return this.running && this.awaitingReview && !this.decisionPending;
   }
 
   get decisionPending(): boolean {
@@ -1541,11 +1523,10 @@ export class Task extends EventRecorder {
     newNote: NewNote,
     by: RunId | null,
     waiting: RunId | null,
-    { overAnApproval } = { overAnApproval: false },
   ): Task {
     this.assertNoOtherRun(by, 'put it to a person');
 
-    if (this.awaitingReview && !(overAnApproval && this.decisionPending)) {
+    if (this.awaitingReview) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is already waiting on a person.`,
       );

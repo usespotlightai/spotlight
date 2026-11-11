@@ -44,6 +44,7 @@ export class TeamIntegrationsHandler
           integration: each.integration,
           path: each.path,
           name: each.name,
+          logo: each.logo,
           connectionStatus: connectionStatusOf(
             each.requiresConnection,
             connectionOf.get(each.integration) ?? null,

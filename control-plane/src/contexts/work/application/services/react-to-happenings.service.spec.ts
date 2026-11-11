@@ -925,12 +925,13 @@ describe('ReactToHappenings', () => {
     });
 
     describe('when the pull request merges', () => {
-      it('stops the run and keeps the task where it is', async () => {
+      it('finishes a task whose run is working, detaching the run', async () => {
         await receive(MERGED, handed('station_2'));
 
-        expect(saved?.stationId).toEqual(StationId.of('station_2'));
+        expect(saved?.stationId).toEqual(StationId.of('station_3'));
+        expect(saved?.finished).toBe(true);
         expect(saved?.currentRunId).toBeNull();
-        expect(saved?.finished).toBe(false);
+        expect(saved?.awaitingReview).toBe(false);
         expect(
           saved
             ?.pullEvents()
@@ -938,21 +939,6 @@ describe('ReactToHappenings', () => {
             .map((each) => (each as TaskRunDetached).runId),
         ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
-      });
-
-      it('asks whoever created the task whether to close it or carry on', async () => {
-        await receive(MERGED, handed('station_2'));
-
-        expect(saved?.awaitingReview).toBe(true);
-        expect(saved?.assignee).toEqual(UserId.of('user_1'));
-        expect(
-          saved?.notes.map((each) => [each.kind, each.body.value]),
-        ).toEqual([
-          [
-            'asked',
-            'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
-          ],
-        ]);
       });
 
       it('finishes a task whose paused run waits on a person, detaching the run', async () => {

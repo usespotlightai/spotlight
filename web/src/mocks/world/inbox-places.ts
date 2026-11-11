@@ -24,6 +24,15 @@ const TASKS: TaskResponseDto[] = [...PLATFORM_TASKS, ...GROWTH_TASKS];
 export const runsOfTask = (taskId: string): TaskRunResponseDto[] =>
   RUNS[taskId] ?? [];
 
+export const latestRunAt = (taskId: string, stationId: string): string | null =>
+  runsOfTask(taskId)
+    .filter((run) => run.station?.id === stationId)
+    .reduce<TaskRunResponseDto | null>(
+      (latest, run) =>
+        latest && latest.startedAt >= run.startedAt ? latest : run,
+      null,
+    )?.id ?? null;
+
 const seededRun = (runId: string): TaskRunResponseDto => {
   const found = Object.values(RUNS)
     .flat()

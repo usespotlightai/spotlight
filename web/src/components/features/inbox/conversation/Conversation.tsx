@@ -7,6 +7,7 @@ import { WorldMessage } from '@/components/features/inbox/conversation/WorldMess
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { Turn } from '@/components/shared/Turn';
+import { useMessageSources } from '@/hooks/api/useMessageSources';
 import { useArrivals } from '@/hooks/useArrivals';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
@@ -113,6 +114,7 @@ export function Conversation({
 }: ConversationProps) {
   const marked = marksIn(item);
   const turns = turnsOf(item);
+  const sourceOf = useMessageSources(item.teamId);
   const workedBy: WorkedBy = new Map(
     item.notes.map((note) => [
       note.position,
@@ -216,7 +218,7 @@ export function Conversation({
                 body={turn.prompt.body}
                 attachments={turn.prompt.attachments}
                 authors={authorsOf(turn.prompt)}
-                source={turn.prompt.source}
+                source={sourceOf(turn.prompt.source)}
                 deferredTo={turn.prompt.deferredTo}
               />
             ) : turn.prompt ? (

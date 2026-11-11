@@ -40,6 +40,7 @@ const reading = (
                 {
                   integration: 'linear',
                   name: 'Linear',
+                  logo: 'https://example.com/linear.svg',
                   path: 'integrations/linear',
                   requiresConnection: over.requiresConnection ?? false,
                   actsAs: 'team',
@@ -93,6 +94,12 @@ describe('TeamIntegrationsHandler', () => {
     expect(
       (await reading().execute(query()))?.integrations[0]?.spec,
     ).toBeNull();
+  });
+
+  it('says the mark its definition names', async () => {
+    const read = await reading().execute(query());
+
+    expect(read?.integrations[0]?.logo).toBe('https://example.com/linear.svg');
   });
 
   it('says which resource defines each integration', async () => {

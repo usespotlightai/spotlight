@@ -390,6 +390,27 @@ export class InboxStationResponseDto {
   }
 }
 
+export class InboxCurrentStationResponseDto extends InboxStationResponseDto {
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'run_2',
+    description:
+      'The task’s latest run at this station since it arrived there, or null if it has none there yet',
+  })
+  readonly latestRunId: string | null;
+
+  constructor(
+    name: string,
+    color: string,
+    position: number,
+    latestRunId: string | null,
+  ) {
+    super(name, color, position);
+    this.latestRunId = latestRunId;
+  }
+}
+
 export class InboxItemResponseDto {
   @ApiProperty({
     enum: ['task'],
@@ -442,10 +463,10 @@ export class InboxItemResponseDto {
   readonly originStation: InboxStationResponseDto;
 
   @ApiProperty({
-    type: InboxStationResponseDto,
+    type: InboxCurrentStationResponseDto,
     description: 'Where the task is now, which is where it ended up',
   })
-  readonly currentStation: InboxStationResponseDto;
+  readonly currentStation: InboxCurrentStationResponseDto;
 
   @ApiProperty({ example: '2026-08-28T09:02:00.000Z' })
   readonly createdAt: string;

@@ -12,6 +12,7 @@ import type {
   InboxNote,
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
+import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import {
   conversationsOf,
@@ -22,6 +23,7 @@ import {
 } from '@work/domain/services/conversations';
 import { deferralWaitingIn } from '@work/domain/services/deferred-moves';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import {
   toApprovalSubject,
   toEditedCall,
@@ -44,6 +46,7 @@ import {
   eq,
   inArray,
   isNotNull,
+  isNull,
   or,
   sql,
 } from 'drizzle-orm';
@@ -640,6 +643,70 @@ export const reviewsBy = async (
   }
 
   return review;
+};
+
+export const taskRuns = and(
+  eq(dispatch.kind, 'task'),
+  isNull(dispatch.refused),
+);
+
+export const LATEST_RUN_FIRST = [desc(dispatch.orderedAt), desc(dispatch.id)];
+
+export interface TaskPlace {
+  readonly taskId: string;
+  readonly stationId: string;
+  readonly revision: number;
+}
+
+const PLACES_PER_QUERY = 200;
+
+const latestRunsAmong = (db: DrizzleDatabase, places: readonly TaskPlace[]) =>
+  db
+    .selectDistinctOn([dispatch.taskId], {
+      taskId: dispatch.taskId,
+      id: dispatch.id,
+    })
+    .from(dispatch)
+    .where(
+      and(
+        taskRuns,
+        or(
+          ...places.map((place) =>
+            and(
+              eq(dispatch.taskId, place.taskId),
+              eq(dispatch.stationId, place.stationId),
+              inArray(
+                dispatch.taskRevision,
+                Task.revisionsOfLatestRunHere(
+                  TaskRevision.of(place.revision),
+                ).map((revision) => revision.value),
+              ),
+            ),
+          ),
+        ),
+      ),
+    )
+    .orderBy(dispatch.taskId, ...LATEST_RUN_FIRST);
+
+export const latestRunsAtCurrentStation = async (
+  db: DrizzleDatabase,
+  places: readonly TaskPlace[],
+): Promise<Map<string, string>> => {
+  const distinct = [
+    ...new Map(places.map((place) => [place.taskId, place])).values(),
+  ];
+  const batches = Array.from(
+    { length: Math.ceil(distinct.length / PLACES_PER_QUERY) },
+    (_, index) =>
+      distinct.slice(index * PLACES_PER_QUERY, (index + 1) * PLACES_PER_QUERY),
+  );
+  const rows = (
+    await Promise.all(batches.map((batch) => latestRunsAmong(db, batch)))
+  ).flat();
+
+  return new Map(
+    rows.flatMap((row) => (row.taskId ? [[row.taskId, row.id] as const] : [])),
+  );
 };
 
 export const briefingsFor = async (

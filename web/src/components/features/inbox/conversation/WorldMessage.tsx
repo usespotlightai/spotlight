@@ -1,17 +1,16 @@
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
-import {
-  IntegrationLogo,
-  integrationTitle,
-} from '@/components/features/integrations/IntegrationLogo';
+import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { GithubLogo } from '@/components/shared/icons';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import type { MessageSource } from '@/hooks/api/useMessageSources';
 import type { Attachment } from '@/lib/attachment';
 import { namesOf } from '@/lib/people-list';
 import type { Person } from '@/lib/person';
@@ -21,7 +20,7 @@ type WorldMessageProps = {
   body: string;
   attachments: readonly Attachment[];
   authors: readonly Person[];
-  source: string | null;
+  source: MessageSource | null;
   deferredTo: string | null;
 };
 
@@ -32,7 +31,7 @@ export function WorldMessage({
   source,
   deferredTo,
 }: WorldMessageProps) {
-  const from = source ? integrationTitle(source) : null;
+  const from = source?.name ?? null;
   const signed = from !== null || authors.length > 0;
 
   return (
@@ -77,7 +76,7 @@ function SourceAvatars({
   authors,
   className,
 }: {
-  source: string | null;
+  source: MessageSource | null;
   from: string | null;
   authors: readonly Person[];
   className?: string;
@@ -106,7 +105,7 @@ function SourceAvatars({
       >
         {source && (
           <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-card">
-            <IntegrationLogo integration={source} className="size-3.5" />
+            <SourceLogo source={source} />
           </span>
         )}
 
@@ -120,5 +119,21 @@ function SourceAvatars({
       </TooltipTrigger>
       <TooltipContent className="text-xs">{label}</TooltipContent>
     </Tooltip>
+  );
+}
+
+function SourceLogo({ source }: { source: MessageSource }) {
+  if (source.integration === 'github' && source.logo === null) {
+    return (
+      <GithubLogo aria-hidden className="size-3.5 shrink-0 text-foreground" />
+    );
+  }
+
+  return (
+    <IntegrationLogo
+      logo={source.logo}
+      name={source.name}
+      className="size-3.5"
+    />
   );
 }

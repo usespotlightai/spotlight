@@ -2,6 +2,7 @@ import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
 import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { IntegrationLogo } from '@integrations/domain/value-objects/integration-logo.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
 import { TOOL_INPUT_NAME } from '@integrations/domain/value-objects/provided-tool.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
@@ -396,6 +397,10 @@ export const integrationSchema = z
         IntegrationKey.RESERVED,
       ),
     name: z.string().min(1).optional(),
+    logo: z
+      .string()
+      .refine(IntegrationLogo.isLogo, IntegrationLogo.SHAPE)
+      .optional(),
     types: z
       .record(
         z.string().regex(TYPE_NAME, 'is named in capitals, as in Issue'),

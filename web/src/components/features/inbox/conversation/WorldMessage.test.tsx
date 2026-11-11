@@ -9,7 +9,7 @@ describe('WorldMessage', () => {
         body="The checks failed."
         attachments={[]}
         authors={[]}
-        source="github"
+        source={{ integration: 'github', name: 'GitHub', logo: null }}
         deferredTo={null}
       />,
     );
@@ -25,7 +25,7 @@ describe('WorldMessage', () => {
         body="Cap it at 500."
         attachments={[]}
         authors={[{ id: 'user_1', name: 'Anna', image: null }]}
-        source="slack"
+        source={{ integration: 'slack', name: 'Slack', logo: null }}
         deferredTo={null}
       />,
     );
@@ -41,7 +41,7 @@ describe('WorldMessage', () => {
         body="The checks failed."
         attachments={[]}
         authors={[]}
-        source="github"
+        source={{ integration: 'github', name: 'GitHub', logo: null }}
         deferredTo="Implementation"
       />,
     );
