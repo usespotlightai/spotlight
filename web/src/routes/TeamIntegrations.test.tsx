@@ -86,6 +86,7 @@ const ready = (over: Record<string, unknown> = {}) => ({
 const integration = (over: Record<string, unknown> = {}) => ({
   integration: 'pagerduty',
   name: 'PagerDuty',
+  logo: null,
   path: 'integrations/pagerduty.tf',
   connectionStatus: 'not-required',
   actsAs: 'team',

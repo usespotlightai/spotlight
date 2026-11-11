@@ -31,6 +31,7 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { IntegrationLogo } from '@integrations/domain/value-objects/integration-logo.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OfferedTools } from '@integrations/domain/value-objects/offered-tools.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
@@ -1357,6 +1358,7 @@ export const compileIntegration = (
     const integration = Integration.of({
       key,
       name: file.name,
+      logo: file.logo ? IntegrationLogo.of(file.logo) : null,
       webhook: file.webhook
         ? Webhook.of({ declares: webhookDeclares.filter(isPresent) })
         : null,

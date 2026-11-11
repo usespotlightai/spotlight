@@ -12,6 +12,7 @@ import type {
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
 import { GROWTH_ID, PLATFORM_ID, perWorld, WORKSPACE } from '@/mocks/world';
+import { LOGOS } from '@/mocks/world/logos';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
 import {
   FLEET,
@@ -92,6 +93,7 @@ const integration = (
 ): IntegrationViewResponseDto => ({
   integration: key,
   name,
+  logo: null,
   path: `integrations/${key}`,
   connectionStatus: 'connected',
   actsAs: 'team',
@@ -101,24 +103,35 @@ const integration = (
 });
 
 const LINEAR = integration('linear', 'Linear', {
+  logo: LOGOS.linear,
   actsAs: 'requester',
   linkedAccount: '@acme-bot',
 });
 
 const SENTRY = integration('sentry', 'Sentry', {
+  logo: LOGOS.sentry,
   actsAs: 'requester',
   linkedAccount: 'acme',
 });
 
-const SLACK = integration('slack', 'Slack', { linkedAccount: 'Acme' });
+const SLACK = integration('slack', 'Slack', {
+  logo: LOGOS.slack,
+  linkedAccount: 'Acme',
+});
 
 const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
   [PLATFORM_ID]: [
     LINEAR,
     SENTRY,
     SLACK,
-    integration('grafana', 'Grafana', { linkedAccount: 'acme.grafana.net' }),
-    integration('pagerduty', 'PagerDuty', { connectionStatus: 'not-required' }),
+    integration('grafana', 'Grafana', {
+      logo: LOGOS.grafana,
+      linkedAccount: 'acme.grafana.net',
+    }),
+    integration('pagerduty', 'PagerDuty', {
+      logo: LOGOS.pagerduty,
+      connectionStatus: 'not-required',
+    }),
     integration('payments-api', 'Payments API', {
       connectionStatus: 'not-required',
       spec: {

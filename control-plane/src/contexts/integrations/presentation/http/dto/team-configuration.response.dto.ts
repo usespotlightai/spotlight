@@ -57,6 +57,15 @@ export class IntegrationViewResponseDto {
   readonly name: string;
 
   @ApiProperty({
+    description:
+      'The mark of the integration, as a base64 image data URI or an https address. Null where its definition names none',
+    example: 'https://example.com/linear.svg',
+    nullable: true,
+    type: String,
+  })
+  readonly logo: string | null;
+
+  @ApiProperty({
     description: 'Where the integration is defined',
     example: 'integrations/linear',
   })
@@ -98,6 +107,7 @@ export class IntegrationViewResponseDto {
   constructor(integration: TeamIntegrationDto) {
     this.integration = integration.integration;
     this.name = integration.name;
+    this.logo = integration.logo;
     this.path = integration.path;
     this.connectionStatus = integration.connectionStatus;
     this.actsAs = integration.actsAs;

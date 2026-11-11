@@ -32523,6 +32523,12 @@
             "type": "string",
             "example": "Linear"
           },
+          "logo": {
+            "type": "string",
+            "description": "The mark of the integration, as a base64 image data URI or an https address. Null where its definition names none",
+            "example": "https://example.com/linear.svg",
+            "nullable": true
+          },
           "path": {
             "type": "string",
             "description": "Where the integration is defined",
@@ -32567,6 +32573,7 @@
         "required": [
           "integration",
           "name",
+          "logo",
           "path",
           "connectionStatus",
           "actsAs",
