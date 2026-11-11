@@ -53,6 +53,7 @@ const shownOf = (
 };
 
 const NONE: readonly JournalledRun[] = [];
+const JOURNAL_GC_MS = 5 * 60 * 1000;
 
 const settled = (query: UseQueryResult): boolean =>
   !query.isPending || query.errorUpdateCount > 0;
@@ -79,6 +80,8 @@ export function useRunJournals(
     queries: shown.map(({ runId, eager: first }) => ({
       queryKey: journalKeys.ofRun(runId),
       queryFn: () => source.journal(runId),
+      gcTime: JOURNAL_GC_MS,
+      meta: { persist: false },
       ...(first ? {} : { staleTime: Number.POSITIVE_INFINITY }),
     })),
   });

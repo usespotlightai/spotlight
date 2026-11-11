@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router';
 
 import { useSession } from '@/hooks/api/useSession';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { useQueryCacheOwnedBy } from '@/hooks/useQueryCacheOwner';
 import { reportAs } from '@/lib/error-reporting';
 import { loading } from '@/lib/query';
 
@@ -14,6 +15,7 @@ export function RequireAuth() {
   const signedIn = Boolean(session?.user);
   const workspaces = useWorkspaces(signedIn);
   const userId = session?.user.id ?? null;
+  const cacheOwned = useQueryCacheOwnedBy(userId);
 
   useEffect(() => reportAs(userId), [userId]);
 
@@ -25,7 +27,7 @@ export function RequireAuth() {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (loading(workspaces)) {
+  if (!cacheOwned || loading(workspaces)) {
     return null;
   }
 

@@ -15,6 +15,7 @@ export function useDeviceCode(userCode: string | null, signedIn: boolean) {
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: false,
+    meta: { persist: false },
     queryFn: async (): Promise<DeviceStatus | null> => {
       const { data, error } = await authClient.device({
         query: { user_code: userCode as string },

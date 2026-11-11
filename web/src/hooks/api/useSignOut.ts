@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { unsubscribeFromPush } from '@/lib/api';
 import { authClient } from '@/lib/authClient';
 import { currentPushSubscription } from '@/lib/notifications';
+import { forgetQueryCache } from '@/lib/query-cache';
 
 const withoutPush = async () => {
   const subscription = await currentPushSubscription();
@@ -30,6 +31,9 @@ export function useSignOut() {
         );
       }
     },
-    onSuccess: () => queryClient.clear(),
+    onSuccess: () => {
+      queryClient.clear();
+      void forgetQueryCache();
+    },
   });
 }

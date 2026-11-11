@@ -1,5 +1,6 @@
 import { reactErrorHandler } from '@sentry/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
@@ -14,6 +15,7 @@ import {
 } from '@/lib/error-reporting';
 import { failuresToasted } from '@/lib/failure-toasts';
 import { refuseStrayFileDrops } from '@/lib/file-drops';
+import { CACHE_MAX_AGE_MS, persistOptions } from '@/lib/query-cache';
 import { retryQuery } from '@/lib/query-retry';
 import { withSentRequest } from '@/lib/request-failure';
 import { reloadOnStaleBuild } from '@/lib/stale-build';
@@ -38,7 +40,11 @@ client.interceptors.error.use(withGatewayErrorReported);
 const queryClient = new QueryClient({
   mutationCache: failuresToasted(),
   defaultOptions: {
-    queries: { staleTime: 30_000, retry: retryQuery },
+    queries: {
+      staleTime: 30_000,
+      gcTime: CACHE_MAX_AGE_MS,
+      retry: retryQuery,
+    },
   },
 });
 
@@ -48,13 +54,16 @@ const render = () =>
     onRecoverableError: reactErrorHandler(),
   }).render(
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={persistOptions(import.meta.env.VITE_BUILD_ID)}
+      >
         <Toaster>
           <BrowserRouter>
             <App />
           </BrowserRouter>
         </Toaster>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </StrictMode>,
   );
 
