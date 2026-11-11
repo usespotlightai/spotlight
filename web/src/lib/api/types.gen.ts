@@ -3367,6 +3367,10 @@ export type ChatSummaryResponseDto = {
    * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Whether it is the starter's turn: an unread proposal, or an agent reply not yet resolved, while no run is working on it.
+   */
+  waitingForYou: boolean;
 };
 
 export type ChatSummaryPageResponseDto = {
@@ -3498,6 +3502,10 @@ export type ChatResponseDto = {
    * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * Whether it is the starter's turn: an unread proposal, or an agent reply not yet resolved, while no run is working on it.
+   */
+  waitingForYou: boolean;
   /**
    * The run answering now
    */

@@ -29719,6 +29719,11 @@
             "nullable": true,
             "example": "in-progress",
             "description": "What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers."
+          },
+          "waitingForYou": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether it is the starter's turn: an unread proposal, or an agent reply not yet resolved, while no run is working on it."
           }
         },
         "required": [
@@ -29732,7 +29737,8 @@
           "setup",
           "createdAt",
           "updatedAt",
-          "progress"
+          "progress",
+          "waitingForYou"
         ]
       },
       "ChatSummaryPageResponseDto": {
@@ -30086,6 +30092,11 @@
             "example": "in-progress",
             "description": "What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers."
           },
+          "waitingForYou": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether it is the starter's turn: an unread proposal, or an agent reply not yet resolved, while no run is working on it."
+          },
           "runId": {
             "type": "string",
             "nullable": true,
@@ -30110,6 +30121,7 @@
           "createdAt",
           "updatedAt",
           "progress",
+          "waitingForYou",
           "runId",
           "messages"
         ]

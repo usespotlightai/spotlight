@@ -1,5 +1,6 @@
 import { HarnessLogo } from '@/components/features/stations/HarnessLogo';
 import { ProgressState } from '@/components/shared/ProgressState';
+import { WaitingForYouPill } from '@/components/shared/WaitingForYouPill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { ChatSummary } from '@/lib/chat';
 import { since } from '@/lib/since';
@@ -22,7 +23,11 @@ export function ChatRow({ chat, to }: ChatRowProps) {
       </TrailLink>
 
       <span className="ml-auto flex shrink-0 items-center gap-2">
-        {chat.progress && <ProgressState progress={chat.progress} />}
+        {chat.waitingForYou ? (
+          <WaitingForYouPill />
+        ) : (
+          chat.progress && <ProgressState progress={chat.progress} />
+        )}
 
         <span className="w-20 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
           {since(chat.updatedAt)}
