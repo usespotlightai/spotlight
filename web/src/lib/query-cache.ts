@@ -14,6 +14,9 @@ const OWNER_KEY = 'spotlight:query-cache-owner';
 
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+// Bump when a query function changes the shape it returns.
+const CACHE_SHAPE = 1;
+
 const persister = createAsyncStoragePersister({
   key: CACHE_KEY,
   storage: {
@@ -27,10 +30,10 @@ const shouldPersistQuery = (query: Query): boolean =>
   query.meta?.persist !== false && defaultShouldDehydrateQuery(query);
 
 export const persistOptions = (
-  buster: string,
+  apiShape: string,
 ): Omit<PersistQueryClientOptions, 'queryClient'> => ({
   persister,
-  buster,
+  buster: `${CACHE_SHAPE}-${apiShape}`,
   maxAge: CACHE_MAX_AGE_MS,
   dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
 });

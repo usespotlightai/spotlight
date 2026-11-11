@@ -8,7 +8,6 @@ export const useSession = fn(() => ({
       email: 'sam@example.com',
       image: null,
     },
-    session: { id: 'session_1', userId: 'user_1' },
   },
   isPending: false,
   isRefetching: false,
