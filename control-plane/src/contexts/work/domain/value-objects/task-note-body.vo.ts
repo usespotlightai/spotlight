@@ -25,13 +25,9 @@ export class TaskNoteBody {
     return TaskNoteBody.of(anchored || summary);
   }
 
-  static deferredMove(
-    summary: string,
-    anchor: Anchor | null,
-    to: StationName,
-  ): TaskNoteBody {
+  static deferredMove(to: StationName, account: TaskNoteBody): TaskNoteBody {
     return TaskNoteBody.of(
-      `This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.receivedHappening(summary, anchor).value}`,
+      `This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${account.value}`,
     );
   }
 
@@ -42,25 +38,6 @@ export class TaskNoteBody {
     const moved = `Moved to ${to.value} when the run ended. An event arrived while the run was in progress.`;
 
     return TaskNoteBody.of(account ? `${moved}\n\n${account.value}` : moved);
-  }
-
-  static interrupted(
-    summary: string,
-    working: StationName | null,
-  ): TaskNoteBody {
-    return TaskNoteBody.happenedWhile(summary, working, 'was working');
-  }
-
-  private static happenedWhile(
-    summary: string,
-    station: StationName | null,
-    doing: string,
-  ): TaskNoteBody {
-    const happened = TaskNoteBody.of(summary).value.replace(/\.$/, '');
-
-    return TaskNoteBody.of(
-      `${happened} while ${station?.value ?? 'its station'} ${doing}. Close the task, or reply to carry on.`,
-    );
   }
 
   static fromInput(

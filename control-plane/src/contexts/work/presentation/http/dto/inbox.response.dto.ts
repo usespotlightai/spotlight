@@ -293,6 +293,24 @@ export class NoteResponseDto {
   readonly coAuthors: readonly InboxAuthorResponseDto[];
 
   @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'github',
+    description:
+      'The integration it came from, where the world outside wrote it',
+  })
+  readonly source: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'Implementation',
+    description:
+      'The station the task moves to when the run in progress ends, where it arrived during that run',
+  })
+  readonly deferredTo: string | null;
+
+  @ApiProperty({
     type: InboxApprovalResponseDto,
     nullable: true,
     description: 'The tool call this asks a person to approve, where it is one',
@@ -328,6 +346,8 @@ export class NoteResponseDto {
     at: string,
     author: InboxAuthorResponseDto | null,
     coAuthors: readonly InboxAuthorResponseDto[],
+    source: string | null,
+    deferredTo: string | null,
     approval: InboxApprovalResponseDto | null,
     failure: InboxFailureResponseDto | null,
     connection: InboxConnectionResponseDto | null,
@@ -345,6 +365,8 @@ export class NoteResponseDto {
     this.at = at;
     this.author = author;
     this.coAuthors = coAuthors;
+    this.source = source;
+    this.deferredTo = deferredTo;
     this.approval = approval;
     this.failure = failure;
     this.connection = connection;
@@ -365,6 +387,27 @@ export class InboxStationResponseDto {
     this.name = name;
     this.color = color;
     this.position = position;
+  }
+}
+
+export class InboxCurrentStationResponseDto extends InboxStationResponseDto {
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'run_2',
+    description:
+      'The task’s latest run at this station since it arrived there, or null if it has none there yet',
+  })
+  readonly latestRunId: string | null;
+
+  constructor(
+    name: string,
+    color: string,
+    position: number,
+    latestRunId: string | null,
+  ) {
+    super(name, color, position);
+    this.latestRunId = latestRunId;
   }
 }
 
@@ -420,10 +463,10 @@ export class InboxItemResponseDto {
   readonly originStation: InboxStationResponseDto;
 
   @ApiProperty({
-    type: InboxStationResponseDto,
+    type: InboxCurrentStationResponseDto,
     description: 'Where the task is now, which is where it ended up',
   })
-  readonly currentStation: InboxStationResponseDto;
+  readonly currentStation: InboxCurrentStationResponseDto;
 
   @ApiProperty({ example: '2026-08-28T09:02:00.000Z' })
   readonly createdAt: string;

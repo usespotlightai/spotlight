@@ -149,9 +149,9 @@ export class DispatchTask implements TaskDispatching {
         );
         return NOTHING_REMEMBERED;
       });
-    const briefed = task.briefed.withDecisions(
-      await this.decisions.ofTask(task.id),
-    );
+    const briefed = task
+      .briefedOn(line)
+      .withDecisions(await this.decisions.ofTask(task.id));
     const briefing = TaskBriefing.brief({
       task: briefed,
       line,

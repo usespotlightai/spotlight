@@ -77,7 +77,30 @@ describe('compiling an integration', () => {
     expect(read.ok && read.readable.integration.name).toBe('linear');
   });
 
+  it('keeps the logo the file names', () => {
+    const read = compileIntegration(
+      parseYaml(`${WHOLE}logo: https://example.com/linear.svg\n`),
+      expressions,
+    );
+
+    expect(read.ok && read.readable.integration.logo?.value).toBe(
+      'https://example.com/linear.svg',
+    );
+  });
+
+  it('has no logo when the file names none', () => {
+    const read = compileIntegration(parseYaml(WHOLE), expressions);
+
+    expect(read.ok && read.readable.integration.logo).toBeNull();
+  });
+
   describe('says what is wrong, where it is', () => {
+    it('rejects a logo that is not an image data URI or an https address', () => {
+      expect(
+        complaining(`${WHOLE}logo: javascript:alert(1)\n`, 'logo'),
+      ).not.toHaveLength(0);
+    });
+
     it('names the integration a problem is in', () => {
       const [problem] = problems(WITHOUT_VERIFY);
 

@@ -42,6 +42,7 @@ interface InboxItem {
   readonly taskId: string;
   readonly progress: string | null;
   readonly runId: string | null;
+  readonly currentStation: { readonly latestRunId: string | null };
 }
 
 const HOST = `host-paused-${randomUUID().slice(0, 8)}`;
@@ -391,7 +392,10 @@ describe('a run that asks a person', () => {
     });
     expect(requeued?.workingCopyKey).toBe(`work/task-${taskId}`);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
-    expect((await inboxItemOf(taskId)).progress).toBe('queued');
+    expect(await inboxItemOf(taskId)).toMatchObject({
+      progress: 'queued',
+      currentStation: { latestRunId: runId },
+    });
 
     const second = await claimed(runId);
     expect(second).not.toBe(first);

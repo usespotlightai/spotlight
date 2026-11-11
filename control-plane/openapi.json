@@ -27497,6 +27497,35 @@
           "position"
         ]
       },
+      "InboxCurrentStationResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Triage"
+          },
+          "color": {
+            "type": "string",
+            "example": "#edc12b"
+          },
+          "position": {
+            "type": "number",
+            "example": 0
+          },
+          "latestRunId": {
+            "type": "string",
+            "nullable": true,
+            "example": "run_2",
+            "description": "The task’s latest run at this station since it arrived there, or null if it has none there yet"
+          }
+        },
+        "required": [
+          "name",
+          "color",
+          "position",
+          "latestRunId"
+        ]
+      },
       "InboxFailureResponseDto": {
         "type": "object",
         "properties": {
@@ -27801,6 +27830,18 @@
               "$ref": "#/components/schemas/InboxAuthorResponseDto"
             }
           },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "example": "github",
+            "description": "The integration it came from, where the world outside wrote it"
+          },
+          "deferredTo": {
+            "type": "string",
+            "nullable": true,
+            "example": "Implementation",
+            "description": "The station the task moves to when the run in progress ends, where it arrived during that run"
+          },
           "approval": {
             "nullable": true,
             "description": "The tool call this asks a person to approve, where it is one",
@@ -27846,6 +27887,8 @@
           "at",
           "author",
           "coAuthors",
+          "source",
+          "deferredTo",
           "approval",
           "failure",
           "connection"
@@ -27919,7 +27962,7 @@
             "description": "Where the task is now, which is where it ended up",
             "allOf": [
               {
-                "$ref": "#/components/schemas/InboxStationResponseDto"
+                "$ref": "#/components/schemas/InboxCurrentStationResponseDto"
               }
             ]
           },
@@ -28340,7 +28383,7 @@
             "description": "Where the task is now, which is where it ended up",
             "allOf": [
               {
-                "$ref": "#/components/schemas/InboxStationResponseDto"
+                "$ref": "#/components/schemas/InboxCurrentStationResponseDto"
               }
             ]
           },
@@ -32523,6 +32566,12 @@
             "type": "string",
             "example": "Linear"
           },
+          "logo": {
+            "type": "string",
+            "description": "The mark of the integration, as a base64 image data URI or an https address. Null where its definition names none",
+            "example": "https://example.com/linear.svg",
+            "nullable": true
+          },
           "path": {
             "type": "string",
             "description": "Where the integration is defined",
@@ -32567,6 +32616,7 @@
         "required": [
           "integration",
           "name",
+          "logo",
           "path",
           "connectionStatus",
           "actsAs",

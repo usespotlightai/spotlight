@@ -41,6 +41,7 @@ import { InboundDeliveryId } from '@integrations/domain/value-objects/inbound-de
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { IntegrationLogo } from '@integrations/domain/value-objects/integration-logo.vo';
 import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { OAuthScope } from '@integrations/domain/value-objects/oauth-scope.vo';
@@ -112,6 +113,7 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   Schedule,
   SpecRefreshDetail,
   IntegrationKey,
+  IntegrationLogo,
   Integration,
   OfferedTools,
   SpecFetchResult,

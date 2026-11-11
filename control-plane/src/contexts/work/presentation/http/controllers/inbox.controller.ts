@@ -66,6 +66,7 @@ import { AnswerInboxItemRequestDto } from '@work/presentation/http/dto/inbox.req
 import {
   INBOX_PAGE_SCHEMA,
   InboxChatResponseDto,
+  InboxCurrentStationResponseDto,
   type InboxEntryResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
@@ -108,10 +109,11 @@ const taskItemFields = (
     item.originStation.color,
     item.originStation.position,
   ),
-  currentStation: new InboxStationResponseDto(
+  currentStation: new InboxCurrentStationResponseDto(
     stationLabelOf(item.currentStation.name),
     item.currentStation.color,
     item.currentStation.position,
+    item.currentStation.latestRunId,
   ),
   createdAt: item.createdAt,
   askedAt: item.askedAt,

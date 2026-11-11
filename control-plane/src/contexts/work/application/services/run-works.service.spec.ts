@@ -42,6 +42,7 @@ const SCREENSHOT = Attachment.rehydrate({
 const message = (position: number, body: string, files: Attachment[] = []) => ({
   position: { value: position },
   body: { value: body },
+  toldOn: () => ({ value: body }),
   attachments: files,
 });
 

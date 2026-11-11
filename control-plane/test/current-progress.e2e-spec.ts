@@ -19,7 +19,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf, endingFor } from './support/run-ended';
-import { aTurn, requestedBySpec, requestedByTask } from './support/runs';
+import {
+  aDispatch,
+  aTrial,
+  aTurn,
+  requestedBySpec,
+  requestedByTask,
+} from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -354,5 +360,201 @@ describe('the progress of a chat whose run waits to start', () => {
 
   it('is none while the chat waits for the next message', async () => {
     await expect(chatWith('completed')).resolves.toBeNull();
+  });
+});
+
+const movedOnWith = async (
+  revision: number,
+  runs: readonly {
+    readonly at: 'implementation' | 'review';
+    readonly revision: number;
+    readonly orderedAt: string;
+  }[],
+  { working = null as string | null, strays = false } = {},
+) => {
+  const workspaceId = randomUUID();
+  const lineId = randomUUID();
+  const implementation = randomUUID();
+  const review = randomUUID();
+  const taskId = randomUUID();
+  const viewer = `user_${randomUUID()}`;
+  const runIds = runs.map(() => randomUUID());
+
+  await db.insert(schema.line).values({
+    id: lineId,
+    key: `delivery-${lineId}`,
+    workspaceId,
+    teamId: 'team_1',
+    name: 'Delivery',
+  });
+  await insertStations(db, [
+    {
+      id: implementation,
+      key: 'implementation',
+      workspaceId,
+      lineId,
+      name: 'Implementation',
+      position: 0,
+    },
+    {
+      id: review,
+      key: 'review',
+      workspaceId,
+      lineId,
+      name: 'Review',
+      position: 1,
+    },
+  ]);
+  await db.insert(schema.task).values({
+    id: taskId,
+    branch: `feat/test-${taskId}`,
+    openedFrom: 'person',
+    workspaceId,
+    stationId: review,
+    title: 'Fix the queue',
+    assigneeId: viewer,
+    revision,
+    currentRunId: working,
+  });
+  if (runs.length > 0) {
+    await db.insert(schema.dispatch).values(
+      runs.map((each, index) =>
+        aDispatch({
+          runId: runIds[index] ?? '',
+          workspaceId,
+          teamId: 'team_1',
+          taskId,
+          revision: each.revision,
+          stationId: each.at === 'review' ? review : implementation,
+          orderedAt: new Date(each.orderedAt),
+        }),
+      ),
+    );
+  }
+  if (strays) {
+    await db.insert(schema.dispatch).values([
+      {
+        ...aDispatch({
+          runId: randomUUID(),
+          workspaceId,
+          teamId: 'team_1',
+          taskId,
+          revision,
+          stationId: review,
+          orderedAt: new Date('2026-10-20T10:00:00Z'),
+        }),
+        refused: 'withdrawn',
+      },
+      aTrial({
+        runId: randomUUID(),
+        workspaceId,
+        teamId: 'team_1',
+        basedOn: runIds[0] ?? '',
+        taskId,
+        stationId: review,
+        orderedAt: new Date('2026-10-20T10:05:00Z'),
+      }),
+    ]);
+  }
+  const askedBy = await aRunOf(db, {
+    id: randomUUID(),
+    workspaceId,
+    taskId,
+    state: 'completed',
+  });
+  await db.insert(schema.taskNote).values([
+    {
+      taskId,
+      position: 0,
+      station: 'Implementation',
+      stationId: implementation,
+      body: 'Which queue?',
+      at: new Date('2026-10-20T09:00:00.000Z'),
+      voice: 'station',
+      runId: askedBy,
+      kind: 'asked',
+    },
+    {
+      taskId,
+      position: 1,
+      station: 'Implementation',
+      stationId: implementation,
+      body: 'The retry queue.',
+      at: new Date('2026-10-20T09:05:00.000Z'),
+      voice: 'person',
+      authorId: viewer,
+      kind: 'answered',
+    },
+  ]);
+
+  const reader = new DrizzleInboxReader(
+    db,
+    { findMany: async () => new Map() } as never,
+    progress(),
+  );
+  const entries = await reader.open({
+    workspaceId,
+    viewer: UserId.of(viewer),
+    teamsSeen: new Set(['team_1']),
+    teamsActedOn: new Set(),
+  });
+
+  return {
+    runIds,
+    item: entries.find(
+      (each): each is InboxItemSummary => each.kind === 'task',
+    ),
+  };
+};
+
+describe('the station a task moved on to', () => {
+  it('names the task’s latest run there since it arrived, finished or not, and no newer run at another station', async () => {
+    const { runIds, item } = await movedOnWith(3, [
+      { at: 'implementation', revision: 0, orderedAt: '2026-10-20T08:00:00Z' },
+      { at: 'review', revision: 1, orderedAt: '2026-10-20T08:30:00Z' },
+      { at: 'review', revision: 2, orderedAt: '2026-10-20T09:10:00Z' },
+      { at: 'implementation', revision: 0, orderedAt: '2026-10-20T09:20:00Z' },
+    ]);
+
+    expect(item?.currentStation).toMatchObject({
+      name: 'Review',
+      latestRunId: runIds[2],
+    });
+  });
+
+  it('names no refused dispatch and no trial there', async () => {
+    const { runIds, item } = await movedOnWith(
+      3,
+      [{ at: 'review', revision: 2, orderedAt: '2026-10-20T09:10:00Z' }],
+      { strays: true },
+    );
+
+    expect(item?.currentStation.latestRunId).toBe(runIds[0]);
+  });
+
+  it('names the task’s current run before its dispatch is on record', async () => {
+    const { item } = await movedOnWith(
+      3,
+      [{ at: 'review', revision: 2, orderedAt: '2026-10-20T09:10:00Z' }],
+      { working: 'run_just_assigned' },
+    );
+
+    expect(item?.currentStation.latestRunId).toBe('run_just_assigned');
+  });
+
+  it('names no run where the only runs there are from an earlier stay', async () => {
+    const { item } = await movedOnWith(4, [
+      { at: 'review', revision: 1, orderedAt: '2026-10-20T08:30:00Z' },
+    ]);
+
+    expect(item?.currentStation.latestRunId).toBeNull();
+  });
+
+  it('names no run where no run started there', async () => {
+    const { item } = await movedOnWith(1, [
+      { at: 'implementation', revision: 0, orderedAt: '2026-10-20T08:00:00Z' },
+    ]);
+
+    expect(item?.currentStation.latestRunId).toBeNull();
   });
 });

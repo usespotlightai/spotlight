@@ -117,3 +117,22 @@ describe('useChatMessage clearing a sent draft', () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe('useChatMessage clearing a sent draft', () => {
+  it('clears the draft when it is sent', () => {
+    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+
+    rerender({ shared: synced('task-draft:a', 4, true) });
+
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the next draft alone after a switch from a sent draft', () => {
+    const { rerender, update } = watched(synced('task-draft:a', 3, true));
+
+    rerender({ shared: synced('task-draft:b', 0, false) });
+    rerender({ shared: synced('task-draft:b', 2, true) });
+
+    expect(update).not.toHaveBeenCalled();
+  });
+});

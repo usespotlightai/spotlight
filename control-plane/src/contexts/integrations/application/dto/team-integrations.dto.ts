@@ -11,6 +11,7 @@ export interface TeamIntegrationSpecDto {
 export interface TeamIntegrationDto {
   readonly integration: string;
   readonly name: string;
+  readonly logo: string | null;
   readonly path: string;
   readonly connectionStatus: IntegrationConnectionStatus;
   readonly actsAs: ActsAsKind;

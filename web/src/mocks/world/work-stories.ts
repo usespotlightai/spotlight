@@ -27,6 +27,8 @@ export type NoteScript = {
   readonly author?: TaskPersonResponseDto;
   readonly failure?: InboxFailureResponseDto;
   readonly approval?: InboxApprovalResponseDto;
+  readonly source?: string;
+  readonly deferredTo?: string;
   readonly minutesAfterEnd?: number;
   readonly minutesIn?: number;
 };
@@ -354,6 +356,13 @@ export const RUN_STORIES: Record<string, RunStory> = {
       asked(
         'The spec is in `docs/specs/rate-limits.md`:\n\n- A token bucket per API key, **600 requests a minute** with bursts of 100\n- Over the limit: `429 Too Many Requests` with `Retry-After`\n- Dashboard sessions are not limited\n\nShould limits apply per API key or per workspace? Per key is fairer to partners with several integrations; per workspace is simpler to explain on the pricing page.',
       ),
+      {
+        kind: 'message',
+        source: 'github',
+        deferredTo: 'Implementation',
+        minutesAfterEnd: 0.3,
+        body: 'Failed: docs lint.\n\n**docs lint** failed at the step "Check links". The end of its log:\n\n```text\ndocs/specs/rate-limits.md:4: broken link to /pricing#limits\n```',
+      },
     ],
     output: 'Spec: 600 requests a minute per API key, one question open.',
   },

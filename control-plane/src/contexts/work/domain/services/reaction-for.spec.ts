@@ -207,12 +207,12 @@ describe('ReactionFor.happened', () => {
     expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
   });
 
-  it('notes what arrived while a run was in progress on the task, and where it moves once the run ends', () => {
+  it('notes only what arrived while a run was in progress on the task', () => {
     const anchor = Anchor.of({ body: 'This retries forever.' });
     const outcome = reaction(handed('station_1'), commented, anchor);
 
     expect(outcome.kind === 'deferredMove' && outcome.body.value).toBe(
-      'This arrived while a run was in progress on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
+      'This retries forever.',
     );
     expect(outcome.kind === 'deferredMove' && outcome.anchor).toBe(anchor);
   });
@@ -220,30 +220,30 @@ describe('ReactionFor.happened', () => {
   it('defers a comment with no anchor as the summary of what happened', () => {
     const outcome = reaction(handed('station_1'), commented);
 
-    expect(outcome.kind === 'deferredMove' && outcome.body.value).toContain(
-      'moves to Code Review when the run ends.\n\nThe pull request was commented on.',
+    expect(outcome.kind === 'deferredMove' && outcome.body.value).toBe(
+      'The pull request was commented on.',
     );
   });
 
-  it('interrupts the run and puts it to a person where a merge would finish a task that has a current run', () => {
+  it('finishes a task whose run is working when the pull request merges', () => {
     const outcome = reaction(handed('station_2'), merged);
 
-    expect(outcome.kind).toBe('interrupts');
+    expect(outcome.kind).toBe('moves');
+    expect(destination(outcome)).toEqual(LINE.completed.id);
     expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
-    expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
-      'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
+    expect(outcome.kind === 'moves' && outcome.body.value).toBe(
+      'The pull request was merged.',
     );
   });
 
-  it('says what closed the pull request when it interrupts a run', () => {
+  it('finishes a task whose run is working when the pull request closes unmerged', () => {
     const outcome = reaction(
       handed('station_1'),
       payloadOf(CLOSED, 'The pull request was closed without being merged.'),
     );
 
-    expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
-      'The pull request was closed without being merged while Implementation was working. Close the task, or reply to carry on.',
-    );
+    expect(outcome.kind).toBe('moves');
+    expect(destination(outcome)).toEqual(LINE.completed.id);
   });
 
   it('defers a move while the current run of the task waits on a person', () => {
@@ -273,7 +273,7 @@ describe('ReactionFor.happened', () => {
     expect(destination(outcome)).toEqual(LINE.completed.id);
   });
 
-  it('says the station was working where the task awaits only a tool approval', () => {
+  it('finishes a task whose run waits on a tool approval when the pull request merges', () => {
     const asking = handed('station_2').putToAPerson(RUN, {
       line: null,
       body: TaskNoteBody.of('Approve linear.comment?'),
@@ -292,38 +292,8 @@ describe('ReactionFor.happened', () => {
 
     const outcome = reaction(asking, merged);
 
-    expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
-      'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
-    );
-  });
-
-  it('names no station of the line when the task a merge interrupts is on none of it', () => {
-    const elsewhere = lineMapOf({
-      id: LineId.of('line_9'),
-      workspaceId: WorkspaceId.of('ws_1'),
-      teamId: TeamId.of('team_1'),
-      key: LineKey.of('elsewhere'),
-      name: LineName.of('Elsewhere'),
-      stations: [
-        at('station_8', 'Backlog', 0, 'backlog'),
-        at('station_9', 'Triage', 1),
-        at('station_10', 'Completed', 2, 'completed'),
-      ],
-    });
-    const task = Task.add({
-      line: elsewhere,
-      at: StationId.of('station_9'),
-      title: TaskTitle.of('Retry uploads'),
-      rank: TaskRank.of('i'),
-      now: NOW,
-      newId: () => 'task_9',
-    }).assignRun(RUN, elsewhere);
-
-    const outcome = reaction(task, merged);
-
-    expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
-      'The pull request was merged while its station was working. Close the task, or reply to carry on.',
-    );
+    expect(outcome.kind).toBe('moves');
+    expect(destination(outcome)).toEqual(LINE.completed.id);
   });
 
   it('keeps a task where the rule names the station it is at, run or no run', () => {

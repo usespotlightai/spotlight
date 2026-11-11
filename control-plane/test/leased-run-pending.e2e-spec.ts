@@ -35,7 +35,7 @@ beforeAll(async () => {
     {} as RunsPort,
     new DrizzleTaskRepository(context, NO_EVENTS),
     new DrizzleChatRepository(context, NO_EVENTS),
-    {} as LineMapsPort,
+    { findByStation: async () => null } as unknown as LineMapsPort,
     new DrizzleDispatchRepository(context, NO_EVENTS),
     { now: () => new Date(), sleep: async () => {} },
   );

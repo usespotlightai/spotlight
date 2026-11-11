@@ -4,9 +4,11 @@ import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
+import { WorldMessage } from '@/components/features/inbox/conversation/WorldMessage';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { Turn } from '@/components/shared/Turn';
+import { useMessageSources } from '@/hooks/api/useMessageSources';
 import { useArrivals } from '@/hooks/useArrivals';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
@@ -113,6 +115,7 @@ export function Conversation({
 }: ConversationProps) {
   const marked = marksIn(item);
   const turns = turnsOf(item);
+  const sourceOf = useMessageSources(item.teamId);
   const workedBy: WorkedBy = new Map(
     item.notes.map((note) => [
       note.position,
@@ -189,6 +192,12 @@ export function Conversation({
       box.scrollHeight - box.scrollTop - box.clientHeight < CLOSE;
   };
 
+  const rendered = (turn: NoteTurn, at: number): boolean =>
+    turn.prompt !== null ||
+    turn.notes.length > 0 ||
+    (at === 0 && Boolean(briefing));
+  const firstShown = turns.findIndex(rendered);
+
   return (
     <PaneScroller
       ref={scroller}
@@ -203,28 +212,40 @@ export function Conversation({
         <TimeMarker at={item.createdAt} />
 
         {turns.map((turn, at, all) => {
-          const head = turn.prompt ? (
-            <PersonMessage
-              body={turn.prompt.body}
-              attachments={turn.prompt.attachments}
-              authors={authorsOf(turn.prompt)}
-            />
-          ) : at === 0 ? (
-            briefing
-          ) : null;
+          const head =
+            turn.prompt?.voice === 'world' ? (
+              <WorldMessage
+                body={turn.prompt.body}
+                attachments={turn.prompt.attachments}
+                authors={authorsOf(turn.prompt)}
+                source={sourceOf(turn.prompt.source)}
+                deferredTo={turn.prompt.deferredTo}
+              />
+            ) : turn.prompt ? (
+              <PersonMessage
+                body={turn.prompt.body}
+                attachments={turn.prompt.attachments}
+                authors={authorsOf(turn.prompt)}
+              />
+            ) : at === 0 ? (
+              briefing
+            ) : null;
 
-          if (!head && turn.notes.length === 0) {
+          if (!rendered(turn, at)) {
             return null;
           }
+
+          const afterAnother = at > firstShown;
 
           return (
             <Turn
               // oxlint-disable-next-line react/no-array-index-key -- the turns come in order and their order does not change
               key={at}
+              className={cn(afterAnother && 'mt-6')}
               head={
                 <>
                   {turn.prompt && marked.has(turn.prompt.position) && (
-                    <div className="mt-6 mb-3">
+                    <div className={cn('mb-3', !afterAnother && 'mt-6')}>
                       <TimeMarker at={turn.prompt.at} />
                     </div>
                   )}

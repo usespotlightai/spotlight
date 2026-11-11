@@ -177,4 +177,5 @@ export const restoredAttachments = (
     state: 'ready',
     id: each.id,
     uploadedAt: each.uploadedAt,
+    restored: true,
   }));

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -44,6 +45,8 @@ const note = (position: number, at: string, station = 'Backlog'): Note => ({
   at,
   author: null,
   coAuthors: [],
+  source: null,
+  deferredTo: null,
   attachments: [],
   approval: null,
   failure: null,
@@ -70,22 +73,29 @@ const showing = (
   afterRun?: (runId: string) => ReactNode,
 ) =>
   render(
-    <MemoryRouter>
-      <Conversation
-        deciding={deciding}
-        afterRun={afterRun}
-        item={{
-          id: 'item_1',
-          teamId: 'team_1',
-          createdAt: AT,
-          station: { name: 'Backlog', color: '#edc12b', position: 0, count: 4 },
-          progress: null,
-          notes,
-        }}
-        worked={[]}
-        footer={null}
-      />
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <Conversation
+          deciding={deciding}
+          afterRun={afterRun}
+          item={{
+            id: 'item_1',
+            teamId: 'team_1',
+            createdAt: AT,
+            station: {
+              name: 'Backlog',
+              color: '#edc12b',
+              position: 0,
+              count: 4,
+            },
+            progress: null,
+            notes,
+          }}
+          worked={[]}
+          footer={null}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 
 describe('Conversation', () => {
@@ -200,26 +210,29 @@ describe('Conversation', () => {
   });
 
   it('lets only the notes that come later arrive, not the ones it opened with', () => {
+    const client = new QueryClient();
     const conversation = (notes: Note[]) => (
-      <MemoryRouter>
-        <Conversation
-          item={{
-            id: 'item_1',
-            teamId: 'team_1',
-            createdAt: AT,
-            station: {
-              name: 'Backlog',
-              color: '#edc12b',
-              position: 0,
-              count: 4,
-            },
-            progress: null,
-            notes,
-          }}
-          worked={[]}
-          footer={null}
-        />
-      </MemoryRouter>
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <Conversation
+            item={{
+              id: 'item_1',
+              teamId: 'team_1',
+              createdAt: AT,
+              station: {
+                name: 'Backlog',
+                color: '#edc12b',
+                position: 0,
+                count: 4,
+              },
+              progress: null,
+              notes,
+            }}
+            worked={[]}
+            footer={null}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
     );
     const { rerender } = render(conversation([note(0, AT)]));
 

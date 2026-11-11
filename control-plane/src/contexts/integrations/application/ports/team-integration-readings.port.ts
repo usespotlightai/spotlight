@@ -8,6 +8,7 @@ export interface TeamIntegrationReading {
   readonly integration: string;
   readonly path: string;
   readonly name: string;
+  readonly logo: string | null;
   readonly requiresConnection: boolean;
   readonly actsAs: ActsAsKind;
   readonly spec: {
