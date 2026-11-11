@@ -247,6 +247,35 @@ describe('ChatInput', () => {
     expect(await within(box()).findByText('notes.txt')).toBeInTheDocument();
   });
 
+  it('puts a refused message back with its lines', async () => {
+    input({ onSend: (_message, restore) => restore(new Error('refused')) });
+
+    await write(box(), 'one\ntwo');
+    await waitFor(() => expect(send()).toBeEnabled());
+    await userEvent.click(send());
+
+    await waitFor(() => expect(textOf(box())).toContain('one'));
+    expect(textOf(box())).toBe('one\ntwo');
+  });
+
+  it('puts a refused message back in front of what was typed since', async () => {
+    let refuse: () => void = () => {};
+    input({
+      onSend: (_message, restore) => {
+        refuse = () => restore(new Error('refused'));
+      },
+    });
+
+    await write(box(), 'first');
+    await waitFor(() => expect(send()).toBeEnabled());
+    await userEvent.click(send());
+    await write(box(), 'next');
+    act(() => refuse());
+
+    await waitFor(() => expect(textOf(box())).toContain('first'));
+    expect(textOf(box())).toBe('first\n\nnext');
+  });
+
   it('can be shown without being used', () => {
     render(
       <ChatInput

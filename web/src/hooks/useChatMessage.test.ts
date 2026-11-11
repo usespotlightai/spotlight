@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { LexicalEditor } from 'lexical';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +7,8 @@ import type { SharedDraft } from '@/hooks/useSharedDraft';
 import type { SharedAttachment } from '@/lib/shared-draft';
 
 const uploaded = vi.fn();
+
+vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: (input: unknown) => uploaded(input),
@@ -123,12 +126,26 @@ describe('useChatMessage putting back a refused message', () => {
     const { result } = renderHook(() =>
       useChatMessage('acme', [], 'try again'),
     );
-    result.current.editor.current = { update } as unknown as LexicalEditor;
+    result.current.editor.current = {
+      update,
+      getEditorState: () => ({ toJSON: () => ({ root: { children: [] } }) }),
+    } as unknown as LexicalEditor;
 
     act(() => result.current.release());
     act(() => result.current.restore());
 
     expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a refused message that has no box to go back to', () => {
+    const { result } = renderHook(() =>
+      useChatMessage('acme', [], 'try again'),
+    );
+
+    act(() => result.current.release());
+    act(() => result.current.restore());
+
+    expect(captureException).toHaveBeenCalledOnce();
   });
 
   it('puts nothing back when nothing was sent', () => {

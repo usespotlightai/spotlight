@@ -34,6 +34,9 @@ export type MessageInFlight = OutgoingMessage & { readonly sentAt: number };
 
 const CLOCK_SKEW_MS = 60_000;
 
+const sameIds = (left: readonly string[], right: readonly string[]) =>
+  left.length === right.length && left.every((id) => right.includes(id));
+
 const stillOnTheirWay = (
   conversation: RunNotes,
   inFlight: readonly MessageInFlight[],
@@ -48,8 +51,12 @@ const stillOnTheirWay = (
         !matched.has(note.position) &&
         note.voice === 'person' &&
         note.author?.id === me?.id &&
-        body !== '' &&
+        (body !== '' || message.attachments.length > 0) &&
         note.body === body &&
+        sameIds(
+          note.attachments.map((each) => each.id),
+          message.attachments,
+        ) &&
         Date.parse(note.at) >= message.sentAt - CLOCK_SKEW_MS,
     );
 

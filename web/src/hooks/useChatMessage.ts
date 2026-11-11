@@ -1,12 +1,13 @@
+import { captureException } from '@sentry/react';
 import {
-  $createLineBreakNode,
   $createParagraphNode,
-  $createTextNode,
   $getRoot,
   $getSelection,
   $isElementNode,
   $isRangeSelection,
+  $parseSerializedNode,
   type LexicalEditor,
+  type SerializedLexicalNode,
 } from 'lexical';
 import {
   type ClipboardEvent,
@@ -121,7 +122,7 @@ export function useChatMessage(
   }, []);
 
   const unsent = useRef<{
-    written: Written;
+    blocks: SerializedLexicalNode[];
     attachments: PendingAttachment[];
   } | null>(null);
 
@@ -249,22 +250,26 @@ export function useChatMessage(
     }
 
     files.restore(back.attachments);
+
+    if (!editor.current) {
+      captureException(new Error('Refused message could not be put back'));
+    }
+
     editor.current?.update(() => {
       const root = $getRoot();
-      const first = root.getFirstChild();
-      const paragraph = $isElementNode(first) ? first : $createParagraphNode();
-      const typedSince = paragraph.getTextContentSize() > 0;
+      const typedSince = root.getTextContentSize() > 0;
 
-      if (paragraph !== first) {
-        root.clear().append(paragraph);
+      if (!typedSince) {
+        root.clear();
       }
 
-      paragraph.splice(0, 0, [
-        ...$spacedReferences(back.written.references),
-        $createTextNode(back.written.text),
-        ...(typedSince ? [$createLineBreakNode()] : []),
-      ]);
-      paragraph.selectEnd();
+      root.splice(0, 0, back.blocks.map($parseSerializedNode));
+
+      if (root.isEmpty()) {
+        root.append($createParagraphNode());
+      }
+
+      root.selectEnd();
     });
   }, [files.restore]);
 
@@ -281,7 +286,7 @@ export function useChatMessage(
 
   const release = () => {
     unsent.current = {
-      written,
+      blocks: editor.current?.getEditorState().toJSON().root.children ?? [],
       attachments: files.attachments.filter((each) => each.state === 'ready'),
     };
 

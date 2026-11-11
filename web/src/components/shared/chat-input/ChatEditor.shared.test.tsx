@@ -1,5 +1,6 @@
 import type { Provider } from '@lexical/yjs';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {
   $createTextNode,
   $getRoot,
@@ -13,7 +14,8 @@ import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import type { DraftHandle } from '@/hooks/useChatDraft';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
-import { write } from '@/test/lexical';
+import type { Outgoing } from '@/lib/chat-input';
+import { textOf as textIn, write } from '@/test/lexical';
 
 type State = Record<string, unknown>;
 
@@ -187,5 +189,70 @@ describe('ChatEditor on a shared draft', () => {
 
     expect(ada.wrote).toHaveBeenCalled();
     expect(draft.save).not.toHaveBeenCalled();
+  });
+
+  describe('when the send is refused', () => {
+    const writers = async () => {
+      const join = hubbed();
+      const everyone = new Map<number, State>();
+      const ada = draftFor(join, 'ada', everyone);
+      const bea = draftFor(join, 'bea', everyone);
+      const sent: { message: Outgoing; restore: (error?: unknown) => void }[] =
+        [];
+      const inputFor = (shared: SharedDraft) => (
+        <ChatInput
+          slug="acme"
+          label={`Answer as ${shared.me.id}`}
+          placeholder="Reply…"
+          pending={false}
+          settings={null}
+          onSend={(message, restore) => sent.push({ message, restore })}
+          shared={shared}
+        />
+      );
+      const view = render(inputFor(ada));
+      render(inputFor(bea));
+      const boxOf = async (who: string) => {
+        const box = await screen.findByRole('textbox', {
+          name: `Answer as ${who}`,
+        });
+        await waitFor(() =>
+          expect(box).toHaveAttribute('contenteditable', 'true'),
+        );
+        return box;
+      };
+      const adas = await boxOf('ada');
+      const beas = await boxOf('bea');
+      await write(adas, 'Cap the retries at 500.');
+      await waitFor(() => expect(textIn(beas)).toBe('Cap the retries at 500.'));
+      await userEvent.click(
+        within(adas.closest('form') as HTMLElement).getByRole('button', {
+          name: 'Send',
+        }),
+      );
+      await waitFor(() => expect(textIn(beas)).toBe(''));
+
+      return { ada, adas, beas, sent, view, inputFor };
+    };
+
+    it('gives both writers the text back when the generation is unchanged', async () => {
+      const { adas, beas, sent } = await writers();
+
+      expect(sent[0]?.message.draftGeneration).toBe(0);
+      act(() => sent[0]?.restore(new Error('refused')));
+
+      await waitFor(() => expect(textIn(adas)).toBe('Cap the retries at 500.'));
+      await waitFor(() => expect(textIn(beas)).toBe('Cap the retries at 500.'));
+    });
+
+    it('gives nothing back when a teammate sent the draft first', async () => {
+      const { ada, adas, beas, sent, view, inputFor } = await writers();
+
+      view.rerender(inputFor({ ...ada, generation: 1 }));
+      act(() => sent[0]?.restore(new Error('already sent')));
+
+      expect(textIn(adas)).toBe('');
+      expect(textIn(beas)).toBe('');
+    });
   });
 });

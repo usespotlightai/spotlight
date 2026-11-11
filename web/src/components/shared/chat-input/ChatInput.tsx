@@ -17,7 +17,6 @@ import {
   type Reference,
   ReferenceStates,
 } from '@/lib/chat-input';
-import { conflicting } from '@/lib/error';
 import { cn } from '@/lib/utils';
 
 type Sending =
@@ -74,6 +73,9 @@ export function ChatInput({
   draft,
 }: ChatInputProps) {
   const cursors = useRef<HTMLDivElement>(null);
+  const latestGeneration = useRef(shared?.generation);
+  latestGeneration.current = shared?.generation;
+  const generation = shared?.generation;
   const message = useChatMessage(
     slug,
     initialReferences,
@@ -98,7 +100,9 @@ export function ChatInput({
     onStop,
     onSend:
       onSend &&
-      ((outgoing) =>
+      ((outgoing) => {
+        const sentGeneration = shared?.synced ? generation : undefined;
+
         onSend(
           shared
             ? {
@@ -107,12 +111,16 @@ export function ChatInput({
                 ...(shared.synced && { draftGeneration: shared.generation }),
               }
             : outgoing,
-          (error) => {
-            if (!(shared && conflicting(error))) {
+          () => {
+            if (
+              sentGeneration === undefined ||
+              latestGeneration.current === sentGeneration
+            ) {
               message.restore();
             }
           },
-        )),
+        );
+      }),
     clear: message.release,
   });
 

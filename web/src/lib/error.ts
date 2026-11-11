@@ -35,5 +35,3 @@ const answered = (thrown: unknown, status: number): boolean => {
 };
 
 export const notFound = (thrown: unknown): boolean => answered(thrown, 404);
-
-export const conflicting = (thrown: unknown): boolean => answered(thrown, 409);

@@ -33,8 +33,7 @@ export function useSendMessage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['inbox'] });
       void queryClient.invalidateQueries({ queryKey: teamRunKeys.all });
-
-      return queryClient.invalidateQueries({ queryKey: runNotesKeys.all });
+      void queryClient.invalidateQueries({ queryKey: runNotesKeys.all });
     },
   });
 }
@@ -45,8 +44,8 @@ export function useMessagesInFlight(
   return useMutationState({
     filters: {
       mutationKey: sendMessageKey,
-      status: 'pending',
       predicate: (mutation) =>
+        ['pending', 'success'].includes(mutation.state.status) &&
         runIds.includes(
           (mutation.state.variables as OutgoingMessage | undefined)?.runId ??
             '',
