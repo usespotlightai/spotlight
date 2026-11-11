@@ -46,4 +46,4 @@ Your contributions are welcome!
 
 ## License
 
-Spotlight is licensed under the [Apache License 2.0](LICENSE).
+Spotlight is licensed under the [Apache License 2.0](LICENSE), as LICENSE states.
