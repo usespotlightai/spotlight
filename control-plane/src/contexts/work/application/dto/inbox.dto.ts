@@ -94,6 +94,10 @@ interface InboxStationDto {
   readonly position: number;
 }
 
+interface InboxCurrentStationDto extends InboxStationDto {
+  readonly latestRunId: string | null;
+}
+
 export interface InboxItemDto {
   readonly kind: 'task';
   readonly id: string;
@@ -107,7 +111,7 @@ export interface InboxItemDto {
   readonly stationPosition: number;
   readonly stationCount: number;
   readonly originStation: InboxStationDto;
-  readonly currentStation: InboxStationDto;
+  readonly currentStation: InboxCurrentStationDto;
   readonly createdAt: string;
   readonly askedAt: string;
   readonly resolved: boolean;

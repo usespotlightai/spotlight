@@ -2527,6 +2527,16 @@ export type InboxStationResponseDto = {
   position: number;
 };
 
+export type InboxCurrentStationResponseDto = {
+  name: string;
+  color: string;
+  position: number;
+  /**
+   * The task’s latest run at this station since it arrived there, or null if it has none there yet
+   */
+  latestRunId: string | null;
+};
+
 export type InboxFailureResponseDto = {
   /**
    * Where the failure came from: the run, or the hook that failed
@@ -2698,7 +2708,7 @@ export type InboxItemResponseDto = {
   /**
    * Where the task is now, which is where it ended up
    */
-  currentStation: InboxStationResponseDto;
+  currentStation: InboxCurrentStationResponseDto;
   createdAt: string;
   askedAt: string;
   /**
@@ -2880,7 +2890,7 @@ export type InboxItemViewResponseDto = {
   /**
    * Where the task is now, which is where it ended up
    */
-  currentStation: InboxStationResponseDto;
+  currentStation: InboxCurrentStationResponseDto;
   createdAt: string;
   askedAt: string;
   /**

@@ -57,7 +57,12 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   stationPosition: 1,
   stationCount: 3,
   originStation: { name: 'Triage', color: '#edc12b', position: 0 },
-  currentStation: { name: 'Implementation', color: '#edc12b', position: 1 },
+  currentStation: {
+    name: 'Implementation',
+    color: '#edc12b',
+    position: 1,
+    latestRunId: null,
+  },
   createdAt: asked,
   askedAt: asked,
   resolved: false,

@@ -8228,6 +8228,35 @@
           "position"
         ]
       },
+      "InboxCurrentStationResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Triage"
+          },
+          "color": {
+            "type": "string",
+            "example": "#edc12b"
+          },
+          "position": {
+            "type": "number",
+            "example": 0
+          },
+          "latestRunId": {
+            "type": "string",
+            "nullable": true,
+            "example": "run_2",
+            "description": "The task’s latest run at this station since it arrived there, or null if it has none there yet"
+          }
+        },
+        "required": [
+          "name",
+          "color",
+          "position",
+          "latestRunId"
+        ]
+      },
       "InboxFailureResponseDto": {
         "type": "object",
         "properties": {
@@ -8650,7 +8679,7 @@
             "description": "Where the task is now, which is where it ended up",
             "allOf": [
               {
-                "$ref": "#/components/schemas/InboxStationResponseDto"
+                "$ref": "#/components/schemas/InboxCurrentStationResponseDto"
               }
             ]
           },
@@ -9071,7 +9100,7 @@
             "description": "Where the task is now, which is where it ended up",
             "allOf": [
               {
-                "$ref": "#/components/schemas/InboxStationResponseDto"
+                "$ref": "#/components/schemas/InboxCurrentStationResponseDto"
               }
             ]
           },

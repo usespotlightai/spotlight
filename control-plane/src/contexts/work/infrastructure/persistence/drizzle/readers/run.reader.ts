@@ -49,8 +49,10 @@ import {
   attachmentsFor,
   attachmentsOf,
   awaitedReviewsFor,
+  LATEST_RUN_FIRST,
   reviewsBy,
   stationsPerLine,
+  taskRuns,
   trailsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
@@ -105,8 +107,6 @@ const lastChangeOf = (facts: RunFacts): Date =>
     (latest, each) => (each && each > latest ? each : latest),
     facts.queuedAt,
   );
-
-const taskRuns = and(eq(dispatch.kind, 'task'), isNull(dispatch.refused));
 
 @Injectable()
 export class DrizzleRunReader implements RunReaderPort {
@@ -310,7 +310,7 @@ export class DrizzleRunReader implements RunReaderPort {
           eq(dispatch.stationId, found.dispatchedAt),
         ),
       )
-      .orderBy(desc(dispatch.orderedAt), desc(dispatch.id))
+      .orderBy(...LATEST_RUN_FIRST)
       .limit(1);
     const latestId = latest?.runId ?? found.runId;
     const progress = new Map(
