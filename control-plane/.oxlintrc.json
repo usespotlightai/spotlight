@@ -233,6 +233,7 @@
                   "@insights/**",
                   "@replays/**",
                   "@integrations/**",
+                  "@notifications/**",
                   "@/**",
                   "../**"
                 ],

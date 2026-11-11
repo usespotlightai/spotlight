@@ -440,7 +440,42 @@ describe('a decision set, merged in more than one repository', () => {
     const apiMerged = decided().merge(mergeOf(API, 'a'));
 
     expect(apiMerged.requestGeneration(SECOND, NOW).hasPendingJob).toBe(false);
-    expect(apiMerged.discardable).toBe(false);
+    expect(apiMerged.closedUnmerged(WEB, [])).not.toBeNull();
+  });
+
+  it('drops only the decisions of a repository whose pull request closes unmerged', () => {
+    const kept = decided().closedUnmerged(API, [API, WEB]);
+
+    expect(kept && titles(kept.decisions)).toEqual(['Polls every second']);
+  });
+
+  it('keeps a decision that is also on a repository still open', () => {
+    const spanning = opened()
+      .requestGeneration(FIRST, NOW)
+      .recordGeneration({
+        runId: FIRST,
+        proposed: [
+          proposed({
+            title: 'Shares the retry policy',
+            paths: ['api/src/uploads.ts', 'web/src/poll.ts'],
+          }),
+        ],
+        evidence: DecisionEvidence.of({
+          steps: [5],
+          changed: ['api/src/uploads.ts', 'web/src/poll.ts'],
+        }),
+        newId: counting('decision'),
+      });
+
+    expect(spanning.closedUnmerged(API, [API, WEB])).toBe(spanning);
+  });
+
+  it('is discarded once no repository still has an open pull request', () => {
+    const afterApi = decided().closedUnmerged(API, [API, WEB]);
+
+    expect(
+      afterApi?.closedUnmerged(Repository.of('Acme/Web'), [WEB]),
+    ).toBeNull();
   });
 
   it('does not rehydrate two merges into one repository', () => {
@@ -476,20 +511,25 @@ describe('a decision set, merged in one repository', () => {
     expect(merged.mergedIn(API)).toEqual(merged.decisions);
     expect(merged.mergedIn(API)).toHaveLength(2);
     expect(merged.requestGeneration(SECOND, NOW).hasPendingJob).toBe(false);
-    expect(merged.discardable).toBe(false);
+    expect(merged.closedUnmerged(API, [])).toBe(merged);
   });
 });
 
 describe('a decision set, closed without a merge', () => {
-  it('may be discarded', () => {
+  it('is discarded when its only pull request closes', () => {
+    const API = Repository.of('acme/api');
+
     expect(
-      generating(opened().requestGeneration(FIRST, NOW), FIRST, [proposed()])
-        .discardable,
-    ).toBe(true);
+      generating(opened().requestGeneration(FIRST, NOW), FIRST, [
+        proposed(),
+      ]).closedUnmerged(API, [API]),
+    ).toBeNull();
   });
 
   it('keeps what is already merged', () => {
-    expect(opened().merge(MERGE).discardable).toBe(false);
+    expect(
+      opened().merge(MERGE).closedUnmerged(Repository.of('acme/web'), []),
+    ).not.toBeNull();
   });
 });
 

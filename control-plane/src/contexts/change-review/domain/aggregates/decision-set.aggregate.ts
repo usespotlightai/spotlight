@@ -241,8 +241,29 @@ export class DecisionSet
       : [];
   }
 
-  get discardable(): boolean {
-    return !this.status.isMerged;
+  closedUnmerged(
+    repository: Repository,
+    openIn: readonly Repository[],
+  ): DecisionSet | null {
+    if (this.status.mergeIn(repository)) {
+      return this;
+    }
+
+    const stillOpen = openIn.filter((each) => !each.equals(repository));
+
+    if (!this.status.isMerged && stillOpen.length === 0) {
+      return null;
+    }
+
+    const kept = this.decisions.filter(
+      (each) =>
+        !each.isWithin(repository) ||
+        stillOpen.some((open) => each.isWithin(open)),
+    );
+
+    return kept.length === this.decisions.length
+      ? this
+      : this.with({ decisions: kept });
   }
 
   private with(change: {

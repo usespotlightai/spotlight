@@ -9,8 +9,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
+import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
@@ -115,8 +114,10 @@ describe('the pull requests of a task', () => {
         originStationId: null,
         createdBy: owner,
         openedFrom: work.openedFrom,
-        pullRequestLink: PullRequestLink.opened(api),
-        laterPullRequests: [LaterPullRequest.of(docs, NOW)],
+        ownedPullRequests: [
+          OwnedPullRequest.of(api, NOW),
+          OwnedPullRequest.of(docs, NOW),
+        ],
         finishedAt: null,
         revision: work.revision,
         version: 0,

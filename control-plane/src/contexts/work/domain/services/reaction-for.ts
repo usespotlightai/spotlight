@@ -1,3 +1,4 @@
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
@@ -24,9 +25,22 @@ interface OutcomeNote {
 export type Outcome =
   | { readonly kind: 'nothing' }
   | (OutcomeNote & { readonly kind: 'stays' })
-  | (OutcomeNote & { readonly kind: 'deferredMove'; readonly to: Station })
+  | (OutcomeNote & {
+      readonly kind: 'deferredMove';
+      readonly to: Station;
+      readonly closed: PullRequestUrl | null;
+    })
+  | (OutcomeNote & {
+      readonly kind: 'held';
+      readonly to: Station;
+      readonly closed: PullRequestUrl;
+    })
   | (OutcomeNote & { readonly kind: 'answers'; readonly to: NotePosition })
-  | (OutcomeNote & { readonly kind: 'moves'; readonly to: Station });
+  | (OutcomeNote & {
+      readonly kind: 'moves';
+      readonly to: Station;
+      readonly closed: PullRequestUrl | null;
+    });
 
 export interface Opening {
   readonly at: Station;
@@ -81,6 +95,12 @@ export const ReactionFor = {
       ),
     ): OutcomeNote => ({ line: input.line, body, anchor: input.anchor });
 
+    const closed = input.payload.closedPullRequest ?? null;
+
+    if (rule && closed && input.task.routedCloseOf(closed)) {
+      return { kind: 'stays', ...note() };
+    }
+
     if (rule) {
       const destination = input.line.stationAt(rule.to);
 
@@ -88,23 +108,27 @@ export const ReactionFor = {
         return { kind: 'nothing' };
       }
 
-      if (
-        input.payload.closedPullRequest &&
-        input.task.openPullRequests.length > 0
-      ) {
-        return { kind: 'stays', ...note() };
+      if (closed && input.task.keepsUnsettledPullRequestBeside(closed)) {
+        return destination.id.equals(input.task.stationId)
+          ? { kind: 'stays', ...note() }
+          : {
+              kind: 'held',
+              to: destination,
+              closed,
+              ...note(
+                TaskNoteBody.heldMove(
+                  destination.name,
+                  TaskNoteBody.receivedHappening(
+                    input.payload.summary,
+                    input.anchor,
+                  ),
+                ),
+              ),
+            };
       }
 
       if (!destination.id.equals(input.task.stationId)) {
-        if (input.task.movableByHappeningTo(input.line, destination.id)) {
-          return { kind: 'moves', to: destination, ...note() };
-        }
-
-        return {
-          kind: 'deferredMove',
-          to: destination,
-          ...note(),
-        };
+        return ReactionFor.movingTo(input.task, destination, note(), closed);
       }
     }
 
@@ -120,6 +144,17 @@ export const ReactionFor = {
     return rule && here && !(input.payload.answers && !input.anchor)
       ? { kind: 'stays', ...note() }
       : { kind: 'nothing' };
+  },
+
+  movingTo(
+    task: Task,
+    to: Station,
+    note: OutcomeNote,
+    closed: PullRequestUrl | null,
+  ): Outcome {
+    return task.movableByHappeningTo(note.line, to.id)
+      ? { kind: 'moves', to, closed, ...note }
+      : { kind: 'deferredMove', to, closed, ...note };
   },
 
   openingOn(input: {

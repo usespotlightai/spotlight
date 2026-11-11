@@ -37,6 +37,7 @@ const authorizing = (allowed: boolean, member = true) =>
     viewableOf: vi.fn(),
     inWorkspace: vi.fn(),
     teamAccessIn: vi.fn(),
+    teamAccessOfMembers: vi.fn(),
     inWorkspaceOfTeam: vi.fn(async () =>
       member
         ? {

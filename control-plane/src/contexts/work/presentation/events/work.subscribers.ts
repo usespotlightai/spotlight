@@ -3,6 +3,10 @@ import {
   type HostBecameReadyIntegrationEvent,
 } from '@shared-kernel/application/integration-events/host-became-ready.integration-event';
 import {
+  PULL_REQUEST_CLOSED,
+  type PullRequestClosedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
+import {
   PULL_REQUEST_REOPENED,
   type PullRequestReopenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
@@ -52,8 +56,8 @@ import type { NotifyOutsideTools } from '@work/application/events/handlers/notif
 import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
-import type { ReopenTaskPullRequest } from '@work/application/events/handlers/reopen-task-pull-request.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
+import type { TrackTaskPullRequests } from '@work/application/events/handlers/track-task-pull-requests.handler';
 import {
   type NewTeam,
   type WelcomeTeam,
@@ -127,7 +131,7 @@ export const workSubscribers = (reactions: {
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
   takenMarks: ReleaseTakenMarks;
-  reopenedPullRequests: ReopenTaskPullRequest;
+  taskPullRequests: TrackTaskPullRequests;
 }): readonly DomainEventSubscriber[] => [
   subscribing<ToolUsed>(
     'work.fire-hooks-after-tool-used',
@@ -283,11 +287,21 @@ export const workSubscribers = (reactions: {
     (event) => reactions.takenMarks.on(event),
     { callsOut: true },
   ),
+  subscribing<PullRequestClosedIntegrationEvent>(
+    'work.close-task-pull-request',
+    [PULL_REQUEST_CLOSED],
+    (event) =>
+      reactions.taskPullRequests.closed(
+        WorkspaceId.of(event.workspaceId),
+        PullRequestUrl.of(event.pullRequest),
+        event.closedAt ? new Date(event.closedAt) : null,
+      ),
+  ),
   subscribing<PullRequestReopenedIntegrationEvent>(
     'work.reopen-task-pull-request',
     [PULL_REQUEST_REOPENED],
     (event) =>
-      reactions.reopenedPullRequests.on(
+      reactions.taskPullRequests.reopened(
         WorkspaceId.of(event.workspaceId),
         PullRequestUrl.of(event.pullRequest),
       ),

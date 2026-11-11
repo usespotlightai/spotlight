@@ -36,7 +36,7 @@ export class PostChangeStackComment implements StickyCommentPosterPort {
   async ofTask(taskId: TaskId): Promise<void> {
     const task = await this.work.task(taskId);
 
-    if (!task?.pullRequest || !task.teamId) {
+    if (!task?.teamId) {
       return;
     }
 

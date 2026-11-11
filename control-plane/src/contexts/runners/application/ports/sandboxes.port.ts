@@ -6,6 +6,7 @@ export interface SandboxForRun {
   readonly workspaceId: string;
   readonly key: string | null;
   readonly line: string | null;
+  readonly lineFingerprint: string | null;
   readonly hostId: string;
   readonly runId: string;
 }
@@ -25,6 +26,7 @@ export type SandboxTakingRuns =
       readonly id: string;
       readonly workspaceId: string;
       readonly warmFor: string;
+      readonly fingerprint: string;
     };
 
 export interface WarmStart {
@@ -42,6 +44,7 @@ export interface StartedWarmSandbox extends StartedSandbox {
 export interface ReadyWarmSandbox {
   readonly id: string;
   readonly line: string;
+  readonly fingerprint: string;
 }
 
 type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';

@@ -3,9 +3,8 @@ import type {
   WarmSandboxesPort,
   WarmSandboxOrder,
 } from '@runners/application/ports/warm-sandboxes.port';
-import { reviseSandbox } from '@runners/application/services/sandbox-revisions';
+import { reviseOrRemoveSandbox } from '@runners/application/services/sandbox-revisions';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
-import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { WarmPart } from '@runners/domain/value-objects/warm-part.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -85,27 +84,17 @@ export class WarmSandboxes implements WarmSandboxesPort {
 
   async retire(sandboxId: string): Promise<void> {
     const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+    const retired =
+      found &&
+      (await reviseOrRemoveSandbox(this.sandboxes, found, (sandbox) =>
+        sandbox.retireWarm(),
+      ));
 
-    if (!found?.isWarm) {
-      return;
+    if (retired?.kind === 'saved') {
+      this.logger.info(
+        { sandboxId, hostId: retired.sandbox.hostId?.value ?? null },
+        'Draining a warm sandbox its line no longer needs',
+      );
     }
-
-    if (found.isRequested) {
-      await this.sandboxes.remove(found).catch((error: unknown) => {
-        if (!(error instanceof SandboxVersionConflictError)) {
-          throw error;
-        }
-      });
-      return;
-    }
-
-    await reviseSandbox(this.sandboxes, found, (sandbox) =>
-      sandbox.isWarm ? sandbox.drain() : sandbox,
-    );
-
-    this.logger.info(
-      { sandboxId, hostId: found.hostId?.value ?? null },
-      'Draining a warm sandbox its line no longer needs',
-    );
   }
 }

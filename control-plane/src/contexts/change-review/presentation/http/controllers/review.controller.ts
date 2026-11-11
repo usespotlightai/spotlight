@@ -12,6 +12,7 @@ import {
 import {
   CodeReviewResponseDto,
   CreatedIdResponseDto,
+  PullRequestLandingResponseDto,
   ReviewCommentResponseDto,
   ReviewResponseDto,
 } from '@change-review/presentation/http/dto/review.response.dto';
@@ -70,7 +71,7 @@ export class ReviewController {
     );
 
     return new CodeReviewResponseDto(
-      found.pullRequest,
+      found.landings.map((each) => new PullRequestLandingResponseDto(each)),
       found.comments.map(
         (each) =>
           new ReviewCommentResponseDto({

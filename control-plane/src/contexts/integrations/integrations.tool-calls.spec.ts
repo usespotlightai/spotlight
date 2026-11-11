@@ -143,7 +143,6 @@ const task = (marked = true): IntegrationTaskViewDto => ({
   workspaceId: 'ws_1',
   teamId: 'team_1',
   title: 'Drain the queue',
-  pullRequest: null,
   pullRequests: [],
   line: 'delivery',
   station: 'Implementation',

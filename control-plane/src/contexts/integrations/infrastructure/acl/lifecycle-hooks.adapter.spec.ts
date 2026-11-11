@@ -23,7 +23,6 @@ const TASK: TaskViewDto = {
   stationKey: 'implementation',
   marks: {},
   repositories: ['acme/api'],
-  pullRequest: null,
   pullRequests: [],
   runId: 'run_1',
 };

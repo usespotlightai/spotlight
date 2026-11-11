@@ -17,7 +17,6 @@ export interface SeenTaskDto {
   readonly workspaceId: string;
   readonly teamId: string;
   readonly title: string;
-  readonly pullRequest: string | null;
   readonly pullRequests: readonly string[];
   readonly line: string;
   readonly station: string;

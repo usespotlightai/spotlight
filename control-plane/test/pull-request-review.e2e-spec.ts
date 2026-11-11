@@ -153,7 +153,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
 
     expect(task?.reviewing).toBe(true);
     expect(task?.fromOutside).toBe(true);
-    expect(task?.pullRequest?.value).toBe(pull);
+    expect(task?.reviewedPullRequest?.url.value).toBe(pull);
     expect(task?.stationId.value).toBe(mapOf(line).entry?.id.value);
     expect(task?.reviewedHead?.repository.value).toBe(`acme/${workspaceId}`);
 

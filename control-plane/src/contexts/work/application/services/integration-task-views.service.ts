@@ -60,8 +60,10 @@ export class IntegrationTaskViews {
       workspaceId: task.workspaceId.value,
       teamId: line.teamId.value,
       title: task.title.value,
-      pullRequest: task.pullRequest?.value ?? null,
-      pullRequests: task.pullRequests.map((each) => each.value),
+      pullRequests: (task.reviewedPullRequest
+        ? [task.reviewedPullRequest.url]
+        : task.pullRequests
+      ).map((each) => each.value),
       line: line.key.value,
       station: station?.name.value ?? '',
       stationKey: station?.key.value ?? '',

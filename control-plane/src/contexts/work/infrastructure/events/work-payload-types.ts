@@ -11,7 +11,6 @@ import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
 import { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
-import { InboxItemArrived } from '@work/domain/events/inbox-item-arrived.event';
 import { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked-read.event';
 import { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
@@ -95,7 +94,6 @@ import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
 import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
-import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
@@ -106,10 +104,10 @@ import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
 import { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
+import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
@@ -118,6 +116,7 @@ import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { ReviewVerdict } from '@work/domain/value-objects/review-verdict.vo';
+import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunResult } from '@work/domain/value-objects/run-result.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
@@ -140,8 +139,6 @@ import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { WarmFingerprint } from '@work/domain/value-objects/warm-fingerprint.vo';
-import { WarmSandboxQuota } from '@work/domain/value-objects/warm-sandbox-quota.vo';
 import { WorkingCopyRelease } from '@work/domain/value-objects/working-copy-release.vo';
 
 export const WORK_PAYLOAD_TYPES = [
@@ -175,8 +172,8 @@ export const WORK_PAYLOAD_TYPES = [
   HarnessSession,
   TargetStation,
   DeferredMove,
-  PullRequestLink,
-  LaterPullRequest,
+  ReviewedPullRequest,
+  OwnedPullRequest,
   PullRequestTitle,
   CiSetup,
   ConfigFolder,
@@ -213,8 +210,6 @@ export const WORK_PAYLOAD_TYPES = [
   Trail,
   TraceReference,
   Voice,
-  WarmSandboxQuota,
-  WarmFingerprint,
   DraftGeneration,
   InboxRequestId,
   NoticeId,
@@ -281,7 +276,6 @@ export const WORK_PAYLOAD_TYPES = [
   NoticeResolved,
   InboxRequestResolved,
   InboxRequestMarkedRead,
-  InboxItemArrived,
   TaskDeleted,
   TaskFinished,
   TaskRunAssigned,

@@ -39,7 +39,6 @@ import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LaterPullRequest } from '@work/domain/value-objects/later-pull-request.vo';
 import {
   lineMapOf,
   routesOf,
@@ -47,9 +46,10 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
+import { OwnedPullRequest } from '@work/domain/value-objects/owned-pull-request.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
+import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -61,6 +61,8 @@ import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
+
+const NOTHING_HELD = { line: null, ranksAtHeldMove: [] };
 
 const withNotes = (task: Task, ...notes: TaskNote[]) =>
   Task.rehydrate({
@@ -82,7 +84,8 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     originStationId: task.originStationId,
     createdBy: task.createdBy,
     openedFrom: task.openedFrom,
-    pullRequestLink: task.pullRequestLink,
+    reviewedPullRequest: task.reviewedPullRequest,
+    ownedPullRequests: task.ownedPullRequests,
     finishedAt: task.finishedAt,
     version: task.version,
   });
@@ -1012,6 +1015,7 @@ describe('Task, what it is doing', () => {
         path: 'compose.yml',
         from: 22,
         reviewComment: 'PRRC_kwDO',
+        pullRequest: 'https://github.com/acme/widgets/pull/7',
       }),
     };
 
@@ -1064,14 +1068,19 @@ describe('Task, what it is doing', () => {
       expect(toReply.repository).toEqual(Repository.of('acme/docs'));
     });
 
-    it('replies on the first pull request to a review comment that names none', () => {
-      const toReply = opened()
-        .addMessage(reviewComment)
-        .reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0));
+    it('will not guess the pull request of a review comment that names none', () => {
+      const unnamed = opened().addMessage({
+        ...reviewComment,
+        anchor: Anchor.of({
+          body: 'pin this.',
+          path: 'compose.yml',
+          reviewComment: 'PRRC_kwDO',
+        }),
+      });
 
-      expect(toReply.pullRequest.value).toBe(
-        'https://github.com/acme/widgets/pull/7',
-      );
+      expect(() =>
+        unnamed.reviewCommentToReplyFrom(RUN, HERE, NotePosition.of(0)),
+      ).toThrow(NoRepositoryError);
     });
 
     it('leaves the reply out of what is unacknowledged', () => {
@@ -1356,8 +1365,8 @@ describe('Task, what it is doing', () => {
       ).toThrow(InvalidTaskTransitionError);
       expect(
         added().assignRun(RUN, LINE).recordPullRequest(RUN, url, NOW, LINE)
-          .pullRequest,
-      ).toEqual(url);
+          .pullRequests,
+      ).toEqual([url]);
     });
 
     describe('in several repositories', () => {
@@ -1371,7 +1380,6 @@ describe('Task, what it is doing', () => {
       it('holds one for each repository, the first opened first', () => {
         const task = opened();
 
-        expect(task.pullRequest).toEqual(url);
         expect(task.pullRequests).toEqual([url, docs]);
       });
 
@@ -1381,7 +1389,6 @@ describe('Task, what it is doing', () => {
         expect(task.pullRequestIn(Repository.of('acme/docs'))).toEqual(docs);
         expect(task.pullRequestIn(Repository.of('acme/widgets'))).toEqual(url);
         expect(task.pullRequestIn(Repository.of('acme/api'))).toBeNull();
-        expect(task.pullRequestIn(null)).toEqual(url);
       });
 
       it('edits the one in a repository and opens one in a repository without one', () => {
@@ -1409,15 +1416,15 @@ describe('Task, what it is doing', () => {
         expect(task.pullRequests).toEqual([url, docs]);
       });
 
-      it('is never stored with two in one repository, or later ones without a first', () => {
+      it('is never stored with two in one repository, or beside one it reviews', () => {
         const task = added();
 
         expect(() =>
           Task.rehydrate({
             ...task,
-            pullRequestLink: PullRequestLink.opened(url),
-            laterPullRequests: [
-              LaterPullRequest.of(
+            ownedPullRequests: [
+              OwnedPullRequest.of(url, NOW),
+              OwnedPullRequest.of(
                 PullRequestUrl.of('https://github.com/Acme/Widgets/pull/9'),
                 NOW,
               ),
@@ -1427,15 +1434,81 @@ describe('Task, what it is doing', () => {
         expect(() =>
           Task.rehydrate({
             ...task,
-            laterPullRequests: [LaterPullRequest.of(docs, NOW)],
+            reviewedPullRequest: ReviewedPullRequest.of(url, {
+              outside: false,
+            }),
+            ownedPullRequests: [OwnedPullRequest.of(docs, NOW)],
           }),
         ).toThrow(InconsistentStateError);
+      });
+
+      it('holds a move only while one of its pull requests is neither closed nor routed', () => {
+        const task = added();
+        const holding = (...owned: OwnedPullRequest[]) =>
+          Task.rehydrate({
+            ...task,
+            ownedPullRequests: owned,
+            moveHeldTo: StationId.of('station_2'),
+          });
+
+        expect(() =>
+          holding(
+            OwnedPullRequest.of(url, NOW),
+            OwnedPullRequest.of(docs, NOW),
+          ),
+        ).not.toThrow();
+        expect(() =>
+          holding(
+            OwnedPullRequest.of(url, NOW, null, true),
+            OwnedPullRequest.of(docs, NOW, NOW),
+          ),
+        ).toThrow(InconsistentStateError);
+        expect(() => holding()).toThrow(InconsistentStateError);
+      });
+
+      it('keeps a pull request routed but not closed out of the open ones it holds a move for, yet open for review', () => {
+        const task = Task.rehydrate({
+          ...added(),
+          ownedPullRequests: [
+            OwnedPullRequest.of(url, NOW, null, true),
+            OwnedPullRequest.of(docs, NOW),
+          ],
+        });
+
+        expect(task.openPullRequests).toEqual([url, docs]);
+        expect(task.keepsUnsettledPullRequestBeside(docs)).toBe(false);
+        expect(task.keepsUnsettledPullRequestBeside(url)).toBe(true);
       });
 
       it('keeps a later one when its mark moves to another task', () => {
         const task = opened().releaseMark(Mark.pullRequest(docs));
 
         expect(task.pullRequestIn(Repository.of('acme/docs'))).toEqual(docs);
+      });
+
+      it('still closes a pull request whose mark moved to another task', () => {
+        const task = opened()
+          .releaseMark(Mark.pullRequest(docs))
+          .pullRequestClosed(docs, NOW, NOTHING_HELD);
+
+        expect(task.openPullRequests).toEqual([url]);
+      });
+
+      it('keeps an open pull request beside the one that closes, whether its close is recorded or not', () => {
+        const task = opened();
+
+        expect(task.keepsUnsettledPullRequestBeside(url)).toBe(true);
+        expect(
+          task
+            .pullRequestClosed(docs, NOW, NOTHING_HELD)
+            .keepsUnsettledPullRequestBeside(url),
+        ).toBe(false);
+        expect(
+          task
+            .pullRequestClosed(docs, NOW, NOTHING_HELD)
+            .pullRequestClosed(url, NOW, NOTHING_HELD)
+            .keepsUnsettledPullRequestBeside(url),
+        ).toBe(false);
       });
 
       it('takes no pull request of a mark it did not open as its own', () => {
@@ -1459,12 +1532,13 @@ describe('Task, what it is doing', () => {
         const task = opened();
 
         expect(task.openPullRequests).toEqual([url, docs]);
-        expect(task.pullRequestClosed(url, NOW).openPullRequests).toEqual([
-          docs,
-        ]);
         expect(
-          task.pullRequestClosed(url, NOW).pullRequestClosed(docs, NOW)
-            .openPullRequests,
+          task.pullRequestClosed(url, NOW, NOTHING_HELD).openPullRequests,
+        ).toEqual([docs]);
+        expect(
+          task
+            .pullRequestClosed(url, NOW, NOTHING_HELD)
+            .pullRequestClosed(docs, NOW, NOTHING_HELD).openPullRequests,
         ).toEqual([]);
       });
 
@@ -1475,14 +1549,15 @@ describe('Task, what it is doing', () => {
           task.pullRequestClosed(
             PullRequestUrl.of('https://github.com/acme/other/pull/1'),
             NOW,
+            NOTHING_HELD,
           ),
         ).toBe(task);
       });
 
       it('counts a pull request open again once it reopens', () => {
         const task = opened()
-          .pullRequestClosed(url, NOW)
-          .pullRequestClosed(docs, NOW);
+          .pullRequestClosed(url, NOW, NOTHING_HELD)
+          .pullRequestClosed(docs, NOW, NOTHING_HELD);
 
         expect(task.pullRequestReopened(docs).openPullRequests).toEqual([docs]);
         expect(task.pullRequestReopened(url).openPullRequests).toEqual([url]);
@@ -1493,6 +1568,7 @@ describe('Task, what it is doing', () => {
           opened().pullRequestClosed(
             PullRequestUrl.of('https://github.com/Acme/Docs/pull/3'),
             NOW,
+            NOTHING_HELD,
           ).openPullRequests,
         ).toEqual([url]);
       });
@@ -1524,7 +1600,8 @@ describe('Task, what it is doing', () => {
         new Date(0),
       );
 
-      expect(reviewing.pullRequest).toEqual(url);
+      expect(reviewing.reviewedPullRequest?.url).toEqual(url);
+      expect(reviewing.pullRequests).toEqual([]);
       expect(reviewing.reviewing).toBe(true);
       expect(reviewing.reviewedHead).toEqual({
         repository: Repository.of('acme/widgets'),
@@ -1580,9 +1657,9 @@ describe('Task, what it is doing', () => {
     it('neither opens nor edits a pull request while it reviews one', () => {
       const reviewing = added().reviews(url, { outside: false }, LINE, NOW);
 
-      expect(() => reviewing.pullRequestStep(null)).toThrow(
-        InvalidTaskTransitionError,
-      );
+      expect(() =>
+        reviewing.pullRequestStep(Repository.of('acme/widgets')),
+      ).toThrow(InvalidTaskTransitionError);
     });
 
     it('opens no pull request of its own while it reviews one', () => {

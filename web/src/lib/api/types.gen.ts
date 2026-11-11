@@ -4208,6 +4208,21 @@ export type RecordChangeStackCheckRequestDto = {
   steps?: Array<CheckedStepRequestDto>;
 };
 
+export type PullRequestLandingResponseDto = {
+  /**
+   * The repository a review or comment names; none for one that names no repository
+   */
+  repository: string | null;
+  /**
+   * routed: lands on pullRequest; waiting: lands when the task opens a pull request in the repository; ambiguous: names no repository while the task has more than one pull request, and lands nowhere
+   */
+  route: 'routed' | 'waiting' | 'ambiguous';
+  /**
+   * The pull request it lands on, when routed
+   */
+  pullRequest: string | null;
+};
+
 export type ReviewCommentResponseDto = {
   id: string;
   /**
@@ -4280,9 +4295,9 @@ export type ReviewResponseDto = {
 
 export type CodeReviewResponseDto = {
   /**
-   * Where the review lands; until there is one, it waits
+   * Where a review or comment lands: one entry for no repository, and one for the repository of each pull request of the task. A repository not in the list waits for its pull request
    */
-  pullRequest: string | null;
+  landings: Array<PullRequestLandingResponseDto>;
   comments: Array<ReviewCommentResponseDto>;
   reviews: Array<ReviewResponseDto>;
 };
@@ -4803,7 +4818,10 @@ export type CallbackTaskResponseDto = {
     [key: string]: string;
   };
   repositories: Array<string>;
-  pullRequest: string | null;
+  /**
+   * The pull requests of the task: the one it reviews, or the ones it opened
+   */
+  pullRequests: Array<string>;
   /**
    * The hook that the token was issued to
    */
@@ -11016,6 +11034,27 @@ export type VerifyMyEmailResponses = {
 
 export type VerifyMyEmailResponse = VerifyMyEmailResponses[keyof VerifyMyEmailResponses];
 
+export type WatchLiveData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/me/live';
+};
+
+export type WatchLiveErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type WatchLiveResponses = {
+  /**
+   * Server-sent events
+   */
+  200: unknown;
+};
+
 export type ReadCatalogToolData = {
   body?: never;
   headers?: {
@@ -14621,8 +14660,8 @@ export type ReopenInboxNoticeResponse = ReopenInboxNoticeResponses[keyof ReopenI
 export type ResolveInboxChatData = {
   body?: never;
   path: {
-    chatId: string;
     slug: string;
+    chatId: string;
   };
   query?: never;
   url: '/workspaces/{slug}/inbox/chats/{chatId}/resolve';
@@ -14651,8 +14690,8 @@ export type ResolveInboxChatResponse = ResolveInboxChatResponses[keyof ResolveIn
 export type ReopenInboxChatData = {
   body?: never;
   path: {
-    chatId: string;
     slug: string;
+    chatId: string;
   };
   query?: never;
   url: '/workspaces/{slug}/inbox/chats/{chatId}/reopen';
@@ -14681,8 +14720,8 @@ export type ReopenInboxChatResponse = ReopenInboxChatResponses[keyof ReopenInbox
 export type MarkInboxChatReadData = {
   body?: never;
   path: {
-    chatId: string;
     slug: string;
+    chatId: string;
   };
   query?: never;
   url: '/workspaces/{slug}/inbox/chats/{chatId}/read';
@@ -15809,27 +15848,6 @@ export type SubscribeToPushResponses = {
 };
 
 export type SubscribeToPushResponse = SubscribeToPushResponses[keyof SubscribeToPushResponses];
-
-export type WatchLiveData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/me/live';
-};
-
-export type WatchLiveErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-};
-
-export type WatchLiveResponses = {
-  /**
-   * Server-sent events
-   */
-  200: unknown;
-};
 
 export type ListTeamSkillsData = {
   body?: never;

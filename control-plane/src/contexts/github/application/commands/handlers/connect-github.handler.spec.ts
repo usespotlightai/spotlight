@@ -57,6 +57,7 @@ const connecting = (
       mayView: vi.fn(),
       viewableOf: vi.fn(),
       teamAccessIn: vi.fn(),
+      teamAccessOfMembers: vi.fn(),
       inWorkspaceOfTeam: vi.fn(),
       inWorkspace: vi.fn(async () =>
         over.membership === undefined ? membership() : over.membership,

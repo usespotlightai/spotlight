@@ -9,6 +9,7 @@ import {
 } from '@platform/live/live-feed.port';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   NOTICES,
   type NoticesPort,
@@ -18,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
 const ENDPOINT = 'https://fcm.googleapis.com/fcm/send/e2e-browser';
@@ -27,11 +29,15 @@ let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
 
-const noticeAbout = (subject: string, headline: string) =>
+const noticeAbout = (
+  subject: string,
+  headline: string,
+  addressee: UserId | null = team.owner,
+) =>
   app.get<NoticesPort>(NOTICES).create({
     workspaceId: team.workspaceId,
     teamId: team.teamId,
-    addressee: team.owner,
+    addressee,
     form: 'advice',
     subject,
     link: 'insights',
@@ -87,6 +93,40 @@ describe('notifications about new inbox items', () => {
         'The station drifted',
         'The station drifted again',
       ]);
+    } finally {
+      stop();
+    }
+  });
+
+  it('streams a new team notice to a workspace admin who is not on the team', async () => {
+    const admin = UserId.of(randomUUID());
+    await db.insert(schema.user).values({
+      id: admin.value,
+      name: 'Cy',
+      email: `${admin.value}@example.com`,
+    });
+    await db.insert(schema.workspaceMember).values({
+      workspaceId: team.workspaceId.value,
+      userId: admin.value,
+      role: 'admin',
+    });
+
+    const seen: NotificationDto[] = [];
+    const stop = app
+      .get<LiveFeedPort>(LIVE_FEED)
+      .subscribe([personChannel(admin.value)], (message) => {
+        if (message.type === 'notification') {
+          seen.push(message.data as unknown as NotificationDto);
+        }
+      });
+
+    try {
+      await noticeAbout('drift-team', 'The team station drifted', null);
+
+      expect(await eventually(async () => seen[0])).toMatchObject({
+        kind: 'notice',
+        title: 'The team station drifted',
+      });
     } finally {
       stop();
     }

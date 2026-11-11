@@ -73,6 +73,8 @@ const tasks = (found: Task | null = existing()) =>
     remove: vi.fn<TaskRepository['remove']>(),
     placementsAt: vi.fn(async () => []),
     findByCorrelation: vi.fn(async () => []),
+    owningPullRequest: vi.fn(async () => null),
+    reviewingPullRequest: vi.fn(async () => null),
     holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),

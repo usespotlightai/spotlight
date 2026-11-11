@@ -42,8 +42,9 @@ const signalling = (
               id: TASK,
               workspaceId: WorkspaceId.of('ws_1'),
               teamId: null,
-              pullRequest: PULL,
-              pullRequests: [PULL],
+              pullRequests: [],
+              openPullRequests: [],
+              reviewedPullRequest: PULL,
               reviewing: true,
               currentRunId: RUN,
               ...over.task,
@@ -78,20 +79,6 @@ describe('SignalReviewing', () => {
     await signal.began(TASK, RUN);
 
     expect(reactions).toEqual([`react eyes on ${PULL.value}`]);
-  });
-
-  it('adds and removes the reviewing reaction on each of the task’s pull requests', async () => {
-    const docs = PullRequestUrl.of('https://github.com/acme/docs/pull/3');
-    const { signal, reactions } = signalling({
-      task: { pullRequests: [PULL, docs] },
-    });
-
-    await signal.began(TASK, RUN);
-
-    expect(reactions).toEqual([
-      `react eyes on ${PULL.value}`,
-      `react eyes on ${docs.value}`,
-    ]);
   });
 
   it('removes the reviewing reaction once the run that reviewed it ends', async () => {
@@ -133,7 +120,9 @@ describe('SignalReviewing', () => {
   });
 
   it('says nothing on a pull request a task opened rather than reviews', async () => {
-    const { signal, reactions } = signalling({ task: { reviewing: false } });
+    const { signal, reactions } = signalling({
+      task: { reviewing: false, reviewedPullRequest: null },
+    });
 
     await signal.began(TASK, RUN);
     await signal.ended(TASK, RUN);

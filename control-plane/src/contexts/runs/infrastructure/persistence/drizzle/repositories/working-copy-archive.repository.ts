@@ -17,7 +17,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SandboxId } from '@shared-kernel/domain/value-objects/sandbox-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, isNotNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 type Row = typeof workingCopyArchive.$inferSelect;
 
@@ -131,5 +131,29 @@ export class DrizzleWorkingCopyArchiveRepository
       .limit(1);
 
     return row ? toArchive(row) : null;
+  }
+
+  async completedKeysAmong(
+    workspaceId: WorkspaceId,
+    keys: readonly WorkingCopyKey[],
+  ): Promise<readonly WorkingCopyKey[]> {
+    const among = [...new Set(keys.map((each) => each.value))];
+
+    if (among.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .selectDistinct({ key: workingCopyArchive.workingCopyKey })
+      .from(workingCopyArchive)
+      .where(
+        and(
+          eq(workingCopyArchive.workspaceId, workspaceId.value),
+          inArray(workingCopyArchive.workingCopyKey, among),
+          isNotNull(workingCopyArchive.completedAt),
+        ),
+      );
+
+    return rows.map((row) => WorkingCopyKey.parse(row.key));
   }
 }

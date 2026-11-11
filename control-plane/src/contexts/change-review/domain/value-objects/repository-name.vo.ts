@@ -53,6 +53,13 @@ export class RepositoryName {
     return repository !== null && this.names(repository);
   }
 
+  static same(
+    one: RepositoryName | null,
+    other: RepositoryName | null,
+  ): boolean {
+    return one && other ? one.equals(other) : one === other;
+  }
+
   equals(other: RepositoryName): boolean {
     return this.value.toLowerCase() === other.value.toLowerCase();
   }

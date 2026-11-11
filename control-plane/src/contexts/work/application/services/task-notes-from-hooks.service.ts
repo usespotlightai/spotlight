@@ -11,6 +11,7 @@ import type {
 } from '@work/application/ports/task-notes-from-hooks.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/dispatch-task.service';
+import { handedToRun } from '@work/application/services/handed-to-run';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -125,11 +126,7 @@ export class TaskNotesFromHooks implements TaskNotesFromHooksPort {
         line,
         await this.deferredMoveRank(task),
       );
-      const runId = failed.wantsRun(line)
-        ? await this.dispatch.runIdFor({ task: failed, line })
-        : null;
-
-      await this.tasks.save(runId ? failed.assignRun(runId, line) : failed);
+      await this.tasks.save(await handedToRun(this.dispatch, failed, line));
 
       return 'reported';
     });

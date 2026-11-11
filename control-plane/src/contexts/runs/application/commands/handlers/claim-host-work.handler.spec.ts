@@ -24,7 +24,9 @@ import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import type { WorkingCopyArchiveRepository } from '@runs/domain/repositories/working-copy-archive.repository';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyKey } from '@runs/domain/value-objects/working-copy-key.vo';
 import { CheckWorkId } from '@shared-kernel/domain/value-objects/check-work-id.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -32,11 +34,16 @@ import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-24T09:00:00.000Z');
 const POOLED = RunnerId.of('pooled_1');
+const SETUP_OF_LINE_1 = WarmFingerprint.ofSetup({
+  checkouts: [],
+  placement: RunnerPlacement.anywhere(),
+}).value;
 const IMAGE = 'ghcr.io/acme/runner:main';
 
 const queued = (harness = 'claude-code') =>
@@ -84,6 +91,8 @@ const pulling = (
     startsWarm?: StartedWarmSandbox | null;
     readyWarm?: readonly ReadyWarmSandbox[];
     firstRuns?: readonly Run[];
+    firstRunsPerPage?: number;
+    archived?: readonly WorkingCopyKey[];
     adopts?: boolean;
   } = {},
 ) => {
@@ -143,11 +152,22 @@ const pulling = (
   const runs = {
     newestWithKey: vi.fn(async () => over.newest ?? null),
     queuedWithKey: vi.fn(async () => over.queuedForKey ?? []),
-    queuedFirstRuns: vi.fn(async () => ({
-      waiting: over.firstRuns ?? [],
-      leasedRequesters: [],
-      archivedKeys: [],
-    })),
+    queuedFirstRuns: vi.fn(
+      async (
+        _in: WorkspaceId,
+        page: { readonly avoiding: readonly WorkingCopyKey[] },
+      ) => ({
+        waiting: (over.firstRuns ?? [])
+          .filter(
+            (each) =>
+              !page.avoiding.some(
+                (key) => each.workingCopyKey?.equals(key) ?? false,
+              ),
+          )
+          .slice(0, over.firstRunsPerPage),
+        leasedRequesters: [],
+      }),
+    ),
     findById: vi.fn(async () => over.run ?? null),
     save: vi.fn(async (run: Run) => {
       saved.push(run);
@@ -186,6 +206,12 @@ const pulling = (
     adoptForRun: vi.fn(async () => over.adopts ?? true),
     authenticate: vi.fn(async () => null),
   } satisfies SandboxesPort;
+  const archives = {
+    completedKeysAmong: vi.fn(
+      async (_: WorkspaceId, keys: readonly WorkingCopyKey[]) =>
+        keys.filter((key) => over.archived?.some((each) => each.equals(key))),
+    ),
+  } as unknown as WorkingCopyArchiveRepository;
   const handler = new ClaimHostWorkHandler(
     authenticator,
     runners as unknown as RunnersPort,
@@ -204,6 +230,7 @@ const pulling = (
     new LongPoll(clock),
     sandboxes,
     { hosts: () => ['archives.example.com'] },
+    archives,
   );
 
   return {
@@ -380,6 +407,7 @@ describe('ClaimHostWorkHandler', () => {
         workspaceId: 'ws_1',
         key: 'requester/subject-task_1',
         line: null,
+        lineFingerprint: null,
         hostId: HOST,
         runId: 'run_1',
       },
@@ -465,6 +493,7 @@ describe('ClaimHostWorkHandler', () => {
           workspaceId: 'ws_1',
           key: 'requester/subject-task_1',
           line: null,
+          lineFingerprint: null,
           hostId: HOST,
           runId: 'run_1',
         },
@@ -680,6 +709,7 @@ describe('ClaimHostWorkHandler', () => {
       id: 'sandbox_w',
       workspaceId: 'ws_1',
       warmFor: 'line_1',
+      fingerprint: SETUP_OF_LINE_1,
     };
     const into = () =>
       new ClaimHostWorkCommand(
@@ -688,12 +718,12 @@ describe('ClaimHostWorkHandler', () => {
         IMAGE,
         'sandbox_w',
       );
-    const firstRun = () =>
+    const firstRun = (task = 'task_9') =>
       Run.enqueue({
-        id: RunId.of('run_9'),
+        id: RunId.of(`run_of_${task}`),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('claude-code'),
-        ...orderedFor.holdingTurn('task_9', 0),
+        ...orderedFor.holdingTurn(task, 0),
         line: LineId.of('line_1'),
         now: NOW,
         spec: RunSpec.of({
@@ -759,7 +789,9 @@ describe('ClaimHostWorkHandler', () => {
       const { handler, claimNext, runs } = pulling({
         run: taken(),
         liveKeys: ['requester/subject-task_2'],
-        readyWarm: [{ id: 'sandbox_w', line: 'line_1' }],
+        readyWarm: [
+          { id: 'sandbox_w', line: 'line_1', fingerprint: SETUP_OF_LINE_1 },
+        ],
         firstRuns: [firstRun()],
       });
 
@@ -786,6 +818,67 @@ describe('ClaimHostWorkHandler', () => {
       );
     });
 
+    it('keeps from other hosts no first run whose working copy has a completed archive', async () => {
+      const { handler, claimNext } = pulling({
+        run: taken(),
+        readyWarm: [
+          { id: 'sandbox_w', line: 'line_1', fingerprint: SETUP_OF_LINE_1 },
+        ],
+        firstRuns: [firstRun()],
+        archived: [firstRun().workingCopyKey as WorkingCopyKey],
+      });
+
+      await handler.execute(pull());
+
+      expect(claimNext).toHaveBeenCalledWith(
+        expect.objectContaining({ sandbox: { avoiding: [] } }),
+        NOW,
+      );
+    });
+
+    it('keeps from other hosts the first run of its line queued behind a page of runs with completed archives', async () => {
+      const archivedRun = firstRun('task_8');
+      const { handler, claimNext } = pulling({
+        run: taken(),
+        readyWarm: [
+          { id: 'sandbox_w', line: 'line_1', fingerprint: SETUP_OF_LINE_1 },
+        ],
+        firstRuns: [archivedRun, firstRun()],
+        firstRunsPerPage: 1,
+        archived: [archivedRun.workingCopyKey as WorkingCopyKey],
+      });
+
+      await handler.execute(pull());
+
+      expect(claimNext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sandbox: { avoiding: [firstRun().workingCopyKey] },
+        }),
+        NOW,
+      );
+    });
+
+    it('looks past at most three pages of runs with completed archives on a claim', async () => {
+      const archivedRuns = ['task_5', 'task_6', 'task_7', 'task_8'].map(
+        (each) => firstRun(each),
+      );
+      const { handler, runs } = pulling({
+        run: taken(),
+        readyWarm: [
+          { id: 'sandbox_w', line: 'line_1', fingerprint: SETUP_OF_LINE_1 },
+        ],
+        firstRuns: [...archivedRuns, firstRun()],
+        firstRunsPerPage: 1,
+        archived: archivedRuns.map(
+          (each) => each.workingCopyKey as WorkingCopyKey,
+        ),
+      });
+
+      await handler.execute(pull());
+
+      expect(runs.queuedFirstRuns).toHaveBeenCalledTimes(4);
+    });
+
     it('takes the first run of a task on its line, avoiding keys that have a sandbox, and is adopted by it', async () => {
       const { handler, claimNext, sandboxes } = pulling({
         run: taken(),
@@ -805,6 +898,7 @@ describe('ClaimHostWorkHandler', () => {
         expect.objectContaining({
           sandbox: {
             firstOfLine: LineId.of('line_1'),
+            fingerprint: WarmFingerprint.of(SETUP_OF_LINE_1),
             avoiding: [
               WorkingCopyKey.parse('requester/subject-task_2'),
               WorkingCopyKey.parse('requester/subject-task_3'),
@@ -819,6 +913,7 @@ describe('ClaimHostWorkHandler', () => {
           workspaceId: 'ws_1',
           key: taken().workingCopyKey?.value ?? null,
           line: null,
+          lineFingerprint: null,
           hostId: HOST,
           runId: 'run_1',
         },
@@ -826,6 +921,38 @@ describe('ClaimHostWorkHandler', () => {
       );
       expect(sandboxes.holdInSandbox).not.toHaveBeenCalled();
       expect(sandboxes.drain).not.toHaveBeenCalled();
+    });
+
+    it('offers the warm sandbox the line setup the run was ordered under', async () => {
+      const ordered = Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('claude-code'),
+        ...orderedFor.holdingTurn('task_1', 0),
+        line: LineId.of('line_1'),
+        now: NOW,
+        spec: RunSpec.of({
+          command: { executable: 'claude-agent-acp', args: [] },
+          briefing: 'start the task',
+          handover: { options: [], noteLimit: 4_000 },
+          resume: {},
+        }),
+      }).claim(claimer(POOLED), NOW);
+      const { handler, sandboxes } = pulling({
+        run: ordered,
+        taking: keeping,
+      });
+
+      await handler.execute(into());
+
+      expect(sandboxes.adoptForRun).toHaveBeenCalledWith(
+        'sandbox_w',
+        expect.objectContaining({
+          line: 'line_1',
+          lineFingerprint: SETUP_OF_LINE_1,
+        }),
+        NOW,
+      );
     });
 
     it('puts the run back and releases the runner when adopting the warm sandbox fails', async () => {

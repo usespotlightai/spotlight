@@ -38,11 +38,11 @@ const reviewing = (
     id: TASK,
     workspaceId: WORKSPACE,
     teamId: null,
-    pullRequest: pullRequest ? PullRequestUrl.of(pullRequest) : null,
-    pullRequests: [pullRequest ? PullRequestUrl.of(pullRequest) : null].filter(
-      (each) => each !== null,
-    ),
-    reviewing: reviewsIt,
+    pullRequests: [],
+    openPullRequests: [],
+    reviewedPullRequest:
+      pullRequest && reviewsIt ? PullRequestUrl.of(pullRequest) : null,
+    reviewing: pullRequest !== null && reviewsIt,
     currentRunId: null,
   };
 

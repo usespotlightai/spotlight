@@ -5111,6 +5111,25 @@
         ]
       }
     },
+    "/me/live": {
+      "get": {
+        "description": "Sends \"ready\" first, then \"changed\" with a topic and ids for each change in a workspace you may view, and each message other parts of Spotlight send to you, with its own event name. \"changed\" with the topic \"workspaces\" means you joined a workspace: open a new stream to watch it. \"resync\" means some changes were missed: fetch everything again. After about 10 minutes the server sends \"reopen\", then closes the stream 15 seconds later: open a new stream before it closes and no change is missed. Missed events are not sent again.",
+        "operationId": "watchLive",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Server-sent events"
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "Watch for changes in your workspaces and messages sent to you",
+        "tags": [
+          "live"
+        ]
+      }
+    },
     "/v1/resources/workspaces/{workspaceId}/catalog/tools": {
       "get": {
         "operationId": "readCatalogTool",
@@ -12255,19 +12274,19 @@
         "operationId": "resolveInboxChat",
         "parameters": [
           {
-            "name": "chatId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "slug",
             "required": true,
             "in": "path",
             "schema": {
               "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
               "type": "string"
             }
           }
@@ -12294,19 +12313,19 @@
         "operationId": "reopenInboxChat",
         "parameters": [
           {
-            "name": "chatId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "slug",
             "required": true,
             "in": "path",
             "schema": {
               "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
               "type": "string"
             }
           }
@@ -12333,19 +12352,19 @@
         "operationId": "markInboxChatRead",
         "parameters": [
           {
-            "name": "chatId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "slug",
             "required": true,
             "in": "path",
             "schema": {
               "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
               "type": "string"
             }
           }
@@ -14091,25 +14110,6 @@
           }
         },
         "summary": "Stop sending Web Push to this browser",
-        "tags": [
-          "notifications"
-        ]
-      }
-    },
-    "/me/live": {
-      "get": {
-        "description": "Sends \"ready\" first, then \"changed\" with a topic and ids for each change in a workspace you may view, and \"notification\" for each new item in your inbox. \"changed\" with the topic \"workspaces\" means you joined a workspace: open a new stream to watch it. \"resync\" means some changes were missed: fetch everything again. After about 10 minutes the server sends \"reopen\", then closes the stream 15 seconds later: open a new stream before it closes and no change is missed. Missed events are not sent again.",
-        "operationId": "watchLive",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Server-sent events"
-          },
-          "401": {
-            "description": "No valid session"
-          }
-        },
-        "summary": "Watch for changes in your workspaces and new inbox items",
         "tags": [
           "notifications"
         ]
@@ -31728,6 +31728,37 @@
           }
         }
       },
+      "PullRequestLandingResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "docs",
+            "description": "The repository a review or comment names; none for one that names no repository"
+          },
+          "route": {
+            "type": "string",
+            "enum": [
+              "routed",
+              "waiting",
+              "ambiguous"
+            ],
+            "description": "routed: lands on pullRequest; waiting: lands when the task opens a pull request in the repository; ambiguous: names no repository while the task has more than one pull request, and lands nowhere"
+          },
+          "pullRequest": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://github.com/acme/docs/pull/3",
+            "description": "The pull request it lands on, when routed"
+          }
+        },
+        "required": [
+          "repository",
+          "route",
+          "pullRequest"
+        ]
+      },
       "ReviewCommentResponseDto": {
         "type": "object",
         "properties": {
@@ -31908,10 +31939,12 @@
       "CodeReviewResponseDto": {
         "type": "object",
         "properties": {
-          "pullRequest": {
-            "type": "string",
-            "nullable": true,
-            "description": "Where the review lands; until there is one, it waits"
+          "landings": {
+            "description": "Where a review or comment lands: one entry for no repository, and one for the repository of each pull request of the task. A repository not in the list waits for its pull request",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PullRequestLandingResponseDto"
+            }
           },
           "comments": {
             "type": "array",
@@ -31927,7 +31960,7 @@
           }
         },
         "required": [
-          "pullRequest",
+          "landings",
           "comments",
           "reviews"
         ]
@@ -33104,9 +33137,12 @@
               "type": "string"
             }
           },
-          "pullRequest": {
-            "type": "string",
-            "nullable": true
+          "pullRequests": {
+            "description": "The pull requests of the task: the one it reviews, or the ones it opened",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "hook": {
             "type": "string",
@@ -33122,7 +33158,7 @@
           "stationKey",
           "marks",
           "repositories",
-          "pullRequest",
+          "pullRequests",
           "hook"
         ]
       },

@@ -53,7 +53,8 @@ export class OpenPullRequest {
 
     const named =
       input.repository === null ? null : RepositoryName.of(input.repository);
-    const step = task.pullRequestStep(named ? line.opening(named) : null);
+    const repository = line.opening(named);
+    const step = task.pullRequestStep(repository);
 
     if (step.kind !== 'open') {
       await this.pullRequests.edit({
@@ -66,7 +67,6 @@ export class OpenPullRequest {
       return { url: step.pullRequest.value };
     }
 
-    const repository = line.opening(named);
     const taskView = await this.taskViews.of(
       target.taskId.value,
       target.runId.value,

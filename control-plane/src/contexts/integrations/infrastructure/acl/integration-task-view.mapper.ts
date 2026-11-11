@@ -15,8 +15,6 @@ export const IntegrationTaskViewMapper = {
       workspaceId: WorkspaceId.of(task.workspaceId),
       teamId: TeamId.of(task.teamId),
       title: task.title,
-      pullRequest:
-        task.pullRequest === null ? null : PullRequestUrl.of(task.pullRequest),
       pullRequests: task.pullRequests.map((each) => PullRequestUrl.of(each)),
       line: LineKey.of(task.line),
       station: StationName.of(task.station),

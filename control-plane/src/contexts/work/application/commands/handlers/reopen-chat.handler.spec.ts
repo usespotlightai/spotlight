@@ -8,6 +8,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { ReopenChatCommand } from '@work/application/commands/chat.commands';
 import { ReopenChatHandler } from '@work/application/commands/handlers/reopen-chat.handler';
 import { ChatLoader } from '@work/application/services/chat-loader.service';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -29,7 +30,10 @@ const chatOf = () =>
     newId: () => 'chat_1',
   });
 
-const handling = (chat: Chat | null) => {
+const handling = (
+  chat: Chat | null,
+  access: WorkAccess = workAccessSeeing(() => true),
+) => {
   const saved: Chat[] = [];
   const debug = vi.fn();
   const chats = {
@@ -39,7 +43,7 @@ const handling = (chat: Chat | null) => {
     }),
   } as unknown as ChatRepository;
   const handler = new ReopenChatHandler(
-    new ChatLoader(chats, {} as WorkAccess),
+    new ChatLoader(chats, access),
     chats,
     clock,
     { debug } as unknown as LoggerPort,
@@ -54,7 +58,7 @@ describe('ReopenChatHandler', () => {
       chatOf().resolve(UserId.of('user_1'), NOW),
     );
 
-    await handler.execute(new ReopenChatCommand('chat_1', 'user_1'));
+    await handler.execute(new ReopenChatCommand('chat_1', 'acme', 'user_1'));
 
     expect(saved[0]?.resolvedAt).toBeNull();
     expect(debug).toHaveBeenCalledWith(
@@ -66,7 +70,7 @@ describe('ReopenChatHandler', () => {
   it('saves nothing for a chat that is not resolved', async () => {
     const { handler, saved } = handling(chatOf());
 
-    await handler.execute(new ReopenChatCommand('chat_1', 'user_1'));
+    await handler.execute(new ReopenChatCommand('chat_1', 'acme', 'user_1'));
 
     expect(saved).toEqual([]);
   });
@@ -75,7 +79,7 @@ describe('ReopenChatHandler', () => {
     const { handler, saved } = handling(chatOf());
 
     await expect(
-      handler.execute(new ReopenChatCommand('chat_1', 'user_2')),
+      handler.execute(new ReopenChatCommand('chat_1', 'acme', 'user_2')),
     ).rejects.toBeInstanceOf(ApplicationError);
     expect(saved).toEqual([]);
   });
@@ -84,7 +88,29 @@ describe('ReopenChatHandler', () => {
     const { handler } = handling(null);
 
     await expect(
-      handler.execute(new ReopenChatCommand('chat_9', 'user_1')),
+      handler.execute(new ReopenChatCommand('chat_9', 'acme', 'user_1')),
     ).rejects.toBeInstanceOf(ApplicationError);
+  });
+  it('knows no chat in another workspace than the one the caller names', async () => {
+    const { handler, saved } = handling(
+      chatOf().resolve(UserId.of('user_1'), NOW),
+    );
+
+    await expect(
+      handler.execute(new ReopenChatCommand('chat_1', 'globex', 'user_1')),
+    ).rejects.toMatchObject({ kind: 'not-found' });
+    expect(saved).toEqual([]);
+  });
+
+  it('knows no chat for its starter once they left the workspace', async () => {
+    const { handler, saved } = handling(
+      chatOf().resolve(UserId.of('user_1'), NOW),
+      workAccessSeeing(() => false),
+    );
+
+    await expect(
+      handler.execute(new ReopenChatCommand('chat_1', 'acme', 'user_1')),
+    ).rejects.toMatchObject({ kind: 'not-found' });
+    expect(saved).toEqual([]);
   });
 });

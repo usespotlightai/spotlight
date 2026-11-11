@@ -35,6 +35,7 @@ import { LEASED_RUN_STATES } from '@runs/domain/value-objects/run-state';
 import { RunTags } from '@runs/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@runs/domain/value-objects/run-turn.vo';
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
+import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import {
   RunWorkingCopy,
@@ -43,7 +44,6 @@ import {
 import { placementMatches } from '@runs/infrastructure/persistence/drizzle/placement-matches';
 import { RunSpecPersistence } from '@runs/infrastructure/persistence/drizzle/run-spec.persistence';
 import { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
-import { workingCopyArchive } from '@runs/infrastructure/persistence/drizzle/schemas/working-copy-archive.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -68,7 +68,6 @@ import {
   gt,
   gte,
   inArray,
-  isNotNull,
   isNull,
   lt,
   lte,
@@ -89,16 +88,11 @@ const avoidingKeys = (avoiding: readonly WorkingCopyKey[]): SQL =>
 
 const FIRST_RUNS_PER_LINE = 20;
 
-const firstRunOf = (line: LineId): SQL => sql`(
+const firstRunOf = (line: LineId, fingerprint?: WarmFingerprint): SQL => sql`(
   ${run.lineId} = ${line.value}
+  AND ${fingerprint ? sql`${run.lineFingerprint} = ${fingerprint.value}` : sql`${run.lineFingerprint} IS NOT NULL`}
   AND ${run.workingCopyKey} IS NOT NULL
   AND ${run.restoreArchiveId} IS NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM ${workingCopyArchive}
-    WHERE ${workingCopyArchive.workspaceId} = ${run.workspaceId}
-      AND ${workingCopyArchive.workingCopyKey} = ${run.workingCopyKey}
-      AND ${workingCopyArchive.completedAt} IS NOT NULL
-  )
 )`;
 
 const routedBy = (routing: SandboxRouting | undefined): SQL => {
@@ -111,7 +105,7 @@ const routedBy = (routing: SandboxRouting | undefined): SQL => {
   }
 
   return 'firstOfLine' in routing
-    ? sql`(${firstRunOf(routing.firstOfLine)} AND ${avoidingKeys(routing.avoiding)})`
+    ? sql`(${firstRunOf(routing.firstOfLine, routing.fingerprint)} AND ${avoidingKeys(routing.avoiding)})`
     : avoidingKeys(routing.avoiding);
 };
 
@@ -179,7 +173,7 @@ export class DrizzleRunRepository implements RunRepository {
     page: { readonly max: number; readonly after: ClaimCursor | null },
   ): Promise<QueuedRuns> {
     if (by.harnesses.length === 0) {
-      return { waiting: [], leasedRequesters: [], archivedKeys: [] };
+      return { waiting: [], leasedRequesters: [] };
     }
 
     const rows = await this.selected()
@@ -210,18 +204,10 @@ export class DrizzleRunRepository implements RunRepository {
       .orderBy(desc(run.priority), asc(run.createdAt), asc(run.id))
       .limit(page.max);
 
-    return this.queuedRunsOf(
-      rows.map(toRun),
-      by.sandbox !== undefined && 'firstOfLine' in by.sandbox
-        ? by.workspaceId
-        : null,
-    );
+    return this.queuedRunsOf(rows.map(toRun));
   }
 
-  private async queuedRunsOf(
-    waiting: readonly Run[],
-    archivedIn: WorkspaceId | null = null,
-  ): Promise<QueuedRuns> {
+  private async queuedRunsOf(waiting: readonly Run[]): Promise<QueuedRuns> {
     return {
       waiting,
       leasedRequesters: await this.leasedAmong(
@@ -229,42 +215,7 @@ export class DrizzleRunRepository implements RunRepository {
           .filter((each) => each.policy.exclusive)
           .map((each) => each.requester),
       ),
-      archivedKeys: archivedIn
-        ? await this.archivedAmong(archivedIn, waiting)
-        : [],
     };
-  }
-
-  private async archivedAmong(
-    workspaceId: WorkspaceId,
-    waiting: readonly Run[],
-  ): Promise<readonly WorkingCopyKey[]> {
-    const keys = [
-      ...new Set(
-        waiting.flatMap((each) =>
-          each.workspaceId.equals(workspaceId) && each.workingCopyKey
-            ? [each.workingCopyKey.value]
-            : [],
-        ),
-      ),
-    ];
-
-    if (keys.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .selectDistinct({ key: workingCopyArchive.workingCopyKey })
-      .from(workingCopyArchive)
-      .where(
-        and(
-          eq(workingCopyArchive.workspaceId, workspaceId.value),
-          inArray(workingCopyArchive.workingCopyKey, keys),
-          isNotNull(workingCopyArchive.completedAt),
-        ),
-      );
-
-    return rows.map((row) => WorkingCopyKey.parse(row.key));
   }
 
   async leasedAmong(
@@ -365,7 +316,7 @@ export class DrizzleRunRepository implements RunRepository {
       waiting.push(...rows.map(toRun));
     }
 
-    return this.queuedRunsOf(waiting, workspaceId);
+    return this.queuedRunsOf(waiting);
   }
 
   async findById(id: RunId): Promise<Run | null> {
@@ -506,6 +457,7 @@ const orderedOf = (added: Run) => {
     extensions: added.extensions.value,
     tags: added.tags.value,
     lineId: added.line?.value ?? null,
+    lineFingerprint: added.lineFingerprint?.value ?? null,
     apiGrant: added.apiGrant?.parts ?? null,
   };
 };
@@ -709,6 +661,10 @@ export const toRun = ({ run: row }: Selected): Run =>
     extensions: storedAs(row.id, () => RunExtensions.of(row.extensions)),
     tags: storedAs(row.id, () => RunTags.of(row.tags)),
     line: row.lineId === null ? null : LineId.of(row.lineId),
+    lineFingerprint:
+      row.lineFingerprint === null
+        ? null
+        : WarmFingerprint.of(row.lineFingerprint),
     apiGrant: apiGrantFrom(row),
     spec: RunSpecPersistence.fromRow(row.spec),
     placement: RunnerPlacement.ofLabelGroups(

@@ -20,7 +20,7 @@ export interface JudgeRequest {
   readonly hunksLeftOut: number;
   readonly reference: ReferenceChange | null;
   readonly guidanceRequested: boolean;
-  readonly replayed: boolean;
+  readonly effectsBlocked: boolean;
 }
 
 export interface JudgeAnswer {

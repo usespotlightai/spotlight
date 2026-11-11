@@ -1,7 +1,7 @@
 import type { AnswerVerdict } from '@change-review/domain/value-objects/answer-verdict.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
-import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export interface AskedQuestion {
@@ -33,16 +33,11 @@ export interface ShownAnswer {
   readonly outdated: boolean;
 }
 
-const sameRepository = (
-  a: RepositoryName | null,
-  b: RepositoryName | null,
-): boolean => (a && b ? a.value === b.value : a === b);
-
 export const sharesAnswers = (a: AnswerScope, b: AnswerScope): boolean =>
   a.stackId.equals(b.stackId) ||
   (a.taskId !== null &&
     b.taskId?.equals(a.taskId) === true &&
-    sameRepository(a.repository, b.repository));
+    RepositoryName.same(a.repository, b.repository));
 
 export const answersQuestion = (
   answer: Pick<GivenAnswer, 'asked' | 'expected'>,

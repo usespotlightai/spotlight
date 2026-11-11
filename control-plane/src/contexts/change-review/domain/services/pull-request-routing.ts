@@ -1,12 +1,12 @@
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import type { Review } from '@change-review/domain/aggregates/review.aggregate';
-import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
+import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { WorkingCopyPath } from '@change-review/domain/value-objects/working-copy-path.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
 export interface TaskPullRequests {
-  readonly pullRequest: PullRequestUrl | null;
   readonly pullRequests: readonly PullRequestUrl[];
+  readonly reviewedPullRequest: PullRequestUrl | null;
 }
 
 export interface PullRequestShare<T> {
@@ -17,31 +17,75 @@ export interface PullRequestShare<T> {
 export const pullRequestsOf = (
   task: TaskPullRequests,
 ): readonly PullRequestUrl[] =>
-  task.pullRequests.length > 0
-    ? task.pullRequests
-    : task.pullRequest
-      ? [task.pullRequest]
-      : [];
+  task.reviewedPullRequest ? [task.reviewedPullRequest] : task.pullRequests;
+
+export type PullRequestRoute =
+  | { readonly kind: 'routed'; readonly pullRequest: PullRequestUrl }
+  | { readonly kind: 'waiting' }
+  | { readonly kind: 'ambiguous' };
+
+export const routeFor = (
+  task: TaskPullRequests,
+  repository: RepositoryName | null,
+): PullRequestRoute => {
+  const all = pullRequestsOf(task);
+  const found = repository
+    ? all.find((each) => repository.isOf(each))
+    : all.length === 1
+      ? all[0]
+      : undefined;
+
+  if (found) {
+    return { kind: 'routed', pullRequest: found };
+  }
+
+  return !repository && all.length > 1
+    ? { kind: 'ambiguous' }
+    : { kind: 'waiting' };
+};
 
 export const pullRequestFor = (
   task: TaskPullRequests,
   repository: RepositoryName | null,
-): PullRequestUrl | null =>
-  repository
-    ? (pullRequestsOf(task).find((each) => repository.isOf(each)) ?? null)
-    : task.pullRequest;
+): PullRequestUrl | null => {
+  const route = routeFor(task, repository);
 
-export const pullRequestOfReview = (
+  return route.kind === 'routed' ? route.pullRequest : null;
+};
+
+export interface PullRequestLanding {
+  readonly repository: RepositoryName | null;
+  readonly route: PullRequestRoute;
+}
+
+export const landingsOf = (
+  task: TaskPullRequests,
+): readonly PullRequestLanding[] => [
+  { repository: null, route: routeFor(task, null) },
+  ...pullRequestsOf(task).flatMap((pullRequest) => {
+    const repository = RepositoryName.ofPullRequest(pullRequest);
+
+    return repository
+      ? [{ repository, route: routeFor(task, repository) }]
+      : [];
+  }),
+];
+
+export const routeOfReview = (
   task: TaskPullRequests,
   review: Review,
-): PullRequestUrl | null => pullRequestFor(task, review.repository);
+): PullRequestRoute => routeFor(task, review.repository);
 
-export const pullRequestOfComment = (
+export const routeOfComment = (
   task: TaskPullRequests,
   comment: ReviewComment,
-): PullRequestUrl | null =>
-  comment.pullRequestOnGitHub ??
-  pullRequestFor(task, comment.anchor.repository);
+): PullRequestRoute => {
+  const onGitHub = comment.pullRequestOnGitHub;
+
+  return onGitHub
+    ? { kind: 'routed', pullRequest: onGitHub }
+    : routeFor(task, comment.anchor.repository);
+};
 
 const touches = (pullRequest: PullRequestUrl, paths: readonly string[]) => {
   const repository = pullRequest.repository;
@@ -57,21 +101,21 @@ export const sharedByPaths = <T>(
   items: readonly T[],
   pathsOf: (item: T) => readonly string[],
 ): PullRequestShare<T>[] => {
-  const first = task.pullRequest;
+  const all = pullRequestsOf(task);
+  const [first] = all;
 
   if (!first) {
     return [];
   }
-  const all = pullRequestsOf(task);
 
-  if (all.length <= 1) {
+  if (all.length === 1) {
     return [{ pullRequest: first, items }];
   }
 
   const placed = items.map((item) => {
-    const on = all.filter((each) => touches(each, pathsOf(item)));
+    const touched = all.filter((each) => touches(each, pathsOf(item)));
 
-    return { item, on: on.length > 0 ? on : [first] };
+    return { item, on: touched.length > 0 ? touched : all };
   });
 
   return all.map((pullRequest) => ({

@@ -43,6 +43,7 @@ const judging = async (
     available?: boolean;
     guidance?: string | null;
     guidanceRequested?: boolean;
+    effectsBlocked?: boolean;
   } = {},
 ) => {
   const requests: JudgeRequest[] = [];
@@ -74,6 +75,7 @@ const judging = async (
     criteria: options.criteria ?? JudgeCriteria.of({ rubric: RUBRIC }),
     reference: reference ? RunId.of(reference) : null,
     guidanceRequested: options.guidanceRequested ?? true,
+    effectsBlocked: options.effectsBlocked ?? true,
   });
 
   return { requests, judgment };
@@ -173,13 +175,24 @@ describe('ChangeJudgments', () => {
     });
 
     expect(kept.requests[0]?.guidanceRequested).toBe(true);
-    expect(kept.requests[0]?.replayed).toBe(true);
     expect(kept.judgment.judged && kept.judgment.guidance).toBe(
       'Finish the jobs already taken before stopping the worker.',
     );
     expect(leaking.judgment.judged && leaking.judgment.guidance).toBeNull();
     expect(unasked.requests[0]?.guidanceRequested).toBe(false);
     expect(unasked.judgment.judged && unasked.judgment.guidance).toBeNull();
+  });
+
+  it('tells the judge whether the run had its effects blocked, as the order says', async () => {
+    const passing = async () => ({
+      value: 5,
+      reasons: [{ text: 'It drains.', steps: [2], hunks: [] }],
+    });
+    const blocked = await judging(passing, { effectsBlocked: true });
+    const open = await judging(passing, { effectsBlocked: false });
+
+    expect(blocked.requests[0]?.effectsBlocked).toBe(true);
+    expect(open.requests[0]?.effectsBlocked).toBe(false);
   });
 
   it('judges on the rubric alone without a reference, and says so', async () => {

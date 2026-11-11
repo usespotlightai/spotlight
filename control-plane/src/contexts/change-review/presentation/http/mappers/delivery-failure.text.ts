@@ -12,6 +12,8 @@ const TEXT: Readonly<Record<DeliveryFailureCode, string>> = {
   'parent-never-on-github':
     'The comment that this reply answers was never posted to GitHub.',
   'never-on-github': 'The comment was never posted to GitHub.',
+  'pull-request-ambiguous':
+    'The task has more than one pull request, and this names no repository.',
   'not-recorded':
     'Spotlight couldn’t save the comment that it posted to GitHub.',
   'github-unreachable': UNREACHABLE,

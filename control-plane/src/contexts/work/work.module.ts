@@ -11,6 +11,7 @@ import { CHAT_TOOL_EXTENSIONS } from '@work/application/ports/chat-tool-extensio
 import { CONNECTION_ASKS } from '@work/application/ports/connection-asks.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import { INBOX_REQUESTS } from '@work/application/ports/inbox-requests.port';
+import { MEMBER_INBOXES } from '@work/application/ports/member-inboxes.port';
 import { NOTE_FILES } from '@work/application/ports/note-files.port';
 import { NOTICES } from '@work/application/ports/notices.port';
 import { RUN_EVIDENCE } from '@work/application/ports/run-evidence.port';
@@ -48,6 +49,7 @@ const BINDINGS = contextBindings([STATION_DELETION_GUARD]);
     TASK_VIEWS,
     TASK_NOTES_FROM_HOOKS,
     INBOX_REQUESTS,
+    MEMBER_INBOXES,
     NOTICES,
     STATION_RUNS,
     RUN_EVIDENCE,

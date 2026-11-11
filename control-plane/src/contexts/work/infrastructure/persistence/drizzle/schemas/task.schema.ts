@@ -106,10 +106,9 @@ export const task = pgTable(
     currentRunId: text('current_run_id'),
     sessionId: text('session_id'),
     runnerId: text('runner_id'),
-    pullRequest: text('pull_request'),
-    pullRequestClosedAt: timestamptz('pull_request_closed_at'),
-    reviewing: boolean('reviewing').notNull().default(false),
+    reviewedPullRequest: text('reviewed_pull_request'),
     reviewFromOutside: boolean('review_from_outside').notNull().default(false),
+    moveHeldTo: text('move_held_to'),
     finishedAt: timestamptz('finished_at'),
     workingCopyReleasedAt: timestamptz('working_copy_released_at'),
     revision: integer('revision').notNull().default(0),
@@ -249,6 +248,7 @@ export const taskPullRequest = pgTable(
     url: text('url').notNull(),
     openedAt: timestamptz('opened_at').notNull(),
     closedAt: timestamptz('closed_at'),
+    closeRouted: boolean('close_routed').notNull().default(false),
   },
   (table) => [
     foreignKey({
@@ -257,5 +257,6 @@ export const taskPullRequest = pgTable(
       foreignColumns: [task.workspaceId, task.id],
     }).onDelete('cascade'),
     primaryKey({ columns: [table.taskId, table.url] }),
+    index('task_pull_request_url_idx').on(table.workspaceId, table.url),
   ],
 );

@@ -843,13 +843,7 @@ describe('Chat', () => {
         .accept(SECOND, LEON, LATER)
         .proposalBecame(SECOND, TaskId.of('task_1'), LATER);
 
-    it('is running while a run works and while its first message waits for one', () => {
-      expect(started().inboxRunning).toBe(true);
-      expect(working().inboxRunning).toBe(true);
-      expect(ended(working()).inboxRunning).toBe(false);
-    });
-
-    it('saves a read marker only when a message is newer than the last one', () => {
+    it('saves a read marker only when a proposal is newer than the last one', () => {
       const read = proposing().markRead(LEON, LATER);
 
       expect(read.readAt).toEqual(LATER);
@@ -872,6 +866,20 @@ describe('Chat', () => {
       });
 
       expect(proposed.markRead(LEON, LATER).readAt).toEqual(LATER);
+    });
+
+    it('stays read when only the person writes after the read marker, as the inbox counts it', () => {
+      const read = proposing().markRead(LEON, LATER);
+      const written = read.addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And add jitter.'),
+        at: new Date('2026-09-15T12:00:00.000Z'),
+      });
+
+      expect(written.unread).toBe(false);
+      expect(written.markRead(LEON, new Date('2026-09-15T13:00:00.000Z'))).toBe(
+        written,
+      );
     });
 
     it('resolves and reopens by hand, only for the person who started it', () => {

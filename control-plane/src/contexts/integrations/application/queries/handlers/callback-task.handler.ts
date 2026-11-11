@@ -38,7 +38,7 @@ export class CallbackTaskHandler implements QueryHandlerPort<
         stationKey: task.stationKey.value,
         marks: task.marks,
         repositories: task.repositories.map((each) => each.value),
-        pullRequest: task.pullRequest?.value ?? null,
+        pullRequests: task.pullRequests.map((each) => each.value),
         hook: callbackToken.hook.value,
       };
     } catch (error) {

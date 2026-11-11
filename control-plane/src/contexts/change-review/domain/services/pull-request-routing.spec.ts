@@ -1,8 +1,10 @@
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import {
+  landingsOf,
   latestPerPullRequest,
   pullRequestFor,
-  pullRequestOfComment,
+  routeFor,
+  routeOfComment,
   sharedByPaths,
 } from '@change-review/domain/services/pull-request-routing';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
@@ -16,8 +18,8 @@ import { describe, expect, it } from 'vitest';
 
 const WEB = PullRequestUrl.of('https://github.com/acme/web/pull/7');
 const DOCS = PullRequestUrl.of('https://github.com/acme/Docs/pull/3');
-const TASK = { pullRequest: WEB, pullRequests: [WEB, DOCS] };
-const ONE = { pullRequest: WEB, pullRequests: [WEB] };
+const TASK = { pullRequests: [WEB, DOCS], reviewedPullRequest: null };
+const ONE = { pullRequests: [WEB], reviewedPullRequest: null };
 
 const named = (name: string | null) => RepositoryName.optional(name);
 
@@ -27,12 +29,55 @@ describe('routing to a pull request', () => {
     expect(pullRequestFor(TASK, named('web'))).toBe(WEB);
   });
 
-  it('uses the task’s first pull request for no repository, and waits for a repository without one', () => {
-    expect(pullRequestFor(TASK, null)).toBe(WEB);
+  it('uses the task’s only pull request for no repository, and waits for a repository without one', () => {
+    expect(pullRequestFor(ONE, null)).toBe(WEB);
+    expect(routeFor(TASK, named('infra'))).toEqual({ kind: 'waiting' });
     expect(pullRequestFor(TASK, named('infra'))).toBeNull();
     expect(
-      pullRequestFor({ pullRequest: null, pullRequests: [] }, named('web')),
+      pullRequestFor(
+        { pullRequests: [], reviewedPullRequest: null },
+        named('web'),
+      ),
     ).toBeNull();
+  });
+
+  it('routes nothing that names no repository when the task has more than one pull request', () => {
+    expect(routeFor(TASK, null)).toEqual({ kind: 'ambiguous' });
+    expect(pullRequestFor(TASK, null)).toBeNull();
+  });
+
+  it('lists the route for no repository and for the repository of each pull request', () => {
+    const of = (task: typeof TASK) =>
+      landingsOf(task).map((each) => [
+        each.repository?.value ?? null,
+        each.route.kind,
+        each.route.kind === 'routed' ? each.route.pullRequest.value : null,
+      ]);
+
+    expect(of(TASK)).toEqual([
+      [null, 'ambiguous', null],
+      ['web', 'routed', WEB.value],
+      ['Docs', 'routed', DOCS.value],
+    ]);
+    expect(of(ONE)).toEqual([
+      [null, 'routed', WEB.value],
+      ['web', 'routed', WEB.value],
+    ]);
+    expect(of({ pullRequests: [], reviewedPullRequest: null })).toEqual([
+      [null, 'waiting', null],
+    ]);
+  });
+
+  it('routes a review task to the pull request it reviews', () => {
+    expect(
+      pullRequestFor(
+        { pullRequests: [], reviewedPullRequest: DOCS },
+        named('docs'),
+      ),
+    ).toBe(DOCS);
+    expect(
+      pullRequestFor({ pullRequests: [], reviewedPullRequest: DOCS }, null),
+    ).toBe(DOCS);
   });
 
   it('sends a comment from GitHub back to the pull request it came from', () => {
@@ -51,23 +96,27 @@ describe('routing to a pull request', () => {
       at: new Date('2026-11-01T00:00:00Z'),
     });
 
-    expect(pullRequestOfComment(TASK, comment)?.value).toBe(DOCS.value);
+    expect(routeOfComment(TASK, comment)).toEqual({
+      kind: 'routed',
+      pullRequest: DOCS,
+    });
   });
 
-  it('shares items out by the repositories their paths are in, the rest on the first pull request', () => {
+  it('shares items out by the repositories their paths are in, and puts the rest on every pull request', () => {
     const shared = sharedByPaths(
       {
-        pullRequest: WEB,
         pullRequests: [
           WEB,
           DOCS,
           PullRequestUrl.of('https://github.com/acme/api/pull/1'),
         ],
+        reviewedPullRequest: null,
       },
       [
         { id: 'both', paths: ['web/a.ts', 'docs/a.md'] },
         { id: 'docs', paths: ['docs/b.md'] },
         { id: 'elsewhere', paths: ['infra/main.tf'] },
+        { id: 'pathless', paths: [] },
       ],
       (each) => each.paths,
     );
@@ -78,9 +127,9 @@ describe('routing to a pull request', () => {
         items.map((each) => each.id),
       ]),
     ).toEqual([
-      [WEB.value, ['both', 'elsewhere']],
-      [DOCS.value, ['both', 'docs']],
-      ['https://github.com/acme/api/pull/1', []],
+      [WEB.value, ['both', 'elsewhere', 'pathless']],
+      [DOCS.value, ['both', 'docs', 'elsewhere', 'pathless']],
+      ['https://github.com/acme/api/pull/1', ['elsewhere', 'pathless']],
     ]);
   });
 

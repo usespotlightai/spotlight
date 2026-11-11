@@ -22,7 +22,7 @@ import {
   type InboxEntry,
   shown,
 } from '@/mocks/world/inbox';
-import { noDecisions } from '@/mocks/world/inbox-reviews';
+import { landingsOf, noDecisions } from '@/mocks/world/inbox-reviews';
 import { pastScoresOf } from '@/mocks/world/inbox-scores';
 import { inboxStore, nextId } from '@/mocks/world/inbox-store';
 import {
@@ -534,7 +534,7 @@ const codeReviewOf = (runId: string): CodeReviewResponseDto | undefined => {
   }
 
   const made: CodeReviewResponseDto = {
-    pullRequest: anyTaskOf(taskId)?.pullRequests[0] ?? null,
+    landings: landingsOf(anyTaskOf(taskId)?.pullRequests ?? []),
     comments: [],
     reviews: [],
   };
@@ -646,11 +646,14 @@ const reviewHandlers = [
     if (!review) {
       return notFound();
     }
-    if (!review.pullRequest) {
+    const submitted = (await request.json()) as SubmitReviewRequestDto;
+    const landsOn = review.landings.find(
+      (each) => each.repository === (submitted.repository ?? null),
+    )?.pullRequest;
+
+    if (!landsOn) {
       return problem(409, 'Sorry, there is no pull request to review yet.');
     }
-
-    const submitted = (await request.json()) as SubmitReviewRequestDto;
     const id = nextId('review');
 
     for (const comment of review.comments) {
@@ -662,7 +665,7 @@ const reviewHandlers = [
           comment.repository === submitted.repository)
       ) {
         comment.state = 'posted';
-        comment.url = `${review.pullRequest}#discussion_${comment.id}`;
+        comment.url = `${landsOn}#discussion_${comment.id}`;
       }
     }
     review.reviews.push({

@@ -53,6 +53,7 @@ import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo'
 import { StartingPoint } from '@runs/domain/value-objects/starting-point.vo';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
 import { ToolUse } from '@runs/domain/value-objects/tool-use.vo';
+import { WarmFingerprint } from '@runs/domain/value-objects/warm-fingerprint.vo';
 import { WorkingCopyArchiveId } from '@runs/domain/value-objects/working-copy-archive-id.vo';
 import {
   RunWorkingCopy,
@@ -60,6 +61,7 @@ import {
 } from '@runs/domain/value-objects/working-copy-key.vo';
 
 export const RUNS_PAYLOAD_TYPES = [
+  WarmFingerprint,
   RunHandedOverFile,
   RunHandover,
   RunHarnessSession,

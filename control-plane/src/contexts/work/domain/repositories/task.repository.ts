@@ -1,3 +1,4 @@
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -23,6 +24,17 @@ export interface TaskRepository {
     workspaceId: WorkspaceId,
     correlationKeys: CorrelationKeys,
   ): Promise<readonly Task[]>;
+
+  // Locks the task until the transaction ends.
+  owningPullRequest(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+  ): Promise<Task | null>;
+
+  reviewingPullRequest(
+    workspaceId: WorkspaceId,
+    pullRequest: PullRequestUrl,
+  ): Promise<Task | null>;
 
   holdingMark(workspaceId: WorkspaceId, mark: Mark): Promise<readonly Task[]>;
 

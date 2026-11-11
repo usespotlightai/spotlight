@@ -17,7 +17,6 @@ import type { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import type { DispatchOrdered } from '@work/domain/events/dispatch-ordered.event';
 import type { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
 import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
-import type { InboxItemArrived } from '@work/domain/events/inbox-item-arrived.event';
 import type { InboxRequestMarkedRead } from '@work/domain/events/inbox-request-marked-read.event';
 import type { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
 import type { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
@@ -114,7 +113,7 @@ type DispatchEvent =
   | DispatchRefused
   | DispatchSuperseded;
 
-type InboxEvent = InboxItemArrived | NoticeRaised | NoticeResolved;
+type InboxEvent = NoticeRaised | NoticeResolved;
 
 const CHAT_KINDS = [
   'chat.ci-set-up',
@@ -174,7 +173,7 @@ const DISPATCH_KINDS = [
   'dispatch.superseded',
 ];
 
-const INBOX_KINDS = ['notice.resolved', 'inbox.item-arrived', 'notice.raised'];
+const INBOX_KINDS = ['notice.resolved', 'notice.raised'];
 
 export const WORK_CHANGE_NOTICES: readonly ChangeNoticeMapper[] = [
   noticing<ChatEvent>('work.chat-changed', CHAT_KINDS, (event) =>

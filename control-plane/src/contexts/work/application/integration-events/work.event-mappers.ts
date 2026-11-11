@@ -15,9 +15,13 @@ import {
   type DispatchSupersededIntegrationEvent,
 } from '@shared-kernel/application/integration-events/dispatch-superseded.integration-event';
 import {
-  INBOX_ITEM_ARRIVED,
-  type InboxItemArrivedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/inbox-item-arrived.integration-event';
+  INBOX_REQUEST_OPENED,
+  type InboxRequestOpenedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/inbox-request-opened.integration-event';
+import {
+  NOTICE_RAISED,
+  type NoticeRaisedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/notice-raised.integration-event';
 import {
   PULL_REQUEST_OPENED,
   type PullRequestOpenedIntegrationEvent,
@@ -34,6 +38,14 @@ import {
   TASK_ASKED,
   type TaskAskedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-asked.integration-event';
+import {
+  TASK_ASSIGNED,
+  type TaskAssignedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-assigned.integration-event';
+import {
+  TASK_CONVERSATION_REOPENED,
+  type TaskConversationReopenedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-conversation-reopened.integration-event';
 import {
   TASK_DELETED,
   type TaskDeletedIntegrationEvent,
@@ -63,11 +75,14 @@ import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
 import type { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
-import type { InboxItemArrived } from '@work/domain/events/inbox-item-arrived.event';
+import type { InboxRequestOpened } from '@work/domain/events/inbox-request-opened.event';
+import type { NoticeRaised } from '@work/domain/events/notice-raised.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
+import type { TaskAssigned } from '@work/domain/events/task-assigned.event';
+import type { TaskConversationReopened } from '@work/domain/events/task-conversation-reopened.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
 import type { TaskFailed } from '@work/domain/events/task-failed.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
@@ -220,18 +235,43 @@ export const WORK_EVENT_MAPPERS = [
       at: event.at.toISOString(),
     }),
   ),
-  mapping<InboxItemArrived>(
-    'inbox.item-arrived',
-    (event): InboxItemArrivedIntegrationEvent => ({
-      kind: INBOX_ITEM_ARRIVED,
+  mapping<TaskAssigned>(
+    'task.assigned',
+    (event): TaskAssignedIntegrationEvent => ({
+      kind: TASK_ASSIGNED,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      assignee: event.assignee?.value ?? null,
+    }),
+  ),
+  mapping<TaskConversationReopened>(
+    'task.conversation-reopened',
+    (event): TaskConversationReopenedIntegrationEvent => ({
+      kind: TASK_CONVERSATION_REOPENED,
+      taskId: event.taskId.value,
+      workspaceId: event.workspaceId.value,
+      at: event.at.toISOString(),
+    }),
+  ),
+  mapping<InboxRequestOpened>(
+    'inbox-request.opened',
+    (event): InboxRequestOpenedIntegrationEvent => ({
+      kind: INBOX_REQUEST_OPENED,
+      inboxRequestId: event.inboxRequestId.value,
+      workspaceId: event.workspaceId.value,
+      taskId: event.taskId.value,
+      at: event.at.toISOString(),
+    }),
+  ),
+  mapping<NoticeRaised>(
+    'notice.raised',
+    (event): NoticeRaisedIntegrationEvent => ({
+      kind: NOTICE_RAISED,
+      noticeId: event.noticeId.value,
       workspaceId: event.workspaceId.value,
       teamId: event.teamId.value,
-      personId: event.person.value,
-      itemId: event.itemId,
-      itemKind: event.itemKind,
-      title: event.title,
-      summary: event.summary,
-      askedAt: event.askedAt.toISOString(),
+      addressee: event.addressee?.value ?? null,
+      at: event.at.toISOString(),
     }),
   ),
 ] as const;

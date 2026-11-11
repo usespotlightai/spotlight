@@ -212,7 +212,7 @@ describe('storing a task’s decisions', () => {
     await sets.save(generated(set, FIRST, [decided()]));
 
     const read = await sets.forTask(set.taskId);
-    if (!read?.discardable) throw new Error('not stored');
+    if (!read) throw new Error('not stored');
     await sets.remove(read);
 
     expect(await sets.forTask(set.taskId)).toBeNull();

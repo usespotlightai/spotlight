@@ -131,6 +131,8 @@ const tasks = (found: Task | null = taskAt()) =>
     remove: vi.fn(),
     placementsAt: vi.fn(async () => []),
     findByCorrelation: vi.fn(async () => []),
+    owningPullRequest: vi.fn(async () => null),
+    reviewingPullRequest: vi.fn(async () => null),
     holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),

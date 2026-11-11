@@ -127,6 +127,7 @@ import {
 import { ReadInviteHandler } from '@identity/application/queries/handlers/read-invite.handler';
 import { ReadTeamHandler } from '@identity/application/queries/handlers/read-team.handler';
 import { ReadWorkspaceHandler } from '@identity/application/queries/handlers/read-workspace.handler';
+import { WatchedWorkspacesHandler } from '@identity/application/queries/handlers/watched-workspaces.handler';
 import {
   ImportWorkspaceTokenHandler,
   ListWorkspaceTokenResourcesHandler,
@@ -151,6 +152,7 @@ import {
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
 import { ReadTeamQuery } from '@identity/application/queries/read-team.query';
 import { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
+import { WatchedWorkspacesQuery } from '@identity/application/queries/watched-workspaces.query';
 import {
   ImportWorkspaceTokenQuery,
   ListWorkspaceTokenResourcesQuery,
@@ -211,6 +213,7 @@ import {
   InviteController,
   WorkspaceInviteController,
 } from '@identity/presentation/http/controllers/invite.controller';
+import { LiveController } from '@identity/presentation/http/controllers/live.controller';
 import { OidcTrustResourceController } from '@identity/presentation/http/controllers/oidc-trust-resource.controller';
 import { OidcTrustController } from '@identity/presentation/http/controllers/oidc-trust.controller';
 import { TeamResourceController } from '@identity/presentation/http/controllers/team-resource.controller';
@@ -281,6 +284,7 @@ export const IDENTITY_CONTROLLERS: readonly Type[] = [
   WorkspaceInviteController,
   InviteController,
   UserEmailController,
+  LiveController,
 ];
 
 const adapters: Provider[] = [
@@ -431,6 +435,10 @@ const services: Provider[] = [
 ];
 
 const handlers: Provider[] = [
+  ...bindQueryHandler(WatchedWorkspacesQuery, WatchedWorkspacesHandler, [
+    WORKSPACE_READER,
+    WORKSPACE_ACCESS,
+  ]),
   ...bindQueryHandler(ListWorkspacesQuery, ListWorkspacesHandler, [
     WORKSPACE_READER,
   ]),

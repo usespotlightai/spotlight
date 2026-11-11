@@ -10,7 +10,7 @@ import type {
   TaskLookupReading,
   TaskNoteReading,
 } from '@work/application/ports/task-lookup-reader.port';
-import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
+import { ReviewedPullRequest } from '@work/domain/value-objects/reviewed-pull-request.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import {
   task,
@@ -29,16 +29,18 @@ export class DrizzleTaskLookupReader implements TaskLookupReaderPort {
         id: task.id,
         workspaceId: task.workspaceId,
         stationId: task.stationId,
-        pullRequest: task.pullRequest,
-        reviewing: task.reviewing,
+        reviewedPullRequest: task.reviewedPullRequest,
         reviewFromOutside: task.reviewFromOutside,
         currentRunId: task.currentRunId,
       })
       .from(task)
       .where(eq(task.id, taskId.value));
-    const later = row
+    const owned = row
       ? await this.context.db
-          .select({ url: taskPullRequest.url })
+          .select({
+            url: taskPullRequest.url,
+            closedAt: taskPullRequest.closedAt,
+          })
           .from(taskPullRequest)
           .where(eq(taskPullRequest.taskId, row.id))
           .orderBy(asc(taskPullRequest.openedAt), asc(taskPullRequest.url))
@@ -49,14 +51,16 @@ export class DrizzleTaskLookupReader implements TaskLookupReaderPort {
           id: TaskId.of(row.id),
           workspaceId: WorkspaceId.of(row.workspaceId),
           stationId: StationId.of(row.stationId),
-          pullRequestLink: row.pullRequest
-            ? row.reviewing
-              ? PullRequestLink.reviewing(PullRequestUrl.of(row.pullRequest), {
-                  outside: row.reviewFromOutside,
-                })
-              : PullRequestLink.opened(PullRequestUrl.of(row.pullRequest))
+          reviewedPullRequest: row.reviewedPullRequest
+            ? ReviewedPullRequest.of(
+                PullRequestUrl.of(row.reviewedPullRequest),
+                { outside: row.reviewFromOutside },
+              )
             : null,
-          laterPullRequests: later.map((each) => PullRequestUrl.of(each.url)),
+          pullRequests: owned.map((each) => PullRequestUrl.of(each.url)),
+          openPullRequests: owned
+            .filter((each) => each.closedAt === null)
+            .map((each) => PullRequestUrl.of(each.url)),
           currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
         }
       : null;

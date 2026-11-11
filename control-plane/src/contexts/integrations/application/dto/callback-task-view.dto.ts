@@ -7,6 +7,6 @@ export interface CallbackTaskView {
   readonly stationKey: string;
   readonly marks: Readonly<Record<string, string>>;
   readonly repositories: readonly string[];
-  readonly pullRequest: string | null;
+  readonly pullRequests: readonly string[];
   readonly hook: string;
 }

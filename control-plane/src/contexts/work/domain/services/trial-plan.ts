@@ -1,4 +1,5 @@
 import { HANDOVER_TO_FINISH } from '@shared-kernel/domain/value-objects/handover-word';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -20,7 +21,8 @@ import { Resume } from '@work/domain/value-objects/resume.vo';
 import type { UntrialableReason } from '@work/domain/value-objects/untrialable-reason';
 
 interface StartedCheckoutFact {
-  readonly path: string;
+  readonly checkedOutAt: string;
+  readonly repository: Repository | null;
   readonly commit: string;
 }
 
@@ -34,9 +36,8 @@ export interface TrialOriginal {
 }
 
 interface TrialCheckoutPlan {
-  readonly path: string;
+  readonly repository: Repository;
   readonly commit: string;
-  readonly repository: string;
 }
 
 export interface TrialPlan {
@@ -62,11 +63,13 @@ const checkoutsAt = (
 
   return original.checkouts.map((each) => {
     const repository =
-      repositories.find((repository) => repository.name === each.path) ??
+      repositories.find(
+        (repository) => each.repository?.equals(repository) ?? false,
+      ) ??
       untrialable(
         original,
         'repository-gone',
-        `The line no longer has repository ${each.path}.`,
+        `The line no longer has repository ${each.checkedOutAt}.`,
       );
 
     return {
@@ -125,9 +128,8 @@ export const trialPlanFor = ({
       checkouts,
     },
     checkouts: checkouts.map((each, at) => ({
-      path: each.repository.name,
+      repository: each.repository,
       commit: original.checkouts[at]?.commit ?? '',
-      repository: each.repository.value,
     })),
     movesOnAfter: movesOnAfter(candidate, original.stationId),
   };
